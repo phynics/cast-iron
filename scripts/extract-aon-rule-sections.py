@@ -9,6 +9,7 @@ import json
 import re
 import sys
 import unicodedata
+import glob
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -106,20 +107,63 @@ def walk_book_nodes(books):
     return by_source
 
 
-def mapping_for(inventory, catalog_path, books_path):
+def mapping_for(inventory, catalog_path, books_path, entries_dir=None, aliases_path=None):
     catalog = json.loads(Path(catalog_path).read_text())
     index = json.loads(Path(books_path).read_text())
     sources = catalog.get("sources", [])
+    aliases = json.loads(Path(aliases_path).read_text()) if aliases_path and Path(aliases_path).exists() else {"aliases": []}
     source_by_label = {}
     source_by_id = {}
     for source in sources:
         source_by_label.setdefault(normalize(source["title"]), []).append(source["id"])
         source_by_id[source["id"]] = source
+    for alias in aliases.get("aliases", []):
+        # Alias targets are checked against the current catalog on every run.
+        if alias["canonical_book_id"] not in source_by_id:
+            raise ValueError(f"alias target is not in installed catalog: {alias}")
+        if not alias.get("evidence", "").strip():
+            raise ValueError(f"alias lacks evidence: {alias}")
+        source_by_label.setdefault(normalize(alias["alias"]), []).append(alias["canonical_book_id"])
     nodes = walk_book_nodes(index.get("books", []))
+    # Typed entry bodies retain headings which are not represented as book-tree nodes.
+    if entries_dir:
+        for path in sorted(glob.glob(str(Path(entries_dir) / "*.json"))):
+            for entry in json.loads(Path(path).read_text()):
+                if entry.get("kind") != "rule":
+                    continue
+                for source_id in entry.get("source_ids", []):
+                    table = nodes.setdefault(source_id, {})
+                    def inline_text(value):
+                        if isinstance(value, list):
+                            return "".join(inline_text(item) for item in value)
+                        if not isinstance(value, dict):
+                            return ""
+                        if value.get("t") == "text":
+                            return value.get("v", "")
+                        return "".join(inline_text(v) for k, v in value.items() if k not in {"t", "anchor", "level"})
+                    def headings(value):
+                        if isinstance(value, list):
+                            for component in value:
+                                headings(component)
+                        elif isinstance(value, dict):
+                            if value.get("t") == "heading":
+                                title = inline_text(value.get("content", []))
+                                if title:
+                                    target = {"entry_id": entry["id"], "anchor": value.get("anchor")}
+                                    table.setdefault(normalize(title), set()).add(json.dumps(target, sort_keys=True))
+                            for key, child in value.items():
+                                if key not in {"t", "anchor", "level"}:
+                                    headings(child)
+                    headings(entry.get("body", []))
     mapped_sources = []
     unmapped_sections = []
     for book in inventory["books"]:
-        matches = source_by_label.get(normalize(book["label"]), [])
+        matches = sorted(set(source_by_label.get(normalize(book["label"]), [])))
+        alias_evidence = {
+            item["canonical_book_id"]: item["evidence"]
+            for item in aliases.get("aliases", [])
+            if normalize(item["alias"]) == normalize(book["label"])
+        }
         source_record = {
             "aon_label": book["label"],
             "aon_heading_id": book["heading_id"],
@@ -128,18 +172,18 @@ def mapping_for(inventory, catalog_path, books_path):
                 {
                     "alias": book["label"],
                     "canonical_title": source_by_id[source_id]["title"],
-                    "evidence": "exact normalized title match against installed catalog.json",
+                    "evidence": alias_evidence.get(source_id, "exact normalized title match against installed catalog.json"),
                 }
                 for source_id in sorted(matches)
             ],
-            "status": "matched_exact_title" if len(matches) == 1 else "ambiguous_exact_title" if matches else "unmapped",
-            "evidence": "normalized exact title match against installed catalog.json",
+            "status": "matched_exact_title" if len(set(matches)) == 1 else "ambiguous_exact_title" if matches else "source_not_installed",
+            "evidence": "normalized exact source title or reviewed alias match against installed catalog.json",
             "topics": [],
         }
         # Repeated section names in a different source are not evidence of membership.
         book_nodes = nodes.get(matches[0], {}) if len(matches) == 1 else {}
         for topic in book["topics"]:
-            topic_record = map_section(topic, book_nodes)
+            topic_record = map_section(topic, book_nodes, not matches)
             source_record["topics"].append(topic_record)
             if topic_record["status"] != "matched_exact_title":
                 unmapped_sections.append(section_issue(book, topic, topic_record["status"]))
@@ -149,22 +193,34 @@ def mapping_for(inventory, catalog_path, books_path):
         mapped_sources.append(source_record)
     return {
         "evidence": "site_navigation_not_printed_contents",
-        "mapping_method": "repeatable normalized exact source title matching against catalog.json, then exact section titles within that book in books.json; no fuzzy or cross-book assignments",
+        "mapping_method": "normalized exact source title or reviewed alias matching against catalog.json, then exact section titles within that source using books.json nodes and typed rule-body headings; duplicate targets remain ambiguous, no fuzzy or cross-book assignments",
         "sources": mapped_sources,
         "unmapped_sections": unmapped_sections,
     }
 
 
-def map_section(section, nodes):
+def map_section(section, nodes, source_absent=False):
     def one(item):
-        candidates = sorted(nodes.get(normalize(item["label"]), set()))
+        raw = nodes.get(normalize(item["label"]), set())
+        targets = []
+        for value in raw:
+            if isinstance(value, str) and value.startswith("{"):
+                target = json.loads(value)
+            else:
+                target = {"entry_id": value, "anchor": None}
+            if target not in targets:
+                targets.append(target)
+        targets.sort(key=lambda t: (t["entry_id"], t["anchor"] or ""))
+        candidates = sorted({target["entry_id"] for target in targets})
+        status = "matched_exact_title" if len(targets) == 1 else "ambiguous_exact_title" if targets else "source_not_installed" if source_absent else "section_not_in_snapshot"
         return {
             "label": item["label"],
             "url": item["url"],
             "depth": item.get("depth", 0),
             "candidate_entry_ids": candidates,
-            "status": "matched_exact_title" if len(candidates) == 1 else "ambiguous_exact_title" if candidates else "unmapped",
-            "evidence": "normalized exact title match against installed books.json entry nodes",
+            "targets": targets,
+            "status": status,
+            "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
         }
     return {**one(section), "subsections": [one(item) for item in section["subsections"]]}
 
@@ -185,6 +241,8 @@ def main():
     parser.add_argument("--catalog", help="installed generated catalog.json for mapping")
     parser.add_argument("--books", help="installed generated books.json for mapping")
     parser.add_argument("--mapping-output", help="optional mapping JSON output path")
+    parser.add_argument("--entries", help="directory containing typed generated entry JSON")
+    parser.add_argument("--aliases", help="reviewed source title aliases JSON")
     args = parser.parse_args()
     parsed = DirectoryParser()
     parsed.feed(Path(args.html).read_text(encoding="utf-8", errors="replace"))
@@ -197,7 +255,7 @@ def main():
     if args.mapping_output:
         if not args.catalog or not args.books:
             parser.error("--mapping-output requires both --catalog and --books")
-        dump(args.mapping_output, mapping_for(inventory, args.catalog, args.books))
+        dump(args.mapping_output, mapping_for(inventory, args.catalog, args.books, args.entries, args.aliases))
     if not inventory["books"]:
         print("No source headings found; check the saved page structure.", file=sys.stderr)
         return 1
