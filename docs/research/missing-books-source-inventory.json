@@ -1,0 +1,6522 @@
+{
+  "schema_version": 1,
+  "pins": {
+    "pf_data_1e": "08ea71f24375908d0190c822fd1fd080797667a9",
+    "pcgen": "69ad2ab9145038f4b0056c161ffeebf84daa154a"
+  },
+  "count_method": "A named-object occurrence is a JSON dictionary with a name key and an exact source title in its sources array. Occurrences are counted where stored, including repeated entities in separate files. File families are filename stems with trailing digits removed. PCGen reference counts are .lst directive lines in matching .pcc manifests; no-match means no Paizo Pathfinder manifest had a matching SOURCELONG or COPYRIGHT value. Related-only manifests are returned separately where they name an older similarly titled publication.",
+  "pf_data_1e": [
+    {
+      "source_tag": "Pathfinder #28: The Infernal Syndrome",
+      "named_object_occurrences": 16,
+      "json_files_count": 8,
+      "files": [
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters02.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters07.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters16.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters22.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters28.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_campaign_types08.json",
+          "family": "rules_campaign_types",
+          "occurrences": 7
+        }
+      ],
+      "families": [
+        {
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "family": "monsters",
+          "occurrences": 5
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 7
+        }
+      ]
+    },
+    {
+      "source_tag": "Heroes of the Wild",
+      "named_object_occurrences": 79,
+      "json_files_count": 43,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_summoner.json",
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_orders.json",
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_shaman_spirits.json",
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 2
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 4
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 2
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "path": "json/equipment_poisons.json",
+          "family": "equipment_poisons",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_staff.json",
+          "family": "magic_staff",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_weapon2.json",
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races2.json",
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_subsystems02.json",
+          "family": "rules_subsystems",
+          "occurrences": 4
+        },
+        {
+          "path": "json/rules_subsystems03.json",
+          "family": "rules_subsystems",
+          "occurrences": 1
+        },
+        {
+          "path": "json/skills.json",
+          "family": "skills",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 1
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 15
+        },
+        {
+          "family": "equipment_poisons",
+          "occurrences": 5
+        },
+        {
+          "family": "feat",
+          "occurrences": 21
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_staff",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "family": "races",
+          "occurrences": 7
+        },
+        {
+          "family": "rules_subsystems",
+          "occurrences": 5
+        },
+        {
+          "family": "skills",
+          "occurrences": 1
+        },
+        {
+          "family": "spells",
+          "occurrences": 8
+        }
+      ]
+    },
+    {
+      "source_tag": "Pathfinder Unchained",
+      "named_object_occurrences": 932,
+      "json_files_count": 39,
+      "files": [
+        {
+          "path": "json/class_abilities2.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities3.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities4.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities5.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities7.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_abilities8.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes3.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes7.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes8.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 10
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 28
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 38
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 36
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 25
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 14
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 30
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 40
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 49
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 21
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 35
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 29
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 26
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 36
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 23
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 34
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 13
+        },
+        {
+          "path": "json/rules_adv_gm01.json",
+          "family": "rules_adv_gm",
+          "occurrences": 14
+        },
+        {
+          "path": "json/rules_adv_gm02.json",
+          "family": "rules_adv_gm",
+          "occurrences": 19
+        },
+        {
+          "path": "json/rules_adv_gm03.json",
+          "family": "rules_adv_gm",
+          "occurrences": 52
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_opt_alignment01.json",
+          "family": "rules_opt_alignment",
+          "occurrences": 10
+        },
+        {
+          "path": "json/rules_opt_combat01.json",
+          "family": "rules_opt_combat",
+          "occurrences": 23
+        },
+        {
+          "path": "json/rules_opt_magic01.json",
+          "family": "rules_opt_magic",
+          "occurrences": 52
+        },
+        {
+          "path": "json/rules_opt_magic02.json",
+          "family": "rules_opt_magic",
+          "occurrences": 63
+        },
+        {
+          "path": "json/rules_opt_pc_adv01.json",
+          "family": "rules_opt_pc_adv",
+          "occurrences": 42
+        },
+        {
+          "path": "json/rules_opt_skills01.json",
+          "family": "rules_opt_skills",
+          "occurrences": 108
+        },
+        {
+          "path": "json/rules_subsystems04.json",
+          "family": "rules_subsystems",
+          "occurrences": 11
+        },
+        {
+          "path": "json/sidekicks.json",
+          "family": "sidekicks",
+          "occurrences": 1
+        },
+        {
+          "path": "json/skills.json",
+          "family": "skills",
+          "occurrences": 37
+        }
+      ],
+      "families": [
+        {
+          "family": "class_abilities",
+          "occurrences": 7
+        },
+        {
+          "family": "classes",
+          "occurrences": 4
+        },
+        {
+          "family": "feat",
+          "occurrences": 487
+        },
+        {
+          "family": "rules_adv_gm",
+          "occurrences": 85
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 2
+        },
+        {
+          "family": "rules_opt_alignment",
+          "occurrences": 10
+        },
+        {
+          "family": "rules_opt_combat",
+          "occurrences": 23
+        },
+        {
+          "family": "rules_opt_magic",
+          "occurrences": 115
+        },
+        {
+          "family": "rules_opt_pc_adv",
+          "occurrences": 42
+        },
+        {
+          "family": "rules_opt_skills",
+          "occurrences": 108
+        },
+        {
+          "family": "rules_subsystems",
+          "occurrences": 11
+        },
+        {
+          "family": "sidekicks",
+          "occurrences": 1
+        },
+        {
+          "family": "skills",
+          "occurrences": 37
+        }
+      ]
+    },
+    {
+      "source_tag": "Occult Adventures",
+      "named_object_occurrences": 625,
+      "json_files_count": 99,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_barbarian.json",
+          "family": "archetypes_barbarian",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_cavalier.json",
+          "family": "archetypes_cavalier",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_fighter2.json",
+          "family": "archetypes_fighter",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_kineticist.json",
+          "family": "archetypes_kineticist",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_magus.json",
+          "family": "archetypes_magus",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_medium.json",
+          "family": "archetypes_medium",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_mesmerist.json",
+          "family": "archetypes_mesmerist",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_monk.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_occultist.json",
+          "family": "archetypes_occultist",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_paladin.json",
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_psychic.json",
+          "family": "archetypes_psychic",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities.json",
+          "family": "class_abilities",
+          "occurrences": 4
+        },
+        {
+          "path": "json/class_abilities2.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_abilities3.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities4.json",
+          "family": "class_abilities",
+          "occurrences": 3
+        },
+        {
+          "path": "json/class_abilities5.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_abilities6.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities8.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_disciplines.json",
+          "family": "class_ability_disciplines",
+          "occurrences": 9
+        },
+        {
+          "path": "json/class_ability_emotional_focus.json",
+          "family": "class_ability_emotional_focus",
+          "occurrences": 7
+        },
+        {
+          "path": "json/class_ability_implements.json",
+          "family": "class_ability_implements",
+          "occurrences": 8
+        },
+        {
+          "path": "json/class_ability_kinetic_talents.json",
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 145
+        },
+        {
+          "path": "json/class_ability_orders.json",
+          "family": "class_ability_orders",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_sorcerer_bloodlines.json",
+          "family": "class_ability_sorcerer_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_spirits.json",
+          "family": "class_ability_spirits",
+          "occurrences": 6
+        },
+        {
+          "path": "json/classes2.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes3.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes4.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes6.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes8.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 4
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 8
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 12
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 8
+        },
+        {
+          "path": "json/equipment_weapons.json",
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 10
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/haunts.json",
+          "family": "haunts",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_artifact.json",
+          "family": "magic_artifact",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_juju_fetishes.json",
+          "family": "magic_juju_fetishes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_rod.json",
+          "family": "magic_rod",
+          "occurrences": 10
+        },
+        {
+          "path": "json/magic_staff.json",
+          "family": "magic_staff",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 6
+        },
+        {
+          "path": "json/occult_rituals.json",
+          "family": "occult_rituals",
+          "occurrences": 11
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races2.json",
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_basics04.json",
+          "family": "rules_basics",
+          "occurrences": 3
+        },
+        {
+          "path": "json/rules_campaign_types08.json",
+          "family": "rules_campaign_types",
+          "occurrences": 83
+        },
+        {
+          "path": "json/rules_gm06.json",
+          "family": "rules_gm",
+          "occurrences": 4
+        },
+        {
+          "path": "json/sidekicks.json",
+          "family": "sidekicks",
+          "occurrences": 1
+        },
+        {
+          "path": "json/skills.json",
+          "family": "skills",
+          "occurrences": 8
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 8
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 15
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 10
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 17
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 10
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 7
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells4.json",
+          "family": "spells",
+          "occurrences": 9
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 7
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 1
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_barbarian",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_cavalier",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_fighter",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_kineticist",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_magus",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_medium",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_mesmerist",
+          "occurrences": 4
+        },
+        {
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_occultist",
+          "occurrences": 4
+        },
+        {
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_psychic",
+          "occurrences": 4
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "family": "class_abilities",
+          "occurrences": 15
+        },
+        {
+          "family": "class_ability_disciplines",
+          "occurrences": 9
+        },
+        {
+          "family": "class_ability_emotional_focus",
+          "occurrences": 7
+        },
+        {
+          "family": "class_ability_implements",
+          "occurrences": 8
+        },
+        {
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 145
+        },
+        {
+          "family": "class_ability_orders",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_sorcerer_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_spirits",
+          "occurrences": 6
+        },
+        {
+          "family": "classes",
+          "occurrences": 6
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 32
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "family": "feat",
+          "occurrences": 68
+        },
+        {
+          "family": "haunts",
+          "occurrences": 5
+        },
+        {
+          "family": "magic_artifact",
+          "occurrences": 5
+        },
+        {
+          "family": "magic_juju_fetishes",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_rod",
+          "occurrences": 10
+        },
+        {
+          "family": "magic_staff",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 4
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 25
+        },
+        {
+          "family": "occult_rituals",
+          "occurrences": 11
+        },
+        {
+          "family": "races",
+          "occurrences": 7
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 5
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 83
+        },
+        {
+          "family": "rules_gm",
+          "occurrences": 4
+        },
+        {
+          "family": "sidekicks",
+          "occurrences": 1
+        },
+        {
+          "family": "skills",
+          "occurrences": 8
+        },
+        {
+          "family": "spells",
+          "occurrences": 105
+        }
+      ]
+    },
+    {
+      "source_tag": "Ultimate Intrigue",
+      "named_object_occurrences": 543,
+      "json_files_count": 100,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_antipaladin.json",
+          "family": "archetypes_antipaladin",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_cavalier.json",
+          "family": "archetypes_cavalier",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_cleric.json",
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid.json",
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid2.json",
+          "family": "archetypes_druid",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_gunslinger.json",
+          "family": "archetypes_gunslinger",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_hunter.json",
+          "family": "archetypes_hunter",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 7
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_mesmerist.json",
+          "family": "archetypes_mesmerist",
+          "occurrences": 6
+        },
+        {
+          "path": "json/archetypes_monk.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_monk2.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_occultist.json",
+          "family": "archetypes_occultist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_paladin.json",
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_ranger.json",
+          "family": "archetypes_ranger",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 7
+        },
+        {
+          "path": "json/archetypes_skald.json",
+          "family": "archetypes_skald",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_slayer.json",
+          "family": "archetypes_slayer",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_summoner_UC.json",
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_swashbuckler.json",
+          "family": "archetypes_swashbuckler",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_vigilante.json",
+          "family": "archetypes_vigilante",
+          "occurrences": 9
+        },
+        {
+          "path": "json/class_abilities.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities3.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities5.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_inquisitions.json",
+          "family": "class_ability_inquisitions",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_kinetic_talents.json",
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 5
+        },
+        {
+          "path": "json/class_ability_mysteries.json",
+          "family": "class_ability_mysteries",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes4.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 3
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 10
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "path": "json/equipment_weapons.json",
+          "family": "equipment_weapons",
+          "occurrences": 2
+        },
+        {
+          "path": "json/equipment_weapons2.json",
+          "family": "equipment_weapons",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 10
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 9
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 10
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 12
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_enhancements2.json",
+          "family": "magic_enhancements",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_weapon2.json",
+          "family": "magic_weapon",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_belt_body_chest.json",
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/misc.json",
+          "family": "misc",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races2.json",
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_adv_gm01.json",
+          "family": "rules_adv_gm",
+          "occurrences": 48
+        },
+        {
+          "path": "json/rules_adv_gm02.json",
+          "family": "rules_adv_gm",
+          "occurrences": 14
+        },
+        {
+          "path": "json/rules_adv_gm03.json",
+          "family": "rules_adv_gm",
+          "occurrences": 15
+        },
+        {
+          "path": "json/rules_adv_gm04.json",
+          "family": "rules_adv_gm",
+          "occurrences": 28
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_campaign_types01.json",
+          "family": "rules_campaign_types",
+          "occurrences": 13
+        },
+        {
+          "path": "json/rules_rulesets01.json",
+          "family": "rules_rulesets",
+          "occurrences": 7
+        },
+        {
+          "path": "json/rules_subsystems04.json",
+          "family": "rules_subsystems",
+          "occurrences": 37
+        },
+        {
+          "path": "json/spell_definitions.json",
+          "family": "spell_definitions",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 7
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 8
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 10
+        },
+        {
+          "path": "json/spells4.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 9
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 1
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_antipaladin",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_cavalier",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_gunslinger",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_hunter",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 7
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_mesmerist",
+          "occurrences": 6
+        },
+        {
+          "family": "archetypes_monk",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_occultist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_ranger",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 7
+        },
+        {
+          "family": "archetypes_skald",
+          "occurrences": 4
+        },
+        {
+          "family": "archetypes_slayer",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_swashbuckler",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_vigilante",
+          "occurrences": 9
+        },
+        {
+          "family": "class_abilities",
+          "occurrences": 3
+        },
+        {
+          "family": "class_ability_inquisitions",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 5
+        },
+        {
+          "family": "class_ability_mysteries",
+          "occurrences": 1
+        },
+        {
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 27
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 4
+        },
+        {
+          "family": "feat",
+          "occurrences": 114
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_enhancements",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 5
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 24
+        },
+        {
+          "family": "misc",
+          "occurrences": 2
+        },
+        {
+          "family": "races",
+          "occurrences": 7
+        },
+        {
+          "family": "rules_adv_gm",
+          "occurrences": 105
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 13
+        },
+        {
+          "family": "rules_rulesets",
+          "occurrences": 7
+        },
+        {
+          "family": "rules_subsystems",
+          "occurrences": 37
+        },
+        {
+          "family": "spell_definitions",
+          "occurrences": 1
+        },
+        {
+          "family": "spells",
+          "occurrences": 85
+        }
+      ]
+    },
+    {
+      "source_tag": "Inner Sea Intrigue",
+      "named_object_occurrences": 109,
+      "json_files_count": 53,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_druid2.json",
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_magus.json",
+          "family": "archetypes_magus",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_monk2.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_ninja.json",
+          "family": "archetypes_ninja",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_oracle.json",
+          "family": "archetypes_oracle",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_ranger.json",
+          "family": "archetypes_ranger",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_summoner.json",
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_summoner_UC.json",
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_vigilante.json",
+          "family": "archetypes_vigilante",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_inquisitions.json",
+          "family": "class_ability_inquisitions",
+          "occurrences": 5
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 4
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 3
+        },
+        {
+          "path": "json/equipment_poisons.json",
+          "family": "equipment_poisons",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_enhancements2.json",
+          "family": "magic_enhancements",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_rod.json",
+          "family": "magic_rod",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_belt_body_chest.json",
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/prestige_classes2.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/prestige_classes4.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_adv_pc01.json",
+          "family": "rules_adv_pc",
+          "occurrences": 8
+        },
+        {
+          "path": "json/rules_combat01.json",
+          "family": "rules_combat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_subsystems02.json",
+          "family": "rules_subsystems",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 2
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_magus",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_ninja",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_oracle",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_ranger",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_vigilante",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_inquisitions",
+          "occurrences": 5
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "family": "equipment_poisons",
+          "occurrences": 7
+        },
+        {
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_enhancements",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_rod",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 4
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 14
+        },
+        {
+          "family": "prestige_classes",
+          "occurrences": 2
+        },
+        {
+          "family": "rules_adv_pc",
+          "occurrences": 8
+        },
+        {
+          "family": "rules_combat",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_subsystems",
+          "occurrences": 1
+        },
+        {
+          "family": "spells",
+          "occurrences": 24
+        }
+      ]
+    },
+    {
+      "source_tag": "Horror Adventures",
+      "named_object_occurrences": 498,
+      "json_files_count": 101,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_barbarian.json",
+          "family": "archetypes_barbarian",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_cleric.json",
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid.json",
+          "family": "archetypes_druid",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_kineticist.json",
+          "family": "archetypes_kineticist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_mesmerist.json",
+          "family": "archetypes_mesmerist",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_occultist.json",
+          "family": "archetypes_occultist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_paladin.json",
+          "family": "archetypes_paladin",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_slayer.json",
+          "family": "archetypes_slayer",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_vigilante.json",
+          "family": "archetypes_vigilante",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_wizard.json",
+          "family": "archetypes_wizard",
+          "occurrences": 3
+        },
+        {
+          "path": "json/class_ability_domains3.json",
+          "family": "class_ability_domains",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_kinetic_talents.json",
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_spirits.json",
+          "family": "class_ability_spirits",
+          "occurrences": 6
+        },
+        {
+          "path": "json/classes.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes2.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes3.json",
+          "family": "classes",
+          "occurrences": 4
+        },
+        {
+          "path": "json/classes4.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes5.json",
+          "family": "classes",
+          "occurrences": 4
+        },
+        {
+          "path": "json/classes6.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes7.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes8.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/curses.json",
+          "family": "curses",
+          "occurrences": 17
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 2
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 4
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_weapons.json",
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 9
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/haunts.json",
+          "family": "haunts",
+          "occurrences": 26
+        },
+        {
+          "path": "json/madness.json",
+          "family": "madness",
+          "occurrences": 16
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_artifact.json",
+          "family": "magic_artifact",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_enhancements2.json",
+          "family": "magic_enhancements",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_fleshcrafting.json",
+          "family": "magic_fleshcrafting",
+          "occurrences": 14
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_staff.json",
+          "family": "magic_staff",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_weapon2.json",
+          "family": "magic_weapon",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_wondrous_belt_body_chest.json",
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/monster_families2.json",
+          "family": "monster_families",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monster_subtypes.json",
+          "family": "monster_subtypes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monster_template1.json",
+          "family": "monster_template",
+          "occurrences": 5
+        },
+        {
+          "path": "json/monster_template2.json",
+          "family": "monster_template",
+          "occurrences": 7
+        },
+        {
+          "path": "json/monster_template3.json",
+          "family": "monster_template",
+          "occurrences": 4
+        },
+        {
+          "path": "json/monster_template4.json",
+          "family": "monster_template",
+          "occurrences": 5
+        },
+        {
+          "path": "json/monsters13.json",
+          "family": "monsters",
+          "occurrences": 3
+        },
+        {
+          "path": "json/occult_rituals.json",
+          "family": "occult_rituals",
+          "occurrences": 5
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races2.json",
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_campaign_types02.json",
+          "family": "rules_campaign_types",
+          "occurrences": 49
+        },
+        {
+          "path": "json/rules_campaign_types03.json",
+          "family": "rules_campaign_types",
+          "occurrences": 83
+        },
+        {
+          "path": "json/rules_gm06.json",
+          "family": "rules_gm",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_gm07.json",
+          "family": "rules_gm",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 8
+        },
+        {
+          "path": "json/spells4.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/traps.json",
+          "family": "traps",
+          "occurrences": 3
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_barbarian",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_kineticist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_mesmerist",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_occultist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_paladin",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_slayer",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_vigilante",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_wizard",
+          "occurrences": 3
+        },
+        {
+          "family": "class_ability_domains",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_spirits",
+          "occurrences": 6
+        },
+        {
+          "family": "classes",
+          "occurrences": 22
+        },
+        {
+          "family": "curses",
+          "occurrences": 17
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "family": "feat",
+          "occurrences": 61
+        },
+        {
+          "family": "haunts",
+          "occurrences": 26
+        },
+        {
+          "family": "madness",
+          "occurrences": 16
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_artifact",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_enhancements",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_fleshcrafting",
+          "occurrences": 14
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_staff",
+          "occurrences": 4
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 20
+        },
+        {
+          "family": "monster_families",
+          "occurrences": 1
+        },
+        {
+          "family": "monster_subtypes",
+          "occurrences": 1
+        },
+        {
+          "family": "monster_template",
+          "occurrences": 21
+        },
+        {
+          "family": "monsters",
+          "occurrences": 3
+        },
+        {
+          "family": "occult_rituals",
+          "occurrences": 5
+        },
+        {
+          "family": "races",
+          "occurrences": 7
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 132
+        },
+        {
+          "family": "rules_gm",
+          "occurrences": 3
+        },
+        {
+          "family": "spells",
+          "occurrences": 63
+        },
+        {
+          "family": "traps",
+          "occurrences": 3
+        }
+      ]
+    },
+    {
+      "source_tag": "Adventurer's Guide",
+      "named_object_occurrences": 303,
+      "json_files_count": 92,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_arcanist.json",
+          "family": "archetypes_arcanist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_barbarian.json",
+          "family": "archetypes_barbarian",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_bard.json",
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_bloodrager.json",
+          "family": "archetypes_bloodrager",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_brawler.json",
+          "family": "archetypes_brawler",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_cavalier.json",
+          "family": "archetypes_cavalier",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_cleric.json",
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid.json",
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid2.json",
+          "family": "archetypes_druid",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_fighter.json",
+          "family": "archetypes_fighter",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_hunter.json",
+          "family": "archetypes_hunter",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_magus.json",
+          "family": "archetypes_magus",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_medium.json",
+          "family": "archetypes_medium",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_monk.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_occultist.json",
+          "family": "archetypes_occultist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_paladin.json",
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_ranger.json",
+          "family": "archetypes_ranger",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_shaman.json",
+          "family": "archetypes_shaman",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_summoner_UC.json",
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_swashbuckler.json",
+          "family": "archetypes_swashbuckler",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_vigilante.json",
+          "family": "archetypes_vigilante",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_warpriest.json",
+          "family": "archetypes_warpriest",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_wizard.json",
+          "family": "archetypes_wizard",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities2.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_arcane_schools.json",
+          "family": "class_ability_arcane_schools",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_disciplines.json",
+          "family": "class_ability_disciplines",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_orders.json",
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_shaman_spirits.json",
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_spirits.json",
+          "family": "class_ability_spirits",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_armor.json",
+          "family": "equipment_armor",
+          "occurrences": 5
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 7
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 2
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 5
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 3
+        },
+        {
+          "path": "json/equipment_poisons.json",
+          "family": "equipment_poisons",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_weapons2.json",
+          "family": "equipment_weapons",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 9
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_artifact.json",
+          "family": "magic_artifact",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_ioun_stones.json",
+          "family": "magic_ioun_stones",
+          "occurrences": 16
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_weapon2.json",
+          "family": "magic_weapon",
+          "occurrences": 8
+        },
+        {
+          "path": "json/magic_wondrous_belt_body_chest.json",
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 7
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless06.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 9
+        },
+        {
+          "path": "json/prestige_classes.json",
+          "family": "prestige_classes",
+          "occurrences": 7
+        },
+        {
+          "path": "json/prestige_classes2.json",
+          "family": "prestige_classes",
+          "occurrences": 7
+        },
+        {
+          "path": "json/prestige_classes3.json",
+          "family": "prestige_classes",
+          "occurrences": 8
+        },
+        {
+          "path": "json/prestige_classes4.json",
+          "family": "prestige_classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/rules_subsystems01.json",
+          "family": "rules_subsystems",
+          "occurrences": 19
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 7
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 2
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_arcanist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_barbarian",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_bloodrager",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_brawler",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_cavalier",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_fighter",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_hunter",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_magus",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_medium",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_occultist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_paladin",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_ranger",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_shaman",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_swashbuckler",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_vigilante",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_warpriest",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_wizard",
+          "occurrences": 1
+        },
+        {
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_arcane_schools",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_disciplines",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_spirits",
+          "occurrences": 1
+        },
+        {
+          "family": "equipment_armor",
+          "occurrences": 5
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 17
+        },
+        {
+          "family": "equipment_poisons",
+          "occurrences": 1
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 4
+        },
+        {
+          "family": "feat",
+          "occurrences": 67
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_artifact",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_ioun_stones",
+          "occurrences": 16
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 9
+        },
+        {
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 4
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 17
+        },
+        {
+          "family": "prestige_classes",
+          "occurrences": 25
+        },
+        {
+          "family": "rules_subsystems",
+          "occurrences": 19
+        },
+        {
+          "family": "spells",
+          "occurrences": 44
+        }
+      ]
+    },
+    {
+      "source_tag": "Book of the Damned",
+      "named_object_occurrences": 284,
+      "json_files_count": 55,
+      "files": [
+        {
+          "path": "json/class_ability_domains.json",
+          "family": "class_ability_domains",
+          "occurrences": 4
+        },
+        {
+          "path": "json/class_ability_domains2.json",
+          "family": "class_ability_domains",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_domains3.json",
+          "family": "class_ability_domains",
+          "occurrences": 3
+        },
+        {
+          "path": "json/drugs.json",
+          "family": "drugs",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_weapons.json",
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths.json",
+          "family": "faiths",
+          "occurrences": 20
+        },
+        {
+          "path": "json/faiths2.json",
+          "family": "faiths",
+          "occurrences": 25
+        },
+        {
+          "path": "json/faiths3.json",
+          "family": "faiths",
+          "occurrences": 24
+        },
+        {
+          "path": "json/faiths4.json",
+          "family": "faiths",
+          "occurrences": 16
+        },
+        {
+          "path": "json/faiths5.json",
+          "family": "faiths",
+          "occurrences": 23
+        },
+        {
+          "path": "json/faiths6.json",
+          "family": "faiths",
+          "occurrences": 18
+        },
+        {
+          "path": "json/faiths7.json",
+          "family": "faiths",
+          "occurrences": 25
+        },
+        {
+          "path": "json/faiths8.json",
+          "family": "faiths",
+          "occurrences": 19
+        },
+        {
+          "path": "json/faiths9.json",
+          "family": "faiths",
+          "occurrences": 28
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/haunts.json",
+          "family": "haunts",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_artifact2.json",
+          "family": "magic_artifact",
+          "occurrences": 6
+        },
+        {
+          "path": "json/magic_artifact3.json",
+          "family": "magic_artifact",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_devil_talismans.json",
+          "family": "magic_devil_talismans",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters02.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters06.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters07.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters08.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters15.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters18.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters20.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters29.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters37.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters_unique4.json",
+          "family": "monsters_unique",
+          "occurrences": 1
+        },
+        {
+          "path": "json/occult_rituals.json",
+          "family": "occult_rituals",
+          "occurrences": 8
+        },
+        {
+          "path": "json/prestige_classes.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/prestige_classes3.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/prestige_classes4.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_rulesets01.json",
+          "family": "rules_rulesets",
+          "occurrences": 7
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 2
+        }
+      ],
+      "families": [
+        {
+          "family": "class_ability_domains",
+          "occurrences": 9
+        },
+        {
+          "family": "drugs",
+          "occurrences": 1
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 1
+        },
+        {
+          "family": "faiths",
+          "occurrences": 198
+        },
+        {
+          "family": "feat",
+          "occurrences": 12
+        },
+        {
+          "family": "haunts",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_artifact",
+          "occurrences": 7
+        },
+        {
+          "family": "magic_devil_talismans",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "family": "monsters",
+          "occurrences": 11
+        },
+        {
+          "family": "monsters_unique",
+          "occurrences": 1
+        },
+        {
+          "family": "occult_rituals",
+          "occurrences": 8
+        },
+        {
+          "family": "prestige_classes",
+          "occurrences": 3
+        },
+        {
+          "family": "rules_rulesets",
+          "occurrences": 7
+        },
+        {
+          "family": "spells",
+          "occurrences": 12
+        }
+      ]
+    },
+    {
+      "source_tag": "Ultimate Wilderness",
+      "named_object_occurrences": 693,
+      "json_files_count": 122,
+      "files": [
+        {
+          "path": "json/archetypes_COMPANION.json",
+          "family": "archetypes_COMPANION",
+          "occurrences": 16
+        },
+        {
+          "path": "json/archetypes_FAMILIAR.json",
+          "family": "archetypes_FAMILIAR",
+          "occurrences": 14
+        },
+        {
+          "path": "json/archetypes_alchemist2.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_antipaladin.json",
+          "family": "archetypes_antipaladin",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_barbarian.json",
+          "family": "archetypes_barbarian",
+          "occurrences": 6
+        },
+        {
+          "path": "json/archetypes_bard.json",
+          "family": "archetypes_bard",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_brawler.json",
+          "family": "archetypes_brawler",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_cavalier.json",
+          "family": "archetypes_cavalier",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_druid.json",
+          "family": "archetypes_druid",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_druid2.json",
+          "family": "archetypes_druid",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_fighter2.json",
+          "family": "archetypes_fighter",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_gunslinger.json",
+          "family": "archetypes_gunslinger",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_hunter.json",
+          "family": "archetypes_hunter",
+          "occurrences": 6
+        },
+        {
+          "path": "json/archetypes_inquisitor.json",
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_kineticist.json",
+          "family": "archetypes_kineticist",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_magus.json",
+          "family": "archetypes_magus",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_mesmerist.json",
+          "family": "archetypes_mesmerist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_monk.json",
+          "family": "archetypes_monk",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_monk2.json",
+          "family": "archetypes_monk",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_occultist.json",
+          "family": "archetypes_occultist",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_oracle.json",
+          "family": "archetypes_oracle",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_paladin.json",
+          "family": "archetypes_paladin",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_ranger.json",
+          "family": "archetypes_ranger",
+          "occurrences": 7
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 5
+        },
+        {
+          "path": "json/archetypes_shifter.json",
+          "family": "archetypes_shifter",
+          "occurrences": 7
+        },
+        {
+          "path": "json/archetypes_skald.json",
+          "family": "archetypes_skald",
+          "occurrences": 3
+        },
+        {
+          "path": "json/archetypes_slayer.json",
+          "family": "archetypes_slayer",
+          "occurrences": 4
+        },
+        {
+          "path": "json/archetypes_summoner.json",
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_summoner_UC.json",
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_swashbuckler.json",
+          "family": "archetypes_swashbuckler",
+          "occurrences": 2
+        },
+        {
+          "path": "json/archetypes_vigilante.json",
+          "family": "archetypes_vigilante",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_warpriest.json",
+          "family": "archetypes_warpriest",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 3
+        },
+        {
+          "path": "json/class_abilities.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_abilities5.json",
+          "family": "class_abilities",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_abilities6.json",
+          "family": "class_abilities",
+          "occurrences": 3
+        },
+        {
+          "path": "json/class_abilities8.json",
+          "family": "class_abilities",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_aspects.json",
+          "family": "class_ability_aspects",
+          "occurrences": 15
+        },
+        {
+          "path": "json/class_ability_blessings.json",
+          "family": "class_ability_blessings",
+          "occurrences": 4
+        },
+        {
+          "path": "json/class_ability_bloodrager_bloodlines.json",
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_disciplines.json",
+          "family": "class_ability_disciplines",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_domains2.json",
+          "family": "class_ability_domains",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_druid_companions.json",
+          "family": "class_ability_druid_companions",
+          "occurrences": 52
+        },
+        {
+          "path": "json/class_ability_druid_domains.json",
+          "family": "class_ability_druid_domains",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_kinetic_talents.json",
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 36
+        },
+        {
+          "path": "json/class_ability_orders.json",
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_shaman_spirits.json",
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes2.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes3.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes4.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes5.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes6.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes7.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes8.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/equipment_misc.json",
+          "family": "equipment_misc",
+          "occurrences": 15
+        },
+        {
+          "path": "json/equipment_misc2.json",
+          "family": "equipment_misc",
+          "occurrences": 15
+        },
+        {
+          "path": "json/equipment_misc3.json",
+          "family": "equipment_misc",
+          "occurrences": 8
+        },
+        {
+          "path": "json/equipment_misc4.json",
+          "family": "equipment_misc",
+          "occurrences": 13
+        },
+        {
+          "path": "json/equipment_poisons.json",
+          "family": "equipment_poisons",
+          "occurrences": 14
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 9
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 7
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 13
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 11
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 20
+        },
+        {
+          "path": "json/haunts.json",
+          "family": "haunts",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_enhancements.json",
+          "family": "magic_enhancements",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_enhancements2.json",
+          "family": "magic_enhancements",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_plant.json",
+          "family": "magic_plant",
+          "occurrences": 17
+        },
+        {
+          "path": "json/magic_wondrous_belt_body_chest.json",
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 5
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters10.json",
+          "family": "monsters",
+          "occurrences": 46
+        },
+        {
+          "path": "json/occult_rituals.json",
+          "family": "occult_rituals",
+          "occurrences": 5
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races2.json",
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 4
+        },
+        {
+          "path": "json/races4.json",
+          "family": "races",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_adv_gm01.json",
+          "family": "rules_adv_gm",
+          "occurrences": 11
+        },
+        {
+          "path": "json/rules_adv_gm04.json",
+          "family": "rules_adv_gm",
+          "occurrences": 28
+        },
+        {
+          "path": "json/rules_adv_magic01.json",
+          "family": "rules_adv_magic",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_campaign_types10.json",
+          "family": "rules_campaign_types",
+          "occurrences": 9
+        },
+        {
+          "path": "json/rules_gm06.json",
+          "family": "rules_gm",
+          "occurrences": 12
+        },
+        {
+          "path": "json/rules_gm08.json",
+          "family": "rules_gm",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_rulesets01.json",
+          "family": "rules_rulesets",
+          "occurrences": 4
+        },
+        {
+          "path": "json/rules_rulesets02.json",
+          "family": "rules_rulesets",
+          "occurrences": 1
+        },
+        {
+          "path": "json/skills.json",
+          "family": "skills",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells10.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells11.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 5
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells16.json",
+          "family": "spells",
+          "occurrences": 6
+        },
+        {
+          "path": "json/spells2.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells4.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells7.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 4
+        },
+        {
+          "path": "json/traps.json",
+          "family": "traps",
+          "occurrences": 10
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_COMPANION",
+          "occurrences": 16
+        },
+        {
+          "family": "archetypes_FAMILIAR",
+          "occurrences": 14
+        },
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_antipaladin",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_barbarian",
+          "occurrences": 6
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_brawler",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_cavalier",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 8
+        },
+        {
+          "family": "archetypes_fighter",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_gunslinger",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_hunter",
+          "occurrences": 6
+        },
+        {
+          "family": "archetypes_inquisitor",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_kineticist",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_magus",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_mesmerist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_monk",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_occultist",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_oracle",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_paladin",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_ranger",
+          "occurrences": 7
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 5
+        },
+        {
+          "family": "archetypes_shifter",
+          "occurrences": 7
+        },
+        {
+          "family": "archetypes_skald",
+          "occurrences": 3
+        },
+        {
+          "family": "archetypes_slayer",
+          "occurrences": 4
+        },
+        {
+          "family": "archetypes_summoner",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_swashbuckler",
+          "occurrences": 2
+        },
+        {
+          "family": "archetypes_vigilante",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_warpriest",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 3
+        },
+        {
+          "family": "class_abilities",
+          "occurrences": 8
+        },
+        {
+          "family": "class_ability_aspects",
+          "occurrences": 15
+        },
+        {
+          "family": "class_ability_blessings",
+          "occurrences": 4
+        },
+        {
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_disciplines",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_domains",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_druid_companions",
+          "occurrences": 52
+        },
+        {
+          "family": "class_ability_druid_domains",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 36
+        },
+        {
+          "family": "class_ability_orders",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "family": "classes",
+          "occurrences": 19
+        },
+        {
+          "family": "equipment_misc",
+          "occurrences": 51
+        },
+        {
+          "family": "equipment_poisons",
+          "occurrences": 14
+        },
+        {
+          "family": "feat",
+          "occurrences": 136
+        },
+        {
+          "family": "haunts",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_enhancements",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_plant",
+          "occurrences": 17
+        },
+        {
+          "family": "magic_wondrous_belt_body_chest",
+          "occurrences": 5
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 5
+        },
+        {
+          "family": "monsters",
+          "occurrences": 46
+        },
+        {
+          "family": "occult_rituals",
+          "occurrences": 5
+        },
+        {
+          "family": "races",
+          "occurrences": 10
+        },
+        {
+          "family": "rules_adv_gm",
+          "occurrences": 39
+        },
+        {
+          "family": "rules_adv_magic",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 9
+        },
+        {
+          "family": "rules_gm",
+          "occurrences": 13
+        },
+        {
+          "family": "rules_rulesets",
+          "occurrences": 5
+        },
+        {
+          "family": "skills",
+          "occurrences": 1
+        },
+        {
+          "family": "spells",
+          "occurrences": 48
+        },
+        {
+          "family": "traps",
+          "occurrences": 10
+        }
+      ]
+    },
+    {
+      "source_tag": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "named_object_occurrences": 17,
+      "json_files_count": 6,
+      "files": [
+        {
+          "path": "json/magic_relics.json",
+          "family": "magic_relics",
+          "occurrences": 8
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters11.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters12.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters34.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_opt_magic01.json",
+          "family": "rules_opt_magic",
+          "occurrences": 4
+        }
+      ],
+      "families": [
+        {
+          "family": "magic_relics",
+          "occurrences": 8
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "family": "monsters",
+          "occurrences": 4
+        },
+        {
+          "family": "rules_opt_magic",
+          "occurrences": 4
+        }
+      ]
+    },
+    {
+      "source_tag": "Planar Adventures",
+      "named_object_occurrences": 257,
+      "json_files_count": 80,
+      "files": [
+        {
+          "path": "json/archetypes_alchemist.json",
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_bard.json",
+          "family": "archetypes_bard",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_cleric.json",
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_druid2.json",
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_fighter.json",
+          "family": "archetypes_fighter",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_ranger.json",
+          "family": "archetypes_ranger",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_rogue.json",
+          "family": "archetypes_rogue",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_swashbuckler.json",
+          "family": "archetypes_swashbuckler",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_witch.json",
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_wizard.json",
+          "family": "archetypes_wizard",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths2.json",
+          "family": "faiths",
+          "occurrences": 3
+        },
+        {
+          "path": "json/faiths3.json",
+          "family": "faiths",
+          "occurrences": 3
+        },
+        {
+          "path": "json/faiths4.json",
+          "family": "faiths",
+          "occurrences": 3
+        },
+        {
+          "path": "json/faiths5.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths6.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths7.json",
+          "family": "faiths",
+          "occurrences": 4
+        },
+        {
+          "path": "json/faiths8.json",
+          "family": "faiths",
+          "occurrences": 3
+        },
+        {
+          "path": "json/faiths9.json",
+          "family": "faiths",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat01.json",
+          "family": "feat",
+          "occurrences": 9
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat04.json",
+          "family": "feat",
+          "occurrences": 8
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat08.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 6
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat16.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat17.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_armor.json",
+          "family": "magic_armor",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_enhancements.json",
+          "family": "magic_enhancements",
+          "occurrences": 4
+        },
+        {
+          "path": "json/magic_enhancements2.json",
+          "family": "magic_enhancements",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_ring.json",
+          "family": "magic_ring",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_rod.json",
+          "family": "magic_rod",
+          "occurrences": 8
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_weapon2.json",
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_eyes_feet_hands.json",
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_head_headband.json",
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_neck.json",
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_shoulders_wrists.json",
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless01.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 3
+        },
+        {
+          "path": "json/magic_wondrous_slotless02.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless03.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_wondrous_slotless04.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 2
+        },
+        {
+          "path": "json/magic_wondrous_slotless05.json",
+          "family": "magic_wondrous_slotless",
+          "occurrences": 4
+        },
+        {
+          "path": "json/monster_template3.json",
+          "family": "monster_template",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters02.json",
+          "family": "monsters",
+          "occurrences": 3
+        },
+        {
+          "path": "json/monsters06.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters14.json",
+          "family": "monsters",
+          "occurrences": 3
+        },
+        {
+          "path": "json/monsters16.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters22.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters25.json",
+          "family": "monsters",
+          "occurrences": 4
+        },
+        {
+          "path": "json/monsters32.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters33.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters37.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters38.json",
+          "family": "monsters",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters41.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters42.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monsters_mythic2.json",
+          "family": "monsters_mythic",
+          "occurrences": 1
+        },
+        {
+          "path": "json/races.json",
+          "family": "races",
+          "occurrences": 2
+        },
+        {
+          "path": "json/races3.json",
+          "family": "races",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_basics01.json",
+          "family": "rules_basics",
+          "occurrences": 2
+        },
+        {
+          "path": "json/rules_campaign_types09.json",
+          "family": "rules_campaign_types",
+          "occurrences": 77
+        },
+        {
+          "path": "json/spells.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells12.json",
+          "family": "spells",
+          "occurrences": 3
+        },
+        {
+          "path": "json/spells13.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells14.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells15.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells3.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells4.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells5.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells6.json",
+          "family": "spells",
+          "occurrences": 2
+        },
+        {
+          "path": "json/spells8.json",
+          "family": "spells",
+          "occurrences": 1
+        },
+        {
+          "path": "json/spells9.json",
+          "family": "spells",
+          "occurrences": 3
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_alchemist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_bard",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_cleric",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_druid",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_fighter",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_ranger",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_rogue",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_swashbuckler",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_witch",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_wizard",
+          "occurrences": 1
+        },
+        {
+          "family": "faiths",
+          "occurrences": 23
+        },
+        {
+          "family": "feat",
+          "occurrences": 57
+        },
+        {
+          "family": "magic_armor",
+          "occurrences": 4
+        },
+        {
+          "family": "magic_enhancements",
+          "occurrences": 6
+        },
+        {
+          "family": "magic_ring",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_rod",
+          "occurrences": 8
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 3
+        },
+        {
+          "family": "magic_wondrous_eyes_feet_hands",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_head_headband",
+          "occurrences": 2
+        },
+        {
+          "family": "magic_wondrous_neck",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_shoulders_wrists",
+          "occurrences": 1
+        },
+        {
+          "family": "magic_wondrous_slotless",
+          "occurrences": 11
+        },
+        {
+          "family": "monster_template",
+          "occurrences": 1
+        },
+        {
+          "family": "monsters",
+          "occurrences": 21
+        },
+        {
+          "family": "monsters_mythic",
+          "occurrences": 1
+        },
+        {
+          "family": "races",
+          "occurrences": 3
+        },
+        {
+          "family": "rules_basics",
+          "occurrences": 2
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 77
+        },
+        {
+          "family": "spells",
+          "occurrences": 20
+        }
+      ]
+    },
+    {
+      "source_tag": "Heroes of Golarion",
+      "named_object_occurrences": 106,
+      "json_files_count": 35,
+      "files": [
+        {
+          "path": "json/archetypes_bard2.json",
+          "family": "archetypes_bard",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_investigator.json",
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_medium.json",
+          "family": "archetypes_medium",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_shifter.json",
+          "family": "archetypes_shifter",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_aspects.json",
+          "family": "class_ability_aspects",
+          "occurrences": 6
+        },
+        {
+          "path": "json/class_ability_bloodrager_bloodlines.json",
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_exploits.json",
+          "family": "class_ability_exploits",
+          "occurrences": 6
+        },
+        {
+          "path": "json/class_ability_kinetic_talents.json",
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 15
+        },
+        {
+          "path": "json/class_ability_shaman_spirits.json",
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_sorcerer_bloodlines.json",
+          "family": "class_ability_sorcerer_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "path": "json/class_ability_spirits.json",
+          "family": "class_ability_spirits",
+          "occurrences": 4
+        },
+        {
+          "path": "json/classes.json",
+          "family": "classes",
+          "occurrences": 2
+        },
+        {
+          "path": "json/classes3.json",
+          "family": "classes",
+          "occurrences": 3
+        },
+        {
+          "path": "json/classes4.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes5.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes6.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes7.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/classes8.json",
+          "family": "classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/equipment_weapons2.json",
+          "family": "equipment_weapons",
+          "occurrences": 5
+        },
+        {
+          "path": "json/feat02.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat03.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat05.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat06.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat07.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat09.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat10.json",
+          "family": "feat",
+          "occurrences": 4
+        },
+        {
+          "path": "json/feat11.json",
+          "family": "feat",
+          "occurrences": 2
+        },
+        {
+          "path": "json/feat12.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat13.json",
+          "family": "feat",
+          "occurrences": 3
+        },
+        {
+          "path": "json/feat14.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/feat15.json",
+          "family": "feat",
+          "occurrences": 1
+        },
+        {
+          "path": "json/magic_weapon.json",
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "path": "json/races4.json",
+          "family": "races",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_campaign_types07.json",
+          "family": "rules_campaign_types",
+          "occurrences": 26
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_bard",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_investigator",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_medium",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_shifter",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_aspects",
+          "occurrences": 6
+        },
+        {
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_exploits",
+          "occurrences": 6
+        },
+        {
+          "family": "class_ability_kinetic_talents",
+          "occurrences": 15
+        },
+        {
+          "family": "class_ability_shaman_spirits",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_sorcerer_bloodlines",
+          "occurrences": 2
+        },
+        {
+          "family": "class_ability_spirits",
+          "occurrences": 4
+        },
+        {
+          "family": "classes",
+          "occurrences": 10
+        },
+        {
+          "family": "equipment_weapons",
+          "occurrences": 5
+        },
+        {
+          "family": "feat",
+          "occurrences": 21
+        },
+        {
+          "family": "magic_weapon",
+          "occurrences": 1
+        },
+        {
+          "family": "races",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_campaign_types",
+          "occurrences": 26
+        }
+      ]
+    },
+    {
+      "source_tag": "Pathfinder #144: Midwives to Death",
+      "named_object_occurrences": 20,
+      "json_files_count": 15,
+      "files": [
+        {
+          "path": "json/archetypes_spiritualist.json",
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "path": "json/archetypes_summoner_UC.json",
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "path": "json/class_ability_bloodrager_bloodlines.json",
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths2.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths3.json",
+          "family": "faiths",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths4.json",
+          "family": "faiths",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths6.json",
+          "family": "faiths",
+          "occurrences": 2
+        },
+        {
+          "path": "json/faiths7.json",
+          "family": "faiths",
+          "occurrences": 1
+        },
+        {
+          "path": "json/faiths8.json",
+          "family": "faiths",
+          "occurrences": 1
+        },
+        {
+          "path": "json/haunts.json",
+          "family": "haunts",
+          "occurrences": 2
+        },
+        {
+          "path": "json/monster_template1.json",
+          "family": "monster_template",
+          "occurrences": 1
+        },
+        {
+          "path": "json/monsters05.json",
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "path": "json/prestige_classes2.json",
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "path": "json/rules_gm06.json",
+          "family": "rules_gm",
+          "occurrences": 1
+        }
+      ],
+      "families": [
+        {
+          "family": "archetypes_spiritualist",
+          "occurrences": 1
+        },
+        {
+          "family": "archetypes_summoner_UC",
+          "occurrences": 1
+        },
+        {
+          "family": "class_ability_bloodrager_bloodlines",
+          "occurrences": 1
+        },
+        {
+          "family": "faiths",
+          "occurrences": 10
+        },
+        {
+          "family": "haunts",
+          "occurrences": 2
+        },
+        {
+          "family": "monster_template",
+          "occurrences": 1
+        },
+        {
+          "family": "monsters",
+          "occurrences": 2
+        },
+        {
+          "family": "prestige_classes",
+          "occurrences": 1
+        },
+        {
+          "family": "rules_gm",
+          "occurrences": 1
+        }
+      ]
+    }
+  ],
+  "pcgen": [
+    {
+      "source_tag": "Pathfinder #28: The Infernal Syndrome",
+      "status": "no_match",
+      "manifest_count": 0,
+      "manifests": [],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Heroes of the Wild",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/player_companion/heroes_of_the_wild/_heroes_of_the_wild.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder Player Companion: Heroes of the Wild\" Copyright 2016, PCGen Data Team (including, but not limited to Gwen T., Paul Grosse, and Andrew Maitland (LegacyKing))",
+            "Pathfinder Player Companion: Heroes of the Wild",
+            "Pathfinder Player Companion: Heroes of the Wild Copyright  2015, Paizo Inc.; Authors: Tyler Beck, Pedro Coelho, Justin Juan, Mikko Kallio, Jason Keeley, Nick Salestrom, and William Thrasher."
+          ],
+          "lst_reference_count": 10,
+          "lst_references": [
+            "hotw_abilities.lst",
+            "hotw_abilities_class.lst",
+            "hotw_abilities_race.lst",
+            "hotw_abilitycategories.lst",
+            "hotw_equip_arms_armor.lst",
+            "hotw_equip_general.lst",
+            "hotw_feats.lst",
+            "hotw_kits.lst",
+            "hotw_kits_companion.lst",
+            "hotw_spells.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Pathfinder Unchained",
+      "status": "matched",
+      "manifest_count": 2,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/_pathfinder_unchained.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder RPG Pathfinder Unchained\" Copyright 2015, PCGen Data team (Including, but not limited to Stefan Radermacher, and Andrew Maitland).",
+            "Pathfinder Roleplaying Game Pathfinder Unchained Copyright 2015, Paizo Inc.; Authors: Dennis Baker, Jesse Benner, Ross Beyers, Logan Bonner, Jason Bulmahn, Robert Emerson, Tim Hitchcock, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Robert Schwalb, Mark Seifter, and Russ Taylor.",
+            "Pathfinder Unchained"
+          ],
+          "lst_reference_count": 16,
+          "lst_references": [
+            "pu_datacontrols.lst",
+            "pu_abilities_class.lst",
+            "pu_abilities_race.lst",
+            "pu_abilitycategories.lst",
+            "pu_companionmods.lst",
+            "pu_equip.lst",
+            "pu_equipmods.lst",
+            "pu_feats.lst",
+            "pu_skills.lst",
+            "pu_spells.lst",
+            "pu_templates.lst",
+            "support/ability_acg.lst",
+            "support/ability_apg.lst",
+            "support/ability_arg.lst",
+            "support/ability_uc.lst",
+            "support/ability_um.lst"
+          ]
+        },
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/pathfinder_unchained/_pfs/_.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder RPG Pathfinder Unchained\" Copyright 2015, PCGen Data team (Including, but not limited to Stefan Radermacher, and Andrew Maitland).",
+            "Pathfinder Roleplaying Game Pathfinder Unchained Copyright 2015, Paizo Inc.; Authors: Dennis Baker, Jesse Benner, Ross Beyers, Logan Bonner, Jason Bulmahn, Robert Emerson, Tim Hitchcock, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Robert Schwalb, Mark Seifter, and Russ Taylor.",
+            "Pathfinder Unchained"
+          ],
+          "lst_reference_count": 0,
+          "lst_references": []
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Occult Adventures",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/occult_adventures/_occult_adventures.pcc",
+          "source_or_copyright_matches": [
+            "Occult Adventures",
+            "PCGen dataset conversion for \"Pathfinder RPG Occult Adventures\" Copyright 2015, PCGen Data team (Including, but not limited to Paul Shipley).",
+            "Pathfinder Roleplaying Game Occult Adventures Copyright 2015, Paizo Inc.; Authors: John Bennett, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, John Compton, Adam Daigle, Jim Groves, Thurston Hillman, Eric Hindley, Brandon Hodge, Ben McFarland, Erik Mona, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Alex Riggs, Robert Schwalb, Mark Seifter, Russ Taylor, and Steve Townshend."
+          ],
+          "lst_reference_count": 25,
+          "lst_references": [
+            "oa__datacontrols.lst",
+            "oa_abilities_class.lst",
+            "oa_abilities_race.lst",
+            "oa_abilitycategories.lst",
+            "oa_classes.lst",
+            "oa_companionmods.lst",
+            "oa_equip.lst",
+            "oa_feats.lst",
+            "oa_kits.lst",
+            "oa_languages.lst",
+            "oa_profs_weapon.lst",
+            "oa_races.lst",
+            "oa_spells.lst",
+            "oa_templates.lst",
+            "support/oa_abilities_class_um.lst",
+            "support/oa_spells_um.lst",
+            "support/oa_abilities_class_acg.lst",
+            "support/oa_spells_acg.lst",
+            "support/oa_feats_uc.lst",
+            "support/oa_spells_uc.lst",
+            "support/oa_feats_arg.lst",
+            "support/oa_spells_arg.lst",
+            "support/oa_spells_ma.lst",
+            "support/oa_abilities_race_b3.lst",
+            "support/oa_races_b3.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Ultimate Intrigue",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/ultimate_intrigue/_ultimate_intrigue.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder RPG Ultimate Intrigue\" Copyright 2015, PCGen Data team (Including, but not limited to Andrew Maitland, Jonathan Kvitky, Gwen T., and Paul Grosse).",
+            "Pathfinder Roleplaying Game Ultimate Intrigue Copyright 2016, Paizo Inc.; Authors: Jesse Benner, John Bennett, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, Robert N. Emerson, Amanda Hamon Kunz, Steven Helt, Thurston Hillman, Tim Hitchcock, Mikko Kallio, Rob McCreary, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Alexander Riggs, David N. Ross, David Schwartz, Mark Seifter, Linda Zayas-Palmer.",
+            "Ultimate Intrigue"
+          ],
+          "lst_reference_count": 21,
+          "lst_references": [
+            "ui__datacontrols.lst",
+            "ui_abilities_class.lst",
+            "ui_abilities_race.lst",
+            "ui_abilitycategories.lst",
+            "ui_classes.lst",
+            "ui_companionmods.lst",
+            "ui_equip_arms_armor.lst",
+            "ui_equip_general.lst",
+            "ui_equip_magic_items.lst",
+            "ui_equipmods.lst",
+            "ui_feats.lst",
+            "ui_kits.lst",
+            "ui_profs_weapon.lst",
+            "ui_skills.lst",
+            "ui_spells.lst",
+            "ui_templates.lst",
+            "support/ui_abilities_class_oa.lst",
+            "support/ui_feats_oa.lst",
+            "support/ui_abilities_class_pu.lst",
+            "support/ui_abilities_companion_pu.lst",
+            "support/ui_abilities_race_pu.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Inner Sea Intrigue",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/campaign_setting/inner_sea_intrigue/_inner_sea_intrigue.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Inner Sea Intrigue\" Copyright 2017, PCGen Data team (including but not limited to Gwen T. (evilpixie87), Paul Grosse, and Andrew Maitland)",
+            "Pathfinder Campaign Setting: Inner Sea Intrigue Copyright 2016, Paizo Inc.; Authors: David N. Ross, with Ross Byers.",
+            "Pathfinder Player Companion: Inner Sea Intrigue"
+          ],
+          "lst_reference_count": 16,
+          "lst_references": [
+            "isi_abilities_class.lst",
+            "isi_abilities_companion.lst",
+            "isi_abilities_race_companion.lst",
+            "isi_abilitycategories.lst",
+            "isi_classes.lst",
+            "isi_companionmods.lst",
+            "isi_equip_general.lst",
+            "isi_equip_magic_items.lst",
+            "isi_equipmods.lst",
+            "isi_feats.lst",
+            "isi_kits_companion.lst",
+            "isi_races_companion.lst",
+            "isi_skills.lst",
+            "isi_spells.lst",
+            "isi_templates.lst",
+            "support/isi_abilities_class_pu.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Horror Adventures",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/horror_adventures/_horror_adventures.pcc",
+          "source_or_copyright_matches": [
+            "Horror Adventures",
+            "PCGen dataset conversion for \"Pathfnder Roleplaying Game Horror Adventures\" Copyright 2018, PCGen Data team (Including, but not limited to Andy Lijewski, Gwen T., Paul Grosse and Andrew Maitland).",
+            "Pathfnder Roleplaying Game Horror Adventures Copyright 2016, Paizo Inc.; Authors: John Bennett, Clinton J. Boomer, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, Jim Groves, Steven Helt, Thurston Hillman, Eric Hindley, Brandon Hodge, Mikko Kallio, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Alistair Rigg, Alex Riggs, David N. Ross, F. Wesley Schneider, David Schwartz, Mark Seifter, and Linda Zayas-Palmer."
+          ],
+          "lst_reference_count": 26,
+          "lst_references": [
+            "ha_abilities.lst",
+            "ha_abilities_class.lst",
+            "ha_abilities_companion.lst",
+            "ha_abilities_race.lst",
+            "ha_abilitycategories.lst",
+            "ha_classes.lst",
+            "ha_companionmods.lst",
+            "ha_domains.lst",
+            "ha_equip_arms_armor.lst",
+            "ha_equip_general.lst",
+            "ha_equip_magic_items.lst",
+            "ha_equipmods.lst",
+            "ha_feats.lst",
+            "ha_kits_companion.lst",
+            "ha_kits_race.lst",
+            "ha_languages.lst",
+            "ha_profs_weapon.lst",
+            "ha_races.lst",
+            "ha_races_companion.lst",
+            "ha_skills.lst",
+            "ha_spells.lst",
+            "ha_templates.lst",
+            "support/ha_abilities_class_oa.lst",
+            "support/ha_abilities_class_oa_arg.lst",
+            "support/ha_abilities_class_ui.lst",
+            "support/ha_abilities_race_oa.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Adventurer's Guide",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/adventurers_guide/_adventurers_guide.pcc",
+          "source_or_copyright_matches": [
+            "Adventurer's Guide"
+          ],
+          "lst_reference_count": 19,
+          "lst_references": [
+            "ag_abilities.lst",
+            "ag_abilities_class.lst",
+            "ag_abilitycategories.lst",
+            "ag_classes.lst",
+            "ag_companionmods.lst",
+            "ag_equip_arms_armor.lst",
+            "ag_equip_general.lst",
+            "ag_equip_magic_items.lst",
+            "ag_equipmods.lst",
+            "ag_feats.lst",
+            "ag_profs_armor.lst",
+            "ag_profs_weapon.lst",
+            "ag_races.lst",
+            "ag_skills.lst",
+            "ag_spells.lst",
+            "ag_templates.lst",
+            "support/ag_abilities_pu.lst",
+            "support/ag_abilitycategories_pu.lst",
+            "support/ag_classes_pu.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Book of the Damned",
+      "status": "no_match",
+      "manifest_count": 0,
+      "manifests": [],
+      "related_manifest_count": 4,
+      "related_manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_1/_pfs/_.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder Chronicles: Princes of Darkness, Book of the Damned Vol. I\" Copyright 2009-2011, PCGen Data team (Including, but not limited to Stefan Radermacher, Henk Slaaf, Andrew Maitland)",
+            "Pathfinder Chronicles: Princes of Darkness, Book of the Damned, Vol. I. Copyright 2009, Paizo Inc.; Author: F. Wesley Schneider.",
+            "Princes of Darkness, Book of the Damned, Volume 1"
+          ],
+          "lst_reference_count": 4,
+          "lst_references": [
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_1/botd1_abilities_race.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_1/botd1_kits_race.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_1/botd1_races.lst",
+            "pfs_botd1_spells.lst"
+          ]
+        },
+        {
+          "manifest": "data/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_1/book_of_the_damned_volume_1.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder Chronicles: Princes of Darkness, Book of the Damned Vol. I\" Copyright 2009-2011, PCGen Data team (Including, but not limited to Stefan Radermacher, Henk Slaaf, Andrew Maitland)",
+            "Pathfinder Chronicles: Princes of Darkness, Book of the Damned, Vol. I. Copyright 2009, Paizo Inc.; Author: F. Wesley Schneider.",
+            "Princes of Darkness, Book of the Damned, Volume 1"
+          ],
+          "lst_reference_count": 12,
+          "lst_references": [
+            "botd1_abilitycategories.lst",
+            "botd1_abilities_class.lst",
+            "botd1_abilities_companion.lst",
+            "botd1_abilities_race.lst",
+            "botd1_classes.lst",
+            "botd1_classes_companion.lst",
+            "botd1_companionmods.lst",
+            "botd1_kits_companion.lst",
+            "botd1_kits_race.lst",
+            "botd1_races.lst",
+            "botd1_races_companion.lst",
+            "botd1_spells.lst"
+          ]
+        },
+        {
+          "manifest": "data/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/_book_of_the_damned_volume_2.pcc",
+          "source_or_copyright_matches": [
+            "Lords of Chaos, Book of the Damned, Volume 2",
+            "PCGen dataset conversion for \"Pathfinder Campaign Setting: Lords of Chaos, Book of the Damned, Vol. 2\" Copyright 2013-2014, PCGen Data team (Including, but not limited to Paul Shipley, Paul Grosse (License), Andrew Maitland (Data))",
+            "Pathfinder Campaign Setting: Lords of Chaos, Book of the Damned, Vol. 2. Copyright 2010, Paizo Inc.; Author: James Jacobs."
+          ],
+          "lst_reference_count": 14,
+          "lst_references": [
+            "botd2_abilitycategories.lst",
+            "botd2_abilities_classes.lst",
+            "botd2_abilities_ndl.lst",
+            "botd2_abilities_race.lst",
+            "botd2_classes_prestige.lst",
+            "botd2_deities.lst",
+            "botd2_equip.lst",
+            "botd2_feats.lst",
+            "botd2_kits_race.lst",
+            "botd2_races.lst",
+            "botd2_spells.lst",
+            "botd2_spells_ndl.lst",
+            "botd2_templates.lst",
+            "botd2_templates_ndl.lst"
+          ]
+        },
+        {
+          "manifest": "data/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/_pfs/_.pcc",
+          "source_or_copyright_matches": [
+            "Lords of Chaos, Book of the Damned, Volume 2",
+            "PCGen dataset conversion for \"Pathfinder Campaign Setting: Lords of Chaos, Book of the Damned, Vol. 2\" Copyright 2013-2014, PCGen Data team (Including, but not limited to Paul Shipley, Paul Grosse (License), Andrew Maitland (Data))",
+            "Pathfinder Campaign Setting: Lords of Chaos, Book of the Damned, Vol. 2. Copyright 2010, Paizo Inc.; Author: James Jacobs."
+          ],
+          "lst_reference_count": 14,
+          "lst_references": [
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_spells.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_abilitycategories.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_abilities_classes.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_abilities_ndl.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_abilities_race.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_classes_prestige.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_deities.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_equip.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_feats.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_kits_race.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_races.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_spells_ndl.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_templates.lst",
+            "@/pathfinder/paizo/campaign_setting/book_of_the_damned_volume_2/botd2_templates_ndl.lst"
+          ]
+        }
+      ]
+    },
+    {
+      "source_tag": "Ultimate Wilderness",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/roleplaying_game/ultimate_wilderness/_ultimate_wilderness.pcc",
+          "source_or_copyright_matches": [
+            "PCGen dataset conversion for \"Pathfinder RPG Ultimate Wilderness Copyright 2017, PCGen Data team (Including, but not limited to Gary Davies, Gwen T., Regan Anderson).",
+            "Pathfinder Roleplaying Game Ultimate Wilderness Copyright 2017, Paizo Inc.; Authors: Alexander Augunas, John Bennett, Robert Brookes, John Compton, Dan Dillon, Steven T. Helt, Thurston Hillman, Eric Hindley, Mikko Kallio, Jason Keeley, Isabelle Lee, Jason Nelson, Stephen Radney-MacFarland, Alex Riggs, David N. Ross, David Schwartz, Mark Seifter, Jeffery Swank, and Linda Zayas-Palmer.",
+            "Ultimate Wilderness"
+          ],
+          "lst_reference_count": 35,
+          "lst_references": [
+            "uw__datacontrols.lst",
+            "uw_abilities_class.lst",
+            "uw_abilities_companion.lst",
+            "uw_abilities_race.lst",
+            "uw_abilitycategories.lst",
+            "uw_classes.lst",
+            "uw_companionmods.lst",
+            "uw_deities.lst",
+            "uw_domains.lst",
+            "uw_equip_arms_armor.lst",
+            "uw_equip_general.lst",
+            "uw_equip_magic_items.lst",
+            "uw_equipmods.lst",
+            "uw_feats.lst",
+            "uw_kits.lst",
+            "uw_kits_companion.lst",
+            "uw_kits_race.lst",
+            "uw_languages.lst",
+            "uw_profs_weapon.lst",
+            "uw_races.lst",
+            "uw_races_companion.lst",
+            "uw_skills.lst",
+            "uw_spells.lst",
+            "uw_templates.lst",
+            "support/uw_abilities_class_arg.lst",
+            "support/uw_abilities_class_fap.lst",
+            "support/uw_abilities_class_oa.lst",
+            "support/uw_abilities_class_pu.lst",
+            "support/uw_abilities_class_ui.lst",
+            "support/uw_abilities_companion_pu.lst",
+            "support/uw_races_companion_arg.lst",
+            "support/uw_races_companion_b3.lst",
+            "support/uw_races_companion_b4.lst",
+            "support/uw_races_companion_b5.lst",
+            "support/uw_races_companion_b6.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "status": "no_match",
+      "manifest_count": 0,
+      "manifests": [],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Planar Adventures",
+      "status": "no_match",
+      "manifest_count": 0,
+      "manifests": [],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Heroes of Golarion",
+      "status": "matched",
+      "manifest_count": 1,
+      "manifests": [
+        {
+          "manifest": "data/pathfinder/paizo/player_companion/heroes_of_golarion/_heroes_of_golarion.pcc",
+          "source_or_copyright_matches": [
+            "Heroes of Golarion",
+            "PCGen dataset conversion for \"Heroes of Golarion\" Copyright 2021, PCGen Data team (Including, but not limited to pokemonpasta, Andrew \"LegacyKing\" Maitland, Llisandur).",
+            "Pathfinder Player Companion: Heroes of Golarion Copyright 2019, Paizo Inc.; Authors: Saif Ansari, Alexander Augunas, Mara Lynn Butler, Michelle Jones, Avi Kool, and Alex Riggs."
+          ],
+          "lst_reference_count": 19,
+          "lst_references": [
+            "heog_abilities.lst",
+            "heog_abilities_class.lst",
+            "heog_abilities_companion.lst",
+            "heog_abilities_race.lst",
+            "heog_feats.lst",
+            "heog_abilitycategories.lst",
+            "heog_companionmods.lst",
+            "heog_equip.lst",
+            "heog_kits.lst",
+            "heog_races_companion.lst",
+            "heog_skills.lst",
+            "heog_profs_weapon.lst",
+            "support/heog_abilities_am.lst",
+            "support/heog_abilities_cac.lst",
+            "support/heog_abilities_ma.lst",
+            "support/heog_abilities_class_oa.lst",
+            "support/heog_abilities_class_uw.lst",
+            "support/heog_abilities_race_isr.lst",
+            "support/heog_abilities_race_oa.lst"
+          ]
+        }
+      ],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    },
+    {
+      "source_tag": "Pathfinder #144: Midwives to Death",
+      "status": "no_match",
+      "manifest_count": 0,
+      "manifests": [],
+      "related_manifest_count": 0,
+      "related_manifests": []
+    }
+  ]
+}

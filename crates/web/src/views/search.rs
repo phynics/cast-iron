@@ -210,11 +210,38 @@ impl SearchState {
     }
 }
 
+/// Keep the best ranked record as the group position, retaining every publication choice.
+fn grouped_hits(hits: Vec<Hit>) -> Vec<SearchHit> {
+    let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
+    let mut groups: Vec<SearchHit> = Vec::new();
+    for hit in hits {
+        let key = (
+            hit.kind.clone(),
+            crate::views::source_variants::normalized_title(&hit.title),
+        );
+        if let Some(&position) = positions.get(&key) {
+            groups[position].variants.push((hit, None));
+        } else {
+            positions.insert(key, groups.len());
+            groups.push(SearchHit {
+                hit,
+                anchor: None,
+                variants: Vec::new(),
+            });
+        }
+    }
+    groups
+}
+
 #[derive(Clone)]
 enum Phase {
     Idle,
     LoadingIndex,
-    Done { hits: Vec<SearchHit>, total: usize },
+    Done {
+        hits: Vec<SearchHit>,
+        total: usize,
+        groups: usize,
+    },
     Failed(String),
 }
 
@@ -222,6 +249,7 @@ enum Phase {
 struct SearchHit {
     hit: Hit,
     anchor: Option<String>,
+    variants: Vec<(Hit, Option<String>)>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -388,11 +416,9 @@ pub fn Search() -> impl IntoView {
                 }
                 let engine_ms = now() - started;
                 let total = all_hits.len();
-                let mut hits = all_hits
-                    .into_iter()
-                    .take(page_limit)
-                    .map(|hit| SearchHit { hit, anchor: None })
-                    .collect::<Vec<_>>();
+                let grouped = grouped_hits(all_hits);
+                let groups = grouped.len();
+                let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
                 let mut facet_data = Vec::new();
                 for (field, _) in facet_fields_for(&current.kinds) {
                     if let Ok(values) = discovery.facet_values(field).await {
@@ -405,15 +431,23 @@ pub fn Search() -> impl IntoView {
                 // never cause shard reads.
                 let query_text = current.q.clone();
                 for result in &mut hits {
-                    if result.hit.kind != EntryKind::Rule.slug() {
-                        continue;
-                    }
-                    if let Ok(id) = EntryId::parse(result.hit.id.clone())
-                        && let Ok(entry) = library.entry(&id).await
-                        && let Some(anchor) =
-                            crate::views::entry_contents::matching_heading(&entry.body, &query_text)
-                    {
-                        result.anchor = Some(anchor);
+                    for (hit, anchor) in std::iter::once((&result.hit, &mut result.anchor)).chain(
+                        result
+                            .variants
+                            .iter_mut()
+                            .map(|(hit, anchor)| (&*hit, anchor)),
+                    ) {
+                        if hit.kind != EntryKind::Rule.slug() {
+                            continue;
+                        }
+                        if let Ok(id) = EntryId::parse(hit.id.clone())
+                            && let Ok(entry) = library.entry(&id).await
+                        {
+                            *anchor = crate::views::entry_contents::matching_heading(
+                                &entry.body,
+                                &query_text,
+                            );
+                        }
                     }
                 }
                 if seq.get_value() != id || library.selection_revision().get_untracked() != revision
@@ -422,7 +456,11 @@ pub fn Search() -> impl IntoView {
                 }
                 eligible_facets.set(facet_data);
                 search_ms.set(Some(engine_ms));
-                phase.set(Phase::Done { hits, total });
+                phase.set(Phase::Done {
+                    hits,
+                    total,
+                    groups,
+                });
             });
             previous_value
         });
@@ -632,18 +670,30 @@ pub fn Search() -> impl IntoView {
             </div>
         }
         .into_any(),
-        Phase::Done { hits, total: _ } if hits.is_empty() => view! {
+        Phase::Done { hits, .. } if hits.is_empty() => view! {
             <div class="empty">
                 <p>"No entries match."</p>
                 <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
             </div>
         }
         .into_any(),
-        Phase::Done { hits, total: _ } => {
-            let full = hits.len() >= pages.get_untracked() * PAGE;
+        Phase::Done { hits, groups, .. } => {
+            let full = hits.len() < groups;
             let items = hits
                 .iter()
-                .map(|result| hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref()))
+                .map(|result| {
+                    if result.variants.is_empty() {
+                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref()).into_any();
+                    }
+                    let title = marked(&result.hit.title, &result.hit.title_matches);
+                    let count = result.variants.len() + 1;
+                    let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
+                        .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
+                    view! { <li class="hit hit-group"><details class="source-variants">
+                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {count} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name))}</span></summary>
+                        <ul>{variants}</ul>
+                    </details></li> }.into_any()
+                })
                 .collect_view();
             view! {
                 <ol class="results">{items}</ol>
@@ -659,14 +709,19 @@ pub fn Search() -> impl IntoView {
 
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
-        Phase::Done { hits: _, total } => {
-            let n = total;
+        Phase::Done { total, groups, .. } => {
+            let n = groups;
             let limit = pages.get() * PAGE;
-            match (n, n >= limit) {
+            let text = match (n, n > limit) {
                 (0, _) => "No results".to_string(),
                 (1, _) => "1 result".to_string(),
                 (_, true) => format!("Top {} of {n} results", limit.min(n)),
                 _ => format!("{n} results"),
+            };
+            if total == groups {
+                text
+            } else {
+                format!("{text} · {total} publication entries")
             }
         }
         _ => String::new(),

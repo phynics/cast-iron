@@ -29,6 +29,13 @@ pub fn Home() -> impl IntoView {
     }
     let star_error = RwSignal::new(None::<String>);
     let unstarring = RwSignal::new(false);
+    let refresh_bookmarks = Callback::new(move |_| {
+        spawn_local(async move {
+            bookmarks.set(Some(
+                store::list_bookmarks().await.map_err(|e| e.to_string()),
+            ));
+        });
+    });
     let (primary, _) = crate::views::categories::arrange(&library.discovery().kind_counts());
     let kinds = primary
         .into_iter()
@@ -49,6 +56,7 @@ pub fn Home() -> impl IntoView {
             <h1 id="home-title">"Your rules reference"</h1>
             <section aria-labelledby="home-bookmarks">
                 <div class="home-section-heading"><h2 id="home-bookmarks">"Starred"</h2></div>
+                <crate::views::star_transfer::StarTransfer on_imported=refresh_bookmarks />
                 {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
                 {move || match bookmarks.get() {
                     None => view! { <p class="muted" role="status">"Loading starred entries…"</p> }.into_any(),

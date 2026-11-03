@@ -42,14 +42,15 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
     .filter((e) => e.kind === "spell" && e.fields.school === "evocation" && e.fields.levels.some((l: any) => l.level === 3))
     .map((e) => e.title)
     .sort();
-  expect(expected.length).toBeGreaterThan(10);
-  while (await page.locator(".results .hit").count() < expected.length) {
-    const before = await page.locator(".results .hit").count();
+  const expectedGroups = [...new Set(expected)];
+  expect(expectedGroups.length).toBeGreaterThan(10);
+  while (await page.locator(".results > .hit").count() < expectedGroups.length) {
+    const before = await page.locator(".results > .hit").count();
     await page.getByRole("button", { name: "Show more results" }).click();
-    await expect(page.locator(".results .hit")).toHaveCount(Math.min(before + 50, expected.length));
+    await expect(page.locator(".results > .hit")).toHaveCount(Math.min(before + 50, expectedGroups.length));
   }
-  await expect(page.locator(".results .hit")).toHaveCount(expected.length);
-  expect((await hitTitles(page)).sort()).toEqual(expected);
+  await expect(page.locator(".results > .hit")).toHaveCount(expectedGroups.length);
+  expect((await page.locator(".results > .hit > .hit-link > .hit-title, .results > .hit > details > summary .hit-title").allInnerTexts()).sort()).toEqual(expectedGroups);
   const metas = await page.locator(".results .hit-meta").allInnerTexts();
   expect(metas.every((m) => /^Spell/.test(m))).toBe(true);
 

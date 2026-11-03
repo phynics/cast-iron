@@ -503,17 +503,18 @@ fn requirement_links(
     }
     let mut found = Vec::new();
     for (name, matches) in names {
-        if matches.len() != 1 || name.is_empty() {
+        if name.is_empty() {
             continue;
         }
-        let (id, title, kind) = matches[0];
-        let haystack = match kind {
-            EntryKind::Feat => &feat_text,
-            EntryKind::Skill => &skill_text,
-            _ => continue,
-        };
-        if let Some(position) = haystack.find(&format!(" {name} ")) {
-            found.push((position, id.clone(), title.clone()));
+        for (id, title, kind) in matches {
+            let haystack = match kind {
+                EntryKind::Feat => &feat_text,
+                EntryKind::Skill => &skill_text,
+                _ => continue,
+            };
+            if let Some(position) = haystack.find(&format!(" {name} ")) {
+                found.push((position, id.clone(), title.clone()));
+            }
         }
     }
     found.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
@@ -536,10 +537,28 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
         .collect::<Vec<_>>();
     let links = requirement_links(&entry.body, &candidates);
     let has_links = !links.is_empty();
-    let links = links
+    let variants = links
         .into_iter()
-        .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
-        .collect_view();
+        .filter_map(|(id, title)| {
+            let stub = library.stub(&id)?;
+            Some(crate::views::source_variants::SourceVariant {
+                id,
+                title,
+                kind: stub.kind,
+                source: library
+                    .source(&stub.source)
+                    .map_or_else(|| stub.source.clone(), |s| s.title.clone()),
+            })
+        })
+        .collect();
+    let links = crate::views::source_variants::group_variants(variants).into_iter().map(|group| {
+        if group.variants.len() == 1 {
+            let variant = &group.variants[0];
+            view! { <li><a href=Route::entry(variant.id.clone()).href()>{variant.title.clone()}</a></li> }.into_any()
+        } else {
+            view! { <li><crate::views::source_variants::SourceVariants group /></li> }.into_any()
+        }
+    }).collect_view();
     Some(
         view! {
             <section class="rel rel-requirements" aria-labelledby="rel-requirements">
@@ -665,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    fn requirements_resolve_punctuation_but_not_ambiguous_names_or_other_sections() {
+    fn requirements_resolve_punctuation_keep_variants_and_skip_other_sections() {
         let heading = |title: &str, level| Block::Heading {
             level,
             anchor: None,
@@ -701,7 +720,12 @@ mod tests {
                 .iter()
                 .map(|(_, name)| name.as_str())
                 .collect::<Vec<_>>(),
-            ["Point-Blank Shot", "Weapon Focus"]
+            [
+                "Point-Blank Shot",
+                "Precise Shot",
+                "Precise Shot",
+                "Weapon Focus"
+            ]
         );
     }
 
