@@ -49,7 +49,7 @@ The latency figures come from desktop Chromium, with a mobile viewport and CPU t
 
 ## Known gaps
 
-- Licensing: PSRD-Data has no license of its own, and no per-record Open Game Content / Product Identity audit has been done. Resolve this before a public deployment (`docs/research/licensing-audit.md`).
+- Licensing: the 2026-11-03 policy recheck supports OGL plus Community Use for a free rules reference. The app needs visible project contact information. Copied non-rules prose and third-party material still need a scope check. See `docs/research/licensing-audit.md`.
 - No "Referenced by" list (needs a reverse link index). Only "References" exists.
 - Facet chips show global counts, not counts that depend on the other filters.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
