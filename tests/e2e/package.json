@@ -1,0 +1,13 @@
+{
+  "name": "cast-iron-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Browser acceptance tests for Cast Iron. Dev and test only; nothing here ships.",
+  "scripts": {
+    "test": "playwright test",
+    "serve": "node server.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

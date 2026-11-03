@@ -1,0 +1,14 @@
+[build]
+target = "web/index.html"
+dist = "dist"
+release = true
+# Same-origin files come from our own service worker cache. Chrome also warns about
+# `integrity` on the wasm preload that Trunk writes, which a clean console must not show.
+no_sri = true
+
+# The CSP in web/index.html allows Trunk's inline start-up script by hash.
+# The hook computes the hashes of the built page and fills them in.
+[[hooks]]
+stage = "post_build"
+command = "perl"
+command_arguments = ["web/stamp-csp.pl"]

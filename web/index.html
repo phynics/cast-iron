@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <base data-trunk-public-url />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4efe6" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1c1917" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Offline rules reference for Pathfinder First Edition (unofficial)" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' '__CSP_SCRIPT_HASH__'; style-src 'self' '__CSP_STYLE_HASH__'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'none'" />
+    <title>Cast Iron</title>
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <style>
+      /* First paint, before styles.css and the app arrive. */
+      html { background: #f4efe6; color: #2a2521; }
+      @media (prefers-color-scheme: dark) { html { background: #1c1917; color: #e9e2d8; } }
+      html[data-theme="light"] { background: #f4efe6; color: #2a2521; }
+      html[data-theme="dark"] { background: #1c1917; color: #e9e2d8; }
+      body { margin: 0; font-family: system-ui, sans-serif; }
+    </style>
+    <link data-trunk rel="css" href="styles.css" />
+    <link data-trunk rel="copy-file" href="sw.js" />
+    <link data-trunk rel="copy-file" href="manifest.webmanifest" />
+    <link data-trunk rel="copy-dir" href="icons" />
+    <link data-trunk rel="rust" href="../crates/web/Cargo.toml" data-bin="cast-iron-web" data-wasm-opt="z" />
+  </head>
+  <body>
+    <noscript>
+      <p class="noscript">
+        Cast Iron needs JavaScript and WebAssembly. Enable JavaScript, or use a current browser, to open it.
+      </p>
+    </noscript>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+{"body": "<p>A missile of magical energy darts forth.</p>", "school": "evocation", "source": "Core Rulebook",
+ "url": "pfsrd://Core Rulebook/Spells/Magic Missile", "type": "spell", "name": "Magic Missile",
+ "levels": [{"class": "Wizard", "level": 1}], "description": "1d4+1 force damage; +1 missile/two levels above 1st (max 5).",
+ "subschool": ["force"], "casting_time": "1 standard action"}

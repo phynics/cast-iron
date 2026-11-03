@@ -1,0 +1,351 @@
+//! The application shell: boot, theme, service worker, offline state, and the Reader frame.
+
+use crate::install;
+use crate::js;
+use crate::library::Library;
+use crate::route::{self, Route, provide_route, use_route};
+use crate::store::{self, ActiveLibrary};
+use crate::theme::{self, Theme};
+use crate::views::{
+    self,
+    bookmarks::{Bookmarks, CollectionView},
+    browse::{Browse, BrowseKind, BrowseSource},
+    entry::Entry,
+    home::Home,
+    installer::InstallerScreen,
+    legal::Legal,
+    not_found::NotFound,
+    search::Search,
+    settings::Settings,
+};
+use leptos::prelude::*;
+use leptos::task::spawn_local;
+use wasm_bindgen::JsCast;
+
+/// What the app is showing, from boot onward.
+#[derive(Clone)]
+pub enum Boot {
+    Starting,
+    /// No usable library. `notice` says why, when a library was expected.
+    Install {
+        notice: Option<String>,
+    },
+    Ready(Library),
+    /// Something outside the library is broken, such as IndexedDB being unavailable.
+    Fatal(String),
+}
+
+/// App-wide state. Get it with [`use_app`].
+#[derive(Clone, Copy)]
+pub struct AppCtx {
+    pub boot: RwSignal<Boot>,
+    pub theme: RwSignal<Theme>,
+    /// A newer app shell is installed and waiting for the user to reload.
+    pub shell_update_ready: RwSignal<bool>,
+    pub online: RwSignal<bool>,
+}
+
+pub fn use_app() -> AppCtx {
+    expect_context::<AppCtx>()
+}
+
+impl AppCtx {
+    /// Opens the library that was just activated and shows the Reader.
+    pub fn activate(self, active: ActiveLibrary) {
+        spawn_local(async move {
+            self.boot.set(match Library::load(&active).await {
+                Ok(library) => Boot::Ready(library),
+                Err(error) => Boot::Install {
+                    notice: Some(format!(
+                        "The library was installed but cannot be opened: {error}"
+                    )),
+                },
+            });
+        });
+    }
+}
+
+/// Decides between installer and Reader. `active_library` is the only source of "ready".
+async fn boot_check() -> Boot {
+    match store::active_library().await {
+        Err(error) => Boot::Fatal(format!(
+            "This browser cannot open its local database, so Cast Iron cannot keep your library or bookmarks. {error}"
+        )),
+        Ok(None) => {
+            let interrupted = store::pending_install().await.ok().flatten().is_some();
+            Boot::Install {
+                notice: interrupted.then(|| {
+                    "An earlier download did not finish. Files that were already verified are kept, so it continues where it stopped.".to_string()
+                }),
+            }
+        }
+        Ok(Some(active)) => match Library::load(&active).await {
+            Ok(library) => Boot::Ready(library),
+            Err(error) => Boot::Install {
+                notice: Some(format!(
+                    "The stored library is incomplete ({error}). Download it again to continue."
+                )),
+            },
+        },
+    }
+}
+
+/// Keeps `/cast-iron/index.html?x#/hash` and `/cast-iron/#/hash` the same document, so that
+/// relative `#/...` links never leave the page.
+fn normalize_location() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let location = window.location();
+    let (Ok(path), Ok(search), Ok(hash), Ok(Some(base))) = (
+        location.pathname(),
+        location.search(),
+        location.hash(),
+        document.base_uri(),
+    ) else {
+        return;
+    };
+    let base_path = base
+        .split_once("://")
+        .and_then(|(_, rest)| rest.find('/').map(|i| &rest[i..]))
+        .unwrap_or("/");
+    if (path != base_path || !search.is_empty())
+        && let Ok(history) = window.history()
+    {
+        let _ = history.replace_state_with_url(
+            &wasm_bindgen::JsValue::NULL,
+            "",
+            Some(&format!("{base_path}{hash}")),
+        );
+    }
+}
+
+#[component]
+pub fn App() -> impl IntoView {
+    normalize_location();
+    provide_route();
+    let online = web_sys::window().is_none_or(|w| w.navigator().on_line());
+    let app = AppCtx {
+        boot: RwSignal::new(Boot::Starting),
+        theme: RwSignal::new(theme::mirrored()),
+        shell_update_ready: RwSignal::new(false),
+        online: RwSignal::new(online),
+    };
+    provide_context(app);
+
+    let online_handle = window_event_listener(leptos::ev::online, move |_| app.online.set(true));
+    let offline_handle = window_event_listener(leptos::ev::offline, move |_| app.online.set(false));
+    on_cleanup(move || {
+        online_handle.remove();
+        offline_handle.remove();
+    });
+
+    spawn_local(async move {
+        app.theme.set(theme::load().await);
+    });
+    spawn_local(async move {
+        let result = js::register_service_worker(move || app.shell_update_ready.set(true)).await;
+        match result {
+            Ok(true) => {}
+            Ok(false) => leptos::logging::warn!("service workers are not supported here"),
+            Err(error) => leptos::logging::warn!("service worker registration failed: {error}"),
+        }
+    });
+    spawn_local(async move { app.boot.set(boot_check().await) });
+
+    view! {
+        <a class="skip-link" href="#main" on:click=skip_to_main>"Skip to content"</a>
+        {move || match app.boot.get() {
+            Boot::Starting => view! {
+                <div class="app app-loading" role="status">"Loading Cast Iron..."</div>
+            }.into_any(),
+            Boot::Install { notice } => view! { <InstallerScreen notice /> }.into_any(),
+            Boot::Ready(library) => view! { <Reader library /> }.into_any(),
+            Boot::Fatal(message) => view! {
+                <main id="main" class="app install-main">
+                    <h1>"Cast Iron cannot start"</h1>
+                    <p class="error" role="alert">{message}</p>
+                </main>
+            }.into_any(),
+        }}
+    }
+}
+
+fn skip_to_main(event: leptos::ev::MouseEvent) {
+    // A plain `#main` link would replace the route hash.
+    event.prevent_default();
+    focus_main();
+}
+
+fn focus_main() {
+    if let Some(main) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id("main"))
+        .and_then(|m| m.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let options = web_sys::FocusOptions::new();
+        options.set_prevent_scroll(true);
+        let _ = main.focus_with_options(&options);
+    }
+}
+
+/// The frame around every screen once a library is ready.
+#[component]
+fn Reader(library: Library) -> impl IntoView {
+    provide_context(library);
+    let app = use_app();
+    let current = use_route();
+
+    // After each route change: scroll to the anchor or the top, and move focus to <main>
+    // so that screen readers announce the new page. Search edits its own route while the user
+    // types, so a change from one search route to another leaves scroll and focus alone.
+    Effect::new(move |previous: Option<Route>| {
+        let route = current.get();
+        let first = previous.is_none();
+        let within_search = matches!(
+            (&previous, &route),
+            (Some(Route::Search { .. }), Route::Search { .. })
+        );
+        // The Search screen focuses its own box, so the frame leaves focus alone there.
+        let to_search = matches!(route, Route::Search { .. });
+        if let Some(title) = static_title(&route) {
+            views::util::set_title(title);
+        }
+        let next = route.clone();
+        request_animation_frame(move || {
+            if within_search {
+                return;
+            }
+            match route.anchor() {
+                Some(anchor) => {
+                    route::scroll_to_anchor(anchor);
+                }
+                None => route::scroll_to_top(),
+            }
+            if !first && !to_search {
+                focus_main();
+            }
+        });
+        next
+    });
+    views::search::install_slash_shortcut();
+
+    view! {
+        <div class="app">
+            <header class="app-header">
+                <a class="brand" href=Route::Home.href()>"Cast Iron"</a>
+                <nav aria-label="Primary">
+                    <NavLink label="Home" route=Route::Home />
+                    <NavLink label="Search" route=Route::search("") />
+                    <NavLink label="Browse" route=Route::Browse />
+                    <NavLink label="Bookmarks" route=Route::Bookmarks />
+                    <NavLink label="Settings" route=Route::Settings />
+                </nav>
+                <Show when=move || !app.online.get()>
+                    <span class="badge" title="No connection. Everything here still works.">"Offline"</span>
+                </Show>
+            </header>
+            <Show when=move || app.shell_update_ready.get()>
+                <div class="banner" role="status">
+                    <span>"Update ready."</span>
+                    <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
+                </div>
+            </Show>
+            <main id="main" tabindex="-1">
+                <RouteView />
+            </main>
+            <footer class="app-footer">
+                <p>
+                    "Cast Iron is an unofficial fan project. It is not published, endorsed, or approved by Paizo Inc. "
+                    <a href=Route::Legal.href()>"Legal and attribution"</a>
+                </p>
+            </footer>
+        </div>
+    }
+}
+
+/// True when `link` is the section that `current` belongs to.
+fn in_section(link: &Route, current: &Route) -> bool {
+    matches!(
+        (link, current),
+        (Route::Home, Route::Home)
+            | (Route::Search { .. }, Route::Search { .. })
+            | (
+                Route::Browse,
+                Route::Browse | Route::BrowseKind(_) | Route::BrowseSource(_)
+            )
+            | (Route::Bookmarks, Route::Bookmarks | Route::Collection(_))
+            | (Route::Settings, Route::Settings | Route::Legal)
+    )
+}
+
+#[component]
+fn NavLink(label: &'static str, route: Route) -> impl IntoView {
+    let current = use_route();
+    let href = route.href();
+    view! {
+        <a
+            class="nav-link"
+            href=href
+            aria-current=move || in_section(&route, &current.get()).then_some("page")
+        >
+            {label}
+        </a>
+    }
+}
+
+/// Titles for screens that do not set their own.
+fn static_title(route: &Route) -> Option<&'static str> {
+    match route {
+        Route::Settings => Some("Settings"),
+        Route::Legal => Some("Legal and attribution"),
+        Route::NotFound(_) => Some("Page not found"),
+        _ => None,
+    }
+}
+
+#[component]
+fn RouteView() -> impl IntoView {
+    let current = use_route();
+    // The Search screen reads and edits its own route, so edits must not rebuild it.
+    let page = Memo::new(move |_| match current.get() {
+        Route::Search { .. } => Route::search(""),
+        other => other,
+    });
+    move || match page.get() {
+        Route::Home => view! { <Home /> }.into_any(),
+        Route::Search { .. } => view! { <Search /> }.into_any(),
+        Route::Browse => view! { <Browse /> }.into_any(),
+        Route::BrowseKind(kind) => view! { <BrowseKind kind /> }.into_any(),
+        Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
+        Route::Entry { id, anchor } => view! { <Entry id anchor /> }.into_any(),
+        Route::Bookmarks => view! { <Bookmarks /> }.into_any(),
+        Route::Collection(id) => view! { <CollectionView id /> }.into_any(),
+        Route::Settings => view! { <Settings /> }.into_any(),
+        Route::Legal => view! { <Legal /> }.into_any(),
+        Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),
+    }
+}
+
+/// Used by Settings to leave no doubt which version of the check ran.
+pub use install::UpdateCheck;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nav_highlights_the_containing_section() {
+        assert!(in_section(
+            &Route::Browse,
+            &Route::BrowseKind(cast_iron_schema::EntryKind::Spell)
+        ));
+        assert!(in_section(&Route::Settings, &Route::Legal));
+        assert!(!in_section(&Route::Home, &Route::Settings));
+        assert!(!in_section(&Route::Bookmarks, &Route::Browse));
+        assert!(in_section(&Route::search(""), &Route::search("fire")));
+    }
+}

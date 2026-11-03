@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Cast iron skillet">
+  <rect width="512" height="512" fill="#211d1a"/>
+  <!-- Handle: a thick bar with a hanging hole, rising to the upper right. -->
+  <line x1="268" y1="236" x2="395" y2="132" stroke="#0c0a09" stroke-width="40" stroke-linecap="round"/>
+  <line x1="276" y1="222" x2="396" y2="124" stroke="#5f554c" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="387" cy="139" r="11" fill="#211d1a"/>
+  <!-- Pan: black iron body, a lit rim, and a seasoned cooking surface. -->
+  <circle cx="219" cy="280" r="124" fill="#0c0a09"/>
+  <circle cx="219" cy="280" r="119" fill="none" stroke="#6a5f55" stroke-width="5"/>
+  <circle cx="219" cy="280" r="98" fill="#2b2622"/>
+  <circle cx="219" cy="280" r="98" fill="none" stroke="#14110f" stroke-width="6"/>
+  <!-- Sheen from a hot pan. -->
+  <path d="M148 318 A82 82 0 0 0 232 360" fill="none" stroke="#c4622d" stroke-width="7" stroke-linecap="round"/>
+  <path d="M158 236 A76 76 0 0 1 214 204" fill="none" stroke="#4a413a" stroke-width="6" stroke-linecap="round"/>
+</svg>
