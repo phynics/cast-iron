@@ -29,9 +29,12 @@ test("Expanded books and separate class categories work offline", async ({ page,
   await expect(page.locator(".results .hit")).toHaveCount(count(s => s.kind === "prestige_class"));
   await expect(page.locator(".results")).toContainText("Technomancer");
   await expect(page.locator(".results")).not.toContainText("Fighter");
+  // With schema 3, the source route is the book doorway and opens the original-order contents.
   await page.goto("#/browse/source/ultimate-magic");
   await expect(page.getByRole("heading", { name: "Ultimate Magic", level: 1 })).toBeVisible();
-  await expect(page.locator(".kind-group")).toContainText(["Magus"]);
+  await expect(page.getByRole("navigation", { name: /Contents of Ultimate Magic/ })).toBeVisible();
+  await page.locator(".toc-top > .toc-branch > .toc-details > summary").filter({ hasText: "Spellcasting Class Options" }).click();
+  await expect(page.locator(".toc")).toContainText("Magus");
 });
 
 test("Category and sourcebook browsing works", async ({ page }) => {
@@ -40,16 +43,16 @@ test("Category and sourcebook browsing works", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Browse", level: 1 })).toBeVisible();
 
   // Every category tile shows the count that the compiled catalog has.
-  const tiles = page.locator("section[aria-labelledby=by-kind] a.tile");
+  const tiles = page.locator("section[aria-labelledby=by-kind] a.cat");
   for (const tile of await tiles.all()) {
-    const name = (await tile.locator(".tile-name").innerText()).trim();
-    const shown = Number(await tile.locator(".tile-count").innerText());
+    const name = (await tile.locator(".cat-name").innerText()).trim();
+    const shown = Number(await tile.locator(".cat-count").innerText());
     const kind = new URL(await tile.evaluate((a: HTMLAnchorElement) => a.href)).hash.split("/").pop()!;
     expect(shown, name).toBe(count((s) => s.kind === kind));
   }
 
   // The Spells category lists every spell, and the letter jump scrolls to its group.
-  await tiles.filter({ has: page.locator(".tile-name", { hasText: /^Spells$/ }) }).click();
+  await tiles.filter({ has: page.locator(".cat-name", { hasText: /^Spells$/ }) }).click();
   const rows = page.locator(".entry-list li");
   await expect(rows).toHaveCount(count((s) => s.kind === "spell"));
   await page.locator(".letter-btn", { hasText: /^F$/ }).click();
@@ -62,17 +65,12 @@ test("Category and sourcebook browsing works", async ({ page }) => {
   await expect(page.locator(".tree")).toBeVisible();
   expect(await page.locator(".tree > li.branch > ul > li").count()).toBeGreaterThan(10);
 
-  // Each publication page groups its entries by category and names its Section 15 line.
+  // Legacy source links now open the book contents when original-order data is present.
   for (const source of corpus.catalog.sources) {
     await page.goto(`#/browse/source/${source.id}`);
     await expect(page.getByRole("heading", { level: 1, name: source.title })).toBeVisible();
-    await expect(page.locator(".copyright")).toContainText(source.copyright);
-    const groups = page.locator(".kind-group");
-    const expected = new Map<string, number>();
-    for (const s of corpus.catalog.entries.filter((e) => e.source === source.id)) expected.set(s.kind, (expected.get(s.kind) ?? 0) + 1);
-    await expect(groups).toHaveCount(expected.size);
-    const shown = (await groups.locator("summary .tile-count").allInnerTexts()).map(Number).sort((a, b) => a - b);
-    expect(shown).toEqual([...expected.values()].sort((a, b) => a - b));
+    await expect(page.locator(".toc")).toBeVisible();
+    await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   }
 });
 

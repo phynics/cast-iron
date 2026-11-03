@@ -2,8 +2,10 @@
 
 use crate::library::{Library, use_library};
 use crate::route::Route;
+use crate::views::book::BookPosition;
 use crate::views::bookmark_control::BookmarkControl;
 use crate::views::recent;
+use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::RichBody;
 use crate::views::util::{kind_name, local_resource, set_title};
 use cast_iron_schema::{EntryId, EntryKind, EntryReference, RuleEntry};
@@ -56,7 +58,27 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
     set_title(stub_title.as_deref().unwrap_or("Entry"));
     let fetch_id = id.clone();
     let fetch_library = library.clone();
-    let entry = local_resource(async move { fetch_library.entry(&fetch_id).await });
+    // The index files that this kind of entry shows panels from load with it, so that the panels
+    // arrive with the text and nothing above the body moves afterwards. A file that is missing
+    // or damaged only costs the panels.
+    let entry = local_resource(async move {
+        let entry = fetch_library.entry(&fetch_id).await?;
+        let wanted = needs(entry.kind);
+        let mut indexes = Indexes::default();
+        if wanted.relations {
+            match fetch_library.relations().await {
+                Ok(found) => indexes.relations = found,
+                Err(error) => leptos::logging::warn!("relation panels are off: {error}"),
+            }
+        }
+        if wanted.spell_lists {
+            match fetch_library.spell_lists().await {
+                Ok(found) => indexes.spell_lists = found,
+                Err(error) => leptos::logging::warn!("spell list panel is off: {error}"),
+            }
+        }
+        Ok::<_, crate::library::LibraryError>((entry, indexes))
+    });
     let shown_id = id.clone();
     view! {
         <article class="entry">
@@ -76,8 +98,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                         <p class="muted"><code>{shown_id.to_string()}</code></p>
                     </div>
                 }.into_any(),
-                Some(Ok(entry)) => view! {
-                    <EntryView library=library.clone() entry=entry.clone() anchor=anchor.clone() />
+                Some(Ok((entry, indexes))) => view! {
+                    <EntryView
+                        library=library.clone()
+                        entry=entry.clone()
+                        indexes=indexes.clone()
+                        anchor=anchor.clone()
+                    />
                 }.into_any(),
             })}
         </article>
@@ -85,7 +112,12 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
 }
 
 #[component]
-fn EntryView(library: Library, entry: RuleEntry, anchor: Option<String>) -> impl IntoView {
+fn EntryView(
+    library: Library,
+    entry: RuleEntry,
+    indexes: Indexes,
+    anchor: Option<String>,
+) -> impl IntoView {
     set_title(&entry.title);
     {
         let (id, title) = (entry.id.clone(), entry.title.clone());
@@ -107,6 +139,7 @@ fn EntryView(library: Library, entry: RuleEntry, anchor: Option<String>) -> impl
         .map(|s| view! { <li><span>{s}</span></li> })
         .collect_view();
 
+    let has_books = library.has_books();
     let sources = entry
         .source_ids
         .iter()
@@ -114,7 +147,16 @@ fn EntryView(library: Library, entry: RuleEntry, anchor: Option<String>) -> impl
             let title = library
                 .source(id)
                 .map_or_else(|| id.clone(), |s| s.title.clone());
-            view! { <a class="chip-link" href=Route::BrowseSource(id.clone()).href()>{title}</a> }
+            // A library with a book order opens the book; an older one has only the old page.
+            let route = if has_books {
+                Route::Book {
+                    source: id.clone(),
+                    chapter: None,
+                }
+            } else {
+                Route::BrowseSource(id.clone())
+            };
+            view! { <a class="chip-link" href=route.href()>{title}</a> }
         })
         .collect_view();
 
@@ -180,7 +222,9 @@ fn EntryView(library: Library, entry: RuleEntry, anchor: Option<String>) -> impl
             </div>
             <BookmarkControl id=entry.id.clone() title=plain_title kind />
         </header>
+        <Related library=library.clone() entry=entry.clone() indexes />
         <RichBody body=entry.body.clone() anchor=anchor />
+        <BookPosition library=library.clone() id=entry.id.clone() />
         {has_references.then(|| view! {
             <section class="entry-refs" aria-labelledby="references-heading">
                 <h2 id="references-heading">"References"</h2>

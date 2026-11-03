@@ -1,8 +1,9 @@
 //! Legal and attribution, and the coverage report. Both render the files of the active library.
 
 use crate::library::use_library;
+use crate::route::Route;
 use crate::views::util::local_resource;
-use cast_iron_schema::{CoverageReport, LegalNotices};
+use cast_iron_schema::{CoverageReport, EntryId, LegalNotices, RelationCoverage};
 use leptos::prelude::*;
 use std::rc::Rc;
 
@@ -150,6 +151,7 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
         .map(|(what, n)| view! { <tr><th scope="row"><code>{what.clone()}</code></th><td class="num">{*n}</td></tr> })
         .collect_view();
     let links = report.links.clone();
+    let relationships = relationship_coverage(&report.relations);
     view! {
         <p>"This library holds a selection of the published rules. Everything left out is listed here."</p>
         <table class="data-table">
@@ -185,5 +187,160 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
             <thead><tr><th scope="col">"Kind"</th><th scope="col" class="num">"Count"</th></tr></thead>
             <tbody>{stripped}</tbody>
         </table>
+        {relationships}
     }
+}
+
+/// A code-styled entry id that links to the entry when the id is valid.
+fn entry_link(id: &str) -> AnyView {
+    match EntryId::parse(id) {
+        Ok(parsed) => {
+            let href = Route::entry(parsed).href();
+            view! { <a href=href><code>{id.to_string()}</code></a> }.into_any()
+        }
+        Err(_) => view! { <code>{id.to_string()}</code> }.into_any(),
+    }
+}
+
+/// Relations, spell lists, prerequisites, and book order: what was linked, and what was not.
+/// Reports of schema 1 and 2 have none of it, and then nothing shows.
+fn relationship_coverage(r: &RelationCoverage) -> Option<AnyView> {
+    if *r == RelationCoverage::default() {
+        return None;
+    }
+    let edges = r
+        .edges
+        .iter()
+        .map(|(kind, n)| view! { <tr><th scope="row">{kind.clone()}</th><td class="num">{*n}</td></tr> })
+        .collect_view();
+    let p = &r.prerequisites;
+    let readings = p
+        .by_reading
+        .iter()
+        .map(|(reading, n)| view! { <tr><th scope="row">{reading.replace('_', " ")}</th><td class="num">{*n}</td></tr> })
+        .collect_view();
+    let unread_count = p.unread.len();
+    let unread = p
+        .unread
+        .iter()
+        .map(|u| view! { <tr><th scope="row">{entry_link(u.feat.as_str())}</th><td>{u.text.clone()}</td></tr> })
+        .collect_view();
+    let lists = &r.spell_lists;
+    let unmapped = lists
+        .unmapped
+        .iter()
+        .map(|c| view! { <tr><th scope="row">{c.name.clone()}</th><td class="num">{c.spells}</td></tr> })
+        .collect_view();
+    let unplaced_parts = if r.unplaced_parts.is_empty() {
+        view! { <p>"Every racial trait and archetype has a race or class."</p> }.into_any()
+    } else {
+        let rows = r
+            .unplaced_parts
+            .iter()
+            .map(|u| view! { <tr><th scope="row">{entry_link(&u.entry)}</th><td>{u.reason.clone()}</td></tr> })
+            .collect_view();
+        view! {
+            <table class="data-table">
+                <caption>"Racial traits and archetypes without a parent"</caption>
+                <thead><tr><th scope="col">"Entry"</th><th scope="col">"Reason"</th></tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        }
+        .into_any()
+    };
+    let unpromoted = (!r.unpromoted.is_empty()).then(|| {
+        let rows = r
+            .unpromoted
+            .iter()
+            .map(|u| view! { <tr><th scope="row"><code>{u.path.clone()}</code></th><td>{u.reason.clone()}</td></tr> })
+            .collect_view();
+        view! {
+            <table class="data-table">
+                <caption>"Records of a typed family that stay ordinary rules text"</caption>
+                <thead><tr><th scope="col">"Record"</th><th scope="col">"Reason"</th></tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        }
+    });
+    let order = &r.book_order;
+    let unplaced = if order.unplaced.is_empty() {
+        view! { <p>{format!("All {} entries have a place in a book.", order.placed)}</p> }
+            .into_any()
+    } else {
+        let rows = order
+            .unplaced
+            .iter()
+            .map(|u| view! { <tr><th scope="row">{entry_link(&u.entry)}</th><td>{u.reason.clone()}</td></tr> })
+            .collect_view();
+        view! {
+            <table class="data-table">
+                <caption>"Entries without a place in a book"</caption>
+                <thead><tr><th scope="col">"Entry"</th><th scope="col">"Reason"</th></tr></thead>
+                <tbody>{rows}</tbody>
+            </table>
+        }
+        .into_any()
+    };
+    let placements = order
+        .by_publication
+        .iter()
+        .map(|b| {
+            view! {
+                <tr>
+                    <th scope="row">{b.source_id.clone()}</th>
+                    <td class="num">{b.placed}</td>
+                    <td class="num">{b.unplaced}</td>
+                </tr>
+            }
+        })
+        .collect_view();
+    Some(
+        view! {
+            <h3 id="coverage-relationships">"Relationships, spell lists, and book order"</h3>
+            <p>
+                "These tables say what the links between entries rest on, and what they could not cover. "
+                "The chapter lists behind the book view are drafts; see the note on each book."
+            </p>
+            <table class="data-table">
+                <caption>"Links between entries"</caption>
+                <thead><tr><th scope="col">"Kind"</th><th scope="col" class="num">"Links"</th></tr></thead>
+                <tbody>{edges}</tbody>
+            </table>
+            {unplaced_parts}
+            {unpromoted}
+            <table class="data-table">
+                <caption>"Feat prerequisites, read from their wording"</caption>
+                <thead><tr><th scope="col">"Reading"</th><th scope="col" class="num">"Requirements"</th></tr></thead>
+                <tbody>
+                    <tr><th scope="row">"Feats"</th><td class="num">{p.feats}</td></tr>
+                    <tr><th scope="row">"With prerequisite text"</th><td class="num">{p.feats_with_text}</td></tr>
+                    <tr><th scope="row">"Naming at least one feat that exists"</th><td class="num">{p.feats_with_resolved_feat}</td></tr>
+                    <tr><th scope="row">"Names that match more than one feat"</th><td class="num">{p.ambiguous}</td></tr>
+                    {readings}
+                </tbody>
+            </table>
+            <details class="coverage-more">
+                <summary>{format!("Prerequisites not read as a feat or a number ({unread_count})")}</summary>
+                <table class="data-table">
+                    <caption>"Left as printed text"</caption>
+                    <thead><tr><th scope="col">"Feat"</th><th scope="col">"Wording"</th></tr></thead>
+                    <tbody>{unread}</tbody>
+                </table>
+            </details>
+            <table class="data-table">
+                <caption>"Spell lists whose class has no class entry"</caption>
+                <thead><tr><th scope="col">"Class name in the spells"</th><th scope="col" class="num">"Spells"</th></tr></thead>
+                <tbody>{unmapped}</tbody>
+            </table>
+            <table class="data-table">
+                <caption>"Entries placed in books"</caption>
+                <thead>
+                    <tr><th scope="col">"Publication"</th><th scope="col" class="num">"Placed"</th><th scope="col" class="num">"Not placed"</th></tr>
+                </thead>
+                <tbody>{placements}</tbody>
+            </table>
+            {unplaced}
+        }
+        .into_any(),
+    )
 }

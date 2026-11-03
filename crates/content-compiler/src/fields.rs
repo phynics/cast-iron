@@ -4,8 +4,8 @@
 use crate::html::plain_text;
 use crate::model::Node;
 use cast_iron_schema::{
-    ChallengeRating, ClassFields, CreatureFields, EntryKind, FeatFields, ItemFields, SpellFields,
-    SpellLevel, TypedFields,
+    ChallengeRating, ClassFields, CreatureFields, EntryKind, FeatFields, ItemFields,
+    RacialTraitFields, SpellFields, SpellLevel, TraitFields, TypedFields,
 };
 use serde_json::Value;
 
@@ -47,11 +47,21 @@ pub fn extract(kind: EntryKind, node: &Node, rel: &str) -> Result<Extracted, Str
         EntryKind::Creature => Ok(creature(node)),
         EntryKind::Item => item(node),
         EntryKind::Class | EntryKind::PrestigeClass => Ok(class(node, rel)),
+        EntryKind::Trait => Ok(trait_entry(node)),
+        EntryKind::RacialTrait => Ok(racial_trait(node)),
+        EntryKind::Archetype => Ok(archetype(node)),
         EntryKind::Race | EntryKind::Skill | EntryKind::Affliction | EntryKind::Trap => {
             let mut out = Extracted::new(TypedFields::None);
             match kind {
                 EntryKind::Affliction => out.tag(node.subtype.as_deref().unwrap_or_default()),
                 EntryKind::Trap => out.tag(node.str_field("trap_type").unwrap_or_default()),
+                // `standard_race`, `core_race`, `featured_race`, `uncommon_race`, or
+                // `monster_race`: it separates the races of the player books from monster races.
+                EntryKind::Race => {
+                    let group = node.subtype.as_deref().unwrap_or_default();
+                    out.tag(group);
+                    out.facet("race_group", group);
+                }
                 _ => {}
             }
             Ok(out)
@@ -271,9 +281,29 @@ fn feat(node: &Node) -> Result<Extracted, String> {
             .map(section_text)
             .filter(|t| !t.is_empty())
     };
+    // Most prerequisite sections keep their wording in `description`, not in `body`.
+    let prerequisites = node
+        .sections
+        .iter()
+        .find(|s| {
+            s.name.as_deref().is_some_and(|n| {
+                matches!(
+                    n.trim().to_lowercase().as_str(),
+                    "prerequisites" | "prerequisite"
+                )
+            })
+        })
+        .map(|s| {
+            let mut parts = vec![s.description.as_deref().map(plain_text).unwrap_or_default()];
+            parts.push(section_text(s));
+            parts.retain(|p| !p.is_empty());
+            parts.join(" ")
+        })
+        .filter(|t| !t.is_empty());
     let fields = FeatFields {
         feat_types: feat_types.clone(),
-        prerequisites: pick(&["prerequisites", "prerequisite"]),
+        prerequisites,
+        prerequisite_feats: Vec::new(),
         benefit: pick(&["benefit", "benefits"]),
         normal: pick(&["normal"]),
         special: pick(&["special"]),
@@ -452,6 +482,80 @@ fn class(node: &Node, rel: &str) -> Extracted {
     out
 }
 
+/// Title-cases one word of an upstream subtype such as `half_elf`.
+fn title_case(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().collect::<String>() + chars.as_str()
+    })
+}
+
+/// `half_elf` is `Half-Elf` and `gnome` is `Gnome`.
+fn race_name(slug: &str) -> String {
+    let joiner = if slug.starts_with("half_") { "-" } else { " " };
+    slug.split('_')
+        .map(title_case)
+        .collect::<Vec<_>>()
+        .join(joiner)
+}
+
+/// The category and detail of a trait from its upstream type and subtype.
+pub fn trait_category(
+    upstream_type: Option<&str>,
+    subtype: Option<&str>,
+) -> (String, Option<String>) {
+    if upstream_type == Some("drawback") {
+        return ("Drawback".into(), None);
+    }
+    match subtype.map(str::trim).filter(|s| !s.is_empty()) {
+        Some("region" | "regional") => ("Regional".into(), None),
+        Some("bloodline") => ("Race".into(), Some("Bloodline".into())),
+        Some(race) if race.starts_with("racial_") => {
+            ("Race".into(), Some(race_name(&race["racial_".len()..])))
+        }
+        Some(other) => (title_case(other), None),
+        None => ("Other".into(), None),
+    }
+}
+
+fn trait_entry(node: &Node) -> Extracted {
+    let (category, detail) = trait_category(node.kind.as_deref(), node.subtype.as_deref());
+    let mut out = Extracted::new(TypedFields::Trait(TraitFields {
+        category: category.clone(),
+        detail: detail.clone(),
+    }));
+    out.tag(&category);
+    if let Some(detail) = &detail {
+        out.tag(detail);
+    }
+    out.facet("trait_category", &category);
+    out
+}
+
+fn racial_trait(node: &Node) -> Extracted {
+    let alternate = node
+        .url
+        .as_deref()
+        .is_some_and(|url| url.to_lowercase().contains("/alternate racial traits/"));
+    let mut out = Extracted::new(TypedFields::RacialTrait(RacialTraitFields { alternate }));
+    if alternate {
+        out.tag("alternate");
+    }
+    if let Some(race) = node.subtype.as_deref().filter(|s| !s.is_empty()) {
+        out.tag(&race.replace('_', " "));
+    }
+    out
+}
+
+fn archetype(node: &Node) -> Extracted {
+    let mut out = Extracted::new(TypedFields::None);
+    if let Some(class) = node.subtype.as_deref().filter(|s| !s.is_empty()) {
+        out.tag(class);
+        out.facet("archetype_class", class);
+    }
+    out
+}
+
 /// Only the section's own body, without nested sections.
 fn section_text_own(section: &Node) -> String {
     section.body.as_deref().map(plain_text).unwrap_or_default()
@@ -512,6 +616,62 @@ mod tests {
     }
 
     #[test]
+    fn prerequisite_wording_in_the_description_is_kept() {
+        // Combat Patrol, Advanced Player's Guide: the section has a description and no body.
+        let n = node(
+            r#"{"name":"Combat Patrol","url":"pfsrd://Advanced Players Guide/Feats/Combat Patrol","source":"A","type":"feat","feat_types":{"feat_type":"Combat"},
+            "sections":[{"source":"A","type":"section","name":"Prerequisites","description":" Combat Reflexes, Mobility, base attack bonus +5."},
+            {"body":"<p>x</p>","source":"A","type":"section","name":"Benefits"}]}"#,
+        );
+        let e = extract(EntryKind::Feat, &n, "x.json").unwrap();
+        let TypedFields::Feat(f) = &e.fields else {
+            panic!()
+        };
+        assert_eq!(
+            f.prerequisites.as_deref(),
+            Some("Combat Reflexes, Mobility, base attack bonus +5.")
+        );
+    }
+
+    #[test]
+    fn trait_categories_come_from_the_upstream_subtype() {
+        assert_eq!(
+            trait_category(Some("trait"), Some("combat")),
+            ("Combat".into(), None)
+        );
+        assert_eq!(
+            trait_category(Some("trait"), Some("region")),
+            ("Regional".into(), None)
+        );
+        assert_eq!(
+            trait_category(Some("trait"), Some("regional")),
+            ("Regional".into(), None)
+        );
+        assert_eq!(
+            trait_category(Some("trait"), Some("racial_half_elf")),
+            ("Race".into(), Some("Half-Elf".into()))
+        );
+        assert_eq!(
+            trait_category(Some("trait"), Some("bloodline")),
+            ("Race".into(), Some("Bloodline".into()))
+        );
+        assert_eq!(
+            trait_category(Some("drawback"), None),
+            ("Drawback".into(), None)
+        );
+    }
+
+    #[test]
+    fn an_alternate_racial_trait_is_marked_by_its_url() {
+        let n = node(
+            r#"{"name":"Halo","url":"pfsrd://Advanced Race Guide/Races/Aasimars/Alternate Racial Traits/Halo","source":"A","type":"racial_trait","subtype":"aasimar"}"#,
+        );
+        let e = extract(EntryKind::RacialTrait, &n, "x.json").unwrap();
+        assert!(matches!(&e.fields, TypedFields::RacialTrait(f) if f.alternate));
+        assert!(e.tags.contains(&"alternate".to_string()));
+    }
+
+    #[test]
     fn creature_cr_parses_and_mdash_is_none() {
         let mk = |cr: &str| {
             node(&format!(
@@ -549,6 +709,22 @@ mod tests {
         assert_eq!(labels, ["Gear Type", "Craft", "Weapon: Critical"]);
         assert_eq!(f.attributes[2].1, "\u{d7}3");
         assert!(!e.facets.iter().any(|(n, _)| n == "slot"));
+    }
+
+    #[test]
+    fn a_race_carries_its_group_as_tag_and_facet() {
+        let n = node(
+            r#"{"name":"Dwarves","url":"pfsrd://A/Races/Dwarves","source":"A","type":"race","subtype":"standard_race"}"#,
+        );
+        let e = extract(EntryKind::Race, &n, "x.json").unwrap();
+        assert!(e.tags.contains(&"standard_race".to_string()));
+        assert!(
+            e.facets
+                .contains(&("race_group".into(), "standard_race".into()))
+        );
+        let none = node(r#"{"name":"X","url":"pfsrd://A/Races/X","source":"A","type":"race"}"#);
+        let e = extract(EntryKind::Race, &none, "x.json").unwrap();
+        assert!(e.facets.is_empty());
     }
 
     #[test]

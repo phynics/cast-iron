@@ -4,6 +4,7 @@
 //! symbolic links are skipped.
 
 use crate::config::SourceConfig;
+use crate::family;
 use cast_iron_schema::{EntryKind, Exclusion};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -13,7 +14,11 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Role {
-    Typed { kind: EntryKind },
+    Typed {
+        kind: EntryKind,
+        /// The upstream `type` value that each record of the directory must carry.
+        upstream_type: &'static str,
+    },
     Rules,
 }
 
@@ -113,8 +118,9 @@ pub fn select(dataset: &Path, cfg: &SourceConfig) -> Result<Selection, String> {
     for dir in &cfg.dataset.typed {
         safe_relative(dir)?;
         let kind_slug = dir.rsplit('/').next().unwrap_or_default();
-        let kind = EntryKind::from_slug(kind_slug)
-            .ok_or_else(|| format!("typed directory {dir:?} does not end in an entry kind"))?;
+        let family = family::for_dir(kind_slug).ok_or_else(|| {
+            format!("typed directory {dir:?} does not end in a supported record family")
+        })?;
         let abs = dataset.join(dir);
         if !abs.is_dir() {
             return Err(format!("typed directory {dir} is missing from the dataset"));
@@ -122,7 +128,15 @@ pub fn select(dataset: &Path, cfg: &SourceConfig) -> Result<Selection, String> {
         let mut rels = Vec::new();
         list_json(dataset, &abs, &mut rels)?;
         for rel in rels {
-            add(dataset, &mut files, rel, Role::Typed { kind })?;
+            add(
+                dataset,
+                &mut files,
+                rel,
+                Role::Typed {
+                    kind: family.kind,
+                    upstream_type: family.upstream_type,
+                },
+            )?;
         }
     }
     for file in &cfg.dataset.rules {

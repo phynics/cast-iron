@@ -28,6 +28,20 @@ impl ContentPolicy {
         toml::from_str(&text).map_err(|e| format!("invalid {}: {e}", path.display()))
     }
 
+    /// The reason for an excluded url. A url below an excluded url is excluded too, so a
+    /// typed record cannot slip past a policy that removes its container.
+    fn excluded_reason(&self, location: &str) -> Option<String> {
+        self.excluded_urls
+            .iter()
+            .find(|(url, _)| {
+                location == url.as_str()
+                    || location
+                        .strip_prefix(url.as_str())
+                        .is_some_and(|rest| rest.starts_with('/'))
+            })
+            .map(|(_, reason)| reason.clone())
+    }
+
     /// Returns false for an excluded whole node. Every omission is reported.
     pub fn retain(&self, node: &mut Node, path: &str, rejected: &mut Vec<Rejection>) -> bool {
         self.walk(node, path, false, false, rejected)
@@ -42,7 +56,7 @@ impl ContentPolicy {
         rejected: &mut Vec<Rejection>,
     ) -> bool {
         let location = node.url.as_deref().unwrap_or(path);
-        let reason = self.excluded_urls.get(location).cloned().or_else(|| {
+        let reason = self.excluded_reason(location).or_else(|| {
             let name = node.title();
             if self.omit_npc_stories && npc && !name.is_empty() && !name.eq_ignore_ascii_case("tactics") {
                 Some("Product Identity: named NPC story omitted; generic stat block and tactics retained".into())
@@ -90,6 +104,25 @@ impl ContentPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_excluded_container_also_excludes_the_records_below_it() {
+        let policy: ContentPolicy =
+            toml::from_str("[excluded_urls]\n\"pfsrd://B/Rules/Religion Traits\" = \"PI\"\n")
+                .unwrap();
+        let mut report = Vec::new();
+        let mut below: Node = serde_json::from_str(
+            r#"{"name":"Faith","type":"trait","source":"B","url":"pfsrd://B/Rules/Religion Traits/Faith"}"#,
+        )
+        .unwrap();
+        assert!(!policy.retain(&mut below, "trait/faith.json", &mut report));
+        let mut beside: Node = serde_json::from_str(
+            r#"{"name":"Faith","type":"trait","source":"B","url":"pfsrd://B/Rules/Religion Traits Extra/Faith"}"#,
+        )
+        .unwrap();
+        assert!(policy.retain(&mut beside, "trait/faith.json", &mut report));
+        assert_eq!(report.len(), 1);
+    }
 
     #[test]
     fn keeps_npc_mechanics_and_reports_the_named_story() {

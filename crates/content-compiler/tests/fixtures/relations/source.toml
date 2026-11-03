@@ -1,0 +1,18 @@
+[dataset]
+id = "fixture-relations"
+repository = "https://example.invalid/fixture"
+branch = "main"
+commit = "0000000000000000000000000000000000000000"
+note = "Hand-written fixture with real PSRD-Data fragments."
+input_digest = ""
+typed = [
+  "core_rulebook/race", "core_rulebook/racial_trait", "core_rulebook/class", "core_rulebook/feat", "core_rulebook/spell",
+  "advanced_players_guide/racial_trait", "advanced_players_guide/class_archetype",
+  "ultimate_campaign/trait", "ultimate_campaign/drawback",
+]
+rules = ["advanced_players_guide/rules/core_classes.json"]
+
+[dataset.books]
+core_rulebook = "Core Rulebook"
+advanced_players_guide = "Advanced Player's Guide"
+ultimate_campaign = "Ultimate Campaign"

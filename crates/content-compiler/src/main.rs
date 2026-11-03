@@ -78,6 +78,28 @@ fn main() -> ExitCode {
                 "links: resolved {}, out of selection {}, broken {}",
                 o.links.resolved, o.links.out_of_selection, o.links.broken
             );
+            println!("relations: {:?}", o.relations.edges);
+            println!(
+                "feat prerequisites: {} feats with text, {} with a resolved feat; readings {:?}",
+                o.relations.prerequisites.feats_with_text,
+                o.relations.prerequisites.feats_with_resolved_feat,
+                o.relations.prerequisites.by_reading
+            );
+            println!(
+                "spell lists: {} classes, {} unmapped",
+                o.relations.spell_lists.classes,
+                o.relations.spell_lists.unmapped.len()
+            );
+            println!(
+                "book order: {} placed, {} unplaced; unplaced parts {}; unpromoted {}",
+                o.relations.book_order.placed,
+                o.relations.book_order.unplaced.len(),
+                o.relations.unplaced_parts.len(),
+                o.relations.unpromoted.len()
+            );
+            for (name, bytes) in &o.derived_bytes {
+                println!("{name}: {bytes} bytes");
+            }
             println!("rejected records: {}", o.rejected.len());
             for r in &o.rejected {
                 println!("  {}: {}", r.path, r.reason);

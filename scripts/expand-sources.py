@@ -24,7 +24,12 @@ books = {
     'ultimate_campaign': 'Ultimate Campaign', 'ultimate_combat': 'Ultimate Combat',
     'ultimate_equipment': 'Ultimate Equipment', 'ultimate_magic': 'Ultimate Magic',
 }
-known = {'spell', 'feat', 'creature', 'item', 'class', 'race', 'skill', 'affliction', 'trap'}
+known = {
+    'spell', 'feat', 'creature', 'item', 'class', 'race', 'skill', 'affliction', 'trap',
+    # Schema 3: relationship families. `drawback` becomes a trait category, and
+    # `class_archetype` becomes the archetype kind. See docs/research/relationship-data.md.
+    'trait', 'drawback', 'racial_trait', 'class_archetype',
+}
 actual = {p.name for p in cache.iterdir() if p.is_dir()}
 if actual != set(books):
     raise SystemExit(f'Book scope changed; review before selecting: {actual ^ set(books)}')

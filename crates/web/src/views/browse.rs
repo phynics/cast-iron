@@ -1,10 +1,20 @@
-//! Browse: categories and publications, A to Z lists, the rules hierarchy, and publication pages.
+//! Browse: the hub with its two paths (by category, by book), category pages with their lenses,
+//! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
+use crate::js;
 use crate::library::{Library, use_library};
 use crate::route::{Route, scroll_to_anchor};
-use crate::views::util::{group_letter, set_title, sort_key};
+use crate::views::categories::{self, Lens};
+use crate::views::search::{facet_label, sort_facet_pairs};
+use crate::views::util::{Shared, group_letter, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
+
+/// Rows built before the first paint of an A to Z list, and rows added per step after it.
+/// A step is one task, so the page stays responsive while the rest of a long list arrives.
+const FIRST_ROWS: usize = 240;
+const STEP_ROWS: usize = 480;
 
 // ---- pure helpers -----------------------------------------------------------------------
 
@@ -69,6 +79,18 @@ pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode>
         .collect()
 }
 
+/// How many letter groups to show now so that at least `rows` rows are built, starting after
+/// `from` groups. Always makes progress while groups remain.
+pub fn groups_for_rows(groups: &[(char, Vec<usize>)], from: usize, rows: usize) -> usize {
+    let mut shown = from;
+    let mut built = 0;
+    while shown < groups.len() && (built < rows || shown == from) {
+        built += groups[shown].1.len();
+        shown += 1;
+    }
+    shown
+}
+
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.entries_of_kind(kind).cloned().collect();
@@ -87,33 +109,125 @@ fn entry_row(stub: &EntryStub, source: Option<String>) -> impl IntoView + use<> 
     }
 }
 
+/// The two ways into the library. Both are links, so the choice is in the URL and Back works.
+#[component]
+fn BrowseTabs(by_book: bool) -> impl IntoView {
+    let library = use_library();
+    let books = library.has_books();
+    view! {
+        <nav class="paths" aria-label="Browse by">
+            <a class="path" href=Route::Browse.href() aria-current=(!by_book).then_some("page")>
+                <span class="path-name">"By category"</span>
+                <span class="path-note">"Rules, spells, feats, classes, and the rest"</span>
+            </a>
+            {books.then(|| view! {
+                <a class="path" href=Route::Books.href() aria-current=by_book.then_some("page")>
+                    <span class="path-name">"By book"</span>
+                    <span class="path-note">"Book sections and contents"</span>
+                </a>
+            })}
+        </nav>
+    }
+}
+
+fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
+    view! {
+        <li>
+            <a class="cat" href=Route::BrowseKind(kind).href()>
+                <span class="cat-name">{kind.label()}</span>
+                <span class="cat-count">{n}</span>
+                <span class="cat-blurb">{categories::blurb(kind)}</span>
+            </a>
+        </li>
+    }
+}
+
 #[component]
 pub fn Browse() -> impl IntoView {
     set_title("Browse");
     let library = use_library();
-    let kinds = library
-        .kind_counts()
+    let (primary, more) = categories::arrange(&library.kind_counts());
+    let primary = primary
         .into_iter()
-        .map(|(kind, n)| {
-            view! {
-                <li>
-                    <a class="tile" href=Route::BrowseKind(kind).href()>
-                        <span class="tile-name">{kind.label()}</span>
-                        <span class="tile-count">{n}</span>
-                    </a>
-                </li>
-            }
-        })
+        .map(|(kind, n)| category_card(kind, n))
         .collect_view();
-    let sources = library
+    let more_section = (!more.is_empty()).then(|| {
+        let rows = more
+            .into_iter()
+            .map(|(kind, n)| category_card(kind, n))
+            .collect_view();
+        view! {
+            <section aria-labelledby="by-kind-more">
+                <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
+                <ul class="cats cats-quiet">{rows}</ul>
+            </section>
+        }
+    });
+    let shortcuts = library.has_spell_lists().then(|| {
+        view! {
+            <section aria-labelledby="shortcuts">
+                <h2 id="shortcuts" class="sub-head">"Shortcuts"</h2>
+                <ul class="pill-list">
+                    <li><a class="pill" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
+                    <li><a class="pill" href=Route::FeatChains.href()>"Feat chains"</a></li>
+                </ul>
+            </section>
+        }
+    });
+    view! {
+        <div class="wide">
+            <h1>"Browse"</h1>
+            <BrowseTabs by_book=false />
+            <section aria-labelledby="by-kind">
+                <h2 id="by-kind" class="sub-head">"By category"</h2>
+                <ul class="cats">{primary}</ul>
+            </section>
+            {more_section}
+            {shortcuts}
+        </div>
+    }
+}
+
+/// The list of books. Titles and counts come from the catalog, so the page does not wait for
+/// `books.json`; the chapter count arrives with it.
+#[component]
+pub fn Books() -> impl IntoView {
+    set_title("Books");
+    let library = use_library();
+    let lookup = {
+        let library = library.clone();
+        local_resource(async move { library.books().await })
+    };
+    let rows = library
         .sources()
         .iter()
-        .map(|s| {
+        .map(|source| {
+            let id = source.id.clone();
+            let href = Route::Book {
+                source: id.clone(),
+                chapter: None,
+            }
+            .href();
+            let chapters = {
+                let id = id.clone();
+                move || {
+                    lookup.with(|state| match state {
+                        Some(Ok(Some(books))) => books
+                            .book(&id)
+                            .map(|b| format!("{} chapters", b.chapters.len())),
+                        _ => None,
+                    })
+                }
+            };
             view! {
                 <li>
-                    <a class="tile tile-wide" href=Route::BrowseSource(s.id.clone()).href()>
-                        <span class="tile-name">{s.title.clone()}</span>
-                        <span class="tile-count">{s.entry_count}</span>
+                    <a class="cat book-card" href=href>
+                        <span class="cat-name">{source.title.clone()}</span>
+                        <span class="cat-count">{source.entry_count}</span>
+                        <span class="cat-blurb">
+                            {format!("{} entries", source.entry_count)}
+                            {move || chapters().map(|c| format!(" · {c}"))}
+                        </span>
                     </a>
                 </li>
             }
@@ -121,16 +235,211 @@ pub fn Browse() -> impl IntoView {
         .collect_view();
     view! {
         <div class="wide">
-        <h1>"Browse"</h1>
-        <section aria-labelledby="by-kind">
-            <h2 id="by-kind">"By category"</h2>
-            <ul class="tiles">{kinds}</ul>
-        </section>
-        <section aria-labelledby="by-source">
-            <h2 id="by-source">"By publication"</h2>
-            <ul class="tiles">{sources}</ul>
-        </section>
+            <h1>"Browse"</h1>
+            <BrowseTabs by_book=true />
+            <section aria-labelledby="by-book">
+                <h2 id="by-book" class="sub-head">"By book"</h2>
+                <p class="muted measure">
+                    "Browse each book through its sections and contents. "
+                    "Each book explains which parts of its order still need checking against the printed contents."
+                </p>
+                <ul class="cats">{rows}</ul>
+            </section>
         </div>
+    }
+}
+
+/// One group of lens chips, with the first few shown and the rest behind a disclosure.
+#[component]
+fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl IntoView {
+    const VISIBLE: usize = 16;
+    let library = use_library();
+    let values = local_resource(async move {
+        library.search_index().await.map(|index| {
+            let mut values: Vec<(String, u32)> = index
+                .facet_values(field)
+                .into_iter()
+                .filter(|(v, _)| !categories::lens_skips(kind, field, v))
+                .collect();
+            sort_facet_pairs(field, &mut values);
+            values
+        })
+    });
+    let chip = move |(value, n): (String, u32)| {
+        let route = Route::Search {
+            q: String::new(),
+            kinds: vec![kind],
+            sources: Vec::new(),
+            facets: vec![(field.to_string(), value.clone())],
+        };
+        view! {
+            <li>
+                <a class="chip-link lens-chip" href=route.href()>
+                    {facet_label(field, &value)}<small>{n}</small>
+                </a>
+            </li>
+        }
+    };
+    view! {
+        <section class="lens" aria-labelledby=format!("lens-{field}")>
+            <h2 id=format!("lens-{field}") class="sub-head">{label}</h2>
+            {move || values.with(|state| match state {
+                None => view! { <p class="hint lens-wait" role="status">"Loading filters…"</p> }.into_any(),
+                Some(Err(_)) => view! {
+                    <p class="hint">"The filters could not be loaded. Search still works."</p>
+                }.into_any(),
+                Some(Ok(values)) if values.is_empty() => ().into_any(),
+                Some(Ok(values)) => {
+                    let (first, rest) = values.split_at(values.len().min(VISIBLE));
+                    let first = first.iter().cloned().map(chip).collect_view();
+                    let rest_view = (!rest.is_empty()).then(|| {
+                        let n = rest.len();
+                        let rest = rest.iter().cloned().map(chip).collect_view();
+                        view! {
+                            <details class="lens-more">
+                                <summary>{format!("{n} more")}</summary>
+                                <ul class="lens-chips">{rest}</ul>
+                            </details>
+                        }
+                    });
+                    view! {
+                        <ul class="lens-chips">{first}</ul>
+                        {rest_view}
+                    }.into_any()
+                }
+            })}
+        </section>
+    }
+}
+
+#[component]
+fn Lenses(kind: EntryKind) -> impl IntoView {
+    let all = categories::lenses(kind);
+    if all.is_empty() {
+        return ().into_any();
+    }
+    let library = use_library();
+    let mut pages = Vec::new();
+    let mut facets = Vec::new();
+    for lens in all {
+        match lens {
+            Lens::Page {
+                label,
+                blurb,
+                route,
+            } => {
+                // The spell and feat pages need the schema-3 files; an old library has none.
+                let usable = match route {
+                    Route::Spells => library.has_spell_lists(),
+                    Route::FeatChains => library.has_relations(),
+                    _ => true,
+                };
+                if usable {
+                    pages.push((label, blurb, route));
+                }
+            }
+            Lens::Facet { field, label } => facets.push((field, label)),
+        }
+    }
+    let pages = pages
+        .into_iter()
+        .map(|(label, blurb, route)| {
+            view! {
+                <li>
+                    <a class="lens-page" href=route.href()>
+                        <span class="lens-page-name">{label}</span>
+                        <span class="lens-page-note">{blurb}</span>
+                    </a>
+                </li>
+            }
+        })
+        .collect_view();
+    let facets = facets
+        .into_iter()
+        .map(|(field, label)| view! { <FacetLens kind field label /> })
+        .collect_view();
+    view! {
+        <div class="lenses">
+            <ul class="lens-pages">{pages}</ul>
+            {facets}
+        </div>
+    }
+    .into_any()
+}
+
+/// An A to Z list that builds its rows in steps. The first screenful is there at once; the rest
+/// follows task by task, so a 3,500-row category never blocks input. Every row ends up in the
+/// document, which keeps find-in-page working.
+#[component]
+fn AzList(stubs: Vec<EntryStub>, source_titles: Vec<Option<String>>) -> impl IntoView {
+    let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
+    let groups = Shared::new(group_by_letter(&titles));
+    let stubs = Shared::new(stubs);
+    let source_titles = Shared::new(source_titles);
+    let shown = RwSignal::new(groups_for_rows(&groups, 0, FIRST_ROWS));
+
+    {
+        let groups = groups.clone();
+        spawn_local(async move {
+            loop {
+                js::sleep(0).await;
+                let Some(current) = shown.try_get_untracked() else {
+                    return;
+                };
+                if current >= groups.len() {
+                    return;
+                }
+                shown.set(groups_for_rows(&groups, current, STEP_ROWS));
+            }
+        });
+    }
+
+    let jump = groups
+        .iter()
+        .enumerate()
+        .map(|(position, (letter, _))| {
+            let id = letter_id(*letter);
+            let label = letter.to_string();
+            view! {
+                <li>
+                    <button
+                        type="button"
+                        class="letter-btn"
+                        aria-label=format!("Jump to {label}")
+                        on:click=move |_| {
+                            // The group may not be built yet; build up to it, then scroll.
+                            if shown.get_untracked() <= position {
+                                shown.set(position + 1);
+                            }
+                            let id = id.clone();
+                            request_animation_frame(move || { scroll_to_anchor(&id); });
+                        }
+                    >{label.clone()}</button>
+                </li>
+            }
+        })
+        .collect_view();
+
+    let group_rows = {
+        let groups = groups.clone();
+        let stubs = stubs.clone();
+        move |position: usize| {
+            let (letter, indices) = &groups[position];
+            let rows = indices
+                .iter()
+                .map(|&i| entry_row(&stubs[i], source_titles[i].clone()))
+                .collect_view();
+            view! {
+                <section class="letter-group" id=letter_id(*letter)>
+                    <h2 class="letter-head">{letter.to_string()}</h2>
+                    <ul class="entry-list">{rows}</ul>
+                </section>
+            }
+        }
+    };
+    view! {
+        <nav class="letter-nav" aria-label="Jump to letter"><ul>{jump}</ul></nav>
+        <For each=move || 0..shown.get() key=|position| *position children=group_rows />
     }
 }
 
@@ -141,14 +450,6 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
     let stubs = sorted_of_kind(&library, kind);
     let count = stubs.len();
     let multi_source = stubs.iter().any(|s| s.source != stubs[0].source);
-    let source_of = {
-        let library = library.clone();
-        move |stub: &EntryStub| {
-            multi_source
-                .then(|| library.source(&stub.source).map(|s| s.title.clone()))
-                .flatten()
-        }
-    };
 
     let body = if kind == EntryKind::Rule {
         let items: Vec<(EntryId, Option<EntryId>, String)> = stubs
@@ -158,45 +459,15 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
         let tree = build_tree(&items);
         view! { <ul class="tree">{tree_view(&tree, &stubs)}</ul> }.into_any()
     } else {
-        let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
-        let groups = group_by_letter(&titles);
-        let jump = groups
+        let source_titles: Vec<Option<String>> = stubs
             .iter()
-            .map(|(letter, _)| {
-                let id = letter_id(*letter);
-                let label = letter.to_string();
-                view! {
-                    <li>
-                        <button
-                            type="button"
-                            class="letter-btn"
-                            aria-label=format!("Jump to {label}")
-                            on:click=move |_| { scroll_to_anchor(&id); }
-                        >{label.clone()}</button>
-                    </li>
-                }
+            .map(|s| {
+                multi_source
+                    .then(|| library.source(&s.source).map(|src| src.title.clone()))
+                    .flatten()
             })
-            .collect_view();
-        let sections = groups
-            .iter()
-            .map(|(letter, indices)| {
-                let rows = indices
-                    .iter()
-                    .map(|&i| entry_row(&stubs[i], source_of(&stubs[i])))
-                    .collect_view();
-                view! {
-                    <section class="letter-group" id=letter_id(*letter)>
-                        <h2 class="letter-head">{letter.to_string()}</h2>
-                        <ul class="entry-list">{rows}</ul>
-                    </section>
-                }
-            })
-            .collect_view();
-        view! {
-            <nav class="letter-nav" aria-label="Jump to letter"><ul>{jump}</ul></nav>
-            {sections}
-        }
-        .into_any()
+            .collect();
+        view! { <AzList stubs=stubs.clone() source_titles /> }.into_any()
     };
 
     let search_href = Route::Search {
@@ -212,12 +483,15 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
             <ol><li><a href=Route::Browse.href()>"Browse"</a></li></ol>
         </nav>
         <h1>{kind.label()}</h1>
+        <p class="lede-line">{categories::blurb(kind)}</p>
         <p class="muted">
             {format!("{count} entries")}" · "
             <a href=search_href>
                 {format!("Search {}", kind.label().to_lowercase())}
             </a>
         </p>
+        <Lenses kind />
+        <h2 class="sub-head az-head">"All, A to Z"</h2>
         {body}
         </div>
     }
@@ -255,7 +529,7 @@ fn tree_view(nodes: &[TreeNode], stubs: &[EntryStub]) -> Vec<AnyView> {
 }
 
 #[component]
-pub fn BrowseSource(id: String) -> impl IntoView {
+pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
     let library = use_library();
     let Some(source) = library.source(&id).cloned() else {
         set_title("Publication not found");
@@ -310,6 +584,10 @@ pub fn BrowseSource(id: String) -> impl IntoView {
             }
         })
         .collect_view();
+    if bare {
+        // Inside the book view, which already has the title, copyright line, and legal link.
+        return view! { <div class="kind-groups">{groups}</div> }.into_any();
+    }
     let copyright = source.copyright.clone();
     view! {
         <div class="wide">
@@ -347,6 +625,20 @@ mod tests {
                 ('#', vec![0])
             ]
         );
+    }
+
+    #[test]
+    fn rows_are_built_in_whole_letter_groups_and_always_progress() {
+        let groups = vec![('A', vec![0; 300]), ('B', vec![0; 300]), ('C', vec![0; 10])];
+        // The first call builds at least the rows asked for, in whole groups.
+        assert_eq!(groups_for_rows(&groups, 0, 240), 1);
+        assert_eq!(groups_for_rows(&groups, 0, 301), 2);
+        // A step builds one group even when it alone is larger than the step.
+        assert_eq!(groups_for_rows(&groups, 1, 10), 2);
+        assert_eq!(groups_for_rows(&groups, 1, 1000), 3);
+        // Past the end it stays at the end.
+        assert_eq!(groups_for_rows(&groups, 3, 100), 3);
+        assert_eq!(groups_for_rows(&[], 0, 100), 0);
     }
 
     #[test]

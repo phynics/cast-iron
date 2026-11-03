@@ -68,8 +68,9 @@ impl std::error::Error for PlanError {}
 
 /// Checks a manifest and says what is wrong with it, before any download starts.
 pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
-    // Schema 2 adds a category; its reader can still open schema-1 libraries.
-    if ![1, 2].contains(&manifest.schema_version) {
+    // Schema 2 adds a category and schema 3 adds kinds, relations, and the relation, spell-list,
+    // and book-order files; the reader still opens schema-1 and schema-2 libraries.
+    if ![1, 2, 3].contains(&manifest.schema_version) {
         return Err(PlanError::SchemaMismatch {
             found: manifest.schema_version,
             expected: SCHEMA_VERSION,
@@ -445,10 +446,12 @@ mod tests {
     }
 
     #[test]
-    fn schema_one_library_remains_readable_during_the_upgrade() {
+    fn schema_one_and_two_libraries_remain_readable_during_the_upgrade() {
         let mut old = manifest();
-        old.schema_version = 1;
-        assert_eq!(validate_manifest(&old), Ok(()));
+        for version in [1, 2] {
+            old.schema_version = version;
+            assert_eq!(validate_manifest(&old), Ok(()));
+        }
     }
 
     #[test]

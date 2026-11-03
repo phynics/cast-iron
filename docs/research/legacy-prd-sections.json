@@ -1,0 +1,808 @@
+{
+  "source": "https://legacy.aonprd.com/",
+  "evidence": "site_navigation_not_printed_contents",
+  "menus": [
+    {
+      "title": "Core Rulebook",
+      "links": [
+        {
+          "label": "Getting Started",
+          "url": "https://legacy.aonprd.com/coreRulebook/gettingStarted.html"
+        },
+        {
+          "label": "Races",
+          "url": "https://legacy.aonprd.com/coreRulebook/races.html"
+        },
+        {
+          "label": "Classes",
+          "url": "https://legacy.aonprd.com/coreRulebook/classes.html"
+        },
+        {
+          "label": "Using Skills",
+          "url": "https://legacy.aonprd.com/coreRulebook/usingSkills.html"
+        },
+        {
+          "label": "Skill Descriptions",
+          "url": "https://legacy.aonprd.com/coreRulebook/skillDescriptions.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/coreRulebook/feats.html"
+        },
+        {
+          "label": "Equipment",
+          "url": "https://legacy.aonprd.com/coreRulebook/equipment.html"
+        },
+        {
+          "label": "Additional Rules",
+          "url": "https://legacy.aonprd.com/coreRulebook/additionalRules.html"
+        },
+        {
+          "label": "Combat",
+          "url": "https://legacy.aonprd.com/coreRulebook/combat.html"
+        },
+        {
+          "label": "Magic",
+          "url": "https://legacy.aonprd.com/coreRulebook/magic.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/coreRulebook/spellLists.html"
+        },
+        {
+          "label": "Spell Index",
+          "url": "https://legacy.aonprd.com/coreRulebook/spellIndex.html"
+        },
+        {
+          "label": "Prestige Classes",
+          "url": "https://legacy.aonprd.com/coreRulebook/prestigeClasses.html"
+        },
+        {
+          "label": "Gamemastering",
+          "url": "https://legacy.aonprd.com/coreRulebook/gamemastering.html"
+        },
+        {
+          "label": "Environment",
+          "url": "https://legacy.aonprd.com/coreRulebook/environment.html"
+        },
+        {
+          "label": "NPC Classes",
+          "url": "https://legacy.aonprd.com/coreRulebook/nPCClasses.html"
+        },
+        {
+          "label": "Creating NPCs",
+          "url": "https://legacy.aonprd.com/coreRulebook/creatingNPCs.html"
+        },
+        {
+          "label": "Magic Items",
+          "url": "https://legacy.aonprd.com/coreRulebook/magicItems.html"
+        },
+        {
+          "label": "Glossary",
+          "url": "https://legacy.aonprd.com/coreRulebook/glossary.html"
+        }
+      ]
+    },
+    {
+      "title": "Advanced Class Guide",
+      "links": [
+        {
+          "label": "Classes",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/classes/index.html"
+        },
+        {
+          "label": "Archetypes and Class Options",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/classOptions/index.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/feats.html"
+        },
+        {
+          "label": "Spells",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/spells/index.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/spells/spellLists.html"
+        },
+        {
+          "label": "Gear and Magic Items",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/gear/index.html"
+        },
+        {
+          "label": "Designing Classes",
+          "url": "https://legacy.aonprd.com/advancedClassGuide/designingClasses.html"
+        }
+      ]
+    },
+    {
+      "title": "Advanced Player's Guide",
+      "links": [
+        {
+          "label": "Races",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedRaces.html"
+        },
+        {
+          "label": "Base Classes",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedBaseClasses.html"
+        },
+        {
+          "label": "Core Classes",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedCoreClasses.html"
+        },
+        {
+          "label": "Prestige Classes",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedPrestigeClasses.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedFeats.html"
+        },
+        {
+          "label": "Gear",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedGear.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedSpellLists.html"
+        },
+        {
+          "label": "Spell Index",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedSpellIndex.html"
+        },
+        {
+          "label": "Magic Items",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedMagicItems.html"
+        },
+        {
+          "label": "New Rules",
+          "url": "https://legacy.aonprd.com/advancedPlayersGuide/advancedNewRules.html"
+        }
+      ]
+    },
+    {
+      "title": "Advanced Race Guide",
+      "links": [
+        {
+          "label": "Core Races",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/coreRaces.html"
+        },
+        {
+          "label": "Featured Races",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/featuredRaces.html"
+        },
+        {
+          "label": "Uncommon Races",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/uncommonRaces.html"
+        },
+        {
+          "label": "Race Builder",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/raceBuilder.html"
+        },
+        {
+          "label": "Age, Height & Weight",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/ageHeightWeight.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/advancedRaceGuide/spellLists.html"
+        }
+      ]
+    },
+    {
+      "title": "Bestiaries",
+      "links": [
+        {
+          "label": "Monster Introduction",
+          "url": "https://legacy.aonprd.com/bestiary/introduction.html"
+        },
+        {
+          "label": "Global Bestiary Indices",
+          "url": "https://legacy.aonprd.com/indices/bestiary.html"
+        },
+        {
+          "label": "Bestiary Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary/monsterIndex.html"
+        },
+        {
+          "label": "Bestiary 2 Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary2/additionalMonsterIndex.html"
+        },
+        {
+          "label": "Bestiary 3 Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary3/monsterIndex.html"
+        },
+        {
+          "label": "Bestiary 4 Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary4/monsterIndex.html"
+        },
+        {
+          "label": "Bestiary 5 Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary5/index.html"
+        },
+        {
+          "label": "Variant Monster Index",
+          "url": "https://legacy.aonprd.com/bestiary/variantMonsterIndex.html"
+        },
+        {
+          "label": "Monster Cohorts",
+          "url": "https://legacy.aonprd.com/bestiary/monsterCohorts.html"
+        },
+        {
+          "label": "Animal Companions",
+          "url": "https://legacy.aonprd.com/bestiary/animalCompanions.html"
+        },
+        {
+          "label": "Monsters as PCs",
+          "url": "https://legacy.aonprd.com/bestiary/monstersAsPCs.html"
+        },
+        {
+          "label": "Monster Roles",
+          "url": "https://legacy.aonprd.com/bestiary/monsterRoles.html"
+        },
+        {
+          "label": "Bestiary Encounter Tables",
+          "url": "https://legacy.aonprd.com/bestiary/encounterTables.html"
+        },
+        {
+          "label": "Monster Creation",
+          "url": "https://legacy.aonprd.com/bestiary/monsterCreation.html"
+        },
+        {
+          "label": "Monster Advancement",
+          "url": "https://legacy.aonprd.com/bestiary/monsterAdvancement.html"
+        },
+        {
+          "label": "Universal Monster Rules",
+          "url": "https://legacy.aonprd.com/bestiary/universalMonsterRules.html"
+        },
+        {
+          "label": "Creature Types",
+          "url": "https://legacy.aonprd.com/bestiary/creatureTypes.html"
+        },
+        {
+          "label": "Monster Feats",
+          "url": "https://legacy.aonprd.com/bestiary/monsterFeats.html"
+        }
+      ]
+    },
+    {
+      "title": "Game Mastery Guide",
+      "links": [
+        {
+          "label": "Planar Adventures",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/planarAdventures.html"
+        },
+        {
+          "label": "Settlements",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/settlements.html"
+        },
+        {
+          "label": "Fast Play Ship Combat",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/fastPlayShipCombat.html"
+        },
+        {
+          "label": "Chases",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/chases.html"
+        },
+        {
+          "label": "Disasters",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/disasters.html"
+        },
+        {
+          "label": "Drugs and Addiction",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/drugsAndAddiction.html"
+        },
+        {
+          "label": "Haunts",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/haunts.html"
+        },
+        {
+          "label": "Hazards",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/hazards.html"
+        },
+        {
+          "label": "Sanity and Madness",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/sanityAndMadness.html"
+        },
+        {
+          "label": "NPC Boons",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/nPCBoons.html"
+        },
+        {
+          "label": "NPC Gallery",
+          "url": "https://legacy.aonprd.com/gameMasteryGuide/nPCGallery.html"
+        }
+      ]
+    },
+    {
+      "title": "Monster Codex",
+      "links": [
+        {
+          "label": "Boggards",
+          "url": "https://legacy.aonprd.com/monsterCodex/boggards.html"
+        },
+        {
+          "label": "Bugbears",
+          "url": "https://legacy.aonprd.com/monsterCodex/bugbears.html"
+        },
+        {
+          "label": "Drow",
+          "url": "https://legacy.aonprd.com/monsterCodex/drow.html"
+        },
+        {
+          "label": "Duergar",
+          "url": "https://legacy.aonprd.com/monsterCodex/duergar.html"
+        },
+        {
+          "label": "Fire Giants",
+          "url": "https://legacy.aonprd.com/monsterCodex/fireGiants.html"
+        },
+        {
+          "label": "Frost Giants",
+          "url": "https://legacy.aonprd.com/monsterCodex/frostGiants.html"
+        },
+        {
+          "label": "Ghouls",
+          "url": "https://legacy.aonprd.com/monsterCodex/ghouls.html"
+        },
+        {
+          "label": "Gnolls",
+          "url": "https://legacy.aonprd.com/monsterCodex/gnolls.html"
+        },
+        {
+          "label": "Goblins",
+          "url": "https://legacy.aonprd.com/monsterCodex/goblins.html"
+        },
+        {
+          "label": "Hobgoblins",
+          "url": "https://legacy.aonprd.com/monsterCodex/hobgoblins.html"
+        },
+        {
+          "label": "Kobolds",
+          "url": "https://legacy.aonprd.com/monsterCodex/kobolds.html"
+        },
+        {
+          "label": "Lizardfolk",
+          "url": "https://legacy.aonprd.com/monsterCodex/lizardfolk.html"
+        },
+        {
+          "label": "Ogres",
+          "url": "https://legacy.aonprd.com/monsterCodex/ogres.html"
+        },
+        {
+          "label": "Orcs",
+          "url": "https://legacy.aonprd.com/monsterCodex/orcs.html"
+        },
+        {
+          "label": "Ratfolk",
+          "url": "https://legacy.aonprd.com/monsterCodex/ratfolk.html"
+        },
+        {
+          "label": "Sahuagin",
+          "url": "https://legacy.aonprd.com/monsterCodex/sahuagin.html"
+        },
+        {
+          "label": "Serpentfolk",
+          "url": "https://legacy.aonprd.com/monsterCodex/serpentfolk.html"
+        },
+        {
+          "label": "Troglodytes",
+          "url": "https://legacy.aonprd.com/monsterCodex/troglodytes.html"
+        },
+        {
+          "label": "Trolls",
+          "url": "https://legacy.aonprd.com/monsterCodex/trolls.html"
+        },
+        {
+          "label": "Vampires",
+          "url": "https://legacy.aonprd.com/monsterCodex/vampires.html"
+        },
+        {
+          "label": "Modifying Monsters",
+          "url": "https://legacy.aonprd.com/monsterCodex/appendix.html"
+        }
+      ]
+    },
+    {
+      "title": "Mythic Adventures",
+      "links": [
+        {
+          "label": "Glossary",
+          "url": "https://legacy.aonprd.com/mythicAdventures/glossary.html"
+        },
+        {
+          "label": "Mythic Heroes",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicHeroes.html"
+        },
+        {
+          "label": "Mythic Feats",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicFeats.html"
+        },
+        {
+          "label": "Mythic Spells",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicSpells.html"
+        },
+        {
+          "label": "Mythic Spell Index",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicSpells/spellIndex.html"
+        },
+        {
+          "label": "Mythic Spell Lists",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicSpells/spellLists.html"
+        },
+        {
+          "label": "Running a Mythic Game",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicGame.html"
+        },
+        {
+          "label": "Mythic Magic Items",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicItems.html"
+        },
+        {
+          "label": "Mythic Monsters",
+          "url": "https://legacy.aonprd.com/mythicAdventures/mythicMonsters.html"
+        }
+      ]
+    },
+    {
+      "title": "NPC Codex",
+      "links": [
+        {
+          "label": "Core Classes",
+          "url": "https://legacy.aonprd.com/npcCodex/core/index.html"
+        },
+        {
+          "label": "Prestige Classes",
+          "url": "https://legacy.aonprd.com/npcCodex/prestige/index.html"
+        },
+        {
+          "label": "NPC Classes",
+          "url": "https://legacy.aonprd.com/npcCodex/npc/index.html"
+        },
+        {
+          "label": "Appendix",
+          "url": "https://legacy.aonprd.com/npcCodex/appendix.html"
+        }
+      ]
+    },
+    {
+      "title": "Pathfinder Unchained",
+      "links": [
+        {
+          "label": "Classes",
+          "url": "https://legacy.aonprd.com/unchained/classes/index.html"
+        },
+        {
+          "label": "Skills and Options",
+          "url": "https://legacy.aonprd.com/unchained/skillsAndOptions/index.html"
+        },
+        {
+          "label": "Gameplay",
+          "url": "https://legacy.aonprd.com/unchained/gameplay/index.html"
+        },
+        {
+          "label": "Magic",
+          "url": "https://legacy.aonprd.com/unchained/magic/index.html"
+        },
+        {
+          "label": "Monsters",
+          "url": "https://legacy.aonprd.com/unchained/monsters/index.html"
+        }
+      ]
+    },
+    {
+      "title": "Occult Adventures",
+      "links": [
+        {
+          "label": "Occult Classes",
+          "url": "https://legacy.aonprd.com/occultAdventures/classes/index.html"
+        },
+        {
+          "label": "Archetypes",
+          "url": "https://legacy.aonprd.com/occultAdventures/archetypes/index.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/occultAdventures/feats.html"
+        },
+        {
+          "label": "Psychic Magic",
+          "url": "https://legacy.aonprd.com/occultAdventures/psychicMagic.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/occultAdventures/spellLists.html"
+        },
+        {
+          "label": "Spells",
+          "url": "https://legacy.aonprd.com/occultAdventures/spells/index.html"
+        },
+        {
+          "label": "Occult Rules",
+          "url": "https://legacy.aonprd.com/occultAdventures/occultRules.html"
+        },
+        {
+          "label": "Running an Occult Game",
+          "url": "https://legacy.aonprd.com/occultAdventures/occultGame.html"
+        },
+        {
+          "label": "Occult Rewards",
+          "url": "https://legacy.aonprd.com/occultAdventures/occultRewards.html"
+        }
+      ]
+    },
+    {
+      "title": "Ultimate Campaign",
+      "links": [
+        {
+          "label": "Character Background",
+          "url": "https://legacy.aonprd.com/ultimateCampaign/characterBackground.html"
+        },
+        {
+          "label": "Downtime",
+          "url": "https://legacy.aonprd.com/ultimateCampaign/downtime.html"
+        },
+        {
+          "label": "Campaign Systems",
+          "url": "https://legacy.aonprd.com/ultimateCampaign/campaignSystems.html"
+        },
+        {
+          "label": "Kingdoms and War",
+          "url": "https://legacy.aonprd.com/ultimateCampaign/kingdomsAndWar.html"
+        }
+      ]
+    },
+    {
+      "title": "Ultimate Combat",
+      "links": [
+        {
+          "label": "Gunslinger",
+          "url": "https://legacy.aonprd.com/ultimateCombat/classes/gunslinger.html"
+        },
+        {
+          "label": "Ninja",
+          "url": "https://legacy.aonprd.com/ultimateCombat/classes/ninja.html"
+        },
+        {
+          "label": "Samurai",
+          "url": "https://legacy.aonprd.com/ultimateCombat/classes/samurai.html"
+        },
+        {
+          "label": "Class Archetypes",
+          "url": "https://legacy.aonprd.com/ultimateCombat/classArchetypes.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/ultimateCombat/ultimateCombatFeats.html"
+        },
+        {
+          "label": "Mastering Combat",
+          "url": "https://legacy.aonprd.com/ultimateCombat/combat/introduction.html"
+        },
+        {
+          "label": "Vehicles",
+          "url": "https://legacy.aonprd.com/ultimateCombat/ultimateCombatVehicles.html"
+        },
+        {
+          "label": "Variant Rules",
+          "url": "https://legacy.aonprd.com/ultimateCombat/variants/introduction.html"
+        },
+        {
+          "label": "Spell Index",
+          "url": "https://legacy.aonprd.com/ultimateCombat/ultimateCombatSpellIndex.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/ultimateCombat/ultimateCombatSpellLists.html"
+        }
+      ]
+    },
+    {
+      "title": "Ultimate Equipment",
+      "links": [
+        {
+          "label": "Arms and Armor",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/armsAndArmor/index.html"
+        },
+        {
+          "label": "Gear",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/gear/index.html"
+        },
+        {
+          "label": "Magic Arms and Armor",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/magicArmsAndArmor/index.html"
+        },
+        {
+          "label": "Rings, Rods, and Staves",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/ringsRodsStaves/index.html"
+        },
+        {
+          "label": "Wondrous Items",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/wondrousItems/index.html"
+        },
+        {
+          "label": "Artifacts and Other Items",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/artifactsAndOthers/index.html"
+        },
+        {
+          "label": "Appendix",
+          "url": "https://legacy.aonprd.com/ultimateEquipment/appendix.html"
+        }
+      ]
+    },
+    {
+      "title": "Ultimate Magic",
+      "links": [
+        {
+          "label": "Magus",
+          "url": "https://legacy.aonprd.com/ultimateMagic/spellcasters/magus.html"
+        },
+        {
+          "label": "Spellcasting Class Options",
+          "url": "https://legacy.aonprd.com/ultimateMagic/spellcastingClassOptions.html"
+        },
+        {
+          "label": "Mastering Magic",
+          "url": "https://legacy.aonprd.com/ultimateMagic/magic/introduction.html"
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/ultimateMagic/ultimateMagicFeats.html"
+        },
+        {
+          "label": "Words of Power",
+          "url": "https://legacy.aonprd.com/ultimateMagic/ultimateMagicWordsOfPower.html"
+        },
+        {
+          "label": "Spells",
+          "url": "https://legacy.aonprd.com/ultimateMagic/ultimateMagicSpellIndex.html"
+        },
+        {
+          "label": "Spell Lists",
+          "url": "https://legacy.aonprd.com/ultimateMagic/ultimateMagicSpellLists.html"
+        },
+        {
+          "label": "Updates",
+          "url": "https://legacy.aonprd.com/ultimateMagic/ultimateMagicAppendices.html"
+        }
+      ]
+    },
+    {
+      "title": "Technology Guide",
+      "links": [
+        {
+          "label": "Skills",
+          "url": "https://legacy.aonprd.com/technologyGuide/skills.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Feats",
+          "url": "https://legacy.aonprd.com/technologyGuide/feats.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Spells",
+          "url": "https://legacy.aonprd.com/technologyGuide/spells.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Archetypes",
+          "url": "https://legacy.aonprd.com/technologyGuide/archetypes.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Technomancer",
+          "url": "https://legacy.aonprd.com/technologyGuide/technomancer.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Crafting",
+          "url": "https://legacy.aonprd.com/technologyGuide/crafting.html",
+          "groups": [
+            "Technology in the World"
+          ]
+        },
+        {
+          "label": "Introduction",
+          "url": "https://legacy.aonprd.com/technologyGuide/equipmentIntroduction.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Weapons",
+          "url": "https://legacy.aonprd.com/technologyGuide/weapons.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Armor",
+          "url": "https://legacy.aonprd.com/technologyGuide/armor.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Pharmaceuticals",
+          "url": "https://legacy.aonprd.com/technologyGuide/pharmaceuticals.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Cybertech",
+          "url": "https://legacy.aonprd.com/technologyGuide/cybertech.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Gear",
+          "url": "https://legacy.aonprd.com/technologyGuide/gear.html",
+          "groups": [
+            "Equipment"
+          ]
+        },
+        {
+          "label": "Hazards",
+          "url": "https://legacy.aonprd.com/technologyGuide/hazards.html",
+          "groups": [
+            "Hazards and Artifacts"
+          ]
+        },
+        {
+          "label": "Artificial Intelligences",
+          "url": "https://legacy.aonprd.com/technologyGuide/ai.html",
+          "groups": [
+            "Hazards and Artifacts"
+          ]
+        },
+        {
+          "label": "Artifacts",
+          "url": "https://legacy.aonprd.com/technologyGuide/artifacts.html",
+          "groups": [
+            "Hazards and Artifacts"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Index",
+      "links": [
+        {
+          "label": "Bestiary Index",
+          "url": "https://legacy.aonprd.com/indices/bestiary.html"
+        },
+        {
+          "label": "Feats Index",
+          "url": "https://legacy.aonprd.com/indices/feats.html"
+        },
+        {
+          "label": "Spell List Index",
+          "url": "https://legacy.aonprd.com/indices/spelllists.html"
+        },
+        {
+          "label": "Template Index",
+          "url": "https://legacy.aonprd.com/indices/templates.html"
+        }
+      ]
+    },
+    {
+      "title": "Open Game License",
+      "links": []
+    }
+  ]
+}

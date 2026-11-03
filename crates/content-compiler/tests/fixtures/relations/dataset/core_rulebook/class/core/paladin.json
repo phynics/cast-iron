@@ -1,0 +1,9 @@
+{
+ "name": "Paladin",
+ "url": "pfsrd://Core Rulebook/Classes/Paladin",
+ "source": "Core Rulebook",
+ "type": "class",
+ "subtype": "core",
+ "hit_die": "d10",
+ "body": "<p>Through a select, worthy few shines the power of the divine.</p>"
+}

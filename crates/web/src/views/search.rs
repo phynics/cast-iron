@@ -67,6 +67,9 @@ pub fn facet_fields_of(kind: EntryKind) -> &'static [(&'static str, &'static str
         ],
         EntryKind::Item => &[("item_category", "Category"), ("slot", "Slot")],
         EntryKind::Class | EntryKind::PrestigeClass => &[("class_type", "Class type")],
+        EntryKind::Race => &[("race_group", "Race group")],
+        EntryKind::Trait => &[("trait_category", "Trait category")],
+        EntryKind::Archetype => &[("archetype_class", "Class")],
         _ => &[],
     }
 }
@@ -106,13 +109,51 @@ pub fn toggled<T: PartialEq + Clone>(list: &[T], item: &T) -> Vec<T> {
 
 /// Orders facet values for display: levels numerically, CR by value, the rest alphabetically.
 pub fn sort_facet_values(field: &str, values: &mut [String]) {
+    values.sort_by_cached_key(|v| facet_sort_key(field, v));
+}
+
+/// The same order for `(value, count)` pairs.
+pub fn sort_facet_pairs(field: &str, values: &mut [(String, u32)]) {
+    values.sort_by_cached_key(|(v, _)| facet_sort_key(field, v));
+}
+
+fn facet_sort_key(field: &str, value: &str) -> (u32, String) {
     match field {
-        "spell_level" => values.sort_by_key(|v| v.parse::<u32>().unwrap_or(u32::MAX)),
-        "cr" => {
-            values.sort_by_key(|v| ChallengeRating::parse(v).map_or(u32::MAX, |c| c.twenty_fourths))
-        }
-        _ => values.sort_by_key(|v| v.to_lowercase()),
+        "spell_level" => (value.parse::<u32>().unwrap_or(u32::MAX), String::new()),
+        "cr" => (
+            ChallengeRating::parse(value).map_or(u32::MAX, |c| c.twenty_fourths),
+            String::new(),
+        ),
+        _ => (0, value.to_lowercase()),
     }
+}
+
+/// The text of a facet value on screen. The value itself stays what the index holds, because
+/// routes and filters use it. Most values read well as they are; the ones below do not.
+pub fn facet_label(field: &str, value: &str) -> String {
+    match (field, value) {
+        ("race_group", "standard_race") => "Core Rulebook races".into(),
+        ("race_group", "core_race") => "Core races (Advanced Race Guide)".into(),
+        ("race_group", "featured_race") => "Featured races".into(),
+        ("race_group", "uncommon_race") => "Uncommon races".into(),
+        ("race_group", "monster_race") => "Monster races".into(),
+        ("class_type", "npc") => "NPC".into(),
+        ("class_type" | "trait_category" | "archetype_class", _) => capitalize_words(value),
+        _ => value.to_string(),
+    }
+}
+
+fn capitalize_words(text: &str) -> String {
+    text.split(' ')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -442,6 +483,7 @@ pub fn Search() -> impl IntoView {
                         <legend>{group.label}</legend>
                         <div class="chips chips-scroll">
                             {group.values.into_iter().map(|value| {
+                                let label = facet_label(field, &value);
                                 let pair = (field.to_string(), value.clone());
                                 let pair2 = pair.clone();
                                 let checked = move || state.with(|s| s.facets.contains(&pair));
@@ -452,7 +494,7 @@ pub fn Search() -> impl IntoView {
                                             prop:checked=checked
                                             on:change=move |_| change_filters(&|s| s.facets = toggled(&s.facets, &pair2))
                                         />
-                                        <span>{value}</span>
+                                        <span>{label}</span>
                                     </label>
                                 }
                             }).collect_view()}
@@ -715,6 +757,42 @@ mod tests {
             vec![("school".to_string(), "evocation".to_string())]
         );
         assert!(prune_facets(&facets, &[]).is_empty());
+    }
+
+    #[test]
+    fn new_kinds_offer_their_facets() {
+        for (kind, field) in [
+            (EntryKind::Race, "race_group"),
+            (EntryKind::Trait, "trait_category"),
+            (EntryKind::Archetype, "archetype_class"),
+        ] {
+            assert_eq!(facet_fields_for(&[kind])[0].0, field);
+        }
+    }
+
+    #[test]
+    fn facet_labels_read_well_and_leave_values_alone() {
+        assert_eq!(facet_label("race_group", "monster_race"), "Monster races");
+        assert_eq!(facet_label("class_type", "npc"), "NPC");
+        assert_eq!(facet_label("class_type", "base"), "Base");
+        assert_eq!(facet_label("trait_category", "combat"), "Combat");
+        assert_eq!(
+            facet_label("archetype_class", "arcane archer"),
+            "Arcane Archer"
+        );
+        // Fields that already read well are not touched.
+        assert_eq!(facet_label("school", "evocation"), "evocation");
+        assert_eq!(facet_label("cr", "1/2"), "1/2");
+        assert_eq!(facet_label("race_group", "unheard_of"), "unheard_of");
+    }
+
+    #[test]
+    fn facet_pairs_sort_with_their_counts() {
+        let mut pairs: Vec<(String, u32)> =
+            vec![("10".into(), 1), ("2".into(), 5), ("1/2".into(), 7)];
+        sort_facet_pairs("cr", &mut pairs);
+        assert_eq!(pairs[0], ("1/2".to_string(), 7));
+        assert_eq!(pairs[2], ("10".to_string(), 1));
     }
 
     #[test]

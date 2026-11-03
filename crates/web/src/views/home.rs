@@ -28,9 +28,10 @@ pub fn Home() -> impl IntoView {
     }
 
     let total = library.catalog().entries.len();
-    let kinds = library
-        .kind_counts()
+    let (primary, more) = crate::views::categories::arrange(&library.kind_counts());
+    let kinds = primary
         .into_iter()
+        .chain(more)
         .map(|(kind, n)| {
             view! {
                 <li>
@@ -42,13 +43,22 @@ pub fn Home() -> impl IntoView {
             }
         })
         .collect_view();
+    let has_books = library.has_books();
     let sources = library
         .sources()
         .iter()
         .map(|s| {
+            let route = if has_books {
+                Route::Book {
+                    source: s.id.clone(),
+                    chapter: None,
+                }
+            } else {
+                Route::BrowseSource(s.id.clone())
+            };
             view! {
                 <li>
-                    <a class="tile tile-wide" href=Route::BrowseSource(s.id.clone()).href()>
+                    <a class="tile tile-wide" href=route.href()>
                         <span class="tile-name">{s.title.clone()}</span>
                         <span class="tile-count">{s.entry_count}</span>
                     </a>
@@ -109,7 +119,7 @@ pub fn Home() -> impl IntoView {
             </p>
         </section>
         <section aria-labelledby="home-sources">
-            <h2 id="home-sources">"Publications"</h2>
+            <h2 id="home-sources">{if has_books { "Books, in chapter order" } else { "Publications" }}</h2>
             <ul class="tiles">{sources}</ul>
         </section>
         </div>

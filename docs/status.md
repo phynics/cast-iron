@@ -1,10 +1,10 @@
 # Status
 
-Updated 2026-11-03, expansion branch `expand-library`. The repository is public. The 16-book expansion is locally verified and awaiting merge and deployment; the live site still has the original POC until that rollout.
+Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5f582be` and its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41579539956) succeeded. Branch `relationships` adds schema 3 and the reference navigation described below; it is not merged or deployed.
 
 ## POC acceptance checklist (spec section 11)
 
-"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local run: 37 passed in 1.6 minutes (chromium 18, webkit 18, mobile-chromium 1), including offline class-category and expanded-book browsing. `cargo xtask check` also passed.
+"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local full run: 47 passed in 2.0 minutes (chromium 23, webkit 23, mobile-chromium 1), including relationship navigation, spell lists, feat prerequisites, source search, book history, and mobile layout. `cargo xtask check` also passed.
 
 | Item | State | Evidence |
 |---|---|---|
@@ -64,17 +64,36 @@ These are desktop measurements, not real-phone memory or speed results. Light an
 
 The selection has 64 typed directories and 101 complete rules trees. Unsupported standalone record families and duplicated section-file representations remain listed in coverage. Later books absent from the pinned snapshot are not included.
 
+## Relationships and book order, schema 3 (branch `relationships`)
+
+Content version `vdb8e844bfc068446`, schema 3. Verified locally: `cargo xtask check` passes; two `cargo xtask content` runs give the same tree hash; `scripts/check-library-upgrade.py` finds all 9,112 earlier ids and titles with no kind change and no dangling reference in the three new files; the full Chromium, WebKit, and mobile browser suite passes against the built site (47 tests). The five relationship/navigation tests also passed with the browser offline in Chromium and WebKit (10 checks). Desktop and mobile screenshots in both themes were inspected; the screenshot run reported no console errors or horizontal overflow. Data findings: `docs/research/relationship-data.md`. Decisions: `docs/decisions.md`.
+
+| Measure | Value |
+|---|---|
+| Entries | 9,967 (was 9,112): 218 archetypes, 342 racial traits, 295 traits |
+| Relations | 1,531 edges: 342 `part`, 218 `archetype`, 971 `prerequisite` |
+| Feat prerequisites | 1,002 feats with wording; 597 name a feat; 969 of 1,298 name-like requirements resolve (74.7%) |
+| Spell lists | 23 class names, 8,010 distinct pairs (8,504 upstream); 8 names have no class entry: Arcanist, Bloodrager, Elementalist Wizard, Hunter, Investigator, Shaman, Skald, Warpriest |
+| Book view | 16 books, 9,967 entries placed, 0 unplaced; Core Rulebook main chapter order verified against the publisher PDF, other outlines and nested placement remain drafts |
+| Download | 61,827,011 bytes raw (was 58,487,268, +5.7%); largest shard unchanged at 524,249 bytes |
+| New files | `relations.json` 173,675 (14,491 gzip); `lists.json` 128,922 (28,157); `books.json` 1,067,959 |
+
+The client reads schemas 1, 2, and 3. It now uses the new files for racial traits, archetypes, feat links and chains, class spell lists, book contents, and previous/next book navigation. Category browsing has dedicated shortcuts and facets; source filters remain part of the search URL. Missing schema-3 files in an older library offer an update path. Book contents display source evidence and review warnings.
+
+AoN source pages group database records rather than chapters. Legacy PRD section links are captured in a reproducible 18-menu, 167-link inventory, including sections for books absent from the current corpus. Details: `docs/research/aon-book-sections.md`, `docs/research/legacy-prd-sections.json`, and `docs/research/book-order-evidence.md`.
+
 ## Not verified yet
 
-- GitHub CI and deployment for this expansion are pending. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
+- GitHub CI and deployment for schema 3 and the reference UI are pending. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
 - Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
 
 ## Known gaps
 
-- Licensing review is scoped to the 16 selected books. The publication screen covers all 9,112 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
-- No "Referenced by" list (needs a reverse link index). Only "References" exists.
+- Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
+- Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
+- No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
 - Facet chips show global counts, not counts that depend on the other filters.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
 - Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
@@ -83,5 +102,5 @@ The selection has 64 typed directories and 101 complete rules trees. Unsupported
 ## Next (post-POC, spec section 12)
 
 1. Keep the licensing review current when changing the source selection. The POC is public under the scoped OGL and Community Use review.
-2. Add standalone support for record families currently represented only in rules trees or excluded, such as archetypes, traits, and animal companions. Newer books require a new source pin or source dataset and licensing review.
+2. Review `sources/psrd-data/book-order.toml` against the printed books. Add standalone support for the families that remain in rules trees or are excluded (animal companions, mythic spells, vehicles, settlements, haunts, campaign resources and armies) when a category needs them. Newer books require a new source pin or source dataset and licensing review.
 3. Run the suite on real devices and record the results here.
