@@ -85,3 +85,12 @@ Product context: `PRODUCT.md`. Data findings and counts: `docs/research/relation
 - A `grapple` query on the published iPhone build initially surfaced equipment and feats. Quick search scopes expose Rules text directly. Rule body headings feed the existing search alias field, so a section such as Grapple can surface its containing Special Attacks entry. The index layout stays at version 1, and content stays at schema 3. This improves discovery without claiming complete prerequisite or character-build logic.
 - App-shell and rules-library updates are separate lifecycles. Settings checks both; a waiting shell requires Reload, while a library replacement requires Download update. The shell-update acceptance test changes the service-worker version through a test-server hook, verifies it waits, then confirms activation preserves the active library and Home bookmarks offline. The hook is not shipped with the app.
 - The iPhone report records the published five-tab build, not the replacement navigation. Device-driver failures left Home Screen installation, offline standalone relaunch, and the full character workflow unverified on the simulator. Automated local results are recorded separately.
+
+## Planned simplification after the reference walkthrough, 2026-11-03
+
+These are accepted product directions awaiting implementation in [the UI task list](ui-tasks.md). They supersede earlier decisions to retain the bookmark and collection manager. They do not describe shipped behavior.
+
+- Browse and Books remain separate primary tabs. Remove the shared browsing-mode picker. Category discovery belongs in Browse. Rules belong in the book directory and search, with existing entry links and starred rules still readable.
+- Use the AoN Rules source directory as the baseline for book, topic, and subsection discovery. This is a navigation and mapping baseline, not evidence of printed chapter order or permission to import new content. Preserve the user's original-order requirement and current evidence warnings.
+- Remove collections and the separate bookmark manager. Home lists starred entries and lets the user open or unstar them. Preserve existing stars when retiring collection UI and routes.
+- Add book activation controls. The proposed default is a persistent filter over downloaded content rather than deletion. Detailed filtering and saved-entry behavior are documented as working defaults in UI-03, not additional confirmed user requirements.

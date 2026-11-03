@@ -37,3 +37,10 @@ Regenerate it from a saved copy of the official Legacy PRD root page with `pytho
 ## Limits and use
 
 The directly checked legacy index is enough to document legacy navigation order and page names, but it is not a publisher contents listing. AoN source catalogue order establishes product grouping and displayed release-date order only. SourceDisplay establishes record association and category grouping only. None of these checks overrides the existing rule in `book-order.toml`: dataset tree order is not print-order evidence. Keep the book view explicitly provisional where printed contents have not been confirmed. The Core Rulebook publisher PDF and the verified 15-chapter sequence are recorded in `docs/research/book-order-evidence.md`. Nested placement and appendix grouping still need review.
+
+
+## Rules source directory baseline, 2026-11-03
+
+The user selected [Rules.aspx?Name=Source&Category=None](https://aonprd.com/Rules.aspx?Name=Source&Category=None) as the baseline for Cast Iron's book directory and rules browser. The page was fetched directly after the web reader could not open it. Its main content groups expandable source headings with linked topics and nested subsections. Core Rulebook topics include Basics, Combat, Environment, Exploration, Gamemastering, Items, Magic, and Skills. Combat links to Special Attacks among its subsections. This is a different page from Sources.aspx and SourceDisplay.aspx, which the earlier comparison examined.
+
+This structure supplies a navigation baseline and mapping candidates. For example, its Core Rulebook topic sequence is not the printed chapter sequence verified above. The user's original-order requirement still applies. The implementation backlog therefore separates navigation mapping from printed-order evidence, unavailable books, and licensing review. No source selection or book-order configuration changed in this documentation pass.

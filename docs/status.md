@@ -2,6 +2,10 @@
 
 Updated 2026-11-03. The repository is public. [PR #5](https://github.com/phynics/cast-iron/pull/5) merged at `a9360c5`. Its [main CI](https://github.com/phynics/cast-iron/actions/runs/41595871949) and [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41595872013) succeeded. The primary agent personally tested the published four-tab app in Safari and as an installed Home Screen app on iPhone Simulator. Details are in [iPhone journey observations](research/iphone-journeys.md).
 
+## Planned UI work
+
+[UI task list](ui-tasks.md) records the latest user direction and simulator findings, with acceptance criteria and dependencies. It is not implemented. Gemini 4 Argon Medium returned an image-tool limitation and no visual findings, so visual-review integration remains open.
+
 ## Acceptance checklist (spec section 11)
 
 "Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local full run: 55 passed in 2.3 minutes (chromium 27, webkit 27, mobile-chromium 1), including relationship navigation, spell lists, feat prerequisites, source search, book history, and mobile layout. `cargo xtask check` also passed.
