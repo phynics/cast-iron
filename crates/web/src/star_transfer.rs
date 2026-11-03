@@ -50,11 +50,15 @@ pub fn export_archive(bookmarks: &[crate::store::Bookmark]) -> Result<String, Tr
         version: VERSION,
         stars,
     };
-    let json = serde_json::to_string_pretty(&archive)
+    encode_archive(&archive)
+}
+
+fn encode_archive(archive: &StarArchive) -> Result<String, TransferError> {
+    let json = serde_json::to_string(archive)
         .map_err(|_| TransferError("Could not create the stars file.".into()))?;
     if json.len() > MAX_ARCHIVE_BYTES {
         return Err(TransferError(
-            "The stars file is too large to export.".into(),
+            "The stars file exceeds the 2 MB limit.".into(),
         ));
     }
     Ok(json)
@@ -104,6 +108,9 @@ pub fn parse_archive(json: &str) -> Result<Vec<StarRecord>, TransferError> {
             ));
         }
     }
+    // Numeric normalization can enlarge an otherwise compact input. Accept only files
+    // that also fit when serialized in the exact format used by export.
+    encode_archive(&archive)?;
     Ok(archive.stars)
 }
 
@@ -139,6 +146,47 @@ mod tests {
         assert!(!data.contains("retired"));
         assert_eq!(parse_archive(&data).unwrap(), vec![star("a", "A")]);
     }
+    #[test]
+    fn near_limit_compact_archive_round_trips_without_pretty_print_expansion() {
+        let title = "x".repeat(MAX_TITLE_BYTES);
+        let incoming = (0..3400)
+            .map(|i| star(&format!("entry/{i}"), &title))
+            .collect::<Vec<_>>();
+        let compact = json(incoming.clone(), VERSION);
+        assert!(compact.len() > 1_900_000 && compact.len() <= MAX_ARCHIVE_BYTES);
+        let archive: StarArchive = serde_json::from_str(&compact).unwrap();
+        assert!(serde_json::to_string_pretty(&archive).unwrap().len() > MAX_ARCHIVE_BYTES);
+        let accepted = parse_archive(&compact).unwrap();
+        let bookmarks = accepted
+            .into_iter()
+            .map(|s| crate::store::Bookmark::new(s.entry_id, s.title, s.kind, s.added_at))
+            .collect::<Vec<_>>();
+        let exported = export_archive(&bookmarks).unwrap();
+        assert_eq!(parse_archive(&exported).unwrap(), incoming);
+        assert_eq!(exported, compact);
+    }
+
+    #[test]
+    fn canonical_numeric_expansion_is_checked_before_import() {
+        let title = "x".repeat(MAX_TITLE_BYTES);
+        let mut incoming = (0..3400)
+            .map(|i| star(&format!("entry/{i}"), &title))
+            .collect::<Vec<_>>();
+        let size = json(incoming.clone(), VERSION).len();
+        // Add valid ID characters until canonical encoding exceeds the limit by one byte.
+        // Compact integer dates save two bytes per record and still fit on input.
+        let needed = MAX_ARCHIVE_BYTES + 1 - size;
+        for (i, record) in incoming.iter_mut().enumerate() {
+            let extra = needed / 3400 + usize::from(i < needed % 3400);
+            record.entry_id = EntryId::parse(format!("entry/{i}{}", "x".repeat(extra))).unwrap();
+        }
+        let canonical = json(incoming, VERSION);
+        assert_eq!(canonical.len(), MAX_ARCHIVE_BYTES + 1);
+        let input = canonical.replace("\"added_at\":1.0", "\"added_at\":1");
+        assert!(input.len() < MAX_ARCHIVE_BYTES);
+        assert!(parse_archive(&input).unwrap_err().0.contains("2 MB"));
+    }
+
     #[test]
     fn unsupported_version_rejected() {
         assert!(
