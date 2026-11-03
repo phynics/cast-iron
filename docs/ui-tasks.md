@@ -131,6 +131,6 @@ Evidence: [Gemini follow-up](research/gemini-ui-review.md). The earlier blocked 
 
 ### Follow-up coverage limits
 
-Publication choices now group repeated titles after activation filtering, including explicit prerequisite choices when several installed entries match. The AoN audit has 90 unique target matches, 49 ambiguous targets, 39 section misses in installed sources, and 105 rows under 14 unavailable source headings. These are explicit gaps, not imported content. See [mapping resolution](research/aon-mapping-resolution.md).
+Publication choices now group repeated titles after activation filtering, including explicit prerequisite choices when several installed entries match. The follow-up AoN audit has 90 exact-title targets, 59 verified passage targets, two verified chapter contexts, 27 rows without a verified installed target, and 105 rows under 14 unavailable source headings. Chapter contexts retain explicit text gaps; target identity does not prove full prose coverage. These are target/coverage dispositions, not imported content. Canonical remaining work is tracked in [#11](https://github.com/phynics/cast-iron/issues/11). See [mapping resolution](research/aon-mapping-resolution.md).
 
 The two reported Combat labels use reviewed navigation casing. Canonical titles and body text remain unchanged. Remaining external acceptance is VoiceOver and genuine offline standalone restart on a physical iPhone. The current simulator cannot establish either check.

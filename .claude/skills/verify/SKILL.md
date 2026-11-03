@@ -134,3 +134,5 @@ Use a physical iPhone for these checks. Simulator status-bar changes do not disa
 5. Restore networking and test shell and library updates separately. Preserve the same star and disabled-book choice across each update, then repeat the offline restart.
 
 Record the actual iOS version, release/build, and outcomes. Do not mark these checks complete from desktop WebKit or a simulator relaunch with networking available.
+
+The book-content audit uses `scripts/audit-book-content.py` and `scripts/inventory-missing-sources.py`. Apply selected passage/chapter evidence with the extractor's `--evidence` option. Follow `docs/research/aon-mapping-resolution.md` for the baseline, bounded article cache, and deterministic replay. Evidence is tied to typed-entry and book-index hashes; a corpus change requires a fresh audit. Keep chapter target identity, opening-text gaps, and actual imported content separate in reports.

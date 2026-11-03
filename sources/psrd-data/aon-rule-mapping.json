@@ -1,6 +1,7 @@
 {
   "evidence": "site_navigation_not_printed_contents",
-  "mapping_method": "normalized exact source title or reviewed alias matching against catalog.json, then exact section titles within that source using books.json nodes and typed rule-body headings; duplicate targets remain ambiguous, no fuzzy or cross-book assignments",
+  "limitations": "Target identity does not establish complete article text or printed order. A section_not_in_snapshot row has no verified target and may be a navigation label rather than absent prose. Chapter targets retain opening-passage gaps explicitly.",
+  "mapping_method": "exact source/title matching plus explicitly selected source-validated passage and chapter evidence; unverified duplicate targets remain ambiguous; no fuzzy or cross-book assignments",
   "sources": [
     {
       "aon_heading_id": "FTT_Rules71",
@@ -51,12 +52,28 @@
               "url": "https://aonprd.com/Rules.aspx?ID=82"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "core-rulebook/rules/getting-started/generating-a-character"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 8,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "3ca257e38fc2464d908596a55ae232788dc84542ed7d59274e84b542b6f81304",
+                "page_title": "Character Creation",
+                "source_locator": "PRPG Core Rulebook pg. 14",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=83"
+              },
               "label": "Character Creation",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "core-rulebook/rules/getting-started/generating-a-character"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=83"
             },
             {
@@ -93,14 +110,27 @@
             },
             {
               "candidate_entry_ids": [
-                "core-rulebook/rules/additional-rules/alignment",
-                "core-rulebook/rules/getting-started/common-terms"
+                "core-rulebook/rules/additional-rules/alignment"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "bcacda331fe564824711a761f29ffc3e4b93e7d8fe0a36b479d0682b7880d8c8",
+                "page_title": "Alignment",
+                "source_locator": "PRPG Core Rulebook pg. 166",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=113"
+              },
               "label": "Alignment",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "core-rulebook/rules/additional-rules/alignment"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "core-rulebook/rules/additional-rules/alignment"
@@ -303,14 +333,27 @@
             },
             {
               "candidate_entry_ids": [
-                "core-rulebook/rules/glossary/special-abilities",
-                "core-rulebook/rules/magic/special-abilities"
+                "core-rulebook/rules/glossary/special-abilities"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 16,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "fada8af87e2de8b5a37560041bcf221012af1d9b114fc4eeb64a17a40ba5d41e",
+                "page_title": "Special Abilities",
+                "source_locator": "PRPG Core Rulebook pg. 554",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=414"
+              },
               "label": "Special Abilities",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "core-rulebook/rules/glossary/special-abilities"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "core-rulebook/rules/glossary/special-abilities"
@@ -595,14 +638,85 @@
             },
             {
               "candidate_entry_ids": [
-                "core-rulebook/rules/magic-items",
-                "core-rulebook/rules/magic-items/magic-items"
+                "core-rulebook/rules/magic-items"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "chapter_path": [
+                  14
+                ],
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_book_chapter_with_shared_descendant_headings",
+                "opening_passage_result": "opening_passage_not_matched",
+                "opening_words_sha256": "1a736501bde974296b8d16d26da5564329aa219effa58f05248a2cb72097ca72",
+                "page_title": "Magic Items",
+                "shared_headings": [
+                  "adding new abilities",
+                  "artifacts",
+                  "charges doses and multiple uses",
+                  "common cursed item effects",
+                  "creating magic armor",
+                  "creating magic weapons",
+                  "creating potions",
+                  "creating rings",
+                  "creating rods",
+                  "creating scrolls",
+                  "creating staves",
+                  "creating wands",
+                  "creating wondrous items",
+                  "cursed items",
+                  "damaging magic items",
+                  "dedicated powers",
+                  "designing an intelligent item",
+                  "extradimensional spaces",
+                  "intelligent item ability scores",
+                  "intelligent item alignment",
+                  "intelligent item powers",
+                  "intelligent items",
+                  "item ego",
+                  "items against characters",
+                  "languages spoken by item",
+                  "magic item creation",
+                  "magic item descriptions",
+                  "magic item gold piece values",
+                  "magic items and detect magic",
+                  "magic items on the body",
+                  "major artifacts",
+                  "minor artifacts",
+                  "potion base costs by brewer s class",
+                  "potion costs",
+                  "potions",
+                  "purchasing magic items",
+                  "repairing magic items",
+                  "rings",
+                  "rods",
+                  "saving throws against magic item powers",
+                  "scroll base costs by scriber s class",
+                  "scroll costs",
+                  "scrolls",
+                  "senses and communication",
+                  "size and magic items",
+                  "special purpose items",
+                  "staves",
+                  "using items",
+                  "wand base costs by crafter s class",
+                  "wand costs",
+                  "wands",
+                  "wondrous items"
+                ],
+                "source_locator": "PRPG Core Rulebook pg. 458",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=365"
+              },
               "label": "Magic Items",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_chapter",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "core-rulebook/rules/magic-items"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "core-rulebook/rules/magic-items"
@@ -620,14 +734,67 @@
         },
         {
           "candidate_entry_ids": [
-            "core-rulebook/rules/environment/traps",
-            "core-rulebook/rules/gamemastering/creating-npcs",
             "core-rulebook/rules/magic"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "chapter_path": [
+              8
+            ],
+            "first_section_paragraph_count": 0,
+            "matched_prefix_words": 0,
+            "method": "exact_source_book_chapter_with_shared_descendant_headings",
+            "opening_passage_result": "no_opening_prose_or_too_short",
+            "opening_words_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "page_title": "Magic",
+            "shared_headings": [
+              "abjuration",
+              "adding spells to a wizard s spellbook",
+              "aiming a spell",
+              "arcane spells",
+              "caster level",
+              "casting spells",
+              "casting time",
+              "choosing a spell",
+              "combining magic effects",
+              "components",
+              "concentration",
+              "conjuration",
+              "counterspells",
+              "descriptive text",
+              "descriptor",
+              "divination",
+              "divine spells",
+              "duration",
+              "enchantment",
+              "evocation",
+              "illusion",
+              "level",
+              "name",
+              "necromancy",
+              "new divine spells",
+              "preparing divine spells",
+              "preparing wizard spells",
+              "range",
+              "replacing and copying spellbooks",
+              "saving throw",
+              "school subschool",
+              "selling a spellbook",
+              "sorcerers and bards",
+              "special abilities",
+              "special spell effects",
+              "spell descriptions",
+              "spell failure",
+              "spell resistance",
+              "transmutation",
+              "wizard spells and borrowed spellbooks",
+              "writing a new spell into a spellbook"
+            ],
+            "source_locator": "PRPG Core Rulebook pg. 83",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=68"
+          },
           "label": "Magic",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_chapter",
           "subsections": [
             {
               "candidate_entry_ids": [],
@@ -704,14 +871,27 @@
             },
             {
               "candidate_entry_ids": [
-                "core-rulebook/rules/glossary/special-abilities",
                 "core-rulebook/rules/magic/special-abilities"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 8,
+                "matched_prefix_words": 18,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "9a97ec5adf7c732743736a9dbad66626ee3ab63dfa3c451991ff9c653ccac073",
+                "page_title": "Special Abilities",
+                "source_locator": "PRPG Core Rulebook pg. 221",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=246"
+              },
               "label": "Special Abilities",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "core-rulebook/rules/magic/special-abilities"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "core-rulebook/rules/glossary/special-abilities"
@@ -725,6 +905,12 @@
             }
           ],
           "targets": [
+            {
+              "anchor": null,
+              "entry_id": "core-rulebook/rules/magic"
+            }
+          ],
+          "title_candidates": [
             {
               "anchor": "magic",
               "entry_id": "core-rulebook/rules/environment/traps"
@@ -817,14 +1003,27 @@
           "subsections": [
             {
               "candidate_entry_ids": [
-                "bestiary/rules/introduction",
                 "bestiary/rules/introduction/introduction"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "cfbdbbce19fd41df38e96bc072bddeb27ae7de8211441eeb519dfed2e0c8373f",
+                "page_title": "Introduction",
+                "source_locator": "Pathfinder RPG Bestiary pg. 5",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=2449"
+              },
               "label": "Introduction",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "bestiary/rules/introduction/introduction"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "bestiary/rules/introduction"
@@ -838,14 +1037,27 @@
             },
             {
               "candidate_entry_ids": [
-                "bestiary/rules/monster-creation",
                 "bestiary/rules/monster-creation/monster-creation"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "a8f50db3901e072ee475b798e9c1553c6c41166d3a17c307f43be644ab3b74db",
+                "page_title": "Monster Creation",
+                "source_locator": "Pathfinder RPG Bestiary pg. 290",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=2452"
+              },
               "label": "Monster Creation",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "bestiary/rules/monster-creation/monster-creation"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "bestiary/rules/monster-creation"
@@ -859,14 +1071,27 @@
             },
             {
               "candidate_entry_ids": [
-                "bestiary/rules/monster-advancement",
                 "bestiary/rules/monster-advancement/monster-advancement"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "42bb7e56657c73b590a18d0f67c1c64c7c8c86fade4eccb49520954d0c67cce2",
+                "page_title": "Monster Advancement",
+                "source_locator": "Pathfinder RPG Bestiary pg. 294",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=2463"
+              },
               "label": "Monster Advancement",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "bestiary/rules/monster-advancement/monster-advancement"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "bestiary/rules/monster-advancement"
@@ -879,12 +1104,28 @@
               "url": "https://aonprd.com/Rules.aspx?ID=2463"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "bestiary/rules/misc-monster-rules/monster-as-pcs"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 6,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "215fa6dbaa13ac969bf85188120b13002afa773ffa45c0444f5ebf3fbf641585",
+                "page_title": "Monsters as PCs",
+                "source_locator": "Pathfinder RPG Bestiary pg. 313",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=2476"
+              },
               "label": "Monsters as PCs",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "bestiary/rules/misc-monster-rules/monster-as-pcs"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=2476"
             }
           ],
@@ -1041,10 +1282,24 @@
                 "game-mastery-guide/rules/npcs/npc-gallery"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "3fd2da808683a618224ffa920633ddf3f9959d8527f6266591d6855af4c6e004",
+                "page_title": "NPC Gallery",
+                "source_locator": "GameMastery Guide pg. 254",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=936"
+              },
               "label": "NPC Gallery",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "game-mastery-guide/rules/npcs/npc-gallery"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "game-mastery-guide/rules/npcs/npc-gallery"
@@ -1167,21 +1422,53 @@
               "url": "https://aonprd.com/Rules.aspx?ID=438"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "advanced-players-guide/rules/races/racial-favored-classes"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 6,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "2265c3c652c8b499b633e9f02deafd770042aa19e1186f3c8a0a8c0159856cf5",
+                "page_title": "Racial Favored Class Bonus",
+                "source_locator": "Advanced Player's Guide pg. 8",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=439"
+              },
               "label": "Racial Favored Class Bonus",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "advanced-players-guide/rules/races/racial-favored-classes"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=439"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "advanced-players-guide/rules/core-classes/core-classes"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "68e7b09ad042e8e1bc44cb105c774787e37b08f0312c1e40132d150ae19efbab",
+                "page_title": "Archetypes",
+                "source_locator": "Advanced Player's Guide pg. 72",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=440"
+              },
               "label": "Archetypes",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "advanced-players-guide/rules/core-classes/core-classes"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=440"
             },
             {
@@ -1333,24 +1620,44 @@
       "topics": [
         {
           "candidate_entry_ids": [
-            "ultimate-magic/rules/mastering-magic",
             "ultimate-magic/rules/mastering-magic/mastering-magic"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 2,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "c16112c0cfa5580182ac8c216083a23aff9c652d91f12d972a2e807375312ab7",
+            "page_title": "Mastering Magic",
+            "source_locator": "Ultimate Magic pg. 92",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=939"
+          },
           "label": "Mastering Magic",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
-                "ultimate-magic/rules/mastering-magic/mastering-magic",
                 "ultimate-magic/rules/mastering-magic/spellblights"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "86f98b82ff88d298038f09311f3635a41c7a8571a5cb91ac3dc8661cd2aa7c48",
+                "page_title": "Spellblights",
+                "source_locator": "Ultimate Magic pg. 94",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=940"
+              },
               "label": "Spellblights",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/mastering-magic/spellblights"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "spellblights",
                   "entry_id": "ultimate-magic/rules/mastering-magic/mastering-magic"
@@ -1368,14 +1675,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-magic/rules/mastering-magic/mastering-magic",
                 "ultimate-magic/rules/mastering-magic/spell-duels"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "676eb4aa9f64c3a2c4a3a22497fcb6c42b8400307371586752fc66336a50bbbe",
+                "page_title": "Spell Duels",
+                "source_locator": "Ultimate Magic pg. 99",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=948"
+              },
               "label": "Spell Duels",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/mastering-magic/spell-duels"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "spell-duels",
                   "entry_id": "ultimate-magic/rules/mastering-magic/mastering-magic"
@@ -1389,14 +1709,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-magic/rules/mastering-magic/binding-outsiders",
-                "ultimate-magic/rules/mastering-magic/mastering-magic"
+                "ultimate-magic/rules/mastering-magic/binding-outsiders"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "f29f14cf43dfd3d80c6d1a36ec51feb93b701146bc4060ab2f93fa52e7bb6c23",
+                "page_title": "Binding Outsiders",
+                "source_locator": "Ultimate Magic pg. 101",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=953"
+              },
               "label": "Binding Outsiders",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/mastering-magic/binding-outsiders"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-magic/rules/mastering-magic/binding-outsiders"
@@ -1414,14 +1747,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-magic/rules/mastering-magic/building-and-modifying-constructs",
-                "ultimate-magic/rules/mastering-magic/mastering-magic"
+                "ultimate-magic/rules/mastering-magic/building-and-modifying-constructs"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "16c8c90a2f9e32a182c21b1d58bedf50635aee594df016ba2929d9cabf0f0ddb",
+                "page_title": "Building and Modifying Constructs",
+                "source_locator": "Ultimate Magic pg. 111",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=974"
+              },
               "label": "Building and Modifying Constructs",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/mastering-magic/building-and-modifying-constructs"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-magic/rules/mastering-magic/building-and-modifying-constructs"
@@ -1439,14 +1785,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-magic/rules/mastering-magic/designing-spells",
-                "ultimate-magic/rules/mastering-magic/mastering-magic"
+                "ultimate-magic/rules/mastering-magic/designing-spells"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "19bfe0f3f924decfb56985b2bf65e1edc542ea136ea6d768bb94a98ca93ca7e0",
+                "page_title": "Designing Spells",
+                "source_locator": "Ultimate Magic pg. 128",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=983"
+              },
               "label": "Designing Spells",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/mastering-magic/designing-spells"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-magic/rules/mastering-magic/designing-spells"
@@ -1464,6 +1823,12 @@
             }
           ],
           "targets": [
+            {
+              "anchor": null,
+              "entry_id": "ultimate-magic/rules/mastering-magic/mastering-magic"
+            }
+          ],
+          "title_candidates": [
             {
               "anchor": null,
               "entry_id": "ultimate-magic/rules/mastering-magic"
@@ -1551,12 +1916,28 @@
           "status": "matched_exact_title",
           "subsections": [
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "61a74a95096d145242b1e67fe192c889664b8abbec32e576da5dbbf4c50b2cdc",
+                "page_title": "Optional",
+                "source_locator": "Ultimate Magic pg. 163",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1017"
+              },
               "label": "Optional",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/words-of-power"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1017"
             },
             {
@@ -1592,12 +1973,28 @@
               "url": "https://aonprd.com/Rules.aspx?ID=1025"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/effect-words"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 10,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "087af3fcfd1007601472eeffd20bac6c654a022ef23d9db45627bd2fddf4afa6",
+                "page_title": "Effect Word Descriptions",
+                "source_locator": "Ultimate Magic pg. 167",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1026"
+              },
               "label": "Effect Word Descriptions",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/words-of-power/effect-words"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1026"
             },
             {
@@ -1617,12 +2014,28 @@
               "url": "https://aonprd.com/Rules.aspx?ID=1062"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/words-of-power-in-the-world"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "228c719dfc24857f7796a90005678ca0c53dc324aa4be3e9a716b2c6e84221fe",
+                "page_title": "Words of Power in the Worlds",
+                "source_locator": "Ultimate Magic pg. 164",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1063"
+              },
               "label": "Words of Power in the Worlds",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/words-of-power/words-of-power-in-the-world"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1063"
             },
             {
@@ -1646,10 +2059,24 @@
                 "ultimate-magic/rules/words-of-power/class-word-lists"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "d369c577b6c23064522f10671ad4d30d114de321e5ba120b5bffafc3fd9bd6fc",
+                "page_title": "Class Word Lists",
+                "source_locator": "Ultimate Magic pg. 189",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1596"
+              },
               "label": "Class Word Lists",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-magic/rules/words-of-power/class-word-lists"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-magic/rules/words-of-power/class-word-lists"
@@ -1697,14 +2124,27 @@
           "subsections": [
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/variant-rules/armor-as-damage-reduction",
-                "ultimate-combat/rules/variant-rules/variant-rules"
+                "ultimate-combat/rules/variant-rules/armor-as-damage-reduction"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "ef281da01b569568581305d42664422683e3c00064f4809a1e0d131fa0393646",
+                "page_title": "Armor as Damage Reduction",
+                "source_locator": "Ultimate Combat pg. 191",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1123"
+              },
               "label": "Armor as Damage Reduction",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/variant-rules/armor-as-damage-reduction"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-combat/rules/variant-rules/armor-as-damage-reduction"
@@ -1726,14 +2166,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/variant-rules/called-shots",
-                "ultimate-combat/rules/variant-rules/variant-rules"
+                "ultimate-combat/rules/variant-rules/called-shots"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "2b63458a589fddbebeb1c3b477eaca6e56333b1b430a5c0a925c9b49cbf945ce",
+                "page_title": "Called Shots",
+                "source_locator": "Ultimate Combat pg. 193",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1127"
+              },
               "label": "Called Shots",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/variant-rules/called-shots"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-combat/rules/variant-rules/called-shots"
@@ -1747,14 +2200,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/variant-rules/piecemeal-armor",
-                "ultimate-combat/rules/variant-rules/variant-rules"
+                "ultimate-combat/rules/variant-rules/piecemeal-armor"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "1009e32bee14ee6700115497b08f66c3ac499810c41bf1cc3febb83036a0298c",
+                "page_title": "Piecemeal Armor",
+                "source_locator": "Ultimate Combat pg. 198",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1141"
+              },
               "label": "Piecemeal Armor",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/variant-rules/piecemeal-armor"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-combat/rules/variant-rules/piecemeal-armor"
@@ -1772,14 +2238,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/variant-rules/variant-rules",
                 "ultimate-combat/rules/variant-rules/wounds-and-vigor"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "4ec5a63fdb8279d3364a5680218605a7553ddfd480d0f4a129728294baee9183",
+                "page_title": "Wounds and Vigor",
+                "source_locator": "Ultimate Combat pg. 206",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1155"
+              },
               "label": "Wounds and Vigor",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/variant-rules/wounds-and-vigor"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "wounds-and-vigor",
                   "entry_id": "ultimate-combat/rules/variant-rules/variant-rules"
@@ -1801,25 +2280,44 @@
         },
         {
           "candidate_entry_ids": [
-            "ultimate-combat/rules/mastering-combat",
             "ultimate-combat/rules/mastering-combat/mastering-combat"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 2,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "7a0f0a5b5981a33f531ea0c6c20af787802a473c56b3ee233d58eac298fe49d9",
+            "page_title": "Mastering Combat",
+            "source_locator": "Ultimate Combat pg. 124",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1065"
+          },
           "label": "Mastering Combat",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/class-archetypes/fighter",
-                "ultimate-combat/rules/mastering-combat/firearms",
-                "ultimate-combat/rules/mastering-combat/mastering-combat"
+                "ultimate-combat/rules/mastering-combat/firearms"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "085d5df4d8735ce9a94ce924bf8b078bcabe9d6c0e181fe4c845fc31c7f9f450",
+                "page_title": "Firearms",
+                "source_locator": "Ultimate Combat pg. 135",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1066"
+              },
               "label": "Firearms",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/mastering-combat/firearms"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "firearms",
                   "entry_id": "ultimate-combat/rules/class-archetypes/fighter"
@@ -1841,14 +2339,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/mastering-combat/duels",
-                "ultimate-combat/rules/mastering-combat/mastering-combat"
+                "ultimate-combat/rules/mastering-combat/duels"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "1c0df604d6164dd7b7527969a6a4cf791171b418bf401b0e8abe5d8877a4c3d3",
+                "page_title": "Duels",
+                "source_locator": "Ultimate Combat pg. 150",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1073"
+              },
               "label": "Duels",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/mastering-combat/duels"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-combat/rules/mastering-combat/duels"
@@ -1862,14 +2373,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/mastering-combat/mastering-combat",
                 "ultimate-combat/rules/mastering-combat/performance-combat"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "2aea8fead427adc01089bef7c9cb6fb932121e49f57dc314d1e7f06240514c52",
+                "page_title": "Performance Combat",
+                "source_locator": "Ultimate Combat pg. 153",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1082"
+              },
               "label": "Performance Combat",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/mastering-combat/performance-combat"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "performance-combat",
                   "entry_id": "ultimate-combat/rules/mastering-combat/mastering-combat"
@@ -1887,15 +2411,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-combat/rules/class-archetypes/fighter",
-                "ultimate-combat/rules/mastering-combat/mastering-combat",
                 "ultimate-combat/rules/mastering-combat/siege-engines"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "66ec6cc0d2ff1caae80df7eb6c9331d4a76a2089a28207091230148c85716a98",
+                "page_title": "Siege Engines",
+                "source_locator": "Ultimate Combat pg. 158",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1095"
+              },
               "label": "Siege Engines",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-combat/rules/mastering-combat/siege-engines"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "siege-engines",
                   "entry_id": "ultimate-combat/rules/class-archetypes/fighter"
@@ -1919,6 +2455,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "ultimate-combat/rules/mastering-combat/mastering-combat"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "ultimate-combat/rules/mastering-combat"
             },
             {
@@ -1930,13 +2472,20 @@
         },
         {
           "candidate_entry_ids": [
-            "ultimate-combat/rules/vehicles",
             "ultimate-combat/rules/vehicles/vehicles"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 3,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "a22563ec048f657b63b2b74e9bf5edf0c09f3ba59f799992581ff7ea509547f6",
+            "page_title": "Vehicles",
+            "source_locator": "Ultimate Combat pg. 170",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1106"
+          },
           "label": "Vehicles",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
@@ -2038,6 +2587,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "ultimate-combat/rules/vehicles/vehicles"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "ultimate-combat/rules/vehicles"
             },
             {
@@ -2067,13 +2622,20 @@
       "topics": [
         {
           "candidate_entry_ids": [
-            "advanced-race-guide/rules/race-builder",
             "advanced-race-guide/rules/race-builder/race-builder"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 2,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "d4bf3072ee1ffb007ba51a2548037a4f986c5f1507955962421a017a8be98dda",
+            "page_title": "Race Builder",
+            "source_locator": "Advanced Race Guide pg. 214",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1163"
+          },
           "label": "Race Builder",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
@@ -2111,6 +2673,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "advanced-race-guide/rules/race-builder/race-builder"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "advanced-race-guide/rules/race-builder"
             },
             {
@@ -2121,13 +2689,29 @@
           "url": "https://aonprd.com/Rules.aspx?ID=1163"
         },
         {
-          "candidate_entry_ids": [],
+          "candidate_entry_ids": [
+            "advanced-race-guide/rules/age/height-and-weight/age"
+          ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 1,
+            "matched_prefix_words": 24,
+            "method": "unique_exact_source_opening_passage",
+            "opening_words_sha256": "efbcb6d35951a55cd0de7c0a9dc067c824182adc8a2bc4265d9ffa11404b38a9",
+            "page_title": "Appendix 1: Age",
+            "source_locator": "Advanced Race Guide pg. 248",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=2544"
+          },
           "label": "Appendix 1: Age",
-          "status": "section_not_in_snapshot",
+          "status": "matched_verified_passage",
           "subsections": [],
-          "targets": [],
+          "targets": [
+            {
+              "anchor": null,
+              "entry_id": "advanced-race-guide/rules/age/height-and-weight/age"
+            }
+          ],
+          "title_candidates": [],
           "url": "https://aonprd.com/Rules.aspx?ID=2544"
         },
         {
@@ -2167,13 +2751,20 @@
       "topics": [
         {
           "candidate_entry_ids": [
-            "ultimate-campaign/rules/character-background",
             "ultimate-campaign/rules/character-background/character-background"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 1,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "796690f780f6650e50b6eb32f3f2455b39da4b889e7ef425f9117fb24b93f426",
+            "page_title": "Character Background",
+            "source_locator": "Ultimate Campaign pg. 8",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1221"
+          },
           "label": "Character Background",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
@@ -2256,16 +2847,38 @@
               "url": "https://aonprd.com/Rules.aspx?ID=1240"
             },
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/character-background/character-background"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "e9c8b2de6fa05766cd80eb90c6b8339864bb5f80a9af2ff61d851951118bad59",
+                "page_title": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
+                "source_locator": "Ultimate Campaign pg. 15",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1244"
+              },
               "label": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": "two-quirks-and-a-flaw-quick-and-dirty-character-establishment",
+                  "entry_id": "ultimate-campaign/rules/character-background/character-background"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1244"
             }
           ],
           "targets": [
+            {
+              "anchor": null,
+              "entry_id": "ultimate-campaign/rules/character-background/character-background"
+            }
+          ],
+          "title_candidates": [
             {
               "anchor": null,
               "entry_id": "ultimate-campaign/rules/character-background"
@@ -2279,21 +2892,44 @@
         },
         {
           "candidate_entry_ids": [
-            "ultimate-campaign/rules/downtime",
             "ultimate-campaign/rules/downtime/downtime"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 5,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "a65c6631ccbc592f26a93aeee5cb292d5aa544c27d1135de3d5567a926a30ded",
+            "page_title": "Downtime",
+            "source_locator": "Ultimate Campaign pg. 76",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1245"
+          },
           "label": "Downtime",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/downtime"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 9,
+                "matched_prefix_words": 16,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "e81850708b3b5e2ff0effc0a2d5d576231386b98ac53523ea2c4c2de4eb7851c",
+                "page_title": "Downtime Overview",
+                "source_locator": "Ultimate Campaign pg. 76",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1246"
+              },
               "label": "Downtime Overview",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": "overview",
+                  "entry_id": "ultimate-campaign/rules/downtime/downtime"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1246"
             },
             {
@@ -2333,10 +2969,24 @@
                 "ultimate-campaign/rules/downtime/rooms-and-teams"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 19,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "8394d7f0c63fe7952b0ccb6b23af5309b12405ac1805edc572e817daeac4cfba",
+                "page_title": "Rooms and Teams",
+                "source_locator": "Ultimate Campaign pg. 90",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1285"
+              },
               "label": "Rooms and Teams",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/downtime/rooms-and-teams"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-campaign/rules/downtime/rooms-and-teams"
@@ -2353,10 +3003,24 @@
                 "ultimate-campaign/rules/downtime/buildings-and-organizations"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "a37a2d27e7a4130028c94ecdbeca70aed7c325d085a8412543e2e51ac87b6a5e",
+                "page_title": "Buildings and Organizations",
+                "source_locator": "Ultimate Campaign pg. 107",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1295"
+              },
               "label": "Buildings and Organizations",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/downtime/buildings-and-organizations"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-campaign/rules/downtime/buildings-and-organizations"
@@ -2388,6 +3052,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "ultimate-campaign/rules/downtime/downtime"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "ultimate-campaign/rules/downtime"
             },
             {
@@ -2407,12 +3077,28 @@
           "status": "matched_exact_title",
           "subsections": [
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/rooms-and-teams"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 19,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "50c2802bf205296e749e8397c149e8834e418d7773df62484e67e40a73caabe1",
+                "page_title": "Reading a Unit Statblock",
+                "source_locator": "Ultimate Campaign pg. 92",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1287"
+              },
               "label": "Reading a Unit Statblock",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": "reading-a-unit-stat-block",
+                  "entry_id": "ultimate-campaign/rules/downtime/rooms-and-teams"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1287"
             },
             {
@@ -2506,33 +3192,69 @@
         },
         {
           "candidate_entry_ids": [
-            "ultimate-campaign/rules/campaign-systems",
             "ultimate-campaign/rules/campaign-systems/campaign-systems"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 14,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "72759e7287ce13c2ce263e9944657ff906bf0e5e797293a8a614b69e8ab216d4",
+            "page_title": "Campaign Systems",
+            "source_locator": "Ultimate Campaign pg. 134",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1326"
+          },
           "label": "Campaign Systems",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/alignment"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "59a174a5257d20a611f51148a28740ccd62c1b551449616766f75b11e2ab9bdc",
+                "page_title": "Alignments",
+                "source_locator": "Ultimate Campaign pg. 134",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1327"
+              },
               "label": "Alignments",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/alignment"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=1327"
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/bargaining",
-                "ultimate-campaign/rules/campaign-systems/campaign-systems"
+                "ultimate-campaign/rules/campaign-systems/bargaining"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "05f79c5dcbbcb6e4b107170cac19c25a944a1f0aee5375c633163d17108921b1",
+                "page_title": "Bargaining",
+                "source_locator": "Ultimate Campaign pg. 138",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1339"
+              },
               "label": "Bargaining",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/bargaining"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "ultimate-campaign/rules/campaign-systems/bargaining"
@@ -2546,15 +3268,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
-                "ultimate-campaign/rules/campaign-systems/companions",
-                "ultimate-campaign/rules/kingdoms-and-war/mass-combat"
+                "ultimate-campaign/rules/campaign-systems/companions"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "a3555f1d81de5221f571b7b7dff8e3774157a38a1dfa29d93e48b778b94133a6",
+                "page_title": "Companions",
+                "source_locator": "Ultimate Campaign pg. 140",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1352"
+              },
               "label": "Companions",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/companions"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "companions",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2572,15 +3306,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
-                "ultimate-campaign/rules/campaign-systems/exploration",
-                "ultimate-campaign/rules/campaign-systems/investment"
+                "ultimate-campaign/rules/campaign-systems/exploration"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "cbccf4ef38aad138a466eb43b31a4e783bb3f9d5c160da2592465f4df6ddc183",
+                "page_title": "Exploration",
+                "source_locator": "Ultimate Campaign pg. 154",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1376"
+              },
               "label": "Exploration",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/exploration"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "exploration",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2598,14 +3344,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/honor"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 5,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "74794ba9edcf813fb2b168f4ecce550506340c1bcba9eec4956a65103df1ae62",
+                "page_title": "Honor",
+                "source_locator": "Ultimate Campaign pg. 160",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1402"
+              },
               "label": "Honor",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/honor"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "honor",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2619,14 +3378,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/investment"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 3,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "41b9c5d03f38cc7222d71690b6d32818b658a031fd26910b6c7eb5b59376f6ad",
+                "page_title": "Investment",
+                "source_locator": "Ultimate Campaign pg. 164",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1413"
+              },
               "label": "Investment",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/investment"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "investment",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2640,14 +3412,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/lineage"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "35cce7042eb69116a2b1360feb976dbd669a2282d72836d3a36694a8ca2c14c9",
+                "page_title": "Lineage",
+                "source_locator": "Ultimate Campaign pg. 166",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1416"
+              },
               "label": "Lineage",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/lineage"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "lineage",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2661,15 +3446,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
-                "ultimate-campaign/rules/campaign-systems/magic-item-creation",
-                "ultimate-campaign/rules/campaign-systems/taxation"
+                "ultimate-campaign/rules/campaign-systems/magic-item-creation"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "317587ccb10cc14a47dfcb8ffa1265d38f0ef3e4e27787209f8f2343bea24d56",
+                "page_title": "Magic Item Creation",
+                "source_locator": "Ultimate Campaign pg. 170",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1426"
+              },
               "label": "Magic Item Creation",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/magic-item-creation"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "magic-item-creation",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2687,14 +3484,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/relationships"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "9a56256f3c39ada6e50642893e5ab53b8622f7ee92f78632a710cd6de003d4c8",
+                "page_title": "Relationships",
+                "source_locator": "Ultimate Campaign pg. 176",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1441"
+              },
               "label": "Relationships",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/relationships"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "relationships",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2708,14 +3518,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/reputation-and-fame"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "3c2550124a57e762f721ee5f4300e17f5c689ea367bc123ac116c46ec7ef82d5",
+                "page_title": "Reputation and Fame",
+                "source_locator": "Ultimate Campaign pg. 180",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1450"
+              },
               "label": "Reputation and Fame",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/reputation-and-fame"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "reputation-and-fame",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2733,14 +3556,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/retirement"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "e9cfdb388daf9d7edf1f86c17a1367012fae47035f1b07f4800f315d94afa609",
+                "page_title": "Retirement",
+                "source_locator": "Ultimate Campaign pg. 186",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1464"
+              },
               "label": "Retirement",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/retirement"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "retirement",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2754,14 +3590,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/retraining"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 8,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "c4f9e4b1bd81ec66f5a0fceb86dcad40298525f00a8b4fafe9e7e9e6e7de0a39",
+                "page_title": "Retraining",
+                "source_locator": "Ultimate Campaign pg. 188",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1469"
+              },
               "label": "Retraining",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/retraining"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "retraining",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2775,14 +3624,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/taxation"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 5,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "209a11ce144833ae401c67f7cb765dfcc8889a573c797e8ed6d72bac6f87d1c6",
+                "page_title": "Taxation",
+                "source_locator": "Ultimate Campaign pg. 192",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1480"
+              },
               "label": "Taxation",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/taxation"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "taxation",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2796,14 +3658,27 @@
             },
             {
               "candidate_entry_ids": [
-                "ultimate-campaign/rules/campaign-systems/campaign-systems",
                 "ultimate-campaign/rules/campaign-systems/young-characters"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "8608d2ac83266510feb35168ac9d7dc876d9b20e5a92613114d4c24388967143",
+                "page_title": "Young Characters",
+                "source_locator": "Ultimate Campaign pg. 194",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1484"
+              },
               "label": "Young Characters",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "ultimate-campaign/rules/campaign-systems/young-characters"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": "young-characters",
                   "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
@@ -2819,6 +3694,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "ultimate-campaign/rules/campaign-systems/campaign-systems"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "ultimate-campaign/rules/campaign-systems"
             },
             {
@@ -2830,13 +3711,20 @@
         },
         {
           "candidate_entry_ids": [
-            "ultimate-campaign/rules/kingdoms-and-war",
             "ultimate-campaign/rules/kingdoms-and-war/kingdoms-and-war"
           ],
           "depth": 0,
-          "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+          "evidence": {
+            "first_section_paragraph_count": 2,
+            "matched_prefix_words": 24,
+            "method": "exact_source_opening_passage_and_dedicated_article_title",
+            "opening_words_sha256": "0116858aa0581e83e84bdf15fc77b945af5b0dca3cb2b40745e169b2cddd4dc9",
+            "page_title": "Kingdoms and War",
+            "source_locator": "Ultimate Campaign pg. 198",
+            "source_url": "https://aonprd.com/Rules.aspx?ID=1488"
+          },
           "label": "Kingdoms and War",
-          "status": "ambiguous_exact_title",
+          "status": "matched_verified_passage",
           "subsections": [
             {
               "candidate_entry_ids": [
@@ -2890,6 +3778,12 @@
           "targets": [
             {
               "anchor": null,
+              "entry_id": "ultimate-campaign/rules/kingdoms-and-war/kingdoms-and-war"
+            }
+          ],
+          "title_candidates": [
+            {
+              "anchor": null,
               "entry_id": "ultimate-campaign/rules/kingdoms-and-war"
             },
             {
@@ -2939,14 +3833,27 @@
             },
             {
               "candidate_entry_ids": [
-                "mythic-adventures/rules/mythic-heroes",
                 "mythic-adventures/rules/mythic-heroes/mythic-heroes"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 1,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "8fe8c83eb7a2dbd8a8f15c3846b42c78206931d0b4a63428d37ac9827d83a7f2",
+                "page_title": "Mythic Heroes",
+                "source_locator": "Mythic Adventures pg. 10",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1613"
+              },
               "label": "Mythic Heroes",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "mythic-adventures/rules/mythic-heroes/mythic-heroes"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "mythic-adventures/rules/mythic-heroes"
@@ -2964,15 +3871,27 @@
             },
             {
               "candidate_entry_ids": [
-                "mythic-adventures/rules/mythic-feats",
-                "mythic-adventures/rules/mythic-feats/types-of-feats",
-                "mythic-adventures/rules/mythic-monsters/mythic-monster-advancement"
+                "mythic-adventures/rules/mythic-feats"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 6,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "48e70b817a31cc95fed42e16305e46db05bc9b4c1eb3b89ad998ac5c0fa9bd51",
+                "page_title": "Mythic Feats",
+                "source_locator": "Mythic Adventures pg. 54",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1620"
+              },
               "label": "Mythic Feats",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "mythic-adventures/rules/mythic-feats"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "mythic-adventures/rules/mythic-feats"
@@ -3038,14 +3957,27 @@
             },
             {
               "candidate_entry_ids": [
-                "mythic-adventures/rules/mythic-monsters",
                 "mythic-adventures/rules/mythic-monsters/mythic-monsters"
               ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 4,
+                "matched_prefix_words": 24,
+                "method": "exact_source_opening_passage_and_dedicated_article_title",
+                "opening_words_sha256": "de0a3e8737e258a2515f82a1e1c444d05e7e3ead40b168ba78b901b11c6b2af9",
+                "page_title": "Mythic Monsters",
+                "source_locator": "Mythic Adventures pg. 174",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=1662"
+              },
               "label": "Mythic Monsters",
-              "status": "ambiguous_exact_title",
+              "status": "matched_verified_passage",
               "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "mythic-adventures/rules/mythic-monsters/mythic-monsters"
+                }
+              ],
+              "title_candidates": [
                 {
                   "anchor": null,
                   "entry_id": "mythic-adventures/rules/mythic-monsters"
@@ -4267,24 +5199,6 @@
       "url": "https://aonprd.com/Rules.aspx?ID=81"
     },
     {
-      "label": "Character Creation",
-      "source_label": "PRPG Core Rulebook",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=83"
-    },
-    {
-      "label": "Alignment",
-      "source_label": "PRPG Core Rulebook",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=113"
-    },
-    {
-      "label": "Special Abilities",
-      "source_label": "PRPG Core Rulebook",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=414"
-    },
-    {
       "label": "Basics from the Core Rulebook",
       "source_label": "PRPG Core Rulebook",
       "status": "section_not_in_snapshot",
@@ -4297,58 +5211,16 @@
       "url": "https://aonprd.com/Rules.aspx?ID=65"
     },
     {
-      "label": "Magic Items",
-      "source_label": "PRPG Core Rulebook",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=365"
-    },
-    {
-      "label": "Magic",
-      "source_label": "PRPG Core Rulebook",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=68"
-    },
-    {
       "label": "Magic Basics",
       "source_label": "PRPG Core Rulebook",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=202"
     },
     {
-      "label": "Special Abilities",
-      "source_label": "PRPG Core Rulebook",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=246"
-    },
-    {
       "label": "Bestiary",
       "source_label": "Pathfinder RPG Bestiary",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=2448"
-    },
-    {
-      "label": "Introduction",
-      "source_label": "Pathfinder RPG Bestiary",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=2449"
-    },
-    {
-      "label": "Monster Creation",
-      "source_label": "Pathfinder RPG Bestiary",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=2452"
-    },
-    {
-      "label": "Monster Advancement",
-      "source_label": "Pathfinder RPG Bestiary",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=2463"
-    },
-    {
-      "label": "Monsters as PCs",
-      "source_label": "Pathfinder RPG Bestiary",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=2476"
     },
     {
       "label": "Possession",
@@ -4429,12 +5301,6 @@
       "url": "https://aonprd.com/Rules.aspx?ID=870"
     },
     {
-      "label": "NPC Gallery",
-      "source_label": "GameMastery Guide",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=936"
-    },
-    {
       "label": "High or Low Magic?",
       "source_label": "GameMastery Guide",
       "status": "section_not_in_snapshot",
@@ -4483,298 +5349,16 @@
       "url": "https://aonprd.com/Rules.aspx?ID=42"
     },
     {
-      "label": "Racial Favored Class Bonus",
-      "source_label": "Advanced Player's Guide",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=439"
-    },
-    {
-      "label": "Archetypes",
-      "source_label": "Advanced Player's Guide",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=440"
-    },
-    {
       "label": "Optional Rule Systems",
       "source_label": "Advanced Player's Guide",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=72"
     },
     {
-      "label": "Mastering Magic",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=939"
-    },
-    {
-      "label": "Spellblights",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=940"
-    },
-    {
-      "label": "Spell Duels",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=948"
-    },
-    {
-      "label": "Binding Outsiders",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=953"
-    },
-    {
-      "label": "Building and Modifying Constructs",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=974"
-    },
-    {
-      "label": "Designing Spells",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=983"
-    },
-    {
-      "label": "Optional",
-      "source_label": "Ultimate Magic",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1017"
-    },
-    {
-      "label": "Effect Word Descriptions",
-      "source_label": "Ultimate Magic",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1026"
-    },
-    {
-      "label": "Words of Power in the Worlds",
-      "source_label": "Ultimate Magic",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1063"
-    },
-    {
-      "label": "Class Word Lists",
-      "source_label": "Ultimate Magic",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1596"
-    },
-    {
       "label": "Optional Rule Systems",
       "source_label": "Ultimate Combat",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=74"
-    },
-    {
-      "label": "Armor as Damage Reduction",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1123"
-    },
-    {
-      "label": "Called Shots",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1127"
-    },
-    {
-      "label": "Piecemeal Armor",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1141"
-    },
-    {
-      "label": "Wounds and Vigor",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1155"
-    },
-    {
-      "label": "Mastering Combat",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1065"
-    },
-    {
-      "label": "Firearms",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1066"
-    },
-    {
-      "label": "Duels",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1073"
-    },
-    {
-      "label": "Performance Combat",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1082"
-    },
-    {
-      "label": "Siege Engines",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1095"
-    },
-    {
-      "label": "Vehicles",
-      "source_label": "Ultimate Combat",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1106"
-    },
-    {
-      "label": "Race Builder",
-      "source_label": "Advanced Race Guide",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1163"
-    },
-    {
-      "label": "Appendix 1: Age",
-      "source_label": "Advanced Race Guide",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=2544"
-    },
-    {
-      "label": "Character Background",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1221"
-    },
-    {
-      "label": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
-      "source_label": "Ultimate Campaign",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1244"
-    },
-    {
-      "label": "Downtime",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1245"
-    },
-    {
-      "label": "Downtime Overview",
-      "source_label": "Ultimate Campaign",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1246"
-    },
-    {
-      "label": "Rooms and Teams",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1285"
-    },
-    {
-      "label": "Buildings and Organizations",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1295"
-    },
-    {
-      "label": "Reading a Unit Statblock",
-      "source_label": "Ultimate Campaign",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1287"
-    },
-    {
-      "label": "Campaign Systems",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1326"
-    },
-    {
-      "label": "Alignments",
-      "source_label": "Ultimate Campaign",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=1327"
-    },
-    {
-      "label": "Bargaining",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1339"
-    },
-    {
-      "label": "Companions",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1352"
-    },
-    {
-      "label": "Exploration",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1376"
-    },
-    {
-      "label": "Honor",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1402"
-    },
-    {
-      "label": "Investment",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1413"
-    },
-    {
-      "label": "Lineage",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1416"
-    },
-    {
-      "label": "Magic Item Creation",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1426"
-    },
-    {
-      "label": "Relationships",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1441"
-    },
-    {
-      "label": "Reputation and Fame",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1450"
-    },
-    {
-      "label": "Retirement",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1464"
-    },
-    {
-      "label": "Retraining",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1469"
-    },
-    {
-      "label": "Taxation",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1480"
-    },
-    {
-      "label": "Young Characters",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1484"
-    },
-    {
-      "label": "Kingdoms and War",
-      "source_label": "Ultimate Campaign",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1488"
     },
     {
       "label": "Mythic Rules",
@@ -4787,24 +5371,6 @@
       "source_label": "Mythic Adventures",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=1609"
-    },
-    {
-      "label": "Mythic Heroes",
-      "source_label": "Mythic Adventures",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1613"
-    },
-    {
-      "label": "Mythic Feats",
-      "source_label": "Mythic Adventures",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1620"
-    },
-    {
-      "label": "Mythic Monsters",
-      "source_label": "Mythic Adventures",
-      "status": "ambiguous_exact_title",
-      "url": "https://aonprd.com/Rules.aspx?ID=1662"
     },
     {
       "label": "Gamemastering",

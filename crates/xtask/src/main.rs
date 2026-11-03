@@ -233,6 +233,18 @@ fn hex(bytes: &[u8]) -> String {
 fn check() -> Result {
     run("cargo", &["fmt", "--all", "--", "--check"])?;
     run(
+        "python3",
+        &[
+            "-B",
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "tests/scripts",
+            "-v",
+        ],
+    )?;
+    run(
         "cargo",
         &[
             "clippy",

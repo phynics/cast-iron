@@ -28,7 +28,7 @@ Prerequisites:
 - [rustup](https://rustup.rs/). `rust-toolchain.toml` pins the toolchain.
 - Trunk, which builds the WebAssembly app: `cargo install trunk --locked`.
 - Node.js, only to run the browser acceptance tests.
-- Python 3.11 or newer for source selection and publication-check scripts.
+- Python 3.11 or newer for source selection, publication checks, and mapping tests in `cargo xtask check`.
 - `curl`, `tar`, and `perl` (used by `cargo xtask fetch-sources` and the Trunk post-build hook).
 
 Run these commands from the repository root:
