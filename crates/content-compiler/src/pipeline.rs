@@ -75,6 +75,7 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
 
     let selection = select::select(&opts.dataset, &cfg)?;
     check_digest(opts, &cfg, &selection.digest)?;
+    let policy = crate::policy::ContentPolicy::load(&config_dir.join("content-policy.toml"))?;
 
     // Parse at the boundary.
     let mut rejected: Vec<Rejection> = Vec::new();
@@ -86,31 +87,55 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
                 path: file.rel.clone(),
                 reason,
             }),
-            Ok(node) => match &file.role {
-                Role::Typed { kind } => {
-                    if node.kind.as_deref() != Some(kind.slug()) {
-                        rejected.push(Rejection {
-                            path: file.rel.clone(),
-                            reason: format!(
-                                "record type {:?} does not match the {} directory",
-                                node.kind.as_deref().unwrap_or_default(),
-                                kind.slug()
-                            ),
-                        });
-                    } else {
-                        typed.push(RawTyped {
-                            rel: file.rel.clone(),
-                            kind: *kind,
-                            node,
-                        });
-                    }
+            Ok(mut node) => {
+                if let Some(book) = file
+                    .rel
+                    .split('/')
+                    .next()
+                    .and_then(|book| cfg.dataset.books.get(book))
+                {
+                    normalize_sources(&mut node, book);
                 }
-                Role::Rules => rules.push(RawRules {
-                    rel: file.rel.clone(),
-                    node,
-                }),
-            },
+                normalize_class_sections(&mut node, &cfg.dataset.prestige_classes);
+                if !policy.retain(&mut node, &file.rel, &mut rejected) {
+                    continue;
+                }
+                match &file.role {
+                    Role::Typed { kind } => {
+                        if node.kind.as_deref() != Some(kind.slug()) {
+                            rejected.push(Rejection {
+                                path: file.rel.clone(),
+                                reason: format!(
+                                    "record type {:?} does not match the {} directory",
+                                    node.kind.as_deref().unwrap_or_default(),
+                                    kind.slug()
+                                ),
+                            });
+                        } else {
+                            typed.push(RawTyped {
+                                rel: file.rel.clone(),
+                                kind: *kind,
+                                node,
+                            });
+                        }
+                    }
+                    Role::Rules => rules.push(RawRules {
+                        rel: file.rel.clone(),
+                        node,
+                    }),
+                }
+            }
         }
+    }
+
+    // Some typed records, notably Technology Guide's prestige class, exist
+    // only inside rules trees. Promote valid typed nodes at this boundary.
+    let mut known_urls: BTreeSet<String> = typed
+        .iter()
+        .filter_map(|raw| raw.node.url.clone())
+        .collect();
+    for tree in &rules {
+        collect_typed_nodes(&tree.node, &tree.rel, &mut known_urls, &mut typed);
     }
 
     let selected: BTreeSet<String> = selection.files.iter().map(|f| f.rel.clone()).collect();
@@ -295,6 +320,53 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         dedupe: built.dedupe,
         notes: built.notes.len(),
     })
+}
+
+fn normalize_sources(node: &mut Node, inherited: &str) {
+    if node
+        .source
+        .as_deref()
+        .is_none_or(|source| source == "PFSRD" || source.is_empty())
+    {
+        node.source = Some(inherited.to_string());
+    }
+    let source = node.source.as_deref().unwrap_or(inherited);
+    for child in &mut node.sections {
+        normalize_sources(child, source);
+    }
+}
+
+fn normalize_class_sections(node: &mut Node, urls: &[String]) {
+    if node.url.as_ref().is_some_and(|url| urls.contains(url)) {
+        node.kind = Some("class".into());
+        node.subtype = Some("prestige".into());
+    }
+    for child in &mut node.sections {
+        normalize_class_sections(child, urls);
+    }
+}
+
+fn collect_typed_nodes(
+    node: &Node,
+    path: &str,
+    known: &mut BTreeSet<String>,
+    out: &mut Vec<RawTyped>,
+) {
+    if let Some(kind) = node.kind.as_deref().and_then(EntryKind::from_slug)
+        && kind != EntryKind::Rule
+        && let Some(url) = &node.url
+        && node.name.as_deref().is_some_and(|name| !name.is_empty())
+        && known.insert(url.clone())
+    {
+        out.push(RawTyped {
+            rel: path.to_string(),
+            kind,
+            node: node.clone(),
+        });
+    }
+    for child in &node.sections {
+        collect_typed_nodes(child, path, known, out);
+    }
 }
 
 fn check_digest(opts: &Options, cfg: &SourceConfig, computed: &str) -> Result<(), Failure> {

@@ -152,9 +152,18 @@ pub fn plan<'a>(
                 continue;
             }
         };
+        // Categories may change; public entry IDs remain URL-derived.
+        let kind = match (&extracted.fields, raw.kind) {
+            (TypedFields::Class(fields), EntryKind::Class)
+                if fields.class_type.as_deref() == Some("prestige") =>
+            {
+                EntryKind::PrestigeClass
+            }
+            _ => raw.kind,
+        };
         let value = raw.node.to_value();
         if let Some(&first) = by_url.get(&url) {
-            let canonical = &inputs[first];
+            let canonical = &mut inputs[first];
             if canonical.value == value {
                 dedupe.typed_identical += 1;
             } else {
@@ -167,6 +176,19 @@ pub fn plan<'a>(
                     .entry(canonical.id.clone())
                     .or_default()
                     .insert((url.clone(), raw.rel.clone()));
+                // A construct can also have an item record at the same URL.
+                // Keep the canonical category while retaining supplemental
+                // construction metadata instead of discarding disjoint fields.
+                if canonical.kind == EntryKind::Creature && kind == EntryKind::Item {
+                    for (key, value) in &raw.node.rest {
+                        canonical
+                            .node
+                            .rest
+                            .entry(key.clone())
+                            .or_insert_with(|| value.clone());
+                    }
+                    canonical.value = canonical.node.to_value();
+                }
             }
             continue;
         }
@@ -175,7 +197,7 @@ pub fn plan<'a>(
         inputs.push(TypedInput {
             title: html::plain_text(raw.node.title()),
             rel: raw.rel,
-            kind: raw.kind,
+            kind,
             node: raw.node,
             id,
             value,
@@ -806,7 +828,7 @@ impl<'p> Ctx<'p> {
                 skip_section = skip;
                 (rows, &["feat_types"])
             }
-            EntryKind::Class => self.class_rows(node, &t.extracted),
+            EntryKind::Class | EntryKind::PrestigeClass => self.class_rows(node, &t.extracted),
             EntryKind::Skill => self.skill_rows(node),
             EntryKind::Affliction => self.affliction_rows(node),
             EntryKind::Trap => self.trap_rows(node),

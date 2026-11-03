@@ -25,6 +25,12 @@ pub struct DatasetConfig {
     pub typed: Vec<String>,
     /// Rules-tree files.
     pub rules: Vec<String>,
+    /// Reviewed directory-to-publication mapping for upstream placeholder sources.
+    #[serde(default)]
+    pub books: BTreeMap<String, String>,
+    /// Sections that upstream stores without its otherwise standard class type.
+    #[serde(default)]
+    pub prestige_classes: Vec<String>,
 }
 
 impl SourceConfig {

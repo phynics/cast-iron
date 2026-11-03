@@ -1,11 +1,37 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { installLibrary, spans, tableRows, tablesOf } from "./helpers";
+import { installLibrary, spans, tableRows, tablesOf, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const count = (pred: (s: (typeof corpus.catalog.entries)[number]) => boolean) => corpus.catalog.entries.filter(pred).length;
 
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
+});
+
+test("Expanded books and separate class categories work offline", async ({ page, context }) => {
+  expect(corpus.catalog.sources).toHaveLength(16);
+  await waitControlled(page);
+  await context.setOffline(true);
+  await page.goto("#/browse/kind/class");
+  await expect(page.getByRole("heading", { name: "Classes", level: 1, exact: true })).toBeVisible();
+  await expect(page.locator(".entry-list li")).toHaveCount(count(s => s.kind === "class"));
+  await expect(page.locator(".entry-list li").filter({ hasText: /^Fighter/ })).toHaveCount(1);
+  await expect(page.locator(".entry-list li").filter({ hasText: /Arcane Archer/ })).toHaveCount(0);
+  await page.goto("#/browse/kind/prestige_class");
+  await expect(page.getByRole("heading", { name: "Prestige classes", level: 1 })).toBeVisible();
+  await expect(page.locator(".entry-list li")).toHaveCount(count(s => s.kind === "prestige_class"));
+  await expect(page.locator(".entry-list li").filter({ hasText: /^Technomancer/ })).toHaveCount(1);
+  await page.getByRole("link", { name: /Arcane Archer/ }).click();
+  await expect(page).toHaveURL(/#\/entry\/core-rulebook\/classes\/arcane-archer$/);
+  await expect(page.getByRole("heading", { name: "Arcane Archer", level: 1 })).toBeVisible();
+  await page.goto("#/search");
+  await page.locator(".filters .chip", { hasText: /^Prestige classes/ }).click();
+  await expect(page.locator(".results .hit")).toHaveCount(count(s => s.kind === "prestige_class"));
+  await expect(page.locator(".results")).toContainText("Technomancer");
+  await expect(page.locator(".results")).not.toContainText("Fighter");
+  await page.goto("#/browse/source/ultimate-magic");
+  await expect(page.getByRole("heading", { name: "Ultimate Magic", level: 1 })).toBeVisible();
+  await expect(page.locator(".kind-group")).toContainText(["Magus"]);
 });
 
 test("Category and sourcebook browsing works", async ({ page }) => {
@@ -129,10 +155,10 @@ test("Cross-reference navigation works", async ({ page }) => {
   // A link with an anchor lands on that heading.
   await page.goto("#/entry/core-rulebook/spells/summon-monster-iii");
   await page.locator(".rich a.xref[href*='a=monitor-lizard']").first().click();
-  await expect
-    .poll(() => page.evaluate(() => document.getElementById("monitor-lizard")?.getBoundingClientRect().top ?? -1))
-    .toBeGreaterThanOrEqual(0);
-  expect(await page.evaluate(() => document.getElementById("monitor-lizard")!.getBoundingClientRect().top < innerHeight / 2)).toBe(true);
+  await expect.poll(() => page.evaluate(() => {
+    const top = document.getElementById("monitor-lizard")?.getBoundingClientRect().top ?? -1;
+    return top >= 0 && top < innerHeight / 2;
+  })).toBe(true);
 });
 
 test("Back/forward navigation works", async ({ page }) => {

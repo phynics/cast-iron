@@ -46,7 +46,7 @@ pub fn extract(kind: EntryKind, node: &Node, rel: &str) -> Result<Extracted, Str
         EntryKind::Feat => feat(node),
         EntryKind::Creature => Ok(creature(node)),
         EntryKind::Item => item(node),
-        EntryKind::Class => Ok(class(node, rel)),
+        EntryKind::Class | EntryKind::PrestigeClass => Ok(class(node, rel)),
         EntryKind::Race | EntryKind::Skill | EntryKind::Affliction | EntryKind::Trap => {
             let mut out = Extracted::new(TypedFields::None);
             match kind {
@@ -359,6 +359,7 @@ pub fn misc_pairs(node: &Node) -> Result<Vec<(String, String, String)>, String> 
                 };
                 for (label, value) in inner {
                     let raw = match value {
+                        Value::Null => continue,
                         Value::String(s) => s.clone(),
                         Value::Number(n) => n.to_string(),
                         _ => return Err(format!("`misc.{sub}.{label}` is not a string")),
@@ -536,7 +537,7 @@ mod tests {
     fn item_misc_flattens_in_order_and_drops_null_heading() {
         let n = node(
             r#"{"name":"Acid","url":"pfsrd://A/Acid","source":"A","type":"item","slot":"None","price":"10 gp",
-            "misc":{"null":{"Gear Type":"Special Substances and Items","Craft":"DC 15"},"Weapon":{"Critical":"&times;3"}}}"#,
+            "misc":{"null":{"Gear Type":"Special Substances and Items","Craft":"DC 15"},"Weapon":{"Critical":"&times;3","Weapon Class":null}}}"#,
         );
         let e = extract(EntryKind::Item, &n, "x.json").unwrap();
         let TypedFields::Item(f) = &e.fields else {

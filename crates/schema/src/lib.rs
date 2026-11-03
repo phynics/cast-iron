@@ -21,7 +21,7 @@ use std::fmt;
 pub mod validate;
 
 /// Version of the serialized content format.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// Stable canonical identifier. Lowercase `a-z0-9-` segments joined by `/`,
 /// such as `core-rulebook/spells/fireball`.
@@ -99,6 +99,7 @@ pub enum EntryKind {
     Creature,
     Item,
     Class,
+    PrestigeClass,
     Race,
     Skill,
     Affliction,
@@ -106,13 +107,14 @@ pub enum EntryKind {
 }
 
 impl EntryKind {
-    pub const ALL: [EntryKind; 10] = [
+    pub const ALL: [EntryKind; 11] = [
         EntryKind::Rule,
         EntryKind::Spell,
         EntryKind::Feat,
         EntryKind::Creature,
         EntryKind::Item,
         EntryKind::Class,
+        EntryKind::PrestigeClass,
         EntryKind::Race,
         EntryKind::Skill,
         EntryKind::Affliction,
@@ -128,6 +130,7 @@ impl EntryKind {
             EntryKind::Creature => "creature",
             EntryKind::Item => "item",
             EntryKind::Class => "class",
+            EntryKind::PrestigeClass => "prestige_class",
             EntryKind::Race => "race",
             EntryKind::Skill => "skill",
             EntryKind::Affliction => "affliction",
@@ -148,6 +151,7 @@ impl EntryKind {
             EntryKind::Creature => "Creatures",
             EntryKind::Item => "Items",
             EntryKind::Class => "Classes",
+            EntryKind::PrestigeClass => "Prestige classes",
             EntryKind::Race => "Races",
             EntryKind::Skill => "Skills",
             EntryKind::Affliction => "Afflictions",

@@ -1,0 +1,15 @@
+# Curated removals from the pinned books. Applied to typed records and nested copies.
+# Every removal appears with its source path in the compiler's rejection report.
+omit_npc_stories = true
+omit_race_names = true
+
+[excluded_urls]
+"pfsrd://Mythic Adventures/Rules/Mythic Items/Magic Items/Specific Weapons/Bow of Erastil" = "Product Identity: deity-named item omitted"
+"pfsrd://Mythic Adventures/Rules/Mythic Items/Magic Items/Other Magic Items/Caydens Cup" = "Product Identity: deity-named item omitted"
+"pfsrd://Ultimate Campaign/Rules/Character Background/Background Generator/Step 3-Moral Conflicts/Relationships/and Drawbacks/Crime and Punishment/Deity and Religious Philosophy" = "Product Identity: named deity descriptions omitted"
+"pfsrd://Ultimate Campaign/Rules/Character Background/Traits/Religion Traits" = "Product Identity: deity-specific traits omitted"
+
+[omitted_bodies]
+"pfsrd://Advanced Players Guide/Rules/Races/Racial Traits" = "Product Identity: setting-specific commentary omitted; racial trait rules retained"
+"pfsrd://Mythic Adventures/Rules/Mythic Game/Running a Mythic Game/Making a Mythic Atmosphere" = "Product Identity: setting-specific commentary omitted"
+"pfsrd://Ultimate Combat/Rules/Mastering Combat/Firearms/Firearms in Your Campaign" = "Product Identity: setting-specific commentary omitted; firearm mechanics retained"

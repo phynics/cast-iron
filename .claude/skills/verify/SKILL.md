@@ -62,7 +62,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Offline launch, no runtime server | `Offline launch\|runtime server` | `web/sw.js`, `crates/web/src/app.rs` |
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
-| Browsing | `browsing` | `crates/web/src/views/browse.rs` |
+| Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
 | Bookmarks and collections | `Bookmarks persist` | `crates/web/src/store.rs`, `crates/web/src/views/bookmarks.rs` |
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
@@ -74,3 +74,5 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 ## Keep this file current
 
 When you add a feature, add its row to the feature map, with its e2e test area and source files. When you rename or move a file listed here, update the row. A feature that is missing from this table cannot be verified by the next agent.
+
+For a corpus expansion, run `python3 scripts/check-library-upgrade.py <previous-content-directory>` against a saved previous release. It checks all old IDs and titles and verifies class classification in the new built entries. Keep an installed schema-1 library available for a browser upgrade check; verify an existing bookmark before and after activation, then reload offline.

@@ -24,6 +24,7 @@ pub fn kind_name(kind: EntryKind) -> &'static str {
         EntryKind::Creature => "Creature",
         EntryKind::Item => "Item",
         EntryKind::Class => "Class",
+        EntryKind::PrestigeClass => "Prestige class",
         EntryKind::Race => "Race",
         EntryKind::Skill => "Skill",
         EntryKind::Affliction => "Affliction",

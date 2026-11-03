@@ -78,7 +78,10 @@ fn validate_entry(
             | (TypedFields::Feat(_), EntryKind::Feat)
             | (TypedFields::Creature(_), EntryKind::Creature)
             | (TypedFields::Item(_), EntryKind::Item)
-            | (TypedFields::Class(_), EntryKind::Class)
+            | (
+                TypedFields::Class(_),
+                EntryKind::Class | EntryKind::PrestigeClass
+            )
             | (
                 TypedFields::None,
                 EntryKind::Rule

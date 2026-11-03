@@ -6,6 +6,46 @@ use cast_iron_schema::{Block, EntryKind, Inline, TypedFields};
 use common::*;
 use std::fs;
 
+#[test]
+fn nested_prestige_class_gets_its_own_category_without_changing_its_id() {
+    let scratch = scratch("fixture-prestige");
+    let config = config_dir(&scratch);
+    let dataset = scratch.join("dataset");
+    copy_dir(&fixtures().join("dataset"), &dataset);
+    let path = dataset.join("book_a/rules/combat.json");
+    let mut tree: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    tree["sections"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "name": "Arcane Archer", "type": "class", "subtype": "prestige",
+            "source": "Core Rulebook", "url": "pfsrd://Core Rulebook/Classes/Arcane Archer",
+            "hit_die": "d10", "body": "<p>Prestige class rules.</p>"
+        }));
+    fs::write(&path, serde_json::to_vec(&tree).unwrap()).unwrap();
+    let out = scratch.join("out");
+    let mut opts = options(&config, &dataset, &out, &scratch.join("reports"));
+    opts.write_digest = true;
+    run(&opts);
+    let library = load(&out);
+    let entry = library.entry("core-rulebook/classes/arcane-archer");
+    assert_eq!(entry.kind, EntryKind::PrestigeClass);
+    assert!(
+        matches!(&entry.fields, TypedFields::Class(fields) if fields.hit_die.as_deref() == Some("d10"))
+    );
+    assert!(
+        library
+            .catalog
+            .entries
+            .iter()
+            .any(|stub| stub.id == entry.id && stub.kind == EntryKind::PrestigeClass)
+    );
+    assert_eq!(
+        serde_json::to_value(entry).unwrap()["kind"],
+        "prestige_class"
+    );
+}
+
 /// Compiles the fixture dataset, pins its digest on the first run, and returns the outcome.
 fn compile_fixture(
     name: &str,
