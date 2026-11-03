@@ -1,0 +1,35 @@
+# Upstream dataset pin and POC selection. See docs/research/ for the audits.
+[dataset]
+id = "psrd-data"
+repository = "https://github.com/devonjones/PSRD-Data"
+branch = "release"
+commit = "76ea4784604145ba3dea40eb56f83bb904759467"
+note = "PSRD-Data has no license file. Its content is derived from Paizo's Pathfinder Reference Document, used under OGL 1.0a and Paizo's Community Use Policy. See docs/research/licensing-audit.md."
+# SHA-256 over the sorted "path:sha256" lines of all selected files. An empty value is a failure.
+input_digest = "aae9d6e4d10e5347feb5c124e9d58f00090085800f4c3d7cf178d05e5c0a31fd"
+
+# Typed records: every JSON file directly in these directories, or below them for `class`.
+typed = [
+  "core_rulebook/spell",
+  "core_rulebook/feat",
+  "core_rulebook/class",
+  "core_rulebook/race",
+  "core_rulebook/skill",
+  "core_rulebook/affliction",
+  "core_rulebook/trap",
+  "core_rulebook/item",
+  "bestiary/creature",
+]
+
+# Rules trees. The compiler emits one parent entry per file, and one entry per first-level
+# child section. Deeper sections flatten into headings with anchors.
+rules = [
+  "core_rulebook/rules/getting_started.json",
+  "core_rulebook/rules/using_skills.json",
+  "core_rulebook/rules/combat.json",
+  "core_rulebook/rules/magic.json",
+  "core_rulebook/rules/additional_rules.json",
+  "core_rulebook/rules/environment.json",
+  "core_rulebook/rules/glossary.json",
+  "core_rulebook/rules/equipment.json",
+]

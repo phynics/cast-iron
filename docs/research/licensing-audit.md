@@ -1,0 +1,82 @@
+# Licensing audit: PSRD-Data and PF1e rules material for Cast Iron
+
+Status: fact gathering, not legal advice. Every claim below has a source (URL or file path) and, where useful, a short quote. Items marked UNVERIFIED were not checked.
+
+## Open risks for redistribution in a public GitHub Pages deployment
+
+1. **The derived dataset has no license.** `devonjones/PSRD-Data` has `license: null`, no LICENSE file on any branch, and no README on `release`. The only license text is inside `book-ogl.db`. Redistributing data scraped from Paizo pages rests on whatever Paizo's Open Game Content grant covers, not on the repo.
+2. **OGL 1.0a covers only Open Game Content.** Paizo's PRD excludes Product Identity from the grant: "All trademarks, registered trademarks, proper names (characters, deities, etc.), dialogue, plots, storylines, locations, characters, artworks, and trade dress." Records copied wholesale (flavor text, names, descriptions) may fall outside the grant. A per-record OGC/PI audit has not been done.
+3. **Paizo Community Use Policy (CUP) is limited to non-commercial, unofficial use with a mandatory notice.** The notice must appear "in each project, product, or on each website that uses any Paizo Material" (quote in Q3). The CUP page is silent on OGL content, so it does not say whether CUP and OGL combine.
+4. **Ads and donations are ambiguous under CUP.** The CUP text says "You are allowed to accept donations on platforms like Patreon and to generate advertising revenue via YouTube, Twitch, and web ads", yet also "non-commercial". A GitHub Pages site with ads or donations needs a decision.
+5. **OGL 1.0a Section 10 requires a copy of the license with every distribution.** The app must ship the full OGL 1.0a text, not only the Section 15 line.
+6. **Trademark.** OGL Section 7 forbids implying compatibility with Paizo trademarks. Any "Pathfinder" naming or logos need separate permission or must be avoided. CUP requires the "unofficial" statement.
+7. **GPL code is separate from the data.** PSRD-Parser and PathfinderOpenReference are GPLv3 for code. That says nothing about the data they generate. Copying code from them would bring GPLv3 obligations.
+8. **Source is legacy.** Paizo: "The Pathfinder Reference Document will no longer be updated" (`https://paizo.com/pathfinderRPG/prd/`).
+
+## Q1. Repository license statements and release branch
+
+- **PSRD-Data** (`https://github.com/devonjones/PSRD-Data`): API `license: null`; default branch `release`. Root listing has no LICENSE, README, or COPYING (`gh api repos/devonjones/PSRD-Data/contents`). LICENSE returns 404 on `release`, `modified`, and `initial_load`.
+  - Latest `release` commit: **76ea4784604145ba3dea40eb56f83bb904759467**, committed **2015-05-08T22:24:04Z**, message "latest updates of data as I modify rules to work on the dice roller" (`gh api repos/devonjones/PSRD-Data/commits?sha=release`).
+  - Repo `pushed_at` is 2015-10-30 (API). A `gh search repos` result showed `updatedAt` 2026-10-15; that discrepancy is unexplained and unverified.
+- **PSRD-Parser** (`https://github.com/devonjones/PSRD-Parser`): API license GPL-3.0. README: "PSRD Parser is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation". Its README describes it as parsing "the Paizo Pathfinder Reference Document".
+- **PathfinderOpenReference** (`https://github.com/devonjones/PathfinderOpenReference`): API license GPL-3.0. README: "Pathfinder Open Reference is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License". README describes it as "an android app for displaying rules".
+  - UNVERIFIED: the user's label "Masterwork Tools". The string "Masterwork" does not appear in the README.
+- No repo states a data license for PSRD-Data.
+
+## Q2. OGL 1.0a text: location in the dataset and on the web
+
+**Dataset location (only one):** `/tmp/ci-dl-1/PSRD-Data-release/book-ogl.db`, table `sections`, `section_id = 4`, column `body` (HTML `<p>` wrapped, 6617 chars). Read with `sqlite3 -readonly`.
+- Starts with the PI/OGC declaration paragraph, then "OPEN GAME LICENSE Version 1.0a", ends with: `15. COPYRIGHT NOTICE</p><p>Open Game License v 1.0a Copyright 2000, Wizards of the Coast, Inc.</p>`
+- Section 1 (`section_id 1`, "Open Game License") and section 2 ("OGL") have empty bodies.
+- `section_id 3` ("Product Identity") holds the PI declaration (quoted in Q3).
+
+**Per-book representation of Section 15:**
+- No other book DB contains the OGL text. `grep` for "COPYRIGHT NOTICE" in `book-*.db` (except `book-ogl.db`) and `index.db` returns 0.
+- No JSON file in the dataset contains "Open Game" or "COPYRIGHT NOTICE" (`grep -r`, 0 hits).
+- In `book-ogl.db`, each book has a copyright-line record (`section_id` 6 to 24, e.g. id 7 "Pathfinder Roleplaying Game Core Rulebook": "&copy; 2009, Paizo Publishing, LLC; Author: Jason Bulmahn..."). These are not Section 15.
+
+**Verbatim check:** I extracted `section_id 4` from the dataset and the OGL block from Paizo's copy (`https://paizo.com/pathfinderRPG/prd/openGameLicense.html`). After stripping HTML and collapsing whitespace, both are 6156 characters with zero differing segments (difflib). The dataset and Paizo's page match each other.
+
+**Wizards canonical copy:** NOT VERIFIED. The `wizards.com` RTF URL returned an unrelated page, and `media.wizards.com/2023/...OGL_1.0a.pdf` returned 404. The app should not claim verbatim equality with Wizards' original until that is checked.
+
+**Files to read for the verbatim text:**
+- `/tmp/ci-dl-1/PSRD-Data-release/book-ogl.db` (`sections.section_id = 4`, the OGL block after the PI/OGC paragraph)
+- Paizo's copy, `https://paizo.com/pathfinderRPG/prd/openGameLicense.html`, OGL section
+
+## Q3. Paizo PRD Open Game Content and Product Identity
+
+Source: `https://paizo.com/pathfinderRPG/prd/openGameLicense.html`. Quote:
+
+> "Product Identity: The following items are hereby identified as Product Identity, as defined in the Open Game License 1.0a, Section 1(e), and are not Open Content: All trademarks, registered trademarks, proper names (characters, deities, etc.), dialogue, plots, storylines, locations, characters, artworks, and trade dress. (Elements that have previously been designated as Open Game Content are not included in this declaration.)"
+
+> "Open Content: Except for material designated as Product Identity (see above), the game mechanics of this Paizo Publishing game product are Open Game Content, as defined in the Open Game License version 1.0a Section 1(d). No portion of this work other than the material designated as Open Game Content may be reproduced in any form without written permission."
+
+The PRD landing page `https://paizo.com/pathfinderRPG/prd/` says: "The Pathfinder Reference Document will no longer be updated, but is available for reference in its last updated state."
+
+**Community Use Policy (`https://paizo.com/community/communityuse`, "Last Updated Thursday, August 22, 2024"):**
+- Scope: "This policy authorizes certain non-commercial use of the Paizo-related material specifically identified in the Permissions section of this policy ("Paizo Material")."
+- Required notice (verbatim): `"[This website, product name, Twitch show title, etc.] uses trademarks and/or copyrights owned by Paizo Inc., used under Paizo's Community Use Policy (paizo.com/licenses/communityuse). We are expressly prohibited from charging you to use or access this content. [This website, product name, Twitch show title, etc.] is not published, endorsed, or specifically approved by Paizo. For more information about Paizo Inc. and Paizo products, visit paizo.com."` Note the page's own text has `&nbsp;` entities; the notice should be typed as plain text. The notice must appear "in a legible/accessible form in each project, product, or on each website that uses any Paizo Material."
+- "Your project must be unofficial."
+- "Non-Commercial Use. If you make any commercial use of Paizo Material beyond what is explicitly allowed by this policy, your rights will be automatically terminated"
+- Donations and ads: "You are allowed to accept donations on platforms like Patreon and to generate advertising revenue via YouTube, Twitch, and web ads."
+- Permissions cover the "Community Use Package", product cover images, product descriptions, and blog text/artwork, with exceptions.
+- **OGL interaction:** the CUP page contains no occurrence of "Open Game", "OGL", "Open Content", or "Product Identity" (checked by text search). It does not say whether CUP and OGL combine. It directs commercial licensing to paizo.com/licenses.
+
+## Q4. ORC/OGL 2023 situation
+
+Wizards' 27 January 2023 statement (DnD Beyond, `https://www.dndbeyond.com/posts/1439`): "We are leaving OGL 1.0a in place, as is. Untouched. We are also making the entire SRD 5.1 available under a Creative Commons license." It then says of the CC license, not OGL 1.0a: "We don't control that license and cannot alter or revoke it." and "Placing the SRD under a Creative Commons license is a one-way door. There's no going back." The official SRD FAQ (`https://dnd.wizards.com/resources/systems-reference-document`) says the CC move was made "so that creators have certainty that Wizards can never revoke or deauthorize SRD 5.1 content". Neither source states that OGL 1.0a itself is irrevocable. Wizards left it unchanged and did not revoke it. OGL 1.0a Section 9 also lets Wizards publish updated versions while allowing use of "any authorized version of this License" for content originally distributed under an earlier version. The OGL 1.0a text gives no irrevocability clause. Search results said the Open Gaming Foundation reported Wizards had prepared to deauthorize OGL 1.0a and then reversed; UNVERIFIED (not fetched).
+
+## Q5. Alternative "Pf Data 1e structured JSON" candidates
+
+Searched `gh search repos` and `gh search code` for pathfinder/pf1e json, psrd data, and open game license terms.
+- **Not found:** no repo matching "Pf Data 1e structured JSON" by name.
+- **`adamjcoonen/PSRD-Data`:** repo is empty (`"Git Repository is empty"`, size 0, license null). Not usable.
+- **PCGen data (`https://github.com/PCGen/pcgen`, `data/pathfinder/`):** PF1e data in `.lst` and `.pcc` text format (not JSON; `search/code` for `.json` in `data/pathfinder` returns 0 and for `.lst` returns 2808). The repo license is LGPL-2.1 (`gh api repos/PCGen/pcgen`, size 365075 KB for the whole repo). `data/pathfinder/paizo/pathfinder_for_gms.pcc` carries: `COPYRIGHT:Open Game License v 1.0a Copyright 2000, Wizards of the Coast, Inc.` and `INFOTEXT:This dataset uses trademarks and/or copyrights owned by Paizo Inc., which are used under Paizo's Community Use Policy.` The `data/readme.md` has no license text. Data license for PCGen is UNVERIFIED beyond these headers.
+
+## Unverified items
+
+- The "Masterwork Tools" name for PathfinderOpenReference.
+- The Wizards canonical OGL 1.0a text (not fetched).
+- The Open Gaming Foundation report on the 2023 deauthorization preparation.
+- The `updatedAt` discrepancy for PSRD-Data.
+- Per-record OGC/PI classification of the dataset.
