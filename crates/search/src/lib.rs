@@ -139,8 +139,16 @@ impl SearchIndex {
 
     /// Values of a facet field with the number of docs having each, sorted by value.
     pub fn facet_values(&self, field: &str) -> Vec<(String, u32)> {
+        self.facet_values_eligible(field, |_| true)
+    }
+
+    pub fn facet_values_eligible(
+        &self,
+        field: &str,
+        eligible: impl Fn(&str) -> bool,
+    ) -> Vec<(String, u32)> {
         let mut map: std::collections::BTreeMap<&str, u32> = Default::default();
-        for d in &self.meta.docs {
+        for d in self.meta.docs.iter().filter(|d| eligible(&d.id)) {
             let mut seen: Vec<&str> = Vec::new();
             for (f, v) in &d.facets {
                 if f.eq_ignore_ascii_case(field) && !seen.contains(&v.as_str()) {
@@ -153,10 +161,15 @@ impl SearchIndex {
     }
 
     pub fn facet_fields(&self) -> Vec<String> {
+        self.facet_fields_eligible(|_| true)
+    }
+
+    pub fn facet_fields_eligible(&self, eligible: impl Fn(&str) -> bool) -> Vec<String> {
         let set: std::collections::BTreeSet<&str> = self
             .meta
             .docs
             .iter()
+            .filter(|d| eligible(&d.id))
             .flat_map(|d| d.facets.iter().map(|(f, _)| f.as_str()))
             .collect();
         set.into_iter().map(String::from).collect()
