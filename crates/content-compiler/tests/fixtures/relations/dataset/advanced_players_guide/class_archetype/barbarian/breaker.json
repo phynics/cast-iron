@@ -1,0 +1,20 @@
+{
+ "name": "Breaker",
+ "url": "pfsrd://Advanced Players Guide/Rules/Core Classes/Barbarian/Barbarian Archetypes/Breaker",
+ "source": "Advanced Player's Guide",
+ "type": "class_archetype",
+ "subtype": "barbarian",
+ "body": "<p>While most barbarians are skilled at breaking things, some find the need to destroy their surroundings. A breaker barbarian has the following class features.</p>",
+ "sections": [
+  {
+   "name": "Destructive",
+   "url": "pfsrd://Advanced Players Guide/Rules/Core Classes/Barbarian/Barbarian Archetypes/Breaker/Destructive",
+   "source": "Advanced Player's Guide",
+   "type": "ability",
+   "ability_types": {
+    "ability_type": "Extraordinary"
+   },
+   "body": "<p>Whenever the breaker barbarian makes a sunder combat maneuver, she adds half her barbarian level on the damage roll. This ability replaces fast movement.</p>"
+  }
+ ]
+}

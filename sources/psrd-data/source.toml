@@ -6,7 +6,7 @@ branch = "release"
 commit = "76ea4784604145ba3dea40eb56f83bb904759467"
 note = "PSRD-Data has no license file. Its content is derived from Paizo's Pathfinder Reference Document, used under OGL 1.0a and Paizo's Community Use Policy. See docs/research/licensing-audit.md."
 # SHA-256 over the sorted "path:sha256" lines of all selected files. An empty value is a failure.
-input_digest = "73b337e3b61973d3e9c9b1c5491c27f7791c416ef3708ee7bc3f29696ef70da9"
+input_digest = "34547b0c6529a2abd9079bca5f0d405e39f1dba272111f4dfbdeb86da585b802"
 
 prestige_classes = ["pfsrd://Technology Guide/Rules/Technology in the world/Technomancer"]
 
@@ -14,14 +14,18 @@ prestige_classes = ["pfsrd://Technology Guide/Rules/Technology in the world/Tech
 typed = [
   "advanced_players_guide/affliction",
   "advanced_players_guide/class",
+  "advanced_players_guide/class_archetype",
   "advanced_players_guide/feat",
   "advanced_players_guide/item",
+  "advanced_players_guide/racial_trait",
   "advanced_players_guide/spell",
+  "advanced_players_guide/trait",
   "advanced_players_guide/trap",
   "advanced_race_guide/affliction",
   "advanced_race_guide/feat",
   "advanced_race_guide/item",
   "advanced_race_guide/race",
+  "advanced_race_guide/racial_trait",
   "advanced_race_guide/spell",
   "bestiary/affliction",
   "bestiary/creature",
@@ -45,6 +49,7 @@ typed = [
   "core_rulebook/feat",
   "core_rulebook/item",
   "core_rulebook/race",
+  "core_rulebook/racial_trait",
   "core_rulebook/skill",
   "core_rulebook/spell",
   "core_rulebook/trap",
@@ -59,18 +64,23 @@ typed = [
   "mythic_adventures/item",
   "mythic_adventures/spell",
   "npc_codex/creature",
+  "technology_guide/class_archetype",
   "technology_guide/creature",
   "technology_guide/item",
   "technology_guide/spell",
   "technology_guide/trap",
+  "ultimate_campaign/drawback",
   "ultimate_campaign/feat",
+  "ultimate_campaign/trait",
   "ultimate_combat/class",
+  "ultimate_combat/class_archetype",
   "ultimate_combat/feat",
   "ultimate_combat/item",
   "ultimate_combat/spell",
   "ultimate_equipment/item",
   "ultimate_equipment/trap",
   "ultimate_magic/class",
+  "ultimate_magic/class_archetype",
   "ultimate_magic/creature",
   "ultimate_magic/feat",
   "ultimate_magic/item",

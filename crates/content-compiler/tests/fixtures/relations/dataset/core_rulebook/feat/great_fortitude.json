@@ -1,0 +1,17 @@
+{
+ "name": "Great Fortitude",
+ "url": "pfsrd://Core Rulebook/Feats/Great Fortitude",
+ "source": "Core Rulebook",
+ "type": "feat",
+ "feat_types": {
+  "feat_type": "General"
+ },
+ "sections": [
+  {
+   "body": "<p class=\"stat-block-1\">You gain the benefit.</p>",
+   "source": "Core Rulebook",
+   "type": "section",
+   "name": "Benefit"
+  }
+ ]
+}

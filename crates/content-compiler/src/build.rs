@@ -331,8 +331,24 @@ pub fn plan<'a>(
 // ---------------------------------------------------------------------------------------------
 // Rendering
 
+/// An entry link that a rendered body holds: the host shows `target` as a link at the point
+/// that the heading trail leads to. The book order and the part relations are built from these.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NestedLink {
+    pub host: EntryId,
+    pub target: EntryId,
+    /// Enclosing headings of the host body at the link, outermost first, as
+    /// `(plain title, anchor)`.
+    pub trail: Vec<(String, String)>,
+    /// True when the target is a child entry of the host rules tree. False for a typed record
+    /// that the host nests.
+    pub child: bool,
+}
+
 pub struct Built {
     pub entries: Vec<RuleEntry>,
+    /// Entry links in render order per host.
+    pub nested: Vec<NestedLink>,
     pub stripped: BTreeMap<String, u32>,
     pub links: LinkCoverage,
     pub notes: Vec<String>,
@@ -357,6 +373,8 @@ struct State<'a> {
     cur_path: String,
     cur_anchors: BTreeSet<String>,
     cur_links: BTreeSet<EntryReference>,
+    anchor_stack: Vec<(String, String)>,
+    nested: Vec<NestedLink>,
 }
 
 impl Env for State<'_> {
@@ -446,6 +464,8 @@ pub fn build<'p>(plan: &'p Plan<'p>) -> Built {
             cur_path: String::new(),
             cur_anchors: BTreeSet::new(),
             cur_links: BTreeSet::new(),
+            anchor_stack: Vec::new(),
+            nested: Vec::new(),
         },
     };
     for t in &plan.typed {
@@ -471,6 +491,7 @@ pub fn build<'p>(plan: &'p Plan<'p>) -> Built {
     ctx.st.nested_conflicting = 0;
     ctx.st.extra_prov.clear();
     ctx.st.source_titles.clear();
+    ctx.st.nested.clear();
     let mut entries = ctx.run();
     entries.sort_by(|a, b| a.id.cmp(&b.id));
     let mut extra = plan.extra_prov.clone();
@@ -498,6 +519,7 @@ pub fn build<'p>(plan: &'p Plan<'p>) -> Built {
     notes.extend(std::mem::take(&mut ctx.st.notes));
     Built {
         entries,
+        nested: std::mem::take(&mut ctx.st.nested),
         stripped: ctx.st.stripped,
         links: ctx.st.links,
         notes,
@@ -558,6 +580,19 @@ impl<'p> Ctx<'p> {
         self.st.cur_path = path.to_string();
         self.st.cur_anchors.clear();
         self.st.cur_links.clear();
+        self.st.anchor_stack.clear();
+    }
+
+    fn note_link(&mut self, target: &EntryId, child: bool) {
+        if let Some(host) = self.st.cur_id.clone() {
+            let trail = self.st.anchor_stack.clone();
+            self.st.nested.push(NestedLink {
+                host,
+                target: target.clone(),
+                trail,
+                child,
+            });
+        }
     }
 
     fn inlines(&mut self, raw: &str) -> Vec<Inline> {
@@ -719,6 +754,7 @@ impl<'p> Ctx<'p> {
                 target: typed.id.clone(),
                 anchor: None,
             });
+            self.note_link(&typed.id, false);
             out.push(Block::EntryLink {
                 target: typed.id.clone(),
                 title: typed.title.clone(),
@@ -749,6 +785,7 @@ impl<'p> Ctx<'p> {
             let target = anchor.clone().or_else(|| enclosing.map(str::to_string));
             self.register(url, target);
         }
+        let mut pushed_trail = false;
         if let (Some(name), Some(anchor)) = (name, &anchor) {
             let content = self.inlines(name);
             if !content.is_empty() {
@@ -757,6 +794,10 @@ impl<'p> Ctx<'p> {
                     anchor: Some(anchor.clone()),
                     content,
                 });
+                self.st
+                    .anchor_stack
+                    .push((html::plain_text(name), anchor.clone()));
+                pushed_trail = true;
             }
         }
         self.description_block(node, out);
@@ -767,6 +808,9 @@ impl<'p> Ctx<'p> {
         self.body_blocks(node, out);
         let next = anchor.as_deref().or(enclosing);
         self.render_children(&node.sections, depth + 1, next, out);
+        if pushed_trail {
+            self.st.anchor_stack.pop();
+        }
     }
 
     fn make_entry(&mut self, node: &Node, d: Draft<'_>) -> RuleEntry {
@@ -809,6 +853,7 @@ impl<'p> Ctx<'p> {
                 path,
             }],
             license_refs: vec![LICENSE_OGL.to_string()],
+            relations: Vec::new(),
         }
     }
 
@@ -832,7 +877,11 @@ impl<'p> Ctx<'p> {
             EntryKind::Skill => self.skill_rows(node),
             EntryKind::Affliction => self.affliction_rows(node),
             EntryKind::Trap => self.trap_rows(node),
-            EntryKind::Race | EntryKind::Rule => (Vec::new(), &[]),
+            EntryKind::Race
+            | EntryKind::Rule
+            | EntryKind::Trait
+            | EntryKind::RacialTrait
+            | EntryKind::Archetype => (Vec::new(), &[]),
         };
         rows.extend(self.extra_rows(&node.rest, consumed));
         let mut body = Vec::new();
@@ -1311,6 +1360,7 @@ impl<'p> Ctx<'p> {
                         target: t.id.clone(),
                         anchor: None,
                     });
+                    self.note_link(&t.id, false);
                     body.push(Block::EntryLink {
                         target: t.id.clone(),
                         title: t.title.clone(),
@@ -1321,6 +1371,7 @@ impl<'p> Ctx<'p> {
                         target: id.clone(),
                         anchor: None,
                     });
+                    self.note_link(id, true);
                     body.push(Block::EntryLink {
                         target: id.clone(),
                         title: html::plain_text(r.node.sections[*idx].title()),

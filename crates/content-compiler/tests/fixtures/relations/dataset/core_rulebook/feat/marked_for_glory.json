@@ -1,0 +1,23 @@
+{
+ "name": "Marked for Glory, Mythic",
+ "url": "pfsrd://Core Rulebook/Feats/Marked for Glory, Mythic",
+ "source": "Core Rulebook",
+ "type": "feat",
+ "feat_types": {
+  "feat_type": "Mythic"
+ },
+ "sections": [
+  {
+   "source": "Core Rulebook",
+   "type": "section",
+   "name": "Prerequisites",
+   "description": "Great Fortitude, Iron Will, or Lightning Reflexes."
+  },
+  {
+   "body": "<p class=\"stat-block-1\">You gain the benefit.</p>",
+   "source": "Core Rulebook",
+   "type": "section",
+   "name": "Benefit"
+  }
+ ]
+}

@@ -4,6 +4,7 @@
 mod common;
 
 use cast_iron_content_compiler::text::{blocks_text, squash};
+use cast_iron_schema::TypedFields;
 use common::*;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -300,4 +301,196 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
         pinned, computed,
         "sources/psrd-data/source.toml holds a stale input_digest"
     );
+}
+
+/// Relations, spell lists, and book order on the full snapshot. The numbers here are the ones
+/// that docs/research/relationship-data.md reports.
+#[test]
+fn relationships_and_book_order_hold_on_the_real_library() {
+    use cast_iron_schema::{
+        BookIndex, BookNode, CoverageReport, EntryKind, RelationIndex, RelationKind, SpellLists,
+    };
+    use std::collections::BTreeSet;
+
+    let dataset = workspace().join(".cache/sources/psrd-data");
+    if !dataset.join("core_rulebook/spell/fireball.json").exists() {
+        eprintln!("skipping: {} is not present", dataset.display());
+        return;
+    }
+    let scratch = scratch("real-relations");
+    let config = scratch.join("config");
+    std::fs::create_dir_all(&config).unwrap();
+    for name in [
+        "source.toml",
+        "legal-notices.json",
+        "id-overrides.toml",
+        "content-policy.toml",
+        "book-order.toml",
+        "upstream-order.json",
+    ] {
+        std::fs::copy(
+            workspace().join("sources/psrd-data").join(name),
+            config.join(name),
+        )
+        .unwrap();
+    }
+    run(&options(
+        &config,
+        &dataset,
+        &scratch.join("out"),
+        &scratch.join("reports"),
+    ));
+    let lib = load(&scratch.join("out"));
+    let read = |file: &str| std::fs::read(lib.dir.join(file)).unwrap();
+    let coverage: CoverageReport = serde_json::from_slice(&read("coverage.json")).unwrap();
+    let index: RelationIndex = serde_json::from_slice(&read("relations.json")).unwrap();
+    let books: BookIndex = serde_json::from_slice(&read("books.json")).unwrap();
+    let lists: SpellLists = serde_json::from_slice(&read("lists.json")).unwrap();
+    // The edge index holds exactly the entries' relations.
+    let relation_total: usize = lib.entries.iter().map(|e| e.relations.len()).sum();
+    assert_eq!(index.edges.len(), relation_total);
+    assert_eq!(index.counts.values().sum::<u32>() as usize, relation_total);
+    assert_eq!(coverage.relations.edges, index.counts);
+    let class_ids: BTreeSet<_> = lib
+        .entries
+        .iter()
+        .filter(|e| matches!(e.kind, EntryKind::Class | EntryKind::PrestigeClass))
+        .map(|e| e.id.clone())
+        .collect();
+    let race_ids: BTreeSet<_> = lib
+        .entries
+        .iter()
+        .filter(|e| e.kind == EntryKind::Race)
+        .map(|e| e.id.clone())
+        .collect();
+
+    // Every archetype points at a class that exists.
+    let archetypes: Vec<_> = lib
+        .entries
+        .iter()
+        .filter(|e| e.kind == EntryKind::Archetype)
+        .collect();
+    assert!(archetypes.len() > 200, "{}", archetypes.len());
+    for a in &archetypes {
+        let classes: Vec<_> = a
+            .relations
+            .iter()
+            .filter(|r| r.kind == RelationKind::Archetype)
+            .collect();
+        assert_eq!(classes.len(), 1, "{} needs exactly one class", a.id);
+        assert!(class_ids.contains(&classes[0].target), "{}", a.id);
+    }
+
+    // Every racial trait belongs to a race, or is reported with a reason.
+    let unplaced: BTreeSet<&str> = coverage
+        .relations
+        .unplaced_parts
+        .iter()
+        .map(|u| u.entry.as_str())
+        .collect();
+    let traits: Vec<_> = lib
+        .entries
+        .iter()
+        .filter(|e| e.kind == EntryKind::RacialTrait)
+        .collect();
+    assert!(traits.len() > 300, "{}", traits.len());
+    for t in &traits {
+        let part = t.relations.iter().find(|r| r.kind == RelationKind::Part);
+        match part {
+            Some(r) => assert!(race_ids.contains(&r.target), "{}", t.id),
+            None => assert!(
+                unplaced.contains(t.id.as_str()),
+                "{} has no parent and no reason",
+                t.id
+            ),
+        }
+    }
+    assert!(
+        coverage
+            .relations
+            .unplaced_parts
+            .iter()
+            .all(|u| !u.reason.is_empty())
+    );
+
+    // The prerequisite resolution is reported, and most feat-like requirements resolve.
+    let p = &coverage.relations.prerequisites;
+    assert!(p.feats_with_text > 900, "{}", p.feats_with_text);
+    let resolved = p.by_reading["feat"] as f64;
+    let candidates = resolved + p.by_reading["other"] as f64;
+    assert!(
+        resolved / candidates > 0.7,
+        "only {resolved} of {candidates} name-like requirements resolve"
+    );
+    for feat in lib.entries.iter().filter(|e| e.kind == EntryKind::Feat) {
+        if let TypedFields::Feat(f) = &feat.fields {
+            let from_relations: BTreeSet<_> = feat
+                .relations
+                .iter()
+                .filter(|r| r.kind == RelationKind::Prerequisite)
+                .map(|r| &r.target)
+                .collect();
+            assert_eq!(
+                from_relations,
+                f.prerequisite_feats.iter().collect(),
+                "{}",
+                feat.id
+            );
+        }
+    }
+
+    // Spell lists agree with the spells' own levels and report the classes without an entry.
+    let wizard = lists.classes.iter().find(|l| l.name == "Wizard").unwrap();
+    let wizard_three: Vec<&str> = wizard
+        .levels
+        .iter()
+        .find(|l| l.level == 3)
+        .unwrap()
+        .spells
+        .iter()
+        .map(|&p| lists.spells[p as usize].0.as_str())
+        .collect();
+    assert!(wizard_three.contains(&"core-rulebook/spells/fireball"));
+    let unmapped: Vec<&str> = coverage
+        .relations
+        .spell_lists
+        .unmapped
+        .iter()
+        .map(|u| u.name.as_str())
+        .collect();
+    for class in ["Arcanist", "Hunter", "Elementalist Wizard"] {
+        assert!(unmapped.contains(&class), "{class} is not in {unmapped:?}");
+    }
+    assert!(!unmapped.contains(&"Wizard"));
+
+    // Every entry is in exactly one book tree place or listed as unplaced.
+    fn collect(n: &BookNode, seen: &mut BTreeSet<String>) {
+        if let (Some(e), None) = (&n.entry, &n.anchor) {
+            assert!(seen.insert(e.to_string()), "{e} appears twice");
+        }
+        for child in &n.children {
+            collect(child, seen);
+        }
+    }
+    let mut placed = BTreeSet::new();
+    for tree in &books.books {
+        for chapter in &tree.chapters {
+            collect(chapter, &mut placed);
+        }
+    }
+    let unplaced_book: BTreeSet<String> = coverage
+        .relations
+        .book_order
+        .unplaced
+        .iter()
+        .map(|u| u.entry.clone())
+        .collect();
+    for entry in &lib.entries {
+        let id = entry.id.to_string();
+        assert!(
+            placed.contains(&id) != unplaced_book.contains(&id),
+            "{id} must be either in a book or reported"
+        );
+    }
+    assert_eq!(books.books.len(), 16);
 }

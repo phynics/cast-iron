@@ -1,0 +1,627 @@
+# Original chapter order of each publication, as a reviewable list.
+#
+# THIS FILE IS CURATED BY HAND AND PARTLY FROM MEMORY. The upstream data has no printed
+# table of contents. What it has: the order of the rules trees in each book's SQLite
+# `sections` nested set (checked against the JSON `sections` arrays), and typed lists such as
+# Spells and Feats as separate roots. Each book states its `basis`. Only chapter titles and
+# chapter order are curated here; the order inside a chapter comes from the upstream data.
+# See docs/research/relationship-data.md, section 5, for what was verified and what was not.
+#
+# A chapter claims every record whose upstream url equals `url` or lies below it, optionally
+# narrowed by entry `kinds` or by a `path` prefix of the upstream file (it tells apart records
+# that share a url, such as the Core Rulebook's core, prestige, and NPC classes). The most
+# specific claim wins. Entries inside a claimed rules tree follow that tree's order. Typed
+# records that no tree contains follow the upstream sibling order in upstream-order.json.
+# `review` marks a chapter whose position or content a person must confirm against the book.
+
+version = 1
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "advanced-players-guide"
+title = "Advanced Player's Guide"
+basis = "Chapter order is the dataset's order of rules trees (Races, Base Classes, Core Classes, Prestige Classes, Gear, Feats, Magic Items, Spell Lists, New Rules). Typed Classes, Feats, and Spells are merged into the chapter of the same topic. Not checked against the printed table of contents."
+review = ["The printed chapter order and the chapter titles are unverified.", "Spells and Spell Lists may be two printed chapters."]
+
+[[book.chapter]]
+title = "Races"
+match = [{ url = "pfsrd://Advanced Players Guide/Rules/Races" }]
+
+[[book.chapter]]
+title = "Base Classes"
+match = [
+  { url = "pfsrd://Advanced Players Guide/Rules/Base Classes" },
+  { url = "pfsrd://Advanced Players Guide/Classes", path = "advanced_players_guide/class/base/" },
+]
+
+[[book.chapter]]
+title = "Core Classes"
+match = [
+  { url = "pfsrd://Advanced Players Guide/Rules/Core Classes" },
+  { url = "pfsrd://Advanced Players Guide/Classes", path = "advanced_players_guide/class/npc/" },
+]
+
+[[book.chapter]]
+title = "Prestige Classes"
+match = [
+  { url = "pfsrd://Advanced Players Guide/Rules/Prestige Classes" },
+  { url = "pfsrd://Advanced Players Guide/Classes", path = "advanced_players_guide/class/prestige/" },
+]
+
+[[book.chapter]]
+title = "Gear"
+match = [{ url = "pfsrd://Advanced Players Guide/Rules/Gear" }]
+
+[[book.chapter]]
+title = "Feats"
+match = [
+  { url = "pfsrd://Advanced Players Guide/Rules/Feats" },
+  { url = "pfsrd://Advanced Players Guide/Feats" },
+]
+
+[[book.chapter]]
+title = "Magic Items"
+match = [{ url = "pfsrd://Advanced Players Guide/Rules/Magic Items" }]
+
+[[book.chapter]]
+title = "Spells"
+review = "Spell Lists and the spell descriptions are placed together; the printed book may separate them."
+match = [
+  { url = "pfsrd://Advanced Players Guide/Rules/Spell Lists" },
+  { url = "pfsrd://Advanced Players Guide/Spells" },
+]
+
+[[book.chapter]]
+title = "New Rules"
+review = "Holds the traits. Whether the printed book has this chapter title is unverified."
+match = [{ url = "pfsrd://Advanced Players Guide/Rules/New Rules" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "advanced-race-guide"
+title = "Advanced Race Guide"
+basis = "Chapter order is the dataset's order (Core Races, Featured Races, Uncommon Races, Race Builder, Age/Height/Weight). Each race record is assigned to its group by the upstream file path. Not checked against the printed table of contents."
+review = ["Whether Age, Height & Weight is an appendix after Race Builder is unverified."]
+
+[[book.chapter]]
+title = "Core Races"
+match = [
+  { url = "pfsrd://Advanced Race Guide/Rules/Core Races" },
+  { url = "pfsrd://Advanced Race Guide/Races", path = "advanced_race_guide/race/core_race/" },
+]
+
+[[book.chapter]]
+title = "Featured Races"
+match = [
+  { url = "pfsrd://Advanced Race Guide/Rules/Featured Races" },
+  { url = "pfsrd://Advanced Race Guide/Races", path = "advanced_race_guide/race/featured_race/" },
+]
+
+[[book.chapter]]
+title = "Uncommon Races"
+match = [
+  { url = "pfsrd://Advanced Race Guide/Rules/Uncommon Races" },
+  { url = "pfsrd://Advanced Race Guide/Races", path = "advanced_race_guide/race/uncommon_race/" },
+]
+
+[[book.chapter]]
+title = "Race Builder"
+match = [{ url = "pfsrd://Advanced Race Guide/Rules/Race Builder" }]
+
+[[book.chapter]]
+title = "Age, Height & Weight"
+match = [{ url = "pfsrd://Advanced Race Guide/Rules/Age/Height and Weight" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "bestiary"
+title = "Bestiary"
+basis = "Introduction first and Monsters second, from memory. The appendices follow in the dataset's order of rules trees (Monster Creation, Monster Advancement, Universal Monster Rules, Creature Types, Monster Roles, Encounter Tables, Misc Monster Rules). The printed appendix order is unverified."
+review = ["Printed order of the appendices.", "Where the 13 monster feats sit in the printed book."]
+
+[[book.chapter]]
+title = "Introduction"
+match = [{ url = "pfsrd://Bestiary/Rules/Introduction" }]
+
+[[book.chapter]]
+title = "Monsters"
+match = [{ url = "pfsrd://Bestiary/Monsters" }]
+
+[[book.chapter]]
+title = "Monster Creation"
+match = [{ url = "pfsrd://Bestiary/Rules/Monster Creation" }]
+
+[[book.chapter]]
+title = "Monster Advancement"
+match = [{ url = "pfsrd://Bestiary/Rules/Monster Advancement" }]
+
+[[book.chapter]]
+title = "Universal Monster Rules"
+match = [{ url = "pfsrd://Bestiary/Rules/Universal Monster Rules" }]
+
+[[book.chapter]]
+title = "Creature Types"
+match = [{ url = "pfsrd://Bestiary/Rules/Creature Types" }]
+
+[[book.chapter]]
+title = "Monster Roles"
+match = [{ url = "pfsrd://Bestiary/Rules/Monster Roles" }]
+
+[[book.chapter]]
+title = "Encounter Tables"
+match = [{ url = "pfsrd://Bestiary/Rules/Encounter Tables" }]
+
+[[book.chapter]]
+title = "Miscellaneous Monster Rules"
+match = [{ url = "pfsrd://Bestiary/Rules/Misc Monster Rules" }]
+
+[[book.chapter]]
+title = "Feats"
+review = "Position unknown; placed last."
+match = [{ url = "pfsrd://Bestiary/Feats" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "bestiary-2"
+title = "Bestiary 2"
+basis = "The dataset holds only the monster entries. The printed introduction and appendices are not in it."
+
+[[book.chapter]]
+title = "Monsters"
+match = [{ url = "pfsrd://Bestiary 2/Monsters" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "bestiary-3"
+title = "Bestiary 3"
+basis = "The dataset holds only the monster entries. The printed introduction and appendices are not in it."
+
+[[book.chapter]]
+title = "Monsters"
+match = [{ url = "pfsrd://Bestiary 3/Monsters" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "bestiary-4"
+title = "Bestiary 4"
+basis = "The dataset holds only the monster entries. The printed introduction and appendices are not in it."
+
+[[book.chapter]]
+title = "Monsters"
+match = [{ url = "pfsrd://Bestiary 4/Monsters" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "core-rulebook"
+title = "Core Rulebook"
+basis = "Printed chapter order from memory (Getting Started, Races, Classes, Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Prestige Classes, Gamemastering, Environment, Creating NPCs, Magic Items, Glossary). It agrees with the dataset's order of the rules trees. Highest confidence of the 16 books, still unreviewed by a person."
+review = ["The dataset merges the printed chapters Gamemastering and Creating NPCs into one tree. The NPC classes are placed in a separate Creating NPCs chapter; the Gamemastering tree also holds a section of that name.", "The Classes tree holds an introduction to prestige classes that the printed book puts in the Prestige Classes chapter."]
+
+[[book.chapter]]
+title = "Getting Started"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Getting Started" }]
+
+[[book.chapter]]
+title = "Races"
+match = [{ url = "pfsrd://Core Rulebook/Races" }]
+
+[[book.chapter]]
+title = "Classes"
+match = [
+  { url = "pfsrd://Core Rulebook/Rules/Classes" },
+  { url = "pfsrd://Core Rulebook/Classes", path = "core_rulebook/class/core/" },
+  { url = "pfsrd://Core Rulebook/Classes", path = "core_rulebook/class/base/" },
+]
+
+[[book.chapter]]
+title = "Skills"
+match = [
+  { url = "pfsrd://Core Rulebook/Rules/Using Skills" },
+  { url = "pfsrd://Core Rulebook/Skills" },
+]
+
+[[book.chapter]]
+title = "Feats"
+match = [
+  { url = "pfsrd://Core Rulebook/Rules/Feats" },
+  { url = "pfsrd://Core Rulebook/Feats" },
+]
+
+[[book.chapter]]
+title = "Equipment"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Equipment" }]
+
+[[book.chapter]]
+title = "Additional Rules"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Additional Rules" }]
+
+[[book.chapter]]
+title = "Combat"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Combat" }]
+
+[[book.chapter]]
+title = "Magic"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Magic" }]
+
+[[book.chapter]]
+title = "Spells"
+match = [
+  { url = "pfsrd://Core Rulebook/Rules/Spells" },
+  { url = "pfsrd://Core Rulebook/Spells" },
+]
+
+[[book.chapter]]
+title = "Prestige Classes"
+match = [{ url = "pfsrd://Core Rulebook/Classes", path = "core_rulebook/class/prestige/" }]
+
+[[book.chapter]]
+title = "Gamemastering"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Gamemastering" }]
+
+[[book.chapter]]
+title = "Environment"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Environment" }]
+
+[[book.chapter]]
+title = "Creating NPCs"
+review = "NPC classes only; the rest of this printed chapter is a section of the Gamemastering tree."
+match = [{ url = "pfsrd://Core Rulebook/Classes", path = "core_rulebook/class/npc/" }]
+
+[[book.chapter]]
+title = "Magic Items"
+match = [{ url = "pfsrd://Core Rulebook/Rules/Magic Items" }]
+
+[[book.chapter]]
+title = "Glossary"
+review = "Printed as an appendix; the title in the book may differ."
+match = [{ url = "pfsrd://Core Rulebook/Rules/Glossary" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "game-mastery-guide"
+title = "Game Mastery Guide"
+basis = "Chapter order is the dataset's order of rules trees. It does not look like a table of contents (it starts with Planar Adventures). The creature entries are NPC stat blocks and are placed with the NPCs tree. Lowest confidence."
+review = ["Everything: the dataset order is not the printed order as far as can be told from memory, and the printed chapter titles differ from these tree titles."]
+
+[[book.chapter]]
+title = "Planar Adventures"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Planar Adventures" }]
+
+[[book.chapter]]
+title = "Settlements"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Settlements" }]
+
+[[book.chapter]]
+title = "Fast Play Ship Combat"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Fast Play Ship Combat" }]
+
+[[book.chapter]]
+title = "Chases"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Chases" }]
+
+[[book.chapter]]
+title = "Disasters"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Disasters" }]
+
+[[book.chapter]]
+title = "Drugs and Addiction"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Drugs and Addiction" }]
+
+[[book.chapter]]
+title = "Haunts"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Haunts" }]
+
+[[book.chapter]]
+title = "Hazards"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Hazards" }]
+
+[[book.chapter]]
+title = "Sanity and Madness"
+match = [{ url = "pfsrd://Game Mastery Guide/Rules/Sanity and Madness" }]
+
+[[book.chapter]]
+title = "NPCs"
+match = [
+  { url = "pfsrd://Game Mastery Guide/Rules/NPCs" },
+  { url = "pfsrd://Game Mastery Guide/Monsters" },
+]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "monster-codex"
+title = "Monster Codex"
+basis = "One chapter per monster race, alphabetical, then the appendix. This is also the dataset's order, and it matches the printed book as far as can be told from memory. Introduction text is not in the dataset."
+
+[[book.chapter]]
+title = "Boggards"
+match = [{ url = "pfsrd://Monster Codex/Rules/Boggards" }]
+[[book.chapter]]
+title = "Bugbears"
+match = [{ url = "pfsrd://Monster Codex/Rules/Bugbears" }]
+[[book.chapter]]
+title = "Drow"
+match = [{ url = "pfsrd://Monster Codex/Rules/Drow" }]
+[[book.chapter]]
+title = "Duergar"
+match = [{ url = "pfsrd://Monster Codex/Rules/Duergar" }]
+[[book.chapter]]
+title = "Fire Giants"
+match = [{ url = "pfsrd://Monster Codex/Rules/Fire Giants" }]
+[[book.chapter]]
+title = "Frost Giants"
+match = [{ url = "pfsrd://Monster Codex/Rules/Frost Giants" }]
+[[book.chapter]]
+title = "Ghouls"
+match = [{ url = "pfsrd://Monster Codex/Rules/Ghouls" }]
+[[book.chapter]]
+title = "Gnolls"
+match = [{ url = "pfsrd://Monster Codex/Rules/Gnolls" }]
+[[book.chapter]]
+title = "Goblins"
+match = [{ url = "pfsrd://Monster Codex/Rules/Goblins" }]
+[[book.chapter]]
+title = "Hobgoblins"
+match = [{ url = "pfsrd://Monster Codex/Rules/Hobgoblins" }]
+[[book.chapter]]
+title = "Kobolds"
+match = [{ url = "pfsrd://Monster Codex/Rules/Kobolds" }]
+[[book.chapter]]
+title = "Lizardfolk"
+match = [{ url = "pfsrd://Monster Codex/Rules/Lizardfolk" }]
+[[book.chapter]]
+title = "Ogres"
+match = [{ url = "pfsrd://Monster Codex/Rules/Ogres" }]
+[[book.chapter]]
+title = "Orcs"
+match = [{ url = "pfsrd://Monster Codex/Rules/Orcs" }]
+[[book.chapter]]
+title = "Ratfolk"
+match = [{ url = "pfsrd://Monster Codex/Rules/Ratfolk" }]
+[[book.chapter]]
+title = "Sahuagin"
+match = [{ url = "pfsrd://Monster Codex/Rules/Sahuagin" }]
+[[book.chapter]]
+title = "Serpentfolk"
+match = [{ url = "pfsrd://Monster Codex/Rules/Serpentfolk" }]
+[[book.chapter]]
+title = "Troglodytes"
+match = [{ url = "pfsrd://Monster Codex/Rules/Troglodytes" }]
+[[book.chapter]]
+title = "Trolls"
+match = [{ url = "pfsrd://Monster Codex/Rules/Trolls" }]
+[[book.chapter]]
+title = "Vampires"
+match = [{ url = "pfsrd://Monster Codex/Rules/Vampires" }]
+[[book.chapter]]
+title = "Appendix"
+match = [{ url = "pfsrd://Monster Codex/Rules/Appendix" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "mythic-adventures"
+title = "Mythic Adventures"
+basis = "Chapter order is the dataset's order of rules trees (Mythic Game, Mythic Heroes, Mythic Feats, Mythic Spells, Mythic Items, Mythic Monsters, Glossary). Typed Feats, Spells, and Monsters are merged into the chapter of the same topic. Not checked against the printed table of contents."
+review = ["Whether Mythic Game (running the game) comes first in print.", "The 269 mythic spell records are not part of the library (see coverage)."]
+
+[[book.chapter]]
+title = "Mythic Game"
+match = [{ url = "pfsrd://Mythic Adventures/Rules/Mythic Game" }]
+
+[[book.chapter]]
+title = "Mythic Heroes"
+match = [{ url = "pfsrd://Mythic Adventures/Rules/Mythic Heroes" }]
+
+[[book.chapter]]
+title = "Mythic Feats"
+match = [
+  { url = "pfsrd://Mythic Adventures/Rules/Mythic Feats" },
+  { url = "pfsrd://Mythic Adventures/Feats" },
+]
+
+[[book.chapter]]
+title = "Mythic Spells"
+match = [
+  { url = "pfsrd://Mythic Adventures/Rules/Mythic Spells" },
+  { url = "pfsrd://Mythic Adventures/Spells" },
+]
+
+[[book.chapter]]
+title = "Mythic Items"
+match = [{ url = "pfsrd://Mythic Adventures/Rules/Mythic Items" }]
+
+[[book.chapter]]
+title = "Mythic Monsters"
+match = [
+  { url = "pfsrd://Mythic Adventures/Rules/Mythic Monsters" },
+  { url = "pfsrd://Mythic Adventures/Monsters" },
+]
+
+[[book.chapter]]
+title = "Glossary"
+match = [{ url = "pfsrd://Mythic Adventures/Rules/Glossary" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "npc-codex"
+title = "NPC Codex"
+basis = "Chapter order is the dataset's order of rules trees. Not checked against the printed table of contents."
+review = ["Printed order of the Prestige Class NPCs and NPC Class NPCs chapters."]
+
+[[book.chapter]]
+title = "Core Class NPCs"
+match = [{ url = "pfsrd://NPC Codex/Rules/Core Class NPCs" }]
+
+[[book.chapter]]
+title = "Prestige Class NPCs"
+match = [{ url = "pfsrd://NPC Codex/Rules/Prestige Class NPCs" }]
+
+[[book.chapter]]
+title = "NPC Class NPCs"
+match = [{ url = "pfsrd://NPC Codex/Rules/NPC Class NPCs" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "technology-guide"
+title = "Technology Guide"
+basis = "Chapter order is the dataset's order of rules trees. Not checked against the printed table of contents."
+review = ["Chapter titles and order."]
+
+[[book.chapter]]
+title = "Technology in the World"
+match = [{ url = "pfsrd://Technology Guide/Rules/Technology in the world" }]
+
+[[book.chapter]]
+title = "Equipment"
+match = [{ url = "pfsrd://Technology Guide/Rules/Equipment" }]
+
+[[book.chapter]]
+title = "Hazards and Artifacts"
+match = [{ url = "pfsrd://Technology Guide/Rules/Hazards and Artifacts" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "ultimate-campaign"
+title = "Ultimate Campaign"
+basis = "Chapter order is the dataset's order of rules trees (Character Background, Downtime, Campaign Systems, Kingdoms and War). Not checked against the printed table of contents."
+review = ["Chapter order.", "Where the 28 feats sit in the printed book; they are placed last."]
+
+[[book.chapter]]
+title = "Character Background"
+match = [{ url = "pfsrd://Ultimate Campaign/Rules/Character Background" }]
+
+[[book.chapter]]
+title = "Downtime"
+match = [{ url = "pfsrd://Ultimate Campaign/Rules/Downtime" }]
+
+[[book.chapter]]
+title = "Campaign Systems"
+match = [{ url = "pfsrd://Ultimate Campaign/Rules/Campaign Systems" }]
+
+[[book.chapter]]
+title = "Kingdoms and War"
+match = [{ url = "pfsrd://Ultimate Campaign/Rules/Kingdoms And War" }]
+
+[[book.chapter]]
+title = "Feats"
+review = "Position unknown; placed last."
+match = [{ url = "pfsrd://Ultimate Campaign/Feats" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "ultimate-combat"
+title = "Ultimate Combat"
+basis = "Chapter order is the dataset's order of rules trees (Class Archetypes, Feats, Mastering Combat, Vehicles, Variant Rules, Spell Lists). The typed new classes are placed first, typed Feats with the Feats tree, and typed Spells with the Spell Lists tree. Not checked against the printed table of contents."
+review = ["Chapter order.", "Whether the new classes (Gunslinger, Ninja, Samurai) open the printed book."]
+
+[[book.chapter]]
+title = "Classes"
+review = "Position unverified."
+match = [{ url = "pfsrd://Ultimate Combat/Classes" }]
+
+[[book.chapter]]
+title = "Class Archetypes"
+match = [{ url = "pfsrd://Ultimate Combat/Rules/Class Archetypes" }]
+
+[[book.chapter]]
+title = "Feats"
+match = [
+  { url = "pfsrd://Ultimate Combat/Rules/Feats" },
+  { url = "pfsrd://Ultimate Combat/Feats" },
+]
+
+[[book.chapter]]
+title = "Mastering Combat"
+match = [{ url = "pfsrd://Ultimate Combat/Rules/Mastering Combat" }]
+
+[[book.chapter]]
+title = "Vehicles"
+match = [{ url = "pfsrd://Ultimate Combat/Rules/Vehicles" }]
+
+[[book.chapter]]
+title = "Variant Rules"
+match = [{ url = "pfsrd://Ultimate Combat/Rules/Variant Rules" }]
+
+[[book.chapter]]
+title = "Spells"
+review = "Position unverified."
+match = [
+  { url = "pfsrd://Ultimate Combat/Rules/Spell Lists" },
+  { url = "pfsrd://Ultimate Combat/Spells" },
+]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "ultimate-equipment"
+title = "Ultimate Equipment"
+basis = "Chapter order is the dataset's order of rules trees (Arms and Armor, Gear, Magic Arms and Armor, Rings/Rods/Staves, Wondrous Items, Artifacts and Other Items, Appendix). It looks like a table of contents; still unchecked against the printed book."
+
+[[book.chapter]]
+title = "Arms and Armor"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Arms And Armor" }]
+
+[[book.chapter]]
+title = "Gear"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Gear" }]
+
+[[book.chapter]]
+title = "Magic Arms and Armor"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Magic Arms and Armor" }]
+
+[[book.chapter]]
+title = "Rings, Rods, and Staves"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Rings" }]
+
+[[book.chapter]]
+title = "Wondrous Items"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Wondrous Items" }]
+
+[[book.chapter]]
+title = "Artifacts and Other Items"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Artifacts and Other Items" }]
+
+[[book.chapter]]
+title = "Appendix"
+match = [{ url = "pfsrd://Ultimate Equipment/Rules/Appendix" }]
+
+# ---------------------------------------------------------------------------------------------
+[[book]]
+source = "ultimate-magic"
+title = "Ultimate Magic"
+basis = "Chapter order is the dataset's order of rules trees (Spellcasting Class Options, Mastering Magic, Feats, Words of Power, Updates). The typed Magus class opens the first chapter, typed Feats join the Feats tree, and typed Spells form a chapter after the feats. Not checked against the printed table of contents."
+review = ["Chapter order, especially where the Spells chapter sits.", "Whether the Magus class belongs to the first chapter."]
+
+[[book.chapter]]
+title = "Spellcasting Class Options"
+match = [
+  { url = "pfsrd://Ultimate Magic/Classes" },
+  { url = "pfsrd://Ultimate Magic/Rules/Spellcasting Class Options" },
+]
+
+[[book.chapter]]
+title = "New Familiars"
+review = "Position and chapter unknown; the 12 familiar stat blocks are placed after the first chapter."
+match = [{ url = "pfsrd://Ultimate Magic/Monsters" }]
+
+[[book.chapter]]
+title = "Mastering Magic"
+match = [{ url = "pfsrd://Ultimate Magic/Rules/Mastering Magic" }]
+
+[[book.chapter]]
+title = "Feats"
+match = [
+  { url = "pfsrd://Ultimate Magic/Rules/Feats" },
+  { url = "pfsrd://Ultimate Magic/Feats" },
+]
+
+[[book.chapter]]
+title = "Spells"
+review = "Position unverified."
+match = [{ url = "pfsrd://Ultimate Magic/Spells" }]
+
+[[book.chapter]]
+title = "Words of Power"
+match = [{ url = "pfsrd://Ultimate Magic/Rules/Words of Power" }]
+
+[[book.chapter]]
+title = "Updates"
+match = [{ url = "pfsrd://Ultimate Magic/Rules/Updates" }]

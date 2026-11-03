@@ -12,7 +12,14 @@
 //! <content_version>/coverage.json  CoverageReport
 //! <content_version>/search.bin     cast_iron_search::SearchIndex bytes
 //! <content_version>/entries/<kind>-<NNN>.json   Vec<RuleEntry>
+//! <content_version>/relations.json RelationIndex (schema 3)
+//! <content_version>/lists.json     SpellLists (schema 3)
+//! <content_version>/books.json     BookIndex (schema 3)
 //! ```
+//!
+//! Schema 3 adds the last three files. They are listed in the manifest and hashed like
+//! every other file. Libraries of schema 1 and 2 do not have them; a reader that accepts
+//! those versions must treat the files as optional.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -21,7 +28,18 @@ use std::fmt;
 pub mod validate;
 
 /// Version of the serialized content format.
-pub const SCHEMA_VERSION: u32 = 2;
+///
+/// 3: new kinds `trait`, `racial_trait` and `archetype`, `RuleEntry::relations`,
+/// `FeatFields::prerequisite_feats`, the typed fields of the new kinds, and the files
+/// `relations.json`, `lists.json` and `books.json`.
+pub const SCHEMA_VERSION: u32 = 3;
+
+/// Name of the relation index, relative to the version directory.
+pub const RELATIONS_FILE: &str = "relations.json";
+/// Name of the spell-list index, relative to the version directory.
+pub const SPELL_LISTS_FILE: &str = "lists.json";
+/// Name of the book-order index, relative to the version directory.
+pub const BOOKS_FILE: &str = "books.json";
 
 /// Stable canonical identifier. Lowercase `a-z0-9-` segments joined by `/`,
 /// such as `core-rulebook/spells/fireball`.
@@ -104,10 +122,16 @@ pub enum EntryKind {
     Skill,
     Affliction,
     Trap,
+    /// A character trait or drawback (schema 3).
+    Trait,
+    /// A racial trait of a race, standard or alternate (schema 3).
+    RacialTrait,
+    /// A class archetype (schema 3).
+    Archetype,
 }
 
 impl EntryKind {
-    pub const ALL: [EntryKind; 11] = [
+    pub const ALL: [EntryKind; 14] = [
         EntryKind::Rule,
         EntryKind::Spell,
         EntryKind::Feat,
@@ -119,6 +143,9 @@ impl EntryKind {
         EntryKind::Skill,
         EntryKind::Affliction,
         EntryKind::Trap,
+        EntryKind::Trait,
+        EntryKind::RacialTrait,
+        EntryKind::Archetype,
     ];
 
     /// Stable slug, used in shard names, routes, and search facets.
@@ -135,6 +162,9 @@ impl EntryKind {
             EntryKind::Skill => "skill",
             EntryKind::Affliction => "affliction",
             EntryKind::Trap => "trap",
+            EntryKind::Trait => "trait",
+            EntryKind::RacialTrait => "racial_trait",
+            EntryKind::Archetype => "archetype",
         }
     }
 
@@ -156,6 +186,9 @@ impl EntryKind {
             EntryKind::Skill => "Skills",
             EntryKind::Affliction => "Afflictions",
             EntryKind::Trap => "Traps",
+            EntryKind::Trait => "Traits",
+            EntryKind::RacialTrait => "Racial traits",
+            EntryKind::Archetype => "Archetypes",
         }
     }
 }
@@ -184,6 +217,54 @@ pub struct RuleEntry {
     pub provenance: Vec<Provenance>,
     /// License ids. Each id must exist in [`LegalNotices::licenses`].
     pub license_refs: Vec<String>,
+    /// Typed edges from this entry to others (schema 3). The inverse direction is derived
+    /// from [`RelationIndex`] and is not stored on the target.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relations: Vec<Relation>,
+}
+
+/// What a [`Relation`] says about its source and target.
+///
+/// The source is always the entry that holds the relation. Inverse questions, such as
+/// "which archetypes does this class have", are answered from [`RelationIndex`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationKind {
+    /// The source is a part of the target: a racial trait of a race.
+    Part,
+    /// The source is an archetype of the target class.
+    Archetype,
+    /// The source requires the target, such as a feat that requires another feat.
+    /// The original wording stays in [`FeatFields::prerequisites`].
+    Prerequisite,
+}
+
+impl RelationKind {
+    pub const ALL: [RelationKind; 3] = [
+        RelationKind::Part,
+        RelationKind::Archetype,
+        RelationKind::Prerequisite,
+    ];
+
+    pub fn slug(self) -> &'static str {
+        match self {
+            RelationKind::Part => "part",
+            RelationKind::Archetype => "archetype",
+            RelationKind::Prerequisite => "prerequisite",
+        }
+    }
+}
+
+/// One edge from the holding entry to `target`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Relation {
+    pub kind: RelationKind,
+    pub target: EntryId,
+    /// Qualifier. `or` on a [`RelationKind::Prerequisite`] marks one alternative of an
+    /// either-or requirement in the original wording; `alternate` on a [`RelationKind::Part`]
+    /// marks an alternate racial trait.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -345,7 +426,11 @@ pub enum TypedFields {
     Creature(Box<CreatureFields>),
     Item(ItemFields),
     Class(ClassFields),
-    /// Rule, race, skill, affliction, and trap entries for now.
+    /// Character traits and drawbacks (schema 3).
+    Trait(TraitFields),
+    /// Racial traits (schema 3).
+    RacialTrait(RacialTraitFields),
+    /// Rule, race, skill, affliction, trap, and archetype entries for now.
     None,
 }
 
@@ -384,8 +469,14 @@ pub struct SpellLevel {
 pub struct FeatFields {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub feat_types: Vec<String>,
+    /// The original prerequisite wording, kept even when parts of it are also typed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prerequisites: Option<String>,
+    /// Feats that the prerequisite wording names and that resolve to an entry
+    /// (schema 3), sorted by id. The same edges are `Prerequisite` relations. An
+    /// either-or list contributes all of its resolved feats.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prerequisite_feats: Vec<EntryId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub benefit: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -491,6 +582,105 @@ pub struct ClassFields {
     pub skill_ranks: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class_skills: Option<String>,
+}
+
+/// Fields of a character trait or drawback.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TraitFields {
+    /// `Combat`, `Faith`, `Magic`, `Social`, `Campaign`, `Regional`, `Religion`, `Race`,
+    /// or `Drawback`.
+    pub category: String,
+    /// The race for a `Race` trait, such as `Half-Elf`; `Bloodline` for bloodline traits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+/// Fields of a racial trait.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RacialTraitFields {
+    /// True for an alternate racial trait, which replaces a standard trait of the race.
+    pub alternate: bool,
+}
+
+/// `relations.json` (schema 3): every `Relation` of every entry, flattened so that the
+/// inverse direction is a lookup over this one small file instead of a scan of all shards.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RelationIndex {
+    /// Edge count per [`RelationKind::slug`].
+    pub counts: BTreeMap<String, u32>,
+    /// Sorted by source, kind, then target. No duplicates.
+    pub edges: Vec<RelationEdge>,
+}
+
+/// `[source, kind, target]` in JSON.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct RelationEdge(pub EntryId, pub RelationKind, pub EntryId);
+
+/// `lists.json` (schema 3): spell lists per class and level, without loading any shard.
+///
+/// Spells repeat across lists, so each is stored once in `spells` and the lists hold
+/// positions in it. The data comes from `SpellFields::levels`, which stays the source
+/// of truth; this file only indexes it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SpellLists {
+    /// Sorted by id.
+    pub spells: Vec<SpellListSpell>,
+    /// Sorted by name, ignoring case.
+    pub classes: Vec<SpellListClass>,
+}
+
+/// `[id, title]` in JSON.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpellListSpell(pub EntryId, pub String);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpellListClass {
+    /// Class name as the spells name it, with one spelling per list.
+    pub name: String,
+    /// The class entry when one exists. Lists without an entry stay visible, such as
+    /// classes from books outside the library.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class: Option<EntryId>,
+    /// Ascending by level.
+    pub levels: Vec<SpellListLevel>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpellListLevel {
+    pub level: u8,
+    /// Positions in [`SpellLists::spells`], sorted by title.
+    pub spells: Vec<u32>,
+}
+
+/// `books.json` (schema 3): the original chapter order of each publication, and nothing else.
+/// It is not a category listing: entries appear where the printed book puts them.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct BookIndex {
+    /// One tree per publication that has a curated chapter list, in the curated order.
+    pub books: Vec<BookTree>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BookTree {
+    /// A [`SourceInfo::id`].
+    pub source: String,
+    pub title: String,
+    /// Chapters in book order.
+    pub chapters: Vec<BookNode>,
+}
+
+/// A chapter, a section, or an entry in a book. A node with an `entry` opens that entry
+/// (and with an `anchor` too, a heading inside it). A node without an `entry` only groups
+/// its children: a chapter title, or a heading that holds nested entries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BookNode {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry: Option<EntryId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<BookNode>,
 }
 
 /// `content/manifest.json`. The compiler fills it deterministically: no timestamps.
@@ -602,6 +792,85 @@ pub struct CoverageReport {
     pub links: LinkCoverage,
     /// Upstream content that was removed on purpose, such as images, with counts.
     pub stripped: BTreeMap<String, u32>,
+    /// Relations, spell lists, and book order (schema 3). Absent in older reports.
+    #[serde(default)]
+    pub relations: RelationCoverage,
+}
+
+/// What the relation, spell-list, and book-order passes did, including what they could not do.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct RelationCoverage {
+    /// Edge count per relation kind.
+    pub edges: BTreeMap<String, u32>,
+    pub prerequisites: PrerequisiteCoverage,
+    pub spell_lists: SpellListCoverage,
+    /// Racial traits and archetypes that have no parent, with the reason.
+    pub unplaced_parts: Vec<Unplaced>,
+    /// Upstream records of a typed family that stay ordinary rules text, with the reason.
+    pub unpromoted: Vec<Rejection>,
+    pub book_order: BookOrderCoverage,
+}
+
+/// Reading of feat prerequisite wording. Every comma-separated requirement counts once;
+/// an either-or list counts each alternative.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct PrerequisiteCoverage {
+    pub feats: u32,
+    pub feats_with_text: u32,
+    pub feats_with_resolved_feat: u32,
+    pub requirements: u32,
+    /// Requirements per reading: `feat`, `ability_score`, `base_attack_bonus`,
+    /// `skill_ranks`, `level`, `class_feature`, `racial_trait`, `race`, `other`.
+    pub by_reading: BTreeMap<String, u32>,
+    /// Names that look like feats but match none, or more than one.
+    pub ambiguous: u32,
+    /// Requirements in the `other` reading, sorted by feat id.
+    pub unread: Vec<UnreadRequirement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnreadRequirement {
+    pub feat: EntryId,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SpellListCoverage {
+    pub spells: u32,
+    pub classes: u32,
+    /// `(class, level)` pairs in the upstream data, then after removing repeats.
+    pub pairs_upstream: u32,
+    pub pairs_distinct: u32,
+    pub classes_with_entry: Vec<String>,
+    /// Class names that no class entry carries, with their distinct spell counts.
+    pub unmapped: Vec<UnmappedClass>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnmappedClass {
+    pub name: String,
+    pub spells: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct BookOrderCoverage {
+    pub placed: u32,
+    /// Entries that no chapter claims. Never dropped from the library.
+    pub unplaced: Vec<Unplaced>,
+    pub by_publication: Vec<BookPlacement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BookPlacement {
+    pub source_id: String,
+    pub placed: u32,
+    pub unplaced: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Unplaced {
+    pub entry: String,
+    pub reason: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -671,6 +940,47 @@ mod tests {
         assert_eq!(parse("1/2").display(), "1/2");
         assert_eq!(parse("12").display(), "12");
         assert_eq!(ChallengeRating::parse("&mdash"), None);
+    }
+
+    #[test]
+    fn relations_are_omitted_when_empty_and_edges_are_arrays() {
+        let json = r#"{"id":"a","kind":"rule","title":"A","source_ids":["s"],"body":[],"fields":{"kind":"none"},"provenance":[],"license_refs":[]}"#;
+        let old: RuleEntry = serde_json::from_str(json).unwrap();
+        assert!(
+            old.relations.is_empty(),
+            "schema 1 and 2 entries have no relations"
+        );
+        assert!(!serde_json::to_string(&old).unwrap().contains("relations"));
+
+        let relation = Relation {
+            kind: RelationKind::Prerequisite,
+            target: EntryId::parse("core-rulebook/feats/dodge").unwrap(),
+            label: Some("or".into()),
+        };
+        assert_eq!(
+            serde_json::to_string(&relation).unwrap(),
+            r#"{"kind":"prerequisite","target":"core-rulebook/feats/dodge","label":"or"}"#
+        );
+        let edge = RelationEdge(
+            EntryId::parse("a").unwrap(),
+            RelationKind::Part,
+            EntryId::parse("b").unwrap(),
+        );
+        assert_eq!(serde_json::to_string(&edge).unwrap(), r#"["a","part","b"]"#);
+    }
+
+    #[test]
+    fn new_kinds_have_slugs_and_labels() {
+        for (kind, slug) in [
+            (EntryKind::Trait, "trait"),
+            (EntryKind::RacialTrait, "racial_trait"),
+            (EntryKind::Archetype, "archetype"),
+        ] {
+            assert_eq!(kind.slug(), slug);
+            assert_eq!(EntryKind::from_slug(slug), Some(kind));
+            assert!(!kind.label().is_empty());
+        }
+        assert_eq!(EntryKind::ALL.len(), 14);
     }
 
     #[test]

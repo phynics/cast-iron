@@ -1,0 +1,18 @@
+{
+ "name": "Acid Arrow",
+ "url": "pfsrd://Core Rulebook/Spells/Acid Arrow",
+ "source": "Core Rulebook",
+ "type": "spell",
+ "school": "conjuration",
+ "levels": [
+  {
+   "class": "Wizard",
+   "level": 2
+  },
+  {
+   "class": "Sorcerer",
+   "level": 2
+  }
+ ],
+ "body": "<p>An arrow of acid springs from your hand.</p>"
+}

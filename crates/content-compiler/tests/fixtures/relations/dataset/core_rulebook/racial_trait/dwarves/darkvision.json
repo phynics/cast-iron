@@ -1,0 +1,8 @@
+{
+ "name": "Darkvision",
+ "url": "pfsrd://Core Rulebook/Races/Dwarves/Dwarf Racial Traits/Darkvision",
+ "source": "Core Rulebook",
+ "type": "racial_trait",
+ "subtype": "dwarves",
+ "body": "<p>Dwarves can see in the dark up to 60 feet.</p>"
+}

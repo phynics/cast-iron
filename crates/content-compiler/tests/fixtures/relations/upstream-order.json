@@ -1,0 +1,7 @@
+{
+"version": 1,
+"lists": [
+{"parent": "pfsrd://Core Rulebook/Races", "children": ["Elves", "Dwarves", "Gnomes"]},
+{"parent": "pfsrd://Core Rulebook/Spells", "children": ["Fireball", "Acid Arrow"]}
+]
+}

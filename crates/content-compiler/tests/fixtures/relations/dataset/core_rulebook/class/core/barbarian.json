@@ -1,0 +1,9 @@
+{
+ "name": "Barbarian",
+ "url": "pfsrd://Core Rulebook/Classes/Barbarian",
+ "source": "Core Rulebook",
+ "type": "class",
+ "subtype": "core",
+ "hit_die": "d12",
+ "body": "<p>For some, there is only rage.</p>"
+}

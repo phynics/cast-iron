@@ -2,15 +2,18 @@
 
 use crate::build::{self, DedupeStats, RawRules, RawTyped};
 use crate::config::{self, IdOverrides, SourceConfig};
+use crate::family;
 use crate::legal::{self, ExtractedNotices};
 use crate::model::Node;
+use crate::order::{BookOrderFile, UpstreamOrder};
 use crate::select::{self, Role, hex, sha256_hex};
 use crate::slug::slug_segment;
 use crate::text::blocks_text;
-use cast_iron_schema::validate::{ValidationError, validate_library};
+use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
-    Catalog, ContentManifest, CoverageReport, DatasetRef, EntryKind, EntryStub, ManifestFile,
-    PublicationCoverage, Rejection, RuleEntry, SCHEMA_VERSION, SourceInfo,
+    BOOKS_FILE, Catalog, ContentManifest, CoverageReport, DatasetRef, EntryKind, EntryStub,
+    ManifestFile, PublicationCoverage, RELATIONS_FILE, Rejection, RuleEntry, SCHEMA_VERSION,
+    SPELL_LISTS_FILE, SourceInfo,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -44,6 +47,10 @@ pub struct Outcome {
     pub stripped: BTreeMap<String, u32>,
     pub dedupe: DedupeStats,
     pub notes: usize,
+    /// Relation, spell-list, and book-order results, as written to `coverage.json`.
+    pub relations: cast_iron_schema::RelationCoverage,
+    /// Size in bytes of `relations.json`, `lists.json`, and `books.json`.
+    pub derived_bytes: BTreeMap<String, u64>,
 }
 
 /// A failed compile. `lines` is printed one per line.
@@ -77,8 +84,12 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     check_digest(opts, &cfg, &selection.digest)?;
     let policy = crate::policy::ContentPolicy::load(&config_dir.join("content-policy.toml"))?;
 
+    let book_order = BookOrderFile::load(&config_dir.join("book-order.toml"))?;
+    let upstream_order = UpstreamOrder::load(&config_dir.join("upstream-order.json"))?;
+
     // Parse at the boundary.
     let mut rejected: Vec<Rejection> = Vec::new();
+    let mut unpromoted: Vec<Rejection> = Vec::new();
     let mut typed = Vec::new();
     let mut rules = Vec::new();
     for file in &selection.files {
@@ -101,14 +112,29 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
                     continue;
                 }
                 match &file.role {
-                    Role::Typed { kind } => {
-                        if node.kind.as_deref() != Some(kind.slug()) {
+                    Role::Typed {
+                        kind,
+                        upstream_type,
+                    } => {
+                        if node.kind.as_deref() != Some(*upstream_type) {
                             rejected.push(Rejection {
                                 path: file.rel.clone(),
                                 reason: format!(
                                     "record type {:?} does not match the {} directory",
                                     node.kind.as_deref().unwrap_or_default(),
-                                    kind.slug()
+                                    upstream_type
+                                ),
+                            });
+                        } else if *kind == EntryKind::Archetype
+                            && !is_archetype_url(node.url.as_deref().unwrap_or_default())
+                        {
+                            // Upstream types some class text as an archetype. It is not one,
+                            // so it stays ordinary text in the tree that holds it.
+                            unpromoted.push(Rejection {
+                                path: file.rel.clone(),
+                                reason: format!(
+                                    "typed class_archetype upstream, but {:?} is not below an `... Archetypes` section; kept as text in its class",
+                                    node.url.as_deref().unwrap_or_default()
                                 ),
                             });
                         } else {
@@ -158,7 +184,15 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         return Err(Failure { lines });
     }
 
-    let built = build::build(&plan);
+    let mut built = build::build(&plan);
+    let relations = crate::relations::apply(&mut built.entries, &plan, &built.nested);
+    let spell_lists = crate::lists::build(&built.entries);
+    let books = crate::books::build(
+        &built.entries,
+        &built.nested,
+        book_order.as_ref(),
+        &upstream_order,
+    );
     let legal = legal::build(&cfg.dataset, &notices)?;
     let facets_by_id: BTreeMap<_, _> = plan
         .typed
@@ -199,7 +233,13 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
             .collect(),
     };
 
-    let errors = validate_library(&built.entries, &catalog);
+    let mut errors = validate_library(&built.entries, &catalog);
+    errors.extend(validate_derived(
+        &built.entries,
+        &relations.index,
+        &books.index,
+        &spell_lists.lists,
+    ));
     let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
     for e in &built.entries {
         *by_kind.entry(e.kind.slug().to_string()).or_default() += 1;
@@ -213,6 +253,12 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         rejected: rejected.clone(),
         links: built.links.clone(),
         stripped: built.stripped.clone(),
+        relations: cast_iron_schema::RelationCoverage {
+            spell_lists: spell_lists.coverage.clone(),
+            unpromoted: unpromoted.clone(),
+            book_order: books.coverage.clone(),
+            ..relations.coverage.clone()
+        },
     };
 
     write_reports(
@@ -261,6 +307,15 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     files.insert("legal.json".into(), json_bytes(&legal)?);
     files.insert("coverage.json".into(), json_bytes(&coverage)?);
     files.insert("search.bin".into(), search_bin);
+    let mut derived_bytes = BTreeMap::new();
+    for (name, bytes) in [
+        (RELATIONS_FILE, json_bytes(&relations.index)?),
+        (SPELL_LISTS_FILE, json_bytes(&spell_lists.lists)?),
+        (BOOKS_FILE, json_bytes(&books.index)?),
+    ] {
+        derived_bytes.insert(name.to_string(), bytes.len() as u64);
+        files.insert(name.into(), bytes);
+    }
     for (path, bytes) in shard_files {
         files.insert(path, bytes);
     }
@@ -319,7 +374,20 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         stripped: built.stripped,
         dedupe: built.dedupe,
         notes: built.notes.len(),
+        relations: coverage.relations,
+        derived_bytes,
     })
+}
+
+/// Archetypes live in a section whose title ends in `Archetypes`, such as
+/// `.../Barbarian/Barbarian Archetypes/Breaker`.
+fn is_archetype_url(url: &str) -> bool {
+    let segments: Vec<&str> = url.split('/').collect();
+    segments
+        .len()
+        .checked_sub(2)
+        .and_then(|i| segments.get(i))
+        .is_some_and(|parent| parent.to_lowercase().ends_with("archetypes"))
 }
 
 fn normalize_sources(node: &mut Node, inherited: &str) {
@@ -352,8 +420,7 @@ fn collect_typed_nodes(
     known: &mut BTreeSet<String>,
     out: &mut Vec<RawTyped>,
 ) {
-    if let Some(kind) = node.kind.as_deref().and_then(EntryKind::from_slug)
-        && kind != EntryKind::Rule
+    if let Some(kind) = node.kind.as_deref().and_then(family::promotable_from_tree)
         && let Some(url) = &node.url
         && node.name.as_deref().is_some_and(|name| !name.is_empty())
         && known.insert(url.clone())
@@ -721,6 +788,7 @@ mod shard_tests {
                 path: "p".into(),
             }],
             license_refs: vec!["ogl-1.0a".into()],
+            relations: vec![],
         }
     }
 
