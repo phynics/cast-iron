@@ -109,8 +109,9 @@ These are accepted product directions awaiting implementation in [the UI task li
 
 ## Release branch and issue tracking, 2026-11-03
 
-Positive reactions to the app made accidental publication and scattered task lists
-a larger maintenance cost. Main remains the integration branch. A dedicated
+The app is drawing positive reactions, and the user requested stricter
+development hygiene. Separate integration from publication and track outstanding
+work in GitHub Issues. Main remains the integration branch. A dedicated
 `release` branch advances only through explicit, reviewed promotion of tested
 main commits. It starts at the last successful published main SHA, rather than
 the unrelated UI work in draft PR #7. Normal fast-forward pushes preserve shared

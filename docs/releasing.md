@@ -16,6 +16,9 @@ and [environment rules](https://docs.github.com/en/actions/how-tos/deploy/config
 
 ## Promote a tested commit
 
+Use Git, Python 3, and an authenticated GitHub CLI with Actions read access and
+permission to push `release`. Run the commands from the repository root.
+
 1. Choose a full commit SHA on `main` with successful **CI** for that exact
    main push. Review all commits and changes since `release`, including changes
    from other issues. A green feature-branch run is not the main integration run.
@@ -40,9 +43,12 @@ and [environment rules](https://docs.github.com/en/actions/how-tos/deploy/config
 4. Link the range, issues, and exact SHA in the migration issue or a release
    record. For a GitHub review page, open a promotion PR with base `release` and
    head `main`, inspect its exact range, then use the helper at the reviewed SHA.
-   Do not squash or rebase a promotion PR. Those modes break shared ancestry.
-   If branch rules require merging a PR, use a merge commit and verify its CI
-   and Pages run. Do not change repository rules just to use the helper.
+   Publish with the helper rather than the promotion PR's Merge button. Merge,
+   squash, and rebase operations can create release-only commits that prevent
+   the next fast-forward promotion. If existing release history diverges from
+   main, integrate that history into main through a merge-commit PR, rerun main
+   CI, and review the combined range before retrying. Never rewrite release
+   history or change repository rules just to use the helper.
 
 There is no automatic promotion from `main`. To rebuild the current release
 without moving it:

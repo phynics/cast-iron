@@ -16,7 +16,7 @@ SHA = 'd48eaa3c8dce901b80a777600ae09238647c41cd'
 
 
 class PromotionTests(unittest.TestCase):
-    def invoke(self, *, push=False, conclusion='success', failed_ancestor=False,
+    def invoke(self, *, push=False, conclusion='success', failed_ancestor=None,
                remote='git@github.com:phynics/cast-iron.git', sha=SHA, ci_sha=SHA):
         def output(*args):
             if args[:4] == ('git', 'remote', 'get-url', '--push'):
@@ -26,7 +26,7 @@ class PromotionTests(unittest.TestCase):
             return ''
 
         def execute(args, **kwargs):
-            if failed_ancestor and args[:3] == ['git', 'merge-base', '--is-ancestor']:
+            if args[:3] == ['git', 'merge-base', '--is-ancestor'] and args[3] == failed_ancestor:
                 raise subprocess.CalledProcessError(1, args)
             return subprocess.CompletedProcess(args, 0)
 
@@ -56,7 +56,12 @@ class PromotionTests(unittest.TestCase):
 
     def test_non_ancestor_stops_before_push(self):
         with self.assertRaises(subprocess.CalledProcessError):
-            self.invoke(push=True, failed_ancestor=True)
+            self.invoke(push=True, failed_ancestor=SHA)
+        self.assert_no_push()
+
+    def test_divergent_release_stops_before_push(self):
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.invoke(push=True, failed_ancestor='origin/release')
         self.assert_no_push()
 
     def test_failed_or_pending_ci_stops_before_push(self):

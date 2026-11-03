@@ -13,7 +13,8 @@ Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), del
 - Open book contents and move between entries in the curated order. Source notes identify verified chapter order and remaining placement questions.
 - Search titles and full text, with category, source, and applicable field filters.
 - Read formatted entries, with a References section that links to the entries they cite.
-- Find saved entries on Home, and organize bookmarks into collections.
+- Find every starred entry on Home, open it, or remove its star.
+- Activate or disable installed books to control ordinary discovery without deleting downloads or stars.
 - See recently viewed entries on the home screen.
 - Choose light, dark, or system theme.
 - Read the Legal and attribution page, which includes the content coverage report.

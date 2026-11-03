@@ -17,14 +17,19 @@ existing history. Readback confirms Pages uses Actions and the `github-pages`
 environment permits only branch `release`. Its old `source.branch: main` API
 field is legacy metadata, not the Actions publication selector.
 
-The guarded workflow and promotion helper are prepared for a separate PR against
-main. Main publication is already blocked by the environment policy. The workflow
+The guarded workflow and promotion helper are prepared in
+[PR #16](https://github.com/phynics/cast-iron/pull/16) against main. Main publication is already blocked by the environment policy. The workflow
 must merge and be explicitly promoted before the first release-branch deployment.
-Local workflow validation passes with actionlint 1.7.12. Seven promotion safety
+Local workflow validation passes with actionlint 1.7.12. Eight promotion safety
 checks pass, and a real preview against `d48eaa3` confirms the successful main
-CI and unchanged release baseline. `cargo xtask check` is running for this
-worktree; its final result will be recorded before handoff. No new distribution
-or browser run is needed for this workflow/docs-only change.
+CI and unchanged release baseline. A real non-main promotion attempt was
+rejected by the ancestry check before any push.
+[Wrong-ref dispatch 41725677628](https://github.com/phynics/cast-iron/actions/runs/41725677628)
+ran on this feature branch and skipped both build and deploy jobs. This verifies
+the workflow guard on GitHub without publishing. Local `cargo xtask check`
+passes, including formatting, native and WASM clippy, workspace tests, and the
+WASM build. No new distribution or browser suite was run for this workflow/docs
+change. Final-head GitHub CI is separate and remains visible on the PR.
 
 No release-branch deployment or live migration verification is claimed. See
 [release operations](releasing.md) for exact completion and recovery steps.
@@ -156,7 +161,7 @@ Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The 
 
 ## Known limits and issue ownership
 
-- Historical baseline, addressed by the local simplification below: the iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
+- Historical baseline, addressed by the reference simplification below: the iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
 - [#13](https://github.com/phynics/cast-iron/issues/13): Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
@@ -168,7 +173,7 @@ Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The 
 - [#15](https://github.com/phynics/cast-iron/issues/15): Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
 - Firefox, and a single flaky run of `Back/forward navigation works` on Chromium, which could not be reproduced (see `docs/decisions.md`).
 
-## Local reference simplification
+## Published reference simplification
 
 The local implementation separates Browse categories from Books, removes the duplicate mode picker and Rules category, and keeps rules accessible through Books, search, saved links, and starred entries. Home lists every star with an independent Unstar control. Collection and bookmark-manager UI is retired while legacy stored stars remain readable. Old manager URLs lead to Home, and the former Rules-category URL leads to Books.
 
@@ -184,4 +189,4 @@ Two bounded visual batches covered 390 x 844 and 1280 x 900 in both themes. The 
 
 The first browser pass caught blocked inline article-contents indentation and stale test assumptions about star ordering, labels, and open disclosures. Those were corrected. A later affected test exposed repeated section links failing to scroll when the URL already matched; explicit scrolling fixes that case. The corrected six-test run passed. The final full run passed the CSP and repeated-heading cases in both engines. Terra's bounded integration review found no concrete P1 or P2 issue.
 
-CI and deployment of this simplification are not yet verified. Physical iPhone offline relaunch, VoiceOver, and a full physical-device character-building walkthrough remain unverified. Earlier published simulator observations and automated offline checks remain separate evidence.
+This simplification merged in [PR #6](https://github.com/phynics/cast-iron/pull/6) at `d48eaa3`. Its successful main CI and Pages deployment are linked at the top of this page. This migration did not repeat live browser acceptance for that artifact. Physical iPhone offline relaunch, VoiceOver, and a full physical-device character-building walkthrough remain unverified in [#12](https://github.com/phynics/cast-iron/issues/12). Earlier published simulator observations and automated offline checks remain separate evidence.
