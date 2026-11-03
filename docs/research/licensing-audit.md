@@ -100,3 +100,13 @@ Searched `gh search repos` and `gh search code` for pathfinder/pf1e json, psrd d
 - The Open Gaming Foundation report on the 2023 deauthorization preparation.
 - The `updatedAt` discrepancy for PSRD-Data.
 - Per-record OGC/PI classification of the dataset.
+
+## Sixteen-book expansion review, 2026-11-03
+
+The same pinned PSRD-Data commit contains 16 book directories. The reviewed selection in `source.toml` now includes their supported typed records and 101 complete top-level rules trees. `scripts/expand-sources.py` reproduces the explicit selection and refuses an unknown book directory. The scope covers the two original books, Advanced Player's Guide, Advanced Race Guide, Bestiary 2 through 4, Game Mastery Guide, Monster Codex, Mythic Adventures, NPC Codex, Technology Guide, Ultimate Campaign, Ultimate Combat, Ultimate Equipment, and Ultimate Magic. This does not add every PF1e publication, and some record families remain available only inside rules trees or excluded as reported.
+
+The [legacy PRD license page](https://legacy.aonprd.com/openGameLicense.html) supplies the Product Identity/Open Content declaration and Section 15. Its Mythic Adventures copyright was missing from the extracted snapshot notices and has been added. Supplemental notices for The Tome of Horrors III, Aerial Servant, Demon Shadow, Grippli, Nereid, Moon Dog, and Muckdweller from Tome of Horrors Complete are also preserved. Existing notices remain intact. Source typos in supplemental notices, including the Muckdweller year, are preserved rather than silently edited. This is a notice correction, not an additional game-content source.
+
+`content-policy.toml` removes named NPC stories, suggested character names, two deity-named items, deity descriptions and religious traits, and identified setting-specific commentary. The same policy applies to standalone records and copies nested in rules trees. The coverage report records each omitted source path and reason, including partial-body omissions. There are 432 omission occurrences across duplicated upstream representations, not 432 missing entries. Artwork remains stripped by the HTML adapter. All 16 catalog publications resolve to a copyright notice.
+
+The publication screen examines every built entry and found no match for its explicit list of named setting material. This remains a finite screen, not a sentence-by-sentence legal clearance. The selection preserves generic mechanics and descriptive rules material under the existing OGL and Community Use approach. A new source pin or additional book requires another scope and notice review.

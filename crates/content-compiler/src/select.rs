@@ -274,7 +274,7 @@ pub fn survey(
 
 fn exclusion_reason(bucket: &str, cfg: &SourceConfig) -> String {
     if bucket.ends_with("/*.json") || bucket == "*.json" {
-        return "not selected for POC (files beside selected records)".into();
+        return "not selected (files beside selected records)".into();
     }
     if let Some(parent) = bucket.rsplit_once('/').map(|(p, _)| p)
         && let Some(name) = bucket.rsplit('/').next()
@@ -282,11 +282,11 @@ fn exclusion_reason(bucket: &str, cfg: &SourceConfig) -> String {
         let sibling = format!("{parent}/{name}.json");
         if cfg.dataset.rules.contains(&sibling) {
             return format!(
-                "not selected for POC: per-section files of the tree that the selected {sibling} nests inline"
+                "not selected separately: section copies of the selected {sibling} tree"
             );
         }
     }
-    "not selected for POC".into()
+    "no standalone category for this record family; rules-tree representations are retained where available".into()
 }
 
 fn collect_urls(value: &Value, out: &mut BTreeSet<String>) {

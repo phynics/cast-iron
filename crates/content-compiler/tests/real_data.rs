@@ -17,8 +17,10 @@ fn workspace() -> PathBuf {
 fn pieces(html: &str) -> Vec<String> {
     let mut out = vec![String::new()];
     let mut chars = html.chars().peekable();
+    let mut raw = String::new();
     while let Some(c) = chars.next() {
         if c == '<' {
+            flush_text(&mut raw, out.last_mut().unwrap());
             let mut tag = String::new();
             for t in chars.by_ref() {
                 if t == '>' {
@@ -53,33 +55,37 @@ fn pieces(html: &str) -> Vec<String> {
                 out.push(String::new());
             }
         } else {
-            out.last_mut().unwrap().push(c);
+            raw.push(c);
         }
     }
+    flush_text(&mut raw, out.last_mut().unwrap());
     out.into_iter()
-        .map(|p| {
-            squash(
-                &p.replace("&ldquo;", "\u{201c}")
-                    .replace("&rdquo;", "\u{201d}")
-                    .replace("&mdash;", "\u{2014}")
-                    .replace("&ndash;", "\u{2013}")
-                    .replace("&times;", "\u{d7}")
-                    .replace("&nbsp;", " ")
-                    .replace("&apos;", "'")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">")
-                    .replace("&deg;", "\u{b0}")
-                    .replace("&hellip;", "\u{2026}")
-                    .replace("&mdash", "\u{2014}")
-                    .replace("&amp;", "&"),
-            )
-        })
+        .map(|p| squash(&p))
         .filter(|p| !p.is_empty())
         .collect()
 }
 
-fn strings(value: &Value, key: &str, out: &mut Vec<String>) {
-    strings_skipping(value, key, &Default::default(), out)
+// Decode each text node before joining across inline markup. This keeps malformed
+// split entities such as <i>&ldquo</i>; distinct from a valid &ldquo; entity.
+fn flush_text(raw: &mut String, target: &mut String) {
+    let text = std::mem::take(raw)
+        .replace("&ndash1;", "\u{2013}1")
+        .replace("&mdash;", "\u{2014}")
+        .replace("&mdash", "\u{2014}")
+        .replace("&ndash;", "\u{2013}")
+        .replace("&ndash", "\u{2013}")
+        .replace("&ldquo;", "\u{201c}")
+        .replace("&ldquo", "\u{201c}")
+        .replace("&rdquo;", "\u{201d}")
+        .replace("&rdquo", "\u{201d}");
+    let fragment = scraper::Html::parse_fragment(&text);
+    target.extend(
+        fragment
+            .root_element()
+            .text()
+            .flat_map(str::chars)
+            .filter(|c| *c != '\u{ad}'),
+    );
 }
 
 /// Like `strings`, but leaves out subtrees whose `url` is another entry's record.
@@ -110,10 +116,38 @@ fn strings_skipping(
     }
 }
 
-fn assert_all_text_present(dataset: &Path, rel: &str, entry: &cast_iron_schema::RuleEntry) {
-    let json: Value = serde_json::from_slice(&std::fs::read(dataset.join(rel)).unwrap()).unwrap();
+fn retained_json(dataset: &Path, rel: &str) -> Value {
+    let mut node: cast_iron_content_compiler::model::Node =
+        serde_json::from_slice(&std::fs::read(dataset.join(rel)).unwrap()).unwrap();
+    let policy = cast_iron_content_compiler::policy::ContentPolicy::load(
+        &workspace().join("sources/psrd-data/content-policy.toml"),
+    )
+    .unwrap();
+    assert!(policy.retain(&mut node, rel, &mut Vec::new()));
+    node.to_value()
+}
+
+fn record_by_url<'a>(node: &'a Value, url: &str) -> Option<&'a Value> {
+    if node.get("url").and_then(Value::as_str) == Some(url) {
+        return Some(node);
+    }
+    node.get("sections")
+        .and_then(Value::as_array)?
+        .iter()
+        .find_map(|child| record_by_url(child, url))
+}
+
+fn assert_all_text_present(
+    dataset: &Path,
+    rel: &str,
+    entry: &cast_iron_schema::RuleEntry,
+    typed_urls: &std::collections::BTreeSet<String>,
+) {
+    let json = retained_json(dataset, rel);
     let mut all = Vec::new();
-    strings(&json, "", &mut all);
+    let mut replaced = typed_urls.clone();
+    replaced.remove(&entry.provenance[0].record);
+    strings_skipping(&json, "", &replaced, &mut all);
     let haystack = squash(&format!("{} {}", entry.title, blocks_text(&entry.body)));
     let mut missing = Vec::new();
     let mut checked = 0;
@@ -142,7 +176,12 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
     let scratch = scratch("real-data");
     let config = scratch.join("config");
     std::fs::create_dir_all(&config).unwrap();
-    for name in ["source.toml", "legal-notices.json", "id-overrides.toml"] {
+    for name in [
+        "source.toml",
+        "legal-notices.json",
+        "id-overrides.toml",
+        "content-policy.toml",
+    ] {
         std::fs::copy(
             workspace().join("sources/psrd-data").join(name),
             config.join(name),
@@ -159,17 +198,37 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
     let outcome = run(&opts);
     assert!(outcome.entry_count > 1000, "{}", outcome.entry_count);
     let lib = load(&scratch.join("out"));
+    let construct =
+        lib.entry("monster-codex/rules/drow/example-drow/abrakarn-viper/abrakarn-viper");
+    let construction = blocks_text(&construct.body);
+    assert!(construction.contains("150,000 gp"));
+    assert!(construction.contains("Craft Construct"));
+    let typed_urls: std::collections::BTreeSet<String> = lib
+        .entries
+        .iter()
+        .filter(|e| e.kind != cast_iron_schema::EntryKind::Rule)
+        .map(|e| e.provenance[0].record.clone())
+        .collect();
     assert_all_text_present(
         &dataset,
         "core_rulebook/spell/fireball.json",
         lib.entry("core-rulebook/spells/fireball"),
+        &typed_urls,
     );
     assert_all_text_present(
         &dataset,
         "bestiary/creature/aasimar.json",
         lib.entry("bestiary/monsters/aasimar"),
+        &typed_urls,
     );
-    assert!(outcome.rejected.is_empty(), "{:?}", outcome.rejected);
+    assert!(
+        outcome
+            .rejected
+            .iter()
+            .all(|r| r.reason.starts_with("Product Identity:")),
+        "{:?}",
+        outcome.rejected
+    );
     // Every typed entry keeps every string that the upstream record holds.
     let mut failures = Vec::new();
     for entry in lib
@@ -178,10 +237,12 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
         .filter(|e| e.kind != cast_iron_schema::EntryKind::Rule)
     {
         let path = &entry.provenance[0].path;
-        let json: Value =
-            serde_json::from_slice(&std::fs::read(dataset.join(path)).unwrap()).unwrap();
+        let json = retained_json(&dataset, path);
+        let node = record_by_url(&json, &entry.provenance[0].record).unwrap();
+        let mut replaced = typed_urls.clone();
+        replaced.remove(&entry.provenance[0].record);
         let mut all = Vec::new();
-        strings(&json, "", &mut all);
+        strings_skipping(node, "", &replaced, &mut all);
         let haystack = squash(&format!("{} {}", entry.title, blocks_text(&entry.body)));
         for s in &all {
             for piece in pieces(s) {
@@ -204,8 +265,7 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
         .filter(|e| e.kind == cast_iron_schema::EntryKind::Rule && e.parent.is_none())
     {
         let path = &file.provenance[0].path;
-        let json: Value =
-            serde_json::from_slice(&std::fs::read(dataset.join(path)).unwrap()).unwrap();
+        let json = retained_json(&dataset, path);
         let mut all = Vec::new();
         strings_skipping(&json, "", &typed_urls, &mut all);
         let haystack = squash(

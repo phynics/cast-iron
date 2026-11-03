@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Screen a built POC library and record evidence, not a legal clearance.
+"""Screen a built rules library and record evidence, not a legal clearance.
 
 Run after cargo xtask build-site. The named-material list is deliberately
 explicit and incomplete. Any new book needs a separate licensing review.
@@ -9,9 +9,11 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
+import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-CONTENT = ROOT / "dist/content"
+CONTENT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist/content"
 manifest = json.loads((CONTENT / "manifest.json").read_text())
 library = CONTENT / manifest["content_version"]
 catalog = json.loads((library / "catalog.json").read_text())
@@ -24,7 +26,9 @@ for item in manifest["files"]:
         issues.append(f"Manifest mismatch: {item['path']}")
 
 sources = {source["id"] for source in catalog["sources"]}
-if sources != {"core-rulebook", "bestiary"}:
+books = tomllib.loads((ROOT / "sources/psrd-data/source.toml").read_text())["dataset"]["books"]
+expected_sources = {re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-") for title in books.values()}
+if sources != expected_sources:
     issues.append("Publication scope changed: review the new source selection")
 if any(not source["copyright"] for source in catalog["sources"]):
     issues.append("Missing source copyright notice")
@@ -35,7 +39,7 @@ if "paizo.com/licenses/communityuse" not in legal["community_use_notice"]:
 if not any("15. COPYRIGHT NOTICE" in item["text"] for item in legal["licenses"]):
     issues.append("Missing OGL text")
 titles = "\n".join(item["title"] for item in legal["section_15"])
-for required in ("Core Rulebook", "Bestiary", "System Reference Document", "Tome of Horrors"):
+for required in ("Core Rulebook", "Bestiary", "Mythic Adventures", "System Reference Document", "Tome of Horrors"):
     if required not in titles:
         issues.append(f"Missing expected attribution: {required}")
 

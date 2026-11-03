@@ -7,6 +7,7 @@ pub mod html;
 pub mod legal;
 pub mod model;
 pub mod pipeline;
+pub mod policy;
 pub mod select;
 pub mod slug;
 pub mod text;

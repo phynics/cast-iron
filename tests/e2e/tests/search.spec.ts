@@ -22,7 +22,8 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await page.locator("#search-input").pressSequentially("e");
   await waitResults(page, "fire");
   const fire = await hitTitles(page);
-  expect(fire.slice(0, 2), `top of "fire": ${fire.slice(0, 5)}`).toContain("Fireball");
+  expect(fire).toContain("Fireball");
+  expect(fire.slice(0, 5).every(title => title.toLowerCase().startsWith("fire"))).toBe(true);
   await expect(page.locator(".results .hit-title mark").first()).toBeVisible();
   await expect(page.locator(".result-count")).toHaveAttribute("aria-live", "polite");
 
@@ -42,6 +43,11 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
     .map((e) => e.title)
     .sort();
   expect(expected.length).toBeGreaterThan(10);
+  while (await page.locator(".results .hit").count() < expected.length) {
+    const before = await page.locator(".results .hit").count();
+    await page.getByRole("button", { name: "Show more results" }).click();
+    await expect(page.locator(".results .hit")).toHaveCount(Math.min(before + 50, expected.length));
+  }
   await expect(page.locator(".results .hit")).toHaveCount(expected.length);
   expect((await hitTitles(page)).sort()).toEqual(expected);
   const metas = await page.locator(".results .hit-meta").allInnerTexts();

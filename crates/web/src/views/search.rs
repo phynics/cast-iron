@@ -66,7 +66,7 @@ pub fn facet_fields_of(kind: EntryKind) -> &'static [(&'static str, &'static str
             ("size", "Size"),
         ],
         EntryKind::Item => &[("item_category", "Category"), ("slot", "Slot")],
-        EntryKind::Class => &[("class_type", "Class type")],
+        EntryKind::Class | EntryKind::PrestigeClass => &[("class_type", "Class type")],
         _ => &[],
     }
 }
