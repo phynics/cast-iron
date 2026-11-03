@@ -7,6 +7,10 @@
 //! #/                                 Home
 //! #/search?q=..&kind=spell&source=core-rulebook&facet=school:evocation
 //! #/browse                           #/browse/kind/<slug>     #/browse/source/<id>
+//! #/browse/books                     the list of books, in original order of the library
+//! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
+//! #/spells                           #/spells/<class>         #/spells/<class>/<level>
+//! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>
 //! #/bookmarks                        #/collection/<id>
 //! #/settings                         #/legal
@@ -26,7 +30,25 @@ pub enum Route {
     },
     Browse,
     BrowseKind(EntryKind),
+    /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
+    /// The 16 books, each a doorway into its contents.
+    Books,
+    /// One book's contents in original chapter order. `chapter` is the 0-based path of the
+    /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
+    Book {
+        source: String,
+        chapter: Option<Vec<usize>>,
+    },
+    /// Spell lists by class and level.
+    Spells,
+    /// One class's spell list. `class` is the name that the spells carry, such as `Wizard`.
+    SpellList {
+        class: String,
+        level: Option<u8>,
+    },
+    /// Feats that other feats require, with their chains.
+    FeatChains,
     Entry {
         id: EntryId,
         anchor: Option<String>,
@@ -81,6 +103,34 @@ impl Route {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
+            ["browse", "books"] => Route::Books,
+            ["browse", "book", id] => match percent_decode(id) {
+                Some(source) if !source.is_empty() => Route::Book {
+                    source,
+                    chapter: query
+                        .and_then(|q| query_pairs(q).find(|(k, _)| k == "c"))
+                        .and_then(|(_, v)| parse_chapter_path(&v)),
+                },
+                _ => not_found(),
+            },
+            ["spells"] => Route::Spells,
+            ["spells", class] => match percent_decode(class) {
+                Some(class) if !class.is_empty() => Route::SpellList { class, level: None },
+                _ => not_found(),
+            },
+            ["spells", class, level] => {
+                let level = (!level.is_empty() && level.bytes().all(|b| b.is_ascii_digit()))
+                    .then(|| level.parse::<u8>().ok())
+                    .flatten();
+                match (percent_decode(class), level) {
+                    (Some(class), Some(level)) if !class.is_empty() => Route::SpellList {
+                        class,
+                        level: Some(level),
+                    },
+                    _ => not_found(),
+                }
+            }
+            ["feats", "chains"] => Route::FeatChains,
             ["entry", id @ ..] if !id.is_empty() => {
                 let Some(id) = percent_decode(&id.join("/")).and_then(|s| EntryId::parse(s).ok())
                 else {
@@ -139,6 +189,21 @@ impl Route {
             Route::Browse => "#/browse".into(),
             Route::BrowseKind(kind) => format!("#/browse/kind/{}", kind.slug()),
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
+            Route::Books => "#/browse/books".into(),
+            Route::Book { source, chapter } => match chapter {
+                Some(path) if !path.is_empty() => format!(
+                    "#/browse/book/{}?c={}",
+                    percent_encode(source),
+                    format_chapter_path(path)
+                ),
+                _ => format!("#/browse/book/{}", percent_encode(source)),
+            },
+            Route::Spells => "#/spells".into(),
+            Route::SpellList { class, level } => match level {
+                Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
+                None => format!("#/spells/{}", percent_encode(class)),
+            },
+            Route::FeatChains => "#/feats/chains".into(),
             Route::Entry { id, anchor } => match anchor {
                 Some(anchor) => format!("#/entry/{id}?a={}", percent_encode(anchor)),
                 None => format!("#/entry/{id}"),
@@ -153,12 +218,50 @@ impl Route {
     }
 
     /// The anchor to scroll to after the route renders.
-    pub fn anchor(&self) -> Option<&str> {
+    pub fn anchor(&self) -> Option<std::borrow::Cow<'_, str>> {
         match self {
-            Route::Entry { anchor, .. } => anchor.as_deref(),
+            Route::Entry { anchor, .. } => anchor.as_deref().map(std::borrow::Cow::Borrowed),
+            Route::Book {
+                chapter: Some(path),
+                ..
+            } if !path.is_empty() => Some(std::borrow::Cow::Owned(toc_id(path))),
             _ => None,
         }
     }
+}
+
+/// `3.2` for the 0-based path `[2, 1]`: the URL numbers chapters from 1, as a reader counts.
+pub fn format_chapter_path(path: &[usize]) -> String {
+    path.iter()
+        .map(|i| (i + 1).to_string())
+        .collect::<Vec<_>>()
+        .join(".")
+}
+
+/// The inverse of [`format_chapter_path`]. `None` for an empty or malformed path.
+pub fn parse_chapter_path(text: &str) -> Option<Vec<usize>> {
+    let path: Option<Vec<usize>> = text
+        .split('.')
+        .map(|part| {
+            let ok =
+                !part.is_empty() && part.len() <= 5 && part.bytes().all(|b| b.is_ascii_digit());
+            ok.then(|| part.parse::<usize>().ok())
+                .flatten()
+                .and_then(|n| n.checked_sub(1))
+        })
+        .collect();
+    path.filter(|p| !p.is_empty())
+}
+
+/// The DOM id of a contents node, so that a chapter link can scroll to it.
+pub fn toc_id(path: &[usize]) -> String {
+    format!(
+        "toc-{}",
+        path.iter()
+            .map(|i| (i + 1).to_string())
+            .collect::<Vec<_>>()
+            .join("-")
+    )
 }
 
 fn parse_search(query: Option<&str>) -> Route {
@@ -339,9 +442,88 @@ mod tests {
             Route::BrowseKind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Collection("3f2a-uuid".into()),
+            Route::Books,
+            Route::Spells,
+            Route::FeatChains,
         ] {
             round_trip(route);
         }
+    }
+
+    #[test]
+    fn book_routes_carry_the_chapter_path_one_based() {
+        let plain = Route::Book {
+            source: "core-rulebook".into(),
+            chapter: None,
+        };
+        assert_eq!(plain.href(), "#/browse/book/core-rulebook");
+        round_trip(plain);
+        let deep = Route::Book {
+            source: "core-rulebook".into(),
+            chapter: Some(vec![6, 0, 11]),
+        };
+        assert_eq!(deep.href(), "#/browse/book/core-rulebook?c=7.1.12");
+        round_trip(deep.clone());
+        assert_eq!(deep.anchor().as_deref(), Some("toc-7-1-12"));
+        // Old links to a publication and links without a chapter still parse.
+        assert_eq!(
+            Route::parse("#/browse/book/core-rulebook?c="),
+            Route::Book {
+                source: "core-rulebook".into(),
+                chapter: None
+            }
+        );
+        // A malformed or zero-based path is ignored, not an error.
+        for bad in ["0", "1..2", "a", "1.0", "-1", "99999999"] {
+            assert_eq!(
+                Route::parse(&format!("#/browse/book/x?c={bad}")),
+                Route::Book {
+                    source: "x".into(),
+                    chapter: None
+                },
+                "{bad}"
+            );
+        }
+        assert_eq!(Route::Books.href(), "#/browse/books");
+        assert_eq!(
+            Route::parse("#/browse/book"),
+            Route::NotFound("#/browse/book".into())
+        );
+    }
+
+    #[test]
+    fn spell_list_routes_encode_the_class_name() {
+        let list = Route::SpellList {
+            class: "Elementalist Wizard".into(),
+            level: Some(3),
+        };
+        assert_eq!(list.href(), "#/spells/Elementalist%20Wizard/3");
+        round_trip(list);
+        let all = Route::SpellList {
+            class: "Wizard".into(),
+            level: None,
+        };
+        assert_eq!(all.href(), "#/spells/Wizard");
+        round_trip(all);
+        round_trip(Route::SpellList {
+            class: "Witch".into(),
+            level: Some(0),
+        });
+        for bad in [
+            "#/spells/Wizard/x",
+            "#/spells/Wizard/-1",
+            "#/spells/Wizard/300",
+            "#/spells/Wizard/1/2",
+            "#/spells//1",
+        ] {
+            assert_eq!(Route::parse(bad), Route::NotFound(bad.into()), "{bad}");
+        }
+    }
+
+    #[test]
+    fn feat_chains_route_does_not_swallow_other_feat_paths() {
+        assert_eq!(Route::parse("#/feats/chains"), Route::FeatChains);
+        assert_eq!(Route::parse("#/feats"), Route::NotFound("#/feats".into()));
     }
 
     #[test]

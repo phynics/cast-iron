@@ -2,12 +2,14 @@
 //! active version. There is no network fallback: a missing file is an error to show.
 
 use crate::content_cache;
+use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
 use crate::store::ActiveLibrary;
 use cast_iron_schema::{
-    Catalog, ContentManifest, CoverageReport, EntryId, EntryKind, EntryStub, LegalNotices,
-    RuleEntry, SourceInfo,
+    BOOKS_FILE, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind, EntryStub,
+    LegalNotices, RELATIONS_FILE, RelationIndex, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
+    SpellLists,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -61,6 +63,18 @@ struct Inner {
     index: RefCell<Option<Rc<SearchIndex>>>,
     legal: RefCell<Option<Rc<LegalNotices>>>,
     coverage: RefCell<Option<Rc<CoverageReport>>>,
+    /// Schema-3 files. The outer `Option` is "not loaded yet"; the inner one is "this library
+    /// does not have the file", which is a normal state for schemas 1 and 2.
+    relations: RefCell<Option<Option<Rc<Relations>>>>,
+    spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
+    books: RefCell<Option<Option<Rc<BookLookup>>>>,
+}
+
+/// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2
+/// have no relation, spell-list, or book files, and every reader must treat them as absent.
+pub fn manifest_has_file(manifest: &ContentManifest, name: &str) -> bool {
+    let path = format!("{}/{name}", manifest.content_version);
+    manifest.files.iter().any(|f| f.path == path)
 }
 
 /// The active library. Cloning is cheap and shares caches. Get it with [`use_library`].
@@ -95,6 +109,9 @@ impl Library {
             index: RefCell::new(None),
             legal: RefCell::new(None),
             coverage: RefCell::new(None),
+            relations: RefCell::new(None),
+            spell_lists: RefCell::new(None),
+            books: RefCell::new(None),
         }))))
     }
 
@@ -216,6 +233,66 @@ impl Library {
         Ok(legal)
     }
 
+    /// Whether this library has the relation index. False for schemas 1 and 2: the screens that
+    /// need it then hide their panels instead of failing.
+    pub fn has_relations(&self) -> bool {
+        manifest_has_file(&self.0.manifest, RELATIONS_FILE)
+    }
+
+    pub fn has_spell_lists(&self) -> bool {
+        manifest_has_file(&self.0.manifest, SPELL_LISTS_FILE)
+    }
+
+    pub fn has_books(&self) -> bool {
+        manifest_has_file(&self.0.manifest, BOOKS_FILE)
+    }
+
+    /// The relation index, with its inverse lookup, loaded on first use and parsed once.
+    /// `Ok(None)` means that this library has no such file.
+    pub async fn relations(&self) -> Result<Option<Rc<Relations>>, LibraryError> {
+        self.lazy(&self.0.relations, RELATIONS_FILE, |index: RelationIndex| {
+            Relations::new(index)
+        })
+        .await
+    }
+
+    /// Spell lists per class and level. `Ok(None)` for a library without `lists.json`.
+    pub async fn spell_lists(&self) -> Result<Option<Rc<SpellLists>>, LibraryError> {
+        self.lazy(
+            &self.0.spell_lists,
+            SPELL_LISTS_FILE,
+            |lists: SpellLists| lists,
+        )
+        .await
+    }
+
+    /// The books in original chapter order. `Ok(None)` for a library without `books.json`.
+    pub async fn books(&self) -> Result<Option<Rc<BookLookup>>, LibraryError> {
+        self.lazy(&self.0.books, BOOKS_FILE, |index: BookIndex| {
+            BookLookup::new(index)
+        })
+        .await
+    }
+
+    async fn lazy<T: DeserializeOwned, U>(
+        &self,
+        slot: &RefCell<Option<Option<Rc<U>>>>,
+        file: &str,
+        build: impl FnOnce(T) -> U,
+    ) -> Result<Option<Rc<U>>, LibraryError> {
+        if let Some(loaded) = slot.borrow().clone() {
+            return Ok(loaded);
+        }
+        let loaded = if manifest_has_file(&self.0.manifest, file) {
+            let parsed: T = read_json(&self.0.cache, self.version(), file).await?;
+            Some(Rc::new(build(parsed)))
+        } else {
+            None
+        };
+        *slot.borrow_mut() = Some(loaded.clone());
+        Ok(loaded)
+    }
+
     pub async fn coverage(&self) -> Result<Rc<CoverageReport>, LibraryError> {
         if let Some(coverage) = self.0.coverage.borrow().clone() {
             return Ok(coverage);
@@ -246,4 +323,48 @@ async fn read_json<T: DeserializeOwned>(
         path: format!("{version}/{relative}"),
         message: e.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cast_iron_schema::ManifestFile;
+
+    fn manifest(files: &[&str]) -> ContentManifest {
+        ContentManifest {
+            schema_version: 2,
+            content_version: "v1".into(),
+            total_bytes: 0,
+            files: files
+                .iter()
+                .map(|p| ManifestFile {
+                    path: format!("v1/{p}"),
+                    sha256: String::new(),
+                    bytes: 0,
+                })
+                .collect(),
+            entry_count: 0,
+            datasets: vec![],
+        }
+    }
+
+    #[test]
+    fn a_schema_two_library_has_none_of_the_schema_three_files() {
+        let old = manifest(&["catalog.json", "legal.json", "entries/spell-000.json"]);
+        for name in [RELATIONS_FILE, SPELL_LISTS_FILE, BOOKS_FILE] {
+            assert!(!manifest_has_file(&old, name), "{name}");
+        }
+        let new = manifest(&["catalog.json", "relations.json", "books.json"]);
+        assert!(manifest_has_file(&new, RELATIONS_FILE));
+        assert!(manifest_has_file(&new, BOOKS_FILE));
+        assert!(!manifest_has_file(&new, SPELL_LISTS_FILE));
+        // A file of another version directory does not count.
+        let mut other = manifest(&[]);
+        other.files.push(ManifestFile {
+            path: "v0/relations.json".into(),
+            sha256: String::new(),
+            bytes: 0,
+        });
+        assert!(!manifest_has_file(&other, RELATIONS_FILE));
+    }
 }

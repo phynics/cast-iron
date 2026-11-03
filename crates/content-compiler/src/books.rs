@@ -105,6 +105,7 @@ impl<'a> Builder<'a> {
                         title: title.clone(),
                         entry: None,
                         anchor: Some(anchor.clone()),
+                        review: None,
                         children: Vec::new(),
                     });
                     level.len() - 1
@@ -117,6 +118,7 @@ impl<'a> Builder<'a> {
             title: entry.title.clone(),
             entry: Some(id.clone()),
             anchor: None,
+            review: None,
             children,
         }
     }
@@ -203,6 +205,7 @@ pub fn build(
                     title: c.title.clone(),
                     entry: None,
                     anchor: None,
+                    review: c.review.clone(),
                     children: Vec::new(),
                 })
                 .collect()
@@ -249,6 +252,8 @@ pub fn build(
         trees.push(BookTree {
             source: book.source.clone(),
             title: book.title.clone(),
+            basis: book.basis.clone(),
+            review: book.review.clone(),
             chapters: nodes,
         });
     }

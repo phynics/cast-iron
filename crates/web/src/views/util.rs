@@ -3,7 +3,37 @@
 use cast_iron_schema::EntryKind;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use send_wrapper::SendWrapper;
 use std::future::Future;
+use std::ops::Deref;
+use std::rc::Rc;
+
+/// An `Rc` that reactive closures may capture. Leptos asks closures in views to be `Send + Sync`;
+/// the browser runs this app on one thread, so the wrapper never panics. `Library` does the same.
+pub struct Shared<T>(SendWrapper<Rc<T>>);
+
+impl<T> Shared<T> {
+    pub fn new(value: T) -> Self {
+        Self(SendWrapper::new(Rc::new(value)))
+    }
+
+    pub fn from_rc(value: Rc<T>) -> Self {
+        Self(SendWrapper::new(value))
+    }
+}
+
+impl<T> Clone for Shared<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
+impl<T> Deref for Shared<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
 
 /// Runs a future once and exposes its result: `None` while loading. Works for results that are
 /// not `Send`, such as `Rc` values, because the signal is local to the browser thread.

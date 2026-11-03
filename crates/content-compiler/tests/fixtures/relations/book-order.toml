@@ -4,9 +4,11 @@ version = 1
 source = "core-rulebook"
 title = "Core Rulebook"
 basis = "Fixture."
+review = ["Fixture question."]
 
 [[book.chapter]]
 title = "Races"
+review = "Fixture position is a guess."
 match = [{ url = "pfsrd://Core Rulebook/Races" }]
 
 [[book.chapter]]

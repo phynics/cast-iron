@@ -35,6 +35,7 @@ export interface Entry {
   title: string;
   fields: Record<string, any>;
   body: any[];
+  relations?: any[];
 }
 export interface Stub {
   id: string;

@@ -57,7 +57,11 @@ pub fn extract(kind: EntryKind, node: &Node, rel: &str) -> Result<Extracted, Str
                 EntryKind::Trap => out.tag(node.str_field("trap_type").unwrap_or_default()),
                 // `standard_race`, `core_race`, `featured_race`, `uncommon_race`, or
                 // `monster_race`: it separates the races of the player books from monster races.
-                EntryKind::Race => out.tag(node.subtype.as_deref().unwrap_or_default()),
+                EntryKind::Race => {
+                    let group = node.subtype.as_deref().unwrap_or_default();
+                    out.tag(group);
+                    out.facet("race_group", group);
+                }
                 _ => {}
             }
             Ok(out)
@@ -705,6 +709,22 @@ mod tests {
         assert_eq!(labels, ["Gear Type", "Craft", "Weapon: Critical"]);
         assert_eq!(f.attributes[2].1, "\u{d7}3");
         assert!(!e.facets.iter().any(|(n, _)| n == "slot"));
+    }
+
+    #[test]
+    fn a_race_carries_its_group_as_tag_and_facet() {
+        let n = node(
+            r#"{"name":"Dwarves","url":"pfsrd://A/Races/Dwarves","source":"A","type":"race","subtype":"standard_race"}"#,
+        );
+        let e = extract(EntryKind::Race, &n, "x.json").unwrap();
+        assert!(e.tags.contains(&"standard_race".to_string()));
+        assert!(
+            e.facets
+                .contains(&("race_group".into(), "standard_race".into()))
+        );
+        let none = node(r#"{"name":"X","url":"pfsrd://A/Races/X","source":"A","type":"race"}"#);
+        let e = extract(EntryKind::Race, &none, "x.json").unwrap();
+        assert!(e.facets.is_empty());
     }
 
     #[test]

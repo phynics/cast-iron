@@ -301,6 +301,14 @@ fn the_book_view_follows_chapters_nesting_and_upstream_order() {
         .unwrap();
     let chapter_titles: Vec<&str> = core.chapters.iter().map(|c| c.title.as_str()).collect();
     assert_eq!(chapter_titles, ["Races", "Classes", "Feats", "Spells"]);
+    // The draft status of the curated list reaches the reader.
+    assert_eq!(core.basis, "Fixture.");
+    assert_eq!(core.review, ["Fixture question."]);
+    assert_eq!(
+        core.chapters[0].review.as_deref(),
+        Some("Fixture position is a guess.")
+    );
+    assert_eq!(core.chapters[1].review, None);
 
     // Races follow upstream-order.json (Elves, Dwarves, Gnomes), not the alphabet.
     let races = find(&core.chapters, "Races");

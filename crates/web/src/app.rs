@@ -2,14 +2,16 @@
 
 use crate::install;
 use crate::js;
-use crate::library::Library;
+use crate::library::{Library, use_library};
 use crate::route::{self, Route, provide_route, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
 use crate::views::{
     self,
+    book::{BookView, same_book},
     bookmarks::{Bookmarks, CollectionView},
-    browse::{Browse, BrowseKind, BrowseSource},
+    browse::{Books, Browse, BrowseKind, BrowseSource},
+    chains::FeatChains,
     entry::Entry,
     home::Home,
     installer::InstallerScreen,
@@ -17,6 +19,7 @@ use crate::views::{
     not_found::NotFound,
     search::Search,
     settings::Settings,
+    spells::{SpellListView, SpellsHub},
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -205,10 +208,12 @@ fn Reader(library: Library) -> impl IntoView {
     Effect::new(move |previous: Option<Route>| {
         let route = current.get();
         let first = previous.is_none();
+        // Toggling a chapter edits the chapter in the URL of the book that is on screen, which
+        // changes nothing the reader should be moved for.
         let within_search = matches!(
             (&previous, &route),
             (Some(Route::Search { .. }), Route::Search { .. })
-        );
+        ) || previous.as_ref().is_some_and(|p| same_book(p, &route));
         // The Search screen focuses its own box, so the frame leaves focus alone there.
         let to_search = matches!(route, Route::Search { .. });
         if let Some(title) = static_title(&route) {
@@ -221,7 +226,7 @@ fn Reader(library: Library) -> impl IntoView {
             }
             match route.anchor() {
                 Some(anchor) => {
-                    route::scroll_to_anchor(anchor);
+                    route::scroll_to_anchor(&anchor);
                 }
                 None => route::scroll_to_top(),
             }
@@ -275,7 +280,14 @@ fn in_section(link: &Route, current: &Route) -> bool {
             | (Route::Search { .. }, Route::Search { .. })
             | (
                 Route::Browse,
-                Route::Browse | Route::BrowseKind(_) | Route::BrowseSource(_)
+                Route::Browse
+                    | Route::BrowseKind(_)
+                    | Route::BrowseSource(_)
+                    | Route::Books
+                    | Route::Book { .. }
+                    | Route::Spells
+                    | Route::SpellList { .. }
+                    | Route::FeatChains
             )
             | (Route::Bookmarks, Route::Bookmarks | Route::Collection(_))
             | (Route::Settings, Route::Settings | Route::Legal)
@@ -311,8 +323,13 @@ fn static_title(route: &Route) -> Option<&'static str> {
 fn RouteView() -> impl IntoView {
     let current = use_route();
     // The Search screen reads and edits its own route, so edits must not rebuild it.
+    // A book edits its own chapter in the URL when a chapter opens, and must not be rebuilt for it.
     let page = Memo::new(move |_| match current.get() {
         Route::Search { .. } => Route::search(""),
+        Route::Book { source, .. } => Route::Book {
+            source,
+            chapter: None,
+        },
         other => other,
     });
     move || match page.get() {
@@ -320,7 +337,16 @@ fn RouteView() -> impl IntoView {
         Route::Search { .. } => view! { <Search /> }.into_any(),
         Route::Browse => view! { <Browse /> }.into_any(),
         Route::BrowseKind(kind) => view! { <BrowseKind kind /> }.into_any(),
+        // Old links to a publication land on its book when the library has book order.
+        Route::BrowseSource(id) if use_library().has_books() => {
+            view! { <BookView source=id /> }.into_any()
+        }
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
+        Route::Books => view! { <Books /> }.into_any(),
+        Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
+        Route::Spells => view! { <SpellsHub /> }.into_any(),
+        Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
+        Route::FeatChains => view! { <FeatChains /> }.into_any(),
         Route::Entry { id, anchor } => view! { <Entry id anchor /> }.into_any(),
         Route::Bookmarks => view! { <Bookmarks /> }.into_any(),
         Route::Collection(id) => view! { <CollectionView id /> }.into_any(),
@@ -344,6 +370,21 @@ mod tests {
             &Route::BrowseKind(cast_iron_schema::EntryKind::Spell)
         ));
         assert!(in_section(&Route::Settings, &Route::Legal));
+        for inside in [
+            Route::Books,
+            Route::Book {
+                source: "core-rulebook".into(),
+                chapter: Some(vec![1]),
+            },
+            Route::Spells,
+            Route::SpellList {
+                class: "Wizard".into(),
+                level: Some(3),
+            },
+            Route::FeatChains,
+        ] {
+            assert!(in_section(&Route::Browse, &inside), "{inside:?}");
+        }
         assert!(!in_section(&Route::Home, &Route::Settings));
         assert!(!in_section(&Route::Bookmarks, &Route::Browse));
         assert!(in_section(&Route::search(""), &Route::search("fire")));

@@ -63,6 +63,10 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
 | Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
+| Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
+| Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
+| Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
+| Book contents and reading order | `book contents\|Expanded books` | `crates/web/src/views/book.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
 | Bookmarks and collections | `Bookmarks persist` | `crates/web/src/store.rs`, `crates/web/src/views/bookmarks.rs` |
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |

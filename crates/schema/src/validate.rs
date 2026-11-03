@@ -580,12 +580,15 @@ mod tests {
             title: id.into(),
             entry: Some(EntryId::parse(id).unwrap()),
             anchor: None,
+            review: None,
             children: vec![],
         };
         let books = |chapters: Vec<BookNode>| BookIndex {
             books: vec![BookTree {
                 source: "cr".into(),
                 title: "CR".into(),
+                basis: String::new(),
+                review: Vec::new(),
                 chapters,
             }],
         };

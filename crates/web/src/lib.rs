@@ -1,7 +1,8 @@
 //! Cast Iron web client: platform layer.
 //!
 //! - [`route`]: hash routes. Pure parsing, plus `use_route`, `navigate`, scroll helpers.
-//! - [`library`]: read access to the active library (catalog, entries, search, legal).
+//! - [`library`]: read access to the active library (catalog, entries, search, legal, and the
+//!   schema-3 relation, spell-list, and book files). [`graph`]: pure lookups over those files.
 //! - [`store`]: IndexedDB for bookmarks, collections, and preferences.
 //! - [`install`]: the first-run and update installer.
 //! - [`app`]: the shell. [`views`]: one module per screen.
@@ -12,6 +13,7 @@
 pub mod app;
 pub mod content_cache;
 pub mod fmt;
+pub mod graph;
 pub mod install;
 pub mod js;
 pub mod library;

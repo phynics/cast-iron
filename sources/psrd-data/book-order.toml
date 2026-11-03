@@ -1,11 +1,7 @@
 # Original chapter order of each publication, as a reviewable list.
 #
-# THIS FILE IS CURATED BY HAND AND PARTLY FROM MEMORY. The upstream data has no printed
-# table of contents. What it has: the order of the rules trees in each book's SQLite
-# `sections` nested set (checked against the JSON `sections` arrays), and typed lists such as
-# Spells and Feats as separate roots. Each book states its `basis`. Only chapter titles and
-# chapter order are curated here; the order inside a chapter comes from the upstream data.
-# See docs/research/relationship-data.md, section 5, for what was verified and what was not.
+# Chapter sequence is treated as printed order only where supported by evidence recorded in
+# docs/research/book-order-evidence.md. Upstream rules-tree order is not proof of print order.
 #
 # A chapter claims every record whose upstream url equals `url` or lies below it, optionally
 # narrowed by entry `kinds` or by a `path` prefix of the upstream file (it tells apart records
@@ -20,7 +16,7 @@ version = 1
 [[book]]
 source = "advanced-players-guide"
 title = "Advanced Player's Guide"
-basis = "Chapter order is the dataset's order of rules trees (Races, Base Classes, Core Classes, Prestige Classes, Gear, Feats, Magic Items, Spell Lists, New Rules). Typed Classes, Feats, and Spells are merged into the chapter of the same topic. Not checked against the printed table of contents."
+basis = "Provisional grouping based on upstream rule-tree headings; no primary-source printed contents sequence was located for this edition. See docs/research/book-order-evidence.md."
 review = ["The printed chapter order and the chapter titles are unverified.", "Spells and Spell Lists may be two printed chapters."]
 
 [[book.chapter]]
@@ -194,7 +190,7 @@ match = [{ url = "pfsrd://Bestiary 4/Monsters" }]
 [[book]]
 source = "core-rulebook"
 title = "Core Rulebook"
-basis = "Printed chapter order from memory (Getting Started, Races, Classes, Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Prestige Classes, Gamemastering, Environment, Creating NPCs, Magic Items, Glossary). It agrees with the dataset's order of the rules trees. Highest confidence of the 16 books, still unreviewed by a person."
+basis = "The first 15 chapter titles and their order match Paizo's PZO1110-TOC.pdf, linked from the 2009 publisher preview and visually checked on 2026-11-03. Nested record placement and the upstream Glossary aggregate are not a faithful reconstruction of all printed sections. See docs/research/book-order-evidence.md."
 review = ["The dataset merges the printed chapters Gamemastering and Creating NPCs into one tree. The NPC classes are placed in a separate Creating NPCs chapter; the Gamemastering tree also holds a section of that name.", "The Classes tree holds an introduction to prestige classes that the printed book puts in the Prestige Classes chapter."]
 
 [[book.chapter]]
@@ -273,7 +269,7 @@ match = [{ url = "pfsrd://Core Rulebook/Rules/Magic Items" }]
 
 [[book.chapter]]
 title = "Glossary"
-review = "Printed as an appendix; the title in the book may differ."
+review = "Upstream aggregate. The printed contents has separate appendices for Special Abilities, Conditions, Inspiring Reading, and Game Aids, rather than one Glossary chapter."
 match = [{ url = "pfsrd://Core Rulebook/Rules/Glossary" }]
 
 # ---------------------------------------------------------------------------------------------

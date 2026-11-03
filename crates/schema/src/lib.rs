@@ -665,6 +665,14 @@ pub struct BookTree {
     /// A [`SourceInfo::id`].
     pub source: String,
     pub title: String,
+    /// Where the chapter list comes from and how sure the curator is, from `book-order.toml`.
+    /// Every list is a draft until a person checks it against the printed book, and the
+    /// reader shows this text next to the contents.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub basis: String,
+    /// Open questions about the chapter list of this book.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review: Vec<String>,
     /// Chapters in book order.
     pub chapters: Vec<BookNode>,
 }
@@ -679,6 +687,9 @@ pub struct BookNode {
     pub entry: Option<EntryId>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchor: Option<String>,
+    /// Set on a chapter whose position or content is a guess, with the reason.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<BookNode>,
 }
