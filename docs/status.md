@@ -74,6 +74,7 @@ The selection has 64 typed directories and 101 complete rules trees. Unsupported
 ## Known gaps
 
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,112 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
+- Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
 - No "Referenced by" list (needs a reverse link index). Only "References" exists.
 - Facet chips show global counts, not counts that depend on the other filters.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
