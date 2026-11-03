@@ -72,7 +72,9 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
 | Book contents and reading order | `book contents\|Expanded books` | `crates/web/src/views/book.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
-| Bookmarks and collections | `Bookmarks persist` | `crates/web/src/store.rs`, `crates/web/src/views/bookmarks.rs` |
+| Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
+| Active books and preference recovery | `Book visibility\|No active books\|Invalid book choices` (`active-books.spec.ts`) | `crates/web/src/discovery.rs`, `crates/web/src/library.rs`, `crates/web/src/store.rs`, `crates/web/src/views/browse.rs` |
+| Rule heading links and primary reading | `Rules text search\|Entry reading` (`reference.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/search.rs` |
 | Search bar, Home saved entries, and end-to-end research | `Home search\|Browse connects\|Books navigation` (`journeys.spec.ts`) | `crates/web/src/app.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs` |
 | App-shell update and offline bookmarks | `App update waits` (`shell-update.spec.ts`) | `web/sw.js`, `crates/web/js/bridge.js`, `tests/e2e/server.mjs` |
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
@@ -101,6 +103,7 @@ Compile twice and compare all generated files when compiler output changes. Run 
 - Use exact link names when selecting one entry. A name filter for `fireball` legitimately returns both Fireball and Delayed Blast Fireball on a whole-class list.
 - Open a contents disclosure before asserting on its children. Closed branches build their children lazily.
 - Follow relation direction from the schema: racial trait to race, archetype to class, and dependent feat to named prerequisite. Parent lists use the inverse index.
+- Open the book directory's disclosure before selecting its contents link. Expand the archetype disclosure before selecting a source group or archetype. Read a details element's `open` property as a Boolean; an empty `open` attribute still means open.
 - Verify book selection through Back and Forward as well as clicks. A chapter URL change must update the open contents without replacing the page.
 
 ## iPhone Simulator checks
@@ -108,3 +111,9 @@ Compile twice and compare all generated files when compiler output changes. Run 
 The published-site baseline is recorded in `docs/research/iphone-journeys.md`. Keep simulator observations separate from desktop WebKit acceptance and from the current local build. Downloading the rules library, installing a Home Screen web app, and applying a replacement update are different checks. Record each independently.
 
 When T3 Device tools are available, open the device with its host and device IDs, then use the returned session-bound command for all interaction. A driver error is not an app failure. Record the error and uncompleted steps rather than treating a partial walkthrough as a pass.
+
+## Capture a UI verification batch
+
+After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes measurements for overflow, alphabet and spell-level target sizes, selected scope colors, and console errors. Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
+
+Wait for both selected scope and result kinds before treating a screenshot as filter evidence. A screenshot taken immediately after a click can still show the previous state. Article contents tests must also click a heading whose URL is already current, since no hashchange event occurs in that case.
