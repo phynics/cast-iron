@@ -7,6 +7,7 @@ use crate::route::{self, Route, provide_route, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
 use crate::views::{
+    self,
     bookmarks::{Bookmarks, CollectionView},
     browse::{Browse, BrowseKind, BrowseSource},
     entry::Entry,
@@ -199,22 +200,38 @@ fn Reader(library: Library) -> impl IntoView {
     let current = use_route();
 
     // After each route change: scroll to the anchor or the top, and move focus to <main>
-    // so that screen readers announce the new page.
-    Effect::new(move |previous: Option<()>| {
+    // so that screen readers announce the new page. Search edits its own route while the user
+    // types, so a change from one search route to another leaves scroll and focus alone.
+    Effect::new(move |previous: Option<Route>| {
         let route = current.get();
         let first = previous.is_none();
+        let within_search = matches!(
+            (&previous, &route),
+            (Some(Route::Search { .. }), Route::Search { .. })
+        );
+        // The Search screen focuses its own box, so the frame leaves focus alone there.
+        let to_search = matches!(route, Route::Search { .. });
+        if let Some(title) = static_title(&route) {
+            views::util::set_title(title);
+        }
+        let next = route.clone();
         request_animation_frame(move || {
+            if within_search {
+                return;
+            }
             match route.anchor() {
                 Some(anchor) => {
                     route::scroll_to_anchor(anchor);
                 }
                 None => route::scroll_to_top(),
             }
-            if !first {
+            if !first && !to_search {
                 focus_main();
             }
         });
+        next
     });
+    views::search::install_slash_shortcut();
 
     view! {
         <div class="app">
@@ -222,6 +239,7 @@ fn Reader(library: Library) -> impl IntoView {
                 <a class="brand" href=Route::Home.href()>"Cast Iron"</a>
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
+                    <NavLink label="Search" route=Route::search("") />
                     <NavLink label="Browse" route=Route::Browse />
                     <NavLink label="Bookmarks" route=Route::Bookmarks />
                     <NavLink label="Settings" route=Route::Settings />
@@ -254,6 +272,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
     matches!(
         (link, current),
         (Route::Home, Route::Home)
+            | (Route::Search { .. }, Route::Search { .. })
             | (
                 Route::Browse,
                 Route::Browse | Route::BrowseKind(_) | Route::BrowseSource(_)
@@ -278,17 +297,27 @@ fn NavLink(label: &'static str, route: Route) -> impl IntoView {
     }
 }
 
+/// Titles for screens that do not set their own.
+fn static_title(route: &Route) -> Option<&'static str> {
+    match route {
+        Route::Settings => Some("Settings"),
+        Route::Legal => Some("Legal and attribution"),
+        Route::NotFound(_) => Some("Page not found"),
+        _ => None,
+    }
+}
+
 #[component]
 fn RouteView() -> impl IntoView {
     let current = use_route();
-    move || match current.get() {
+    // The Search screen reads and edits its own route, so edits must not rebuild it.
+    let page = Memo::new(move |_| match current.get() {
+        Route::Search { .. } => Route::search(""),
+        other => other,
+    });
+    move || match page.get() {
         Route::Home => view! { <Home /> }.into_any(),
-        Route::Search {
-            q,
-            kinds,
-            sources,
-            facets,
-        } => view! { <Search q kinds sources facets /> }.into_any(),
+        Route::Search { .. } => view! { <Search /> }.into_any(),
         Route::Browse => view! { <Browse /> }.into_any(),
         Route::BrowseKind(kind) => view! { <BrowseKind kind /> }.into_any(),
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
@@ -317,5 +346,6 @@ mod tests {
         assert!(in_section(&Route::Settings, &Route::Legal));
         assert!(!in_section(&Route::Home, &Route::Settings));
         assert!(!in_section(&Route::Bookmarks, &Route::Browse));
+        assert!(in_section(&Route::search(""), &Route::search("fire")));
     }
 }

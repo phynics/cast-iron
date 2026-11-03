@@ -1,0 +1,61 @@
+//! Recently viewed entries, kept in the `meta` store under `recent`.
+
+use crate::store;
+use cast_iron_schema::EntryId;
+use serde::{Deserialize, Serialize};
+
+pub const KEY: &str = "recent";
+pub const MAX_RECENT: usize = 12;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Recent {
+    pub id: EntryId,
+    pub title: String,
+}
+
+/// Puts `item` first, drops an older copy of it, and keeps at most [`MAX_RECENT`].
+pub fn push_recent(list: &mut Vec<Recent>, item: Recent) {
+    list.retain(|r| r.id != item.id);
+    list.insert(0, item);
+    list.truncate(MAX_RECENT);
+}
+
+pub async fn load() -> Vec<Recent> {
+    store::get_meta::<Vec<Recent>>(KEY)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+
+pub async fn record(id: EntryId, title: String) {
+    let mut list = load().await;
+    push_recent(&mut list, Recent { id, title });
+    let _ = store::set_meta(KEY, &list).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn r(n: usize) -> Recent {
+        Recent {
+            id: EntryId::parse(format!("a/e-{n}")).unwrap(),
+            title: format!("E{n}"),
+        }
+    }
+
+    #[test]
+    fn newest_first_without_duplicates_and_capped() {
+        let mut list = Vec::new();
+        for n in 0..20 {
+            push_recent(&mut list, r(n));
+        }
+        assert_eq!(list.len(), MAX_RECENT);
+        assert_eq!(list[0], r(19));
+        push_recent(&mut list, r(10));
+        assert_eq!(list[0], r(10));
+        assert_eq!(list.iter().filter(|x| x.id == r(10).id).count(), 1);
+        assert_eq!(list.len(), MAX_RECENT);
+    }
+}

@@ -246,7 +246,6 @@ pub fn use_route() -> ReadSignal<Route> {
 #[derive(Clone, Copy)]
 struct RouteContext {
     read: ReadSignal<Route>,
-    write: WriteSignal<Route>,
 }
 
 /// Creates the route signal from `location.hash` and keeps it in step with `hashchange`.
@@ -258,7 +257,13 @@ pub fn provide_route() {
         write.set(Route::parse(&current_hash()));
     });
     on_cleanup(move || handle.remove());
-    provide_context(RouteContext { read, write });
+    provide_context(RouteContext { read });
+    // `replace` runs from async tasks that have no reactive owner, where `use_context` fails.
+    ROUTE_WRITE.with(|cell| cell.set(Some(write)));
+}
+
+thread_local! {
+    static ROUTE_WRITE: std::cell::Cell<Option<WriteSignal<Route>>> = const { std::cell::Cell::new(None) };
 }
 
 pub fn current_hash() -> String {
@@ -281,8 +286,8 @@ pub fn replace(route: &Route) {
         return;
     };
     let _ = history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
-    if let Some(ctx) = use_context::<RouteContext>() {
-        ctx.write.set(Route::parse(&current_hash()));
+    if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
+        write.set(Route::parse(&current_hash()));
     }
 }
 

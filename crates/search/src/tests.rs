@@ -476,3 +476,39 @@ fn facet_listing() {
     );
     assert!(idx.facet_values("nope").is_empty());
 }
+
+/// Regression: a rare completion ("firewood", in one doc) must not outrank a title
+/// completion whose body has the exact query term many times.
+#[test]
+fn prefix_rank_is_not_decided_by_rare_completions() {
+    let mut b = IndexBuilder::new();
+    b.add(doc(
+        "item:firewood",
+        "Firewood",
+        "item",
+        "cr",
+        "A bundle of dry wood.",
+        &[],
+    ));
+    b.add(doc(
+        "spell:fireball",
+        "Fireball",
+        "spell",
+        "cr",
+        "Deals fire damage. The fire spreads. Fire everywhere.",
+        &[],
+    ));
+    for i in 0..20 {
+        b.add(doc(
+            &format!("spell:f{i}"),
+            &format!("Spell {i}"),
+            "spell",
+            "cr",
+            "fireball fireball fire",
+            &[],
+        ));
+    }
+    let idx = b.build();
+    let r = ids(&idx, &q("fire"));
+    assert_eq!(&r[..2], &["spell:fireball", "item:firewood"]);
+}

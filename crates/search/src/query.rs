@@ -101,10 +101,26 @@ impl SearchIndex {
         let n = self.meta.docs.len() as f32;
         let m = &self.meta;
         let avg = |a: f32| a.max(1.0);
+        let idf_of = |df: f32| (1.0 + (n - df + 0.5) / (df + 0.5)).ln();
+        // A prefix such as "fire" expands to completions such as "firewood". Scoring each
+        // completion with its own IDF lets the rarest completion win, which is noise. All
+        // completions share the IDF of the set of documents that the prefix matches.
+        let prefix_idf = {
+            let mut docs = std::collections::BTreeSet::new();
+            for &(ti, weight) in expansion {
+                if weight < 1.0 {
+                    docs.extend(self.postings.decode(ti).into_iter().map(|p| p.doc));
+                }
+            }
+            idf_of(docs.len() as f32)
+        };
         let mut map: BTreeMap<u32, TokHit> = BTreeMap::new();
         for &(ti, weight) in expansion {
-            let df = self.postings.dfs[ti] as f32;
-            let idf = (1.0 + (n - df + 0.5) / (df + 0.5)).ln();
+            let idf = if weight < 1.0 {
+                prefix_idf
+            } else {
+                idf_of(self.postings.dfs[ti] as f32)
+            };
             for p in self.postings.decode(ti) {
                 let Some(d) = m.docs.get(p.doc as usize) else {
                     continue;
