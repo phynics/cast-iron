@@ -72,7 +72,6 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
 | Book contents and reading order | `book contents\|Expanded books` | `crates/web/src/views/book.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
-| Portable stars | `stars export and import` (`star-transfer.spec.ts`) | `crates/web/src/star_transfer.rs`, `crates/web/src/views/star_transfer.rs`, `crates/web/src/store.rs` |
 | Publication choices | `Source variants` (`source-variants.spec.ts`) | `crates/web/src/views/source_variants.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/related.rs` |
 | Keyboard and subsystem reading | `Keyboard` (`accessibility-reading.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/book.rs`, `web/styles.css` |
 | Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
