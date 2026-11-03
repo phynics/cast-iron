@@ -444,6 +444,28 @@ pub fn Search() -> impl IntoView {
             }
         })
         .collect_view();
+    let quick_scopes = [
+        ("All entries", None),
+        ("Rules text", Some(EntryKind::Rule)),
+        ("Spells", Some(EntryKind::Spell)),
+        ("Feats", Some(EntryKind::Feat)),
+    ]
+    .into_iter()
+    .map(|(label, kind)| {
+        let selected = move || {
+            state.with(|s| match kind {
+                Some(kind) => s.kinds.as_slice() == [kind],
+                None => s.kinds.is_empty(),
+            })
+        };
+        view! {
+            <button class="scope-choice" type="button" aria-pressed=move || selected().to_string()
+                on:click=move |_| change_filters(&|s| s.kinds = kind.into_iter().collect())>
+                {label}
+            </button>
+        }
+    })
+    .collect_view();
     let source_chips = library
         .sources()
         .iter()
@@ -581,7 +603,7 @@ pub fn Search() -> impl IntoView {
 
     view! {
         <div class="search-page">
-            <h1>"Search"</h1>
+            <h1 class="sr-only">"Search"</h1>
             <form class="search-form" role="search" on:submit=move |ev| {
                 ev.prevent_default();
                 typing_gen.update_untracked(|g| *g += 1);
@@ -607,6 +629,7 @@ pub fn Search() -> impl IntoView {
                 />
                 <button class="btn btn-primary" type="submit">"Search"</button>
             </form>
+            <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
             <div class="search-layout">
                 <aside class="filters" aria-label="Filters">
                     <button

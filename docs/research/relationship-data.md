@@ -96,13 +96,13 @@ Unplaced parts (racial trait or archetype without a parent): 0.
 
 ### Comparison with the printed tables of contents
 
-I have no copy of the books. The right column is memory. **Unverified** throughout; confidence is my own estimate.
+The table began as a comparison against recollection of the books. The Core Rulebook main sequence was subsequently checked against Paizo's contents PDF. All other proposed sequences remain unverified. Current publisher evidence is recorded in [Printed book order evidence](book-order-evidence.md); Legacy website sections are recorded separately in [AoN and legacy PRD book sections](aon-book-sections.md).
 
-| Book | Dataset root, then `Rules` children (in order) | Printed order from memory | Verdict |
+| Book | Dataset root, then `Rules` children (in order) | Proposed printed order | Evidence and gaps |
 |---|---|---|---|
-| Core Rulebook | Spells, Races, Skills, Feats, Classes; Rules: Getting Started, Classes, Using Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Gamemastering, Environment, Magic Items, Glossary | Getting Started, Races, Classes, Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Prestige Classes, Gamemastering, Environment, Creating NPCs, Magic Items, appendix | Rules order matches; Races, Prestige Classes, and Creating NPCs are not Rules children. High confidence |
-| Ultimate Equipment | Arms And Armor, Gear, Magic Arms and Armor, Rings Rods & Staves, Wondrous Items, Artifacts and Other Items, Appendix | same | Matches. Medium confidence |
-| Monster Codex | 20 monster races A to Z, Appendix | same | Matches. Medium confidence |
+| Core Rulebook | Spells, Races, Skills, Feats, Classes; Rules: Getting Started, Classes, Using Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Gamemastering, Environment, Magic Items, Glossary | Getting Started, Races, Classes, Skills, Feats, Equipment, Additional Rules, Combat, Magic, Spells, Prestige Classes, Gamemastering, Environment, Creating NPCs, Magic Items, appendix | Main 15-chapter sequence verified from the publisher PDF. Races, Prestige Classes, and Creating NPCs are not Rules children; nested placement and appendices remain incomplete |
+| Ultimate Equipment | Arms And Armor, Gear, Magic Arms and Armor, Rings Rods & Staves, Wondrous Items, Artifacts and Other Items, Appendix | same | Unverified proposed match from memory |
+| Monster Codex | 20 monster races A to Z, Appendix | same | Unverified proposed match from memory |
 | Advanced Player's Guide | Races, Base Classes, Core Classes, Prestige Classes, Gear, Feats, Magic Items, Spell Lists, New Rules; roots Spells, Feats, Classes | Races, base classes, core classes, prestige classes, then equipment, feats, spells | Plausible; where Spells and Magic Items sit is unknown. Low confidence |
 | Advanced Race Guide | Core Races, Featured Races, Uncommon Races, Race Builder, Age Height & Weight | probably the same | Unknown whether Age/Height/Weight is an appendix |
 | Bestiary | Feats; Introduction, Monster Creation, Monster Advancement, Universal Monster Rules, Creature Types, Monster Roles, Encounter Tables, Misc Monster Rules; Monsters | Introduction, Monsters A to Z, then appendices | Appendix order unknown. Low confidence |
@@ -117,10 +117,10 @@ I have no copy of the books. The right column is memory. **Unverified** througho
 
 ### How the book view is built
 
-`sources/psrd-data/book-order.toml` is a curated chapter list per book: chapter titles in printed order, each mapped to upstream url prefixes (and optionally entry kinds or a file path prefix, to separate core, prestige, and NPC classes of one book, or the core, featured, and uncommon races of the Advanced Race Guide).
+`sources/psrd-data/book-order.toml` is a curated chapter list per book: chapter titles in curated order, each mapped to upstream url prefixes (and optionally entry kinds or a file path prefix, to separate core, prestige, and NPC classes of one book, or the core, featured, and uncommon races of the Advanced Race Guide).
 
-- **Curated from memory, needs human review:** the chapter titles and the position of the typed lists (Races, Classes, Feats, Spells, Monsters) in every book. Each book states its `basis` and its open questions in `review`; chapters whose position is a guess carry their own `review` note. The rules chapters take the dataset's order of `Rules` children. That order agrees with my memory for the Core Rulebook, Ultimate Equipment, and the Monster Codex only.
-- **From the data:** the order of sections inside a chapter (JSON document order, equal to the database), the position of nested entries (a racial trait under its race, an archetype under the class section that holds it), and the order of typed records that no tree contains (`upstream-order.json`, extracted from the nested sets by `scripts/extract-upstream-order.py`: 4,653 records in 1,054 runs).
+- **Curated, with evidence recorded per book:** the Core Rulebook's 15 main chapter titles and positions match the publisher contents PDF. Other lists remain based on upstream grouping and recollection. Each book states its `basis` and open questions in `review`; chapters with uncertain placement carry their own `review` note. Dataset order alone does not establish printed order.
+- **From the data:** the order of sections inside a chapter (JSON document order, with the database comparison and exception noted above), the position of nested entries (a racial trait under its race, an archetype under the class section that holds it), and the order of typed records that no tree contains (`upstream-order.json`, extracted from the nested sets by `scripts/extract-upstream-order.py`: 4,653 records in 1,054 runs).
 - **Result:** every one of the 9,967 entries sits in exactly one place; 0 are unplaced. 33 of them sit in the tree of another publication than their `source`: 32 Universal Monster Rules abilities (29 name Bestiary 2 and 3 name Bestiary 3 as `source`) that live in the Bestiary tree, and 1 Bestiary affliction at a Bestiary 2 url. The url decides.
 - Where the database order disagrees with the printed book (for example the Core Rulebook race order), the book view repeats the database order. Fixing that needs a per-list override in `book-order.toml`, which does not exist yet.
 

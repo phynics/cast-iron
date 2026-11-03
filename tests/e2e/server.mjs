@@ -7,6 +7,7 @@
 //   POST /__test/hook    {path, mode...} per-path fault: corrupt | stall | abort | slow | status
 //   POST /__test/refuse  {on: bool}      destroy every request (a server that is not there)
 //   POST /__test/overlay {dir}           serve content/* from `dir` first (alternative library)
+//   POST /__test/shell {version}         serve sw.js with an alternative shell version
 // Paths in hooks are relative to the prefix, such as "content/v123/entries/spell-000.json".
 
 import http from "node:http";
@@ -30,11 +31,12 @@ const TYPES = {
 
 export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.0.1" }) {
   const root = path.resolve(dist);
-  const state = { log: [], hooks: new Map(), overlay: null, refuse: false, stalled: new Set() };
+  const state = { log: [], hooks: new Map(), overlay: null, shellVersion: null, refuse: false, stalled: new Set() };
   const reset = () => {
     state.log = [];
     state.hooks.clear();
     state.overlay = null;
+    state.shellVersion = null;
     state.refuse = false;
     for (const res of state.stalled) res.destroy();
     state.stalled.clear();
@@ -77,6 +79,12 @@ export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.
     }
     else if (pathname === "/__test/refuse") state.refuse = Boolean(body.on);
     else if (pathname === "/__test/overlay") state.overlay = body.dir ? path.resolve(body.dir) : null;
+    else if (pathname === "/__test/shell") {
+      if (typeof body.version !== "string" || !/^[a-zA-Z0-9_-]+$/.test(body.version)) {
+        return json(res, { error: "invalid shell version" }, 400);
+      }
+      state.shellVersion = body.version;
+    }
     else return json(res, { error: "unknown control" }, 404);
     return json(res, { ok: true });
   }
@@ -113,6 +121,10 @@ export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.
       return res.end("not found");
     }
     let body = fs.readFileSync(file);
+    if (rel === "sw.js" && state.shellVersion) {
+      body = Buffer.from(body.toString().replace(/const SHELL_VERSION = "[^"]+";/,
+        `const SHELL_VERSION = "${state.shellVersion}";`));
+    }
     if (hook?.mode === "corrupt") {
       body = Buffer.from(body);
       body[Math.min(100, body.length - 1)] ^= 0x01; // same length, different hash

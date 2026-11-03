@@ -153,11 +153,11 @@ pub fn Settings() -> impl IntoView {
 
         <section class="settings-section" aria-labelledby="set-updates">
             <h2 id="set-updates">"Updates"</h2>
-            <p>"Updates download only when you ask. Your bookmarks and collections stay."</p>
+            <p>"Library updates download when you ask. App updates become ready in the background; reload to apply them. Your bookmarks and collections stay."</p>
             <p>
                 <button class="btn" type="button" on:click=check_update
                     prop:disabled=move || !app.online.get() || matches!(update.get(), UpdateState::Checking)>
-                    "Check for library update"
+                    "Check for updates"
                 </button>
             </p>
             <Show when=move || !app.online.get()>

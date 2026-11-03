@@ -1,8 +1,10 @@
 # Library expansion design
 
+Historical design for the schema-2 expansion from the two-book POC to 16 books. Counts and migration results below describe that stage. For schema 3 and the current UI, see [status](../status.md) and [decisions](../decisions.md).
+
 ## Problem and traced data flow
 
-`source.toml` selects typed directories and complete rules trees. `select` hashes the selected input, `pipeline` validates upstream nodes, `build` assigns permanent URL-derived IDs and replaces nested typed copies with links, then the compiler emits schema nodes, catalog, coverage, and a string-based search index. The client reads the active cache and derives browse groups and filters from `EntryKind`. Installer validation currently accepts only the current schema version.
+`source.toml` selects typed directories and complete rules trees. `select` hashes the selected input, `pipeline` validates upstream nodes, `build` assigns permanent URL-derived IDs and replaces nested typed copies with links, then the compiler emits schema nodes, catalog, coverage, and a string-based search index. The client reads the active cache and derives browse groups and filters from `EntryKind`. At the start of this design, installer validation accepted only the current schema version.
 
 ## Usage and shape
 

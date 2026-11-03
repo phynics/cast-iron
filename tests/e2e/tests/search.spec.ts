@@ -9,7 +9,7 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await waitControlled(page);
   await goOffline(context, server);
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Find any rule/i })).toBeVisible();
+  await expect(page.locator("#home-title")).toBeVisible();
   await expect(page.locator(".badge")).toBeVisible(); // the offline badge
   await server.clearLog();
 

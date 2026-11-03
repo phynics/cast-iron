@@ -346,6 +346,21 @@ fn relationships_and_book_order_hold_on_the_real_library() {
     let index: RelationIndex = serde_json::from_slice(&read("relations.json")).unwrap();
     let books: BookIndex = serde_json::from_slice(&read("books.json")).unwrap();
     let lists: SpellLists = serde_json::from_slice(&read("lists.json")).unwrap();
+    // Grapple is a heading inside Special Attacks, not a standalone entry. A rules
+    // lookup must surface that subsystem ahead of incidental mentions in other bodies.
+    let search = cast_iron_search::SearchIndex::from_bytes(&read("search.bin")).unwrap();
+    let hits = search.search(&cast_iron_search::Query {
+        text: "grapple".into(),
+        filters: cast_iron_search::Filters {
+            kinds: vec!["rule".into()],
+            ..Default::default()
+        },
+        limit: 3,
+    });
+    assert!(
+        hits.iter()
+            .any(|hit| hit.id == "core-rulebook/rules/combat/special-attacks")
+    );
     // The edge index holds exactly the entries' relations.
     let relation_total: usize = lib.entries.iter().map(|e| e.relations.len()).sum();
     assert_eq!(index.edges.len(), relation_total);

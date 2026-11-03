@@ -22,13 +22,13 @@ test("Content update keeps user records", async ({ page, context, server }) => {
 
     // No update yet: the check says so.
     await page.goto("#/settings");
-    await page.getByRole("button", { name: "Check for library update" }).click();
+    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
     await expect(page.getByTestId("update-status")).toContainText("up to date");
 
     // The server now offers v2. One of its files is slow, so the update is in flight for a while.
     await server.overlay(next.dir);
     await server.hook(`content/${next.version}/entries/creature-000.json`, "slow", { ms: 150 });
-    await page.getByRole("button", { name: "Check for library update" }).click();
+    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
     await expect(page.getByText("Newer library available")).toBeVisible();
     await expect(page.locator(".install-panel .facts")).toContainText(next.version);
     await page.getByRole("button", { name: "Download update" }).click();

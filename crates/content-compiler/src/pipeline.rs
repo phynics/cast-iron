@@ -8,7 +8,7 @@ use crate::model::Node;
 use crate::order::{BookOrderFile, UpstreamOrder};
 use crate::select::{self, Role, hex, sha256_hex};
 use crate::slug::slug_segment;
-use crate::text::blocks_text;
+use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
     BOOKS_FILE, Catalog, ContentManifest, CoverageReport, DatasetRef, EntryKind, EntryStub,
@@ -284,14 +284,29 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     // Search index.
     let mut index = IndexBuilder::new();
     for e in &built.entries {
+        let mut aliases: BTreeSet<String> = overrides
+            .aliases
+            .get(e.id.as_str())
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect();
+        // A lookup such as "grapple" names a section inside Special Attacks. Use the
+        // existing alias field so that these headings rank above incidental body mentions.
+        if e.kind == EntryKind::Rule {
+            for block in &e.body {
+                if let cast_iron_schema::Block::Heading { content, .. } = block {
+                    let heading = inline_text(content);
+                    if !heading.is_empty() && heading != e.title {
+                        aliases.insert(heading);
+                    }
+                }
+            }
+        }
         index.add(DocInput {
             id: e.id.to_string(),
             title: e.title.clone(),
-            aliases: overrides
-                .aliases
-                .get(e.id.as_str())
-                .cloned()
-                .unwrap_or_default(),
+            aliases: aliases.into_iter().collect(),
             kind: e.kind.slug().to_string(),
             source: e.source_ids[0].clone(),
             section: e.section.join(" > "),
