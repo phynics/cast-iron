@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-03. The repository is public. [PR #4](https://github.com/phynics/cast-iron/pull/4) merged at `12acb7d`; its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41590678502) succeeded. Terra observed the published schema-3 library on an iPhone Simulator. Branch `navigation-journeys` contains the replacement navigation and search improvements below; those changes are not yet deployed.
+Updated 2026-11-03. The repository is public. [PR #5](https://github.com/phynics/cast-iron/pull/5) merged at `a9360c5`. Its [main CI](https://github.com/phynics/cast-iron/actions/runs/41595871949) and [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41595872013) succeeded. The primary agent personally tested the published four-tab app in Safari and as an installed Home Screen app on iPhone Simulator. Details are in [iPhone journey observations](research/iphone-journeys.md).
 
 ## Acceptance checklist (spec section 11)
 
@@ -82,7 +82,7 @@ The client reads schemas 1, 2, and 3. It now uses the new files for racial trait
 
 AoN source pages group database records rather than chapters. Legacy PRD section links are captured in a reproducible 18-menu, 167-link inventory, including sections for books absent from the current corpus. Details: `docs/research/aon-book-sections.md`, `docs/research/legacy-prd-sections.json`, and `docs/research/book-order-evidence.md`.
 
-## Navigation and common journeys, branch `navigation-journeys`
+## Published navigation and common journeys
 
 Primary destinations are Home, Browse, Books, and Settings. Search is a bar, and Home shows up to six saved entries plus recent reading. Quick scopes expose Rules text, Spells, and Feats. Rule headings feed the existing search alias field: `grapple` with Rules text selected surfaces Special Attacks first in the checked build. A native regression requires that entry in the first three results.
 
@@ -90,21 +90,25 @@ Content version `v171f0348e5717ee0` has 9,967 entries, schema 3, 61,956,172 byte
 
 Composed offline journeys cover quick lookup, creating a collection and reopening a bookmark from Home, racial traits, class options and archetypes, class spell levels, traits, equipment, rules, and reading onward from book contents. A new app-shell test verifies that the worker waits for Reload, preserves the installed library and Home bookmarks, and works after an offline reload. The library-update test verifies replacement activation separately.
 
-### Published iPhone Simulator baseline
+### Published iPhone Simulator checks
 
-Terra used the T3 Device panel on iPhone 18 Pro, iOS 27.2, Safari. The published five-tab build installed library `vdb8e844bfc068446`, reported 9,967 entries, checked for updates, opened Advanced Player's Guide contents and Read Races, and saved a bookmark. A grapple lookup initially showed equipment and feats. Safari reported persistent storage not granted.
+On iPhone 18 Pro, iOS 27.2, the primary agent personally applied the waiting app-shell update and replaced library `vdb8e844bfc068446` with `v171f0348e5717ee0` in Safari. The existing Races bookmark survived both updates. A named collection held that entry. Native Add to Home Screen installation and standalone launch succeeded.
 
-The collection-name input command failed, and its retry failed with an expired reference. Device testing stopped. The full character workflow, comprehensive subsystem read, previous/next controls, Home Screen installation, offline standalone relaunch, replacement updates, dark theme, and the new navigation remain unverified on the simulator. See [iPhone journey observations](research/iphone-journeys.md). Automated acceptance and simulator observations are separate evidence.
+The standalone app required its own library download and initially had no Safari bookmarks. After installing there, sampled journeys passed through Dwarves and racial traits, Fighter and Archer, Magic Missile and the Wizard level 1 list, combat traits, armor, Core Rulebook contents, and Generating a Character. Rules text placed Special Attacks first for `grapple`, but opened the beginning of the long article. Next in book opened Defensive Training from Darkvision. Closing and reopening the standalone app preserved a Special Attacks bookmark and recent reading. Sampled light and dark screens fit the viewport.
+
+True offline simulator networking was not available through the driver. The relaunch check ran with networking available. A full subsystem read with backtracking, feat chains, and a complete character build remain open manual checks. See [iPhone journey observations](research/iphone-journeys.md) for the earlier baseline, follow-up, driver failures, and recovered actions. Automated offline acceptance is separate evidence.
+
+Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The earlier schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 
 ## Not verified yet
 
-- GitHub CI and deployment for the replacement navigation are pending. The schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
-- Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
+- Physical devices: Android Chromium and iOS Safari, including offline standalone relaunch. Simulator standalone relaunch passed with networking available.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
 
 ## Known gaps
 
+- The iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
 - Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
