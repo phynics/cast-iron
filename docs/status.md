@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-03, public rollout branch `pages-rollout`.
+Updated 2026-11-03, branch `main`. The repository is public and GitHub Pages uses GitHub Actions.
 
 ## POC acceptance checklist (spec section 11)
 
@@ -8,7 +8,7 @@ Updated 2026-11-03, public rollout branch `pages-rollout`.
 
 | Item | State | Evidence |
 |---|---|---|
-| Static GitHub Pages deployment works | Not verified | `.github/workflows/pages.yml` exists and passes actionlint. The repository is private and Pages is not enabled. The project-path build (`/cast-iron/`) passes locally. |
+| Static GitHub Pages deployment works | Live pass | [Deployment run 41576342801](https://github.com/phynics/cast-iron/actions/runs/41576342801) succeeded for `a6636f3`. Chromium installed the library from [the public site](https://phynics.github.io/cast-iron/), verified the contact and OGL notice, reloaded offline, and found Fireball offline. No page errors or third-party requests occurred. |
 | Application is installable where browser support allows | Local pass | `Application is installable where browser support allows` |
 | Representative rules dataset installs completely | Local pass | `Representative rules dataset installs completely` |
 | Download integrity is verified | Local pass | `Download integrity is verified` (corrupted shard rejected; retry fetches only that file) |
@@ -42,7 +42,7 @@ The latency figures come from desktop Chromium, with a mobile viewport and CPU t
 
 ## Not verified yet
 
-- GitHub Pages deployment. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages build succeeded, but deployment returned HTTP 404 because Pages was not enabled.
+- CI for the rollout merge may still be running. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
 - Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
@@ -58,6 +58,6 @@ The latency figures come from desktop Chromium, with a mobile viewport and CPU t
 
 ## Next (post-POC, spec section 12)
 
-1. Resolve the licensing questions, then decide on a public deployment.
+1. Keep the licensing review current when changing the source selection. The POC is public under the scoped OGL and Community Use review.
 2. Add the remaining PSRD-Data books. The compiler already reports them as excluded. Measure index size and memory on the full corpus (25k upstream files), and split `search.bin` if necessary.
 3. Run the suite on real devices and record the results here.
