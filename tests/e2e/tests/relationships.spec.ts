@@ -51,7 +51,7 @@ test("spell lists filter by class, level, and query; search supports source filt
   await expect(page.locator(".entry-list").getByRole("link", { name: "Fireball", exact: true })).toBeVisible();
   const matching = entries.filter((e) => e.kind === "spell" && e.title.toLowerCase().includes("fireball") &&
     e.fields.levels.some((l: any) => l.class === "Wizard"));
-  await expect(page.locator(".entry-list li")).toHaveCount(matching.length);
+  await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(matching.length);
   await page.locator("#list-filter").fill("no-such-spell");
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
 

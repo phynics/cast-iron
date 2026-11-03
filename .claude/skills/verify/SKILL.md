@@ -72,6 +72,9 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
 | Book contents and reading order | `book contents\|Expanded books` | `crates/web/src/views/book.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
+| Portable stars | `stars export and import` (`star-transfer.spec.ts`) | `crates/web/src/star_transfer.rs`, `crates/web/src/views/star_transfer.rs`, `crates/web/src/store.rs` |
+| Publication choices | `Source variants` (`source-variants.spec.ts`) | `crates/web/src/views/source_variants.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/related.rs` |
+| Keyboard and subsystem reading | `Keyboard` (`accessibility-reading.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/book.rs`, `web/styles.css` |
 | Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
 | Active books and preference recovery | `Book visibility\|No active books\|Invalid book choices` (`active-books.spec.ts`) | `crates/web/src/discovery.rs`, `crates/web/src/library.rs`, `crates/web/src/store.rs`, `crates/web/src/views/browse.rs` |
 | Rule heading links and primary reading | `Rules text search\|Entry reading` (`reference.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/search.rs` |
@@ -117,3 +120,17 @@ When T3 Device tools are available, open the device with its host and device IDs
 After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes measurements for overflow, alphabet and spell-level target sizes, selected scope colors, and console errors. Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
 
 Wait for both selected scope and result kinds before treating a screenshot as filter evidence. A screenshot taken immediately after a click can still show the previous state. Article contents tests must also click a heading whose URL is already current, since no hashchange event occurs in that case.
+
+For AoN navigation mapping changes, run `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/scripts -v`. Regenerate the mapping with the command in `docs/research/aon-mapping-resolution.md`; compare two outputs. Mapping status is evidence and must not be reported as imported content.
+
+## Remaining physical iPhone acceptance
+
+Use a physical iPhone for these checks. Simulator status-bar changes do not disable networking, and browser accessibility trees do not prove VoiceOver output.
+
+1. In Safari, star a known entry. Open Home > Move stars > Export stars and save the file in Files.
+2. Install the Home Screen app and download its library if needed. Open Home > Move stars and import the file. Confirm the intended entry opens, a repeated import adds zero stars, and Unstar affects only that entry.
+3. Enable VoiceOver through iOS accessibility settings. Traverse primary tabs, the search bar and scopes, book activation controls, source-choice disclosures, article contents, the file input, and star controls. Check spoken names, selected/expanded state, focus order, and error announcements.
+4. Disable both cellular data and Wi-Fi on the physical device. Force-close and relaunch the Home Screen app. Search for a rule, open a book chapter, follow a source choice, and reopen a star. Confirm that no download or recovery screen replaces the installed library.
+5. Restore networking and test shell and library updates separately. Preserve the same star and disabled-book choice across each update, then repeat the offline restart.
+
+Record the actual iOS version, release/build, and outcomes. Do not mark these checks complete from desktop WebKit or a simulator relaunch with networking available.

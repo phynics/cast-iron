@@ -70,7 +70,7 @@ export async function waitResults(page: Page, query: string) {
   await expect(page.locator(".results .hit, .empty").first()).toBeVisible();
 }
 
-export const hitTitles = (page: Page) => page.locator(".results .hit-title").allInnerTexts();
+export const hitTitles = (page: Page) => page.locator(".results > .hit > .hit-link > .hit-title, .results > .hit > details > summary .hit-title").allInnerTexts();
 
 /** Bytes of a number like "11.2 MB" are not needed; the installer shows the size as text. */
 export const pct = (values: number[], p: number) => {
@@ -141,4 +141,13 @@ export async function openBookContents(page: Page, title: string) {
   const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
   await row.locator("summary").click();
   await row.getByRole("link", { name: `Open ${title} contents`, exact: true }).click();
+}
+
+/** Open a publication choice before following its permanent entry link. */
+export async function revealSourceChoice(link: import("@playwright/test").Locator) {
+  await expect(link).toBeAttached();
+  const disclosure = link.locator("xpath=ancestor::details[1]");
+  if (await disclosure.count() && !(await disclosure.evaluate((el: HTMLDetailsElement) => el.open))) {
+    await disclosure.locator(":scope > summary").click();
+  }
 }

@@ -37,7 +37,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(restored.getByRole("checkbox", { name: "Active Core Rulebook" })).not.toBeChecked();
   await page.goto("#/browse/kind/spell");
   const expected = corpus.catalog.entries.filter((entry) => entry.kind === "spell" && (owners.get(entry.id) ?? entry.source) !== "core-rulebook").length;
-  await expect(page.locator(".entry-list li")).toHaveCount(expected);
+  await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(expected);
   await expect(page.getByRole("link", { name: "Fireball", exact: true })).toHaveCount(0);
 
   await page.goto("#/search?q=fire&kind=spell");

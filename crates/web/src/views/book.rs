@@ -178,7 +178,7 @@ fn TocNode(
     let Some(node) = node_at(tree, &path) else {
         return ().into_any();
     };
-    let title = node.title.clone();
+    let title = crate::views::util::section_label(&node.title);
     let id = toc_id(&path);
     let child_count = node.children.len();
     let review = node.review.clone();
@@ -324,7 +324,7 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
                     chapter: Some(step.path),
                 }
                 .href();
-                crumbs.push(view! { <li><a href=href>{step.title}</a></li> }.into_any());
+                crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&step.title)}</a></li> }.into_any());
             }
             let (before, after) = books.neighbors(&id);
             let step = |stop: Option<&crate::graph::BookStop>, next: bool| {
@@ -338,7 +338,7 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
                     view! {
                         <a class=class href=href rel=if next { "next" } else { "prev" }>
                             <span class="step-dir">{dir}</span>
-                            <span class="step-title">{stop.title.clone()}</span>
+                            <span class="step-title">{crate::views::util::section_label(&stop.title)}</span>
                         </a>
                     }
                 })

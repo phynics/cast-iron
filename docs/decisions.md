@@ -134,3 +134,11 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 ## Firefox CI disabled, 2026-11-03
 
 - Stop installing and running Firefox in CI. In [run 41697800843](https://github.com/phynics/cast-iron/actions/runs/41697800843), all 37 Firefox tests failed, mostly after the shared 90-second installation wait. The sequential suite took 57 minutes 55 seconds. Although informational, the step delayed completion of the required browser job. Keep the Playwright project for targeted debugging. Re-enable CI coverage after the installer hang is diagnosed and verified. Chromium, mobile Chromium, and informational WebKit coverage remain enabled.
+
+## Portable stars and publication choices
+
+- Home offers manual star transfer through a versioned JSON file. Export and import work without a backend. Import validates the complete bounded archive before writing and merges permanent entry IDs in one transaction. Existing stars win, unknown entry IDs remain usable as missing-entry stars, and repeated imports add no duplicates. Safari and the Home Screen app still have independent storage; the file is a transfer mechanism, not automatic synchronization.
+- Search and category lists group equal normalized titles only within the same entry kind, after active-book filtering. Each publication choice retains its original ID and content. Search ranks and paginates groups while reporting the underlying publication-entry count. Matching rule headings remain attached to each choice. Prestige requirement names with several installed matches expose publication choices rather than selecting an arbitrary record.
+- The AoN mapping audit includes typed rule headings and preserves candidate anchors. Missing sources, missing sections in installed sources, and ambiguous targets have separate dispositions. These labels describe the installed snapshot, not the presence of material elsewhere on the web. The inventory does not change printed book order or authorize new content imports.
+
+- The two reported Combat navigation labels use reviewed display aliases for connector casing. This avoids applying automatic capitalization to proper names throughout the corpus. Canonical titles, IDs, and rule bodies remain unchanged.

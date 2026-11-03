@@ -14,12 +14,12 @@ test("Book routes, legacy routes, and separate class categories work offline", a
   await context.setOffline(true);
   await page.goto("#/browse/kind/class");
   await expect(page.getByRole("heading", { name: "Classes", level: 1, exact: true })).toBeVisible();
-  await expect(page.locator(".entry-list li")).toHaveCount(count(s => s.kind === "class"));
+  await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(count(s => s.kind === "class"));
   await expect(page.locator(".entry-list li").filter({ hasText: /^Fighter/ })).toHaveCount(1);
   await expect(page.locator(".entry-list li").filter({ hasText: /Arcane Archer/ })).toHaveCount(0);
   await page.goto("#/browse/kind/prestige_class");
   await expect(page.getByRole("heading", { name: "Prestige classes", level: 1 })).toBeVisible();
-  await expect(page.locator(".entry-list li")).toHaveCount(count(s => s.kind === "prestige_class"));
+  await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(count(s => s.kind === "prestige_class"));
   await expect(page.locator(".entry-list li").filter({ hasText: /^Technomancer/ })).toHaveCount(1);
   // The removed standalone Rules category resolves to the Books directory.
   await page.goto("#/browse/kind/rule");
@@ -58,7 +58,7 @@ test("Browse is category-only and Books is the publication directory", async ({ 
 
   // The Spells category lists every spell, and the letter jump scrolls to its group.
   await tiles.filter({ has: page.locator(".cat-name", { hasText: /^Spells$/ }) }).click();
-  const rows = page.locator(".entry-list li");
+  const rows = page.locator('.entry-list a[href^="#/entry/"]');
   await expect(rows).toHaveCount(count((s) => s.kind === "spell"));
   await page.locator(".letter-btn", { hasText: /^F$/ }).click();
   await expect

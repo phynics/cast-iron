@@ -404,6 +404,29 @@ pub async fn put_bookmark(bookmark: &Bookmark) -> Result<()> {
     tx.finish().await
 }
 
+/// Atomically merges a previously validated batch; existing records are never replaced.
+pub async fn merge_bookmarks(incoming: &[Bookmark]) -> Result<usize> {
+    let tx = Tx::begin(&[BOOKMARKS], true).await?;
+    let store = tx.store(BOOKMARKS)?;
+    let all = request(store.get_all().map_err(Into::into)).await?;
+    let current = from_js_all::<Bookmark>(all);
+    let mut known: std::collections::BTreeSet<EntryId> =
+        current.iter().map(|b| b.entry_id.clone()).collect();
+    let mut added = 0;
+    let mut prepared = Vec::new();
+    for b in incoming {
+        if known.insert(b.entry_id.clone()) {
+            prepared.push(b);
+            added += 1;
+        }
+    }
+    for b in prepared {
+        request(store.add(&to_js(b)?).map_err(Into::into)).await?;
+    }
+    tx.finish().await?;
+    Ok(added)
+}
+
 pub async fn delete_bookmark(id: &EntryId) -> Result<()> {
     let tx = Tx::begin(&[BOOKMARKS], true).await?;
     let store = tx.store(BOOKMARKS)?;

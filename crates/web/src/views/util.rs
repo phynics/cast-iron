@@ -65,6 +65,16 @@ pub fn kind_name(kind: EntryKind) -> &'static str {
     }
 }
 
+/// Reviewed navigation labels. Canonical titles and rich rule content remain verbatim.
+pub fn section_label(title: &str) -> String {
+    match title {
+        "Actions In Combat" => "Actions in Combat",
+        "Big And Little Creatures In Combat" => "Big and Little Creatures in Combat",
+        _ => title,
+    }
+    .to_string()
+}
+
 /// Sets `document.title`. Every screen calls this so that history entries read well.
 pub fn set_title(title: &str) {
     if let Some(document) = web_sys::window().and_then(|w| w.document()) {

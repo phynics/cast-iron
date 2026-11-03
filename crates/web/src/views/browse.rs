@@ -6,6 +6,7 @@ use crate::library::{Library, use_library};
 use crate::route::{Route, scroll_to_anchor};
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
+use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{Shared, group_letter, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
@@ -223,7 +224,7 @@ pub fn Books() -> impl IntoView {
                                 Some(Ok(Some(books))) => books.book(&id_for_rows).map(|book| {
                                     let chapters = book.chapters.iter().enumerate().map(|(i, chapter)| {
                                         let href = Route::Book { source: id_for_rows.clone(), chapter: Some(vec![i]) }.href();
-                                        view! { <li><a href=href>{chapter.title.clone()}</a></li> }
+                                        view! { <li><a href=href>{crate::views::util::section_label(&chapter.title)}</a></li> }
                                     }).collect_view();
                                     view! { <ul class="book-directory-chapters">{chapters}</ul> }.into_any()
                                 }).unwrap_or_else(|| view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any()),
@@ -394,11 +395,45 @@ fn Lenses(kind: EntryKind) -> impl IntoView {
 /// follows task by task, so a 3,500-row category never blocks input. Every row ends up in the
 /// document, which keeps find-in-page working.
 #[component]
-fn AzList(stubs: Vec<EntryStub>, source_titles: Vec<Option<String>>) -> impl IntoView {
+fn AzList(
+    stubs: Vec<EntryStub>,
+    source_titles: Vec<Option<String>>,
+    show_source: bool,
+) -> impl IntoView {
     let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
     let groups = Shared::new(group_by_letter(&titles));
     let stubs = Shared::new(stubs);
     let source_titles = Shared::new(source_titles);
+    // Group only for presentation, after the caller has selected active catalog stubs. The
+    // letter index still counts source records, so incremental loading thresholds stay stable.
+    let mut grouped_by_entry = Vec::with_capacity(stubs.len());
+    for (i, stub) in stubs.iter().enumerate() {
+        let source = source_titles[i]
+            .clone()
+            .unwrap_or_else(|| "Source".to_string());
+        grouped_by_entry.push(SourceVariant {
+            id: stub.id.clone(),
+            title: stub.title.clone(),
+            source,
+            kind: stub.kind,
+        });
+    }
+    let presentation_groups = group_variants(grouped_by_entry);
+    let variant_group_by_id = presentation_groups
+        .iter()
+        .enumerate()
+        .flat_map(|(group_index, group)| {
+            group
+                .variants
+                .iter()
+                .map(move |v| (v.id.clone(), group_index))
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    let entry_index_by_id = stubs
+        .iter()
+        .enumerate()
+        .map(|(index, stub)| (stub.id.clone(), index))
+        .collect::<std::collections::HashMap<_, _>>();
     let shown = RwSignal::new(groups_for_rows(&groups, 0, FIRST_ROWS));
 
     {
@@ -446,12 +481,41 @@ fn AzList(stubs: Vec<EntryStub>, source_titles: Vec<Option<String>>) -> impl Int
     let group_rows = {
         let groups = groups.clone();
         let stubs = stubs.clone();
+        let source_titles = source_titles.clone();
+        let presentation_groups = presentation_groups.clone();
+        let variant_group_by_id = variant_group_by_id.clone();
+        let entry_index_by_id = entry_index_by_id.clone();
         move |position: usize| {
             let (letter, indices) = &groups[position];
-            let rows = indices
-                .iter()
-                .map(|&i| entry_row(&stubs[i], source_titles[i].clone()))
-                .collect_view();
+            let mut rendered = Vec::<AnyView>::new();
+            let mut consumed = std::collections::HashSet::new();
+            for &i in indices {
+                if !consumed.insert(i) {
+                    continue;
+                }
+                let stub = &stubs[i];
+                let group = variant_group_by_id
+                    .get(&stub.id)
+                    .and_then(|group_index| presentation_groups.get(*group_index));
+                if let Some(group) = group.filter(|g| g.variants.len() > 1) {
+                    for variant in &group.variants {
+                        if let Some(index) = entry_index_by_id.get(&variant.id) {
+                            consumed.insert(*index);
+                        }
+                    }
+                    rendered
+                        .push(view! { <li><SourceVariants group=group.clone() /></li> }.into_any());
+                } else {
+                    rendered.push(
+                        entry_row(
+                            stub,
+                            show_source.then(|| source_titles[i].clone()).flatten(),
+                        )
+                        .into_any(),
+                    );
+                }
+            }
+            let rows = rendered;
             view! {
                 <section class="letter-group" id=letter_id(*letter)>
                     <h2 class="letter-head">{letter.to_string()}</h2>
@@ -484,13 +548,9 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
     } else {
         let source_titles: Vec<Option<String>> = stubs
             .iter()
-            .map(|s| {
-                multi_source
-                    .then(|| library.source(&s.source).map(|src| src.title.clone()))
-                    .flatten()
-            })
+            .map(|s| library.source(&s.source).map(|src| src.title.clone()))
             .collect();
-        view! { <AzList stubs=stubs.clone() source_titles /> }.into_any()
+        view! { <AzList stubs=stubs.clone() source_titles show_source=multi_source /> }.into_any()
     };
 
     let search_href = Route::Search {

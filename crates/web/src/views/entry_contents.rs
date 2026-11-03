@@ -124,7 +124,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
             };
             let href = target.href();
             view! { <li class=class><a href=href on:click=move |event: leptos::ev::MouseEvent| {
-                if current.get_untracked() == target {
+                if event.button() == 0 && !event.ctrl_key() && !event.meta_key() && !event.shift_key() && !event.alt_key() && current.get_untracked() == target {
                     event.prevent_default();
                     crate::route::scroll_to_anchor(&anchor);
                 }

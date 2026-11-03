@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { openBookContents, installLibrary, waitControlled, waitResults } from "./helpers";
+import { openBookContents, installLibrary, waitControlled, waitResults, revealSourceChoice } from "./helpers";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -73,7 +73,9 @@ test("Browse connects races, class options, spell levels, and reference categori
   const race = corpus.entries.get(related(raceTrait, "part")[0].target)!;
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Browse" }).click();
   await category("Races").click();
-  await page.locator(`.entry-list a[href="#/entry/${race.id}"]`).click();
+  const raceChoice = page.locator(`.entry-list a[href="#/entry/${race.id}"]`);
+  await revealSourceChoice(raceChoice);
+  await raceChoice.click();
   await expect(page.getByRole("heading", { level: 1, name: race.title })).toBeVisible();
   await page.locator(".entry-rel").getByRole("link", { name: raceTrait.title, exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: raceTrait.title })).toBeVisible();
@@ -124,8 +126,10 @@ test("Browse connects races, class options, spell levels, and reference categori
     await category(name).click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
     const first = page.locator(".entry-list li a").first();
+    await revealSourceChoice(first);
     await expect(first).toBeVisible();
-    const entryTitle = (await first.innerText()).trim();
+    const entryId = (await first.getAttribute("href"))!.replace(/^#\/entry\//, "").split("?")[0];
+    const entryTitle = corpus.entries.get(entryId)!.title;
     await first.click();
     await expect(page.getByRole("heading", { level: 1, name: entryTitle })).toBeVisible();
     await primary.getByRole("link", { name: "Browse" }).click();
@@ -148,6 +152,8 @@ test("Books navigation opens a rule and keeps previous and next reading usable",
     has: page.locator(":scope > summary .toc-title", { hasText: /^Combat$/ }),
   });
   await combat.locator(":scope > summary").click();
+  await expect(combat.getByRole("link", { name: "Actions in Combat", exact: true })).toBeVisible();
+  await expect(combat.getByRole("link", { name: "Big and Little Creatures in Combat", exact: true })).toBeVisible();
   const firstRule = combat.getByRole("link", { name: "Read Combat", exact: true });
   const href = await firstRule.getAttribute("href");
   const ruleId = href!.replace(/^#\/entry\//, "").split("?")[0];

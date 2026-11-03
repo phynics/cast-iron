@@ -17,5 +17,7 @@ pub mod related;
 pub mod rich;
 pub mod search;
 pub mod settings;
+pub mod source_variants;
 pub mod spells;
+pub mod star_transfer;
 pub mod util;

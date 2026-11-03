@@ -100,7 +100,7 @@ Acceptance: the combat-trait list makes the Advanced Player's Guide and Ultimate
 - [x] Explain Home Screen installation before users download and save substantial research in Safari.
 - [x] Explain that a Home Screen app may need its own library download and may not carry over Safari's stars, as observed in this simulator run.
 - [x] Make app installation, library download, app-shell update, and library update distinct actions in the copy.
-- Follow-up ownership: [PR #7](https://github.com/phynics/cast-iron/pull/7) implements portable stars. Do not create another export/import task; it is not part of this historical baseline.
+- [x] Add manual star export and import on Home. Browser-profile transfer, repeated imports, invalid files, and offline restart are covered in [PR #7](https://github.com/phynics/cast-iron/pull/7). Automatic synchronization is not implemented.
 
 Acceptance: a new iPhone user can tell where to install and download, and understands what may happen to existing Safari data. Verify the final wording on a physical iPhone before claiming behavior across iOS versions.
 
@@ -110,15 +110,15 @@ Acceptance: a new iPhone user can tell where to install and download, and unders
 - [x] Cover category-only Browse, book-only Books, rule search and heading jumps, book activation, zero active books, and old-route recovery.
 - [x] Verify that app and library updates preserve stars and active-book preferences. Preserve verified-library activation and interrupted-download behavior.
 - [x] Exercise character research through a race, traits, class, archetype, spell list, equipment, and character-building rules.
-- Remaining acceptance belongs to [#12](https://github.com/phynics/cast-iron/issues/12): complete physical-device subsystem reading with links, history, and book navigation. PR #7 records a separate manual browser Armor journey.
+- [x] Read the sampled Armor article with cross-links, Back, Forward, book contents, and previous/next controls. The automated offline journey visits all 24 article contents stops; the primary agent also read the rendered article through the T3 browser.
 - [x] Inspect light and dark layouts at phone and desktop widths, including long titles, many stars, expanded book branches, and controls near the fixed tab bar.
-- [#12](https://github.com/phynics/cast-iron/issues/12) owns direct keyboard, VoiceOver, focus, contrast, and touch-target acceptance. Screenshots alone do not establish these properties.
-- [#12](https://github.com/phynics/cast-iron/issues/12) owns physical-iPhone offline standalone restart. Simulator status-bar airplane mode is insufficient.
+- [x] Check keyboard navigation, native disclosure state, active navigation labels, visible focus, contrast, and touch targets in the browser.
+- Physical-device subsystem reading, VoiceOver acceptance, and genuine offline standalone restart remain in [#12](https://github.com/phynics/cast-iron/issues/12). Browser checks do not establish physical-device behavior.
 - [x] Run `cargo xtask check`, affected browser tests, and any corpus upgrade checks required by the implementation. Record local, CI, deployment, and device results separately.
 
 Dependency: UI-01 through UI-08, with targeted tests added alongside each change rather than deferred to the end.
 
-Local evidence: native checks and the real distribution build pass. All 67 browser cases are verified across the full run and the corrected WebKit fixture rerun. The complete manual subsystem read, VoiceOver, and physical-iPhone restart remain open; screenshot and automated checks do not substitute for those checks.
+Local evidence: native checks and the real distribution build pass. All 67 browser cases are verified across the full run and the corrected WebKit fixture rerun. The later follow-up adds the sampled Armor reading journey and keyboard checks. VoiceOver and physical-iPhone restart remain open; screenshot and automated checks do not substitute for those checks.
 
 ### UI-10: Integrate the supplied Gemini visual review
 
@@ -127,3 +127,10 @@ Local evidence: native checks and the real distribution build pass. All 67 brows
 - [x] Check disputed findings against code. Metadata badges were already links. Differently settled screenshots alone do not establish a filter-state bug.
 
 Evidence: [Gemini follow-up](research/gemini-ui-review.md). The earlier blocked tool attempt remains part of the history; the supplied completed review supersedes it. Runtime and assistive checks remain separate.
+
+
+### Follow-up coverage limits
+
+Publication choices now group repeated titles after activation filtering, including explicit prerequisite choices when several installed entries match. The AoN audit has 90 unique target matches, 49 ambiguous targets, 39 section misses in installed sources, and 105 rows under 14 unavailable source headings. These are explicit gaps, not imported content. See [mapping resolution](research/aon-mapping-resolution.md).
+
+The two reported Combat labels use reviewed navigation casing. Canonical titles and body text remain unchanged. Remaining external acceptance is VoiceOver and genuine offline standalone restart on a physical iPhone. The current simulator cannot establish either check.
