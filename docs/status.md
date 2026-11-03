@@ -1,10 +1,54 @@
 # Status
 
-Updated 2026-11-03. The repository is public. [PR #5](https://github.com/phynics/cast-iron/pull/5) merged at `a9360c5`. Its [main CI](https://github.com/phynics/cast-iron/actions/runs/41595871949) and [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41595872013) succeeded. The primary agent personally tested the published four-tab app in Safari and as an installed Home Screen app on iPhone Simulator. Details are in [iPhone journey observations](research/iphone-journeys.md).
+Updated 2026-11-03. The repository is public. The latest observed successful
+[main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and
+[Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41691686716)
+are for `d48eaa3c8dce901b80a777600ae09238647c41cd`. The release migration has
+not replaced that deployment or repeated its live browser acceptance.
+Earlier published iPhone Simulator observations remain in
+[the journey report](research/iphone-journeys.md).
 
-## Planned UI work
+## Development and release migration
 
-[UI task list](ui-tasks.md) tracks the implementation and remaining manual checks. The user supplied Gemini's completed, manually guided screenshot review after the earlier tool limitation. Its findings are integrated in the local simplification work and recorded in [the review follow-up](research/gemini-ui-review.md).
+[GitHub Issues](https://github.com/phynics/cast-iron/issues) is the tracking
+source. [#10](https://github.com/phynics/cast-iron/issues/10) tracks this migration.
+`release` was created at the published `d48eaa3` commit without changing main or
+existing history. Readback confirms Pages uses Actions and the `github-pages`
+environment permits only branch `release`. Its old `source.branch: main` API
+field is legacy metadata, not the Actions publication selector.
+
+The guarded workflow and promotion helper are prepared for a separate PR against
+main. Main publication is already blocked by the environment policy. The workflow
+must merge and be explicitly promoted before the first release-branch deployment.
+Local workflow validation passes with actionlint 1.7.12. Seven promotion safety
+checks pass, and a real preview against `d48eaa3` confirms the successful main
+CI and unchanged release baseline. `cargo xtask check` is running for this
+worktree; its final result will be recorded before handoff. No new distribution
+or browser run is needed for this workflow/docs-only change.
+
+No release-branch deployment or live migration verification is claimed. See
+[release operations](releasing.md) for exact completion and recovery steps.
+
+## Outstanding work and UI history
+
+- [#8](https://github.com/phynics/cast-iron/issues/8) tracks installation controls;
+  [#9](https://github.com/phynics/cast-iron/issues/9) tracks the update indicator.
+- [#11](https://github.com/phynics/cast-iron/issues/11) owns ambiguous navigation
+  mapping and missing-book/source investigation following draft
+  [PR #7](https://github.com/phynics/cast-iron/pull/7). That PR already implements
+  portable stars, publication choices, and its coverage audit.
+- [#12](https://github.com/phynics/cast-iron/issues/12) owns physical-device and
+  accessibility acceptance, including true offline standalone restart.
+- [#13](https://github.com/phynics/cast-iron/issues/13) owns printed-order evidence.
+- [#14](https://github.com/phynics/cast-iron/issues/14) owns remaining standalone
+  corpus families and relationship coverage.
+- [#15](https://github.com/phynics/cast-iron/issues/15) owns remaining reference
+  rendering and discovery limitations.
+
+[UI implementation history](ui-tasks.md) retains the completed local work and
+original acceptance context. It is not a second backlog. The supplied Gemini
+review remains recorded in [the review follow-up](research/gemini-ui-review.md).
+The measurements below are historical evidence for their named builds.
 
 ## Acceptance checklist (spec section 11)
 
@@ -104,32 +148,25 @@ True offline simulator networking was not available through the driver. The rela
 
 Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The earlier schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 
-## Not verified yet
+## Acceptance limits, tracked in [#12](https://github.com/phynics/cast-iron/issues/12)
 
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
 - Physical devices: Android Chromium and iOS Safari, including offline standalone relaunch. Simulator standalone relaunch passed with networking available.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
 
-## Known gaps
+## Known limits and issue ownership
 
-- The iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
+- Historical baseline, addressed by the local simplification below: the iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
-- Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
-- Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
-- Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
-- No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
-- Category lens counts and source counts are global. Search field facets omit counts; the UI does not calculate counts conditional on every active filter.
-- In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
-- Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
+- [#13](https://github.com/phynics/cast-iron/issues/13): Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
+- [#14](https://github.com/phynics/cast-iron/issues/14): Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
+- [#14](https://github.com/phynics/cast-iron/issues/14): Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
+- [#15](https://github.com/phynics/cast-iron/issues/15): No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
+- [#15](https://github.com/phynics/cast-iron/issues/15): Category lens counts and source counts are global. Search field facets omit counts; the UI does not calculate counts conditional on every active filter.
+- [#15](https://github.com/phynics/cast-iron/issues/15): In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
+- [#15](https://github.com/phynics/cast-iron/issues/15): Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
 - Firefox, and a single flaky run of `Back/forward navigation works` on Chromium, which could not be reproduced (see `docs/decisions.md`).
-
-## Next (post-POC, spec section 12)
-
-1. Keep the licensing review current when changing the source selection. The POC is public under the scoped OGL and Community Use review.
-2. Review `sources/psrd-data/book-order.toml` against the printed books. Add standalone support for the families that remain in rules trees or are excluded (animal companions, mythic spells, vehicles, settlements, haunts, campaign resources and armies) when a category needs them. Newer books require a new source pin or source dataset and licensing review.
-3. Run the suite on real devices and record the results here.
-
 
 ## Local reference simplification
 

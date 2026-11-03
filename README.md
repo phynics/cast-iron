@@ -46,6 +46,14 @@ Run these commands from the repository root:
 
 After a compiler, schema, or source change, run `cargo xtask content` explicitly before rebuilding. An existing manifest makes the site build reuse the generated library. Browser tests read expectations from `generated/` and run against `dist/`, so both must describe the same version. The [verification guide](.claude/skills/verify/SKILL.md) covers offline checks, screenshots, and library upgrades. The default browser test command includes Firefox, which has a known local startup failure recorded in [status](docs/status.md).
 
+## Development and releases
+
+[GitHub Issues](https://github.com/phynics/cast-iron/issues) tracks new work.
+Follow [the contributor guide](CONTRIBUTING.md) from issue to branch and PR.
+`main` integrates changes; Pages publication uses explicit promotion to `release`.
+See [the release guide](docs/releasing.md) for promotion, verification, recovery,
+and the migration state.
+
 ## Repository layout
 
 See [AGENTS.md](AGENTS.md) for the directory layout, the rules that the code must follow, and the working pattern for changes.

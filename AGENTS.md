@@ -4,6 +4,8 @@ Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rul
 
 - Product source of truth: `docs/spec.md`. Do not rewrite it.
 - Decisions that refine the spec: `docs/decisions.md`. Add an entry for each decision that a later reader cannot derive from code.
+- Development tracking: [GitHub Issues](https://github.com/phynics/cast-iron/issues). Search before creating an issue. Link each implementation PR to its issue. See `CONTRIBUTING.md`.
+- Integration and publication: `main` integrates work; `release` publishes Pages. Follow `docs/releasing.md` for explicit promotion, verification, and recovery. Never auto-promote main or reset release history.
 - Current state, corpus counts, and acceptance results: `docs/status.md`. Distinguish local verification, CI, and deployment.
 - Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `sources/psrd-data/book-order.toml`; website menus and dataset order do not establish printed order.
 
@@ -53,6 +55,10 @@ To prove a change in the real app, use the `verify` skill in `.claude/skills/ver
 
 ## Working pattern
 
+Start new work from current `origin/main` on an issue-linked branch. Keep outstanding work in issues. Docs retain decisions, limitations, and evidence.
+
 Work in small commits, each with a verifiable state. A task is finished only after `cargo xtask check` passes and, for user-visible behavior, the affected e2e test passes on a real `dist/` build. Report failures with their output.
+
+Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
 
 After changing compiler code, schema types, or source configuration, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill and retain a previous library outside build-output directories.

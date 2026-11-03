@@ -1,6 +1,6 @@
-# UI task list
+# UI implementation history
 
-Updated 2026-11-03. This tracks implementation and remaining verification. Completed checkboxes refer to local work, not deployment. The user's latest direction takes precedence over earlier navigation and collection decisions. `docs/spec.md` remains unchanged.
+Updated 2026-11-03. This preserves earlier implementation and acceptance context. [GitHub Issues](https://github.com/phynics/cast-iron/issues) now owns outstanding work; do not maintain this as a second tracker. Completed checkboxes refer to local work, not deployment. The user's latest direction takes precedence over earlier navigation and collection decisions. `docs/spec.md` remains unchanged.
 
 Inputs are the user's requests, the [published iPhone walkthrough](research/iphone-journeys.md), and the [AoN rules directory](https://aonprd.com/Rules.aspx?Name=Source&Category=None). The initial Gemini attempt could not render images. The user subsequently supplied the manually guided review; its findings and evidence limits are recorded in [the Gemini follow-up](research/gemini-ui-review.md).
 
@@ -100,7 +100,7 @@ Acceptance: the combat-trait list makes the Advanced Player's Guide and Ultimate
 - [x] Explain Home Screen installation before users download and save substantial research in Safari.
 - [x] Explain that a Home Screen app may need its own library download and may not carry over Safari's stars, as observed in this simulator run.
 - [x] Make app installation, library download, app-shell update, and library update distinct actions in the copy.
-- [ ] Optional follow-up: investigate star export and import if installation guidance leaves the transition unacceptable. Automatic transfer is not implemented.
+- Follow-up ownership: [PR #7](https://github.com/phynics/cast-iron/pull/7) implements portable stars. Do not create another export/import task; it is not part of this historical baseline.
 
 Acceptance: a new iPhone user can tell where to install and download, and understands what may happen to existing Safari data. Verify the final wording on a physical iPhone before claiming behavior across iOS versions.
 
@@ -110,10 +110,10 @@ Acceptance: a new iPhone user can tell where to install and download, and unders
 - [x] Cover category-only Browse, book-only Books, rule search and heading jumps, book activation, zero active books, and old-route recovery.
 - [x] Verify that app and library updates preserve stars and active-book preferences. Preserve verified-library activation and interrupted-download behavior.
 - [x] Exercise character research through a race, traits, class, archetype, spell list, equipment, and character-building rules.
-- [ ] Read an entire sampled subsystem with cross-links, Back, Forward, book contents, and previous/next controls.
+- Remaining acceptance belongs to [#12](https://github.com/phynics/cast-iron/issues/12): complete physical-device subsystem reading with links, history, and book navigation. PR #7 records a separate manual browser Armor journey.
 - [x] Inspect light and dark layouts at phone and desktop widths, including long titles, many stars, expanded book branches, and controls near the fixed tab bar.
-- [ ] Check keyboard navigation, VoiceOver labels, visible focus, contrast, and touch targets directly. Screenshots alone do not establish these properties.
-- [ ] Verify a genuine offline standalone restart on a physical iPhone or a supported device-local network-blocking setup. Simulator status-bar airplane mode is insufficient.
+- [#12](https://github.com/phynics/cast-iron/issues/12) owns direct keyboard, VoiceOver, focus, contrast, and touch-target acceptance. Screenshots alone do not establish these properties.
+- [#12](https://github.com/phynics/cast-iron/issues/12) owns physical-iPhone offline standalone restart. Simulator status-bar airplane mode is insufficient.
 - [x] Run `cargo xtask check`, affected browser tests, and any corpus upgrade checks required by the implementation. Record local, CI, deployment, and device results separately.
 
 Dependency: UI-01 through UI-08, with targeted tests added alongside each change rather than deferred to the end.

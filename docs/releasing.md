@@ -1,0 +1,128 @@
+# Publish a release
+
+`main` integrates development. `release` contains the selected publication
+history. `.github/workflows/pages.yml` builds and publishes pushes to `release`.
+Both jobs require `refs/heads/release`, including manual dispatch. CI still
+checks pushes and pull requests on all branches.
+
+Pages uses **GitHub Actions**, not branch-folder publishing. The `github-pages`
+environment must allow only the branch `release`, with no matching tag rule.
+The Pages API can retain `source.branch: main` as legacy metadata while
+`build_type` is `workflow`. That field does not select Actions artifacts.
+Keep `build_type: workflow`; changing to branch-folder publishing would publish
+repository source rather than the Trunk distribution. See
+[GitHub's Pages API](https://docs.github.com/en/rest/pages/pages#update-information-about-a-github-pages-site)
+and [environment rules](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
+
+## Promote a tested commit
+
+1. Choose a full commit SHA on `main` with successful **CI** for that exact
+   main push. Review all commits and changes since `release`, including changes
+   from other issues. A green feature-branch run is not the main integration run.
+2. Preview the promotion from the repository root:
+
+   ```sh
+   python3 scripts/promote-release.py FULL_MAIN_SHA
+   ```
+
+   The helper fetches both branches, checks ancestry and main CI, and prints the
+   range and diff summary. It does not change your checkout. Inspect the full
+   diff with `git diff origin/release FULL_MAIN_SHA`.
+3. Publish the reviewed range:
+
+   ```sh
+   python3 scripts/promote-release.py FULL_MAIN_SHA --push
+   ```
+
+   This uses a normal fast-forward push. It never creates, resets, or force-pushes
+   `release`. A missing branch, divergent history, missing CI, or denied push
+   stops promotion. Do not bypass these failures with a reset or force push.
+4. Link the range, issues, and exact SHA in the migration issue or a release
+   record. For a GitHub review page, open a promotion PR with base `release` and
+   head `main`, inspect its exact range, then use the helper at the reviewed SHA.
+   Do not squash or rebase a promotion PR. Those modes break shared ancestry.
+   If branch rules require merging a PR, use a merge commit and verify its CI
+   and Pages run. Do not change repository rules just to use the helper.
+
+There is no automatic promotion from `main`. To rebuild the current release
+without moving it:
+
+```sh
+gh workflow run pages.yml --repo phynics/cast-iron --ref release
+```
+
+Dispatch on `main`, a tag, or another branch skips both jobs once the guarded
+workflow is installed. The environment restriction also blocks the old main
+workflow during migration. The Pages concurrency group remains `pages` with
+cancellation disabled, so deployments are serialized. A queued older release
+can finish first; verify the final successful run's SHA, not just any green run.
+
+## Verify publication
+
+1. Read the **Deploy to GitHub Pages** run and its deployment status. Confirm
+   `headBranch: release`, the expected SHA, and a successful deploy job:
+
+   ```sh
+   gh run list --repo phynics/cast-iron --workflow pages.yml --branch release --limit 5
+   gh api repos/phynics/cast-iron/pages
+   gh api repos/phynics/cast-iron/environments/github-pages/deployment-branch-policies
+   ```
+
+2. Open `https://phynics.github.io/cast-iron/` in a fresh browser profile. Check
+   asset loading under `/cast-iron/`, install the library, open a known entry,
+   then go offline and reload. Check navigation and search, console errors,
+   and third-party requests. Use the [verification guide](../.claude/skills/verify/SKILL.md)
+   for affected acceptance tests.
+3. Check an existing installed profile separately. In Settings, check for an
+   app update and reload when offered. Library download/update is a separate
+   action. Verify stars, active books, and offline reading survive both.
+   For corpus/schema changes, retain the previous library outside build output
+   and complete the upgrade checks before promotion.
+4. Update `docs/status.md` with local, CI, deployment, and live results separately.
+   Record exact app SHA and content version. A successful YAML check or deployment
+   alone does not verify existing offline clients or physical devices.
+
+## Recover a failed release
+
+If build or deploy fails, the last successful Pages deployment remains the
+baseline. Read the failed job output. For a transient failure, rerun that failed
+run only if its SHA is still the intended release. Otherwise dispatch the current
+`release` with the command above. Verify the resulting deployment SHA.
+
+For a shipped regression, prefer a forward fix. To revert a change while keeping
+history and the release guard:
+
+1. Create a fix branch from current `origin/main` and link the regression issue.
+2. Run `git revert BAD_COMMIT_SHA` for each identified change, newest first.
+   For a merge commit, inspect its parents and use `git revert -m 1 MERGE_SHA`
+   only when parent 1 is the intended baseline. Resolve conflicts and inspect
+   the complete diff. Keep the release workflow, deployment policy, and format
+   compatibility fixes. Do not restore the entire repository to an old tree.
+3. Run `cargo xtask check` and the affected built-site/browser checks. For content
+   changes, recompile before building and verify upgrade compatibility.
+4. Open and merge a fix PR to `main`, wait for its exact main CI, then promote
+   that SHA with the helper. Review the entire release range: other integrated
+   changes may also be included. Verify fresh and existing profiles again.
+
+Do not reset `release` backward or redeploy a historical main workflow as a
+rollback shortcut. An older app may not understand a newer installed library,
+search index, or saved-data format. Reverting bytes does not undo IndexedDB or
+Cache API state, and offline devices may keep the previous shell until they
+reconnect and accept Reload. Preserve readers for already-published formats or
+ship a forward compatibility fix. Clearing site data deletes local stars and
+libraries and is not a routine recovery step.
+
+## Bootstrap and finish this migration
+
+On 2026-11-03, `release` was created at the successfully published main commit
+`d48eaa3c8dce901b80a777600ae09238647c41cd`. The existing environment branch rule
+was changed from `main` to `release`; no reviewer or timer gate was added.
+Pages remains in Actions mode. The live artifact was not replaced by that setup.
+
+The guarded workflow is initially a PR against `main`. After it merges and main
+CI succeeds, promote its full SHA using the steps above. The first release push
+installs and runs the new workflow. Until then the bootstrap release has the old
+workflow: pushes to it do not deploy, and dispatch on `release` can rebuild the
+baseline. Main publication is already blocked by the environment rule. Record
+first release CI/deployment and live checks in
+[#10](https://github.com/phynics/cast-iron/issues/10) before calling rollout complete.
