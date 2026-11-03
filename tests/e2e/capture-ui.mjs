@@ -57,8 +57,6 @@ try {
     await page.goto('#/entry/core-rulebook/spells/fireball');
     await page.locator('.bookmark-toggle').click();
     await capture('home-stars', '#/', '.home-bookmarks a');
-    await page.locator('.star-transfer > summary').click();
-    await capture('star-transfer', null, '#star-archive-file');
     await page.goto('#/browse/kind/trait');
     const variants = page.locator('.entry-list .source-variants').filter({ has:page.locator('summary', { hasText:/^Anatomist / }) });
     await variants.locator('summary').click();

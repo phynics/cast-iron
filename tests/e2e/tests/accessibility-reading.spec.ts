@@ -65,14 +65,6 @@ test("Keyboard controls expose focus and native disclosure state at phone and de
       return s.outlineStyle !== "none" && parseFloat(s.outlineWidth) >= 2;
     })).toBe(true);
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "page");
-    const transfer = page.locator(".star-transfer");
-    await transfer.locator("summary").focus();
-    await page.keyboard.press("Enter");
-    expect(await transfer.evaluate((el: HTMLDetailsElement) => el.open)).toBe(true);
-    await page.keyboard.press(tabKey);
-    await expect(page.getByRole("button", { name: "Export stars" })).toBeFocused();
-    await page.keyboard.press(tabKey);
-    await expect(page.getByLabel("Import stars file")).toBeFocused();
     await page.goto("#/browse/kind/spell");
     const jump = page.getByRole("button", { name: "Jump to F", exact: true });
     await jump.focus(); await page.keyboard.press("Enter");

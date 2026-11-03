@@ -20,7 +20,6 @@ pub mod js;
 pub mod library;
 pub mod lru;
 pub mod route;
-pub mod star_transfer;
 pub mod store;
 pub mod theme;
 pub mod views;
