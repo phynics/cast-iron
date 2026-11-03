@@ -125,17 +125,11 @@ jobs:
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/chromium
         run: npm --prefix tests/e2e test -- --project=chromium --project=mobile-chromium --output=test-results/chromium
-      - name: Install Firefox and WebKit
+      - name: Install WebKit
         if: ${{ !cancelled() }}
-        run: npx --prefix tests/e2e playwright install --with-deps firefox webkit
-      # Firefox and WebKit run in CI for information. They are not part of the gate until a run
-      # has shown that their service worker behavior is stable on the Linux builds.
-      - name: Tests on Firefox (informational)
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/firefox
-        run: npm --prefix tests/e2e test -- --project=firefox --output=test-results/firefox
+        run: npx --prefix tests/e2e playwright install --with-deps webkit
+      # Firefox is disabled in CI after repeated installer timeouts; see docs/decisions.md.
+      # WebKit remains informational until its service worker behavior is stable on Linux.
       - name: Tests on WebKit (informational)
         if: ${{ !cancelled() }}
         continue-on-error: true
