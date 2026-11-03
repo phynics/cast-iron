@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [release]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +19,7 @@ env:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -53,6 +54,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/release'
     needs: build
     runs-on: ubuntu-latest
     permissions:
