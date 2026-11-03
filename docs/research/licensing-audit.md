@@ -6,8 +6,8 @@ Status: fact gathering, not legal advice. Every claim below has a source (URL or
 
 1. **The derived dataset has no license.** `devonjones/PSRD-Data` has `license: null`, no LICENSE file on any branch, and no README on `release`. The only license text is inside `book-ogl.db`. Redistributing data scraped from Paizo pages rests on whatever Paizo's Open Game Content grant covers, not on the repo.
 2. **OGL 1.0a covers only Open Game Content.** Paizo's PRD excludes Product Identity from the grant: "All trademarks, registered trademarks, proper names (characters, deities, etc.), dialogue, plots, storylines, locations, characters, artworks, and trade dress." Records copied wholesale (flavor text, names, descriptions) may fall outside the grant. A per-record OGC/PI audit has not been done.
-3. **Paizo Community Use Policy (CUP) is limited to non-commercial, unofficial use with a mandatory notice.** The notice must appear "in each project, product, or on each website that uses any Paizo Material" (quote in Q3). The CUP page is silent on OGL content, so it does not say whether CUP and OGL combine.
-4. **Ads and donations are ambiguous under CUP.** The CUP text says "You are allowed to accept donations on platforms like Patreon and to generate advertising revenue via YouTube, Twitch, and web ads", yet also "non-commercial". A GitHub Pages site with ads or donations needs a decision.
+3. **Community Use is a relevant permission route.** Paizo explicitly includes free online references and tools. It supplements, rather than replaces, the OGL for rules. See the dated recheck below.
+4. **Ads and donations are expressly permitted exceptions.** The earlier claim that these were ambiguous was too broad. Other commercial activity remains restricted by the policy.
 5. **OGL 1.0a Section 10 requires a copy of the license with every distribution.** The app must ship the full OGL 1.0a text, not only the Section 15 line.
 6. **Trademark.** OGL Section 7 forbids implying compatibility with Paizo trademarks. Any "Pathfinder" naming or logos need separate permission or must be avoided. CUP requires the "unofficial" statement.
 7. **GPL code is separate from the data.** PSRD-Parser and PathfinderOpenReference are GPLv3 for code. That says nothing about the data they generate. Copying code from them would bring GPLv3 obligations.
@@ -53,14 +53,34 @@ Source: `https://paizo.com/pathfinderRPG/prd/openGameLicense.html`. Quote:
 
 The PRD landing page `https://paizo.com/pathfinderRPG/prd/` says: "The Pathfinder Reference Document will no longer be updated, but is available for reference in its last updated state."
 
-**Community Use Policy (`https://paizo.com/community/communityuse`, "Last Updated Thursday, August 22, 2024"):**
+**Community Use Policy (`https://paizo.com/licenses/communityuse`, "Last Updated Thursday, August 22, 2024"):**
 - Scope: "This policy authorizes certain non-commercial use of the Paizo-related material specifically identified in the Permissions section of this policy ("Paizo Material")."
 - Required notice (verbatim): `"[This website, product name, Twitch show title, etc.] uses trademarks and/or copyrights owned by Paizo Inc., used under Paizo's Community Use Policy (paizo.com/licenses/communityuse). We are expressly prohibited from charging you to use or access this content. [This website, product name, Twitch show title, etc.] is not published, endorsed, or specifically approved by Paizo. For more information about Paizo Inc. and Paizo products, visit paizo.com."` Note the page's own text has `&nbsp;` entities; the notice should be typed as plain text. The notice must appear "in a legible/accessible form in each project, product, or on each website that uses any Paizo Material."
 - "Your project must be unofficial."
 - "Non-Commercial Use. If you make any commercial use of Paizo Material beyond what is explicitly allowed by this policy, your rights will be automatically terminated"
 - Donations and ads: "You are allowed to accept donations on platforms like Patreon and to generate advertising revenue via YouTube, Twitch, and web ads."
 - Permissions cover the "Community Use Package", product cover images, product descriptions, and blog text/artwork, with exceptions.
-- **OGL interaction:** the CUP page contains no occurrence of "Open Game", "OGL", "Open Content", or "Product Identity" (checked by text search). It does not say whether CUP and OGL combine. It directs commercial licensing to paizo.com/licenses.
+- **OGL interaction:** the policy alone does not describe the combination. Paizo's [licensing overview](https://paizo.com/licenses) distinguishes OGL rules permission from additional permissions for Paizo IP and explicitly includes online references and tools under Community Use. The earlier inference that the combination itself was unresolved was too broad.
+
+## Community Use recheck, 2026-11-03
+
+The [official policy PDF](https://downloads.paizo.com/CommunityUsePolicy.pdf), fetched directly, is dated August 22, 2024. The HTML endpoint returned HTTP 403; its search-indexed text agrees with the PDF.
+
+The policy covers software and allows descriptive references to names, deities, places, and setting events. This does not establish blanket permission to reproduce arbitrary book prose. It requires free access, unofficial status, the prescribed notice, credits, and visible current contact information. Third-party rights still apply. Paizo can withdraw permission, and the policy includes indemnity and non-transferability terms.
+
+Paizo's [reinstatement announcement](https://cdn.paizo.com/blog/updates-on-the-community-use-policy-and-fan-content-policy), fetched directly, confirms that Community Use coexists with Fan Content. The registry and approved-products list were removed. Contact information replaces registration. The July 2024 replacement announcement is therefore not the current position.
+
+The [licensing overview](https://paizo.com/licenses), verified through indexed official text, includes free online references and tools and requires OGL compliance for OGL mechanics. My reading is that OGL plus Community Use is a viable route for Cast Iron. Fan Content's restrictions on rules compendiums do not establish a Community Use prohibition.
+
+Repository inspection found the current notice in `README.md`. The compiler extracts that notice's template from this audit into the app. `crates/web/src/views/legal.rs` renders the notice, OGL, and attribution data. The rollout adds GitHub Issues as the visible project contact there and in the README. The source dataset's legacy notice is preserved separately in its extracted notices.
+
+### Built POC scope review
+
+`python3 scripts/check-publication.py` screened all 1,937 built entries from Core Rulebook and Bestiary. It found no matches for its listed campaign locations, deities, or iconic characters. Creature titles were also inspected and identify generic creature types and stat-block variants, rather than named campaign characters. The selected rules trees cover game procedures, equipment, and terminology. Campaign books, adventure plots, and artwork are outside this source selection.
+
+The script verifies all manifest file hashes, the two-source scope, per-entry OGL references, and expected attribution for both Paizo books, the System Reference Document, and Tome of Horrors. The app preserves the full collected Section 15 notices, including third-party credits. Its report is `generated/reports/publication.json`.
+
+This scoped review found no additional publication issue. It does not classify every sentence as Open Game Content or prove that no other Product Identity exists. Generic descriptive prose, including creature ecology, remains in the selected upstream rules. Future sources or a discovered rights issue require review and, where needed, removal recorded in coverage. A missing dataset-level license alone does not negate a valid upstream grant.
 
 ## Q4. ORC/OGL 2023 situation
 
