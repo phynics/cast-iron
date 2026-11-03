@@ -78,6 +78,9 @@ export class ServerControl {
   overlay(dir: string | null) {
     return this.post("overlay", { dir });
   }
+  shellVersion(version: string) {
+    return this.post("shell", { version });
+  }
   async state(): Promise<{ log: string[]; counts: Record<string, number>; stalled: number }> {
     return (await fetch(`${this.origin}/__test/state`)).json();
   }

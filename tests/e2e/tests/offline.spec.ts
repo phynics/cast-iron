@@ -16,7 +16,7 @@ test("Offline launch works after a new browser session", async ({ openProfile, s
   page = await context.newPage();
   await page.goto("./");
   await waitReady(page);
-  await expect(page.getByRole("heading", { name: /Find any rule/i })).toBeVisible();
+  await expect(page.locator("#home-title")).toBeVisible();
   await page.goto("#/search");
   await page.locator("#search-input").fill("fireball");
   await waitResults(page, "fireball");

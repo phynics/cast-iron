@@ -1,10 +1,10 @@
 # Status
 
-Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5f582be` and its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41579539956) succeeded. Branch `relationships` adds schema 3 and the reference navigation described below; it is not merged or deployed.
+Updated 2026-11-03. The repository is public. [PR #4](https://github.com/phynics/cast-iron/pull/4) merged at `12acb7d`; its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41590678502) succeeded. Terra observed the published schema-3 library on an iPhone Simulator. Branch `navigation-journeys` contains the replacement navigation and search improvements below; those changes are not yet deployed.
 
-## POC acceptance checklist (spec section 11)
+## Acceptance checklist (spec section 11)
 
-"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local full run: 47 passed in 2.0 minutes (chromium 23, webkit 23, mobile-chromium 1), including relationship navigation, spell lists, feat prerequisites, source search, book history, and mobile layout. `cargo xtask check` also passed.
+"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local full run: 55 passed in 2.3 minutes (chromium 27, webkit 27, mobile-chromium 1), including relationship navigation, spell lists, feat prerequisites, source search, book history, and mobile layout. `cargo xtask check` also passed.
 
 | Item | State | Evidence |
 |---|---|---|
@@ -26,7 +26,7 @@ Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5
 
 Phase 6 also requires that bookmarks survive a content update. `Content update keeps user records` covers this. A separate real-browser check installed the actual published schema-1 POC library in the new app, bookmarked Arcane Archer, reloaded offline, installed schema 2, and confirmed the bookmark and offline reading survived. `scripts/check-library-upgrade.py` also confirmed all 1,937 published IDs and titles are preserved.
 
-## Expanded corpus, locally verified
+## Schema-2 rollout baseline
 
 Content version `v91f4bc8ffd606a17`, schema 2. Classes has 27 entries; Prestige classes has 19, including Technology Guide's Technomancer.
 
@@ -64,7 +64,7 @@ These are desktop measurements, not real-phone memory or speed results. Light an
 
 The selection has 64 typed directories and 101 complete rules trees. Unsupported standalone record families and duplicated section-file representations remain listed in coverage. Later books absent from the pinned snapshot are not included.
 
-## Relationships and book order, schema 3 (branch `relationships`)
+## Published relationships and book order, schema 3
 
 Content version `vdb8e844bfc068446`, schema 3. Verified locally: `cargo xtask check` passes; two `cargo xtask content` runs give the same tree hash; `scripts/check-library-upgrade.py` finds all 9,112 earlier ids and titles with no kind change and no dangling reference in the three new files; the full Chromium, WebKit, and mobile browser suite passes against the built site (47 tests). The five relationship/navigation tests also passed with the browser offline in Chromium and WebKit (10 checks). Desktop and mobile screenshots in both themes were inspected; the screenshot run reported no console errors or horizontal overflow. Data findings: `docs/research/relationship-data.md`. Decisions: `docs/decisions.md`.
 
@@ -82,9 +82,23 @@ The client reads schemas 1, 2, and 3. It now uses the new files for racial trait
 
 AoN source pages group database records rather than chapters. Legacy PRD section links are captured in a reproducible 18-menu, 167-link inventory, including sections for books absent from the current corpus. Details: `docs/research/aon-book-sections.md`, `docs/research/legacy-prd-sections.json`, and `docs/research/book-order-evidence.md`.
 
+## Navigation and common journeys, branch `navigation-journeys`
+
+Primary destinations are Home, Browse, Books, and Settings. Search is a bar, and Home shows up to six saved entries plus recent reading. Quick scopes expose Rules text, Spells, and Feats. Rule headings feed the existing search alias field: `grapple` with Rules text selected surfaces Special Attacks first in the checked build. A native regression requires that entry in the first three results.
+
+Content version `v171f0348e5717ee0` has 9,967 entries, schema 3, 61,956,172 bytes raw, and a 20,329,611-byte search index. Search format remains 1. The upgrade check preserves all 9,967 prior IDs and titles with no kind changes or dangling derived references. Publication checks and `cargo xtask check` pass. The full built-site suite passes 55 tests. Desktop and mobile screenshots in both themes were inspected; the screenshot run reported no horizontal overflow or console errors.
+
+Composed offline journeys cover quick lookup, creating a collection and reopening a bookmark from Home, racial traits, class options and archetypes, class spell levels, traits, equipment, rules, and reading onward from book contents. A new app-shell test verifies that the worker waits for Reload, preserves the installed library and Home bookmarks, and works after an offline reload. The library-update test verifies replacement activation separately.
+
+### Published iPhone Simulator baseline
+
+Terra used the T3 Device panel on iPhone 18 Pro, iOS 27.2, Safari. The published five-tab build installed library `vdb8e844bfc068446`, reported 9,967 entries, checked for updates, opened Advanced Player's Guide contents and Read Races, and saved a bookmark. A grapple lookup initially showed equipment and feats. Safari reported persistent storage not granted.
+
+The collection-name input command failed, and its retry failed with an expired reference. Device testing stopped. The full character workflow, comprehensive subsystem read, previous/next controls, Home Screen installation, offline standalone relaunch, replacement updates, dark theme, and the new navigation remain unverified on the simulator. See [iPhone journey observations](research/iphone-journeys.md). Automated acceptance and simulator observations are separate evidence.
+
 ## Not verified yet
 
-- GitHub CI and deployment for schema 3 and the reference UI are pending. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
+- GitHub CI and deployment for the replacement navigation are pending. The schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
 - Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
@@ -93,8 +107,11 @@ AoN source pages group database records rather than chapters. Legacy PRD section
 
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
+- Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
+- Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
+- Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
 - No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
-- Facet chips show global counts, not counts that depend on the other filters.
+- Category lens counts and source counts are global. Search field facets omit counts; the UI does not calculate counts conditional on every active filter.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
 - Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
 - Firefox, and a single flaky run of `Back/forward navigation works` on Chromium, which could not be reproduced (see `docs/decisions.md`).

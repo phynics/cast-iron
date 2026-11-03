@@ -18,6 +18,8 @@ Find, browse, and understand the legally redistributable PF1e rules without a ne
 
 Users need both category-based discovery and relationships between rules. A separate book view follows the original chapter and section order only, as confirmed on 2026-11-03. It is not a book-filtered alphabetical category list.
 
+Search is available as a bar rather than a primary tab. Home holds saved entries and recent reading. The primary destinations are Home, Browse, Books, and Settings. This navigation supports quick lookup, character research, and reading a subsystem or publication.
+
 ## Capabilities and Constraints
 
 - Search and browse races and related racial traits; classes and archetypes; equipment; spells and spell lists; prestige classes; feats and chains; character traits; bestiary; and rules.
@@ -32,7 +34,9 @@ Cast Iron is an unofficial reference. Do not use the Pathfinder logo or claim of
 
 ## Evidence on Hand
 
-`docs/spec.md`, `docs/status.md`, `docs/research/licensing-audit.md`, the pinned source snapshot, compiler reports, and the current Rust/Leptos UI. The current build has 9,112 entries from 16 available books; this is not evidence of complete PF1e coverage.
+`docs/spec.md`, `docs/status.md`, `docs/research/licensing-audit.md`, the pinned source snapshot, compiler reports, and the current Rust/Leptos UI. Current corpus counts and verification results live in `docs/status.md`.
+
+Publisher contents evidence lives in `docs/research/book-order-evidence.md`. Only the Core Rulebook's main chapter sequence has been verified so far. AoN source categories, Legacy PRD menus, and dataset tree order provide mapping clues but do not establish printed order. The book UI must retain review warnings until that evidence is complete.
 
 ## Product Principles
 

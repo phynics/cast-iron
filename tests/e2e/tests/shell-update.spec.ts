@@ -1,0 +1,40 @@
+import { test, expect, goOffline } from "./fixtures";
+import { activeLibrary, cacheContents, contentCaches, installLibrary, waitControlled, waitReady } from "./helpers";
+
+test("App update waits for reload and keeps the installed library and Home bookmarks", async ({ page, context, server }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/entry/core-rulebook/spells/fireball");
+  await page.locator(".bookmark-toggle").click();
+  await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+  await page.goto("#/settings");
+  const shell = page.getByTestId("shell-version");
+  await expect(shell).not.toHaveText(/Checking|Not available/);
+  const previousShell = (await shell.innerText()).trim();
+  const library = await activeLibrary(page);
+  const cachesBefore = contentCaches(await cacheContents(page));
+  const nextShell = `e2e-next-${previousShell}`;
+  await server.shellVersion(nextShell);
+  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+  const reload = page.locator(".banner").getByRole("button", { name: "Reload", exact: true });
+  await expect(reload).toBeVisible();
+  // A downloaded app update must wait; reading and user data still use the current app.
+  await expect(shell).toHaveText(previousShell);
+  await expect(page.getByTestId("library-version")).toHaveText(library.content_version);
+  expect((await activeLibrary(page)).content_version).toBe(library.content_version);
+  await expect.poll(async () => Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${nextShell}`);
+  expect(Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${previousShell}`);
+  await reload.click();
+  await waitReady(page);
+  await expect(page.getByTestId("shell-version")).toHaveText(nextShell);
+  await expect.poll(async () => Object.keys(await cacheContents(page))).not.toContain(`cast-iron-shell-${previousShell}`);
+  expect(contentCaches(await cacheContents(page))).toEqual(cachesBefore);
+  expect((await activeLibrary(page)).content_version).toBe(library.content_version);
+  await goOffline(context, server);
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
+  await page.reload();
+  await waitReady(page);
+  await page.locator(".home-bookmarks").getByRole("link", { name: /Fireball/ }).click();
+  await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
+  await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+});

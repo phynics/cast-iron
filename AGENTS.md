@@ -4,7 +4,8 @@ Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rul
 
 - Product source of truth: `docs/spec.md`. Do not rewrite it.
 - Decisions that refine the spec: `docs/decisions.md`. Add an entry for each decision that a later reader cannot derive from code.
-- Current state and acceptance results: `docs/status.md`. Update it when an acceptance item changes.
+- Current state, corpus counts, and acceptance results: `docs/status.md`. Distinguish local verification, CI, and deployment.
+- Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `sources/psrd-data/book-order.toml`; website menus and dataset order do not establish printed order.
 
 ## Commands
 
@@ -31,7 +32,7 @@ To prove a change in the real app, use the `verify` skill in `.claude/skills/ver
 | `crates/web` | Leptos client |
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
-| `sources/psrd-data/` | Dataset pin, POC selection, id overrides, legal notices |
+| `sources/psrd-data/` | Dataset pin, reviewed selection, book order, id overrides, legal notices |
 | `LICENSES/` | Code, content, and upstream notices |
 | `generated/`, `dist/`, `.cache/` | Build output. Never commit these directories |
 | `tests/e2e` | Playwright acceptance tests |
@@ -53,3 +54,5 @@ To prove a change in the real app, use the `verify` skill in `.claude/skills/ver
 ## Working pattern
 
 Work in small commits, each with a verifiable state. A task is finished only after `cargo xtask check` passes and, for user-visible behavior, the affected e2e test passes on a real `dist/` build. Report failures with their output.
+
+After changing compiler code, schema types, or source configuration, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill and retain a previous library outside build-output directories.
