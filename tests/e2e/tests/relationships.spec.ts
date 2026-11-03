@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { installLibrary, waitControlled } from "./helpers";
+import { openBookContents, installLibrary, waitControlled } from "./helpers";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -33,6 +33,9 @@ test("race racial traits and class archetypes link in both directions", async ({
   const archetype = entries.find((a) => a.kind === "archetype" && related(a, "archetype").some((r: any) => r.target === classEntry.id))!;
   await page.goto(`#/entry/${classEntry.id}`);
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ })).toBeVisible();
+  await page.locator(".rel-disclosure > summary").click();
+  const archetypeGroup = page.locator(".rel-group").filter({ has: page.getByRole("link", { name: archetype.title, exact: true }) });
+  if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
   await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${archetype.id.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: /An archetype of/ })).toBeVisible();
@@ -96,7 +99,7 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
 
 test("category hub exposes requested reference areas and dedicated lenses", async ({ page }) => {
   await page.goto("#/browse");
-  const names = ["Rules", "Spells", "Feats", "Classes", "Prestige classes", "Races", "Traits", "Items", "Creatures"];
+  const names = ["Spells", "Feats", "Classes", "Prestige classes", "Races", "Traits", "Items", "Creatures"];
   for (const name of names) await expect(page.getByRole("link", { name: new RegExp(name) }).first()).toBeVisible();
   await page.goto("#/browse/kind/creature");
   await expect(page.getByRole("heading", { name: "Creatures", level: 1 })).toBeVisible();
@@ -104,7 +107,7 @@ test("category hub exposes requested reference areas and dedicated lenses", asyn
   await page.goto("#/browse/kind/trait");
   await expect(page.getByRole("heading", { name: "Traits", level: 1 })).toBeVisible();
   await expect(page.locator(".entry-list li").first()).toBeVisible();
-  for (const [slug, title] of [["item", "Items"], ["prestige_class", "Prestige classes"], ["rule", "Rules"]]) {
+  for (const [slug, title] of [["item", "Items"], ["prestige_class", "Prestige classes"]]) {
     await page.goto(`#/browse/kind/${slug}`);
     await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
     await expect(page.locator(slug === "rule" ? ".tree" : ".entry-list li").first()).toBeVisible();
@@ -120,7 +123,7 @@ test("book contents keep their curated order and synchronize selection with hist
   expect(book).toBeTruthy();
   const first = book.chapters.find((n: any) => n.children.length > 0);
   await page.goto("#/browse/books");
-  await page.getByRole("link", { name: /Core Rulebook/ }).click();
+  await openBookContents(page, "Core Rulebook");
   await expect(page.getByRole("navigation", { name: /Contents of Core Rulebook/ })).toBeVisible();
   await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   const tocTitles = await page.locator(".toc-top > .toc-branch > .toc-details > summary .toc-title").allInnerTexts();
@@ -130,7 +133,7 @@ test("book contents keep their curated order and synchronize selection with hist
   await expect.poll(() => new URL(page.url()).hash).toContain("#/browse/book/core-rulebook?c=");
   const selectedUrl = page.url();
   await page.goBack();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/books");
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/books");
   await page.goForward();
   await expect.poll(() => page.url()).toBe(selectedUrl);
 

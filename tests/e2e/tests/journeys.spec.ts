@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { installLibrary, waitControlled, waitResults } from "./helpers";
+import { openBookContents, installLibrary, waitControlled, waitResults } from "./helpers";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, context }) => {
   await context.setOffline(true);
 });
 
-test("Home search saves a collection and reopens its bookmark offline", async ({ page }) => {
+test("Home search opens a matched rule section and keeps stars usable offline", async ({ page }) => {
   await expect(page.locator("#home-title")).toBeVisible();
 
   const primary = page.getByRole("navigation", { name: "Primary" });
@@ -39,6 +39,7 @@ test("Home search saves a collection and reopens its bookmark offline", async ({
   expect(ruleTargets.slice(0, 3)).toContain("core-rulebook/rules/combat/special-attacks");
   await page.locator(".results .hit-link").first().click();
   await expect(page.locator(".rich")).toContainText(/grappl/i);
+  await expect(page).toHaveURL(/special-attacks\?a=/);
   await primary.getByRole("link", { name: "Browse" }).click();
   await page.locator(".header-search #search-input").fill("fireball");
   await page.locator(".header-search #search-input").press("Enter");
@@ -48,10 +49,6 @@ test("Home search saves a collection and reopens its bookmark offline", async ({
 
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
-  await page.locator(".picker summary").click();
-  await page.locator("#new-collection-entry").fill("Campaign research");
-  await page.getByRole("button", { name: "Create and add" }).click();
-  await expect(page.locator(".picker .check", { hasText: "Campaign research" }).locator("input")).toBeChecked();
 
   await primary.getByRole("link", { name: "Home" }).click();
   const preview = page.locator(".home-bookmarks");
@@ -61,11 +58,8 @@ test("Home search saves a collection and reopens its bookmark offline", async ({
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 
   await primary.getByRole("link", { name: "Home" }).click();
-  await page.locator("section[aria-labelledby=home-bookmarks]").getByRole("link", { name: "Open bookmarks" }).click();
-  await expect(page.locator(".collection-list")).toContainText("Campaign research");
-  await page.locator("a.collection-link", { hasText: "Campaign research" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Campaign research" })).toBeVisible();
-  await expect(page.locator(".bm")).toContainText("Fireball");
+  await preview.getByRole("button", { name: "Unstar Fireball" }).click();
+  await expect(preview.getByRole("link", { name: /Fireball/ })).toHaveCount(0);
 });
 
 test("Browse connects races, class options, spell levels, and reference categories", async ({ page }) => {
@@ -88,7 +82,7 @@ test("Browse connects races, class options, spell levels, and reference categori
   // Class options are reached through the Books navigation and the actual book contents.
   const primary = page.getByRole("navigation", { name: "Primary" });
   await primary.getByRole("link", { name: "Books" }).click();
-  await page.locator(".book-card").filter({ has: page.locator(".cat-name", { hasText: /^Ultimate Magic$/ }) }).click();
+  await openBookContents(page, "Ultimate Magic");
   const classOptions = page.locator(".toc-top > .toc-branch > .toc-details").filter({
     has: page.locator("summary", { hasText: "Spellcasting Class Options" }),
   });
@@ -106,6 +100,9 @@ test("Browse connects races, class options, spell levels, and reference categori
   await category("Classes").click();
   await page.locator(".entry-list").getByRole("link", { name: classEntry.title, exact: true }).click();
   await page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ }).waitFor();
+  await page.locator(".rel-disclosure > summary").click();
+  const archetypeGroup = page.locator(".rel-group").filter({ has: page.getByRole("link", { name: archetype.title, exact: true }) });
+  if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
   await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: archetype.title })).toBeVisible();
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /An archetype of/ })).toBeVisible();
@@ -133,13 +130,7 @@ test("Browse connects races, class options, spell levels, and reference categori
     await expect(page.getByRole("heading", { level: 1, name: entryTitle })).toBeVisible();
     await primary.getByRole("link", { name: "Browse" }).click();
   }
-  await category("Rules").click();
-  await expect(page.locator(".tree")).toBeVisible();
-  const rule = page.locator(".tree a").first();
-  await expect(rule).toBeVisible();
-  const ruleTitle = (await rule.innerText()).trim();
-  await rule.click();
-  await expect(page.getByRole("heading", { level: 1, name: ruleTitle })).toBeVisible();
+  await expect(category("Rules")).toHaveCount(0);
 });
 
 test("Books navigation opens a rule and keeps previous and next reading usable", async ({ page }) => {
@@ -148,7 +139,7 @@ test("Books navigation opens a rule and keeps previous and next reading usable",
   expect(book).toBeTruthy();
 
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Books" }).click();
-  await page.getByRole("link", { name: /Core Rulebook/ }).click();
+  await openBookContents(page, "Core Rulebook");
   await expect(page.getByRole("navigation", { name: /Contents of Core Rulebook/ })).toBeVisible();
   await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
 

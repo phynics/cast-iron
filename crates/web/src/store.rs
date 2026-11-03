@@ -28,6 +28,7 @@ pub const COLLECTIONS: &str = "collections";
 pub const KEY_ACTIVE_LIBRARY: &str = "active_library";
 pub const KEY_PENDING_INSTALL: &str = "pending_install";
 pub const KEY_THEME: &str = "theme";
+pub const KEY_DISABLED_BOOKS: &str = "disabled_books";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {
@@ -358,6 +359,15 @@ pub async fn theme_preference() -> Result<Option<String>> {
 
 pub async fn set_theme_preference(theme: &str) -> Result<()> {
     set_meta(KEY_THEME, &theme).await
+}
+
+/// Canonical book IDs hidden from discovery. An absent value means every installed book is active.
+pub async fn disabled_books() -> Result<std::collections::BTreeSet<String>> {
+    Ok(get_meta(KEY_DISABLED_BOOKS).await?.unwrap_or_default())
+}
+
+pub async fn set_disabled_books(ids: &std::collections::BTreeSet<String>) -> Result<()> {
+    set_meta(KEY_DISABLED_BOOKS, ids).await
 }
 
 // ---- bookmarks ------------------------------------------------------------------------------

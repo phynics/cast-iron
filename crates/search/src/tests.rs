@@ -129,6 +129,85 @@ fn ids(idx: &SearchIndex, query: &Query) -> Vec<String> {
 }
 
 #[test]
+fn eligible_ids_are_applied_before_limit_for_text_and_empty_queries() {
+    let idx = build(vec![
+        doc("item:a", "Grapple Hook", "item", "core", "A hook.", &[]),
+        doc(
+            "rule:b",
+            "Special Attacks",
+            "rule",
+            "core",
+            "Grapple checks use CMB.",
+            &[],
+        ),
+        doc("item:c", "Grappling Hook", "item", "core", "A tool.", &[]),
+    ]);
+    let eligible = |id: &str| id == "rule:b";
+    let mut query = q("grapple");
+    query.limit = 1;
+    assert_eq!(idx.search_eligible(&query, eligible)[0].id, "rule:b");
+
+    query.text.clear();
+    query.filters.kinds.push("item".into());
+    assert!(idx.search_eligible(&query, eligible).is_empty());
+    query.filters.kinds.push("rule".into());
+    assert_eq!(idx.search_eligible(&query, eligible)[0].id, "rule:b");
+}
+
+#[test]
+fn eligible_facets_exclude_disabled_documents() {
+    let idx = build(vec![
+        doc(
+            "spell:a",
+            "Fire",
+            "spell",
+            "core",
+            "",
+            &[("school", "evocation")],
+        ),
+        doc(
+            "spell:b",
+            "Frost",
+            "spell",
+            "core",
+            "",
+            &[("school", "abjuration")],
+        ),
+    ]);
+    let eligible = |id: &str| id == "spell:a";
+    assert_eq!(idx.facet_fields_eligible(eligible), vec!["school"]);
+    assert_eq!(
+        idx.facet_values_eligible("school", eligible),
+        vec![("evocation".into(), 1)]
+    );
+}
+
+#[test]
+fn exact_rule_section_beats_an_item_title_prefix_in_general_search() {
+    let mut rule = doc(
+        "rule:special-attacks",
+        "Special Attacks",
+        "rule",
+        "core",
+        "Grapple checks use CMB.",
+        &[],
+    );
+    rule.aliases.push("Grapple".into());
+    let idx = build(vec![
+        doc(
+            "item:grapple",
+            "Grapple Hook",
+            "item",
+            "core",
+            "A hook.",
+            &[],
+        ),
+        rule,
+    ]);
+    assert_eq!(ids(&idx, &q("grapple"))[0], "rule:special-attacks");
+}
+
+#[test]
 fn normalization() {
     assert_eq!(normalize("Will-o'-Wisp"), "will o wisp");
     assert_eq!(normalize("Dragon\u{2019}s Breath"), "dragons breath");

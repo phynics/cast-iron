@@ -85,3 +85,23 @@ Product context: `PRODUCT.md`. Data findings and counts: `docs/research/relation
 - A `grapple` query on the published iPhone build initially surfaced equipment and feats. Quick search scopes expose Rules text directly. Rule body headings feed the existing search alias field, so a section such as Grapple can surface its containing Special Attacks entry. The index layout stays at version 1, and content stays at schema 3. This improves discovery without claiming complete prerequisite or character-build logic.
 - App-shell and rules-library updates are separate lifecycles. Settings checks both; a waiting shell requires Reload, while a library replacement requires Download update. The shell-update acceptance test changes the service-worker version through a test-server hook, verifies it waits, then confirms activation preserves the active library and Home bookmarks offline. The hook is not shipped with the app.
 - The iPhone report records the published five-tab build, not the replacement navigation. Device-driver failures left Home Screen installation, offline standalone relaunch, and the full character workflow unverified on the simulator. Automated local results are recorded separately.
+
+## Planned simplification after the reference walkthrough, 2026-11-03
+
+These are accepted product directions awaiting implementation in [the UI task list](ui-tasks.md). They supersede earlier decisions to retain the bookmark and collection manager. They do not describe shipped behavior.
+
+- Browse and Books remain separate primary tabs. Remove the shared browsing-mode picker. Category discovery belongs in Browse. Rules belong in the book directory and search, with existing entry links and starred rules still readable.
+- Use the AoN Rules source directory as the baseline for book, topic, and subsection discovery. This is a navigation and mapping baseline, not evidence of printed chapter order or permission to import new content. Preserve the user's original-order requirement and current evidence warnings.
+- Remove collections and the separate bookmark manager. Home lists starred entries and lets the user open or unstar them. Preserve existing stars when retiring collection UI and routes.
+- Add book activation controls. The proposed default is a persistent filter over downloaded content rather than deletion. Detailed filtering and saved-entry behavior are documented as working defaults in UI-03, not additional confirmed user requirements.
+
+
+## Reference simplification implementation
+
+- Active-book preferences store disabled canonical book IDs under the existing metadata key `disabled_books`. Absence and an empty set mean all books active. Unknown disabled IDs survive updates, and newly added books default active. Disabling does not remove cache files or stars.
+- `Library` keeps canonical reads. `Discovery` snapshots eligible IDs using book placement, with an explicit catalog-source fallback for older libraries or missing placement. Ordinary discovery uses this scope before counting, limiting, or projecting relations and spell lists. Search publication filters still describe attribution sources, which can differ from book placement.
+- Library loading reads preferences and placement before rendering discovery. A corrupt preference value offers Retry or Reset active books, preserving downloaded content and stars. Toggle writes publish a revision only after persistence. That revision rebuilds discovery screens, while Books remains mounted to preserve its controls and open sections.
+- Collection UI and manager routes are retired. Existing stored records remain readable, and each unique starred EntryId appears on Home. Missing entries keep their saved title and an Unstar action. Legacy saved-entry URLs recover to Home, and the old Rules-category URL recovers to Books.
+- Article contents and heading-aware search use existing typed headings and entry anchors. Matching rule results read installed shards, and exact named rule sections rank ahead of longer title prefixes. Search format 1 and content schema 3 are unchanged. Article contents uses stylesheet classes because inline indentation violated the strict CSP in the first browser run. Clicking an already-current section explicitly scrolls to it.
+- Primary rule text precedes relationship discovery. Compact jumps retain research access. Prestige requirements resolve unambiguous feat and skill names only inside their stated sections, with punctuation normalized. Duplicate names remain text instead of choosing a source silently.
+- AoN's Rules directory is a navigation baseline and a reproducible mapping inventory. Printed-order evidence and unresolved-section reporting remain separate. No new rule content or source was imported.

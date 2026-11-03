@@ -1,0 +1,4028 @@
+{
+  "evidence": "site_navigation_not_printed_contents",
+  "mapping_method": "repeatable normalized exact source title matching against catalog.json, then exact section titles within that book in books.json; no fuzzy or cross-book assignments",
+  "sources": [
+    {
+      "aon_heading_id": "FTT_Rules71",
+      "aon_label": "PRPG Core Rulebook",
+      "canonical_book_ids": [
+        "core-rulebook"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "PRPG Core Rulebook",
+          "canonical_title": "Core Rulebook",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Basics",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "How to Play",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=81"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/getting-started/common-terms"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Common Terms",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=82"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Character Creation",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=83"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/getting-started/ability-scores"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Ability Scores",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=84"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/classes/character-advancement"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Character Advancement",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=85"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/additional-rules/alignment"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Alignment",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=113"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Definitions of Terms",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=346"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=41"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/combat"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Combat",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/how-combat-works"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "How Combat Works",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=87"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/combat-statistics"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Combat Statistics",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=88"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/actions-in-combat"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Actions in Combat",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=128"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/injury-and-death"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Injury and Death",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=164"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/movement/position/and-distance"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Movement, Position, and Distance",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=173"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/big-and-little-creatures-in-combat"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Big and Little Creatures in Combat",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=179"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/combat-modifiers"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Combat Modifiers",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=180"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/special-attacks"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Special Attacks",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=185"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/combat/special-initiative-actions"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Special Initiative Actions",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=199"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/glossary/conditions"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Conditions",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=413"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/glossary/special-abilities",
+                "core-rulebook/rules/magic/special-abilities"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Special Abilities",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=414"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=44"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/environment"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Environment",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/dungeons"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Dungeons",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=263"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/traps"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Traps",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=273"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/wilderness"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=290"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/urban-adventures"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Urban Adventures",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=305"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/weather"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Weather",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=315"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/the-planes"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "The Planes",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=320"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/environment/environmental-rules"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Environmental Rules",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=323"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=48"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/additional-rules/exploration"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Exploration",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/additional-rules/movement"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Movement",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=119"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Vision and Light",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=124"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Breaking and Entering",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=125"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=50"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/gamemastering"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Gamemastering",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Basics from the Core Rulebook",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=247"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/gamemastering/creating-npcs"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Creating NPCs",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=353"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=51"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Items",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/equipment"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Equipment",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=105"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/magic-items",
+                "core-rulebook/rules/magic-items/magic-items"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Magic Items",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=365"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=65"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/magic"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Magic",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Magic Basics",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=202"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/magic/casting-spells"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Casting Spells",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=203"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/magic/spell-descriptions"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spell Descriptions",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=212"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/magic/arcane-spells"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Arcane Spells",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=233"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/magic/divine-spells"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Divine Spells",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=242"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/glossary/special-abilities",
+                "core-rulebook/rules/magic/special-abilities"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Special Abilities",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=246"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=68"
+        },
+        {
+          "candidate_entry_ids": [
+            "core-rulebook/rules/using-skills/skills"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Skills",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/using-skills/acquiring-skills"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Acquiring Skills",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=86"
+            },
+            {
+              "candidate_entry_ids": [
+                "core-rulebook/rules/using-skills/skill-descriptions"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Skill Descriptions",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=341"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=79"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules152",
+      "aon_label": "Pathfinder RPG Bestiary",
+      "canonical_book_ids": [
+        "bestiary"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Pathfinder RPG Bestiary",
+          "canonical_title": "Bestiary",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Bestiary",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "bestiary/rules/introduction",
+                "bestiary/rules/introduction/introduction"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Introduction",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=2449"
+            },
+            {
+              "candidate_entry_ids": [
+                "bestiary/rules/monster-creation",
+                "bestiary/rules/monster-creation/monster-creation"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Monster Creation",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=2452"
+            },
+            {
+              "candidate_entry_ids": [
+                "bestiary/rules/monster-advancement",
+                "bestiary/rules/monster-advancement/monster-advancement"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Monster Advancement",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=2463"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Monsters as PCs",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2476"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2448"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules78",
+      "aon_label": "Pathfinder #28: The Infernal Syndrome",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Possession",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Possession Feats",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2537"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Possession Actions",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2538"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Exorcism",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2539"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2536"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules101",
+      "aon_label": "GameMastery Guide",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "GameMastery Guide",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Getting Started",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=455"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Running a Game",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=514"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Player Characters",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=574"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Nonplayer Characters",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=625"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Rewards",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=662"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Creating a World",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=708"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Adventures",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=782"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Advanced Topics",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=870"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "NPC Gallery",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=936"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=454"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "High or Low Magic?",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Reducing Magic with Rules Adjustments",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=673"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Reducing Magic with World Description",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=674"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Magic Shops",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=675"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Types of Magic Shops",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=676"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Trouble Items",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=677"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Story Items",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=678"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=672"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules109",
+      "aon_label": "Advanced Player's Guide",
+      "canonical_book_ids": [
+        "advanced-players-guide"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Advanced Player's Guide",
+          "canonical_title": "Advanced Player's Guide",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Basics",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "advanced-players-guide/rules/races/racial-traits"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Racial Traits",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=438"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Racial Favored Class Bonus",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=439"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Archetypes",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=440"
+            },
+            {
+              "candidate_entry_ids": [
+                "advanced-players-guide/rules/new-rules/traits"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Traits",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=450"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=42"
+        },
+        {
+          "candidate_entry_ids": [
+            "advanced-players-guide/rules/new-rules/combat-maneuvers"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Combat Maneuvers",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Dirty Trick",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=441"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Drag",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=442"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Reposition",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=443"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Steal",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=444"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=46"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Optional Rule Systems",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "advanced-players-guide/rules/new-rules/hero-points"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Hero Points",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=445"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=72"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules134",
+      "aon_label": "Ultimate Magic",
+      "canonical_book_ids": [
+        "ultimate-magic"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Ultimate Magic",
+          "canonical_title": "Ultimate Magic",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [
+            "ultimate-magic/rules/mastering-magic",
+            "ultimate-magic/rules/mastering-magic/mastering-magic"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mastering Magic",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/mastering-magic/spellblights"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spellblights",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=940"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/mastering-magic/spell-duels"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spell Duels",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=948"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/mastering-magic/binding-outsiders"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Binding Outsiders",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=953"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/mastering-magic/building-and-modifying-constructs"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Building and Modifying Constructs",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=974"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/mastering-magic/designing-spells"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Designing Spells",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=983"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=939"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Gaining Spellblights",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Optional Ways to Acquire Spellblights",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=942"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Removing Spellblights",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=943"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Description of Spellblights",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=944"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=941"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-magic/rules/words-of-power"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Words of Power",
+          "status": "matched_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Optional",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1017"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/becoming-a-wordcaster"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Becoming a Wordcaster",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1018"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/target-words"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Target Words",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1025"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Effect Word Descriptions",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1026"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/meta-words"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Meta Words",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1062"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Words of Power in the Worlds",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1063"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/introducing-words-of-power"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Introducing Words of Power",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1064"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-magic/rules/words-of-power/class-word-lists"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Class Word Lists",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1596"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1016"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules145",
+      "aon_label": "Ultimate Combat",
+      "canonical_book_ids": [
+        "ultimate-combat"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Ultimate Combat",
+          "canonical_title": "Ultimate Combat",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Optional Rule Systems",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/variant-rules/armor-as-damage-reduction"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Armor as Damage Reduction",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1123"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/variant-rules/called-shots"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Called Shots",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1127"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/variant-rules/piecemeal-armor"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Piecemeal Armor",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1141"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/variant-rules/wounds-and-vigor"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wounds and Vigor",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1155"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=74"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-combat/rules/mastering-combat",
+            "ultimate-combat/rules/mastering-combat/mastering-combat"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mastering Combat",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/mastering-combat/firearms"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Firearms",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1066"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/mastering-combat/duels"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Duels",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1073"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/mastering-combat/performance-combat"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Performance Combat",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1082"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/mastering-combat/siege-engines"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Siege Engines",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1095"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1065"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-combat/rules/vehicles",
+            "ultimate-combat/rules/vehicles/vehicles"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Vehicles",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/vehicle-basics"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Vehicle Basics",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1107"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/full-vehicle-rules"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Full Vehicle Rules",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1108"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/vehicle-statistics"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Vehicle Statistics",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1119"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/land-vehicles"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Land Vehicles",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1120"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/water-vehicles"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Water Vehicles",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1121"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-combat/rules/vehicles/air-vehicles"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Air Vehicles",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1122"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1106"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules154",
+      "aon_label": "Advanced Race Guide",
+      "canonical_book_ids": [
+        "advanced-race-guide"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Advanced Race Guide",
+          "canonical_title": "Advanced Race Guide",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [
+            "advanced-race-guide/rules/race-builder",
+            "advanced-race-guide/rules/race-builder/race-builder"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Race Builder",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "advanced-race-guide/rules/race-builder/race-examples"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Race Examples",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1164"
+            },
+            {
+              "candidate_entry_ids": [
+                "advanced-race-guide/rules/race-builder/creating-a-new-race"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Creating a New Race",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1165"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1163"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Appendix 1: Age",
+          "status": "unmapped",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2544"
+        },
+        {
+          "candidate_entry_ids": [
+            "advanced-race-guide/rules/age/height-and-weight/appendix-2-height-and-weight"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Appendix 2: Height and Weight",
+          "status": "matched_exact_title",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2545"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules217",
+      "aon_label": "Ultimate Campaign",
+      "canonical_book_ids": [
+        "ultimate-campaign"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Ultimate Campaign",
+          "canonical_title": "Ultimate Campaign",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [
+            "ultimate-campaign/rules/character-background",
+            "ultimate-campaign/rules/character-background/character-background"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Character Background",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "How to Create a Background",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1222"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Using this Section",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1225"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/character-background/early-life"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Early Life",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1226"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/character-background/adolescence"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Adolescence",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1234"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/character-background/adulthood"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Adulthood",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1240"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1244"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1221"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-campaign/rules/downtime",
+            "ultimate-campaign/rules/downtime/downtime"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Downtime",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Downtime Overview",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1246"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/downtime-activities"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Downtime Activities",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1261"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/managers"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Managers",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1282"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/rooms-and-teams"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Rooms and Teams",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1285"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/buildings-and-organizations"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Buildings and Organizations",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1295"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/downtime/downtime-events"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Downtime Events",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1298"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1245"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Construction Examples",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Reading a Unit Statblock",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1287"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Restrictions on Earnings",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1288"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Construction and Recruitment Delays",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1289"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Moving an Organization",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1290"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Rooms",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1291"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Teams",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1294"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1286"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-campaign/rules/campaign-systems",
+            "ultimate-campaign/rules/campaign-systems/campaign-systems"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Campaign Systems",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Alignments",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1327"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/bargaining"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Bargaining",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1339"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/companions"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Companions",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1352"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/exploration"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Exploration",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1376"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/honor"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Honor",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1402"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/investment"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Investment",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1413"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/lineage"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Lineage",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1416"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/magic-item-creation"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Magic Item Creation",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1426"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/relationships"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Relationships",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1441"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/reputation-and-fame"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Reputation and Fame",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1450"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/retirement"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Retirement",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1464"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/retraining"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Retraining",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1469"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/taxation"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Taxation",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1480"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/campaign-systems/young-characters"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Young Characters",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1484"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1326"
+        },
+        {
+          "candidate_entry_ids": [
+            "ultimate-campaign/rules/kingdoms-and-war",
+            "ultimate-campaign/rules/kingdoms-and-war/kingdoms-and-war"
+          ],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Kingdoms and War",
+          "status": "ambiguous_exact_title",
+          "subsections": [
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/kingdoms-and-war/kingdom-building"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Kingdom Building",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1489"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/kingdoms-and-war/optional-kingdom-rules"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Optional Kingdom Rules",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1547"
+            },
+            {
+              "candidate_entry_ids": [
+                "ultimate-campaign/rules/kingdoms-and-war/mass-combat"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mass Combat",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1565"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1488"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules235",
+      "aon_label": "Mythic Adventures",
+      "canonical_book_ids": [
+        "mythic-adventures"
+      ],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "matched_exact_title",
+      "title_aliases": [
+        {
+          "alias": "Mythic Adventures",
+          "canonical_title": "Mythic Adventures",
+          "evidence": "exact normalized title match against installed catalog.json"
+        }
+      ],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mythic Rules",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "What is Mythic?",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1609"
+            },
+            {
+              "candidate_entry_ids": [
+                "mythic-adventures/rules/mythic-heroes",
+                "mythic-adventures/rules/mythic-heroes/mythic-heroes"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mythic Heroes",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1613"
+            },
+            {
+              "candidate_entry_ids": [
+                "mythic-adventures/rules/mythic-feats"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mythic Feats",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1620"
+            },
+            {
+              "candidate_entry_ids": [
+                "mythic-adventures/rules/mythic-spells"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mythic Spells",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1621"
+            },
+            {
+              "candidate_entry_ids": [
+                "mythic-adventures/rules/mythic-game/running-a-mythic-game"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Running a Mythic Game",
+              "status": "matched_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1622"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mythic Magic Items",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1655"
+            },
+            {
+              "candidate_entry_ids": [
+                "mythic-adventures/rules/mythic-monsters",
+                "mythic-adventures/rules/mythic-monsters/mythic-monsters"
+              ],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Mythic Monsters",
+              "status": "ambiguous_exact_title",
+              "url": "https://aonprd.com/Rules.aspx?ID=1662"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1608"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Eternal Gaze",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Falling Stars",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1649"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "For Love of Sport",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1650"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Legacy of Earth",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1651"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "The Nascent Sphere",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1652"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Perilous Peaks",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1653"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Unexpected Travels",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1654"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1648"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules309",
+      "aon_label": "Heroes of the Wild",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Gamemastering",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Rooms",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2528"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Room Augmentations",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2529"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Teams",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2530"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Managers",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2531"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Buildings",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2532"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=56"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules306",
+      "aon_label": "Pathfinder Unchained",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Pathfinder Unchained",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Fractional Base Bonuses",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1726"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Staggered Advancement",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1730"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Background Skills",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1732"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Consolidated Skills",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1745"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Grouped Skills",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1824"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Alternate Crafting and Profession Rules",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1829"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Skill Unlocks",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1851"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Variant Multiclassing",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1852"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Alignment (Unchained)",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1874"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Removing Alignment",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1880"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Revised Action Economy",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1884"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Removing Iterative Attacks",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1893"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Stamina and Combat Tricks",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1901"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wound Thresholds",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1903"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Diseases and Poisons",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1909"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Simplified Spellcasting",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1923"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spell Alterations",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1928"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Esoteric Material Components",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1940"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Automatic Bonus Progression",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1950"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Innate Item Bonuses",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1961"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Scaling Items",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1966"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Dynamic Magic Item Creation",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1983"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Simple Monster Creation",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1997"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1725"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Miscellaneous Abilities",
+          "status": "unmapped",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=1823"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules318",
+      "aon_label": "Occult Adventures",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Occult Rules",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Occult Rituals",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1675"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Occult Skill Unlocks",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2062"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Auras",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2063"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Chakras",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2068"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Psychic Duels",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2070"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Possession",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2080"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Running an Occult Game",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2084"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1674"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Psychic Magic",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Components",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2060"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Undercasting Spells",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2061"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2059"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules349",
+      "aon_label": "Ultimate Intrigue",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mastering Intrigue",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Intrigue Systems",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1681"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Influence",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=1694"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Heists",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2145"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Leadership",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2162"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Nemeses",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2169"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Pursuit",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2178"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Research",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2192"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spells of Intrigue",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2199"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Social Conflicts",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2216"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Verbal Duels",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2234"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1680"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Skills in Conflict",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Bluff",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2248"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Diplomacy",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2251"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Disguise",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2253"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Intimidate",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2254"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Perception and Stealth",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2255"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Sense Motive",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2256"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Replacing Opposed Rolls",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2257"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2247"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules355",
+      "aon_label": "Inner Sea Intrigue",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Gamemastering",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Intrigue Room Augmentations",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2533"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=59"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules364",
+      "aon_label": "Horror Adventures",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Horror Rules",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Horror Characters",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2259"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2258"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Reading a Madness Stat Block",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Curing Madness",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2323"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Horrific Madnesses",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2324"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2322"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "How to Scare Heroes",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "How to Scare Players",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2346"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2345"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules389",
+      "aon_label": "Adventurer's Guide",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Affiliations",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Affiliations for Adventuring Parties",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2367"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Afiliations for NPCs",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2368"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Rivals",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2369"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Abandoning Affiliations",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2370"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2366"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules420",
+      "aon_label": "Book of the Damned",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Items",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Infernal Contracts",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2371"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=67"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules421",
+      "aon_label": "Ultimate Wilderness",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Environment",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Wilderness Traps",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2445"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=49"
+        },
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mastering the Wild",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Discovery and Exploration",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2379"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "The First World",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2390"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Foraging and Salvaging",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2400"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Harvesting Poisons",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2403"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Hazards and Disasters",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2405"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Herbalism",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2416"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Spells of the Wild",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2417"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Trophies and Treasures",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2428"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Weather in the Wilderness",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2433"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Companions and Familiars",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2446"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2378"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules435",
+      "aon_label": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Items",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Relics",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2523"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=78"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules450",
+      "aon_label": "Planar Adventures",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Planar Adventures",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Planar Terrains",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2478"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Planar Races",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2479"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Traits of a Plane",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2480"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Role of the Divine",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2488"
+            },
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Building a Planar Campaign",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2498"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2477"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules473",
+      "aon_label": "Heroes of Golarion",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Mythic Occult Classes",
+          "status": "unmapped",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2543"
+        }
+      ]
+    },
+    {
+      "aon_heading_id": "FTT_Rules480",
+      "aon_label": "Pathfinder #144: Midwives to Death",
+      "canonical_book_ids": [],
+      "evidence": "normalized exact title match against installed catalog.json",
+      "status": "unmapped",
+      "title_aliases": [],
+      "topics": [
+        {
+          "candidate_entry_ids": [],
+          "depth": 0,
+          "evidence": "normalized exact title match against installed books.json entry nodes",
+          "label": "Gamemastering",
+          "status": "unmapped",
+          "subsections": [
+            {
+              "candidate_entry_ids": [],
+              "depth": 0,
+              "evidence": "normalized exact title match against installed books.json entry nodes",
+              "label": "Botanical Haunts",
+              "status": "unmapped",
+              "url": "https://aonprd.com/Rules.aspx?ID=2527"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=64"
+        }
+      ]
+    }
+  ],
+  "unmapped_sections": [
+    {
+      "label": "Basics",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=41"
+    },
+    {
+      "label": "How to Play",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=81"
+    },
+    {
+      "label": "Character Creation",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=83"
+    },
+    {
+      "label": "Definitions of Terms",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=346"
+    },
+    {
+      "label": "Special Abilities",
+      "source_label": "PRPG Core Rulebook",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=414"
+    },
+    {
+      "label": "Vision and Light",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=124"
+    },
+    {
+      "label": "Breaking and Entering",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=125"
+    },
+    {
+      "label": "Basics from the Core Rulebook",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=247"
+    },
+    {
+      "label": "Items",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=65"
+    },
+    {
+      "label": "Magic Items",
+      "source_label": "PRPG Core Rulebook",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=365"
+    },
+    {
+      "label": "Magic Basics",
+      "source_label": "PRPG Core Rulebook",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=202"
+    },
+    {
+      "label": "Special Abilities",
+      "source_label": "PRPG Core Rulebook",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=246"
+    },
+    {
+      "label": "Bestiary",
+      "source_label": "Pathfinder RPG Bestiary",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2448"
+    },
+    {
+      "label": "Introduction",
+      "source_label": "Pathfinder RPG Bestiary",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=2449"
+    },
+    {
+      "label": "Monster Creation",
+      "source_label": "Pathfinder RPG Bestiary",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=2452"
+    },
+    {
+      "label": "Monster Advancement",
+      "source_label": "Pathfinder RPG Bestiary",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=2463"
+    },
+    {
+      "label": "Monsters as PCs",
+      "source_label": "Pathfinder RPG Bestiary",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2476"
+    },
+    {
+      "label": "Possession",
+      "source_label": "Pathfinder #28: The Infernal Syndrome",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2536"
+    },
+    {
+      "label": "Possession Feats",
+      "source_label": "Pathfinder #28: The Infernal Syndrome",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2537"
+    },
+    {
+      "label": "Possession Actions",
+      "source_label": "Pathfinder #28: The Infernal Syndrome",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2538"
+    },
+    {
+      "label": "Exorcism",
+      "source_label": "Pathfinder #28: The Infernal Syndrome",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2539"
+    },
+    {
+      "label": "GameMastery Guide",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=454"
+    },
+    {
+      "label": "Getting Started",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=455"
+    },
+    {
+      "label": "Running a Game",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=514"
+    },
+    {
+      "label": "Player Characters",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=574"
+    },
+    {
+      "label": "Nonplayer Characters",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=625"
+    },
+    {
+      "label": "Rewards",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=662"
+    },
+    {
+      "label": "Creating a World",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=708"
+    },
+    {
+      "label": "Adventures",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=782"
+    },
+    {
+      "label": "Advanced Topics",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=870"
+    },
+    {
+      "label": "NPC Gallery",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=936"
+    },
+    {
+      "label": "High or Low Magic?",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=672"
+    },
+    {
+      "label": "Reducing Magic with Rules Adjustments",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=673"
+    },
+    {
+      "label": "Reducing Magic with World Description",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=674"
+    },
+    {
+      "label": "Magic Shops",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=675"
+    },
+    {
+      "label": "Types of Magic Shops",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=676"
+    },
+    {
+      "label": "Trouble Items",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=677"
+    },
+    {
+      "label": "Story Items",
+      "source_label": "GameMastery Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=678"
+    },
+    {
+      "label": "Basics",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=42"
+    },
+    {
+      "label": "Racial Favored Class Bonus",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=439"
+    },
+    {
+      "label": "Archetypes",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=440"
+    },
+    {
+      "label": "Dirty Trick",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=441"
+    },
+    {
+      "label": "Drag",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=442"
+    },
+    {
+      "label": "Reposition",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=443"
+    },
+    {
+      "label": "Steal",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=444"
+    },
+    {
+      "label": "Optional Rule Systems",
+      "source_label": "Advanced Player's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=72"
+    },
+    {
+      "label": "Mastering Magic",
+      "source_label": "Ultimate Magic",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=939"
+    },
+    {
+      "label": "Gaining Spellblights",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=941"
+    },
+    {
+      "label": "Optional Ways to Acquire Spellblights",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=942"
+    },
+    {
+      "label": "Removing Spellblights",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=943"
+    },
+    {
+      "label": "Description of Spellblights",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=944"
+    },
+    {
+      "label": "Optional",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1017"
+    },
+    {
+      "label": "Effect Word Descriptions",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1026"
+    },
+    {
+      "label": "Words of Power in the Worlds",
+      "source_label": "Ultimate Magic",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1063"
+    },
+    {
+      "label": "Optional Rule Systems",
+      "source_label": "Ultimate Combat",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=74"
+    },
+    {
+      "label": "Mastering Combat",
+      "source_label": "Ultimate Combat",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1065"
+    },
+    {
+      "label": "Vehicles",
+      "source_label": "Ultimate Combat",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1106"
+    },
+    {
+      "label": "Race Builder",
+      "source_label": "Advanced Race Guide",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1163"
+    },
+    {
+      "label": "Appendix 1: Age",
+      "source_label": "Advanced Race Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2544"
+    },
+    {
+      "label": "Character Background",
+      "source_label": "Ultimate Campaign",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1221"
+    },
+    {
+      "label": "How to Create a Background",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1222"
+    },
+    {
+      "label": "Using this Section",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1225"
+    },
+    {
+      "label": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1244"
+    },
+    {
+      "label": "Downtime",
+      "source_label": "Ultimate Campaign",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1245"
+    },
+    {
+      "label": "Downtime Overview",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1246"
+    },
+    {
+      "label": "Construction Examples",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1286"
+    },
+    {
+      "label": "Reading a Unit Statblock",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1287"
+    },
+    {
+      "label": "Restrictions on Earnings",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1288"
+    },
+    {
+      "label": "Construction and Recruitment Delays",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1289"
+    },
+    {
+      "label": "Moving an Organization",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1290"
+    },
+    {
+      "label": "Rooms",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1291"
+    },
+    {
+      "label": "Teams",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1294"
+    },
+    {
+      "label": "Campaign Systems",
+      "source_label": "Ultimate Campaign",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1326"
+    },
+    {
+      "label": "Alignments",
+      "source_label": "Ultimate Campaign",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1327"
+    },
+    {
+      "label": "Kingdoms and War",
+      "source_label": "Ultimate Campaign",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1488"
+    },
+    {
+      "label": "Mythic Rules",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1608"
+    },
+    {
+      "label": "What is Mythic?",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1609"
+    },
+    {
+      "label": "Mythic Heroes",
+      "source_label": "Mythic Adventures",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1613"
+    },
+    {
+      "label": "Mythic Magic Items",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1655"
+    },
+    {
+      "label": "Mythic Monsters",
+      "source_label": "Mythic Adventures",
+      "status": "ambiguous_exact_title",
+      "url": "https://aonprd.com/Rules.aspx?ID=1662"
+    },
+    {
+      "label": "Eternal Gaze",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1648"
+    },
+    {
+      "label": "Falling Stars",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1649"
+    },
+    {
+      "label": "For Love of Sport",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1650"
+    },
+    {
+      "label": "Legacy of Earth",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1651"
+    },
+    {
+      "label": "The Nascent Sphere",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1652"
+    },
+    {
+      "label": "Perilous Peaks",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1653"
+    },
+    {
+      "label": "Unexpected Travels",
+      "source_label": "Mythic Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1654"
+    },
+    {
+      "label": "Gamemastering",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=56"
+    },
+    {
+      "label": "Wilderness Rooms",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2528"
+    },
+    {
+      "label": "Wilderness Room Augmentations",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2529"
+    },
+    {
+      "label": "Wilderness Teams",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2530"
+    },
+    {
+      "label": "Wilderness Managers",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2531"
+    },
+    {
+      "label": "Wilderness Buildings",
+      "source_label": "Heroes of the Wild",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2532"
+    },
+    {
+      "label": "Pathfinder Unchained",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1725"
+    },
+    {
+      "label": "Fractional Base Bonuses",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1726"
+    },
+    {
+      "label": "Staggered Advancement",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1730"
+    },
+    {
+      "label": "Background Skills",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1732"
+    },
+    {
+      "label": "Consolidated Skills",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1745"
+    },
+    {
+      "label": "Grouped Skills",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1824"
+    },
+    {
+      "label": "Alternate Crafting and Profession Rules",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1829"
+    },
+    {
+      "label": "Skill Unlocks",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1851"
+    },
+    {
+      "label": "Variant Multiclassing",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1852"
+    },
+    {
+      "label": "Alignment (Unchained)",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1874"
+    },
+    {
+      "label": "Removing Alignment",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1880"
+    },
+    {
+      "label": "Revised Action Economy",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1884"
+    },
+    {
+      "label": "Removing Iterative Attacks",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1893"
+    },
+    {
+      "label": "Stamina and Combat Tricks",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1901"
+    },
+    {
+      "label": "Wound Thresholds",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1903"
+    },
+    {
+      "label": "Diseases and Poisons",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1909"
+    },
+    {
+      "label": "Simplified Spellcasting",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1923"
+    },
+    {
+      "label": "Spell Alterations",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1928"
+    },
+    {
+      "label": "Esoteric Material Components",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1940"
+    },
+    {
+      "label": "Automatic Bonus Progression",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1950"
+    },
+    {
+      "label": "Innate Item Bonuses",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1961"
+    },
+    {
+      "label": "Scaling Items",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1966"
+    },
+    {
+      "label": "Dynamic Magic Item Creation",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1983"
+    },
+    {
+      "label": "Simple Monster Creation",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1997"
+    },
+    {
+      "label": "Miscellaneous Abilities",
+      "source_label": "Pathfinder Unchained",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1823"
+    },
+    {
+      "label": "Occult Rules",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1674"
+    },
+    {
+      "label": "Occult Rituals",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1675"
+    },
+    {
+      "label": "Occult Skill Unlocks",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2062"
+    },
+    {
+      "label": "Auras",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2063"
+    },
+    {
+      "label": "Chakras",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2068"
+    },
+    {
+      "label": "Psychic Duels",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2070"
+    },
+    {
+      "label": "Possession",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2080"
+    },
+    {
+      "label": "Running an Occult Game",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2084"
+    },
+    {
+      "label": "Psychic Magic",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2059"
+    },
+    {
+      "label": "Components",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2060"
+    },
+    {
+      "label": "Undercasting Spells",
+      "source_label": "Occult Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2061"
+    },
+    {
+      "label": "Mastering Intrigue",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1680"
+    },
+    {
+      "label": "Intrigue Systems",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1681"
+    },
+    {
+      "label": "Influence",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=1694"
+    },
+    {
+      "label": "Heists",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2145"
+    },
+    {
+      "label": "Leadership",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2162"
+    },
+    {
+      "label": "Nemeses",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2169"
+    },
+    {
+      "label": "Pursuit",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2178"
+    },
+    {
+      "label": "Research",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2192"
+    },
+    {
+      "label": "Spells of Intrigue",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2199"
+    },
+    {
+      "label": "Social Conflicts",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2216"
+    },
+    {
+      "label": "Verbal Duels",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2234"
+    },
+    {
+      "label": "Skills in Conflict",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2247"
+    },
+    {
+      "label": "Bluff",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2248"
+    },
+    {
+      "label": "Diplomacy",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2251"
+    },
+    {
+      "label": "Disguise",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2253"
+    },
+    {
+      "label": "Intimidate",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2254"
+    },
+    {
+      "label": "Perception and Stealth",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2255"
+    },
+    {
+      "label": "Sense Motive",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2256"
+    },
+    {
+      "label": "Replacing Opposed Rolls",
+      "source_label": "Ultimate Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2257"
+    },
+    {
+      "label": "Gamemastering",
+      "source_label": "Inner Sea Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=59"
+    },
+    {
+      "label": "Intrigue Room Augmentations",
+      "source_label": "Inner Sea Intrigue",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2533"
+    },
+    {
+      "label": "Horror Rules",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2258"
+    },
+    {
+      "label": "Horror Characters",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2259"
+    },
+    {
+      "label": "Reading a Madness Stat Block",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2322"
+    },
+    {
+      "label": "Curing Madness",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2323"
+    },
+    {
+      "label": "Horrific Madnesses",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2324"
+    },
+    {
+      "label": "How to Scare Heroes",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2345"
+    },
+    {
+      "label": "How to Scare Players",
+      "source_label": "Horror Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2346"
+    },
+    {
+      "label": "Affiliations",
+      "source_label": "Adventurer's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2366"
+    },
+    {
+      "label": "Affiliations for Adventuring Parties",
+      "source_label": "Adventurer's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2367"
+    },
+    {
+      "label": "Afiliations for NPCs",
+      "source_label": "Adventurer's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2368"
+    },
+    {
+      "label": "Rivals",
+      "source_label": "Adventurer's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2369"
+    },
+    {
+      "label": "Abandoning Affiliations",
+      "source_label": "Adventurer's Guide",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2370"
+    },
+    {
+      "label": "Items",
+      "source_label": "Book of the Damned",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=67"
+    },
+    {
+      "label": "Infernal Contracts",
+      "source_label": "Book of the Damned",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2371"
+    },
+    {
+      "label": "Environment",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=49"
+    },
+    {
+      "label": "Wilderness Traps",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2445"
+    },
+    {
+      "label": "Mastering the Wild",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2378"
+    },
+    {
+      "label": "Discovery and Exploration",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2379"
+    },
+    {
+      "label": "The First World",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2390"
+    },
+    {
+      "label": "Foraging and Salvaging",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2400"
+    },
+    {
+      "label": "Harvesting Poisons",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2403"
+    },
+    {
+      "label": "Hazards and Disasters",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2405"
+    },
+    {
+      "label": "Herbalism",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2416"
+    },
+    {
+      "label": "Spells of the Wild",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2417"
+    },
+    {
+      "label": "Trophies and Treasures",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2428"
+    },
+    {
+      "label": "Weather in the Wilderness",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2433"
+    },
+    {
+      "label": "Companions and Familiars",
+      "source_label": "Ultimate Wilderness",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2446"
+    },
+    {
+      "label": "Items",
+      "source_label": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=78"
+    },
+    {
+      "label": "Relics",
+      "source_label": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2523"
+    },
+    {
+      "label": "Planar Adventures",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2477"
+    },
+    {
+      "label": "Planar Terrains",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2478"
+    },
+    {
+      "label": "Planar Races",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2479"
+    },
+    {
+      "label": "Traits of a Plane",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2480"
+    },
+    {
+      "label": "Role of the Divine",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2488"
+    },
+    {
+      "label": "Building a Planar Campaign",
+      "source_label": "Planar Adventures",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2498"
+    },
+    {
+      "label": "Mythic Occult Classes",
+      "source_label": "Heroes of Golarion",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2543"
+    },
+    {
+      "label": "Gamemastering",
+      "source_label": "Pathfinder #144: Midwives to Death",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=64"
+    },
+    {
+      "label": "Botanical Haunts",
+      "source_label": "Pathfinder #144: Midwives to Death",
+      "status": "unmapped",
+      "url": "https://aonprd.com/Rules.aspx?ID=2527"
+    }
+  ]
+}

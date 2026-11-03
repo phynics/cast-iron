@@ -55,7 +55,11 @@ pub fn FeatChains() -> impl IntoView {
     let library = use_library();
     let relations = {
         let library = library.clone();
-        local_resource(async move { library.relations().await })
+        let revision = library.selection_revision();
+        local_resource(async move {
+            let _ = revision.get();
+            library.discovery().relations().await
+        })
     };
     let body = move || {
         let library = library.clone();

@@ -9,8 +9,7 @@ use crate::route::Route;
 use cast_iron_schema::EntryKind;
 
 /// The categories that `PRODUCT.md` names, in the order of the hub.
-pub const PRIMARY: [EntryKind; 9] = [
-    EntryKind::Rule,
+pub const PRIMARY: [EntryKind; 8] = [
     EntryKind::Spell,
     EntryKind::Feat,
     EntryKind::Class,
@@ -34,7 +33,7 @@ pub const MORE: [EntryKind; 5] = [
 /// One line on what a category holds and how it is browsed.
 pub fn blurb(kind: EntryKind) -> &'static str {
     match kind {
-        EntryKind::Rule => "Combat, magic, movement, and every other chapter of the rules text",
+        EntryKind::Rule => "Rules are read through Books and search",
         EntryKind::Spell => "Spell descriptions, with lists by class and level",
         EntryKind::Feat => "Feats by type, with prerequisites and the chains they form",
         EntryKind::Class => "Core, base, and NPC classes, with their archetypes",
@@ -73,7 +72,7 @@ pub fn arrange(
         .filter_map(|&k| count_of(k).map(|n| (k, n)))
         .collect();
     for &(kind, n) in counts {
-        if n > 0 && !PRIMARY.contains(&kind) && !MORE.contains(&kind) {
+        if n > 0 && kind != EntryKind::Rule && !PRIMARY.contains(&kind) && !MORE.contains(&kind) {
             more.push((kind, n));
         }
     }
@@ -144,14 +143,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_kind_has_one_place_in_the_hub() {
+    fn every_browse_kind_has_one_place_and_rules_stay_in_books() {
         let mut all: Vec<EntryKind> = PRIMARY.iter().chain(MORE.iter()).copied().collect();
-        assert_eq!(all.len(), EntryKind::ALL.len());
+        assert_eq!(all.len(), EntryKind::ALL.len() - 1);
         all.sort();
         all.dedup();
-        assert_eq!(all.len(), EntryKind::ALL.len(), "a kind appears twice");
+        assert_eq!(all.len(), EntryKind::ALL.len() - 1, "a kind appears twice");
         for kind in EntryKind::ALL {
-            assert!(all.contains(&kind), "{kind:?} is not in the hub");
+            assert_eq!(
+                all.contains(&kind),
+                kind != EntryKind::Rule,
+                "unexpected hub membership for {kind:?}"
+            );
             assert!(!blurb(kind).is_empty());
             assert!(!blurb(kind).ends_with('.'), "one line, no full stop");
         }
@@ -165,7 +168,6 @@ mod tests {
         assert_eq!(
             names,
             [
-                "Rules",
                 "Spells",
                 "Feats",
                 "Classes",
@@ -180,17 +182,20 @@ mod tests {
     }
 
     #[test]
-    fn empty_kinds_are_left_out_and_unknown_ones_are_kept() {
+    fn rules_are_excluded_while_unknown_kinds_are_kept() {
         // An old library has no traits, racial traits, or archetypes.
         let counts = [
             (EntryKind::Spell, 10),
             (EntryKind::Trait, 0),
             (EntryKind::Skill, 4),
             (EntryKind::Archetype, 0),
+            (EntryKind::Rule, 99),
         ];
         let (primary, more) = arrange(&counts);
         assert_eq!(primary, [(EntryKind::Spell, 10)]);
         assert_eq!(more, [(EntryKind::Skill, 4)]);
+        assert!(!primary.iter().any(|(kind, _)| *kind == EntryKind::Rule));
+        assert!(!more.iter().any(|(kind, _)| *kind == EntryKind::Rule));
     }
 
     #[test]
@@ -217,7 +222,6 @@ mod tests {
                 ..
             }
         )));
-        assert!(lenses(EntryKind::Rule).is_empty());
         assert!(lens_skips(EntryKind::Class, "class_type", "prestige"));
         assert!(!lens_skips(EntryKind::Class, "class_type", "npc"));
     }

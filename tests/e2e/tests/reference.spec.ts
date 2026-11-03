@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { installLibrary, spans, tableRows, tablesOf, waitControlled } from "./helpers";
+import { openBookContents, installLibrary, spans, tableRows, tablesOf, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const count = (pred: (s: (typeof corpus.catalog.entries)[number]) => boolean) => corpus.catalog.entries.filter(pred).length;
@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
-test("Expanded books and separate class categories work offline", async ({ page, context }) => {
+test("Book routes, legacy routes, and separate class categories work offline", async ({ page, context }) => {
   expect(corpus.catalog.sources).toHaveLength(16);
   await waitControlled(page);
   await context.setOffline(true);
@@ -21,7 +21,12 @@ test("Expanded books and separate class categories work offline", async ({ page,
   await expect(page.getByRole("heading", { name: "Prestige classes", level: 1 })).toBeVisible();
   await expect(page.locator(".entry-list li")).toHaveCount(count(s => s.kind === "prestige_class"));
   await expect(page.locator(".entry-list li").filter({ hasText: /^Technomancer/ })).toHaveCount(1);
-  await page.getByRole("link", { name: /Arcane Archer/ }).click();
+  // The removed standalone Rules category resolves to the Books directory.
+  await page.goto("#/browse/kind/rule");
+  await expect(page.getByRole("heading", { name: "Books", level: 1 })).toBeVisible();
+  await expect(page.locator(".book-directory-row")).toHaveCount(16);
+  await page.goto("#/browse/kind/prestige_class");
+  await page.getByRole("link", { name: "Arcane Archer", exact: true }).click();
   await expect(page).toHaveURL(/#\/entry\/core-rulebook\/classes\/arcane-archer$/);
   await expect(page.getByRole("heading", { name: "Arcane Archer", level: 1 })).toBeVisible();
   await page.goto("#/search");
@@ -37,7 +42,7 @@ test("Expanded books and separate class categories work offline", async ({ page,
   await expect(page.locator(".toc")).toContainText("Magus");
 });
 
-test("Category and sourcebook browsing works", async ({ page }) => {
+test("Browse is category-only and Books is the publication directory", async ({ page }) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Browse" }).click();
   await expect(page.getByRole("heading", { name: "Browse", level: 1 })).toBeVisible();
@@ -60,18 +65,59 @@ test("Category and sourcebook browsing works", async ({ page }) => {
     .poll(() => page.evaluate(() => document.getElementById("letter-F")!.getBoundingClientRect().top))
     .toBeLessThan(250);
 
-  // The Rules category is a hierarchy.
+  // Rules have no standalone Browse category. The former route redirects to Books.
   await page.goto("#/browse/kind/rule");
-  await expect(page.locator(".tree")).toBeVisible();
-  expect(await page.locator(".tree > li.branch > ul > li").count()).toBeGreaterThan(10);
+  await expect(page.getByRole("heading", { name: "Books", level: 1 })).toBeVisible();
+  await expect(page.locator(".book-directory-row")).toHaveCount(corpus.catalog.sources.length);
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Browse" }).click();
+  await expect(page.locator("section[aria-labelledby=by-kind] .cat-name", { hasText: /^Rules$/ })).toHaveCount(0);
 
-  // Legacy source links now open the book contents when original-order data is present.
+  // Each installed publication has an expandable row and a direct contents link.
+  await page.goto("#/books");
+  await page.locator(".book-directory-row").filter({ has: page.locator("summary", { hasText: "Core Rulebook" }) }).locator("summary").click();
+  await expect(page.getByRole("link", { name: "Open Core Rulebook contents", exact: true })).toBeVisible();
+  await expect(page.locator(".book-directory-chapters li").first()).toBeVisible();
+  await page.getByRole("link", { name: "Open Core Rulebook contents", exact: true }).click();
+  await expect(page.getByRole("navigation", { name: /Contents of Core Rulebook/ })).toBeVisible();
+
+  // Legacy source routes still reach the book contents when directly bookmarked.
   for (const source of corpus.catalog.sources) {
     await page.goto(`#/browse/source/${source.id}`);
     await expect(page.getByRole("heading", { level: 1, name: source.title })).toBeVisible();
     await expect(page.locator(".toc")).toBeVisible();
     await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   }
+});
+
+test("Rules text search opens the matched heading and article contents link to real headings", async ({ page }) => {
+  await waitControlled(page);
+  await page.context().setOffline(true);
+  const id = "core-rulebook/rules/combat/special-attacks";
+  const entry = corpus.entries.get(id)!;
+  const headings = entry.body.filter((block: any) => block.t === "heading" && block.anchor);
+  const headingText = (heading: any) => (heading.content ?? []).map((inline: any) => inline.v ?? "").join("");
+  expect(headings.length).toBeGreaterThan(0);
+  await page.goto("#/search?q=grapple&kind=rule");
+  await expect(page.locator(".results .hit-link").first()).toBeVisible();
+  const href = await page.locator(".results .hit-link").first().getAttribute("href");
+  expect(href).toContain("/special-attacks?a=");
+  await page.locator(".results .hit-link").first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Special Attacks" })).toBeVisible();
+  await expect(page.locator(".article-contents")).toBeVisible();
+  const contents = page.locator(".article-contents");
+  await contents.locator("summary").click();
+  const anchorIds = headings.map((heading: any) => heading.anchor);
+  const tocHrefs = await contents.getByRole("link").evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).hash));
+  for (const anchor of anchorIds) expect(tocHrefs).toContain(`#/entry/${id}?a=${anchor}`);
+  const grapple = headings.find((heading: any) => /grapple/i.test(headingText(heading)));
+  expect(grapple).toBeTruthy();
+  const grappleLink = contents.getByRole("link", { name: new RegExp(headingText(grapple), "i") }).first();
+  await grappleLink.click();
+  await expect.poll(() => page.evaluate((anchor) => location.hash.includes(`a=${anchor}`), grapple.anchor)).toBe(true);
+  await expect.poll(() => page.evaluate((anchor) => {
+    const top = document.getElementById(anchor)?.getBoundingClientRect().top ?? -1;
+    return top >= 0 && top < innerHeight / 2;
+  }, grapple.anchor)).toBe(true);
 });
 
 test("Rule entries preserve complex formatting: stat block", async ({ page }) => {
@@ -200,4 +246,26 @@ test("Cross-reference navigation works: deep link opens an entry in a fresh page
   await expect(fresh.getByText("No entry no-such/entry exists")).toBeVisible();
   await fresh.goto("#/garbage");
   await expect(fresh.getByRole("heading", { name: "Page not found" })).toBeVisible();
+});
+
+test("Entry reading puts core rules first and exposes real prestige requirement links", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const id of ["core-rulebook/classes/fighter", "core-rulebook/races/dwarves", "core-rulebook/feats/improved-trip"]) {
+    await page.goto(`#/entry/${id}`);
+    await expect(page.locator(".entry > .rich")).toBeVisible();
+    const positions = await page.evaluate(() => ({
+      primary: document.querySelector('.entry > .rich')!.getBoundingClientRect().top,
+      related: document.getElementById('entry-related')!.getBoundingClientRect().top,
+    }));
+    expect(positions.primary).toBeLessThan(844);
+    expect(positions.primary).toBeLessThan(positions.related);
+  }
+  await page.goto("#/entry/core-rulebook/classes/arcane-archer");
+  const requirements = page.locator(".rel-requirements");
+  for (const title of ["Point-Blank Shot", "Precise Shot", "Weapon Focus"]) {
+    await expect(requirements.getByRole("link", { name: title, exact: true })).toBeVisible();
+  }
+  await expect(page.locator(".crumbs li").last()).toHaveText("Prestige classes");
+  await page.locator(".entry-meta").getByRole("link", { name: "Core Rulebook", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Core Rulebook", level: 1 })).toBeVisible();
 });

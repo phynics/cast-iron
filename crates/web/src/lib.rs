@@ -12,6 +12,7 @@
 
 pub mod app;
 pub mod content_cache;
+pub mod discovery;
 pub mod fmt;
 pub mod graph;
 pub mod install;

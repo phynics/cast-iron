@@ -67,6 +67,38 @@ impl Relations {
         }
     }
 
+    /// A discovery-only view containing edges whose two endpoints are eligible. Filtering
+    /// the original edges (rather than reconnecting reachable nodes) preserves provenance.
+    pub fn filtered(&self, eligible: impl Fn(&EntryId) -> bool) -> Self {
+        let mut outgoing = HashMap::new();
+        let mut incoming = HashMap::new();
+        let mut counts = BTreeMap::<String, u32>::new();
+        for (source, edges) in &self.outgoing {
+            if !eligible(source) {
+                continue;
+            }
+            for (kind, target) in edges {
+                if !eligible(target) {
+                    continue;
+                }
+                outgoing
+                    .entry(source.clone())
+                    .or_insert_with(Vec::new)
+                    .push((*kind, target.clone()));
+                incoming
+                    .entry(target.clone())
+                    .or_insert_with(Vec::new)
+                    .push((*kind, source.clone()));
+                *counts.entry(kind.slug().to_owned()).or_default() += 1;
+            }
+        }
+        Self {
+            outgoing,
+            incoming,
+            counts,
+        }
+    }
+
     /// Entries that point at `target` with this relation: the racial traits of a race, the
     /// archetypes of a class, the feats that require a feat. In index order (sorted by id).
     pub fn sources_of(&self, target: &EntryId, kind: RelationKind) -> Vec<&EntryId> {
@@ -221,6 +253,28 @@ impl Relations {
         heads.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.id.cmp(&b.id)));
         heads
     }
+}
+
+/// Clone a spell-list index while removing disabled spells and class-entry links. The shared
+/// spell array stays canonical so each list's indices remain valid; level indices are pruned.
+pub fn filtered_spell_lists(lists: &SpellLists, eligible: impl Fn(&EntryId) -> bool) -> SpellLists {
+    let mut result = lists.clone();
+    for list in &mut result.classes {
+        if list.class.as_ref().is_some_and(|id| !eligible(id)) {
+            list.class = None;
+        }
+        for level in &mut list.levels {
+            level.spells.retain(|&i| {
+                result
+                    .spells
+                    .get(i as usize)
+                    .is_some_and(|spell| eligible(&spell.0))
+            });
+        }
+        list.levels.retain(|level| !level.spells.is_empty());
+    }
+    result.classes.retain(|list| !list.levels.is_empty());
+    result
 }
 
 /// True for an alternate racial trait. The compiler marks these with the url segment
@@ -389,6 +443,15 @@ impl BookLookup {
         &self.index.books
     }
 
+    /// Canonical source ID for an entry's curated book placement, when it has one.
+    pub fn source_for_entry(&self, id: &EntryId) -> Option<&str> {
+        let place = self.place(id)?;
+        self.index
+            .books
+            .get(place.book)
+            .map(|book| book.source.as_str())
+    }
+
     pub fn book(&self, source: &str) -> Option<&BookTree> {
         self.index.books.iter().find(|b| b.source == source)
     }
@@ -537,6 +600,39 @@ mod tests {
             [&id("c/combat-expertise"), &id("c/dodge")]
         );
         assert!(r.leads_to(&id("c/nothing")).is_empty());
+    }
+
+    #[test]
+    fn scoped_relations_drop_both_sides_and_recount_without_reconnecting() {
+        let all = relations(&[("c/a", Prerequisite, "c/b"), ("c/b", Prerequisite, "c/c")]);
+        let scoped = all.filtered(|id| id.as_str() != "c/b");
+        assert!(scoped.targets_of(&id("c/a"), Prerequisite).is_empty());
+        assert!(scoped.leads_to(&id("c/c")).is_empty());
+        assert!(scoped.counts.is_empty());
+    }
+
+    #[test]
+    fn scoped_spell_lists_keep_array_positions_and_clear_disabled_class_links() {
+        let lists = SpellLists {
+            spells: vec![
+                SpellListSpell(id("c/spell-a"), "A".into()),
+                SpellListSpell(id("c/spell-b"), "B".into()),
+            ],
+            classes: vec![SpellListClass {
+                name: "Wizard".into(),
+                class: Some(id("c/wizard")),
+                levels: vec![SpellListLevel {
+                    level: 1,
+                    spells: vec![0, 1],
+                }],
+            }],
+        };
+        let scoped = filtered_spell_lists(&lists, |id| {
+            id.as_str() != "c/spell-a" && id.as_str() != "c/wizard"
+        });
+        assert_eq!(scoped.classes[0].class, None);
+        assert_eq!(scoped.classes[0].levels[0].spells, [1]);
+        assert_eq!(scoped.spells.len(), 2); // canonical positions are preserved
     }
 
     #[test]

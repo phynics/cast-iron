@@ -128,10 +128,14 @@ pub fn InstallPanel(
                         InstallMode::Update => "Download update",
                     };
                     let note = match mode {
-                        InstallMode::Fresh => "The library is stored on this device. Nothing else is sent anywhere.",
-                        InstallMode::Update => "Your bookmarks and collections stay. The current library keeps working until the new one is verified.",
+                        InstallMode::Fresh => "The library is saved on this device for offline use.",
+                        InstallMode::Update => "Your stars stay. The current library keeps working until the new one is verified.",
                     };
                     view! {
+                        <p class="install-guidance">
+                            <strong>"On iPhone?"</strong> " In Safari, use Share, then Add to Home Screen, and open Cast Iron from your Home Screen before downloading. "
+                            "The Home Screen app may need its own library download, and stars saved in Safari may not carry over."
+                        </p>
                         <p>{note}</p>
                         <button class="btn btn-primary" type="button" on:click=move |_| start()>{label}</button>
                     }.into_any()

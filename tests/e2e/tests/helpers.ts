@@ -134,3 +134,11 @@ export function buildUpdatedLibrary(marker: string) {
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
+
+/** Follow the publication directory through its actual disclosure and contents link. */
+export async function openBookContents(page: Page, title: string) {
+  await page.goto("#/books");
+  const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
+  await row.locator("summary").click();
+  await row.getByRole("link", { name: `Open ${title} contents`, exact: true }).click();
+}

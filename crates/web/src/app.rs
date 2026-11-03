@@ -9,7 +9,6 @@ use crate::theme::{self, Theme};
 use crate::views::{
     self,
     book::{BookView, same_book},
-    bookmarks::{Bookmarks, CollectionView},
     browse::{Books, Browse, BrowseKind, BrowseSource},
     chains::FeatChains,
     entry::Entry,
@@ -34,6 +33,10 @@ pub enum Boot {
         notice: Option<String>,
     },
     Ready(Library),
+    BookSelection {
+        active: ActiveLibrary,
+        message: String,
+    },
     /// Something outside the library is broken, such as IndexedDB being unavailable.
     Fatal(String),
 }
@@ -58,6 +61,10 @@ impl AppCtx {
         spawn_local(async move {
             self.boot.set(match Library::load(&active).await {
                 Ok(library) => Boot::Ready(library),
+                Err(crate::library::LibraryError::BookSelection(message)) => Boot::BookSelection {
+                    active: active.clone(),
+                    message,
+                },
                 Err(error) => Boot::Install {
                     notice: Some(format!(
                         "The library was installed but cannot be opened: {error}"
@@ -84,6 +91,10 @@ async fn boot_check() -> Boot {
         }
         Ok(Some(active)) => match Library::load(&active).await {
             Ok(library) => Boot::Ready(library),
+            Err(crate::library::LibraryError::BookSelection(message)) => Boot::BookSelection {
+                active: active.clone(),
+                message,
+            },
             Err(error) => Boot::Install {
                 notice: Some(format!(
                     "The stored library is incomplete ({error}). Download it again to continue."
@@ -167,6 +178,7 @@ pub fn App() -> impl IntoView {
             }.into_any(),
             Boot::Install { notice } => view! { <InstallerScreen notice /> }.into_any(),
             Boot::Ready(library) => view! { <Reader library /> }.into_any(),
+            Boot::BookSelection { active, message } => view! { <BookSelectionRecovery active message /> }.into_any(),
             Boot::Fatal(message) => view! {
                 <main id="main" class="app install-main">
                     <h1>"Cast Iron cannot start"</h1>
@@ -174,6 +186,39 @@ pub fn App() -> impl IntoView {
                 </main>
             }.into_any(),
         }}
+    }
+}
+
+#[component]
+fn BookSelectionRecovery(active: ActiveLibrary, message: String) -> impl IntoView {
+    let app = use_app();
+    let busy = RwSignal::new(false);
+    let failure = RwSignal::new(None::<String>);
+    let retry = active.clone();
+    view! {
+        <main id="main" class="app install-main">
+            <h1>"Book choices could not be opened"</h1>
+            <p class="error" role="alert">{message}</p>
+            <p>"Your downloaded library and stars are kept. You can retry, or reset the choices to make every book active."</p>
+            <div class="actions">
+                <button class="btn" disabled=move || busy.get() on:click=move |_| {
+                    busy.set(true);
+                    app.activate(retry.clone());
+                }>"Retry"</button>
+                <button class="btn" disabled=move || busy.get() on:click=move |_| {
+                    if busy.get_untracked() { return; }
+                    busy.set(true);
+                    let active = active.clone();
+                    spawn_local(async move {
+                        match store::set_disabled_books(&Default::default()).await {
+                            Ok(()) => app.activate(active),
+                            Err(error) => { failure.set(Some(error.to_string())); busy.set(false); }
+                        }
+                    });
+                }>"Reset active books"</button>
+            </div>
+            {move || failure.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
+        </main>
     }
 }
 
@@ -293,18 +338,17 @@ fn Reader(library: Library) -> impl IntoView {
 fn in_section(link: &Route, current: &Route) -> bool {
     matches!(
         (link, current),
-        (
-            Route::Home,
-            Route::Home | Route::Bookmarks | Route::Collection(_)
-        ) | (
-            Route::Browse,
-            Route::Browse
-                | Route::BrowseKind(_)
-                | Route::BrowseSource(_)
-                | Route::Spells
-                | Route::SpellList { .. }
-                | Route::FeatChains
-        ) | (Route::Books, Route::Books | Route::Book { .. })
+        (Route::Home, Route::Home)
+            | (
+                Route::Browse,
+                Route::Browse
+                    | Route::BrowseKind(_)
+                    | Route::BrowseSource(_)
+                    | Route::Spells
+                    | Route::SpellList { .. }
+                    | Route::FeatChains
+            )
+            | (Route::Books, Route::Books | Route::Book { .. })
             | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -349,15 +393,26 @@ fn RouteView() -> impl IntoView {
     let current = use_route();
     // The Search screen reads and edits its own route, so edits must not rebuild it.
     // A book edits its own chapter in the URL when a chapter opens, and must not be rebuilt for it.
-    let page = Memo::new(move |_| match current.get() {
-        Route::Search { .. } => Route::search(""),
-        Route::Book { source, .. } => Route::Book {
-            source,
-            chapter: None,
-        },
-        other => other,
+    let revision = use_library().selection_revision();
+    let page = Memo::new(move |_| {
+        let route = match current.get() {
+            Route::Search { .. } => Route::search(""),
+            Route::Book { source, .. } => Route::Book {
+                source,
+                chapter: None,
+            },
+            other => other,
+        };
+        // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
+        // Other screens rebuild their discovery snapshot after a saved selection change.
+        let selection = if route == Route::Books {
+            0
+        } else {
+            revision.get()
+        };
+        (route, selection)
     });
-    move || match page.get() {
+    move || match page.get().0 {
         Route::Home => view! { <Home /> }.into_any(),
         Route::Search { .. } => view! { <Search /> }.into_any(),
         Route::Browse => view! { <Browse /> }.into_any(),
@@ -373,8 +428,7 @@ fn RouteView() -> impl IntoView {
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
         Route::Entry { id, anchor } => view! { <Entry id anchor /> }.into_any(),
-        Route::Bookmarks => view! { <Bookmarks /> }.into_any(),
-        Route::Collection(id) => view! { <CollectionView id /> }.into_any(),
+        Route::Bookmarks | Route::Collection(_) => view! { <Home /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
         Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),
@@ -413,9 +467,8 @@ mod tests {
             }
         ));
         assert!(!in_section(&Route::Browse, &Route::Books));
-        assert!(in_section(&Route::Home, &Route::Bookmarks));
+        assert!(in_section(&Route::Home, &Route::Home));
         assert!(!in_section(&Route::Home, &Route::Settings));
-        assert!(!in_section(&Route::Bookmarks, &Route::Browse));
         assert!(!in_section(&Route::Browse, &Route::search("fire")));
     }
 }

@@ -12,12 +12,13 @@ use crate::graph::{
 use crate::library::Library;
 use crate::route::Route;
 use crate::views::chains::chain_tree;
-use crate::views::rich::blocks;
+use crate::views::rich::{blocks, plain_text};
 use crate::views::search::facet_label;
 use crate::views::spells::spells_noun;
 use crate::views::util::sort_key;
 use cast_iron_schema::{
-    EntryId, EntryKind, Relation, RelationKind, RuleEntry, SpellListClass, SpellLists, TypedFields,
+    Block, EntryId, EntryKind, Relation, RelationKind, RuleEntry, SpellListClass, SpellLists,
+    TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -39,8 +40,11 @@ pub fn needs(kind: EntryKind) -> Needs {
             relations: true,
             spell_lists: true,
         },
+        EntryKind::Spell => Needs {
+            relations: false,
+            spell_lists: true,
+        },
         EntryKind::Rule
-        | EntryKind::Spell
         | EntryKind::Creature
         | EntryKind::Item
         | EntryKind::PrestigeClass
@@ -215,7 +219,7 @@ fn racial_trait_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
     let races: Vec<&Relation> = entry
         .relations
         .iter()
-        .filter(|r| r.kind == RelationKind::Part)
+        .filter(|r| r.kind == RelationKind::Part && library.is_entry_active(&r.target))
         .collect();
     if races.is_empty() {
         return None;
@@ -288,7 +292,10 @@ fn class_panels(
                 view! {
                     <section class="rel" aria-labelledby="rel-archetypes">
                         <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{total}</span></h2>
-                        {groups}
+                        <details class="rel-disclosure">
+                            <summary>{format!("Show {total} archetypes")}</summary>
+                            {groups}
+                        </details>
                     </section>
                 }
                 .into_any(),
@@ -303,6 +310,7 @@ fn archetype_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
         .relations
         .iter()
         .filter(|r| r.kind == RelationKind::Archetype)
+        .filter(|r| library.is_entry_active(&r.target))
         .collect();
     if classes.is_empty() {
         return None;
@@ -336,7 +344,10 @@ fn feat_panels(
         TypedFields::Feat(f) => f.prerequisites.clone().filter(|t| !t.trim().is_empty()),
         _ => None,
     };
-    let named = prerequisite_links(entry);
+    let named: Vec<_> = prerequisite_links(entry)
+        .into_iter()
+        .filter(|(id, _)| library.is_entry_active(id))
+        .collect();
     if text.is_some() || !named.is_empty() {
         let printed = text.map(|t| {
             view! {
@@ -419,16 +430,122 @@ fn feat_panels(
     out
 }
 
-fn prestige_panel(entry: &RuleEntry) -> Option<AnyView> {
+/// Resolve only names explicitly present in the Feats or Skills requirements section.
+/// Duplicate catalog names remain text; no source is chosen on the reader's behalf.
+fn requirement_links(
+    body: &[Block],
+    candidates: &[(EntryId, String, EntryKind)],
+) -> Vec<(EntryId, String)> {
+    fn normalized(text: &str) -> String {
+        text.split(|c: char| !c.is_alphanumeric())
+            .filter(|s| !s.is_empty())
+            .map(str::to_lowercase)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+    fn text(block: &Block) -> String {
+        match block {
+            Block::Paragraph { content, .. } => plain_text(content),
+            Block::List { items, .. } => items
+                .iter()
+                .flatten()
+                .map(text)
+                .collect::<Vec<_>>()
+                .join(" "),
+            Block::Quote { content } => content.iter().map(text).collect::<Vec<_>>().join(" "),
+            _ => String::new(),
+        }
+    }
+    let mut requirement_level = None;
+    let mut section = None;
+    let mut feat_text = String::new();
+    let mut skill_text = String::new();
+    for block in body {
+        if let Block::Heading { level, content, .. } = block {
+            let heading = normalized(&plain_text(content));
+            if heading.starts_with("requirements") {
+                requirement_level = Some(*level);
+                section = None;
+                continue;
+            }
+            if let Some(root) = requirement_level {
+                if *level <= root {
+                    break;
+                }
+                section = match heading.as_str() {
+                    "feats" => Some(EntryKind::Feat),
+                    "skills" => Some(EntryKind::Skill),
+                    _ => None,
+                };
+            }
+        } else if requirement_level.is_some() {
+            match section {
+                Some(EntryKind::Feat) => {
+                    feat_text.push(' ');
+                    feat_text.push_str(&text(block));
+                }
+                Some(EntryKind::Skill) => {
+                    skill_text.push(' ');
+                    skill_text.push_str(&text(block));
+                }
+                _ => {}
+            }
+        }
+    }
+    let feat_text = format!(" {} ", normalized(&feat_text));
+    let skill_text = format!(" {} ", normalized(&skill_text));
+    let mut names = std::collections::BTreeMap::<String, Vec<&(EntryId, String, EntryKind)>>::new();
+    for candidate in candidates {
+        names
+            .entry(normalized(&candidate.1))
+            .or_default()
+            .push(candidate);
+    }
+    let mut found = Vec::new();
+    for (name, matches) in names {
+        if matches.len() != 1 || name.is_empty() {
+            continue;
+        }
+        let (id, title, kind) = matches[0];
+        let haystack = match kind {
+            EntryKind::Feat => &feat_text,
+            EntryKind::Skill => &skill_text,
+            _ => continue,
+        };
+        if let Some(position) = haystack.find(&format!(" {name} ")) {
+            found.push((position, id.clone(), title.clone()));
+        }
+    }
+    found.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    found
+        .into_iter()
+        .map(|(_, id, title)| (id, title))
+        .collect()
+}
+
+fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
     let requirements = requirements_blocks(&entry.body);
     if requirements.is_empty() {
         return None;
     }
+    let candidates = library
+        .discovery()
+        .entries()
+        .filter(|s| matches!(s.kind, EntryKind::Feat | EntryKind::Skill))
+        .map(|s| (s.id.clone(), s.title.clone(), s.kind))
+        .collect::<Vec<_>>();
+    let links = requirement_links(&entry.body, &candidates);
+    let has_links = !links.is_empty();
+    let links = links
+        .into_iter()
+        .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
+        .collect_view();
     Some(
         view! {
             <section class="rel rel-requirements" aria-labelledby="rel-requirements">
                 <h2 id="rel-requirements">"Entry requirements, as stated"</h2>
                 <div class="rich">{blocks(&requirements)}</div>
+                {has_links.then(|| view! { <p class="rel-label">"Named feats and skills"</p><ul class="rel-chips">{links}</ul> })}
             </section>
         }
         .into_any(),
@@ -461,7 +578,7 @@ fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
     )
 }
 
-fn spell_panel(entry: &RuleEntry, lists: bool) -> Option<AnyView> {
+fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView> {
     let TypedFields::Spell(fields) = &entry.fields else {
         return None;
     };
@@ -469,6 +586,15 @@ fn spell_panel(entry: &RuleEntry, lists: bool) -> Option<AnyView> {
         return None;
     }
     let mut levels = fields.levels.clone();
+    if let Some(lists) = lists {
+        levels.retain(|level| {
+            crate::graph::find_list(lists, &level.class)
+                .is_some_and(|list| list.levels.iter().any(|group| group.level == level.level))
+        });
+    }
+    if levels.is_empty() {
+        return None;
+    }
     levels.sort_by(|a, b| {
         a.class
             .to_lowercase()
@@ -479,7 +605,7 @@ fn spell_panel(entry: &RuleEntry, lists: bool) -> Option<AnyView> {
         .into_iter()
         .map(|l| {
             let text = format!("{} {}", l.class, l.level);
-            if lists {
+            if lists.is_some() {
                 let href = Route::SpellList {
                     class: l.class.clone(),
                     level: Some(l.level),
@@ -515,10 +641,10 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         EntryKind::RacialTrait => panels.extend(racial_trait_panel(&library, &entry)),
         EntryKind::Class => panels.extend(class_panels(&library, &entry.id, relations, lists)),
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
-        EntryKind::PrestigeClass => panels.extend(prestige_panel(&entry)),
+        EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
         EntryKind::Feat => panels.extend(feat_panels(&library, &entry, relations)),
         EntryKind::Trait => panels.extend(trait_panel(&entry)),
-        EntryKind::Spell => panels.extend(spell_panel(&entry, library.has_spell_lists())),
+        EntryKind::Spell => panels.extend(spell_panel(&entry, lists)),
         EntryKind::Rule
         | EntryKind::Creature
         | EntryKind::Item
@@ -536,6 +662,47 @@ mod tests {
 
     fn id(s: &str) -> EntryId {
         EntryId::parse(s).unwrap()
+    }
+
+    #[test]
+    fn requirements_resolve_punctuation_but_not_ambiguous_names_or_other_sections() {
+        let heading = |title: &str, level| Block::Heading {
+            level,
+            anchor: None,
+            content: vec![cast_iron_schema::Inline::text(title)],
+        };
+        let para = |title: &str| Block::Paragraph {
+            style: cast_iron_schema::ParagraphStyle::Normal,
+            content: vec![cast_iron_schema::Inline::text(title)],
+        };
+        let body = vec![
+            heading("Requirements", 2),
+            heading("Feats", 3),
+            para("Point Blank Shot, Precise Shot, Weapon Focus (longbow)."),
+            heading("Spells", 3),
+            para("Fly"),
+            heading("Class Features", 2),
+            para("Other"),
+        ];
+        let candidate = |id_text: &str, title: &str, kind| (id(id_text), title.to_string(), kind);
+        let result = requirement_links(
+            &body,
+            &[
+                candidate("c/point", "Point-Blank Shot", EntryKind::Feat),
+                candidate("c/precise", "Precise Shot", EntryKind::Feat),
+                candidate("u/precise", "Precise Shot", EntryKind::Feat),
+                candidate("c/focus", "Weapon Focus", EntryKind::Feat),
+                candidate("c/fly", "Fly", EntryKind::Skill),
+                candidate("c/other", "Other", EntryKind::Feat),
+            ],
+        );
+        assert_eq!(
+            result
+                .iter()
+                .map(|(_, name)| name.as_str())
+                .collect::<Vec<_>>(),
+            ["Point-Blank Shot", "Weapon Focus"]
+        );
     }
 
     #[test]

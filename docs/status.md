@@ -1,6 +1,10 @@
 # Status
 
-Updated 2026-11-03. The repository is public. [PR #4](https://github.com/phynics/cast-iron/pull/4) merged at `12acb7d`; its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41590678502) succeeded. Terra observed the published schema-3 library on an iPhone Simulator. Branch `navigation-journeys` contains the replacement navigation and search improvements below; those changes are not yet deployed.
+Updated 2026-11-03. The repository is public. [PR #5](https://github.com/phynics/cast-iron/pull/5) merged at `a9360c5`. Its [main CI](https://github.com/phynics/cast-iron/actions/runs/41595871949) and [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41595872013) succeeded. The primary agent personally tested the published four-tab app in Safari and as an installed Home Screen app on iPhone Simulator. Details are in [iPhone journey observations](research/iphone-journeys.md).
+
+## Planned UI work
+
+[UI task list](ui-tasks.md) tracks the implementation and remaining manual checks. The user supplied Gemini's completed, manually guided screenshot review after the earlier tool limitation. Its findings are integrated in the local simplification work and recorded in [the review follow-up](research/gemini-ui-review.md).
 
 ## Acceptance checklist (spec section 11)
 
@@ -17,7 +21,7 @@ Updated 2026-11-03. The repository is public. [PR #4](https://github.com/phynics
 | Rule entries preserve complex formatting | Local pass | three `Rule entries preserve complex formatting: …` tests |
 | Cross-reference navigation works | Local pass | `Cross-reference navigation works`, plus the deep-link test |
 | Back/forward navigation works | Local pass | `Back/forward navigation works` |
-| Bookmarks persist across restarts | Local pass | `Bookmarks persist across restarts` (persistent browser profile, relaunched offline) |
+| Stars persist across restarts | Local pass | `Home keeps legacy collection members as unique stars across offline restart` and `More than six starred entries stay independently openable and removable` |
 | Interrupted installation can recover safely | Local pass | `Interrupted installation can recover safely` |
 | Offline launch works after a new browser session | Local pass | `Offline launch works after a new browser session` |
 | No application feature requires a runtime server | Local pass | `No application feature requires a runtime server` (zero server requests after install, apart from the browser's own `sw.js` update check) |
@@ -82,7 +86,7 @@ The client reads schemas 1, 2, and 3. It now uses the new files for racial trait
 
 AoN source pages group database records rather than chapters. Legacy PRD section links are captured in a reproducible 18-menu, 167-link inventory, including sections for books absent from the current corpus. Details: `docs/research/aon-book-sections.md`, `docs/research/legacy-prd-sections.json`, and `docs/research/book-order-evidence.md`.
 
-## Navigation and common journeys, branch `navigation-journeys`
+## Published navigation and common journeys
 
 Primary destinations are Home, Browse, Books, and Settings. Search is a bar, and Home shows up to six saved entries plus recent reading. Quick scopes expose Rules text, Spells, and Feats. Rule headings feed the existing search alias field: `grapple` with Rules text selected surfaces Special Attacks first in the checked build. A native regression requires that entry in the first three results.
 
@@ -90,21 +94,25 @@ Content version `v171f0348e5717ee0` has 9,967 entries, schema 3, 61,956,172 byte
 
 Composed offline journeys cover quick lookup, creating a collection and reopening a bookmark from Home, racial traits, class options and archetypes, class spell levels, traits, equipment, rules, and reading onward from book contents. A new app-shell test verifies that the worker waits for Reload, preserves the installed library and Home bookmarks, and works after an offline reload. The library-update test verifies replacement activation separately.
 
-### Published iPhone Simulator baseline
+### Published iPhone Simulator checks
 
-Terra used the T3 Device panel on iPhone 18 Pro, iOS 27.2, Safari. The published five-tab build installed library `vdb8e844bfc068446`, reported 9,967 entries, checked for updates, opened Advanced Player's Guide contents and Read Races, and saved a bookmark. A grapple lookup initially showed equipment and feats. Safari reported persistent storage not granted.
+On iPhone 18 Pro, iOS 27.2, the primary agent personally applied the waiting app-shell update and replaced library `vdb8e844bfc068446` with `v171f0348e5717ee0` in Safari. The existing Races bookmark survived both updates. A named collection held that entry. Native Add to Home Screen installation and standalone launch succeeded.
 
-The collection-name input command failed, and its retry failed with an expired reference. Device testing stopped. The full character workflow, comprehensive subsystem read, previous/next controls, Home Screen installation, offline standalone relaunch, replacement updates, dark theme, and the new navigation remain unverified on the simulator. See [iPhone journey observations](research/iphone-journeys.md). Automated acceptance and simulator observations are separate evidence.
+The standalone app required its own library download and initially had no Safari bookmarks. After installing there, sampled journeys passed through Dwarves and racial traits, Fighter and Archer, Magic Missile and the Wizard level 1 list, combat traits, armor, Core Rulebook contents, and Generating a Character. Rules text placed Special Attacks first for `grapple`, but opened the beginning of the long article. Next in book opened Defensive Training from Darkvision. Closing and reopening the standalone app preserved a Special Attacks bookmark and recent reading. Sampled light and dark screens fit the viewport.
+
+True offline simulator networking was not available through the driver. The relaunch check ran with networking available. A full subsystem read with backtracking, feat chains, and a complete character build remain open manual checks. See [iPhone journey observations](research/iphone-journeys.md) for the earlier baseline, follow-up, driver failures, and recovered actions. Automated offline acceptance is separate evidence.
+
+Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The earlier schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 
 ## Not verified yet
 
-- GitHub CI and deployment for the replacement navigation are pending. The schema-3 reference UI deployed successfully in run 41590678502. The 16-book schema-2 deployment succeeded in run 41579539956. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages attempt failed before Pages was enabled. Deployment run 41576342801 then succeeded and the public site passed the live smoke check.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
-- Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
+- Physical devices: Android Chromium and iOS Safari, including offline standalone relaunch. Simulator standalone relaunch passed with networking available.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
 
 ## Known gaps
 
+- The iPhone Simulator follow-up found separate Safari and Home Screen library and bookmark stores. Installation guidance does not explain that transition. Long-rule search results also open the article start rather than the matched heading. See the simulator report for scope and other UX findings.
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
 - Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
@@ -121,3 +129,22 @@ The collection-name input command failed, and its retry failed with an expired r
 1. Keep the licensing review current when changing the source selection. The POC is public under the scoped OGL and Community Use review.
 2. Review `sources/psrd-data/book-order.toml` against the printed books. Add standalone support for the families that remain in rules trees or are excluded (animal companions, mythic spells, vehicles, settlements, haunts, campaign resources and armies) when a category needs them. Newer books require a new source pin or source dataset and licensing review.
 3. Run the suite on real devices and record the results here.
+
+
+## Local reference simplification
+
+The local implementation separates Browse categories from Books, removes the duplicate mode picker and Rules category, and keeps rules accessible through Books, search, saved links, and starred entries. Home lists every star with an independent Unstar control. Collection and bookmark-manager UI is retired while legacy stored stars remain readable. Old manager URLs lead to Home, and the former Rules-category URL leads to Books.
+
+Books has persistent Active controls. Disabling filters ordinary discovery, counts, search candidates, relationships, and spell lists, while preserving the download and canonical reading access. Corrupt book preferences offer Retry or Reset active books without discarding the library or stars. Direct disabled-book entries show a notice. Book placement determines visibility; search publication filters still describe attribution sources.
+
+Primary rule text precedes related navigation. Large archetype lists start collapsed. Rule search links to matching typed headings, article contents supports repeated jumps to the current section, and exact named sections rank ahead of longer item-title prefixes. Prestige requirements link unambiguous named feats and skills. Source badges remain links, and source-grouped References avoids duplicate racial-trait and archetype targets. Installer copy explains the optional Home Screen installation before the library download and the observed possibility of separate Safari data.
+
+The installed corpus remains 9,967 entries at `v171f0348e5717ee0`, schema 3 and search format 1. No source content was imported. The AoN inventory contains 23 source headings, 50 topics, and 233 subsections. Strict within-book title mapping yields 95 unique section matches, 16 ambiguous matches, and 172 unmapped rows. These are mapping evidence, not printed-order verification or complete AoN coverage.
+
+Local verification: `cargo xtask check` passes, including 21 search and 94 web unit tests. The real `dist/` build succeeds and its content manifest matches `generated/`. Six targeted Chromium checks pass for the integration fixes and recovery paths. The full browser run passed 66 cases and found one WebKit fixture failure when setup navigated away during its initial manifest request. Setup now waits for the Download offer; that WebKit case passed on rerun. All 67 distinct cases are verified across Chromium, WebKit, and mobile Chromium. The complete suite was not repeated after the fixture-only change.
+
+Two bounded visual batches covered 390 x 844 and 1280 x 900 in both themes. The confirmation captures reported zero horizontal overflow, no undersized alphabet or spell-level controls, and no console errors. Separate settled search captures confirm exactly one selected scope and rule-only results. The search-only capture waits for both the selected scope and rule-only result kinds, avoiding the stale-state screenshot that appeared during capture setup. Selected-scope foreground/background contrast measured 6.02:1 in light and 6.54:1 in dark. Representative PNGs were opened and inspected. The rerunnable capture command is in the verify skill.
+
+The first browser pass caught blocked inline article-contents indentation and stale test assumptions about star ordering, labels, and open disclosures. Those were corrected. A later affected test exposed repeated section links failing to scroll when the URL already matched; explicit scrolling fixes that case. The corrected six-test run passed. The final full run passed the CSP and repeated-heading cases in both engines. Terra's bounded integration review found no concrete P1 or P2 issue.
+
+CI and deployment of this simplification are not yet verified. Physical iPhone offline relaunch, VoiceOver, and a full physical-device character-building walkthrough remain unverified. Earlier published simulator observations and automated offline checks remain separate evidence.

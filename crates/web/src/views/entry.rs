@@ -1,9 +1,11 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
+use crate::js;
 use crate::library::{Library, use_library};
 use crate::route::Route;
+use crate::store::{self, Bookmark};
 use crate::views::book::BookPosition;
-use crate::views::bookmark_control::BookmarkControl;
+use crate::views::entry_contents::ArticleContents;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::RichBody;
@@ -66,13 +68,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
         let wanted = needs(entry.kind);
         let mut indexes = Indexes::default();
         if wanted.relations {
-            match fetch_library.relations().await {
+            match fetch_library.discovery().relations().await {
                 Ok(found) => indexes.relations = found,
                 Err(error) => leptos::logging::warn!("relation panels are off: {error}"),
             }
         }
         if wanted.spell_lists {
-            match fetch_library.spell_lists().await {
+            match fetch_library.discovery().spell_lists().await {
                 Ok(found) => indexes.spell_lists = found,
                 Err(error) => leptos::logging::warn!("spell list panel is off: {error}"),
             }
@@ -127,6 +129,9 @@ fn EntryView(
     let chain = parent_chain(&library, &entry.id);
     let mut chain_titles: Vec<&str> = chain.iter().map(|(_, t)| t.as_str()).collect();
     chain_titles.push(entry.kind.label());
+    if entry.kind == EntryKind::PrestigeClass {
+        chain_titles.push("Classes");
+    }
     let sections = extra_sections(&entry.section, &chain_titles);
     let crumbs_chain = chain
         .iter()
@@ -160,7 +165,25 @@ fn EntryView(
         })
         .collect_view();
 
-    let references = unique_targets(&entry.links);
+    // Relationship panels already expose these targets. Avoid a second adjacent link list.
+    let related_targets: std::collections::BTreeSet<EntryId> = indexes
+        .relations
+        .as_ref()
+        .map(|relations| {
+            [
+                cast_iron_schema::RelationKind::Part,
+                cast_iron_schema::RelationKind::Archetype,
+            ]
+            .into_iter()
+            .flat_map(|kind| relations.sources_of(&entry.id, kind))
+            .cloned()
+            .collect()
+        })
+        .unwrap_or_default();
+    let references: Vec<_> = unique_targets(&entry.links)
+        .into_iter()
+        .filter(|reference| !related_targets.contains(&reference.target))
+        .collect();
     let reference_items = references
         .iter()
         .map(|reference| {
@@ -205,11 +228,28 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
+    let has_related = indexes.relations.is_some()
+        || !entry.relations.is_empty()
+        || matches!(
+            kind,
+            EntryKind::Class | EntryKind::Spell | EntryKind::Trait | EntryKind::PrestigeClass
+        );
+    let related_href = Route::Entry {
+        id: entry.id.clone(),
+        anchor: Some("entry-related".into()),
+    }
+    .href();
+    let category_route = if kind == EntryKind::Rule {
+        Route::Books
+    } else {
+        Route::BrowseKind(kind)
+    };
+    let disabled_book = !library.is_entry_active(&entry.id);
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
-                <li><a href=Route::Browse.href()>"Browse"</a></li>
-                <li><a href=Route::BrowseKind(kind).href()>{kind.label()}</a></li>
+                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Browse.href() }>{if kind == EntryKind::Rule { "Books" } else { "Browse" }}</a></li>
+                {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::BrowseKind(kind).href()>{kind.label()}</a></li> })}
                 {crumbs_chain}
                 {crumbs_sections}
             </ol>
@@ -217,13 +257,16 @@ fn EntryView(
         <header class="entry-head">
             <h1 data-testid="entry-title">{entry.title.clone()}</h1>
             <div class="entry-meta">
-                <a class="chip-link chip-kind" href=Route::BrowseKind(kind).href()>{kind_name(kind)}</a>
+                <a class="chip-link chip-kind" href=category_route.href()>{kind_name(kind)}</a>
                 {sources}
             </div>
-            <BookmarkControl id=entry.id.clone() title=plain_title kind />
+            <EntryStar id=entry.id.clone() title=plain_title kind />
         </header>
-        <Related library=library.clone() entry=entry.clone() indexes />
+        {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
+        {has_related.then(|| view! { <p class="reader-jumps"><a href=related_href>"Related entries"</a></p> })}
+        <ArticleContents body=entry.body.clone() id=entry.id.clone() />
         <RichBody body=entry.body.clone() anchor=anchor />
+        <div id="entry-related"><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />
         {has_references.then(|| view! {
             <section class="entry-refs" aria-labelledby="references-heading">
@@ -241,6 +284,60 @@ fn EntryView(
                 <dl class="facts">{provenance}</dl>
             </details>
         </footer>
+    }
+}
+
+#[component]
+fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
+    let bookmark = RwSignal::new(None::<Bookmark>);
+    let loaded = RwSignal::new(false);
+    let writing = RwSignal::new(false);
+    let error = RwSignal::new(None::<String>);
+    {
+        let id = id.clone();
+        spawn_local(async move {
+            match store::get_bookmark(&id).await {
+                Ok(found) => bookmark.set(found),
+                Err(e) => error.set(Some(e.to_string())),
+            }
+            loaded.set(true);
+        });
+    }
+    let toggle_title = title.clone();
+    let toggle = move |_| {
+        if writing.get_untracked() {
+            return;
+        }
+        writing.set(true);
+        let id = id.clone();
+        let title = toggle_title.clone();
+        spawn_local(async move {
+            error.set(None);
+            let result = if bookmark.get_untracked().is_some() {
+                store::delete_bookmark(&id).await.map(|_| None)
+            } else {
+                let fresh = Bookmark::new(id, title, kind, js::now_ms());
+                store::put_bookmark(&fresh).await.map(|_| Some(fresh))
+            };
+            match result {
+                Ok(next) => bookmark.set(next),
+                Err(e) => error.set(Some(format!("Could not update starred status: {e}"))),
+            }
+            writing.set(false);
+        });
+    };
+    let label = title.clone();
+    view! {
+        <div class="bookmark-control">
+            <button class="btn bookmark-toggle" type="button"
+                aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
+                aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
+                disabled=move || !loaded.get() || writing.get() on:click=toggle>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
+                {move || if bookmark.with(|b| b.is_some()) { "Starred" } else { "Star" }}
+            </button>
+            {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
+        </div>
     }
 }
 

@@ -144,6 +144,11 @@ impl SearchIndex {
     }
 
     pub fn search(&self, query: &Query) -> Vec<Hit> {
+        self.search_eligible(query, |_| true)
+    }
+
+    /// Search only eligible document IDs, applying eligibility before the result limit.
+    pub fn search_eligible(&self, query: &Query, eligible: impl Fn(&str) -> bool) -> Vec<Hit> {
         let limit = if query.limit == 0 {
             DEFAULT_LIMIT
         } else {
@@ -155,7 +160,7 @@ impl SearchIndex {
                 return Vec::new();
             }
             let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
-                .filter(|&i| self.passes(i, &query.filters))
+                .filter(|&i| eligible(&self.meta.docs[i].id) && self.passes(i, &query.filters))
                 .map(|i| {
                     (
                         normalize(&self.meta.docs[i].title),
@@ -197,7 +202,9 @@ impl SearchIndex {
         let (first, rest) = per_token.split_first().expect("non-empty");
         let mut scored: Vec<(u32, f32)> = Vec::new();
         for (&doc, h0) in first {
-            if !self.passes(doc as usize, &query.filters) {
+            if !eligible(&self.meta.docs[doc as usize].id)
+                || !self.passes(doc as usize, &query.filters)
+            {
                 continue;
             }
             let mut score = h0.score;
@@ -223,6 +230,9 @@ impl SearchIndex {
             let mut boost = 0.0f32;
             if nt == qn {
                 boost = BOOST_EXACT_TITLE;
+            } else if d.kind == "rule" && d.aliases.iter().any(|a| normalize(a) == qn) {
+                // Exact named rule sections should beat a longer item title sharing the prefix.
+                boost = 600.0;
             } else if nt.starts_with(&qn) {
                 boost = BOOST_TITLE_PREFIX;
             } else if d.aliases.iter().any(|a| normalize(a) == qn) {

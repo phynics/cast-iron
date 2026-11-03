@@ -5,7 +5,7 @@ use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
-use crate::store::ActiveLibrary;
+use crate::store::{self, ActiveLibrary};
 use cast_iron_schema::{
     BOOKS_FILE, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind, EntryStub,
     LegalNotices, RELATIONS_FILE, RelationIndex, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
@@ -16,6 +16,7 @@ use leptos::prelude::*;
 use send_wrapper::SendWrapper;
 use serde::de::DeserializeOwned;
 use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::fmt;
 use std::rc::Rc;
 use web_sys::Cache;
@@ -34,6 +35,7 @@ pub enum LibraryError {
     },
     UnknownEntry(String),
     Storage(String),
+    BookSelection(String),
 }
 
 impl fmt::Display for LibraryError {
@@ -48,6 +50,9 @@ impl fmt::Display for LibraryError {
             }
             LibraryError::UnknownEntry(id) => write!(f, "No entry {id} exists in this library."),
             LibraryError::Storage(message) => write!(f, "Cannot read the library: {message}"),
+            LibraryError::BookSelection(message) => {
+                write!(f, "Cannot read your active-book choices: {message}")
+            }
         }
     }
 }
@@ -68,6 +73,9 @@ struct Inner {
     relations: RefCell<Option<Option<Rc<Relations>>>>,
     spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
     books: RefCell<Option<Option<Rc<BookLookup>>>>,
+    disabled_books: RefCell<BTreeSet<String>>,
+    selection_revision: RwSignal<u64>,
+    selection_write_in_flight: RefCell<bool>,
 }
 
 /// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2
@@ -100,6 +108,15 @@ impl Library {
             .await
             .map_err(LibraryError::Storage)?;
         let catalog: Catalog = read_json(&cache, &active.content_version, "catalog.json").await?;
+        let books = if manifest_has_file(&manifest, BOOKS_FILE) {
+            let index: BookIndex = read_json(&cache, &active.content_version, BOOKS_FILE).await?;
+            Some(Rc::new(BookLookup::new(index)))
+        } else {
+            None
+        };
+        let disabled_books = store::disabled_books()
+            .await
+            .map_err(|e| LibraryError::BookSelection(e.to_string()))?;
         Ok(Library(SendWrapper::new(Rc::new(Inner {
             active: active.clone(),
             manifest,
@@ -111,7 +128,10 @@ impl Library {
             coverage: RefCell::new(None),
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
-            books: RefCell::new(None),
+            books: RefCell::new(Some(books)),
+            disabled_books: RefCell::new(disabled_books),
+            selection_revision: RwSignal::new(0),
+            selection_write_in_flight: RefCell::new(false),
         }))))
     }
 
@@ -133,6 +153,81 @@ impl Library {
 
     pub fn sources(&self) -> &[SourceInfo] {
         &self.0.catalog.sources
+    }
+
+    pub fn selection_revision(&self) -> RwSignal<u64> {
+        self.0.selection_revision
+    }
+
+    pub fn book_active(&self, canonical_id: &str) -> bool {
+        !self.0.disabled_books.borrow().contains(canonical_id)
+    }
+
+    pub fn is_entry_active(&self, id: &EntryId) -> bool {
+        let Some(stub) = self.stub(id) else {
+            return false;
+        };
+        !is_book_disabled(
+            &self.0.disabled_books.borrow(),
+            canonical_book_source(
+                self.0.books.borrow().as_ref().and_then(Option::as_deref),
+                id,
+                &stub.source,
+            ),
+        )
+    }
+
+    pub fn canonical_source_for_entry(&self, id: &EntryId) -> Option<String> {
+        let stub = self.stub(id)?;
+        let books = self.0.books.borrow();
+        Some(
+            canonical_book_source(books.as_ref().and_then(Option::as_deref), id, &stub.source)
+                .to_owned(),
+        )
+    }
+
+    pub async fn set_book_active(
+        &self,
+        canonical_id: &str,
+        active: bool,
+    ) -> Result<(), LibraryError> {
+        {
+            let mut busy = self.0.selection_write_in_flight.borrow_mut();
+            if *busy {
+                return Err(LibraryError::Storage(
+                    "A book selection update is already being saved. Try again shortly.".into(),
+                ));
+            }
+            *busy = true;
+        }
+        struct Reset<'a>(&'a RefCell<bool>);
+        impl Drop for Reset<'_> {
+            fn drop(&mut self) {
+                *self.0.borrow_mut() = false;
+            }
+        }
+        let _reset = Reset(&self.0.selection_write_in_flight);
+        let mut next = self.0.disabled_books.borrow().clone();
+        if active {
+            next.remove(canonical_id);
+        } else {
+            next.insert(canonical_id.to_owned());
+        }
+        if next == *self.0.disabled_books.borrow() {
+            return Ok(());
+        }
+        store::set_disabled_books(&next)
+            .await
+            .map_err(|e| LibraryError::Storage(e.to_string()))?;
+        *self.0.disabled_books.borrow_mut() = next;
+        self.0
+            .selection_revision
+            .update(|revision| *revision = revision.wrapping_add(1));
+        Ok(())
+    }
+
+    pub fn discovery(&self) -> crate::discovery::Discovery {
+        crate::discovery::Discovery::new(self.clone())
     }
 
     pub fn source(&self, id: &str) -> Option<&SourceInfo> {
@@ -305,6 +400,22 @@ impl Library {
     }
 }
 
+/// Placement in a newer library is authoritative; catalog source is the explicit legacy and
+/// unplaced-entry fallback. The schema has no separate stable source field to consult.
+fn canonical_book_source<'a>(
+    books: Option<&'a BookLookup>,
+    id: &EntryId,
+    catalog_source: &'a str,
+) -> &'a str {
+    books
+        .and_then(|lookup| lookup.source_for_entry(id))
+        .unwrap_or(catalog_source)
+}
+
+fn is_book_disabled(disabled: &BTreeSet<String>, canonical_id: &str) -> bool {
+    disabled.contains(canonical_id)
+}
+
 async fn read_file(cache: &Cache, version: &str, relative: &str) -> Result<Vec<u8>, LibraryError> {
     let path = format!("{version}/{relative}");
     content_cache::read(cache, &path)
@@ -366,5 +477,48 @@ mod tests {
             bytes: 0,
         });
         assert!(!manifest_has_file(&other, RELATIONS_FILE));
+    }
+
+    #[test]
+    fn book_selection_defaults_new_books_active_and_allows_zero_active() {
+        let disabled = BTreeSet::new(); // missing preference means all active
+        assert!(!is_book_disabled(&disabled, "new-book"));
+        let disabled = BTreeSet::from(["a".to_owned(), "future".to_owned()]);
+        assert!(is_book_disabled(&disabled, "a"));
+        assert!(!is_book_disabled(&disabled, "new-book")); // unknown IDs are retained, new books active
+        assert!(is_book_disabled(&BTreeSet::from(["a".to_owned()]), "a")); // zero active is valid
+    }
+
+    #[test]
+    fn placement_wins_over_catalog_source_and_missing_placement_uses_stable_source() {
+        let placed_id = EntryId::parse("b/combat").unwrap();
+        let unplaced_id = EntryId::parse("b/unplaced").unwrap();
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![cast_iron_schema::BookTree {
+                source: "canonical-book".into(),
+                title: "Display title is irrelevant".into(),
+                basis: String::new(),
+                review: vec![],
+                chapters: vec![cast_iron_schema::BookNode {
+                    title: "Combat".into(),
+                    entry: Some(placed_id.clone()),
+                    anchor: None,
+                    review: None,
+                    children: vec![],
+                }],
+            }],
+        });
+        assert_eq!(
+            canonical_book_source(Some(&lookup), &placed_id, "attribution-source"),
+            "canonical-book"
+        );
+        assert_eq!(
+            canonical_book_source(Some(&lookup), &unplaced_id, "stable-catalog-id"),
+            "stable-catalog-id"
+        );
+        assert_eq!(
+            canonical_book_source(None, &placed_id, "legacy-source-id"),
+            "legacy-source-id"
+        );
     }
 }
