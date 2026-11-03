@@ -2,18 +2,23 @@
 
 # Cast Iron
 
-Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), delivered as an installable progressive web app (PWA). It is written in Rust and compiled to WebAssembly with Leptos. After installation it works with no network connection. It has no backend. The project is unofficial. The library contains 9,112 entries across the 16 books available in the pinned dataset. It does not contain every published PF1e book or every standalone record family.
+Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), delivered as an installable progressive web app (PWA). It is written in Rust and compiled to WebAssembly with Leptos. After installation it works with no network connection. It has no backend. The project is unofficial. This branch contains 9,967 entries across the 16 books available in the pinned dataset. It does not contain every published PF1e book or every standalone record family. See [status](docs/status.md) for local verification and deployment state.
 
 ## What works now
 
 - Install the app to a device, then use it offline.
-- Browse rules entries by category and by source book, with separate Classes and Prestige classes categories.
-- Search titles and full text, with filters for the kinds of entry that are selected.
+- Browse categories with alphabetical lists and facets, with separate Classes and Prestige classes categories.
+- Follow races to racial traits, classes to archetypes, and feats to named prerequisites and chains.
+- Browse spell lists by class and level, then filter the list by name.
+- Open book contents and move between entries in the curated order. Source notes identify verified chapter order and remaining placement questions.
+- Search titles and full text, with category, source, and applicable field filters.
 - Read formatted entries, with a References section that links to the entries they cite.
 - Bookmark entries and organize bookmarks into collections.
 - See recently viewed entries on the home screen.
 - Choose light, dark, or system theme.
 - Read the Legal and attribution page, which includes the content coverage report.
+
+The book view aims to follow original chapter and section order. The Core Rulebook's 15 main chapters match the publisher's contents PDF. Other outlines, nested placement, and appendix grouping still need verification. Feat links preserve prerequisite wording and alternatives; they do not determine whether a character qualifies. See [book evidence](docs/research/book-order-evidence.md) and [relationship coverage](docs/research/relationship-data.md).
 
 ## Quick start
 
@@ -34,9 +39,12 @@ Run these commands from the repository root:
 | Build the site into `dist/` | `cargo xtask build-site` (use `--public-url /` to serve from a root path) |
 | Run all checks | `cargo xtask check` |
 | Install the browser test dependencies | `npm --prefix tests/e2e ci` |
-| Run the browser acceptance tests | `npm --prefix tests/e2e test` |
+| Install the locally verified browsers | `npx --prefix tests/e2e playwright install chromium webkit` |
+| Run the locally verified browser projects | `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 
 `cargo xtask build-site` fetches and compiles the content when `generated/content/manifest.json` is missing. The default public URL is `/cast-iron/`, the GitHub Pages project path.
+
+After a compiler, schema, or source change, run `cargo xtask content` explicitly before rebuilding. An existing manifest makes the site build reuse the generated library. Browser tests read expectations from `generated/` and run against `dist/`, so both must describe the same version. The [verification guide](.claude/skills/verify/SKILL.md) covers offline checks, screenshots, and library upgrades. The default browser test command includes Firefox, which has a known local startup failure recorded in [status](docs/status.md).
 
 ## Repository layout
 

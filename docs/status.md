@@ -1,8 +1,8 @@
 # Status
 
-Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5f582be` and its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41579539956) succeeded. Branch `relationships` adds schema 3 and the reference navigation described below; it is not merged or deployed.
+Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5f582be` and its [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41579539956) succeeded. [PR #4](https://github.com/phynics/cast-iron/pull/4) on branch `relationships` adds schema 3 and the reference navigation described below; it is not merged or deployed. The last behavior checks below tested app commit `db2c288`; subsequent documentation edits do not change that build.
 
-## POC acceptance checklist (spec section 11)
+## Acceptance checklist (spec section 11)
 
 "Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local full run: 47 passed in 2.0 minutes (chromium 23, webkit 23, mobile-chromium 1), including relationship navigation, spell lists, feat prerequisites, source search, book history, and mobile layout. `cargo xtask check` also passed.
 
@@ -26,7 +26,7 @@ Updated 2026-11-03. The repository is public. The 16-book expansion merged at `5
 
 Phase 6 also requires that bookmarks survive a content update. `Content update keeps user records` covers this. A separate real-browser check installed the actual published schema-1 POC library in the new app, bookmarked Arcane Archer, reloaded offline, installed schema 2, and confirmed the bookmark and offline reading survived. `scripts/check-library-upgrade.py` also confirmed all 1,937 published IDs and titles are preserved.
 
-## Expanded corpus, locally verified
+## Schema-2 rollout baseline
 
 Content version `v91f4bc8ffd606a17`, schema 2. Classes has 27 entries; Prestige classes has 19, including Technology Guide's Technomancer.
 
@@ -93,8 +93,11 @@ AoN source pages group database records rather than chapters. Legacy PRD section
 
 - Licensing review is scoped to the 16 selected books. The publication screen covers all 9,967 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - Paizo Community Use Policy: on 2026-11-03 the official policy, FAQ, reinstatement post, and licensing overview were fetched and compared with the built Legal page. The notice matches the policy text, and the page shows a contact link. No registration is required. This does not clear every sentence of the dataset, and Paizo can withdraw the permission at its discretion. Details are in the audit.
+- Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
+- Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
+- Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
 - No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
-- Facet chips show global counts, not counts that depend on the other filters.
+- Category lens counts and source counts are global. Search field facets omit counts; the UI does not calculate counts conditional on every active filter.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
 - Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
 - Firefox, and a single flaky run of `Back/forward navigation works` on Chromium, which could not be reproduced (see `docs/decisions.md`).

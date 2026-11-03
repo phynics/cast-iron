@@ -32,7 +32,9 @@ Cast Iron is an unofficial reference. Do not use the Pathfinder logo or claim of
 
 ## Evidence on Hand
 
-`docs/spec.md`, `docs/status.md`, `docs/research/licensing-audit.md`, the pinned source snapshot, compiler reports, and the current Rust/Leptos UI. The current build has 9,112 entries from 16 available books; this is not evidence of complete PF1e coverage.
+`docs/spec.md`, `docs/status.md`, `docs/research/licensing-audit.md`, the pinned source snapshot, compiler reports, and the current Rust/Leptos UI. Current corpus counts and verification results live in `docs/status.md`.
+
+Publisher contents evidence lives in `docs/research/book-order-evidence.md`. Only the Core Rulebook's main chapter sequence has been verified so far. AoN source categories, Legacy PRD menus, and dataset tree order provide mapping clues but do not establish printed order. The book UI must retain review warnings until that evidence is complete.
 
 ## Product Principles
 
