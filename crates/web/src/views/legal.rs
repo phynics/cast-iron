@@ -16,6 +16,10 @@ pub fn Legal() -> impl IntoView {
     let coverage = local_resource(async move { library.coverage().await });
     view! {
         <h1>"Legal and attribution"</h1>
+        <p>
+            <a href="https://github.com/phynics/cast-iron/issues">"Contact the maintainer"</a>
+            " through GitHub Issues for questions, corrections, or licensing concerns."
+        </p>
         {move || legal.with(|state| match state {
             None => view! { <p>"Loading..."</p> }.into_any(),
             Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),

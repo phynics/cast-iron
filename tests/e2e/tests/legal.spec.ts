@@ -13,6 +13,8 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await page.goto("#/settings");
   await page.getByRole("link", { name: "Legal and attribution, and library coverage" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Legal and attribution" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Contact the maintainer" }))
+    .toHaveAttribute("href", "https://github.com/phynics/cast-iron/issues");
 
   const text = page.locator(".legal-text");
   await expect(text.filter({ hasText: "15. COPYRIGHT NOTICE" })).toHaveCount(1);

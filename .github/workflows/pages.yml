@@ -46,6 +46,8 @@ jobs:
         run: |
           trunk --version
           cargo xtask build-site --public-url /cast-iron/
+      - name: Screen the publication scope and attribution
+        run: python3 scripts/check-publication.py
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

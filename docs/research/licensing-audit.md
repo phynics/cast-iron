@@ -72,9 +72,15 @@ Paizo's [reinstatement announcement](https://cdn.paizo.com/blog/updates-on-the-c
 
 The [licensing overview](https://paizo.com/licenses), verified through indexed official text, includes free online references and tools and requires OGL compliance for OGL mechanics. My reading is that OGL plus Community Use is a viable route for Cast Iron. Fan Content's restrictions on rules compendiums do not establish a Community Use prohibition.
 
-Repository inspection found the current notice in `README.md`. The compiler extracts that notice's template from this audit into the app. `crates/web/src/views/legal.rs` renders the notice, OGL, and attribution data, but provides no project contact. Add a visible maintained contact before relying on Community Use. The source dataset's legacy notice is preserved separately in its extracted notices.
+Repository inspection found the current notice in `README.md`. The compiler extracts that notice's template from this audit into the app. `crates/web/src/views/legal.rs` renders the notice, OGL, and attribution data. The rollout adds GitHub Issues as the visible project contact there and in the README. The source dataset's legacy notice is preserved separately in its extracted notices.
 
-Remaining scope check: identify copied non-rules prose and third-party material whose permissions are not established by OGL or Community Use. No record-level audit was performed in this recheck. A missing dataset-level license alone does not negate a valid upstream grant.
+### Built POC scope review
+
+`python3 scripts/check-publication.py` screened all 1,937 built entries from Core Rulebook and Bestiary. It found no matches for its listed campaign locations, deities, or iconic characters. Creature titles were also inspected and identify generic creature types and stat-block variants, rather than named campaign characters. The selected rules trees cover game procedures, equipment, and terminology. Campaign books, adventure plots, and artwork are outside this source selection.
+
+The script verifies all manifest file hashes, the two-source scope, per-entry OGL references, and expected attribution for both Paizo books, the System Reference Document, and Tome of Horrors. The app preserves the full collected Section 15 notices, including third-party credits. Its report is `generated/reports/publication.json`.
+
+This scoped review found no additional publication issue. It does not classify every sentence as Open Game Content or prove that no other Product Identity exists. Generic descriptive prose, including creature ecology, remains in the selected upstream rules. Future sources or a discovered rights issue require review and, where needed, removal recorded in coverage. A missing dataset-level license alone does not negate a valid upstream grant.
 
 ## Q4. ORC/OGL 2023 situation
 

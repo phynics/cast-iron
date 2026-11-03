@@ -99,6 +99,8 @@ jobs:
         run: |
           trunk --version
           cargo xtask build-site --public-url /cast-iron/
+      - name: Screen the publication scope and attribution
+        run: python3 scripts/check-publication.py
       - name: Dist size summary
         run: |
           {

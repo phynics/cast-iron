@@ -55,4 +55,6 @@ Community Use notice, as the Paizo Community Use Policy requires:
 
 Cast Iron is not affiliated with or endorsed by Paizo Inc. It does not use the Pathfinder logo.
 
+Contact the maintainer through [GitHub Issues](https://github.com/phynics/cast-iron/issues) for questions, corrections, or licensing concerns.
+
 Created in [T3 Code](https://t3.codes).

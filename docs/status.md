@@ -1,10 +1,10 @@
 # Status
 
-Updated 2026-11-03, branch `poc`.
+Updated 2026-11-03, public rollout branch `pages-rollout`.
 
 ## POC acceptance checklist (spec section 11)
 
-"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local run: 35 passed (chromium 17, webkit 17, mobile-chromium 1).
+"Local" means the Playwright suite in `tests/e2e` passed against a real `dist/` build served at `/cast-iron/` by `tests/e2e/server.mjs`. Last local run: 35 passed in 57.9 seconds (chromium 17, webkit 17, mobile-chromium 1), including the project contact link. `cargo xtask check` also passed.
 
 | Item | State | Evidence |
 |---|---|---|
@@ -42,14 +42,14 @@ The latency figures come from desktop Chromium, with a mobile viewport and CPU t
 
 ## Not verified yet
 
-- GitHub Actions runs and the GitHub Pages deployment. The workflows have not run on GitHub yet.
+- GitHub Pages deployment. POC PR CI passed on GitHub in runs 41569305309 and 41569305238. The first Pages build succeeded, but deployment returned HTTP 404 because Pages was not enabled.
 - Firefox: the tests exist, but Playwright's Firefox does not start on the development machine (macOS 27). CI runs Firefox as non-blocking.
 - Real devices: Android Chromium, iOS Safari, installed-app (standalone) relaunch.
 - Persistent storage: headless Chromium reports "not granted". On real browsers the result depends on browser heuristics.
 
 ## Known gaps
 
-- Licensing: the 2026-11-03 policy recheck supports OGL plus Community Use for a free rules reference. The app needs visible project contact information. Copied non-rules prose and third-party material still need a scope check. See `docs/research/licensing-audit.md`.
+- Licensing review is scoped to the POC. The rollout adds the visible GitHub Issues contact. The publication screen covers all 1,937 entries and found no issue, but does not classify every sentence or establish blanket rights to new sources. See `docs/research/licensing-audit.md`.
 - No "Referenced by" list (needs a reverse link index). Only "References" exists.
 - Facet chips show global counts, not counts that depend on the other filters.
 - In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.

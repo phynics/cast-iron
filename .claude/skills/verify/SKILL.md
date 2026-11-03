@@ -68,6 +68,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
 | Mobile layout | `Mobile viewport` (`mobile.spec.ts`) | `web/styles.css` |
 | Legal and attribution | `Licensing` | `crates/web/src/views/legal.rs`, `sources/psrd-data/legal-notices.json` |
+| Publication scope | none: `python3 scripts/check-publication.py` after building | `scripts/check-publication.py`, `docs/research/licensing-audit.md` |
 | Content compiler | none: `cargo test -p cast-iron-content-compiler`, CI determinism job | `crates/content-compiler` |
 
 ## Keep this file current
