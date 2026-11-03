@@ -197,7 +197,9 @@ fn stamp_shell(dist: &Path) -> Result {
             .to_str()
             .ok_or("non-UTF-8 path")?
             .replace('\\', "/");
-        if relative == "sw.js" || relative == ".nojekyll" || relative.starts_with("content/") {
+        // Dotfiles (.nojekyll, Trunk's .trunk-lock) are not part of the app.
+        let hidden = relative.split('/').any(|part| part.starts_with('.'));
+        if relative == "sw.js" || hidden || relative.starts_with("content/") {
             continue;
         }
         let bytes = fs::read(&file).map_err(|e| e.to_string())?;
@@ -291,6 +293,7 @@ mod tests {
         )
         .unwrap();
         fs::write(dir.join("index.html"), "x").unwrap();
+        fs::write(dir.join(".trunk-lock"), "").unwrap();
         fs::write(dir.join("content/v1/a.json"), "{}").unwrap();
         stamp_shell(&dir).unwrap();
         let stamped = fs::read_to_string(dir.join("sw.js")).unwrap();
