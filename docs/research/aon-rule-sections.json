@@ -1,0 +1,1605 @@
+{
+  "books": [
+    {
+      "heading_id": "FTT_Rules71",
+      "label": "PRPG Core Rulebook",
+      "topics": [
+        {
+          "label": "Basics",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "How to Play",
+              "url": "https://aonprd.com/Rules.aspx?ID=81"
+            },
+            {
+              "depth": 0,
+              "label": "Common Terms",
+              "url": "https://aonprd.com/Rules.aspx?ID=82"
+            },
+            {
+              "depth": 0,
+              "label": "Character Creation",
+              "url": "https://aonprd.com/Rules.aspx?ID=83"
+            },
+            {
+              "depth": 0,
+              "label": "Ability Scores",
+              "url": "https://aonprd.com/Rules.aspx?ID=84"
+            },
+            {
+              "depth": 0,
+              "label": "Character Advancement",
+              "url": "https://aonprd.com/Rules.aspx?ID=85"
+            },
+            {
+              "depth": 0,
+              "label": "Alignment",
+              "url": "https://aonprd.com/Rules.aspx?ID=113"
+            },
+            {
+              "depth": 0,
+              "label": "Definitions of Terms",
+              "url": "https://aonprd.com/Rules.aspx?ID=346"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=41"
+        },
+        {
+          "label": "Combat",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "How Combat Works",
+              "url": "https://aonprd.com/Rules.aspx?ID=87"
+            },
+            {
+              "depth": 0,
+              "label": "Combat Statistics",
+              "url": "https://aonprd.com/Rules.aspx?ID=88"
+            },
+            {
+              "depth": 0,
+              "label": "Actions in Combat",
+              "url": "https://aonprd.com/Rules.aspx?ID=128"
+            },
+            {
+              "depth": 0,
+              "label": "Injury and Death",
+              "url": "https://aonprd.com/Rules.aspx?ID=164"
+            },
+            {
+              "depth": 0,
+              "label": "Movement, Position, and Distance",
+              "url": "https://aonprd.com/Rules.aspx?ID=173"
+            },
+            {
+              "depth": 0,
+              "label": "Big and Little Creatures in Combat",
+              "url": "https://aonprd.com/Rules.aspx?ID=179"
+            },
+            {
+              "depth": 0,
+              "label": "Combat Modifiers",
+              "url": "https://aonprd.com/Rules.aspx?ID=180"
+            },
+            {
+              "depth": 0,
+              "label": "Special Attacks",
+              "url": "https://aonprd.com/Rules.aspx?ID=185"
+            },
+            {
+              "depth": 0,
+              "label": "Special Initiative Actions",
+              "url": "https://aonprd.com/Rules.aspx?ID=199"
+            },
+            {
+              "depth": 0,
+              "label": "Conditions",
+              "url": "https://aonprd.com/Rules.aspx?ID=413"
+            },
+            {
+              "depth": 0,
+              "label": "Special Abilities",
+              "url": "https://aonprd.com/Rules.aspx?ID=414"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=44"
+        },
+        {
+          "label": "Environment",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Dungeons",
+              "url": "https://aonprd.com/Rules.aspx?ID=263"
+            },
+            {
+              "depth": 0,
+              "label": "Traps",
+              "url": "https://aonprd.com/Rules.aspx?ID=273"
+            },
+            {
+              "depth": 0,
+              "label": "Wilderness",
+              "url": "https://aonprd.com/Rules.aspx?ID=290"
+            },
+            {
+              "depth": 0,
+              "label": "Urban Adventures",
+              "url": "https://aonprd.com/Rules.aspx?ID=305"
+            },
+            {
+              "depth": 0,
+              "label": "Weather",
+              "url": "https://aonprd.com/Rules.aspx?ID=315"
+            },
+            {
+              "depth": 0,
+              "label": "The Planes",
+              "url": "https://aonprd.com/Rules.aspx?ID=320"
+            },
+            {
+              "depth": 0,
+              "label": "Environmental Rules",
+              "url": "https://aonprd.com/Rules.aspx?ID=323"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=48"
+        },
+        {
+          "label": "Exploration",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Movement",
+              "url": "https://aonprd.com/Rules.aspx?ID=119"
+            },
+            {
+              "depth": 0,
+              "label": "Vision and Light",
+              "url": "https://aonprd.com/Rules.aspx?ID=124"
+            },
+            {
+              "depth": 0,
+              "label": "Breaking and Entering",
+              "url": "https://aonprd.com/Rules.aspx?ID=125"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=50"
+        },
+        {
+          "label": "Gamemastering",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Basics from the Core Rulebook",
+              "url": "https://aonprd.com/Rules.aspx?ID=247"
+            },
+            {
+              "depth": 0,
+              "label": "Creating NPCs",
+              "url": "https://aonprd.com/Rules.aspx?ID=353"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=51"
+        },
+        {
+          "label": "Items",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Equipment",
+              "url": "https://aonprd.com/Rules.aspx?ID=105"
+            },
+            {
+              "depth": 0,
+              "label": "Magic Items",
+              "url": "https://aonprd.com/Rules.aspx?ID=365"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=65"
+        },
+        {
+          "label": "Magic",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Magic Basics",
+              "url": "https://aonprd.com/Rules.aspx?ID=202"
+            },
+            {
+              "depth": 0,
+              "label": "Casting Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=203"
+            },
+            {
+              "depth": 0,
+              "label": "Spell Descriptions",
+              "url": "https://aonprd.com/Rules.aspx?ID=212"
+            },
+            {
+              "depth": 0,
+              "label": "Arcane Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=233"
+            },
+            {
+              "depth": 0,
+              "label": "Divine Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=242"
+            },
+            {
+              "depth": 0,
+              "label": "Special Abilities",
+              "url": "https://aonprd.com/Rules.aspx?ID=246"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=68"
+        },
+        {
+          "label": "Skills",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Acquiring Skills",
+              "url": "https://aonprd.com/Rules.aspx?ID=86"
+            },
+            {
+              "depth": 0,
+              "label": "Skill Descriptions",
+              "url": "https://aonprd.com/Rules.aspx?ID=341"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=79"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules152",
+      "label": "Pathfinder RPG Bestiary",
+      "topics": [
+        {
+          "label": "Bestiary",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Introduction",
+              "url": "https://aonprd.com/Rules.aspx?ID=2449"
+            },
+            {
+              "depth": 0,
+              "label": "Monster Creation",
+              "url": "https://aonprd.com/Rules.aspx?ID=2452"
+            },
+            {
+              "depth": 0,
+              "label": "Monster Advancement",
+              "url": "https://aonprd.com/Rules.aspx?ID=2463"
+            },
+            {
+              "depth": 0,
+              "label": "Monsters as PCs",
+              "url": "https://aonprd.com/Rules.aspx?ID=2476"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2448"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules78",
+      "label": "Pathfinder #28: The Infernal Syndrome",
+      "topics": [
+        {
+          "label": "Possession",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Possession Feats",
+              "url": "https://aonprd.com/Rules.aspx?ID=2537"
+            },
+            {
+              "depth": 0,
+              "label": "Possession Actions",
+              "url": "https://aonprd.com/Rules.aspx?ID=2538"
+            },
+            {
+              "depth": 0,
+              "label": "Exorcism",
+              "url": "https://aonprd.com/Rules.aspx?ID=2539"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2536"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules101",
+      "label": "GameMastery Guide",
+      "topics": [
+        {
+          "label": "GameMastery Guide",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Getting Started",
+              "url": "https://aonprd.com/Rules.aspx?ID=455"
+            },
+            {
+              "depth": 0,
+              "label": "Running a Game",
+              "url": "https://aonprd.com/Rules.aspx?ID=514"
+            },
+            {
+              "depth": 0,
+              "label": "Player Characters",
+              "url": "https://aonprd.com/Rules.aspx?ID=574"
+            },
+            {
+              "depth": 0,
+              "label": "Nonplayer Characters",
+              "url": "https://aonprd.com/Rules.aspx?ID=625"
+            },
+            {
+              "depth": 0,
+              "label": "Rewards",
+              "url": "https://aonprd.com/Rules.aspx?ID=662"
+            },
+            {
+              "depth": 0,
+              "label": "Creating a World",
+              "url": "https://aonprd.com/Rules.aspx?ID=708"
+            },
+            {
+              "depth": 0,
+              "label": "Adventures",
+              "url": "https://aonprd.com/Rules.aspx?ID=782"
+            },
+            {
+              "depth": 0,
+              "label": "Advanced Topics",
+              "url": "https://aonprd.com/Rules.aspx?ID=870"
+            },
+            {
+              "depth": 0,
+              "label": "NPC Gallery",
+              "url": "https://aonprd.com/Rules.aspx?ID=936"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=454"
+        },
+        {
+          "label": "High or Low Magic?",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Reducing Magic with Rules Adjustments",
+              "url": "https://aonprd.com/Rules.aspx?ID=673"
+            },
+            {
+              "depth": 0,
+              "label": "Reducing Magic with World Description",
+              "url": "https://aonprd.com/Rules.aspx?ID=674"
+            },
+            {
+              "depth": 0,
+              "label": "Magic Shops",
+              "url": "https://aonprd.com/Rules.aspx?ID=675"
+            },
+            {
+              "depth": 0,
+              "label": "Types of Magic Shops",
+              "url": "https://aonprd.com/Rules.aspx?ID=676"
+            },
+            {
+              "depth": 0,
+              "label": "Trouble Items",
+              "url": "https://aonprd.com/Rules.aspx?ID=677"
+            },
+            {
+              "depth": 0,
+              "label": "Story Items",
+              "url": "https://aonprd.com/Rules.aspx?ID=678"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=672"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules109",
+      "label": "Advanced Player's Guide",
+      "topics": [
+        {
+          "label": "Basics",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Racial Traits",
+              "url": "https://aonprd.com/Rules.aspx?ID=438"
+            },
+            {
+              "depth": 0,
+              "label": "Racial Favored Class Bonus",
+              "url": "https://aonprd.com/Rules.aspx?ID=439"
+            },
+            {
+              "depth": 0,
+              "label": "Archetypes",
+              "url": "https://aonprd.com/Rules.aspx?ID=440"
+            },
+            {
+              "depth": 0,
+              "label": "Traits",
+              "url": "https://aonprd.com/Rules.aspx?ID=450"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=42"
+        },
+        {
+          "label": "Combat Maneuvers",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Dirty Trick",
+              "url": "https://aonprd.com/Rules.aspx?ID=441"
+            },
+            {
+              "depth": 0,
+              "label": "Drag",
+              "url": "https://aonprd.com/Rules.aspx?ID=442"
+            },
+            {
+              "depth": 0,
+              "label": "Reposition",
+              "url": "https://aonprd.com/Rules.aspx?ID=443"
+            },
+            {
+              "depth": 0,
+              "label": "Steal",
+              "url": "https://aonprd.com/Rules.aspx?ID=444"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=46"
+        },
+        {
+          "label": "Optional Rule Systems",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Hero Points",
+              "url": "https://aonprd.com/Rules.aspx?ID=445"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=72"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules134",
+      "label": "Ultimate Magic",
+      "topics": [
+        {
+          "label": "Mastering Magic",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Spellblights",
+              "url": "https://aonprd.com/Rules.aspx?ID=940"
+            },
+            {
+              "depth": 0,
+              "label": "Spell Duels",
+              "url": "https://aonprd.com/Rules.aspx?ID=948"
+            },
+            {
+              "depth": 0,
+              "label": "Binding Outsiders",
+              "url": "https://aonprd.com/Rules.aspx?ID=953"
+            },
+            {
+              "depth": 0,
+              "label": "Building and Modifying Constructs",
+              "url": "https://aonprd.com/Rules.aspx?ID=974"
+            },
+            {
+              "depth": 0,
+              "label": "Designing Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=983"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=939"
+        },
+        {
+          "label": "Gaining Spellblights",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Optional Ways to Acquire Spellblights",
+              "url": "https://aonprd.com/Rules.aspx?ID=942"
+            },
+            {
+              "depth": 0,
+              "label": "Removing Spellblights",
+              "url": "https://aonprd.com/Rules.aspx?ID=943"
+            },
+            {
+              "depth": 0,
+              "label": "Description of Spellblights",
+              "url": "https://aonprd.com/Rules.aspx?ID=944"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=941"
+        },
+        {
+          "label": "Words of Power",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Optional",
+              "url": "https://aonprd.com/Rules.aspx?ID=1017"
+            },
+            {
+              "depth": 0,
+              "label": "Becoming a Wordcaster",
+              "url": "https://aonprd.com/Rules.aspx?ID=1018"
+            },
+            {
+              "depth": 0,
+              "label": "Target Words",
+              "url": "https://aonprd.com/Rules.aspx?ID=1025"
+            },
+            {
+              "depth": 0,
+              "label": "Effect Word Descriptions",
+              "url": "https://aonprd.com/Rules.aspx?ID=1026"
+            },
+            {
+              "depth": 0,
+              "label": "Meta Words",
+              "url": "https://aonprd.com/Rules.aspx?ID=1062"
+            },
+            {
+              "depth": 0,
+              "label": "Words of Power in the Worlds",
+              "url": "https://aonprd.com/Rules.aspx?ID=1063"
+            },
+            {
+              "depth": 0,
+              "label": "Introducing Words of Power",
+              "url": "https://aonprd.com/Rules.aspx?ID=1064"
+            },
+            {
+              "depth": 0,
+              "label": "Class Word Lists",
+              "url": "https://aonprd.com/Rules.aspx?ID=1596"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1016"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules145",
+      "label": "Ultimate Combat",
+      "topics": [
+        {
+          "label": "Optional Rule Systems",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Armor as Damage Reduction",
+              "url": "https://aonprd.com/Rules.aspx?ID=1123"
+            },
+            {
+              "depth": 0,
+              "label": "Called Shots",
+              "url": "https://aonprd.com/Rules.aspx?ID=1127"
+            },
+            {
+              "depth": 0,
+              "label": "Piecemeal Armor",
+              "url": "https://aonprd.com/Rules.aspx?ID=1141"
+            },
+            {
+              "depth": 0,
+              "label": "Wounds and Vigor",
+              "url": "https://aonprd.com/Rules.aspx?ID=1155"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=74"
+        },
+        {
+          "label": "Mastering Combat",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Firearms",
+              "url": "https://aonprd.com/Rules.aspx?ID=1066"
+            },
+            {
+              "depth": 0,
+              "label": "Duels",
+              "url": "https://aonprd.com/Rules.aspx?ID=1073"
+            },
+            {
+              "depth": 0,
+              "label": "Performance Combat",
+              "url": "https://aonprd.com/Rules.aspx?ID=1082"
+            },
+            {
+              "depth": 0,
+              "label": "Siege Engines",
+              "url": "https://aonprd.com/Rules.aspx?ID=1095"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1065"
+        },
+        {
+          "label": "Vehicles",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Vehicle Basics",
+              "url": "https://aonprd.com/Rules.aspx?ID=1107"
+            },
+            {
+              "depth": 0,
+              "label": "Full Vehicle Rules",
+              "url": "https://aonprd.com/Rules.aspx?ID=1108"
+            },
+            {
+              "depth": 0,
+              "label": "Vehicle Statistics",
+              "url": "https://aonprd.com/Rules.aspx?ID=1119"
+            },
+            {
+              "depth": 0,
+              "label": "Land Vehicles",
+              "url": "https://aonprd.com/Rules.aspx?ID=1120"
+            },
+            {
+              "depth": 0,
+              "label": "Water Vehicles",
+              "url": "https://aonprd.com/Rules.aspx?ID=1121"
+            },
+            {
+              "depth": 0,
+              "label": "Air Vehicles",
+              "url": "https://aonprd.com/Rules.aspx?ID=1122"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1106"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules154",
+      "label": "Advanced Race Guide",
+      "topics": [
+        {
+          "label": "Race Builder",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Race Examples",
+              "url": "https://aonprd.com/Rules.aspx?ID=1164"
+            },
+            {
+              "depth": 0,
+              "label": "Creating a New Race",
+              "url": "https://aonprd.com/Rules.aspx?ID=1165"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1163"
+        },
+        {
+          "label": "Appendix 1: Age",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2544"
+        },
+        {
+          "label": "Appendix 2: Height and Weight",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2545"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules217",
+      "label": "Ultimate Campaign",
+      "topics": [
+        {
+          "label": "Character Background",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "How to Create a Background",
+              "url": "https://aonprd.com/Rules.aspx?ID=1222"
+            },
+            {
+              "depth": 0,
+              "label": "Using this Section",
+              "url": "https://aonprd.com/Rules.aspx?ID=1225"
+            },
+            {
+              "depth": 0,
+              "label": "Early Life",
+              "url": "https://aonprd.com/Rules.aspx?ID=1226"
+            },
+            {
+              "depth": 0,
+              "label": "Adolescence",
+              "url": "https://aonprd.com/Rules.aspx?ID=1234"
+            },
+            {
+              "depth": 0,
+              "label": "Adulthood",
+              "url": "https://aonprd.com/Rules.aspx?ID=1240"
+            },
+            {
+              "depth": 0,
+              "label": "Two Quirks and a Flaw: Quick and Dirty Character Establishement",
+              "url": "https://aonprd.com/Rules.aspx?ID=1244"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1221"
+        },
+        {
+          "label": "Downtime",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Downtime Overview",
+              "url": "https://aonprd.com/Rules.aspx?ID=1246"
+            },
+            {
+              "depth": 0,
+              "label": "Downtime Activities",
+              "url": "https://aonprd.com/Rules.aspx?ID=1261"
+            },
+            {
+              "depth": 0,
+              "label": "Managers",
+              "url": "https://aonprd.com/Rules.aspx?ID=1282"
+            },
+            {
+              "depth": 0,
+              "label": "Rooms and Teams",
+              "url": "https://aonprd.com/Rules.aspx?ID=1285"
+            },
+            {
+              "depth": 0,
+              "label": "Buildings and Organizations",
+              "url": "https://aonprd.com/Rules.aspx?ID=1295"
+            },
+            {
+              "depth": 0,
+              "label": "Downtime Events",
+              "url": "https://aonprd.com/Rules.aspx?ID=1298"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1245"
+        },
+        {
+          "label": "Construction Examples",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Reading a Unit Statblock",
+              "url": "https://aonprd.com/Rules.aspx?ID=1287"
+            },
+            {
+              "depth": 0,
+              "label": "Restrictions on Earnings",
+              "url": "https://aonprd.com/Rules.aspx?ID=1288"
+            },
+            {
+              "depth": 0,
+              "label": "Construction and Recruitment Delays",
+              "url": "https://aonprd.com/Rules.aspx?ID=1289"
+            },
+            {
+              "depth": 0,
+              "label": "Moving an Organization",
+              "url": "https://aonprd.com/Rules.aspx?ID=1290"
+            },
+            {
+              "depth": 0,
+              "label": "Rooms",
+              "url": "https://aonprd.com/Rules.aspx?ID=1291"
+            },
+            {
+              "depth": 0,
+              "label": "Teams",
+              "url": "https://aonprd.com/Rules.aspx?ID=1294"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1286"
+        },
+        {
+          "label": "Campaign Systems",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Alignments",
+              "url": "https://aonprd.com/Rules.aspx?ID=1327"
+            },
+            {
+              "depth": 0,
+              "label": "Bargaining",
+              "url": "https://aonprd.com/Rules.aspx?ID=1339"
+            },
+            {
+              "depth": 0,
+              "label": "Companions",
+              "url": "https://aonprd.com/Rules.aspx?ID=1352"
+            },
+            {
+              "depth": 0,
+              "label": "Exploration",
+              "url": "https://aonprd.com/Rules.aspx?ID=1376"
+            },
+            {
+              "depth": 0,
+              "label": "Honor",
+              "url": "https://aonprd.com/Rules.aspx?ID=1402"
+            },
+            {
+              "depth": 0,
+              "label": "Investment",
+              "url": "https://aonprd.com/Rules.aspx?ID=1413"
+            },
+            {
+              "depth": 0,
+              "label": "Lineage",
+              "url": "https://aonprd.com/Rules.aspx?ID=1416"
+            },
+            {
+              "depth": 0,
+              "label": "Magic Item Creation",
+              "url": "https://aonprd.com/Rules.aspx?ID=1426"
+            },
+            {
+              "depth": 0,
+              "label": "Relationships",
+              "url": "https://aonprd.com/Rules.aspx?ID=1441"
+            },
+            {
+              "depth": 0,
+              "label": "Reputation and Fame",
+              "url": "https://aonprd.com/Rules.aspx?ID=1450"
+            },
+            {
+              "depth": 0,
+              "label": "Retirement",
+              "url": "https://aonprd.com/Rules.aspx?ID=1464"
+            },
+            {
+              "depth": 0,
+              "label": "Retraining",
+              "url": "https://aonprd.com/Rules.aspx?ID=1469"
+            },
+            {
+              "depth": 0,
+              "label": "Taxation",
+              "url": "https://aonprd.com/Rules.aspx?ID=1480"
+            },
+            {
+              "depth": 0,
+              "label": "Young Characters",
+              "url": "https://aonprd.com/Rules.aspx?ID=1484"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1326"
+        },
+        {
+          "label": "Kingdoms and War",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Kingdom Building",
+              "url": "https://aonprd.com/Rules.aspx?ID=1489"
+            },
+            {
+              "depth": 0,
+              "label": "Optional Kingdom Rules",
+              "url": "https://aonprd.com/Rules.aspx?ID=1547"
+            },
+            {
+              "depth": 0,
+              "label": "Mass Combat",
+              "url": "https://aonprd.com/Rules.aspx?ID=1565"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1488"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules235",
+      "label": "Mythic Adventures",
+      "topics": [
+        {
+          "label": "Mythic Rules",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "What is Mythic?",
+              "url": "https://aonprd.com/Rules.aspx?ID=1609"
+            },
+            {
+              "depth": 0,
+              "label": "Mythic Heroes",
+              "url": "https://aonprd.com/Rules.aspx?ID=1613"
+            },
+            {
+              "depth": 0,
+              "label": "Mythic Feats",
+              "url": "https://aonprd.com/Rules.aspx?ID=1620"
+            },
+            {
+              "depth": 0,
+              "label": "Mythic Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=1621"
+            },
+            {
+              "depth": 0,
+              "label": "Running a Mythic Game",
+              "url": "https://aonprd.com/Rules.aspx?ID=1622"
+            },
+            {
+              "depth": 0,
+              "label": "Mythic Magic Items",
+              "url": "https://aonprd.com/Rules.aspx?ID=1655"
+            },
+            {
+              "depth": 0,
+              "label": "Mythic Monsters",
+              "url": "https://aonprd.com/Rules.aspx?ID=1662"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1608"
+        },
+        {
+          "label": "Eternal Gaze",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Falling Stars",
+              "url": "https://aonprd.com/Rules.aspx?ID=1649"
+            },
+            {
+              "depth": 0,
+              "label": "For Love of Sport",
+              "url": "https://aonprd.com/Rules.aspx?ID=1650"
+            },
+            {
+              "depth": 0,
+              "label": "Legacy of Earth",
+              "url": "https://aonprd.com/Rules.aspx?ID=1651"
+            },
+            {
+              "depth": 0,
+              "label": "The Nascent Sphere",
+              "url": "https://aonprd.com/Rules.aspx?ID=1652"
+            },
+            {
+              "depth": 0,
+              "label": "Perilous Peaks",
+              "url": "https://aonprd.com/Rules.aspx?ID=1653"
+            },
+            {
+              "depth": 0,
+              "label": "Unexpected Travels",
+              "url": "https://aonprd.com/Rules.aspx?ID=1654"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1648"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules309",
+      "label": "Heroes of the Wild",
+      "topics": [
+        {
+          "label": "Gamemastering",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Wilderness Rooms",
+              "url": "https://aonprd.com/Rules.aspx?ID=2528"
+            },
+            {
+              "depth": 0,
+              "label": "Wilderness Room Augmentations",
+              "url": "https://aonprd.com/Rules.aspx?ID=2529"
+            },
+            {
+              "depth": 0,
+              "label": "Wilderness Teams",
+              "url": "https://aonprd.com/Rules.aspx?ID=2530"
+            },
+            {
+              "depth": 0,
+              "label": "Wilderness Managers",
+              "url": "https://aonprd.com/Rules.aspx?ID=2531"
+            },
+            {
+              "depth": 0,
+              "label": "Wilderness Buildings",
+              "url": "https://aonprd.com/Rules.aspx?ID=2532"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=56"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules306",
+      "label": "Pathfinder Unchained",
+      "topics": [
+        {
+          "label": "Pathfinder Unchained",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Fractional Base Bonuses",
+              "url": "https://aonprd.com/Rules.aspx?ID=1726"
+            },
+            {
+              "depth": 0,
+              "label": "Staggered Advancement",
+              "url": "https://aonprd.com/Rules.aspx?ID=1730"
+            },
+            {
+              "depth": 0,
+              "label": "Background Skills",
+              "url": "https://aonprd.com/Rules.aspx?ID=1732"
+            },
+            {
+              "depth": 0,
+              "label": "Consolidated Skills",
+              "url": "https://aonprd.com/Rules.aspx?ID=1745"
+            },
+            {
+              "depth": 0,
+              "label": "Grouped Skills",
+              "url": "https://aonprd.com/Rules.aspx?ID=1824"
+            },
+            {
+              "depth": 0,
+              "label": "Alternate Crafting and Profession Rules",
+              "url": "https://aonprd.com/Rules.aspx?ID=1829"
+            },
+            {
+              "depth": 0,
+              "label": "Skill Unlocks",
+              "url": "https://aonprd.com/Rules.aspx?ID=1851"
+            },
+            {
+              "depth": 0,
+              "label": "Variant Multiclassing",
+              "url": "https://aonprd.com/Rules.aspx?ID=1852"
+            },
+            {
+              "depth": 0,
+              "label": "Alignment (Unchained)",
+              "url": "https://aonprd.com/Rules.aspx?ID=1874"
+            },
+            {
+              "depth": 0,
+              "label": "Removing Alignment",
+              "url": "https://aonprd.com/Rules.aspx?ID=1880"
+            },
+            {
+              "depth": 0,
+              "label": "Revised Action Economy",
+              "url": "https://aonprd.com/Rules.aspx?ID=1884"
+            },
+            {
+              "depth": 0,
+              "label": "Removing Iterative Attacks",
+              "url": "https://aonprd.com/Rules.aspx?ID=1893"
+            },
+            {
+              "depth": 0,
+              "label": "Stamina and Combat Tricks",
+              "url": "https://aonprd.com/Rules.aspx?ID=1901"
+            },
+            {
+              "depth": 0,
+              "label": "Wound Thresholds",
+              "url": "https://aonprd.com/Rules.aspx?ID=1903"
+            },
+            {
+              "depth": 0,
+              "label": "Diseases and Poisons",
+              "url": "https://aonprd.com/Rules.aspx?ID=1909"
+            },
+            {
+              "depth": 0,
+              "label": "Simplified Spellcasting",
+              "url": "https://aonprd.com/Rules.aspx?ID=1923"
+            },
+            {
+              "depth": 0,
+              "label": "Spell Alterations",
+              "url": "https://aonprd.com/Rules.aspx?ID=1928"
+            },
+            {
+              "depth": 0,
+              "label": "Esoteric Material Components",
+              "url": "https://aonprd.com/Rules.aspx?ID=1940"
+            },
+            {
+              "depth": 0,
+              "label": "Automatic Bonus Progression",
+              "url": "https://aonprd.com/Rules.aspx?ID=1950"
+            },
+            {
+              "depth": 0,
+              "label": "Innate Item Bonuses",
+              "url": "https://aonprd.com/Rules.aspx?ID=1961"
+            },
+            {
+              "depth": 0,
+              "label": "Scaling Items",
+              "url": "https://aonprd.com/Rules.aspx?ID=1966"
+            },
+            {
+              "depth": 0,
+              "label": "Dynamic Magic Item Creation",
+              "url": "https://aonprd.com/Rules.aspx?ID=1983"
+            },
+            {
+              "depth": 0,
+              "label": "Simple Monster Creation",
+              "url": "https://aonprd.com/Rules.aspx?ID=1997"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1725"
+        },
+        {
+          "label": "Miscellaneous Abilities",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=1823"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules318",
+      "label": "Occult Adventures",
+      "topics": [
+        {
+          "label": "Occult Rules",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Occult Rituals",
+              "url": "https://aonprd.com/Rules.aspx?ID=1675"
+            },
+            {
+              "depth": 0,
+              "label": "Occult Skill Unlocks",
+              "url": "https://aonprd.com/Rules.aspx?ID=2062"
+            },
+            {
+              "depth": 0,
+              "label": "Auras",
+              "url": "https://aonprd.com/Rules.aspx?ID=2063"
+            },
+            {
+              "depth": 0,
+              "label": "Chakras",
+              "url": "https://aonprd.com/Rules.aspx?ID=2068"
+            },
+            {
+              "depth": 0,
+              "label": "Psychic Duels",
+              "url": "https://aonprd.com/Rules.aspx?ID=2070"
+            },
+            {
+              "depth": 0,
+              "label": "Possession",
+              "url": "https://aonprd.com/Rules.aspx?ID=2080"
+            },
+            {
+              "depth": 0,
+              "label": "Running an Occult Game",
+              "url": "https://aonprd.com/Rules.aspx?ID=2084"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1674"
+        },
+        {
+          "label": "Psychic Magic",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Components",
+              "url": "https://aonprd.com/Rules.aspx?ID=2060"
+            },
+            {
+              "depth": 0,
+              "label": "Undercasting Spells",
+              "url": "https://aonprd.com/Rules.aspx?ID=2061"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2059"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules349",
+      "label": "Ultimate Intrigue",
+      "topics": [
+        {
+          "label": "Mastering Intrigue",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Intrigue Systems",
+              "url": "https://aonprd.com/Rules.aspx?ID=1681"
+            },
+            {
+              "depth": 0,
+              "label": "Influence",
+              "url": "https://aonprd.com/Rules.aspx?ID=1694"
+            },
+            {
+              "depth": 0,
+              "label": "Heists",
+              "url": "https://aonprd.com/Rules.aspx?ID=2145"
+            },
+            {
+              "depth": 0,
+              "label": "Leadership",
+              "url": "https://aonprd.com/Rules.aspx?ID=2162"
+            },
+            {
+              "depth": 0,
+              "label": "Nemeses",
+              "url": "https://aonprd.com/Rules.aspx?ID=2169"
+            },
+            {
+              "depth": 0,
+              "label": "Pursuit",
+              "url": "https://aonprd.com/Rules.aspx?ID=2178"
+            },
+            {
+              "depth": 0,
+              "label": "Research",
+              "url": "https://aonprd.com/Rules.aspx?ID=2192"
+            },
+            {
+              "depth": 0,
+              "label": "Spells of Intrigue",
+              "url": "https://aonprd.com/Rules.aspx?ID=2199"
+            },
+            {
+              "depth": 0,
+              "label": "Social Conflicts",
+              "url": "https://aonprd.com/Rules.aspx?ID=2216"
+            },
+            {
+              "depth": 0,
+              "label": "Verbal Duels",
+              "url": "https://aonprd.com/Rules.aspx?ID=2234"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=1680"
+        },
+        {
+          "label": "Skills in Conflict",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Bluff",
+              "url": "https://aonprd.com/Rules.aspx?ID=2248"
+            },
+            {
+              "depth": 0,
+              "label": "Diplomacy",
+              "url": "https://aonprd.com/Rules.aspx?ID=2251"
+            },
+            {
+              "depth": 0,
+              "label": "Disguise",
+              "url": "https://aonprd.com/Rules.aspx?ID=2253"
+            },
+            {
+              "depth": 0,
+              "label": "Intimidate",
+              "url": "https://aonprd.com/Rules.aspx?ID=2254"
+            },
+            {
+              "depth": 0,
+              "label": "Perception and Stealth",
+              "url": "https://aonprd.com/Rules.aspx?ID=2255"
+            },
+            {
+              "depth": 0,
+              "label": "Sense Motive",
+              "url": "https://aonprd.com/Rules.aspx?ID=2256"
+            },
+            {
+              "depth": 0,
+              "label": "Replacing Opposed Rolls",
+              "url": "https://aonprd.com/Rules.aspx?ID=2257"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2247"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules355",
+      "label": "Inner Sea Intrigue",
+      "topics": [
+        {
+          "label": "Gamemastering",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Intrigue Room Augmentations",
+              "url": "https://aonprd.com/Rules.aspx?ID=2533"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=59"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules364",
+      "label": "Horror Adventures",
+      "topics": [
+        {
+          "label": "Horror Rules",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Horror Characters",
+              "url": "https://aonprd.com/Rules.aspx?ID=2259"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2258"
+        },
+        {
+          "label": "Reading a Madness Stat Block",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Curing Madness",
+              "url": "https://aonprd.com/Rules.aspx?ID=2323"
+            },
+            {
+              "depth": 0,
+              "label": "Horrific Madnesses",
+              "url": "https://aonprd.com/Rules.aspx?ID=2324"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2322"
+        },
+        {
+          "label": "How to Scare Heroes",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "How to Scare Players",
+              "url": "https://aonprd.com/Rules.aspx?ID=2346"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2345"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules389",
+      "label": "Adventurer's Guide",
+      "topics": [
+        {
+          "label": "Affiliations",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Affiliations for Adventuring Parties",
+              "url": "https://aonprd.com/Rules.aspx?ID=2367"
+            },
+            {
+              "depth": 0,
+              "label": "Afiliations for NPCs",
+              "url": "https://aonprd.com/Rules.aspx?ID=2368"
+            },
+            {
+              "depth": 0,
+              "label": "Rivals",
+              "url": "https://aonprd.com/Rules.aspx?ID=2369"
+            },
+            {
+              "depth": 0,
+              "label": "Abandoning Affiliations",
+              "url": "https://aonprd.com/Rules.aspx?ID=2370"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2366"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules420",
+      "label": "Book of the Damned",
+      "topics": [
+        {
+          "label": "Items",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Infernal Contracts",
+              "url": "https://aonprd.com/Rules.aspx?ID=2371"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=67"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules421",
+      "label": "Ultimate Wilderness",
+      "topics": [
+        {
+          "label": "Environment",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Wilderness Traps",
+              "url": "https://aonprd.com/Rules.aspx?ID=2445"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=49"
+        },
+        {
+          "label": "Mastering the Wild",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Discovery and Exploration",
+              "url": "https://aonprd.com/Rules.aspx?ID=2379"
+            },
+            {
+              "depth": 0,
+              "label": "The First World",
+              "url": "https://aonprd.com/Rules.aspx?ID=2390"
+            },
+            {
+              "depth": 0,
+              "label": "Foraging and Salvaging",
+              "url": "https://aonprd.com/Rules.aspx?ID=2400"
+            },
+            {
+              "depth": 0,
+              "label": "Harvesting Poisons",
+              "url": "https://aonprd.com/Rules.aspx?ID=2403"
+            },
+            {
+              "depth": 0,
+              "label": "Hazards and Disasters",
+              "url": "https://aonprd.com/Rules.aspx?ID=2405"
+            },
+            {
+              "depth": 0,
+              "label": "Herbalism",
+              "url": "https://aonprd.com/Rules.aspx?ID=2416"
+            },
+            {
+              "depth": 0,
+              "label": "Spells of the Wild",
+              "url": "https://aonprd.com/Rules.aspx?ID=2417"
+            },
+            {
+              "depth": 0,
+              "label": "Trophies and Treasures",
+              "url": "https://aonprd.com/Rules.aspx?ID=2428"
+            },
+            {
+              "depth": 0,
+              "label": "Weather in the Wilderness",
+              "url": "https://aonprd.com/Rules.aspx?ID=2433"
+            },
+            {
+              "depth": 0,
+              "label": "Companions and Familiars",
+              "url": "https://aonprd.com/Rules.aspx?ID=2446"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2378"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules435",
+      "label": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "topics": [
+        {
+          "label": "Items",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Relics",
+              "url": "https://aonprd.com/Rules.aspx?ID=2523"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=78"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules450",
+      "label": "Planar Adventures",
+      "topics": [
+        {
+          "label": "Planar Adventures",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Planar Terrains",
+              "url": "https://aonprd.com/Rules.aspx?ID=2478"
+            },
+            {
+              "depth": 0,
+              "label": "Planar Races",
+              "url": "https://aonprd.com/Rules.aspx?ID=2479"
+            },
+            {
+              "depth": 0,
+              "label": "Traits of a Plane",
+              "url": "https://aonprd.com/Rules.aspx?ID=2480"
+            },
+            {
+              "depth": 0,
+              "label": "Role of the Divine",
+              "url": "https://aonprd.com/Rules.aspx?ID=2488"
+            },
+            {
+              "depth": 0,
+              "label": "Building a Planar Campaign",
+              "url": "https://aonprd.com/Rules.aspx?ID=2498"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=2477"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules473",
+      "label": "Heroes of Golarion",
+      "topics": [
+        {
+          "label": "Mythic Occult Classes",
+          "subsections": [],
+          "url": "https://aonprd.com/Rules.aspx?ID=2543"
+        }
+      ]
+    },
+    {
+      "heading_id": "FTT_Rules480",
+      "label": "Pathfinder #144: Midwives to Death",
+      "topics": [
+        {
+          "label": "Gamemastering",
+          "subsections": [
+            {
+              "depth": 0,
+              "label": "Botanical Haunts",
+              "url": "https://aonprd.com/Rules.aspx?ID=2527"
+            }
+          ],
+          "url": "https://aonprd.com/Rules.aspx?ID=64"
+        }
+      ]
+    }
+  ],
+  "evidence": "site_navigation_not_printed_contents",
+  "source_url": "https://aonprd.com/Rules.aspx?Name=Source&Category=None"
+}
