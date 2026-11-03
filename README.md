@@ -13,7 +13,8 @@ Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), del
 - Open book contents and move between entries in the curated order. Source notes identify verified chapter order and remaining placement questions.
 - Search titles and full text, with category, source, and applicable field filters.
 - Read formatted entries, with a References section that links to the entries they cite.
-- Find saved entries on Home, and organize bookmarks into collections.
+- Find every starred entry on Home, open it, or remove its star.
+- Activate or disable installed books to control ordinary discovery without deleting downloads or stars.
 - See recently viewed entries on the home screen.
 - Choose light, dark, or system theme.
 - Read the Legal and attribution page, which includes the content coverage report.
@@ -45,6 +46,14 @@ Run these commands from the repository root:
 `cargo xtask build-site` fetches and compiles the content when `generated/content/manifest.json` is missing. The default public URL is `/cast-iron/`, the GitHub Pages project path.
 
 After a compiler, schema, or source change, run `cargo xtask content` explicitly before rebuilding. An existing manifest makes the site build reuse the generated library. Browser tests read expectations from `generated/` and run against `dist/`, so both must describe the same version. The [verification guide](.claude/skills/verify/SKILL.md) covers offline checks, screenshots, and library upgrades. The default browser test command includes Firefox, which has a known local startup failure recorded in [status](docs/status.md).
+
+## Development and releases
+
+[GitHub Issues](https://github.com/phynics/cast-iron/issues) tracks new work.
+Follow [the contributor guide](CONTRIBUTING.md) from issue to branch and PR.
+`main` integrates changes; Pages publication uses explicit promotion to `release`.
+See [the release guide](docs/releasing.md) for promotion, verification, recovery,
+and the migration state.
 
 ## Repository layout
 

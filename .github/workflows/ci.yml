@@ -27,6 +27,8 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
+      - name: Release promotion safety checks
+        run: python3 scripts/test-promote-release.py
       - name: cargo xtask check
         run: cargo xtask check
 
