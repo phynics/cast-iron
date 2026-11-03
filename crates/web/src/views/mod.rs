@@ -7,6 +7,7 @@ pub mod browse;
 pub mod categories;
 pub mod chains;
 pub mod entry;
+pub mod entry_contents;
 pub mod home;
 pub mod installer;
 pub mod legal;

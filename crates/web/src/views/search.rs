@@ -138,7 +138,9 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("race_group", "uncommon_race") => "Uncommon races".into(),
         ("race_group", "monster_race") => "Monster races".into(),
         ("class_type", "npc") => "NPC".into(),
-        ("class_type" | "trait_category" | "archetype_class", _) => capitalize_words(value),
+        ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
+            capitalize_words(value)
+        }
         _ => value.to_string(),
     }
 }
@@ -212,8 +214,14 @@ impl SearchState {
 enum Phase {
     Idle,
     LoadingIndex,
-    Done(Vec<Hit>),
+    Done { hits: Vec<SearchHit>, total: usize },
     Failed(String),
+}
+
+#[derive(Clone)]
+struct SearchHit {
+    hit: Hit,
+    anchor: Option<String>,
 }
 
 #[derive(Clone, PartialEq)]
@@ -311,6 +319,7 @@ pub fn Search() -> impl IntoView {
     let search_ms = RwSignal::new(None::<f64>);
     let index_ms = RwSignal::new(None::<f64>);
     let index = RwSignal::new_local(None::<Rc<SearchIndex>>);
+    let eligible_facets = RwSignal::new(Vec::<(String, Vec<String>)>::new());
     let seq = StoredValue::new(0u64);
     let filters_open = RwSignal::new(false);
     let input_ref = NodeRef::<leptos::html::Input>::new();
@@ -335,7 +344,10 @@ pub fn Search() -> impl IntoView {
     {
         let library = library.clone();
         Effect::new(move |previous: Option<SearchState>| {
+            let revision = library.selection_revision().get();
+            let discovery = library.discovery();
             let current = state.get();
+            let previous_value = current.clone();
             if previous.as_ref() != Some(&current) {
                 pages.update_untracked(|p| *p = 1);
             }
@@ -343,7 +355,9 @@ pub fn Search() -> impl IntoView {
             let id = seq.get_value() + 1;
             seq.set_value(id);
             let library = library.clone();
-            let query = current.query(limit);
+            let query = current.query(usize::MAX);
+            // The requested page is sliced only after eligible hits have been ranked and counted.
+            let page_limit = limit;
             let runs = !current.q.trim().is_empty() || current.filter_count() > 0;
             spawn_local(async move {
                 if !runs {
@@ -357,13 +371,60 @@ pub fn Search() -> impl IntoView {
                 if seq.get_value() != id {
                     return;
                 }
-                let Some(idx) = loaded else { return };
+                let Some(_idx) = loaded else { return };
                 let started = now();
-                let hits = idx.search(&query);
-                search_ms.set(Some(now() - started));
-                phase.set(Phase::Done(hits));
+                let all_hits = match discovery.search(&query).await {
+                    Ok(hits) => hits,
+                    Err(error) => {
+                        if seq.get_value() == id {
+                            phase.set(Phase::Failed(error.to_string()));
+                        }
+                        return;
+                    }
+                };
+                if seq.get_value() != id || library.selection_revision().get_untracked() != revision
+                {
+                    return;
+                }
+                let engine_ms = now() - started;
+                let total = all_hits.len();
+                let mut hits = all_hits
+                    .into_iter()
+                    .take(page_limit)
+                    .map(|hit| SearchHit { hit, anchor: None })
+                    .collect::<Vec<_>>();
+                let mut facet_data = Vec::new();
+                for (field, _) in facet_fields_for(&current.kinds) {
+                    if let Ok(values) = discovery.facet_values(field).await {
+                        let mut values = values.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
+                        sort_facet_values(field, &mut values);
+                        facet_data.push((field.to_owned(), values));
+                    }
+                }
+                // Rule headings come from typed, cached rule entries only. Non-rule results
+                // never cause shard reads.
+                let query_text = current.q.clone();
+                for result in &mut hits {
+                    if result.hit.kind != EntryKind::Rule.slug() {
+                        continue;
+                    }
+                    if let Ok(id) = EntryId::parse(result.hit.id.clone())
+                        && let Ok(entry) = library.entry(&id).await
+                        && let Some(anchor) =
+                            crate::views::entry_contents::matching_heading(&entry.body, &query_text)
+                    {
+                        result.anchor = Some(anchor);
+                    }
+                }
+                if seq.get_value() != id || library.selection_revision().get_untracked() != revision
+                {
+                    return;
+                }
+                eligible_facets.set(facet_data);
+                search_ms.set(Some(engine_ms));
+                phase.set(Phase::Done { hits, total });
             });
-            current
+            previous_value
         });
     }
 
@@ -403,19 +464,19 @@ pub fn Search() -> impl IntoView {
         write(next, true);
     };
 
-    let facet_groups = Memo::new(move |_| {
+    let facet_library = library.clone();
+    let facet_groups = Memo::new(move |_: Option<&Vec<FacetGroup>>| {
+        let _revision = facet_library.selection_revision().get();
         let kinds = state.with(|s| s.kinds.clone());
-        index.with(|idx| {
-            let Some(idx) = idx else { return Vec::new() };
+        let groups: Vec<FacetGroup> = eligible_facets.with(|facets| {
             facet_fields_for(&kinds)
                 .into_iter()
                 .map(|(field, label)| {
-                    let mut values: Vec<String> = idx
-                        .facet_values(field)
-                        .into_iter()
-                        .map(|(v, _)| v)
-                        .collect();
-                    sort_facet_values(field, &mut values);
+                    let values = facets
+                        .iter()
+                        .find(|(name, _)| name == field)
+                        .map(|(_, values)| values.clone())
+                        .unwrap_or_default();
                     FacetGroup {
                         field,
                         label,
@@ -424,10 +485,16 @@ pub fn Search() -> impl IntoView {
                 })
                 .filter(|g| !g.values.is_empty())
                 .collect()
-        })
+        });
+        groups
     });
 
-    let kind_counts = library.kind_counts();
+    let count_library = library.clone();
+    let kind_counts = Memo::new(move |_: Option<&Vec<(EntryKind, usize)>>| {
+        let _revision = count_library.selection_revision().get();
+        count_library.discovery().kind_counts()
+    });
+    let kind_counts = kind_counts.get();
     let kind_chips = kind_counts
         .into_iter()
         .map(|(kind, n)| {
@@ -472,15 +539,26 @@ pub fn Search() -> impl IntoView {
         .map(|source| {
             let id = source.id.clone();
             let id2 = id.clone();
+            let source_library = library.clone();
+            let count_id = id.clone();
+            let count = move || {
+                let _revision = source_library.selection_revision().get();
+                source_library
+                    .discovery()
+                    .entries()
+                    .filter(|stub| stub.source == count_id)
+                    .count()
+            };
+            let display_count = count.clone();
             let checked = move || state.with(|s| s.sources.contains(&id));
             view! {
-                <label class="chip">
+                <label class="chip" hidden=move || count() == 0>
                     <input
                         type="checkbox"
                         prop:checked=checked
                         on:change=move |_| change_filters(&|s| s.sources = toggled(&s.sources, &id2))
                     />
-                    <span>{source.title.clone()}<small>{source.entry_count}</small></span>
+                    <span>{source.title.clone()}<small>{display_count}</small></span>
                 </label>
             }
         })
@@ -531,7 +609,8 @@ pub fn Search() -> impl IntoView {
     let lib_for_hits = library.clone();
     let results = move || match phase.get() {
         Phase::Idle => {
-            let total = lib_for_hits.catalog().entries.len();
+            let _revision = lib_for_hits.selection_revision().get();
+            let total = lib_for_hits.discovery().entries().count();
             view! {
                 <div class="empty">
                     <p>{format!("Search {total} entries by name or by any word in the text.")}</p>
@@ -553,18 +632,18 @@ pub fn Search() -> impl IntoView {
             </div>
         }
         .into_any(),
-        Phase::Done(hits) if hits.is_empty() => view! {
+        Phase::Done { hits, total: _ } if hits.is_empty() => view! {
             <div class="empty">
                 <p>"No entries match."</p>
                 <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
             </div>
         }
         .into_any(),
-        Phase::Done(hits) => {
+        Phase::Done { hits, total: _ } => {
             let full = hits.len() >= pages.get_untracked() * PAGE;
             let items = hits
                 .iter()
-                .map(|hit| hit_view(&lib_for_hits, hit))
+                .map(|result| hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref()))
                 .collect_view();
             view! {
                 <ol class="results">{items}</ol>
@@ -580,13 +659,13 @@ pub fn Search() -> impl IntoView {
 
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
-        Phase::Done(hits) => {
-            let n = hits.len();
+        Phase::Done { hits: _, total } => {
+            let n = total;
             let limit = pages.get() * PAGE;
             match (n, n >= limit) {
                 (0, _) => "No results".to_string(),
                 (1, _) => "1 result".to_string(),
-                (_, true) => format!("Top {n} results"),
+                (_, true) => format!("Top {} of {n} results", limit.min(n)),
                 _ => format!("{n} results"),
             }
         }
@@ -668,7 +747,7 @@ pub fn Search() -> impl IntoView {
                 >
                     <p class="result-count" role="status" aria-live="polite">
                         <span>{count_text}</span>
-                        {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done(_))).map(|ms| view! {
+                        {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
                             <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
                         })}
                     </p>
@@ -713,9 +792,19 @@ async fn ensure_index(
     }
 }
 
-fn hit_view(library: &crate::library::Library, hit: &Hit) -> impl IntoView + use<> {
+fn hit_view(
+    library: &crate::library::Library,
+    hit: &Hit,
+    anchor: Option<&str>,
+) -> impl IntoView + use<> {
     let href = EntryId::parse(hit.id.clone())
-        .map(|id| Route::entry(id).href())
+        .map(|id| {
+            Route::Entry {
+                id,
+                anchor: anchor.map(str::to_owned),
+            }
+            .href()
+        })
         .unwrap_or_else(|_| Route::Home.href());
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
     let source = library
@@ -804,7 +893,7 @@ mod tests {
             "Arcane Archer"
         );
         // Fields that already read well are not touched.
-        assert_eq!(facet_label("school", "evocation"), "evocation");
+        assert_eq!(facet_label("school", "evocation"), "Evocation");
         assert_eq!(facet_label("cr", "1/2"), "1/2");
         assert_eq!(facet_label("race_group", "unheard_of"), "unheard_of");
     }

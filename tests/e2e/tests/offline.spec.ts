@@ -41,7 +41,7 @@ test("No application feature requires a runtime server", async ({ page, context,
   await waitResults(page, "fireball");
   await page.locator(".hit-link", { hasText: /^Fireball/ }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
-  await page.getByRole("button", { name: /Bookmark/ }).click();
+  await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   for (const hash of [
     "#/browse",

@@ -7,7 +7,7 @@ const screens: [string, string][] = [
   ["#/search?q=fire", ".results .hit"],
   ["#/browse", "a.cat"],
   ["#/browse/kind/spell", ".entry-list li"],
-  ["#/browse/kind/rule", ".tree"],
+  ["#/books", ".book-directory-row"],
   ["#/browse/source/bestiary", ".toc"],
   ["#/spells/Wizard/3", ".level-group"],
   ["#/feats/chains", ".chain-head"],
@@ -15,7 +15,7 @@ const screens: [string, string][] = [
   ["#/entry/core-rulebook/rules/equipment/weapons", ".rules-table"],
   ["#/entry/core-rulebook/classes/cleric", ".rich h2"],
   ["#/entry/bestiary/monsters/aasimar", ".stat-block"],
-  ["#/bookmarks", ".empty"],
+  ["#/bookmarks", "#home-title"],
   ["#/settings", "[data-testid=library-facts]"],
   ["#/legal", ".legal-text"],
 ];

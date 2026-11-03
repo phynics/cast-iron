@@ -53,6 +53,7 @@ pub enum Route {
         id: EntryId,
         anchor: Option<String>,
     },
+    /// Retained for internal compatibility; parser redirects legacy URLs to Home.
     Bookmarks,
     Collection(String),
     Settings,
@@ -98,12 +99,18 @@ impl Route {
             ["browse"] => Route::Browse,
             ["browse", "kind", slug] => percent_decode(slug)
                 .and_then(|slug| EntryKind::from_slug(&slug))
-                .map_or_else(not_found, Route::BrowseKind),
+                .map_or_else(not_found, |kind| {
+                    if kind == EntryKind::Rule {
+                        Route::Books
+                    } else {
+                        Route::BrowseKind(kind)
+                    }
+                }),
             ["browse", "source", id] => match percent_decode(id) {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
-            ["browse", "books"] => Route::Books,
+            ["books"] | ["browse", "books"] => Route::Books,
             ["browse", "book", id] => match percent_decode(id) {
                 Some(source) if !source.is_empty() => Route::Book {
                     source,
@@ -142,11 +149,8 @@ impl Route {
                     .filter(|v| !v.is_empty());
                 Route::Entry { id, anchor }
             }
-            ["bookmarks"] => Route::Bookmarks,
-            ["collection", id] => match percent_decode(id) {
-                Some(id) if !id.is_empty() => Route::Collection(id),
-                _ => not_found(),
-            },
+            // Legacy saved-entry URLs now land on Home, where all stars are listed.
+            ["bookmarks"] | ["collection", _] => Route::Home,
             ["settings"] => Route::Settings,
             ["legal"] => Route::Legal,
             _ => not_found(),
@@ -189,7 +193,7 @@ impl Route {
             Route::Browse => "#/browse".into(),
             Route::BrowseKind(kind) => format!("#/browse/kind/{}", kind.slug()),
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
-            Route::Books => "#/browse/books".into(),
+            Route::Books => "#/books".into(),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -354,15 +358,30 @@ struct RouteContext {
 /// Creates the route signal from `location.hash` and keeps it in step with `hashchange`.
 /// Call once, in the root component.
 pub fn provide_route() {
-    let (read, write) = signal(Route::parse(&current_hash()));
+    let (read, write) = signal(read_location_route());
     // Back and forward fire `hashchange` too, so the browser's history stays the only history.
     let handle = window_event_listener(leptos::ev::hashchange, move |_| {
-        write.set(Route::parse(&current_hash()));
+        write.set(read_location_route());
     });
     on_cleanup(move || handle.remove());
     provide_context(RouteContext { read });
     // `replace` runs from async tasks that have no reactive owner, where `use_context` fails.
     ROUTE_WRITE.with(|cell| cell.set(Some(write)));
+}
+
+/// Retired URLs recover through the canonical destination without another history step.
+fn read_location_route() -> Route {
+    let hash = current_hash();
+    let route = Route::parse(&hash);
+    let legacy = hash.starts_with("#/bookmarks")
+        || hash.starts_with("#/collection/")
+        || hash.starts_with("#/browse/kind/rule")
+        || hash == "#/browse/books";
+    if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
+        let _ =
+            history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
+    }
+    route
 }
 
 thread_local! {
@@ -390,7 +409,7 @@ pub fn replace(route: &Route) {
     };
     let _ = history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
     if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
-        write.set(Route::parse(&current_hash()));
+        write.set(read_location_route());
     }
 }
 
@@ -436,18 +455,23 @@ mod tests {
         for route in [
             Route::Home,
             Route::Browse,
-            Route::Bookmarks,
             Route::Settings,
             Route::Legal,
             Route::BrowseKind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
-            Route::Collection("3f2a-uuid".into()),
             Route::Books,
             Route::Spells,
             Route::FeatChains,
         ] {
             round_trip(route);
         }
+    }
+
+    #[test]
+    fn legacy_bookmark_and_collection_urls_open_home() {
+        assert_eq!(Route::parse("#/bookmarks"), Route::Home);
+        assert_eq!(Route::parse("#/bookmarks/"), Route::Home);
+        assert_eq!(Route::parse("#/collection/old%20collection"), Route::Home);
     }
 
     #[test]
@@ -484,7 +508,9 @@ mod tests {
                 "{bad}"
             );
         }
-        assert_eq!(Route::Books.href(), "#/browse/books");
+        assert_eq!(Route::Books.href(), "#/books");
+        assert_eq!(Route::parse("#/browse/books"), Route::Books);
+        assert_eq!(Route::parse("#/browse/kind/rule"), Route::Books);
         assert_eq!(
             Route::parse("#/browse/book"),
             Route::NotFound("#/browse/book".into())

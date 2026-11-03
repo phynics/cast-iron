@@ -11,14 +11,13 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await installLibrary(page);
     await waitControlled(page);
 
-    // User records under v1: a bookmark and a collection.
+    // User records under v1: a star and a disabled publication.
     await page.goto("#/entry/core-rulebook/spells/fireball");
     await page.locator(".bookmark-toggle").click();
     await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
-    await page.locator(".picker summary").click();
-    await page.locator("#new-collection-entry").fill("Keepers");
-    await page.getByRole("button", { name: "Create and add" }).click();
-    await expect(page.locator(".picker .check", { hasText: "Keepers" }).locator("input")).toBeChecked();
+    await page.goto("#/books");
+    await page.getByRole("checkbox", { name: "Active Advanced Player's Guide", exact: true }).uncheck();
+    await expect(page.getByRole("checkbox", { name: "Active Advanced Player's Guide", exact: true })).toBeEnabled();
 
     // No update yet: the check says so.
     await page.goto("#/settings");
@@ -54,9 +53,10 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await page.goto("#/legal");
     await expect(page.locator("#community-use + .legal-text")).toContainText(marker);
     await page.goto("#/bookmarks");
-    await expect(page.locator(".bm-list")).toContainText("Fireball");
-    await expect(page.locator(".bm-list")).not.toContainText("not in this library");
-    await expect(page.locator(".collection-list")).toContainText("Keepers");
+    await expect(page.locator(".home-bookmarks")).toContainText("Fireball");
+    await expect(page.locator(".home-bookmarks")).not.toContainText("not in this library");
+    await page.goto("#/books");
+    await expect(page.getByRole("checkbox", { name: "Active Advanced Player's Guide", exact: true })).not.toBeChecked();
     await page.goto("#/entry/core-rulebook/spells/fireball");
     await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   } finally {

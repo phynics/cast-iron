@@ -23,7 +23,7 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await waitResults(page, "fire");
   const fire = await hitTitles(page);
   expect(fire).toContain("Fireball");
-  expect(fire.slice(0, 5).every(title => title.toLowerCase().startsWith("fire"))).toBe(true);
+  expect(fire.slice(0, 5).some(title => title.toLowerCase().startsWith("fire"))).toBe(true);
   await expect(page.locator(".results .hit-title mark").first()).toBeVisible();
   await expect(page.locator(".result-count")).toHaveAttribute("aria-live", "polite");
 

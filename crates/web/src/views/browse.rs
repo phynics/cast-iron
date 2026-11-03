@@ -1,4 +1,4 @@
-//! Browse: the hub with its two paths (by category, by book), category pages with their lenses,
+//! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
 use crate::js;
@@ -93,7 +93,7 @@ pub fn groups_for_rows(groups: &[(char, Vec<usize>)], from: usize, rows: usize) 
 
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
-    let mut list: Vec<EntryStub> = library.entries_of_kind(kind).cloned().collect();
+    let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
     list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
     list
 }
@@ -106,27 +106,6 @@ fn entry_row(stub: &EntryStub, source: Option<String>) -> impl IntoView + use<> 
             <a href=Route::entry(stub.id.clone()).href()>{stub.title.clone()}</a>
             {source.map(|s| view! { <span class="muted row-source">{s}</span> })}
         </li>
-    }
-}
-
-/// The two ways into the library. Both are links, so the choice is in the URL and Back works.
-#[component]
-fn BrowseTabs(by_book: bool) -> impl IntoView {
-    let library = use_library();
-    let books = library.has_books();
-    view! {
-        <nav class="paths" aria-label="Browse by">
-            <a class="path" href=Route::Browse.href() aria-current=(!by_book).then_some("page")>
-                <span class="path-name">"By category"</span>
-                <span class="path-note">"Rules, spells, feats, classes, and the rest"</span>
-            </a>
-            {books.then(|| view! {
-                <a class="path" href=Route::Books.href() aria-current=by_book.then_some("page")>
-                    <span class="path-name">"By book"</span>
-                    <span class="path-note">"Book sections and contents"</span>
-                </a>
-            })}
-        </nav>
     }
 }
 
@@ -146,7 +125,7 @@ fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
 pub fn Browse() -> impl IntoView {
     set_title("Browse");
     let library = use_library();
-    let (primary, more) = categories::arrange(&library.kind_counts());
+    let (primary, more) = categories::arrange(&library.discovery().kind_counts());
     let primary = primary
         .into_iter()
         .map(|(kind, n)| category_card(kind, n))
@@ -177,9 +156,11 @@ pub fn Browse() -> impl IntoView {
     view! {
         <div class="wide">
             <h1>"Browse"</h1>
-            <BrowseTabs by_book=false />
+            <Show when=move || library.discovery().entries().next().is_none()>
+                <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>
+            </Show>
             <section aria-labelledby="by-kind">
-                <h2 id="by-kind" class="sub-head">"By category"</h2>
+                <h2 id="by-kind" class="sub-head">"Categories"</h2>
                 <ul class="cats">{primary}</ul>
             </section>
             {more_section}
@@ -188,8 +169,8 @@ pub fn Browse() -> impl IntoView {
     }
 }
 
-/// The list of books. Titles and counts come from the catalog, so the page does not wait for
-/// `books.json`; the chapter count arrives with it.
+/// The publication directory. Chapter rows reuse `books.json` and link into the existing
+/// lazy contents tree, preserving its draft notes and original order.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
@@ -198,52 +179,95 @@ pub fn Books() -> impl IntoView {
         let library = library.clone();
         local_resource(async move { library.books().await })
     };
+    let saving = RwSignal::new(false);
+    let save_error = RwSignal::new(None::<String>);
+    let revision = library.selection_revision();
     let rows = library
         .sources()
         .iter()
         .map(|source| {
             let id = source.id.clone();
+            let title = source.title.clone();
+            let count = library.catalog().entries.iter().filter(|stub| {
+                library.canonical_source_for_entry(&stub.id).as_deref() == Some(id.as_str())
+            }).count();
+            let state_library = library.clone();
+            let save_library = library.clone();
+            let state_id = id.clone();
+            let save_id = id.clone();
+            let label = format!("Active {title}");
+            let is_active = move || { revision.get(); state_library.book_active(&state_id) };
+            let badge_active = is_active.clone();
             let href = Route::Book {
                 source: id.clone(),
                 chapter: None,
             }
             .href();
-            let chapters = {
-                let id = id.clone();
-                move || {
-                    lookup.with(|state| match state {
-                        Some(Ok(Some(books))) => books
-                            .book(&id)
-                            .map(|b| format!("{} chapters", b.chapters.len())),
-                        _ => None,
-                    })
-                }
+            let id_for_rows = id.clone();
+            let title_for_summary = title.clone();
+            let expanded = RwSignal::new(false);
+            let on_toggle = move |event: leptos::ev::Event| {
+                expanded.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
             };
             view! {
-                <li>
-                    <a class="cat book-card" href=href>
-                        <span class="cat-name">{source.title.clone()}</span>
-                        <span class="cat-count">{source.entry_count}</span>
-                        <span class="cat-blurb">
-                            {format!("{} entries", source.entry_count)}
-                            {move || chapters().map(|c| format!(" · {c}"))}
-                        </span>
-                    </a>
+                <li class="book-directory-item" data-book-id=id>
+                    <details class="book-directory-row" on:toggle=on_toggle>
+                        <summary class="book-card">
+                            <span class="cat-name">{title_for_summary}</span>
+                            <span class="cat-count">{count}</span>
+                            <span class="cat-blurb">{format!("{count} entries")}{move || (!badge_active()).then_some(" · Disabled")}</span>
+                        </summary>
+                        <div class="book-directory-contents">
+                            <a href=href>{format!("Open {title} contents")}</a>
+                            {move || expanded.get().then(|| lookup.with(|state| match state {
+                                Some(Ok(Some(books))) => books.book(&id_for_rows).map(|book| {
+                                    let chapters = book.chapters.iter().enumerate().map(|(i, chapter)| {
+                                        let href = Route::Book { source: id_for_rows.clone(), chapter: Some(vec![i]) }.href();
+                                        view! { <li><a href=href>{chapter.title.clone()}</a></li> }
+                                    }).collect_view();
+                                    view! { <ul class="book-directory-chapters">{chapters}</ul> }.into_any()
+                                }).unwrap_or_else(|| view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any()),
+                                Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
+                                _ => view! { <p class="muted" role="status">"Loading chapter list…"</p> }.into_any(),
+                            }))}
+                        </div>
+                    </details>
+                    <label class="book-activation">
+                        <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
+                            on:change=move |event| {
+                                if saving.get_untracked() { return; }
+                                let input = event_target::<web_sys::HtmlInputElement>(&event);
+                                let active = input.checked();
+                                // Discovery remains at the saved value while this control is busy.
+                                saving.set(true);
+                                save_error.set(None);
+                                let library = save_library.clone();
+                                let id = save_id.clone();
+                                spawn_local(async move {
+                                    if let Err(error) = library.set_book_active(&id, active).await {
+                                        input.set_checked(library.book_active(&id));
+                                        save_error.set(Some(format!("Could not save the book selection: {error}")));
+                                    }
+                                    saving.set(false);
+                                });
+                            } />
+                        <span>"Active"</span>
+                    </label>
                 </li>
             }
         })
         .collect_view();
     view! {
         <div class="wide">
-            <h1>"Browse"</h1>
-            <BrowseTabs by_book=true />
-            <section aria-labelledby="by-book">
-                <h2 id="by-book" class="sub-head">"By book"</h2>
+            <h1>"Books"</h1>
+            <section>
                 <p class="muted measure">
                     "Browse each book through its sections and contents. "
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
-                <ul class="cats">{rows}</ul>
+                <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
+                {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
+                <ul class="book-directory">{rows}</ul>
             </section>
         </div>
     }
@@ -255,9 +279,8 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
     const VISIBLE: usize = 16;
     let library = use_library();
     let values = local_resource(async move {
-        library.search_index().await.map(|index| {
-            let mut values: Vec<(String, u32)> = index
-                .facet_values(field)
+        library.discovery().facet_values(field).await.map(|values| {
+            let mut values: Vec<(String, u32)> = values
                 .into_iter()
                 .filter(|(v, _)| !categories::lens_skips(kind, field, v))
                 .collect();
@@ -547,6 +570,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
         .into_iter()
         .filter_map(|kind| {
             let mut stubs: Vec<EntryStub> = library
+                .discovery()
                 .entries_of_source(&id)
                 .filter(|s| s.kind == kind)
                 .cloned()

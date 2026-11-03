@@ -66,15 +66,16 @@ pub fn BookView(source: String) -> impl IntoView {
         .map_or_else(|| source.clone(), |s| s.title.clone());
     let copyright = info.as_ref().and_then(|s| s.copyright.clone());
     let count = info.as_ref().map(|s| s.entry_count);
+    let disabled = !library.book_active(&source);
     view! {
         <div class="wide book">
             <nav class="crumbs" aria-label="Breadcrumb">
                 <ol>
-                    <li><a href=Route::Browse.href()>"Browse"</a></li>
-                    <li><a href=Route::Books.href()>"By book"</a></li>
+                    <li><a href=Route::Books.href()>"Books"</a></li>
                 </ol>
             </nav>
             <h1>{title}</h1>
+            {disabled.then(|| view! { <p class="notice">"This book is disabled for search and category browsing. You can still read its contents here. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it."</p> })}
             {count.map(|n| view! { <p class="muted">{format!("{n} entries in this library")}</p> })}
             {copyright.map(|line| view! { <p class="copyright">{line}</p> })}
             {move || {

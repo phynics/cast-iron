@@ -120,13 +120,19 @@ pub fn SpellsHub() -> impl IntoView {
     let library = use_library();
     let lists = {
         let library = library.clone();
-        local_resource(async move { library.spell_lists().await })
+        let revision = library.selection_revision();
+        local_resource(async move {
+            let _ = revision.get();
+            library.discovery().spell_lists().await
+        })
     };
     let schools = {
         let library = library.clone();
+        let revision = library.selection_revision();
         local_resource(async move {
-            library.search_index().await.map(|index| {
-                let mut values = index.facet_values("school");
+            let _ = revision.get();
+            let discovery = library.discovery();
+            discovery.facet_values("school").await.map(|mut values| {
                 sort_facet_pairs("school", &mut values);
                 values
             })
@@ -151,8 +157,8 @@ pub fn SpellsHub() -> impl IntoView {
                             <section aria-labelledby="other-lists">
                                 <h2 id="other-lists" class="sub-head">"Lists without a class page"</h2>
                                 <p class="muted measure">
-                                    "Spells name these classes, but their class entries are not in this library. "
-                                    "The lists are complete for the spells that it holds."
+                                    "These class pages are unavailable or belong to disabled books. "
+                                    "Their lists include spells from your active books."
                                 </p>
                                 <ul class="spell-classes">{cards}</ul>
                             </section>
@@ -220,7 +226,11 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
     });
     let lists = {
         let library = library.clone();
-        local_resource(async move { library.spell_lists().await })
+        let revision = library.selection_revision();
+        local_resource(async move {
+            let _ = revision.get();
+            library.discovery().spell_lists().await
+        })
     };
     let filter = RwSignal::new(String::new());
     move || {
