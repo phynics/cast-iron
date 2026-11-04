@@ -174,7 +174,7 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
     let mut md = String::new();
     let mut heading_anchor_slugs = Vec::new();
     for line in lines {
-        let trimmed = line.trim();
+        let trimmed = line.trim().trim_start_matches('>').trim();
         if trimmed.starts_with("::") {
             if trimmed == ":::" {
                 continue;
@@ -204,6 +204,7 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                 "mspell",
                 "mfn",
                 "trait",
+                "rtraits",
             ];
             if allowed_headers.contains(&name) {
                 let title = bracket(rest).unwrap_or_default();
@@ -211,7 +212,8 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                     match attributes(trimmed) {
                         Ok(attrs) => {
                             for key in attrs.keys() {
-                                if !["id", "clear"].contains(&key.as_str()) {
+                                // `jl` is presentation-only justification.
+                                if !["id", "clear", "jl"].contains(&key.as_str()) {
                                     errors.push(format!("unknown attribute {key} on ::{name}"));
                                 }
                             }
@@ -347,6 +349,14 @@ fn inline_text(content: &[cast_iron_schema::Inline]) -> String {
 /// Render the text-bearing Pathfinder directives as ordinary Markdown prose. Their
 /// style flags are intentionally omitted; every content attribute is emitted.
 fn render_semantic_directive(name: &str, rest: &str) -> Result<String, String> {
+    // `::rtraits` and `::aff` have their own parsers because their attributes hold
+    // repeated values and macro tokens that the generic attribute map cannot express.
+    if name == "rtraits" {
+        return crate::pf_directives::racial_traits_markdown(rest);
+    }
+    if name == "aff" {
+        return Ok(crate::pf_directives::affliction(rest, true)?.markdown);
+    }
     let title = bracket(rest).unwrap_or_default();
     let attrs = if name == "mfn" {
         BTreeMap::new()
@@ -918,7 +928,7 @@ fn split_directive(s: &str) -> (&str, &str) {
         .unwrap_or(s.len());
     (&s[2..end], &s[end..])
 }
-fn bracket(s: &str) -> Option<String> {
+pub(crate) fn bracket(s: &str) -> Option<String> {
     let a = s.find('[')? + 1;
     let b = s[a..].find(']')? + a;
     Some(s[a..b].to_string())

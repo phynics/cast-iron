@@ -1,5 +1,7 @@
 //! Isolated migration commands. A blocked gate exits nonzero after writing evidence.
-use cast_iron_content_compiler::pf_data::{experiment, import_all, inventory, write};
+use cast_iron_content_compiler::pf_data::{
+    derived_coverage, experiment, import_all, inventory, write,
+};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -30,6 +32,7 @@ fn run() -> Result<(), String> {
     let out = out.ok_or("missing --out")?;
     let reports = reports.ok_or("missing --reports")?;
     let inv = inventory(&dataset, &registry)?;
+    let derived = derived_coverage(&inv);
     write(
         &out.join("inventory.json"),
         &serde_json::to_vec_pretty(&inv).map_err(|e| e.to_string())?,
@@ -41,6 +44,7 @@ fn run() -> Result<(), String> {
         "by_shape":inv.by_shape,"by_publication":inv.by_publication,"directives":inv.directives,
         "unregistered_publications":inv.unregistered_publications,
         "out_of_scope_records":inv.out_of_scope.len(),
+        "derived":derived,
         "production_default":"psrd-data","cutover_verified":false
     });
     write(
@@ -50,6 +54,13 @@ fn run() -> Result<(), String> {
     println!(
         "{} JSON files, {} input records, {} registered publications",
         inv.json_files, inv.input_records, inv.registered_publications
+    );
+    println!(
+        "{} derived records ({} racial traits, {} afflictions), {} rejected",
+        derived.total,
+        derived.by_kind.get("racial-trait").copied().unwrap_or(0),
+        derived.by_kind.get("affliction").copied().unwrap_or(0),
+        derived.rejected.len()
     );
     if command == "audit" {
         return Ok(());
