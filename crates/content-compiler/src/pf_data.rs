@@ -323,7 +323,8 @@ pub fn directives(line: &str) -> Vec<String> {
     result
 }
 
-fn record_kind(path: &str) -> EntryKind {
+/// The entry kind a Pf Data file publishes, from its directory name.
+pub fn record_kind(path: &str) -> EntryKind {
     let file = path.trim_start_matches("json/");
     if file.starts_with("spells") {
         EntryKind::Spell

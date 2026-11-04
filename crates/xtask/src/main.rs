@@ -14,6 +14,7 @@ cargo xtask <command>
   data-import                Import the Pathfinder Data 1e source
   data-validate              Validate the Pathfinder Data 1e source
   data-report                Report Pathfinder Data 1e migration coverage
+  data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
   data-test                  Test the importer and Pathfinder Data 1e source
   content                    Compile content into generated/content and generated/reports
   build-site [--public-url P]  Compile content when missing, build the app, and write dist/
@@ -33,6 +34,7 @@ fn main() -> ExitCode {
         Some("data-import") => data_tool("import"),
         Some("data-validate") => data_tool("validate"),
         Some("data-report") => data_tool("report"),
+        Some("data-alias") => data_alias(),
         Some("data-test") => data_test(),
         Some("content") => content(),
         Some("build-site") => build_site(&args[1..]),
@@ -274,6 +276,38 @@ fn run_data_binary(command: &str) -> Result {
 fn data_test() -> Result {
     run("cargo", &["test", "-p", "cast-iron-content-compiler"])?;
     run_data_binary("test")
+}
+
+/// Regenerates the legacy-to-canonical alias file. The frozen snapshot and the
+/// reviewed map are committed inputs; the generated file is build output.
+fn data_alias() -> Result {
+    run(
+        "cargo",
+        &[
+            "run",
+            "--release",
+            "-p",
+            "cast-iron-content-compiler",
+            "--bin",
+            "cast-iron-data",
+            "--",
+            "alias",
+            "--dataset",
+            ".cache/sources/pathfinder-data-1-e",
+            "--registry",
+            "sources/pathfinder-data-1-e/source.json",
+            "--out",
+            "generated/migration",
+            "--reports",
+            "reports",
+            "--map",
+            "sources/canonical/id-map.toml",
+            "--legacy",
+            "sources/canonical/legacy-ids.json",
+            "--content",
+            "generated/content",
+        ],
+    )
 }
 
 fn content() -> Result {

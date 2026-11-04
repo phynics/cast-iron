@@ -1,4 +1,5 @@
 //! Isolated migration commands. A blocked gate exits nonzero after writing evidence.
+use cast_iron_content_compiler::alias::{self, IdMap, LegacySnapshot};
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
@@ -10,11 +11,14 @@ fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .ok_or("expected audit, import, validate, report, or test")?;
+        .ok_or("expected audit, import, validate, report, test, or alias")?;
     let mut dataset = None;
     let mut registry = None;
     let mut out = None;
     let mut reports = None;
+    let mut map = None;
+    let mut legacy = None;
+    let mut content = None;
     while let Some(flag) = args.next() {
         let value = PathBuf::from(args.next().ok_or_else(|| format!("{flag} needs a value"))?);
         match flag.as_str() {
@@ -22,10 +26,13 @@ fn run() -> Result<(), String> {
             "--registry" => registry = Some(value),
             "--out" => out = Some(value),
             "--reports" => reports = Some(value),
+            "--map" => map = Some(value),
+            "--legacy" => legacy = Some(value),
+            "--content" => content = Some(value),
             _ => return Err(format!("unknown option {flag}")),
         }
     }
-    if !["audit", "import", "validate", "report", "test"].contains(&command.as_str()) {
+    if !["audit", "import", "validate", "report", "test", "alias"].contains(&command.as_str()) {
         return Err(format!("unknown data command {command}"));
     }
     let dataset = dataset.ok_or("missing --dataset")?;
@@ -40,6 +47,20 @@ fn run() -> Result<(), String> {
             .ok_or("registry has no parent")?
             .join("derived-rules.json"),
     )?;
+    if command == "alias" {
+        return write_aliases(
+            &inv,
+            &allowlist,
+            map.as_deref()
+                .unwrap_or(std::path::Path::new("sources/canonical/id-map.toml")),
+            legacy
+                .as_deref()
+                .unwrap_or(std::path::Path::new("sources/canonical/legacy-ids.json")),
+            content
+                .as_deref()
+                .unwrap_or(std::path::Path::new("generated/content")),
+        );
+    }
     write(
         &out.join("inventory.json"),
         &serde_json::to_vec_pretty(&inv).map_err(|e| e.to_string())?,
@@ -125,6 +146,48 @@ fn run() -> Result<(), String> {
             "migration acceptance blocked; see {report}. Production content is unchanged"
         ));
     }
+    Ok(())
+}
+
+/// Generates `generated/content/<version>/aliases.json` and runs every alias gate.
+fn write_aliases(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    allowlist: &RuleAllowlist,
+    map_path: &std::path::Path,
+    legacy_path: &std::path::Path,
+    content_dir: &std::path::Path,
+) -> Result<(), String> {
+    let snapshot_bytes = std::fs::read(legacy_path)
+        .map_err(|e| format!("cannot read {}: {e}", legacy_path.display()))?;
+    let snapshot = LegacySnapshot::parse(&snapshot_bytes)
+        .map_err(|e| format!("invalid {}: {e}", legacy_path.display()))?;
+    let map = IdMap::load(map_path)?;
+    let catalog = alias::catalog_from_inventory(inv, allowlist)?;
+    let (file, stats) =
+        alias::generate(&map, &snapshot, &snapshot_bytes, &catalog).map_err(|errors| {
+            let mut message = format!("{} alias gate(s) failed:", errors.len());
+            for error in errors {
+                message.push_str("\n  ");
+                message.push_str(&error);
+            }
+            message
+        })?;
+    let manifest_bytes = std::fs::read(content_dir.join("manifest.json")).map_err(|e| {
+        format!(
+            "cannot read {}: {e}; run `cargo xtask content` first",
+            content_dir.join("manifest.json").display()
+        )
+    })?;
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&manifest_bytes).map_err(|e| format!("invalid manifest: {e}"))?;
+    let version = manifest
+        .get("content_version")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("manifest.json has no content_version")?;
+    let target = content_dir.join(version).join(alias::ALIASES_FILE);
+    write(&target, &alias::to_bytes(&file)?)?;
+    println!("{} canonical records; {}", catalog.len(), stats.report());
+    println!("wrote {}", target.display());
     Ok(())
 }
 
