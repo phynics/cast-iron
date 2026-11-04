@@ -2,7 +2,7 @@
 
 # Cast Iron
 
-Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), delivered as an installable progressive web app (PWA). It is written in Rust and compiled to WebAssembly with Leptos. After installation it works with no network connection. It has no backend. The project's code is MIT-licensed (see [LICENSE](LICENSE) and [LICENSES/README.md](LICENSES/README.md)). The project is unofficial. This branch contains 9,968 entries across the 16 books available in the pinned PSRD-Data snapshot plus one reviewed supplemental passage from the pinned Pf Data 1e source. It does not contain every published PF1e book or every standalone record family. See [status](docs/status.md) for local verification and deployment state.
+Cast Iron is an offline rules reference for Pathfinder First Edition (PF1e), delivered as an installable progressive web app (PWA). It is written in Rust and compiled to WebAssembly with Leptos. After installation it works with no network connection. It has no backend. The project's code is MIT-licensed, code only (see [LICENSE](LICENSE); the full licensing picture, including OGL content, is in [LICENSES/README.md](LICENSES/README.md)). The project is unofficial. This branch contains 9,968 entries across the 16 books available in the pinned PSRD-Data snapshot plus one reviewed supplemental passage from the pinned Pf Data 1e source. It does not contain every published PF1e book or every standalone record family. See [status](docs/status.md) for local verification and deployment state.
 
 ## What works now
 

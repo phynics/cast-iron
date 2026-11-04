@@ -1,3 +1,12 @@
+Scope note: this MIT license covers the Cast Iron project code only
+(the Rust crates, the web shell, the build tooling, and the tests).
+It does not cover the rules content in the generated library, which is
+Open Game Content under the Open Game License 1.0a with additional
+notices under Paizo's Community Use Policy. See LICENSES/README.md
+for the full licensing picture.
+
+---
+
 MIT License
 
 Copyright (c) 2026 Atakan Dulker

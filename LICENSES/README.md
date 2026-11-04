@@ -14,8 +14,9 @@ the license listed below.
 ## MIT (code)
 
 The Rust crates, the web shell (`web/`), the build tooling (`crates/xtask`),
-and the tests are under the MIT license. The root `LICENSE` is canonical;
-[MIT.txt](MIT.txt) is an identical copy kept beside the other license texts.
+and the tests are under the MIT license. The root `LICENSE` is canonical and
+carries a scope note stating it covers code only; [MIT.txt](MIT.txt) is the
+bare license text without that note.
 
 ## OGL 1.0a (Open Game Content)
 
