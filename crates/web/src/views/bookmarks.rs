@@ -31,6 +31,37 @@ pub fn collection_size(bookmarks: &[Bookmark], collection_id: &str) -> usize {
         .count()
 }
 
+/// One row per saved item, newest first. An aliased row collapses onto its canonical target
+/// and shows the target's id, while a retired or unknown row keeps its own id and snapshot.
+/// Collection ids are the union across the rows that collapse together.
+pub fn shown_items(
+    bookmarks: &[Bookmark],
+    target_of: impl Fn(&EntryId) -> EntryId,
+) -> Vec<Bookmark> {
+    let mut out: Vec<Bookmark> = Vec::new();
+    for bookmark in bookmarks {
+        let target = target_of(&bookmark.entry_id);
+        match out.iter_mut().find(|shown| shown.entry_id == target) {
+            Some(shown) => {
+                for collection_id in &bookmark.collection_ids {
+                    if !shown.collection_ids.contains(collection_id) {
+                        shown.collection_ids.push(collection_id.clone());
+                    }
+                }
+            }
+            None => out.push(Bookmark {
+                entry_id: target,
+                ..bookmark.clone()
+            }),
+        }
+    }
+    for shown in &mut out {
+        shown.collection_ids.sort();
+        shown.collection_ids.dedup();
+    }
+    out
+}
+
 fn reload(data: RwSignal<Option<Result<Data, String>>>) {
     spawn_local(async move {
         let result = async {
@@ -142,26 +173,38 @@ fn BookmarksScreen(collection: Option<String>) -> impl IntoView {
             }
         });
     });
-    let remove = Callback::new(move |id: EntryId| {
-        spawn_local(async move {
-            match store::delete_bookmark(&id).await {
-                Ok(()) => reload(data),
-                Err(e) => fail("Could not remove the bookmark", e),
-            }
-        });
+    let remove = Callback::new({
+        let library = library.clone();
+        move |id: EntryId| {
+            let library = library.clone();
+            spawn_local(async move {
+                // The list shows one row per saved item, so Remove takes every stored row
+                // that resolves to it, including a legacy row left by a refused migration.
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                match store::delete_bookmarks_matching(matches).await {
+                    Ok(_) => reload(data),
+                    Err(e) => fail("Could not remove the bookmark", e),
+                }
+            });
+        }
     });
-    let set_member = Callback::new(move |(entry, cid, on): (EntryId, String, bool)| {
-        spawn_local(async move {
-            let result = if on {
-                store::add_to_collection(&entry, &cid).await
-            } else {
-                store::remove_from_collection(&entry, &cid).await
-            };
-            match result {
-                Ok(()) => reload(data),
-                Err(e) => fail("Could not update the collection", e),
-            }
-        });
+    let set_member = Callback::new({
+        let library = library.clone();
+        move |(entry, cid, on): (EntryId, String, bool)| {
+            let library = library.clone();
+            spawn_local(async move {
+                let matches = |stored: &EntryId| library.resolves_to(stored, &entry);
+                let result = if on {
+                    store::add_to_collection_matching(&cid, matches).await
+                } else {
+                    store::remove_from_collection_matching(&cid, matches).await
+                };
+                match result {
+                    Ok(()) => reload(data),
+                    Err(e) => fail("Could not update the collection", e),
+                }
+            });
+        }
     });
 
     let body_library = library.clone();
@@ -196,7 +239,8 @@ fn BookmarksScreen(collection: Option<String>) -> impl IntoView {
                 }
                 .into_any();
             }
-            let scoped = in_scope(&d.bookmarks, body_scope.as_deref());
+            let shown = shown_items(&d.bookmarks, |id| body_library.canonical_target(id));
+            let scoped = in_scope(&shown, body_scope.as_deref());
             let heading = current
                 .as_ref()
                 .map_or_else(|| "Bookmarks".to_string(), |c| c.name.clone());
@@ -230,7 +274,7 @@ fn BookmarksScreen(collection: Option<String>) -> impl IntoView {
                 .map(|c| {
                     collection_item(
                         c,
-                        &d.bookmarks,
+                        &shown,
                         editing,
                         confirming,
                         rename_to,
@@ -450,6 +494,14 @@ mod tests {
         b
     }
 
+    fn row(entry: &str, title: &str, at: f64, cols: &[&str]) -> Bookmark {
+        let mut b = Bookmark::new(EntryId::parse(entry).unwrap(), title, EntryKind::Spell, at);
+        for c in cols {
+            b.add_collection(c);
+        }
+        b
+    }
+
     #[test]
     fn scope_filters_by_collection() {
         let all = vec![bm(1, &["x"]), bm(2, &[]), bm(3, &["x", "y"])];
@@ -457,5 +509,28 @@ mod tests {
         assert_eq!(in_scope(&all, Some("x")).len(), 2);
         assert_eq!(in_scope(&all, Some("zzz")).len(), 0);
         assert_eq!(collection_size(&all, "y"), 1);
+    }
+
+    #[test]
+    fn shown_items_collapse_aliases_and_keep_retired_rows_under_their_own_id() {
+        let rows = vec![
+            row("legacy/a", "Old", 3.0, &["x"]),
+            row("ref/rule/a", "New", 2.0, &["y"]),
+            row("legacy/retired", "Gone", 1.0, &[]),
+        ];
+        let target_of = |stored: &EntryId| {
+            if stored.as_str() == "legacy/a" {
+                EntryId::parse("ref/rule/a").unwrap()
+            } else {
+                stored.clone()
+            }
+        };
+        let shown = shown_items(&rows, target_of);
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[0].entry_id, EntryId::parse("ref/rule/a").unwrap());
+        assert_eq!(shown[0].title_snapshot, "Old"); // the newest row of the group
+        assert_eq!(shown[0].collection_ids, ["x", "y"]);
+        assert_eq!(shown[1].entry_id, EntryId::parse("legacy/retired").unwrap());
+        assert_eq!(shown[1].title_snapshot, "Gone");
     }
 }

@@ -692,6 +692,80 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::write(path, bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
+/// Adds or replaces one file in an existing library and rewrites `manifest.json` with the
+/// same deterministic version rule that [`compile`] uses. Returns the library version.
+///
+/// The alias map is generated after the content compile because it needs the pinned Pf Data
+/// inventory, so this is how it joins the library that the client installs. The new version
+/// directory replaces the old one; no file outside the manifest is copied.
+pub fn publish_extra_file(out: &Path, name: &str, bytes: Vec<u8>) -> Result<String, String> {
+    if name.is_empty() || name.contains('/') || name.contains('\\') {
+        return Err(format!(
+            "{name:?} is not a file name relative to the version directory"
+        ));
+    }
+    let manifest: ContentManifest = serde_json::from_slice(
+        &fs::read(out.join("manifest.json"))
+            .map_err(|e| format!("cannot read {}: {e}", out.join("manifest.json").display()))?,
+    )
+    .map_err(|e| format!("invalid manifest.json: {e}"))?;
+    let old_version = manifest.content_version;
+    let old_prefix = format!("{old_version}/");
+    let old_dir = out.join(&old_version);
+    let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
+    for file in &manifest.files {
+        let relative = file
+            .path
+            .strip_prefix(&old_prefix)
+            .ok_or_else(|| format!("manifest path {} is outside {old_version}", file.path))?;
+        files.insert(
+            relative.to_string(),
+            fs::read(old_dir.join(relative))
+                .map_err(|e| format!("cannot read {}: {e}", old_dir.join(relative).display()))?,
+        );
+    }
+    files.insert(name.to_string(), bytes);
+
+    let hashed: Vec<(String, String, u64)> = files
+        .iter()
+        .map(|(path, bytes)| (path.clone(), sha256_hex(bytes), bytes.len() as u64))
+        .collect();
+    let version_lines: String = hashed
+        .iter()
+        .map(|(path, hash, _)| format!("{path}:{hash}\n"))
+        .collect();
+    let content_version = format!("v{}", &hex(&Sha256::digest(version_lines.as_bytes()))[..16]);
+    let new_dir = out.join(&content_version);
+    if content_version != old_version && new_dir.exists() {
+        fs::remove_dir_all(&new_dir)
+            .map_err(|e| format!("cannot clear {}: {e}", new_dir.display()))?;
+    }
+    for (relative, bytes) in &files {
+        write_file(&new_dir.join(relative), bytes)?;
+    }
+    let updated = ContentManifest {
+        schema_version: manifest.schema_version,
+        content_version: content_version.clone(),
+        total_bytes: hashed.iter().map(|(_, _, bytes)| bytes).sum(),
+        files: hashed
+            .iter()
+            .map(|(path, hash, bytes)| ManifestFile {
+                path: format!("{content_version}/{path}"),
+                sha256: hash.clone(),
+                bytes: *bytes,
+            })
+            .collect(),
+        entry_count: manifest.entry_count,
+        datasets: manifest.datasets,
+    };
+    write_file(&out.join("manifest.json"), &json_bytes(&updated)?)?;
+    if content_version != old_version && old_dir.exists() {
+        fs::remove_dir_all(&old_dir)
+            .map_err(|e| format!("cannot remove {}: {e}", old_dir.display()))?;
+    }
+    Ok(content_version)
+}
+
 /// Empties the output directory, but only if it is empty or holds one of our manifests.
 pub fn prepare_out(out: &Path) -> Result<(), String> {
     match fs::symlink_metadata(out) {
@@ -894,6 +968,54 @@ fn coverage_markdown(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn publish_extra_file_joins_the_manifest_and_is_byte_identical_on_a_second_run() {
+        let dir = std::env::temp_dir().join(format!("ci-publish-extra-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        prepare_out(&dir).unwrap();
+        let version = "v0123456789abcdef";
+        let catalog = b"{\"sources\":[],\"entries\":[]}".to_vec();
+        let file = ManifestFile {
+            path: format!("{version}/catalog.json"),
+            sha256: sha256_hex(&catalog),
+            bytes: catalog.len() as u64,
+        };
+        let manifest = ContentManifest {
+            schema_version: SCHEMA_VERSION,
+            content_version: version.into(),
+            total_bytes: file.bytes,
+            files: vec![file],
+            entry_count: 0,
+            datasets: vec![],
+        };
+        write_file(&dir.join(version).join("catalog.json"), &catalog).unwrap();
+        write_file(&dir.join("manifest.json"), &json_bytes(&manifest).unwrap()).unwrap();
+
+        let aliases = b"{\"format\":1}\n".to_vec();
+        let first = publish_extra_file(&dir, "aliases.json", aliases.clone()).unwrap();
+        assert_ne!(first, version);
+        let first_manifest = fs::read(dir.join("manifest.json")).unwrap();
+        let published: ContentManifest = serde_json::from_slice(&first_manifest).unwrap();
+        assert_eq!(published.content_version, first);
+        assert_eq!(published.files.len(), 2);
+        assert!(
+            published
+                .files
+                .iter()
+                .any(|file| file.path == format!("{first}/aliases.json"))
+        );
+        assert!(dir.join(&first).join("aliases.json").is_file());
+        assert!(
+            !dir.join(version).exists(),
+            "the old version directory is removed"
+        );
+
+        let second = publish_extra_file(&dir, "aliases.json", aliases).unwrap();
+        assert_eq!(second, first);
+        assert_eq!(fs::read(dir.join("manifest.json")).unwrap(), first_manifest);
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn prepare_out_refuses_foreign_directories() {

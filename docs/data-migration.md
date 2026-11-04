@@ -141,9 +141,21 @@ unrelated record; a retired row from that gate says so in its note.
 
 The map is append-only. A route change or an upstream rename is an identity change:
 add the affected `[map]` rows instead of editing an already published target. The
-generated file is build output and is not committed. The client does not read it yet;
-schema version 3 and search format 1 remain unchanged. See the Phase D decision in
-[decisions](decisions.md#legacy-to-canonical-alias-map-2026-11-04) and
+generated file is build output and is not committed. `cargo xtask data-alias` adds
+`aliases.json` to the content manifest and recomputes the library version with the
+same deterministic rule as `cargo xtask content`, so the file travels through the
+normal install and hash verification path. Run it after the content compile; a later
+`cargo xtask content` starts a new version without the map.
+
+The client loads the map eagerly, so `Library::resolve` is synchronous and offline.
+It checks the catalog first, then one alias row, then the retirement list. It never
+follows a chain. On the first load of a library that lists a map, the same alias-file
+hash gate rewrites stored bookmark and recent ids in one IndexedDB transaction:
+rows for one target merge, the oldest `added_at` wins, collection ids are a sorted
+union, and retired or unknown rows keep their snapshot. The marker
+`meta["id_migration"].aliases_sha256` makes a second load a no-op. Schema version 3
+and search format 1 remain unchanged. See the Phase 5 decision in
+[decisions](decisions.md#client-id-resolution-and-bookmark-migration-2026-11-04) and
 [the canonical id design](research/canonical-id-design.md).
 
 ## Migration and test sequence

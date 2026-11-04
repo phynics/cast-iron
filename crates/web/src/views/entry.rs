@@ -1,8 +1,8 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::js;
-use crate::library::{Library, use_library};
-use crate::route::Route;
+use crate::library::{Library, Resolution, use_library};
+use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::book::BookPosition;
 use crate::views::entry_contents::ArticleContents;
@@ -10,7 +10,7 @@ use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::RichBody;
 use crate::views::util::{kind_name, local_resource, set_title};
-use cast_iron_schema::{EntryId, EntryKind, EntryReference, RuleEntry};
+use cast_iron_schema::{EntryId, EntryKind, EntryReference, RetirementReason, RuleEntry};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
@@ -53,9 +53,56 @@ pub fn unique_targets(links: &[EntryReference]) -> Vec<EntryReference> {
     out
 }
 
+/// The design 6.2 retirement reason, in reader-facing words. The category stays explicit so
+/// that a dead link never looks like a generic missing page.
+pub fn retirement_reason_label(reason: RetirementReason) -> &'static str {
+    match reason {
+        RetirementReason::Rights => "removed for licensing reasons",
+        RetirementReason::OutOfScope => "outside the scope of this library",
+        RetirementReason::NoSource => "no matching entry exists in this library",
+        RetirementReason::Unrepresentable => "cannot be represented in this format",
+    }
+}
+
 #[component]
 pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
     let library = use_library();
+    // An old bookmark or link resolves in one step. The address bar becomes canonical without
+    // a Back entry; the fetch below uses the canonical id immediately.
+    let resolution = library.resolve(&id);
+    let retired_reason = match &resolution {
+        Resolution::Retired { reason, .. } => Some(*reason),
+        _ => None,
+    };
+    let (id, aliased) = match resolution {
+        Resolution::Aliased { canonical, .. } => (canonical, true),
+        _ => (id, false),
+    };
+    if aliased {
+        let route = Route::Entry {
+            id: id.clone(),
+            anchor: anchor.clone(),
+        };
+        Effect::new(move |_| route::replace(&route));
+    }
+    // A retired id has no canonical record and is never redirected to a guessed article.
+    // Show the standard "not in this library" state with its reason category.
+    if let Some(reason) = retired_reason {
+        set_title("Not in this library");
+        return view! {
+            <article class="entry">
+                <h1 data-testid="entry-title">"Not in this library"</h1>
+                <p class="notice">"This saved entry is not part of the current library."</p>
+                <p class="muted">"Reason: " {retirement_reason_label(reason)}"."</p>
+                <p class="muted"><code>{id.to_string()}</code></p>
+                <p>
+                    <a class="btn" href=Route::Bookmarks.href()>"Open Bookmarks"</a>" "
+                    <a class="btn" href=Route::Home.href()>"Go to Home"</a>
+                </p>
+            </article>
+        }
+        .into_any();
+    }
     let stub_title = library.stub(&id).map(|s| s.title.clone());
     set_title(stub_title.as_deref().unwrap_or("Entry"));
     let fetch_id = id.clone();
@@ -111,6 +158,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
             })}
         </article>
     }
+    .into_any()
 }
 
 #[component]
@@ -289,15 +337,19 @@ fn EntryView(
 
 #[component]
 fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
+    let library = use_library();
     let bookmark = RwSignal::new(None::<Bookmark>);
     let loaded = RwSignal::new(false);
     let writing = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);
     {
         let id = id.clone();
+        let library = library.clone();
         spawn_local(async move {
-            match store::get_bookmark(&id).await {
-                Ok(found) => bookmark.set(found),
+            // Pressed means "some stored row resolves to this id", not just the exact key.
+            let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+            match store::bookmarks_matching(matches).await {
+                Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
                 Err(e) => error.set(Some(e.to_string())),
             }
             loaded.set(true);
@@ -311,16 +363,30 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
         writing.set(true);
         let id = id.clone();
         let title = toggle_title.clone();
+        let library = library.clone();
         spawn_local(async move {
             error.set(None);
-            let result = if bookmark.get_untracked().is_some() {
-                store::delete_bookmark(&id).await.map(|_| None)
+            let pressed = bookmark.get_untracked().is_some();
+            let result = if pressed {
+                // Unstar removes every row that resolves here, so a legacy row cannot return.
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                store::delete_bookmarks_matching(matches).await.map(|_| ())
             } else {
-                let fresh = Bookmark::new(id, title, kind, js::now_ms());
-                store::put_bookmark(&fresh).await.map(|_| Some(fresh))
+                // Star adds nothing when a resolving row exists, so it cannot duplicate.
+                let fresh = Bookmark::new(id.clone(), title, kind, js::now_ms());
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                store::put_bookmark_unless_matching(&fresh, matches)
+                    .await
+                    .map(|_| ())
             };
             match result {
-                Ok(next) => bookmark.set(next),
+                Ok(()) => {
+                    let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                    match store::bookmarks_matching(matches).await {
+                        Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
+                        Err(e) => error.set(Some(e.to_string())),
+                    }
+                }
                 Err(e) => error.set(Some(format!("Could not update starred status: {e}"))),
             }
             writing.set(false);
@@ -350,6 +416,21 @@ mod tests {
             target: EntryId::parse(target).unwrap(),
             anchor: anchor.map(String::from),
         }
+    }
+
+    #[test]
+    fn every_retirement_reason_has_its_own_reader_facing_label() {
+        let reasons = [
+            RetirementReason::Rights,
+            RetirementReason::OutOfScope,
+            RetirementReason::NoSource,
+            RetirementReason::Unrepresentable,
+        ];
+        let mut labels: Vec<&str> = reasons.into_iter().map(retirement_reason_label).collect();
+        assert!(labels.iter().all(|label| !label.is_empty()));
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), reasons.len());
     }
 
     #[test]

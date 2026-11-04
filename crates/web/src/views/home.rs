@@ -5,6 +5,7 @@ use crate::route::Route;
 use crate::store::{self, Bookmark};
 use crate::views::recent;
 use crate::views::util::set_title;
+use cast_iron_schema::EntryId;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
@@ -56,14 +57,21 @@ pub fn Home() -> impl IntoView {
                     Some(Ok(items)) if items.is_empty() => view! {
                         <p class="muted">"No starred entries yet. Open an entry and choose Star to save it here."</p>
                     }.into_any(),
-                    Some(Ok(items)) => view! {
+                    Some(Ok(items)) => {
+                        // One row per saved item: legacy rows that resolve to a canonical id
+                        // join it instead of appearing twice after a refused migration.
+                        let shown = crate::views::bookmarks::shown_items(&items, |id| {
+                            library.canonical_target(id)
+                        });
+                        view! {
                         <ul class="home-bookmarks">
-                            {items.into_iter().map(|item| {
+                            {shown.into_iter().map(|item| {
                                 let stub = library.stub(&item.entry_id);
                                 let title = stub.map_or_else(|| item.title_snapshot.clone(), |s| s.title.clone());
                                 let kind = stub.map_or(item.kind, |s| s.kind);
                                 let id = item.entry_id.clone();
                                 let title_for_error = title.clone();
+                                let library = library.clone();
                                 view! { <li class="home-bookmark-row">
                                     {if stub.is_some() {
                                         view! { <a aria-label=title.clone() href=Route::entry(id.clone()).href()><span>{title.clone()}</span><span class="muted">{kind.label()}</span></a> }.into_any()
@@ -74,9 +82,13 @@ pub fn Home() -> impl IntoView {
                                         if unstarring.get_untracked() { return; }
                                         unstarring.set(true);
                                         let id = id.clone();
+                                        let library = library.clone();
                                         spawn_local(async move {
-                                            match store::delete_bookmark(&id).await {
-                                                Ok(()) => {
+                                            // Every row that resolves to this item goes, so a
+                                            // legacy row cannot resurrect after unstar.
+                                            let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                                            match store::delete_bookmarks_matching(matches).await {
+                                                Ok(_) => {
                                                     star_error.set(None);
                                                     bookmarks.set(Some(store::list_bookmarks().await.map_err(|e| e.to_string())));
                                                 }
@@ -91,7 +103,8 @@ pub fn Home() -> impl IntoView {
                                 </li> }.into_any()
                             }).collect_view()}
                         </ul>
-                    }.into_any(),
+                    }.into_any()
+                    }
                 }}
             </section>
             <Show when=move || !recents.with(|r| r.is_empty())>

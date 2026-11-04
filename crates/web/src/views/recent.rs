@@ -1,17 +1,11 @@
 //! Recently viewed entries, kept in the `meta` store under `recent`.
 
 use crate::store;
+pub use crate::store::Recent;
 use cast_iron_schema::EntryId;
-use serde::{Deserialize, Serialize};
 
-pub const KEY: &str = "recent";
+pub const KEY: &str = store::KEY_RECENT;
 pub const MAX_RECENT: usize = 12;
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Recent {
-    pub id: EntryId,
-    pub title: String,
-}
 
 /// Puts `item` first, drops an older copy of it, and keeps at most [`MAX_RECENT`].
 pub fn push_recent(list: &mut Vec<Recent>, item: Recent) {

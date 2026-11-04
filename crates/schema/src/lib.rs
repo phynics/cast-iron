@@ -15,11 +15,14 @@
 //! <content_version>/relations.json RelationIndex (schema 3)
 //! <content_version>/lists.json     SpellLists (schema 3)
 //! <content_version>/books.json     BookIndex (schema 3)
+//! <content_version>/aliases.json   AliasIndex (optional, after the canonical cutover)
 //! ```
 //!
-//! Schema 3 adds the last three files. They are listed in the manifest and hashed like
-//! every other file. Libraries of schema 1 and 2 do not have them; a reader that accepts
-//! those versions must treat the files as optional.
+//! Schema 3 adds the relation, spell-list, and book-order files. They are listed in the
+//! manifest and hashed like every other file. Libraries of schema 1 and 2 do not have them;
+//! a reader that accepts those versions must treat the files as optional. `aliases.json`
+//! is a separate optional file with its own format version, so its presence does not change
+//! the schema version.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -40,6 +43,12 @@ pub const RELATIONS_FILE: &str = "relations.json";
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
 pub const BOOKS_FILE: &str = "books.json";
+/// Name of the legacy-to-canonical alias map, relative to the version directory.
+/// Optional: a library built before the canonical cutover has no such file.
+pub const ALIASES_FILE: &str = "aliases.json";
+/// Version of the alias file format. Independent of [`SCHEMA_VERSION`] and of the
+/// search index format, as `docs/research/canonical-id-design.md` requires.
+pub const ALIAS_FORMAT: u32 = 1;
 
 /// Stable canonical identifier. Lowercase `a-z0-9-` segments joined by `/`,
 /// such as `core-rulebook/spells/fireball`.
@@ -723,12 +732,195 @@ pub struct DatasetRef {
     pub commit: String,
 }
 
+/// `aliases.json`: the one-step legacy-to-canonical map.
+///
+/// The file is optional. An older library has no file, and the client treats it as an
+/// empty map. `entries` and `retired` are sorted by `old`, each old id appears in exactly
+/// one list, and no target appears as an old id, so resolution is one step. [`AliasIndex::validate`]
+/// enforces all three rules before the map is used.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasIndex {
+    pub format: u32,
+    pub legacy: AliasLegacy,
+    #[serde(default)]
+    pub entries: Vec<AliasEntry>,
+    #[serde(default)]
+    pub retired: Vec<RetiredEntry>,
+}
+
+impl Default for AliasIndex {
+    fn default() -> Self {
+        Self {
+            format: ALIAS_FORMAT,
+            legacy: AliasLegacy {
+                count: 0,
+                sha256: String::new(),
+            },
+            entries: Vec::new(),
+            retired: Vec::new(),
+        }
+    }
+}
+
+impl AliasIndex {
+    /// Rejects a format this client does not read and an unsorted or duplicated map.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.format != ALIAS_FORMAT {
+            return Err(format!(
+                "aliases.json has format {}; this client reads {ALIAS_FORMAT}",
+                self.format
+            ));
+        }
+        for pair in self.entries.windows(2) {
+            if pair[0].old >= pair[1].old {
+                return Err(format!(
+                    "aliases.json entries are not sorted by old id: {:?}",
+                    pair[1].old
+                ));
+            }
+        }
+        for pair in self.retired.windows(2) {
+            if pair[0].old >= pair[1].old {
+                return Err(format!(
+                    "aliases.json retired rows are not sorted by old id: {:?}",
+                    pair[1].old
+                ));
+            }
+        }
+        // Sortedness above makes these lookups binary searches. A target that is itself an
+        // old id would make resolution a chain; an old id in both lists has two dispositions.
+        for entry in &self.entries {
+            if self.is_old(&entry.target) {
+                return Err(format!(
+                    "aliases.json target {:?} is also an old id; chains are forbidden",
+                    entry.target
+                ));
+            }
+        }
+        for retired in &self.retired {
+            if self
+                .entries
+                .binary_search_by(|entry| entry.old.cmp(&retired.old))
+                .is_ok()
+            {
+                return Err(format!(
+                    "aliases.json old id {:?} appears in both entries and retired",
+                    retired.old
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether `id` has a disposition in either table. Only correct after the sortedness
+    /// checks above; callers outside [`Self::validate`] hold a validated map.
+    fn is_old(&self, id: &EntryId) -> bool {
+        self.entries
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .is_ok()
+            || self
+                .retired
+                .binary_search_by(|entry| entry.old.cmp(id))
+                .is_ok()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty() && self.retired.is_empty()
+    }
+
+    /// The one alias row for `id`, found by binary search over the sorted list.
+    pub fn alias(&self, id: &EntryId) -> Option<&AliasEntry> {
+        self.entries
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .ok()
+            .map(|index| &self.entries[index])
+    }
+
+    /// The retirement row for `id`, if the map retired it.
+    pub fn retirement(&self, id: &EntryId) -> Option<&RetiredEntry> {
+        self.retired
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .ok()
+            .map(|index| &self.retired[index])
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasLegacy {
+    pub count: usize,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasEntry {
+    pub old: EntryId,
+    pub target: EntryId,
+    pub basis: AliasBasis,
+}
+
+/// Why a legacy id has a canonical target. The client does not branch on this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AliasBasis {
+    Direct,
+    Derived,
+    Carried,
+    Shared,
+    Renamed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetiredEntry {
+    pub old: EntryId,
+    pub reason: RetirementReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// Why a legacy id has no canonical target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetirementReason {
+    Rights,
+    OutOfScope,
+    NoSource,
+    Unrepresentable,
+}
+
+impl RetirementReason {
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Rights => "rights",
+            Self::OutOfScope => "out_of_scope",
+            Self::NoSource => "no_source",
+            Self::Unrepresentable => "unrepresentable",
+        }
+    }
+}
+
 /// `catalog.json`: everything that browsing needs without loading entry shards.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub sources: Vec<SourceInfo>,
     /// Sorted by id.
     pub entries: Vec<EntryStub>,
+}
+
+impl Catalog {
+    /// Rejects a catalog whose entries are not strictly ascending by id. The client
+    /// binary-searches this list, so an unsorted or duplicated list would silently make
+    /// membership answers wrong; a catalog violation is a corrupt library, not a miss.
+    pub fn validate(&self) -> Result<(), String> {
+        for pair in self.entries.windows(2) {
+            if pair[0].id >= pair[1].id {
+                return Err(format!(
+                    "catalog.json entries are not sorted by unique id: {:?} then {:?}",
+                    pair[0].id, pair[1].id
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -941,6 +1133,35 @@ mod tests {
     }
 
     #[test]
+    fn catalog_rejects_an_unsorted_or_duplicated_entry_list() {
+        let stub = |id: &str| EntryStub {
+            id: EntryId::parse(id).unwrap(),
+            kind: EntryKind::Rule,
+            title: id.into(),
+            source: "s".into(),
+            parent: None,
+            shard: "entries/rule-000.json".into(),
+        };
+        let catalog = |ids: &[&str]| Catalog {
+            sources: vec![],
+            entries: ids.iter().map(|id| stub(id)).collect(),
+        };
+        assert!(catalog(&[]).validate().is_ok());
+        assert!(
+            catalog(&["ref/race/trait", "ref/rule/direct", "ref/rule/shared"])
+                .validate()
+                .is_ok()
+        );
+
+        // The client binary-searches, so declaration order in the source is not enough.
+        let unsorted = catalog(&["ref/rule/direct", "ref/rule/shared", "ref/race/trait"]);
+        let message = unsorted.validate().unwrap_err();
+        assert!(message.contains("not sorted by unique id"), "{message}");
+        let duplicate = catalog(&["ref/rule/a", "ref/rule/a"]);
+        assert!(duplicate.validate().is_err());
+    }
+
+    #[test]
     fn challenge_rating_orders_fractions_before_whole_numbers() {
         let parse = |v| ChallengeRating::parse(v).unwrap();
         assert!(parse("1/8") < parse("1/6"));
@@ -992,6 +1213,55 @@ mod tests {
             assert!(!kind.label().is_empty());
         }
         assert_eq!(EntryKind::ALL.len(), 14);
+    }
+
+    #[test]
+    fn alias_index_rejects_a_chain_a_retired_target_and_a_duplicate_old() {
+        let parse = |json: &str| serde_json::from_str::<AliasIndex>(json).unwrap();
+
+        let chain = parse(
+            r#"{"format":1,"legacy":{"count":2,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/y","basis":"direct"},
+                {"old":"a/y","target":"a/z","basis":"direct"}
+            ],"retired":[]}"#,
+        );
+        assert!(
+            chain
+                .validate()
+                .unwrap_err()
+                .contains("chains are forbidden")
+        );
+
+        let retired_target = parse(
+            r#"{"format":1,"legacy":{"count":1,"sha256":""},"entries":[
+                {"old":"a/w","target":"a/x","basis":"direct"}
+            ],"retired":[{"old":"a/x","reason":"no_source"}]}"#,
+        );
+        assert!(
+            retired_target
+                .validate()
+                .unwrap_err()
+                .contains("chains are forbidden")
+        );
+
+        let duplicate = parse(
+            r#"{"format":1,"legacy":{"count":1,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/z","basis":"direct"}
+            ],"retired":[{"old":"a/x","reason":"no_source"}]}"#,
+        );
+        assert!(
+            duplicate
+                .validate()
+                .unwrap_err()
+                .contains("both entries and retired")
+        );
+
+        let valid = parse(
+            r#"{"format":1,"legacy":{"count":2,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/z","basis":"direct"}
+            ],"retired":[{"old":"a/y","reason":"rights"}]}"#,
+        );
+        assert!(valid.validate().is_ok());
     }
 
     #[test]

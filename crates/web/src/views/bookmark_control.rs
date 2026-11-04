@@ -1,6 +1,7 @@
 //! The bookmark toggle on an entry, with a collection picker once it is bookmarked.
 
 use crate::js;
+use crate::library::use_library;
 use crate::store::{self, Bookmark, Collection};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
@@ -8,6 +9,7 @@ use leptos::task::spawn_local;
 
 #[component]
 pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
+    let library = use_library();
     let bookmark = RwSignal::new(None::<Bookmark>);
     let collections = RwSignal::new(Vec::<Collection>::new());
     let loaded = RwSignal::new(false);
@@ -16,9 +18,13 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
 
     {
         let id = id.clone();
+        let library = library.clone();
         spawn_local(async move {
-            match store::get_bookmark(&id).await {
-                Ok(found) => bookmark.set(found),
+            // Pressed means "some stored row resolves to this id", so a legacy row that a
+            // refused migration left behind still reads as saved.
+            let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+            match store::bookmarks_matching(matches).await {
+                Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
                 Err(e) => error.set(Some(e.to_string())),
             }
             if let Ok(list) = store::list_collections().await {
@@ -31,19 +37,35 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
     let toggle = {
         let id = id.clone();
         let title = title.clone();
+        let library = library.clone();
         move |_| {
             let id = id.clone();
             let title = title.clone();
+            let library = library.clone();
             spawn_local(async move {
                 error.set(None);
-                let result = if bookmark.get_untracked().is_some() {
-                    store::delete_bookmark(&id).await.map(|_| None)
+                let pressed = bookmark.get_untracked().is_some();
+                let result = if pressed {
+                    // Unstar removes every row that resolves to the id, so a not-yet-migrated
+                    // legacy row cannot resurrect.
+                    let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                    store::delete_bookmarks_matching(matches).await.map(|_| ())
                 } else {
+                    // Star adds nothing when a resolving row exists, so it cannot duplicate.
                     let fresh = Bookmark::new(id.clone(), title, kind, js::now_ms());
-                    store::put_bookmark(&fresh).await.map(|_| Some(fresh))
+                    let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                    store::put_bookmark_unless_matching(&fresh, matches)
+                        .await
+                        .map(|_| ())
                 };
                 match result {
-                    Ok(next) => bookmark.set(next),
+                    Ok(()) => {
+                        let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                        match store::bookmarks_matching(matches).await {
+                            Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
+                            Err(e) => error.set(Some(e.to_string())),
+                        }
+                    }
                     Err(e) => error.set(Some(format!("Could not save the bookmark: {e}"))),
                 }
             });
@@ -52,18 +74,22 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
 
     let member = Callback::new({
         let id = id.clone();
+        let library = library.clone();
         move |(collection_id, on): (String, bool)| {
             let id = id.clone();
+            let library = library.clone();
             spawn_local(async move {
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
                 let result = if on {
-                    store::add_to_collection(&id, &collection_id).await
+                    store::add_to_collection_matching(&collection_id, matches).await
                 } else {
-                    store::remove_from_collection(&id, &collection_id).await
+                    store::remove_from_collection_matching(&collection_id, matches).await
                 };
                 match result {
                     Ok(()) => {
-                        if let Ok(found) = store::get_bookmark(&id).await {
-                            bookmark.set(found);
+                        let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                        if let Ok(rows) = store::bookmarks_matching(matches).await {
+                            bookmark.set(store::combine_saved_rows(&rows));
                         }
                     }
                     Err(e) => error.set(Some(format!("Could not update the collection: {e}"))),
@@ -74,25 +100,29 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
 
     let create = Callback::new({
         let id = id.clone();
+        let library = library.clone();
         move |()| {
             let name = new_name.get_untracked().trim().to_string();
             if name.is_empty() {
                 return;
             }
             let id = id.clone();
+            let library = library.clone();
             spawn_local(async move {
                 match store::create_collection(&name).await {
                     Ok(created) => {
                         new_name.set(String::new());
-                        let added = store::add_to_collection(&id, &created.id).await;
+                        let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                        let added = store::add_to_collection_matching(&created.id, matches).await;
                         if let Err(e) = added {
                             error.set(Some(format!("Could not add to the collection: {e}")));
                         }
                         if let Ok(list) = store::list_collections().await {
                             collections.set(list);
                         }
-                        if let Ok(found) = store::get_bookmark(&id).await {
-                            bookmark.set(found);
+                        let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                        if let Ok(rows) = store::bookmarks_matching(matches).await {
+                            bookmark.set(store::combine_saved_rows(&rows));
                         }
                     }
                     Err(e) => error.set(Some(format!("Could not create the collection: {e}"))),
