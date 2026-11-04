@@ -453,6 +453,23 @@ fn native_key(r: &InputRecord) -> Option<String> {
     r.protocol.as_ref().map(|p| format!("{p}/{}", r.key))
 }
 
+/// Index records such as `rules_adv_gm01.json#advanced_gm_topics` carry no
+/// publication of their own. Their subtopics do, so the union is the record's
+/// publication set.
+fn derive_publications(raw: &Value, records: &[InputRecord]) -> Vec<String> {
+    let Some(subtopics) = raw.get("subtopics").and_then(Value::as_array) else {
+        return Vec::new();
+    };
+    let keys: BTreeSet<&str> = subtopics.iter().filter_map(Value::as_str).collect();
+    let mut publications = BTreeSet::new();
+    for record in records {
+        if keys.contains(record.key.as_str()) {
+            publications.extend(record.publications.iter().cloned());
+        }
+    }
+    publications.into_iter().collect()
+}
+
 #[derive(Debug, Serialize)]
 pub struct FixtureResult {
     pub name: String,
@@ -601,7 +618,22 @@ fn run_import(
         .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
     {
         match crate::pf_records::expand(r, &inv.records) {
-            Ok(raw) => expanded_inputs.push(expanded_input(r, raw)),
+            Ok(raw) => {
+                let mut record = expanded_input(r, raw);
+                if record.publications.is_empty() {
+                    let derived = derive_publications(&record.raw, &inv.records);
+                    if !derived.is_empty() {
+                        record.publications = derived;
+                        report.findings.push(Finding {
+                            severity: "medium".into(),
+                            record: format!("{}#{}", r.path, r.key),
+                            problem: "publication metadata absent; derived from subtopic records"
+                                .into(),
+                        });
+                    }
+                }
+                expanded_inputs.push(record);
+            }
             Err(problem) => report.findings.push(Finding {
                 severity: "high".into(),
                 record: format!("{}#{}", r.path, r.key),
@@ -1605,5 +1637,35 @@ mod tests {
                 .iter()
                 .any(|record| record.path == "json/rules_basics04.json" && record.key == "magic")
         );
+    }
+
+    #[test]
+    fn index_publications_come_from_their_subtopics() {
+        let records = vec![
+            InputRecord {
+                protocol: Some("rule".into()),
+                path: "json/rules_a.json".into(),
+                key: "one".into(),
+                name: "One".into(),
+                shape: "description".into(),
+                publications: vec!["Book A".into()],
+                raw: serde_json::json!({}),
+            },
+            InputRecord {
+                protocol: Some("rule".into()),
+                path: "json/rules_b.json".into(),
+                key: "two".into(),
+                name: "Two".into(),
+                shape: "description".into(),
+                publications: vec!["Book B".into(), "Book A".into()],
+                raw: serde_json::json!({}),
+            },
+        ];
+        let raw = serde_json::json!({"subtopics": ["one", "two"]});
+        assert_eq!(
+            derive_publications(&raw, &records),
+            ["Book A".to_string(), "Book B".to_string()]
+        );
+        assert!(derive_publications(&serde_json::json!({}), &records).is_empty());
     }
 }
