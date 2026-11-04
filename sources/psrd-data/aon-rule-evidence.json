@@ -1,12 +1,12 @@
 {
-  "books_sha256": "d74a7bc79d5dbd1165e3d3ba0a7ef01b54a2ae2c528fa78da79b317041f43462",
-  "corpus_version": "v171f0348e5717ee0",
+  "books_sha256": "c67899e43cee5552a3c6bf4047d38e3d826ba6f614f43a123af9cd1c3cf4d019",
+  "corpus_version": "vacb1fef357b70f14",
   "counts": {
     "no_opening_prose_or_too_short": 13,
-    "opening_passage_not_matched": 14,
-    "proposed_target": 61
+    "opening_passage_not_matched": 13,
+    "proposed_target": 62
   },
-  "entries_sha256": "3621845ed8d8345759843e81917aaa569e30fddddd775892b14b3c877bd8e13b",
+  "entries_sha256": "6bf0dd7b69f7f219ba082a7e4af590b10172760f41a79375e8d7c413df127a82",
   "format": "cast-iron-aon-rule-evidence",
   "mapping_sha256": "c2cbdd98d1d6f99e45ff5af0ce9b5786c8adeaf92aacfc2c43eb23f6ef662b91",
   "purpose": "research_proposals_not_imported_content_or_printed_order",
@@ -300,11 +300,16 @@
       "url": "https://aonprd.com/Rules.aspx?ID=68"
     },
     {
-      "candidates": [],
+      "candidates": [
+        {
+          "anchor": null,
+          "entry_id": "pf-data/rule/magic"
+        }
+      ],
       "evidence": {
         "first_section_paragraph_count": 2,
         "matched_prefix_words": 24,
-        "method": "opening_passage_not_matched",
+        "method": "unique_exact_source_opening_passage",
         "opening_words_sha256": "a99372928cae6eec5de36e5dfe635136f3b5e6fb18d656f2ed84fc861267394e",
         "page_title": "Magic Basics",
         "source_locator": "PRPG Core Rulebook pg. 206"
@@ -312,8 +317,11 @@
       "label": "Magic Basics",
       "previous_status": "section_not_in_snapshot",
       "source": "core-rulebook",
-      "status": "opening_passage_not_matched",
-      "target": null,
+      "status": "proposed_target",
+      "target": {
+        "anchor": null,
+        "entry_id": "pf-data/rule/magic"
+      },
       "url": "https://aonprd.com/Rules.aspx?ID=202"
     },
     {
@@ -2159,27 +2167,6 @@
         "source": "core-rulebook",
         "status": "candidate_records",
         "url": "https://aonprd.com/Rules.aspx?ID=365"
-      },
-      {
-        "candidates": [
-          {
-            "description_bytes": 764,
-            "description_sha256": "046b3a7aefd5d22fe1408c7fc714637e501f7bcee3b4c8f3cbba7e3ad9cc8eff",
-            "file": "json/rules_basics04.json",
-            "file_sha256": "21eb8a6e1505b11b55534d8c05a599ab2b3484eb42a88088ae6aa47fc64ffde9",
-            "json_pointer": "/magic",
-            "markdown_headings": 0,
-            "name": "Magic and Spellcasting",
-            "non_source_directives": [],
-            "sources": [
-              "PRPG Core Rulebook"
-            ]
-          }
-        ],
-        "label": "Magic Basics",
-        "source": "core-rulebook",
-        "status": "candidate_records",
-        "url": "https://aonprd.com/Rules.aspx?ID=202"
       },
       {
         "candidates": [],
