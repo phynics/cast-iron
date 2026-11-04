@@ -16,6 +16,8 @@ cargo xtask <command>
   data-report                Report Pathfinder Data 1e migration coverage
   data-legal                 Report Section 15 notice coverage for Pf Data publications
   data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
+  data-alias-propose [--apply]
+                             Propose dispositions for every no_source alias row; --apply rewrites id-map.toml
   data-test                  Test the importer and Pathfinder Data 1e source
   content                    Compile content into generated/content and generated/reports
   build-site [--public-url P]  Compile content when missing, build the app, and write dist/
@@ -37,6 +39,7 @@ fn main() -> ExitCode {
         Some("data-report") => data_tool("report"),
         Some("data-legal") => data_tool("legal"),
         Some("data-alias") => data_alias(),
+        Some("data-alias-propose") => data_alias_propose(&args[1..]),
         Some("data-test") => data_test(),
         Some("content") => content(),
         Some("build-site") => build_site(&args[1..]),
@@ -310,6 +313,36 @@ fn data_alias() -> Result {
             "generated/content",
         ],
     )
+}
+
+/// Proposes alias dispositions from the same inventory the alias gate uses. The
+/// extra arguments are forwarded, so `--apply` rewrites the committed map.
+fn data_alias_propose(args: &[String]) -> Result {
+    let mut arguments = vec![
+        "run".to_string(),
+        "--release".to_string(),
+        "-p".to_string(),
+        "cast-iron-content-compiler".to_string(),
+        "--bin".to_string(),
+        "cast-iron-data".to_string(),
+        "--".to_string(),
+        "alias-propose".to_string(),
+        "--dataset".to_string(),
+        ".cache/sources/pathfinder-data-1-e".to_string(),
+        "--registry".to_string(),
+        "sources/pathfinder-data-1-e/source.json".to_string(),
+        "--out".to_string(),
+        "generated/migration".to_string(),
+        "--reports".to_string(),
+        "reports".to_string(),
+        "--map".to_string(),
+        "sources/canonical/id-map.toml".to_string(),
+        "--legacy".to_string(),
+        "sources/canonical/legacy-ids.json".to_string(),
+    ];
+    arguments.extend(args.iter().cloned());
+    let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    run("cargo", &borrowed)
 }
 
 fn content() -> Result {
