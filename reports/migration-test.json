@@ -5,13 +5,15 @@
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
   "selected_records": 40,
-  "imported_records": 21,
+  "imported_records": 25,
   "by_kind": {
+    "affliction": 1,
     "archetype": 1,
     "creature": 2,
     "feat": 6,
     "item": 1,
     "prestige_class": 4,
+    "race": 3,
     "rule": 1,
     "spell": 3,
     "trait": 3
@@ -19,15 +21,22 @@
   "by_publication": {
     "advanced-class-guide": 1,
     "advanced-class-origins": 1,
+    "advanced-race-guide": 1,
     "adventurers-guide": 1,
-    "blood-of-the-sea": 1,
+    "bestiary-5": 1,
+    "blood-of-angels": 1,
+    "blood-of-the-sea": 2,
     "chronicle-of-legends": 2,
     "cradle-of-night": 1,
     "druma-profit-and-prophecy": 1,
     "faiths-and-philosophies": 1,
     "gods-and-magic": 1,
     "horror-realms": 1,
+    "inner-sea-bestiary": 1,
     "inner-sea-gods": 1,
+    "inner-sea-races": 2,
+    "iron-gods-players-guide": 1,
+    "isles-of-the-shackles": 1,
     "knights-of-the-inner-sea": 1,
     "magic-tactics-toolbox": 1,
     "npc-codex": 2,
@@ -35,11 +44,18 @@
     "pathfinder-45-broken-moon": 1,
     "pathfinder-8-seven-days-to-the-grave": 1,
     "pathfinder-82-secrets-of-the-sphinx": 1,
+    "pathfinder-rpg-bestiary": 1,
     "paths-of-prestige": 1,
+    "people-of-the-stars": 1,
     "planar-adventures": 1,
     "prpg-core-rulebook": 1,
     "ultimate-wilderness": 1
   },
+  "derived_records": 1,
+  "derived_by_kind": {
+    "affliction": 1
+  },
+  "derived_rejected": 0,
   "out_of_scope": [
     {
       "path": "json/archetypes_magus.json",
@@ -452,17 +468,17 @@
     {
       "severity": "high",
       "record": "json/classes.json#alchemist",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action"
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action"
     },
     {
       "severity": "high",
       "record": "json/classes.json#antipaladin",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions"
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions"
     },
     {
       "severity": "high",
       "record": "json/classes.json#arcanist",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions"
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions"
     },
     {
       "severity": "high",
@@ -570,9 +586,14 @@
       "problem": "reference outside bounded sample: umr/fast_healing"
     },
     {
+      "severity": "medium",
+      "record": "json/monsters01.json#aashaqs_wyvern",
+      "problem": "derived record ref/affliction/aashaqs-wyvern/poison-ex was built without its host entry; host conversion is still blocked"
+    },
+    {
       "severity": "high",
       "record": "json/monsters01.json#aashaqs_wyvern",
-      "problem": "unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco; unsupported semantic renderer for directive ::aff"
+      "problem": "unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco"
     },
     {
       "severity": "high",
@@ -1231,21 +1252,6 @@
     },
     {
       "severity": "high",
-      "record": "json/races.json#aasimar",
-      "problem": "unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::rtraits"
-    },
-    {
-      "severity": "high",
-      "record": "json/races.json#adaro",
-      "problem": "unsupported directive ::rtraits"
-    },
-    {
-      "severity": "high",
-      "record": "json/races.json#android",
-      "problem": "unknown attribute jl on ::h3; unsupported directive ::rtraits; unknown attribute jl on ::h3"
-    },
-    {
-      "severity": "high",
       "record": "json/rules_adv_gm01.json#advanced_gm_topics",
       "problem": "missing name or publication metadata"
     },
@@ -1270,9 +1276,9 @@
       "problem": "reference outside bounded sample: spell/atonement"
     }
   ],
-  "canonical_bytes": 195685,
-  "search_bytes": 82574,
-  "search_checks": 63,
+  "canonical_bytes": 277528,
+  "search_bytes": 110502,
+  "search_checks": 77,
   "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
