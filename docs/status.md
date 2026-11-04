@@ -118,7 +118,7 @@ The measurements below are historical evidence for their named builds.
 | Application is installable where browser support allows | Local pass | `Application is installable where browser support allows` |
 | Representative rules dataset installs completely | Local pass | `Representative rules dataset installs completely` |
 | Download integrity is verified | Local pass | `Download integrity is verified` (corrupted shard rejected; retry fetches only that file) |
-| Search operates entirely offline | Local pass | `Search operates entirely offline` (p95 < 100 ms asserted) |
+| Search operates entirely offline | Local pass | `Search operates entirely offline` (p95 recorded per run; a 250 ms smoke bound is asserted, not a latency gate) |
 | Category and sourcebook browsing works | Local pass | `Category and sourcebook browsing works` checks every publication; `Expanded books and separate class categories work offline` checks 16 books and the distinct categories. |
 | Rule entries preserve complex formatting | Local pass | three `Rule entries preserve complex formatting: …` tests |
 | Cross-reference navigation works | Local pass | `Cross-reference navigation works`, plus the deep-link test |
