@@ -233,10 +233,13 @@ article. Its permanent ID uses the native protocol namespace; all earlier IDs an
 titles are unchanged. Every other primary-source record stays in coverage as
 `record shape ... is not approved`, not in the library.
 
-Content version `v572a9aa62d4631f0` has 9,968 entries (was 9,967), schema 3 and
-search format 1. Raw content is 62,114,615 bytes (was 61,956,172); the search
-index is 20,330,948 bytes (was 20,329,611). The legal page lists the new dataset
-pin and appends the pinned source's complete Section 15 notices.
+Content version `vacb1fef357b70f14` has 9,968 entries (was 9,967), schema 3 and
+search format 1. Raw content is 62,123,015 bytes (was 61,956,172); the search
+index is 20,330,948 bytes (was 20,329,611). Resolved links are 1,310, including
+the six reviewed links from the new passage. The legal page lists the new dataset
+pin and appends the pinned source's complete Section 15 notices. Supplemental
+coverage rows carry a `pathfinder-data-1-e:` prefix, so they cannot be read as
+PSRD-Data paths.
 
 Local verification: `cargo xtask check` passes. Two `cargo xtask content` runs
 produce the same tree hash. `scripts/check-library-upgrade.py dist/content

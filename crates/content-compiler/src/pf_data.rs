@@ -963,7 +963,7 @@ fn convert(
             record: r.key.clone(),
             path: r.path.clone(),
         }],
-        license_refs: vec!["ogl-1-0a".into()],
+        license_refs: vec![crate::build::LICENSE_OGL.into()],
         relations: Vec::new(),
     })
 }

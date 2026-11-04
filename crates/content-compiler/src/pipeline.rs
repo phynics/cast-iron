@@ -197,6 +197,12 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     let mut built = build::build(&plan);
     if let Some(extra) = &approved {
         let ids: BTreeSet<_> = built.entries.iter().map(|e| e.id.clone()).collect();
+        // Group by parent so multiple approved records keep a stable order instead of
+        // reversing each time a link is prepended to the parent body.
+        let mut children: BTreeMap<
+            cast_iron_schema::EntryId,
+            Vec<(cast_iron_schema::EntryId, String)>,
+        > = BTreeMap::new();
         for entry in &extra.entries {
             if ids.contains(&entry.id) {
                 return Err(format!(
@@ -217,38 +223,59 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
                 .into());
             }
             if let Some(parent) = &entry.parent {
-                let parent_entry = built
-                    .entries
-                    .iter_mut()
-                    .find(|e| &e.id == parent)
-                    .ok_or_else(|| {
-                        format!("approved entry {} has unknown parent {parent}", entry.id)
-                    })?;
-                parent_entry.body.insert(
-                    0,
-                    cast_iron_schema::Block::EntryLink {
-                        target: entry.id.clone(),
-                        title: entry.title.clone(),
-                    },
-                );
-                parent_entry.links.push(cast_iron_schema::EntryReference {
-                    target: entry.id.clone(),
-                    anchor: None,
-                });
-                parent_entry.links.sort();
-                parent_entry.links.dedup();
-                built.nested.insert(
-                    0,
-                    build::NestedLink {
-                        host: parent.clone(),
-                        target: entry.id.clone(),
-                        trail: Vec::new(),
-                        child: true,
-                    },
-                );
+                if !built.entries.iter().any(|e| &e.id == parent) {
+                    return Err(
+                        format!("approved entry {} has unknown parent {parent}", entry.id).into(),
+                    );
+                }
+                children
+                    .entry(parent.clone())
+                    .or_default()
+                    .push((entry.id.clone(), entry.title.clone()));
             }
             built.entries.push(entry.clone());
         }
+        for (parent, links) in children {
+            let parent_entry = built
+                .entries
+                .iter_mut()
+                .find(|e| e.id == parent)
+                .expect("parent checked above");
+            let mut blocks: Vec<cast_iron_schema::Block> = links
+                .iter()
+                .map(|(target, title)| cast_iron_schema::Block::EntryLink {
+                    target: target.clone(),
+                    title: title.clone(),
+                })
+                .collect();
+            blocks.append(&mut parent_entry.body);
+            parent_entry.body = blocks;
+            for (target, _) in &links {
+                if !parent_entry.links.iter().any(|link| &link.target == target) {
+                    parent_entry.links.push(cast_iron_schema::EntryReference {
+                        target: target.clone(),
+                        anchor: None,
+                    });
+                    built.links.resolved += 1;
+                }
+            }
+            parent_entry.links.sort();
+            parent_entry.links.dedup();
+            for (target, _) in links {
+                built.nested.push(build::NestedLink {
+                    host: parent.clone(),
+                    target,
+                    trail: Vec::new(),
+                    child: true,
+                });
+            }
+        }
+        // Links inside the approved records were validated during conversion.
+        built.links.resolved += extra
+            .entries
+            .iter()
+            .map(|entry| entry.links.len() as u32)
+            .sum::<u32>();
         built.entries.sort_by(|a, b| a.id.cmp(&b.id));
     }
     let relations = crate::relations::apply(&mut built.entries, &plan, &built.nested);
@@ -767,6 +794,10 @@ fn coverage_markdown(
             p.source_id, p.title, p.upstream_records, p.included_entries
         );
     }
+    let _ = writeln!(
+        s,
+        "\nUpstream counts come from the PSRD-Data selection. Included entries also contain reviewed primary-source records."
+    );
     let _ = writeln!(s, "\n## Rejected records ({})\n", c.rejected.len());
     if c.rejected.is_empty() {
         let _ = writeln!(s, "None.");
@@ -825,6 +856,10 @@ fn coverage_markdown(
     if notes.len() > 50 {
         let _ = writeln!(s, "- ... {} more in validation.json", notes.len() - 50);
     }
+    let (supplement, upstream): (Vec<_>, Vec<_>) = c
+        .excluded
+        .iter()
+        .partition(|e| e.path.starts_with(crate::pf_approved::COVERAGE_PREFIX));
     let _ = writeln!(s, "\n## Excluded upstream directories\n");
     let _ = writeln!(
         s,
@@ -832,8 +867,20 @@ fn coverage_markdown(
         survey.total_files
     );
     let _ = writeln!(s, "| Path | Records | Reason |\n|---|---:|---|");
-    for e in &c.excluded {
+    for e in upstream {
         let _ = writeln!(s, "| {} | {} | {} |", e.path, e.records, e.reason);
+    }
+    if !supplement.is_empty() {
+        let records: u64 = supplement.iter().map(|e| u64::from(e.records)).sum();
+        let _ = writeln!(
+            s,
+            "\n## Reviewed supplemental source exclusions\n\n\
+             The pinned primary inventory excludes {records} records. Approved records are listed under Entries by kind.\n"
+        );
+        let _ = writeln!(s, "| Path | Records | Reason |\n|---|---:|---|");
+        for e in supplement {
+            let _ = writeln!(s, "| {} | {} | {} |", e.path, e.records, e.reason);
+        }
     }
     if !survey.unparsable.is_empty() {
         let _ = writeln!(s, "\n## Unparsable upstream files outside the selection\n");

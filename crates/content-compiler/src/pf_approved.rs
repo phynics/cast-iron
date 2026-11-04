@@ -14,6 +14,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+/// Coverage paths from this source are namespaced so they cannot be read as PSRD-Data paths.
+pub const COVERAGE_PREFIX: &str = "pathfinder-data-1-e:";
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -142,7 +145,10 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
                         }
                     }
                     None => exclusions.push(Exclusion {
-                        path: format!("{}/{}:{}", approved.path, approved.key, topic),
+                        path: format!(
+                            "{COVERAGE_PREFIX}{}/{}:{}",
+                            approved.path, approved.key, topic
+                        ),
                         records: 0,
                         reason: format!("unreviewed {hierarchy_key} target"),
                     }),
@@ -153,6 +159,18 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
             .protocol
             .as_ref()
             .ok_or_else(|| format!("no protocol route for {}", approved.path))?;
+        let native_id = EntryId::parse(format!(
+            "pf-data/{}/{}",
+            crate::slug::slug_segment(protocol),
+            crate::slug::slug_segment(&approved.key)
+        ))
+        .map_err(|e| e.to_string())?;
+        if native_id != id {
+            return Err(format!(
+                "approved entry id {id} does not match the native protocol id {native_id} for {}:{}",
+                approved.path, approved.key
+            ));
+        }
         let mut provenance = vec![Provenance {
             dataset: inventory.dataset.clone(),
             record: format!("{protocol}://{}", approved.key),
@@ -202,7 +220,7 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
         excluded_by_file
             .into_iter()
             .map(|(path, (records, reasons))| Exclusion {
-                path,
+                path: format!("{COVERAGE_PREFIX}{path}"),
                 records,
                 reason: reasons.into_iter().collect::<Vec<_>>().join("; "),
             }),
@@ -364,7 +382,11 @@ impl html::Env for ApprovedEnv<'_> {
             }
         }
     }
-    fn stripped(&mut self, _key: &str) {}
+    fn stripped(&mut self, key: &str) {
+        // A reviewed record may not lose markup silently.
+        self.error
+            .get_or_insert_with(|| format!("stripped content in approved record: {key}"));
+    }
 }
 
 fn render_body(
@@ -432,6 +454,7 @@ fn parse_copyrights(input: &str) -> Result<Vec<CopyrightNotice>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::html::Env;
 
     #[test]
     fn parses_section_15_titles_and_decodes_entities() {
@@ -497,6 +520,13 @@ mod tests {
             .unwrap()
             .parent()
             .unwrap();
+        if !root
+            .join(".cache/sources/pathfinder-data-1-e/json")
+            .is_dir()
+        {
+            eprintln!("skipping: the pinned primary source is not present");
+            return;
+        }
         let config = Config {
             registry: "../pathfinder-data-1-e/source.json".into(),
             dataset: "../../.cache/sources/pathfinder-data-1-e".into(),
@@ -509,5 +539,27 @@ mod tests {
         assert!(result.entries[0].body.iter().any(|b| matches!(b, Block::EntryLink { target, .. } if target.as_str() == "core-rulebook/rules/magic/casting-spells")));
         let covered: u64 = result.exclusions.iter().map(|e| u64::from(e.records)).sum();
         assert_eq!(covered + result.entries.len() as u64, 34_530);
+        assert!(
+            result
+                .exclusions
+                .iter()
+                .all(|e| e.path.starts_with(COVERAGE_PREFIX))
+        );
+    }
+
+    #[test]
+    fn stripped_markup_fails_an_approved_record() {
+        let mut env = ApprovedEnv {
+            topics: &BTreeMap::new(),
+            expected_source_href: String::new(),
+            error: None,
+            references: BTreeSet::new(),
+        };
+        env.stripped("img");
+        assert!(
+            env.error
+                .as_deref()
+                .is_some_and(|error| error.contains("img"))
+        );
     }
 }
