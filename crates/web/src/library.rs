@@ -184,8 +184,11 @@ impl Library {
         })));
         // A refused transaction is not fatal: every read still resolves the old id, and the
         // next load retries. Settings shows the non-blocking conversion notice meanwhile.
-        if let Err(error) = library.migrate_stored_ids().await {
-            leptos::logging::warn!("the saved-item id conversion was refused: {error}");
+        let migration = library.migrate_stored_ids().await;
+        if conversion_is_pending(&migration) {
+            if let Err(error) = &migration {
+                leptos::logging::warn!("the saved-item id conversion was refused: {error}");
+            }
             library.0.migration_refused.set(true);
         }
         Ok(library)
@@ -497,6 +500,12 @@ impl Library {
     }
 }
 
+/// Whether the load should show the Settings conversion notice. Only a refused transaction
+/// counts; `Ok(false)` means the alias hash already matched and nothing waits for storage.
+fn conversion_is_pending(result: &Result<bool, store::StoreError>) -> bool {
+    result.is_err()
+}
+
 fn catalog_has(catalog: &Catalog, id: &EntryId) -> bool {
     debug_assert!(
         catalog
@@ -695,6 +704,15 @@ mod tests {
         let mut unsorted = aliases();
         unsorted.entries.swap(0, 1);
         assert!(unsorted.validate().is_err());
+    }
+
+    #[test]
+    fn only_a_refused_migration_asks_the_reader_to_wait() {
+        assert!(!conversion_is_pending(&Ok(false)));
+        assert!(!conversion_is_pending(&Ok(true)));
+        assert!(conversion_is_pending(&Err(store::StoreError::Backend(
+            "quota".into()
+        ))));
     }
 
     #[test]

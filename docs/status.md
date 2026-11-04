@@ -73,6 +73,20 @@ changes, zero incorrect class categories, zero dangling references. The new
 evidence only; the production cutover is not live and the deployed library still uses
 PSRD ids.
 
+Review follow-up on [PR #51](https://github.com/phynics/cast-iron/pull/51) fixes the
+findings above against the same design: the merged-kind tie-break uses the serialized
+slug, the star contract resolves stored rows through the alias map (pressed, add, unstar,
+and collection membership), the bookmarks and Home lists collapse one saved item to one
+row, a refused conversion shows the Settings notice, an unreadable migration marker reads
+as absent, catalog membership trusts the sorted catalog, a retired entry route shows its
+reason category, and `AliasIndex::validate` enforces the one-step and one-disposition
+rules. Local verification on 2026-11-04: `cargo test -p cast-iron-web` passes with 113
+lib tests, `cargo test -p cast-iron-content-compiler` passes with 162 lib and 20
+integration tests, and `cargo xtask check` passes (format, native and WASM clippy,
+workspace tests, WASM build). No `dist/` build or Playwright rerun was made for this
+follow-up, and no production cutover is claimed.
+
+
 ## Outstanding work and UI history
 
 - [#8](https://github.com/phynics/cast-iron/issues/8) tracks installation controls;
