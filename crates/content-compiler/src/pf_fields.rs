@@ -615,7 +615,9 @@ fn spell(lines: &[String]) -> Result<TypedFields, String> {
         }
         v
     });
-    let saving = saving.ok_or("spell directive has no saving throw")?;
+    // Some source spells omit the line entirely. Render that absence explicitly
+    // instead of failing the whole record.
+    let saving = saving.unwrap_or_else(|| "none".into());
     let sr = sr.map(|mut v| {
         if a.contains_key("harmless") || a.contains_key("srHarmless") {
             v.push_str(" (harmless)");
@@ -625,7 +627,7 @@ fn spell(lines: &[String]) -> Result<TypedFields, String> {
         }
         v
     });
-    let sr = sr.ok_or("spell directive has no spell resistance value")?;
+    let sr = sr.unwrap_or_else(|| "no".into());
     let components = components.map(|mut v| {
         if a.contains_key("cText") {
             v.push_str("; see text");
@@ -1024,5 +1026,17 @@ mod tests {
             panic!()
         };
         assert_eq!(f.category, "Other");
+    }
+
+    #[test]
+    fn spell_without_save_or_sr_records_explicit_defaults() {
+        let lines = vec![
+            r#"::spell{id=1 source="Ultimate Combat/221" abjuration force arc=1 ctSt cV cS rPers target=you dur="1 round/level or until discharged"}"#.into(),
+        ];
+        let TypedFields::Spell(f) = extract(EntryKind::Spell, &lines).unwrap() else {
+            panic!()
+        };
+        assert_eq!(f.saving_throw.as_deref(), Some("none"));
+        assert_eq!(f.spell_resistance.as_deref(), Some("no"));
     }
 }
