@@ -12,6 +12,8 @@ pub mod model;
 pub mod order;
 pub mod pf_approved;
 pub mod pf_data;
+pub mod pf_derived;
+pub mod pf_directives;
 pub mod pf_fields;
 pub mod pf_markdown;
 pub mod pf_records;
