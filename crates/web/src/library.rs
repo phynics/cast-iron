@@ -7,9 +7,9 @@ use crate::install;
 use crate::lru::Lru;
 use crate::store::{self, ActiveLibrary};
 use cast_iron_schema::{
-    BOOKS_FILE, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind, EntryStub,
-    LegalNotices, RELATIONS_FILE, RelationIndex, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
-    SpellLists,
+    ALIASES_FILE, AliasIndex, BOOKS_FILE, BookIndex, Catalog, ContentManifest, CoverageReport,
+    EntryId, EntryKind, EntryStub, LegalNotices, RELATIONS_FILE, RelationIndex, RetirementReason,
+    RuleEntry, SPELL_LISTS_FILE, SourceInfo, SpellLists,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -59,6 +59,23 @@ impl fmt::Display for LibraryError {
 
 impl std::error::Error for LibraryError {}
 
+/// What an entry id means in the active library. Resolution is one step: an alias target
+/// never resolves again, because the generated map forbids chains.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Resolution {
+    /// The id is a catalog entry.
+    Canonical(EntryId),
+    /// A legacy id with a canonical target in this library.
+    Aliased { canonical: EntryId, legacy: EntryId },
+    /// The map retired this legacy id. The stored row keeps its snapshot.
+    Retired {
+        legacy: EntryId,
+        reason: RetirementReason,
+    },
+    /// Neither an entry nor a mapped legacy id.
+    Unknown(EntryId),
+}
+
 struct Inner {
     active: ActiveLibrary,
     manifest: ContentManifest,
@@ -68,6 +85,11 @@ struct Inner {
     index: RefCell<Option<Rc<SearchIndex>>>,
     legal: RefCell<Option<Rc<LegalNotices>>>,
     coverage: RefCell<Option<Rc<CoverageReport>>>,
+    /// The legacy alias map, loaded eagerly so resolution is synchronous. Empty for a
+    /// library built before the canonical cutover.
+    aliases: Rc<AliasIndex>,
+    /// The manifest hash of `aliases.json`, used as the idempotent migration marker.
+    aliases_sha256: String,
     /// Schema-3 files. The outer `Option` is "not loaded yet"; the inner one is "this library
     /// does not have the file", which is a normal state for schemas 1 and 2.
     relations: RefCell<Option<Option<Rc<Relations>>>>,
@@ -114,10 +136,31 @@ impl Library {
         } else {
             None
         };
+        let (aliases, aliases_sha256) = if manifest_has_file(&manifest, ALIASES_FILE) {
+            let path = format!("{}/{ALIASES_FILE}", manifest.content_version);
+            let bytes = read_file(&cache, &active.content_version, ALIASES_FILE).await?;
+            let aliases: AliasIndex =
+                serde_json::from_slice(&bytes).map_err(|e| LibraryError::Corrupt {
+                    path: path.clone(),
+                    message: e.to_string(),
+                })?;
+            aliases
+                .validate()
+                .map_err(|message| LibraryError::Corrupt { path, message })?;
+            let sha256 = manifest
+                .files
+                .iter()
+                .find(|file| file.path == format!("{}/{ALIASES_FILE}", manifest.content_version))
+                .map(|file| file.sha256.clone())
+                .unwrap_or_default();
+            (Rc::new(aliases), sha256)
+        } else {
+            (Rc::new(AliasIndex::default()), String::new())
+        };
         let disabled_books = store::disabled_books()
             .await
             .map_err(|e| LibraryError::BookSelection(e.to_string()))?;
-        Ok(Library(SendWrapper::new(Rc::new(Inner {
+        let library = Library(SendWrapper::new(Rc::new(Inner {
             active: active.clone(),
             manifest,
             catalog,
@@ -126,13 +169,41 @@ impl Library {
             index: RefCell::new(None),
             legal: RefCell::new(None),
             coverage: RefCell::new(None),
+            aliases,
+            aliases_sha256,
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
             books: RefCell::new(Some(books)),
             disabled_books: RefCell::new(disabled_books),
             selection_revision: RwSignal::new(0),
             selection_write_in_flight: RefCell::new(false),
-        }))))
+        })));
+        // A refused transaction is not fatal: every read still resolves the old id, and the
+        // next load retries. This is deliberately weaker than the disabled-books read.
+        let _ = library.migrate_stored_ids().await;
+        Ok(library)
+    }
+
+    /// One-step legacy-to-canonical lookup. A canonical catalog id always wins; a retired id
+    /// reports its reason and is left to its snapshot; an unmapped id is unknown.
+    pub fn resolve(&self, id: &EntryId) -> Resolution {
+        resolve_in(&self.0.catalog, &self.0.aliases, id)
+    }
+
+    /// Rewrites stored bookmark and recent ids to canonical targets. Idempotent: the marker
+    /// records the alias file hash, so a second load with the same map changes nothing.
+    pub async fn migrate_stored_ids(&self) -> Result<bool, store::StoreError> {
+        if self.0.aliases.is_empty() || self.0.aliases_sha256.is_empty() {
+            return Ok(false);
+        }
+        let catalog = &self.0.catalog;
+        store::migrate_entry_ids(
+            &self.0.aliases,
+            &self.0.aliases_sha256,
+            |id| catalog_has(catalog, id),
+            |id| self.stub(id).map(|stub| stub.kind),
+        )
+        .await
     }
 
     pub fn active(&self) -> &ActiveLibrary {
@@ -400,6 +471,33 @@ impl Library {
     }
 }
 
+fn catalog_has(catalog: &Catalog, id: &EntryId) -> bool {
+    catalog
+        .entries
+        .binary_search_by(|stub| stub.id.cmp(id))
+        .is_ok()
+        || catalog.entries.iter().any(|stub| stub.id == *id)
+}
+
+fn resolve_in(catalog: &Catalog, aliases: &AliasIndex, id: &EntryId) -> Resolution {
+    if catalog_has(catalog, id) {
+        return Resolution::Canonical(id.clone());
+    }
+    if let Some(alias) = aliases.alias(id) {
+        return Resolution::Aliased {
+            canonical: alias.target.clone(),
+            legacy: id.clone(),
+        };
+    }
+    if let Some(retired) = aliases.retirement(id) {
+        return Resolution::Retired {
+            legacy: id.clone(),
+            reason: retired.reason,
+        };
+    }
+    Resolution::Unknown(id.clone())
+}
+
 /// Placement in a newer library is authoritative; catalog source is the explicit legacy and
 /// unplaced-entry fallback. The schema has no separate stable source field to consult.
 fn canonical_book_source<'a>(
@@ -462,12 +560,18 @@ mod tests {
     #[test]
     fn a_schema_two_library_has_none_of_the_schema_three_files() {
         let old = manifest(&["catalog.json", "legal.json", "entries/spell-000.json"]);
-        for name in [RELATIONS_FILE, SPELL_LISTS_FILE, BOOKS_FILE] {
+        for name in [RELATIONS_FILE, SPELL_LISTS_FILE, BOOKS_FILE, ALIASES_FILE] {
             assert!(!manifest_has_file(&old, name), "{name}");
         }
-        let new = manifest(&["catalog.json", "relations.json", "books.json"]);
+        let new = manifest(&[
+            "catalog.json",
+            "relations.json",
+            "books.json",
+            "aliases.json",
+        ]);
         assert!(manifest_has_file(&new, RELATIONS_FILE));
         assert!(manifest_has_file(&new, BOOKS_FILE));
+        assert!(manifest_has_file(&new, ALIASES_FILE));
         assert!(!manifest_has_file(&new, SPELL_LISTS_FILE));
         // A file of another version directory does not count.
         let mut other = manifest(&[]);
@@ -487,6 +591,111 @@ mod tests {
         assert!(is_book_disabled(&disabled, "a"));
         assert!(!is_book_disabled(&disabled, "new-book")); // unknown IDs are retained, new books active
         assert!(is_book_disabled(&BTreeSet::from(["a".to_owned()]), "a")); // zero active is valid
+    }
+
+    fn aliases() -> AliasIndex {
+        serde_json::from_str(
+            r#"{
+                "format": 1,
+                "legacy": {"count": 4, "sha256": ""},
+                "entries": [
+                    {"old": "legacy/a", "target": "ref/rule/a", "basis": "direct"},
+                    {"old": "legacy/b", "target": "ref/rule/b", "basis": "derived"},
+                    {"old": "legacy/b-2", "target": "ref/rule/b", "basis": "shared"}
+                ],
+                "retired": [
+                    {"old": "legacy/retired", "reason": "no_source", "note": "no counterpart"}
+                ]
+            }"#,
+        )
+        .unwrap()
+    }
+
+    fn catalog(ids: &[&str]) -> Catalog {
+        let mut entries: Vec<EntryStub> = ids
+            .iter()
+            .map(|id| EntryStub {
+                id: EntryId::parse(*id).unwrap(),
+                kind: EntryKind::Rule,
+                title: id.to_string(),
+                source: "s".into(),
+                parent: None,
+                shard: "entries/rule-000.json".into(),
+            })
+            .collect();
+        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        Catalog {
+            sources: vec![],
+            entries,
+        }
+    }
+
+    fn id(value: &str) -> EntryId {
+        EntryId::parse(value).unwrap()
+    }
+
+    #[test]
+    fn alias_file_rejects_a_format_it_does_not_read_and_an_unsorted_map() {
+        assert!(aliases().validate().is_ok());
+        let mut wrong_format = aliases();
+        wrong_format.format = 2;
+        assert!(wrong_format.validate().is_err());
+        let mut unsorted = aliases();
+        unsorted.entries.swap(0, 1);
+        assert!(unsorted.validate().is_err());
+    }
+
+    #[test]
+    fn resolve_returns_canonical_aliased_retired_and_unknown() {
+        let aliases = aliases();
+        let catalog = catalog(&["ref/rule/a", "ref/rule/b"]);
+        assert_eq!(
+            resolve_in(&catalog, &aliases, &id("ref/rule/a")),
+            Resolution::Canonical(id("ref/rule/a"))
+        );
+        assert_eq!(
+            resolve_in(&catalog, &aliases, &id("legacy/a")),
+            Resolution::Aliased {
+                canonical: id("ref/rule/a"),
+                legacy: id("legacy/a"),
+            }
+        );
+        assert_eq!(
+            resolve_in(&catalog, &aliases, &id("legacy/retired")),
+            Resolution::Retired {
+                legacy: id("legacy/retired"),
+                reason: RetirementReason::NoSource,
+            }
+        );
+        assert_eq!(
+            resolve_in(&catalog, &aliases, &id("legacy/missing")),
+            Resolution::Unknown(id("legacy/missing"))
+        );
+    }
+
+    #[test]
+    fn resolve_is_one_step_even_if_a_map_contains_a_chain() {
+        let aliases: AliasIndex = serde_json::from_str(
+            r#"{
+                "format": 1,
+                "legacy": {"count": 2, "sha256": ""},
+                "entries": [
+                    {"old": "legacy/a", "target": "ref/rule/b", "basis": "direct"},
+                    {"old": "legacy/b", "target": "ref/rule/c", "basis": "direct"}
+                ],
+                "retired": []
+            }"#,
+        )
+        .unwrap();
+        let catalog = catalog(&["ref/rule/b", "ref/rule/c"]);
+        // `legacy/a` stops at `ref/rule/b`; it never follows the second row to `ref/rule/c`.
+        assert_eq!(
+            resolve_in(&catalog, &aliases, &id("legacy/a")),
+            Resolution::Aliased {
+                canonical: id("ref/rule/b"),
+                legacy: id("legacy/a"),
+            }
+        );
     }
 
     #[test]

@@ -1,8 +1,8 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::js;
-use crate::library::{Library, use_library};
-use crate::route::Route;
+use crate::library::{Library, Resolution, use_library};
+use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::book::BookPosition;
 use crate::views::entry_contents::ArticleContents;
@@ -56,6 +56,19 @@ pub fn unique_targets(links: &[EntryReference]) -> Vec<EntryReference> {
 #[component]
 pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
     let library = use_library();
+    // An old bookmark or link resolves in one step. The address bar becomes canonical without
+    // a Back entry; the fetch below uses the canonical id immediately.
+    let (id, aliased) = match library.resolve(&id) {
+        Resolution::Aliased { canonical, .. } => (canonical, true),
+        _ => (id, false),
+    };
+    if aliased {
+        let route = Route::Entry {
+            id: id.clone(),
+            anchor: anchor.clone(),
+        };
+        Effect::new(move |_| route::replace(&route));
+    }
     let stub_title = library.stub(&id).map(|s| s.title.clone());
     set_title(stub_title.as_deref().unwrap_or("Entry"));
     let fetch_id = id.clone();
