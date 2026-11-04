@@ -776,9 +776,12 @@ fn run_import(
     report.derived_records = derived_entries.len();
     // PSRD promotes some rule sections and table rows that Pf Data keeps inside
     // another record. The reviewed allowlist says which ones are derivable.
-    let mut seen_ids: BTreeSet<EntryId> = entries
+    // Seed the collision set with every entry already built (natives and #47
+    // derived children) so a rule cannot silently claim an existing ID.
+    let mut seen_ids: BTreeSet<EntryId> = entry_order
         .iter()
-        .map(|entry: &RuleEntry| entry.id.clone())
+        .chain(derived_entries.iter())
+        .map(|entry| entry.id.clone())
         .collect();
     let mut rule_entries: Vec<RuleEntry> = Vec::new();
     let mut derived_expected = 0usize;
@@ -820,11 +823,36 @@ fn run_import(
         let Some(parent) = native_key(expanded).and_then(|key| context.targets.get(&key).cloned())
         else {
             derived_skipped += rules.len();
+            for rule in rules {
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: identity.clone(),
+                    problem: format!(
+                        "allowlisted rule {} skipped; host record has no resolved parent",
+                        rule.rule
+                    ),
+                });
+            }
             continue;
         };
         let lines = description(&expanded.raw)?;
         let extracted = crate::pf_rules::extract(&lines, rules);
-        derived_skipped += rules.len().saturating_sub(extracted.len());
+        // Report every allowlisted rule that extraction did not produce, so a
+        // missing heading or empty body is never a silent drop.
+        let extracted_names: BTreeSet<&str> = extracted.iter().map(|e| e.rule.as_str()).collect();
+        for rule in rules {
+            if !extracted_names.contains(rule.rule.as_str()) {
+                derived_skipped += 1;
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: identity.clone(),
+                    problem: format!(
+                        "allowlisted rule {} was not extracted from the host body",
+                        rule.rule
+                    ),
+                });
+            }
+        }
         for extracted in extracted {
             let id = EntryId::parse(extracted.id.clone()).map_err(|e| e.to_string())?;
             if !seen_ids.insert(id.clone()) {

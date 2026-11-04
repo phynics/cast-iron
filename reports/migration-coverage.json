@@ -3847,6 +3847,7 @@
   "production_default": "psrd-data",
   "cutover_verified": false,
   "derived_rules": {
+    "scope": "representative",
     "allowlist": 178,
     "available": 178,
     "expected": 1,

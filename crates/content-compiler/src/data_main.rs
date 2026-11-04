@@ -91,6 +91,7 @@ fn run() -> Result<(), String> {
         && let Ok(mut existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
     {
         existing["derived_rules"] = serde_json::json!({
+            "scope": result.scope,
             "allowlist": allowlist.len(),
             "available": result.derived_available,
             "expected": result.derived_expected,
