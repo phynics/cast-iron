@@ -16,6 +16,7 @@ pub mod pf_data;
 pub mod pf_derived;
 pub mod pf_directives;
 pub mod pf_fields;
+pub mod pf_legal;
 pub mod pf_markdown;
 pub mod pf_records;
 pub mod pf_rules;

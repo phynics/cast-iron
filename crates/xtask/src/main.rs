@@ -14,6 +14,7 @@ cargo xtask <command>
   data-import                Import the Pathfinder Data 1e source
   data-validate              Validate the Pathfinder Data 1e source
   data-report                Report Pathfinder Data 1e migration coverage
+  data-legal                 Report Section 15 notice coverage for Pf Data publications
   data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
   data-test                  Test the importer and Pathfinder Data 1e source
   content                    Compile content into generated/content and generated/reports
@@ -34,6 +35,7 @@ fn main() -> ExitCode {
         Some("data-import") => data_tool("import"),
         Some("data-validate") => data_tool("validate"),
         Some("data-report") => data_tool("report"),
+        Some("data-legal") => data_tool("legal"),
         Some("data-alias") => data_alias(),
         Some("data-test") => data_test(),
         Some("content") => content(),

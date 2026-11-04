@@ -3852,6 +3852,12 @@
       "product-identity-section": 817
     }
   },
+  "legal": {
+    "publications": 453,
+    "matched_publications": 397,
+    "unmatched_publications": 56,
+    "report": "reports/migration-legal.json"
+  },
   "production_default": "psrd-data",
   "cutover_verified": false,
   "derived_rules": {
