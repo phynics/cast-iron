@@ -1,6 +1,7 @@
 //! Upstream HTML to typed rich content. Raw HTML never leaves this module: only `Block` and
 //! `Inline` values come out, and the client renders those node types alone.
 
+use crate::slug::slug_segment;
 use cast_iron_schema::{Block, EntryId, Inline, ParagraphStyle, Table, TableCell, TableRow};
 use scraper::{ElementRef, Html, Node};
 
@@ -280,6 +281,40 @@ impl Walker<'_> {
                 }
             }
             "hr" => self.env.stripped("hr"),
+            "div"
+                if el.value().attr("class").is_some_and(|class| {
+                    class
+                        .split_whitespace()
+                        .any(|token| token == "footnote-definition")
+                }) =>
+            {
+                // Pulldown's Markdown footnotes produce a definition div. Render
+                // its marker as the local heading and its note as ordinary
+                // blocks, so `[^D]` links and `::mfn` produce the same typed shape.
+                let id = el.value().attr("id").unwrap_or_default();
+                let anchor = (!id.is_empty()).then(|| format!("footnote-{}", slug_segment(id)));
+                let mut blocks = self.blocks_of(el);
+                if let Some(Block::Paragraph { content, .. }) = blocks.first_mut()
+                    && matches!(content.first(), Some(Inline::Sup { .. }))
+                {
+                    let marker = content.remove(0);
+                    let rest = std::mem::take(content);
+                    out.push(Block::Heading {
+                        level: 6,
+                        anchor,
+                        content: vec![marker],
+                    });
+                    if !rest.is_empty() {
+                        out.push(Block::Paragraph {
+                            style: ParagraphStyle::Normal,
+                            content: rest,
+                        });
+                    }
+                    out.extend(blocks.into_iter().skip(1));
+                } else {
+                    out.extend(blocks);
+                }
+            }
             _ => {
                 self.env.stripped(&format!("unwrapped_tag:{name}"));
                 let inner = self.blocks_of(el);

@@ -66,12 +66,31 @@ pub fn attributes(input: &str) -> Result<BTreeMap<String, String>, String> {
     Ok(out)
 }
 
+/// Parse a directive's attributes when it has braces; a directive without
+/// braces (such as `:::stamina`) has no attributes.
+fn optional_attributes(input: &str) -> Result<BTreeMap<String, String>, String> {
+    if input.contains('{') {
+        attributes(input)
+    } else {
+        Ok(BTreeMap::new())
+    }
+}
+
 /// Map source statblock IDs to the stable heading slugs used by typed content.
 pub fn anchors(lines: &[String]) -> BTreeMap<String, String> {
     lines
         .iter()
         .filter_map(|line| {
             let trimmed = line.trim();
+            // Standard Markdown footnote definitions (`[^D]: Domain spell`) are
+            // rendered by the HTML pass as an anchored heading. Map the source
+            // marker to that heading so `[^D]` links resolve locally.
+            if let Some(rest) = trimmed.strip_prefix("[^")
+                && let Some((mark, _)) = rest.split_once("]:")
+            {
+                let slug = slug_segment(mark);
+                return (!slug.is_empty()).then(|| (mark.to_string(), format!("footnote-{slug}")));
+            }
             if !trimmed.starts_with("::") {
                 return None;
             }
@@ -281,6 +300,67 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                         // className is presentation-only; contents are preserved below.
                     }
                     Ok(_) => errors.push("unsupported attribute on :::div".into()),
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "block" {
+                match optional_attributes(trimmed) {
+                    Ok(attrs) => {
+                        for key in attrs.keys() {
+                            match key.as_str() {
+                                // Size, highlight, clear, and class only change the
+                                // upstream layout. `title` adds a real heading below.
+                                "size" | "hl" | "clear" | "classes" | "className" | "title"
+                                | "minimal" => {}
+                                _ => errors.push(format!("unknown attribute {key} on :::block")),
+                            }
+                        }
+                        if let Some(title) = attrs.get("title").filter(|t| !t.trim().is_empty()) {
+                            md.push_str(&format!(
+                                "\n\n<h3>{}</h3>\n\n",
+                                escape_html(&decode_source_markers(&convert_encoded_links(title)))
+                            ));
+                        }
+                        env.stripped("block_container");
+                    }
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "group" {
+                match optional_attributes(trimmed) {
+                    Ok(attrs) if attrs.is_empty() => env.stripped("group_container"),
+                    Ok(_) => errors.push("unsupported attribute on :::group".into()),
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "stamina" {
+                match optional_attributes(trimmed) {
+                    Ok(attrs) if attrs.is_empty() => {
+                        md.push_str("\n\n<h3>Stamina</h3>\n\n");
+                    }
+                    Ok(_) => errors.push("unsupported attribute on :::stamina".into()),
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "mythic" {
+                match attributes(trimmed) {
+                    Ok(attrs) => {
+                        for key in attrs.keys() {
+                            match key.as_str() {
+                                "title" => {}
+                                "jl" => env.stripped("heading_jump_list"),
+                                _ => errors.push(format!("unknown attribute {key} on :::mythic")),
+                            }
+                        }
+                        let title = attrs.get("title").map(String::as_str).unwrap_or("Mythic");
+                        md.push_str(&format!(
+                            "\n\n<h3>{}</h3>\n\n",
+                            escape_html(&convert_encoded_links(title))
+                        ));
+                    }
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "kinetics" {
+                match attributes(trimmed)
+                    .and_then(|attrs| render_kinetics(&bracket(rest).unwrap_or_default(), &attrs))
+                {
+                    Ok(rendered) => md.push_str(&format!("\n\n{rendered}\n\n")),
                     Err(error) => errors.push(error),
                 }
             } else if linked_headers.contains(&name) {
@@ -1623,7 +1703,8 @@ fn render_semantic_directive(
         return Err("unsupported hit point encoding on ::mdefense".into());
     }
     for (key, value) in &attrs {
-        if value.contains(['~', '|']) && !(name == "mdefense" && key == "hp") {
+        let list_field = name == "mdefense" && matches!(key.as_str(), "hp" | "def" | "weak");
+        if value.contains(['~', '|']) && !list_field {
             return Err(format!("unsupported encoded {key} value on ::{name}"));
         }
     }
@@ -1649,6 +1730,21 @@ fn render_semantic_directive(
                 .split_once('~')
                 .ok_or_else(|| "unsupported hit point encoding on ::mdefense".to_string())?;
             push_labeled(&mut out, "Hit points", &format!("{amount} ({expression})"));
+            continue;
+        }
+        if name == "mdefense" && (key == "def" || key == "weak") {
+            let label = if key == "def" {
+                "Defensive abilities"
+            } else {
+                "Weaknesses"
+            };
+            let list = value
+                .split(['~', '|'])
+                .filter(|part| !part.is_empty())
+                .map(convert_encoded_links)
+                .collect::<Vec<_>>()
+                .join(", ");
+            push_labeled(&mut out, label, &list);
             continue;
         }
         let value = if value.is_empty() {
@@ -2693,18 +2789,57 @@ fn render_aff_effects(attrs: &BTreeMap<String, String>) -> Option<String> {
     }
 }
 
-fn render_minfo(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, String> {
-    if attrs.values().any(|value| value.contains(['~', '|'])) {
-        return Err("unsupported encoded value on ::minfo".into());
+fn render_kinetics(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    let allowed = [
+        "el", "type", "l", "burn", "btype", "dmg", "source", "prereq", "save", "assoc", "sr",
+        "title", "icon", "clear", "jl",
+    ];
+    for key in attrs.keys() {
+        if !allowed.contains(&key.as_str()) {
+            return Err(format!("unknown attribute {key} on ::kinetics"));
+        }
     }
-    for key in ["subs", "othersubs", "augment"] {
-        if attrs
-            .get(key)
-            .is_some_and(|value| value.contains(['~', '|']))
-        {
-            return Err(format!(
-                "unsupported encoded subtype value on ::minfo ({key})"
-            ));
+    let mut out = String::new();
+    let heading = if title.is_empty() {
+        attrs.get("title").map(String::as_str).unwrap_or_default()
+    } else {
+        title
+    };
+    if !heading.is_empty() {
+        out.push_str(&format!("**{}**", convert_encoded_links(heading)));
+    }
+    for (key, label) in [
+        ("el", "Element"),
+        ("type", "Type"),
+        ("l", "Level"),
+        ("burn", "Burn"),
+        ("btype", "Damage type"),
+        ("dmg", "Damage"),
+        ("prereq", "Prerequisite"),
+        ("assoc", "Associated"),
+        ("save", "Saving throw"),
+        ("sr", "Spell resistance"),
+        ("source", "Source"),
+    ] {
+        let Some(value) = attrs.get(key).filter(|value| !value.is_empty()) else {
+            continue;
+        };
+        let value = value.replace("~;", ", ");
+        push_labeled(&mut out, label, &convert_encoded_links(&value));
+    }
+    Ok(out)
+}
+
+fn render_minfo(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    // `~` separates list items in subtype and sense fields. Other minfo fields
+    // are single values, so an encoded separator there is still unsupported.
+    let list_fields = ["subs", "othersubs", "augment", "sen", "senSpell"];
+    for (key, value) in attrs {
+        if value.contains('~') && !list_fields.contains(&key.as_str()) {
+            return Err(format!("unsupported encoded {key} value on ::minfo"));
+        }
+        if value.contains('|') && !list_fields.contains(&key.as_str()) {
+            return Err(format!("unsupported encoded {key} value on ::minfo"));
         }
     }
     let mut out = String::new();
@@ -2787,9 +2922,10 @@ fn render_minfo(title: &str, attrs: &BTreeMap<String, String>) -> Result<String,
             "sen" | "senSpell" => "Senses",
             other => other,
         };
-        let display = if key == "subs" {
+        let display = if list_fields.contains(&key.as_str()) {
             value
-                .split('~')
+                .split(['~', '|'])
+                .filter(|part| !part.is_empty())
                 .map(|part| {
                     part.chars()
                         .next()
@@ -2932,6 +3068,11 @@ fn escape_html(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+/// Remove the upstream link and footnote marker tokens from a display title.
+fn decode_source_markers(s: &str) -> String {
+    s.replace("&L&", "").replace("&FN&", "").trim().to_string()
 }
 fn convert_encoded_links(s: &str) -> String {
     let mut out = String::new();
@@ -3098,6 +3239,7 @@ fn replace_inline(s: &str) -> Result<String, Vec<String>> {
 mod tests {
     use super::*;
     use crate::html::NullEnv;
+    use crate::text::blocks_text;
 
     #[test]
     fn explicit_prof_shields_value_is_not_overwritten() {
@@ -3403,6 +3545,20 @@ mod tests {
         let defense = format!("{defense:?}");
         assert!(defense.contains("11 (1d8+3)"));
         assert!(!defense.contains("11~1d8"));
+        let encoded = render(
+            &[r#"::mdefense{ac="37/7/37" hp="372~24d10+240" def="ichor~never surprised or flat-footed" weak="‹umr/light sensitivity›~revulsion"}"#.into()],
+            &mut env,
+        )
+        .unwrap();
+        let encoded = blocks_text(&encoded);
+        assert!(
+            encoded.contains("Defensive abilities: ichor, never surprised or flat-footed"),
+            "{encoded}"
+        );
+        assert!(
+            encoded.contains("Weaknesses: light sensitivity, revulsion"),
+            "{encoded}"
+        );
         let offense = render(&["::moffense{sp=30 spP=\"20 ft. in armor\" melee=\"heavy mace -1 (1d8-1)\" chPEn=\"5/day, 1d6, DC 12\"}".into()], &mut env).unwrap();
         assert!(format!("{offense:?}").contains("DC 12"));
         let skills = render(
@@ -3655,6 +3811,146 @@ mod tests {
         assert!(text.contains("Armor class: 15"), "{text}");
         assert!(text.contains("Hit points: 11 (1d8+3)"), "{text}");
         assert!(!text.contains("****"), "{text}");
+    }
+
+    #[test]
+    fn container_directives_keep_their_headings_and_mark_layout_only_wrappers() {
+        #[derive(Default)]
+        struct Recorder {
+            stripped: Vec<String>,
+        }
+        impl crate::html::Env for Recorder {
+            fn link(&mut self, _href: &str) -> Option<(cast_iron_schema::EntryId, Option<String>)> {
+                None
+            }
+            fn stripped(&mut self, key: &str) {
+                self.stripped.push(key.to_string());
+            }
+        }
+        let mut env = Recorder::default();
+        let blocks = render(
+            &[
+                ":::block{size=small title=\"&L&Acid Trap (Ex or Su)&FN&\"}".into(),
+                "".into(),
+                "Trap body.".into(),
+                "".into(),
+                ":::".into(),
+                "".into(),
+                ":::group".into(),
+                "".into(),
+                "Grouped body.".into(),
+                "".into(),
+                ":::".into(),
+                "".into(),
+                ":::stamina".into(),
+                "".into(),
+                "Stamina trick body.".into(),
+                "".into(),
+                ":::".into(),
+                "".into(),
+                ":::mythic{jl title=\"Mythic Wish\"}".into(),
+                "".into(),
+                "Mythic body.".into(),
+                "".into(),
+                ":::".into(),
+            ],
+            &mut env,
+        )
+        .unwrap();
+        let text = blocks_text(&blocks);
+        for value in [
+            "Acid Trap (Ex or Su)",
+            "Trap body.",
+            "Grouped body.",
+            "Stamina",
+            "Stamina trick body.",
+            "Mythic Wish",
+            "Mythic body.",
+        ] {
+            assert!(text.contains(value), "missing {value}: {text}");
+        }
+        assert!(!text.contains("&L&"), "{text}");
+        assert!(!text.contains("&FN&"), "{text}");
+        for key in ["block_container", "group_container", "heading_jump_list"] {
+            assert!(
+                env.stripped.iter().any(|found| found == key),
+                "{:?}",
+                env.stripped
+            );
+        }
+    }
+
+    #[test]
+    fn kinetic_talent_and_encoded_minfo_lists_render_as_labeled_fields() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &[
+                r#"::kinetics{el=air type="simple blast (Sp)" l=0 burn=0 btype=physical dmg=bludgeoning source="Occult Adventures/15"}"#.into(),
+                r#"::minfo{source="Bestiary 5/197" xp="4,800" n small outsider subs=extraplanar~incorporeal init=+8 thoughtsense=60 dv=60 pcp=+18}"#.into(),
+                r#"::minfo{source="Bestiary 2/221" xp=600 ce tiny outsider subs=chaotic~evil~extraplanar~qlippoth init=+1 senSpell="detect law~detect magic" dv=60 pcp=+5}"#.into(),
+            ],
+            &mut env,
+        )
+        .unwrap();
+        let text = blocks_text(&blocks);
+        for value in [
+            "Element: air",
+            "Type: simple blast (Sp)",
+            "Level: 0",
+            "Burn: 0",
+            "Damage type: physical",
+            "Damage: bludgeoning",
+            "Source: Occult Adventures/15",
+            "Subtype: Extraplanar, Incorporeal",
+            "Senses: Detect law, Detect magic",
+        ] {
+            assert!(text.contains(value), "missing {value}: {text}");
+        }
+    }
+
+    #[test]
+    fn markdown_footnote_definitions_become_anchored_headings() {
+        #[derive(Default)]
+        struct Recorder {
+            stripped: Vec<String>,
+        }
+        impl crate::html::Env for Recorder {
+            fn link(&mut self, _href: &str) -> Option<(cast_iron_schema::EntryId, Option<String>)> {
+                None
+            }
+            fn stripped(&mut self, key: &str) {
+                self.stripped.push(key.to_string());
+            }
+        }
+        let lines = [
+            "A domain spell[^D] and a note[^1].".into(),
+            "".into(),
+            "[^D]: Domain spell".into(),
+            "[^1]: A footnote note.".into(),
+        ];
+        let anchors = anchors(&lines);
+        assert_eq!(anchors.get("D").map(String::as_str), Some("footnote-d"));
+        assert_eq!(anchors.get("1").map(String::as_str), Some("footnote-1"));
+        let mut env = Recorder::default();
+        let blocks = render(&lines, &mut env).unwrap();
+        let headings: Vec<_> = blocks
+            .iter()
+            .filter_map(|block| match block {
+                Block::Heading { anchor, .. } => anchor.as_deref(),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(headings, ["footnote-d", "footnote-1"]);
+        let text = blocks_text(&blocks);
+        assert!(text.contains("Domain spell"), "{text}");
+        assert!(text.contains("A footnote note."), "{text}");
+        assert!(
+            !env.stripped
+                .iter()
+                .any(|key| key.starts_with("unwrapped_tag:") || key.starts_with("flattened_tag:")),
+            "{:?}",
+            env.stripped
+        );
     }
 
     #[test]
