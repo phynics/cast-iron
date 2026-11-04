@@ -78,7 +78,7 @@ It was chosen over the alternatives for these reasons:
   not the System Reference Document, and would become wrong again if the corpus grows.
 - It is short. Every canonical ID carries it in catalog rows, entry URLs, and search
   documents; three characters keep a shared prefix cheap and readable even if the
-  corpus grows toward the 34,495-record review inventory.
+  corpus grows toward the 34,495-protocol-record review inventory.
 - It is a valid `EntryId` segment and it is disjoint from the legacy namespace. Every
   legacy PSRD ID starts with a book slug such as `core-rulebook/`; no selected book is
   named `Ref`. The totality check asserts that the two namespaces do not intersect.
@@ -378,7 +378,7 @@ in section 2.
 | Legacy category | Count | Status in this design | Canonical origin |
 |---|---:|---|---|
 | Pf counterpart, native | 8,088 | direct alias | `ref/<family>/<key>` |
-| Supplemental Pf entry | 1 | direct remap from `pf-data/` | `ref/rule/magic` (the opening passage, not the Magic article) |
+| Supplemental entry via Claims | 1 | remap through the Claims path, not a Pf record | `ref/rule/magic` (the opening passage, not the Magic article) |
 | Racial traits nested in race bodies | 342 | derivable, subject to parser acceptance | `ref/race/.../racial-trait/...` |
 | Afflictions inline in stat blocks | 171 | derivable, subject to parser acceptance | `.../affliction/...` |
 | Rules nested as sections or rows | 526 | derivable, allowlisted | `.../section/...` or `.../row/...` |
@@ -720,7 +720,7 @@ The release fails if any legacy ID is unaccounted for.
 
 Unit tests over the real pinned inventory, skipped when the dataset is absent:
 
-- the derivation returns a distinct ID for each of the 34,495 input identities;
+- the derivation returns a distinct ID for each of the 34,495 protocol-carrying input identities;
 - derived children do not collide with native records or with each other;
 - carried IDs are unique and start with `ref/carried/`;
 - the catalog has no duplicate IDs after compilation.
@@ -807,7 +807,7 @@ results separately.
 | Phase | Work | Depends on | Rough effort |
 |---|---|---|---:|
 | 0 | Freeze `legacy-ids.json` from the last PSRD build; confirm 9,968 / 9,967 / 8,088 / 1,879; reconcile the 1,880-vs-1,879 overlap | none | 2-3 d |
-| 1 | Canonical derivation module (`ref/`, family registry, overrides, claims), unit tests, injectivity over 34,495 | 0 | 3-4 d |
+| 1 | Canonical derivation module (`ref/`, family registry, overrides, claims), unit tests, injectivity over 34,495 protocol-carrying records | 0 | 3-4 d |
 | 2a | Racial-trait derivation, fixtures, coverage | 1 | 2-3 d |
 | 2b | Affliction derivation, fixtures, coverage | 1 | 2-3 d |
 | 2c | Rule section and row promotion, allowlist, fixtures, coverage | 1 | 4-6 d |
