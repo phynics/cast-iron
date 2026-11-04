@@ -179,7 +179,7 @@ fn languages(body: &str, plural: &str) -> String {
     };
     let spoken: Vec<&str> = spoken.iter().copied().filter(|s| !s.is_empty()).collect();
     let mut text = format!("{plural} begin play speaking {}.", join_list(&spoken));
-    let mut bonus: Vec<&str> = bonus.iter().copied().filter(|s| !s.is_empty()).collect();
+    let bonus: Vec<&str> = bonus.iter().copied().filter(|s| !s.is_empty()).collect();
     if bonus == ["ANY"] {
         text.push_str(&format!(
             " {plural} with high Intelligence scores can choose any languages they want (except secret languages, such as Druidic)."
@@ -190,7 +190,6 @@ fn languages(body: &str, plural: &str) -> String {
             join_list(&bonus)
         ));
     }
-    bonus.clear();
     text
 }
 

@@ -174,7 +174,7 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
     let mut md = String::new();
     let mut heading_anchor_slugs = Vec::new();
     for line in lines {
-        let trimmed = line.trim();
+        let trimmed = line.trim().trim_start_matches('>').trim();
         if trimmed.starts_with("::") {
             if trimmed == ":::" {
                 continue;

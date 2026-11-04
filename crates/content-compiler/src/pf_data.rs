@@ -1092,8 +1092,19 @@ fn rewrite_derived_directives(
     let Some(names) = context.derived.get(identity) else {
         return;
     };
+    let quote = |prefix: &str, text: &str| -> String {
+        if prefix.trim().is_empty() {
+            return text.to_string();
+        }
+        text.lines()
+            .map(|l| format!("{prefix}{l}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
     for line in lines.iter_mut() {
         let trimmed = line.trim_start().trim_start_matches('>').trim_start();
+        let prefix_len = line.len() - trimmed.len();
+        let prefix = &line[..prefix_len];
         if trimmed.starts_with("::rtraits") {
             match pf_directives::rtraits(trimmed) {
                 Ok(parsed) => {
@@ -1107,7 +1118,7 @@ fn rewrite_derived_directives(
                         }
                     }
                     if !rendered.is_empty() {
-                        *line = rendered.join("\n\n");
+                        *line = quote(prefix, &rendered.join("\n\n"));
                     }
                 }
                 Err(problem) => findings.push(Finding {
@@ -1122,10 +1133,13 @@ fn rewrite_derived_directives(
                     if let Some(name) = &parsed.name
                         && let Some(id) = names.get(name)
                     {
-                        *line = format!("* [Affliction: {}]({})", name, id.as_str());
+                        *line = quote(
+                            prefix,
+                            &format!("* [Affliction: {}]({})", name, id.as_str()),
+                        );
                         continue;
                     }
-                    *line = parsed.markdown;
+                    *line = quote(prefix, &parsed.markdown);
                 }
                 Err(problem) => findings.push(Finding {
                     severity: "high".into(),
