@@ -55,9 +55,23 @@ Local verification on 2026-11-04: `cargo test -p cast-iron-content-compiler` pas
 (`5638c81f8829f6fa5f77511d6fa54984a67a41ef973964d3b53225fae631e60b`). This is local
 evidence only; the PR's GitHub checks are separate and are not claimed here.
 
-The map is not deployed and the client does not consume it. `aliases.json` is build
-output, is not listed in the content manifest, and no bookmark is rewritten yet.
-Schema version 3 and search format 1 are unchanged.
+Phase 5 makes the map part of the library. `cargo xtask data-alias` adds
+`aliases.json` to `manifest.json` and recomputes the content version deterministically.
+`Library::resolve` reads the map eagerly and resolves one step (catalog, alias, then
+retirement). On the first load of a library that lists a map, an idempotent IndexedDB
+transaction rewrites bookmark and recent ids to their canonical targets, merges
+many:1 rows, and records `meta["id_migration"].aliases_sha256`; retired and unknown
+rows keep their snapshots. Schema version 3 and search format 1 are unchanged.
+
+Local verification on 2026-11-04: `cargo test -p cast-iron-web` (104 lib tests),
+`cargo test -p cast-iron-content-compiler`, and `cargo xtask check` pass.
+`cargo xtask data-alias` produced a manifest-listed alias file
+(`ve730cbbe80014fec`, 94 mapped and 9,874 retired rows). `check-library-upgrade.py`
+compared the pre-alias and post-alias library: 9,968 ids, zero missing, zero title
+changes, zero incorrect class categories, zero dangling references. The new
+`canonical-cutover.spec.ts` fixture test passes in Chromium and WebKit. This is local
+evidence only; the production cutover is not live and the deployed library still uses
+PSRD ids.
 
 ## Outstanding work and UI history
 
