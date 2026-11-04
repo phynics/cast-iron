@@ -233,7 +233,7 @@ article. Its permanent ID uses the native protocol namespace; all earlier IDs an
 titles are unchanged. Every other primary-source record stays in coverage as
 `record shape ... is not approved`, not in the library.
 
-Content version `vacb1fef357b70f14` has 9,968 entries (was 9,967), schema 3 and
+Content version `vff56b0e6310710c1` has 9,968 entries (was 9,967), schema 3 and
 search format 1. Raw content is 62,123,015 bytes (was 61,956,172); the search
 index is 20,330,948 bytes (was 20,329,611). Resolved links are 1,310, including
 the six reviewed links from the new passage. The legal page lists the new dataset
@@ -250,4 +250,8 @@ build. `cargo xtask data-report` is reproducible and its tracked reports are
 committed; the full-corpus experiment remains blocked and is not shipped.
 No CI, deployment, or full browser-matrix result is claimed for this content
 change. Apollyon Clasp and the other unreviewed comic and blog material remain
-excluded.
+excluded. Licensing decisions are tracked in
+[#34](https://github.com/phynics/cast-iron/issues/34). Monster Core is a PF2/ORC
+publication present in the pinned registry; its seven tagged records and the
+`main.json#ogc` ORC notice are explicitly out of scope and cannot enter the PF1e
+path. The PSRD-Data dataset-license risk is overridden for now and tracked there.

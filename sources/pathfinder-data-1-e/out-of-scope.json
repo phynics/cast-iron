@@ -1,0 +1,8 @@
+{
+  "publications": {
+    "Monster Core": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+  },
+  "records": {
+    "json/main.json#ogc": "Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34."
+  }
+}

@@ -32,6 +32,22 @@ pub struct InputRecord {
     pub raw: Value,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct OutOfScope {
+    pub path: String,
+    pub key: String,
+    pub name: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+struct ScopePolicy {
+    #[serde(default)]
+    publications: BTreeMap<String, String>,
+    #[serde(default)]
+    records: BTreeMap<String, String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct Inventory {
     pub dataset: String,
@@ -45,6 +61,8 @@ pub struct Inventory {
     pub by_publication: BTreeMap<String, usize>,
     pub directives: BTreeMap<String, usize>,
     pub unregistered_publications: Vec<String>,
+    /// Records excluded before selection because their publication or record is outside PF1e OGL scope.
+    pub out_of_scope: Vec<OutOfScope>,
     pub records: Vec<InputRecord>,
 }
 
@@ -71,6 +89,8 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
             "README.md",
             "JSON.md",
             "OPENGAMECONTENT.md",
+            "ORCLICENSE.md",
+            "GNULICENSE.md",
             "prebuild/basic_data_groups.js",
         ]
         .map(String::from),
@@ -108,6 +128,7 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
         by_publication: BTreeMap::new(),
         directives: BTreeMap::new(),
         unregistered_publications: Vec::new(),
+        out_of_scope: Vec::new(),
         records: Vec::new(),
     };
     for path in pin.files.keys().filter(|p| p.starts_with("json/")) {
@@ -172,6 +193,28 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
     out.records
         .sort_by(|a, b| (&a.path, &a.key).cmp(&(&b.path, &b.key)));
     out.input_records = out.records.len();
+    let policy = scope_policy(registry)?;
+    out.out_of_scope = out
+        .records
+        .iter()
+        .filter_map(|record| {
+            let reason = policy
+                .records
+                .get(&format!("{}#{}", record.path, record.key))
+                .or_else(|| {
+                    record
+                        .publications
+                        .iter()
+                        .find_map(|publication| policy.publications.get(publication))
+                })?;
+            Some(OutOfScope {
+                path: record.path.clone(),
+                key: record.key.clone(),
+                name: record.name.clone(),
+                reason: reason.clone(),
+            })
+        })
+        .collect();
     let registered: BTreeSet<_> = publications
         .values()
         .filter_map(|v| v.get("title").and_then(Value::as_str))
@@ -183,6 +226,17 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
         .cloned()
         .collect();
     Ok(out)
+}
+
+fn scope_policy(registry: &Path) -> Result<ScopePolicy, String> {
+    let path = registry
+        .parent()
+        .ok_or("registry has no parent")?
+        .join("out-of-scope.json");
+    if !path.exists() {
+        return Ok(ScopePolicy::default());
+    }
+    read_json(&path)
 }
 
 pub fn publication_names(raw: &Value) -> Vec<String> {
@@ -332,6 +386,7 @@ pub struct MigrationReport {
     pub imported_records: usize,
     pub by_kind: BTreeMap<String, usize>,
     pub by_publication: BTreeMap<String, usize>,
+    pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
     pub canonical_bytes: usize,
@@ -358,9 +413,16 @@ fn run_import(
     reports: &Path,
     full: bool,
 ) -> Result<MigrationReport, String> {
+    let out_of_scope: BTreeSet<(String, String)> = inv
+        .out_of_scope
+        .iter()
+        .map(|record| (record.path.clone(), record.key.clone()))
+        .collect();
+    let in_scope =
+        |record: &&InputRecord| !out_of_scope.contains(&(record.path.clone(), record.key.clone()));
     let mut selected: BTreeSet<(String, String)> = BTreeSet::new();
     // Mandatory records plus a bounded sample of every canonical family.
-    for record in &inv.records {
+    for record in inv.records.iter().filter(in_scope) {
         if record.shape != "publication"
             && FIXTURES
                 .iter()
@@ -373,6 +435,7 @@ fn run_import(
         for r in inv
             .records
             .iter()
+            .filter(in_scope)
             .filter(|r| r.shape == "description" && record_kind(&r.path) == kind)
             .take(3)
         {
@@ -383,6 +446,7 @@ fn run_import(
         for r in inv
             .records
             .iter()
+            .filter(in_scope)
             .filter(|r| r.path.starts_with(prefix) && r.shape == "description")
             .take(2)
         {
@@ -393,6 +457,7 @@ fn run_import(
         selected = inv
             .records
             .iter()
+            .filter(in_scope)
             .filter(|r| ["description", "copy", "compilation"].contains(&r.shape.as_str()))
             .map(|r| (r.path.clone(), r.key.clone()))
             .collect();
@@ -407,6 +472,7 @@ fn run_import(
         imported_records: 0,
         by_kind: BTreeMap::new(),
         by_publication:BTreeMap::new(),
+        out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: Vec::new(),
         canonical_bytes: 0,
@@ -988,6 +1054,15 @@ pub fn markdown_report(r: &MigrationReport) -> String {
     for blocker in &r.cutover_blockers {
         text.push_str(&format!("- {blocker}\n"));
     }
+    if !r.out_of_scope.is_empty() {
+        text.push_str("\nOut-of-scope input, excluded before selection:\n\n");
+        for record in &r.out_of_scope {
+            text.push_str(&format!(
+                "- `{}#{}` ({}): {}\n",
+                record.path, record.key, record.name, record.reason
+            ));
+        }
+    }
     text.push_str("\nFixture checks:\n\n");
     for f in &r.fixtures {
         let failed: Vec<_> = f
@@ -1069,6 +1144,8 @@ mod tests {
             ("README.md", "Source declaration"),
             ("JSON.md", "Format"),
             ("OPENGAMECONTENT.md", "Notice"),
+            ("ORCLICENSE.md", "ORC notice"),
+            ("GNULICENSE.md", "GNU notice"),
             ("prebuild/basic_data_groups.js", "Routing evidence"),
         ] {
             write(&root.join(path), body.as_bytes()).unwrap();
@@ -1121,5 +1198,39 @@ mod tests {
         assert_eq!(a.id, b.id);
         assert_eq!(a.id.as_str(), "pf-data/feat/power-attack");
         assert_ne!(a.provenance, b.provenance);
+    }
+
+    #[test]
+    fn monster_core_and_the_legal_notice_are_out_of_scope() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let dataset = root.join(".cache/sources/pathfinder-data-1-e");
+        if !dataset.join("json").is_dir() {
+            eprintln!("skipping: the pinned primary source is not present");
+            return;
+        }
+        let inventory = inventory(
+            &dataset,
+            &root.join("sources/pathfinder-data-1-e/source.json"),
+        )
+        .expect("inventory");
+        assert!(inventory.out_of_scope.iter().any(|record| {
+            record.path == "json/monster_families2.json" && record.key == "genie"
+        }));
+        assert!(
+            inventory
+                .out_of_scope
+                .iter()
+                .any(|record| record.path == "json/main.json" && record.key == "ogc")
+        );
+        assert!(
+            !inventory
+                .out_of_scope
+                .iter()
+                .any(|record| record.path == "json/rules_basics04.json" && record.key == "magic")
+        );
     }
 }

@@ -158,3 +158,10 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 - Keep full-corpus experiments outside the production library. Unknown constructs, unresolved references, missing credits, and Product Identity screening remain explicit publication gates. The comic fixture requires primary evidence for its appendix's OGC designation and Section 15 notice. Paizo Blog rules have a separate Community Use permission route; that permission excludes comic excerpts.
 - Allow whole records into production only through `sources/pathfinder-data-1-e/approved.json`. The initial selection restores the missing Core Rulebook page 206 opening passage. It has its own permanent native-protocol ID and retains all previous IDs. Existing parent and reviewed topic IDs provide navigation; unreviewed topics remain in coverage.
 - The selected passage belongs beneath the existing Magic article. Its page attribution and the publisher evidence for the Magic chapter establish that placement. This does not revise printed chapter order or claim completeness for the full upstream corpus. PSRD-Data remains the fallback while the full migration is blocked.
+
+## Licensing scope gates
+
+- Monster Core is a PF2/ORC publication present in the pinned Pf Data registry and seven monster-family records. It is outside the PF1e OGL corpus. `sources/pathfinder-data-1-e/out-of-scope.json` excludes those records and the `json/main.json#ogc` legal notice before selection. ORC text never enters the OGL legal page.
+- Apollyon Clasp and the Paizo Blog Hodgepodge record stay excluded until source-specific OGC/Section 15 or Community Use evidence exists. They are not inferred from a book title or registry entry.
+- PSRD-Data has no dataset-level license. That risk is accepted for the existing 16-book baseline, overridden for now, and tracked with the other unresolved rights in issue #34.
+- The pin hashes `ORCLICENSE.md` and `GNULICENSE.md` even though their content is not imported, so a changed or missing out-of-scope notice fails the source audit.
