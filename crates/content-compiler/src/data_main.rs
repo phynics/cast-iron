@@ -40,6 +40,7 @@ fn run() -> Result<(), String> {
         "registered_publications":inv.registered_publications,"by_file":inv.by_file,
         "by_shape":inv.by_shape,"by_publication":inv.by_publication,"directives":inv.directives,
         "unregistered_publications":inv.unregistered_publications,
+        "out_of_scope_records":inv.out_of_scope.len(),
         "production_default":"psrd-data","cutover_verified":false
     });
     write(

@@ -116,6 +116,16 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
                     approved.path, approved.key
                 )
             })?;
+        if let Some(scope) = inventory
+            .out_of_scope
+            .iter()
+            .find(|scope| scope.path == record.path && scope.key == record.key)
+        {
+            return Err(format!(
+                "approved record {}:{} is out of scope: {}",
+                approved.path, approved.key, scope.reason
+            ));
+        }
         validate_record(record, approved)?;
         let lines = description(&record.raw, &approved.path)?;
         let (mut body, links, render_error) = render_body(

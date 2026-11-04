@@ -119,6 +119,24 @@ Searched `gh search repos` and `gh search code` for pathfinder/pf1e json, psrd d
 - **`adamjcoonen/PSRD-Data`:** repo is empty (`"Git Repository is empty"`, size 0, license null). Not usable.
 - **PCGen data (`https://github.com/PCGen/pcgen`, `data/pathfinder/`):** PF1e data in `.lst` and `.pcc` text format (not JSON; `search/code` for `.json` in `data/pathfinder` returns 0 and for `.lst` returns 2808). The repo license is LGPL-2.1 (`gh api repos/PCGen/pcgen`, size 365075 KB for the whole repo). `data/pathfinder/paizo/pathfinder_for_gms.pcc` carries: `COPYRIGHT:Open Game License v 1.0a Copyright 2000, Wizards of the Coast, Inc.` and `INFOTEXT:This dataset uses trademarks and/or copyrights owned by Paizo Inc., which are used under Paizo's Community Use Policy.` The `data/readme.md` has no license text. Data license for PCGen is UNVERIFIED beyond these headers.
 
+## Tracked unresolved rights
+
+Issue [#34](https://github.com/phynics/cast-iron/issues/34) owns the open licensing
+decisions. The current production scope remains PSRD-Data plus one reviewed Pf Data
+record.
+
+- **Apollyon Clasp / Spiral of Bones #5:** no primary OGC designation or Section 15
+  evidence; comic excerpts are outside Community Use. Excluded.
+- **Paizo Blog Hodgepodge:** the Community Use route does not establish OGL
+  mechanics or clear copied comic excerpts. Excluded pending review.
+- **Monster Core:** a PF2/ORC book registered in the Pf Data source. Seven records
+  and the `main.json#ogc` notice are explicitly out of scope; ORC text is not
+  published under OGL.
+- **PSRD-Data dataset license:** absent. The existing 16-book baseline relies on
+  the upstream OGL/CUP grant; this risk is overridden for now and tracked.
+- **Corpus-wide PI screening:** incomplete. No bulk cutover or blanket clearance is
+  claimed.
+
 ## Unverified items
 
 - The "Masterwork Tools" name for PathfinderOpenReference.

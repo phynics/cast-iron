@@ -1,6 +1,6 @@
 {
   "scope": "representative",
-  "input_digest": "cbb609403720d358a92f5c75cbf8d74af776215c8fe329d6cddf3b034a2a6113",
+  "input_digest": "0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083",
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
@@ -42,6 +42,56 @@
     "prpg-core-rulebook": 1,
     "ultimate-wilderness": 1
   },
+  "out_of_scope": [
+    {
+      "path": "json/main.json",
+      "key": "ogc",
+      "name": "Licenses",
+      "reason": "Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families.json",
+      "key": "alghollthu",
+      "name": "Alghollthu",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families.json",
+      "key": "dark_folk",
+      "name": "Dark Folk",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families.json",
+      "key": "dinosaur",
+      "name": "Dinosaur",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families.json",
+      "key": "drake",
+      "name": "Drake",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families2.json",
+      "key": "genie",
+      "name": "Genie",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families2.json",
+      "key": "naga",
+      "name": "Naga",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families2.json",
+      "key": "troll",
+      "name": "Troll",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    }
+  ],
   "fixtures": [
     {
       "name": "Mortal Usher",

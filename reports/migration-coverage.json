@@ -1,7 +1,7 @@
 {
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
-  "input_digest": "cbb609403720d358a92f5c75cbf8d74af776215c8fe329d6cddf3b034a2a6113",
+  "input_digest": "0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083",
   "json_files": 401,
   "input_records": 34530,
   "registered_publications": 469,
@@ -1172,6 +1172,7 @@
     "Pathfinder #125 Tower of the Drowned Dead",
     "Pathfinder #18: Descent Into Midnight"
   ],
+  "out_of_scope_records": 8,
   "production_default": "psrd-data",
   "cutover_verified": false
 }

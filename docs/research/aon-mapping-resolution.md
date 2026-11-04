@@ -1,6 +1,6 @@
 # AoN rule target resolution
 
-Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks missing and ambiguous book content. Checked on 2026-11-04 against installed library `vacb1fef357b70f14`. AoN navigation identifies site sections; it does not establish printed book order.
+Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks missing and ambiguous book content. Checked on 2026-11-04 against installed library `vff56b0e6310710c1`. AoN navigation identifies site sections; it does not establish printed book order.
 
 ## Current targets and limits
 

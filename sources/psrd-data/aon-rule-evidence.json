@@ -1,6 +1,6 @@
 {
   "books_sha256": "c67899e43cee5552a3c6bf4047d38e3d826ba6f614f43a123af9cd1c3cf4d019",
-  "corpus_version": "vacb1fef357b70f14",
+  "corpus_version": "vff56b0e6310710c1",
   "counts": {
     "no_opening_prose_or_too_short": 13,
     "opening_passage_not_matched": 13,

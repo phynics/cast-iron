@@ -54,6 +54,25 @@ Primary evidence for the supplementary reviews is each repository's README,
 `OGL.txt`, and `Legal.txt` at the named revision. Repository descriptions and
 advertised statblock counts do not prove coverage or redistribution permission.
 
+## Out-of-scope PF2 material
+
+Issue [#34](https://github.com/phynics/cast-iron/issues/34) tracks the unresolved
+rights decisions. The pinned dataset is not purely PF1e OGL material:
+
+- `json/sources.json` registers `monster_core`, a PF2 book.
+- Seven monster-family records are tagged `Monster Core`:
+  `json/monster_families.json` (`alghollthu`, `dark_folk`, `dinosaur`, `drake`)
+  and `json/monster_families2.json` (`genie`, `naga`, `troll`).
+- `json/main.json#ogc` is a legal notice containing both OGL and ORC text.
+- The dataset carries `ORCLICENSE.md` and `GNULICENSE.md` separately from the
+  OGL notice.
+
+`sources/pathfinder-data-1-e/out-of-scope.json` excludes the publication and the
+legal notice before any selection. The inventory still reports them, and the
+migration report lists them as out-of-scope input. No Monster Core record or ORC
+notice enters the PF1e library or the OGL legal page. The source pin hashes the
+ORC and GNU license files so a changed notice cannot pass unnoticed.
+
 ## Publication gate
 
 The experimental inventory and conversion reports stay separate from the site

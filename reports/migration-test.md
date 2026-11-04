@@ -6,13 +6,24 @@ Observed 34530 input records, 42 selected, 23 converted. Canonical data 205626 b
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
-Scope: `representative`. Input digest `cbb609403720d358a92f5c75cbf8d74af776215c8fe329d6cddf3b034a2a6113`.
+Scope: `representative`. Input digest `0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083`.
 
 - Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission
 - Corpus-wide Product Identity screening and source notice reconciliation are incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
 - Conversion still has critical or high findings; see complete diagnostics
 - Mandatory fixture checks have not all passed
+
+Out-of-scope input, excluded before selection:
+
+- `json/main.json#ogc` (Licenses): Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34.
+- `json/monster_families.json#alghollthu` (Alghollthu): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families.json#dark_folk` (Dark Folk): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families.json#dinosaur` (Dinosaur): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families.json#drake` (Drake): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families2.json#genie` (Genie): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families2.json#naga` (Naga): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families2.json#troll` (Troll): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 
 Fixture checks:
 
