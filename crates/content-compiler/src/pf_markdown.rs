@@ -1632,7 +1632,14 @@ fn render_semantic_directive(
     } else {
         title
     };
-    let mut out = format!("**{}**", convert_encoded_links(&title));
+    // An empty title is valid (`::minfo{...}` has no bracketed heading). Do not
+    // emit an empty `****`, which Markdown parses as a thematic break and the
+    // HTML pass then drops as an `<hr>`.
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(&title))
+    };
     for (key, value) in attrs {
         if ["icon", "head", "next", "order", "hl", "clear"].contains(&key.as_str()) {
             continue;
@@ -1641,7 +1648,7 @@ fn render_semantic_directive(
             let (amount, expression) = value
                 .split_once('~')
                 .ok_or_else(|| "unsupported hit point encoding on ::mdefense".to_string())?;
-            out.push_str(&format!("\n\n**Hit points:** {amount} ({expression})"));
+            push_labeled(&mut out, "Hit points", &format!("{amount} ({expression})"));
             continue;
         }
         let value = if value.is_empty() {
@@ -1649,11 +1656,7 @@ fn render_semantic_directive(
         } else {
             value.as_str()
         };
-        out.push_str(&format!(
-            "\n\n**{}:** {}",
-            field_label(&key),
-            convert_encoded_links(value)
-        ));
+        push_labeled(&mut out, &field_label(&key), &convert_encoded_links(value));
     }
     Ok(out)
 }
@@ -1672,7 +1675,13 @@ fn render_ability(
     } else {
         title.to_string()
     };
-    let mut out = format!("**{}**", convert_encoded_links(&heading));
+    // An unnamed ability is valid. Emitting `****` here would turn into a
+    // Markdown thematic break and be dropped as an `<hr>`.
+    let mut out = if heading.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(&heading))
+    };
     for (key, value) in attrs {
         match key.as_str() {
             "title" | "icon" | "hl" | "clear" => {}
@@ -3610,6 +3619,42 @@ mod tests {
         ] {
             assert!(text.contains(value), "missing {value}: {text}");
         }
+    }
+
+    #[test]
+    fn untitled_stat_directive_does_not_emit_a_thematic_break() {
+        #[derive(Default)]
+        struct Recorder {
+            stripped: Vec<String>,
+        }
+        impl crate::html::Env for Recorder {
+            fn link(&mut self, _href: &str) -> Option<(cast_iron_schema::EntryId, Option<String>)> {
+                None
+            }
+            fn stripped(&mut self, key: &str) {
+                self.stripped.push(key.to_string());
+            }
+        }
+        let mut env = Recorder::default();
+        // `::mdefense` has no bracketed title. Before the fix, the empty bold
+        // heading produced `****`, which Markdown parsed as an `<hr>`.
+        let blocks = render(&[r#"::mdefense{ac=15 hp="11~1d8+3"}"#.into()], &mut env).unwrap();
+        assert!(
+            !env.stripped.iter().any(|key| key == "hr"),
+            "{:?}",
+            env.stripped
+        );
+        let text = blocks
+            .iter()
+            .filter_map(|block| match block {
+                Block::Paragraph { content, .. } => Some(inline_text(content)),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(text.contains("Armor class: 15"), "{text}");
+        assert!(text.contains("Hit points: 11 (1d8+3)"), "{text}");
+        assert!(!text.contains("****"), "{text}");
     }
 
     #[test]

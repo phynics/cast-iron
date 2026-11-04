@@ -50,7 +50,7 @@ match the canonical record. It demoted 96 slug-coincidence rows, such as
 `class-archetypes/monk` at a weapon-group row.
 
 Local verification on 2026-11-04: `cargo test -p cast-iron-content-compiler` passes
-(156 lib tests, 26 in the alias module), `cargo xtask check` passes, and two
+(161 lib tests, 26 in the alias module), `cargo xtask check` passes, and two
 `cargo xtask data-alias` runs produced byte-identical output
 (`5638c81f8829f6fa5f77511d6fa54984a67a41ef973964d3b53225fae631e60b`). This is local
 evidence only; the PR's GitHub checks are separate and are not claimed here.
