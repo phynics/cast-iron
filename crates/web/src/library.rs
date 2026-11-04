@@ -498,11 +498,14 @@ impl Library {
 }
 
 fn catalog_has(catalog: &Catalog, id: &EntryId) -> bool {
+    debug_assert!(
+        catalog.entries.windows(2).all(|pair| pair[0].id < pair[1].id),
+        "catalog entries are sorted by unique id"
+    );
     catalog
         .entries
         .binary_search_by(|stub| stub.id.cmp(id))
         .is_ok()
-        || catalog.entries.iter().any(|stub| stub.id == *id)
 }
 
 fn resolve_in(catalog: &Catalog, aliases: &AliasIndex, id: &EntryId) -> Resolution {
@@ -689,6 +692,15 @@ mod tests {
         let mut unsorted = aliases();
         unsorted.entries.swap(0, 1);
         assert!(unsorted.validate().is_err());
+    }
+
+    #[test]
+    fn catalog_lookup_uses_the_sorted_order_without_a_scan() {
+        let catalog = catalog(&["ref/rule/a", "ref/rule/b", "ref/rule/c"]);
+        assert!(catalog_has(&catalog, &id("ref/rule/a")));
+        assert!(catalog_has(&catalog, &id("ref/rule/c")));
+        assert!(!catalog_has(&catalog, &id("ref/rule/between")));
+        assert!(!catalog_has(&catalog, &id("0")));
     }
 
     #[test]
