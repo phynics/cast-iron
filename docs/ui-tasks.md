@@ -100,7 +100,7 @@ Acceptance: the combat-trait list makes the Advanced Player's Guide and Ultimate
 - [x] Explain Home Screen installation before users download and save substantial research in Safari.
 - [x] Explain that a Home Screen app may need its own library download and may not carry over Safari's stars, as observed in this simulator run.
 - [x] Make app installation, library download, app-shell update, and library update distinct actions in the copy.
-- [x] Add manual star export and import on Home. Browser-profile transfer, repeated imports, invalid files, and offline restart are covered in [PR #7](https://github.com/phynics/cast-iron/pull/7). Automatic synchronization is not implemented.
+- [x] Add manual star export and import on Home. Browser-profile transfer, repeated imports, invalid files, and offline restart are covered in [PR #7](https://github.com/phynics/cast-iron/pull/7). Automatic synchronization is not implemented. Note: star transfer was later removed in PR #28; stars stay local to the browser profile (see `docs/decisions.md`).
 
 Acceptance: a new iPhone user can tell where to install and download, and understands what may happen to existing Safari data. Verify the final wording on a physical iPhone before claiming behavior across iOS versions.
 
@@ -110,7 +110,7 @@ Acceptance: a new iPhone user can tell where to install and download, and unders
 - [x] Cover category-only Browse, book-only Books, rule search and heading jumps, book activation, zero active books, and old-route recovery.
 - [x] Verify that app and library updates preserve stars and active-book preferences. Preserve verified-library activation and interrupted-download behavior.
 - [x] Exercise character research through a race, traits, class, archetype, spell list, equipment, and character-building rules.
-- [x] Read the sampled Armor article with cross-links, Back, Forward, book contents, and previous/next controls. The automated offline journey visits all 24 article contents stops; the primary agent also read the rendered article through the T3 browser.
+- [x] Read the sampled Armor article with cross-links, Back, Forward, book contents, and previous/next controls. The automated offline journey visits all 24 article contents stops; the primary agent also read the rendered article in a manual browser walkthrough.
 - [x] Inspect light and dark layouts at phone and desktop widths, including long titles, many stars, expanded book branches, and controls near the fixed tab bar.
 - [x] Check keyboard navigation, native disclosure state, active navigation labels, visible focus, contrast, and touch targets in the browser.
 - Physical-device subsystem reading, VoiceOver acceptance, and genuine offline standalone restart remain in [#12](https://github.com/phynics/cast-iron/issues/12). Browser checks do not establish physical-device behavior.

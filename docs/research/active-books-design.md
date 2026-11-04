@@ -1,6 +1,6 @@
 # Active-book discovery boundary
 
-Chosen 2026-11-03 after independent Luna and Terra design passes. This is an implementation contract, not a shipped-behavior report. Requirements are UI-03 in `docs/ui-tasks.md`.
+Chosen 2026-11-03 after two independent design passes. This is an implementation contract, not a shipped-behavior report. Requirements are UI-03 in `docs/ui-tasks.md`.
 
 ## Caller usage
 
@@ -31,7 +31,7 @@ Books uses canonical publication rows plus active-state controls. Home stars and
 
 Both passes compared view-level predicates with a shared scoped library projection. Choose the projection because filtering order and aggregation are easy to get wrong at individual call sites. Keep the policy small and specific to discovery. Retain canonical APIs for reading, publication controls, stars, and legacy-schema recovery.
 
-Luna proposed storing active IDs. Prefer Terra's disabled-ID representation because an absent new book is naturally active after an update, and unknown disabled IDs can survive without reconciliation. This representation also distinguishes zero active installed books without a separate sentinel.
+One pass proposed storing active IDs. Prefer the disabled-ID representation because an absent new book is naturally active after an update, and unknown disabled IDs can survive without reconciliation. This representation also distinguishes zero active installed books without a separate sentinel.
 
 ## Verification sequence
 

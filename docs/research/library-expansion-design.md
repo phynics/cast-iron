@@ -26,6 +26,6 @@ Explicit configuration is longer than automatic discovery but makes the shipped 
 
 ## Implementation reassessment
 
-Luna independently checked selection and migration. Its recommendations were adopted: explicitly support schema versions 1 and 2, preserve the old ID set, identify source placeholders, and state unsupported-family coverage honestly. The alternative UI-only subtype grouping was rejected because it would duplicate category derivation across catalog, browse, and search.
+An independent check of selection and migration was adopted: explicitly support schema versions 1 and 2, preserve the old ID set, identify source placeholders, and state unsupported-family coverage honestly. The alternative UI-only subtype grouping was rejected because it would duplicate category derivation across catalog, browse, and search.
 
 The expanded compile found optional null item attributes, a class encoded as a generic section, named NPC stories, and a construct with both creature and item representations. These are handled at compiler boundaries with explicit source decisions and coverage evidence. The resulting library has 9,112 entries and 19 prestige classes. All 1,937 old IDs and titles survive. The actual published schema-1 library was installed in the new app, bookmarked, and upgraded to schema 2 with the bookmark and offline reading retained. Query and index-load measurements support keeping one index on the tested desktop; real-phone memory limits remain unverified.

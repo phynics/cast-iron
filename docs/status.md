@@ -187,11 +187,15 @@ Local verification: `cargo xtask check` passes, including 21 search and 94 web u
 
 Two bounded visual batches covered 390 x 844 and 1280 x 900 in both themes. The confirmation captures reported zero horizontal overflow, no undersized alphabet or spell-level controls, and no console errors. Separate settled search captures confirm exactly one selected scope and rule-only results. The search-only capture waits for both the selected scope and rule-only result kinds, avoiding the stale-state screenshot that appeared during capture setup. Selected-scope foreground/background contrast measured 6.02:1 in light and 6.54:1 in dark. Representative PNGs were opened and inspected. The rerunnable capture command is in the verify skill.
 
-The first browser pass caught blocked inline article-contents indentation and stale test assumptions about star ordering, labels, and open disclosures. Those were corrected. A later affected test exposed repeated section links failing to scroll when the URL already matched; explicit scrolling fixes that case. The corrected six-test run passed. The final full run passed the CSP and repeated-heading cases in both engines. Terra's bounded integration review found no concrete P1 or P2 issue.
+The first browser pass caught blocked inline article-contents indentation and stale test assumptions about star ordering, labels, and open disclosures. Those were corrected. A later affected test exposed repeated section links failing to scroll when the URL already matched; explicit scrolling fixes that case. The corrected six-test run passed. The final full run passed the CSP and repeated-heading cases in both engines. An independent bounded integration review found no concrete P1 or P2 issue.
 
 This simplification merged in [PR #6](https://github.com/phynics/cast-iron/pull/6) at `d48eaa3`. Its successful main CI and Pages deployment are linked at the top of this page. This migration did not repeat live browser acceptance for that artifact. Physical iPhone offline relaunch, VoiceOver, and a full physical-device character-building walkthrough remain unverified in [#12](https://github.com/phynics/cast-iron/issues/12). Earlier published simulator observations and automated offline checks remain separate evidence.
 
 ## Local follow-up: portable stars and publication choices
+
+Note: manual star export/import described below was later removed in PR #28;
+stars stay local to the browser profile (see `docs/decisions.md`). The
+publication-choice grouping remains shipped behavior.
 
 Home now offers manual star export/import through a bounded, versioned JSON archive. Import validates the complete file before writing and merges by permanent entry ID in one transaction. Existing stars win and repeated imports add no duplicates. This transfers files between independent browser profiles; it does not synchronize Safari and Home Screen storage automatically.
 
@@ -201,7 +205,7 @@ The AoN audit now includes nested typed headings, inline formatting, entry IDs, 
 
 Native verification passes `cargo xtask check`, including 99 web tests. Six extractor fixture tests pass, and two mapping regenerations compare byte-identically. The final distribution build has shell `1135a12922754f39`; its content manifest matches `generated/`.
 
-The primary agent also used the T3 browser to open Core Rulebook > Equipment > Armor, read the rendered article, jump to Masterwork Armor, follow Armor Spikes, use Back and Forward, and step to Banded Mail and back. No console errors appeared. Automated offline acceptance visits all 24 Armor article contents stops and follows a typed cross-link with reading history. The article is the sampled scope; this does not claim every linked equipment entry was read.
+The primary agent also used a manual browser walkthrough to open Core Rulebook > Equipment > Armor, read the rendered article, jump to Masterwork Armor, follow Armor Spikes, use Back and Forward, and step to Banded Mail and back. No console errors appeared. Automated offline acceptance visits all 24 Armor article contents stops and follows a typed cross-link with reading history. The article is the sampled scope; this does not claim every linked equipment entry was read.
 
 A 52-capture batch covers phone and desktop widths in both themes, including open publication choices and star transfer. It reports no horizontal overflow, undersized alphabet/spell-level controls, or console errors. Representative PNGs were opened and inspected. Screenshots are stored locally under `/tmp/cast-iron-followup-ui-final` and are not committed.
 
@@ -211,9 +215,9 @@ The final browser matrix passed 73 of 75 cases. The two WebKit failures were tes
 
 Earlier exploratory failures caught stale assertions that counted nested source-choice titles, attempted to open a closed race choice before incremental list rendering, and assumed Special Attacks supplied typed cross-links. Tests now wait for actual rendered choices, follow the disclosure, count top-level result groups, and use the linked Armor article for the combined reading journey. The corrected Chromium cases pass. The final native/build verification and the 52-capture batch use the final application code.
 
-### Sol review follow-up
+### Independent review follow-up
 
-Sol reviewed head `2982678` and reported no P1/P2 findings and one P3 archive-size bug, tracked in [#17](https://github.com/phynics/cast-iron/issues/17). A compact 1,991,340-byte archive could import but exceed the export limit after pretty-printing. Export now uses compact JSON, and import checks canonical serialized size, including numeric normalization, before any write. Two native boundary tests cover the reproduced case and a compact integer-date input whose normalized encoding exceeds the limit. `cargo xtask check` passes with 101 web tests. The rebuilt distribution has shell `9104b7a769594cbf`; the unchanged content manifest matches generated content. Targeted Chromium and WebKit star-transfer acceptance both pass. This follow-up is locally verified; no new deployed result is claimed.
+An independent review of head `2982678` reported no P1/P2 findings and one P3 archive-size bug, tracked in [#17](https://github.com/phynics/cast-iron/issues/17). A compact 1,991,340-byte archive could import but exceed the export limit after pretty-printing. Export now uses compact JSON, and import checks canonical serialized size, including numeric normalization, before any write. Two native boundary tests cover the reproduced case and a compact integer-date input whose normalized encoding exceeds the limit. `cargo xtask check` passes with 101 web tests. The rebuilt distribution has shell `9104b7a769594cbf`; the unchanged content manifest matches generated content. Targeted Chromium and WebKit star-transfer acceptance both pass. This follow-up is locally verified; no new deployed result is claimed.
 
 ## Local book target and source audit
 

@@ -112,7 +112,7 @@ Compile twice and compare all generated files when compiler output changes. Run 
 
 The published-site baseline is recorded in `docs/research/iphone-journeys.md`. Keep simulator observations separate from desktop WebKit acceptance and from the current local build. Downloading the rules library, installing a Home Screen web app, and applying a replacement update are different checks. Record each independently.
 
-When T3 Device tools are available, open the device with its host and device IDs, then use the returned session-bound command for all interaction. A driver error is not an app failure. Record the error and uncompleted steps rather than treating a partial walkthrough as a pass.
+When device automation tools are available, open the device with its host and device IDs, then use the returned session-bound command for all interaction. A driver error is not an app failure. Record the error and uncompleted steps rather than treating a partial walkthrough as a pass.
 
 ## Capture a UI verification batch
 
@@ -126,9 +126,9 @@ For AoN navigation mapping changes, run `PYTHONDONTWRITEBYTECODE=1 python3 -m un
 
 Use a physical iPhone for these checks. Simulator status-bar changes do not disable networking, and browser accessibility trees do not prove VoiceOver output.
 
-1. In Safari, star a known entry. Open Home > Move stars > Export stars and save the file in Files.
-2. Install the Home Screen app and download its library if needed. Open Home > Move stars and import the file. Confirm the intended entry opens, a repeated import adds zero stars, and Unstar affects only that entry.
-3. Enable VoiceOver through iOS accessibility settings. Traverse primary tabs, the search bar and scopes, book activation controls, source-choice disclosures, article contents, the file input, and star controls. Check spoken names, selected/expanded state, focus order, and error announcements.
+1. In Safari, star a known entry and confirm it appears on Home with working open and unstar actions.
+2. Install the Home Screen app and download its library if needed. Confirm its library installs independently; Safari and Home Screen storage are separate, so do not expect stars to carry over automatically.
+3. Enable VoiceOver through iOS accessibility settings. Traverse primary tabs, the search bar and scopes, book activation controls, source-choice disclosures, article contents, and star controls. Check spoken names, selected/expanded state, focus order, and error announcements.
 4. Disable both cellular data and Wi-Fi on the physical device. Force-close and relaunch the Home Screen app. Search for a rule, open a book chapter, follow a source choice, and reopen a star. Confirm that no download or recovery screen replaces the installed library.
 5. Restore networking and test shell and library updates separately. Preserve the same star and disabled-book choice across each update, then repeat the offline restart.
 
