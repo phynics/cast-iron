@@ -676,6 +676,15 @@ fn plan_migration(
     }
 }
 
+/// Whether the stored marker already records this alias-file hash. An absent or unreadable
+/// marker never matches, so the idempotent rewrite runs again instead of failing on every
+/// load; a damaged marker costs one rewrite.
+fn marker_is_current(read: Result<Option<IdMigration>>, aliases_sha256: &str) -> bool {
+    read.ok()
+        .flatten()
+        .is_some_and(|marker| marker.aliases_sha256 == aliases_sha256)
+}
+
 /// Rewrites stored bookmark and recent ids to their canonical targets in one transaction,
 /// then writes the alias-file hash marker. A second run with the same map changes nothing.
 /// A transaction that fails before commit leaves every row as it was.
@@ -696,8 +705,8 @@ pub async fn migrate_entry_ids(
                 .map_err(Into::into),
         )
         .await?,
-    )?;
-    if marker.is_some_and(|marker| marker.aliases_sha256 == aliases_sha256) {
+    );
+    if marker_is_current(marker, aliases_sha256) {
         tx.finish().await?;
         return Ok(false);
     }
@@ -1125,6 +1134,21 @@ mod tests {
         let ids: Vec<&str> = rewritten.iter().map(|r| r.id.as_str()).collect();
         assert_eq!(ids, ["ref/rule/merged", "legacy/retired", "ref/rule/other"]);
         assert_eq!(rewritten[0].title, "First"); // the newest row keeps its title
+    }
+
+    #[test]
+    fn a_missing_or_unreadable_migration_marker_runs_the_rewrite_again() {
+        let marker = |hash: &str| IdMigration {
+            aliases_sha256: hash.to_string(),
+        };
+        assert!(marker_is_current(Ok(Some(marker("h1"))), "h1"));
+        assert!(!marker_is_current(Ok(Some(marker("h1"))), "h2"));
+        assert!(!marker_is_current(Ok(None), "h1"));
+        // A marker that no longer parses must read as absent, not fail every load.
+        assert!(!marker_is_current(
+            Err(StoreError::Backend("damaged marker".into())),
+            "h1"
+        ));
     }
 
     #[test]
