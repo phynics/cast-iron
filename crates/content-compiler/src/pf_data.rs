@@ -488,6 +488,12 @@ impl CoverageLog {
 
 const OUTSIDE_SAMPLE_REASON: &str = "The target exists in the pinned Pf Data inventory but is outside this bounded selection. The visible link text is kept; a full import resolves the link.";
 
+const FAILED_TARGET_REASON: &str = "The target is selected in this run but its own conversion failed; the target's conversion finding is the root cause. The visible link text is kept rather than reported again as a dangling reference.";
+
+const EXTERNAL_LINK_REASON: &str = "The target is an external web page, not an entry in the pinned inventory. The visible link text is kept; schema 3 has no external-link node.";
+
+const NON_ENTRY_LINK_REASON: &str = "The target is an app route or a source-local shorthand, not an entry in the pinned inventory. The visible link text is kept.";
+
 /// Classify an HTML construct that the converter strips as presentation-only.
 /// `None` means the key is an actual missing renderer and must stay a finding.
 fn presentation_exception(key: &str) -> Option<(&'static str, String, &'static str)> {
@@ -516,6 +522,14 @@ fn presentation_exception(key: &str) -> Option<(&'static str, String, &'static s
             "layout-container",
             "An `::aside` is a layout wrapper. Its contents are converted as ordinary blocks and are not dropped.",
         ),
+        "block_container" => (
+            "layout-container",
+            "An upstream `:::block` applies a size or style to its following content. The wrapper is not body content; its text, and any title, are rendered.",
+        ),
+        "group_container" => (
+            "layout-container",
+            "An upstream `:::group` only groups following paragraphs for presentation. Its contents are converted as ordinary blocks and are not dropped.",
+        ),
         "fake_footnotes_container" => (
             "layout-container",
             "`::fakeFootnotes` is a layout wrapper. Its `@FN` definitions are rendered by the inline pass, so no footnote text is lost.",
@@ -523,6 +537,10 @@ fn presentation_exception(key: &str) -> Option<(&'static str, String, &'static s
         "hr" => (
             "layout-separator",
             "A horizontal rule is a visual separator. Schema 3 has no divider block, and the surrounding paragraphs are preserved.",
+        ),
+        "unwrapped_tag:del" | "unwrapped_tag:s" | "unwrapped_tag:strike" => (
+            "presentation-strike",
+            "Strikethrough marks superseded wording. Schema 3 has no strike node, so the text is kept as ordinary content.",
         ),
         _ if key.starts_with("icon_directive:") => (
             "presentation-icon",
@@ -542,6 +560,10 @@ struct LinkContext {
     targets: BTreeMap<String, EntryId>,
     known: BTreeSet<String>,
     selected: BTreeSet<String>,
+    /// Selected native keys whose record did not convert. A link to one of these
+    /// is explained coverage, not a second unresolved-reference finding: the
+    /// record's own conversion finding is the root cause.
+    failed: BTreeSet<String>,
     /// Canonical ID of every derived child, keyed by parent identity and display name.
     derived: BTreeMap<String, BTreeMap<String, EntryId>>,
 }
@@ -838,6 +860,16 @@ fn run_import(
             }
         }
     }
+    // Links to a selected record that did not convert are a cascade of that
+    // record's own finding. Record the failed identities once so the second pass
+    // can explain each link instead of reporting a second dangling reference.
+    context.failed = inv
+        .records
+        .iter()
+        .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+        .filter_map(native_key)
+        .filter(|key| !context.targets.contains_key(key))
+        .collect();
     let mut entry_order: Vec<RuleEntry> = Vec::new();
     let mut index_by_identity: BTreeMap<String, usize> = BTreeMap::new();
     for r in &converted_inputs {
@@ -1228,7 +1260,7 @@ fn run_import(
                 records.iter().all(|r| {
                     !report.findings.iter().any(|f| {
                         f.record == format!("{}#{}", r.path, r.key)
-                            && f.problem.contains("reference")
+                            && f.problem.starts_with("unresolved reference:")
                     })
                 }),
             ),
@@ -1354,7 +1386,21 @@ impl crate::html::Env for ConvertEnv<'_> {
         }
         // Publication references are verified against the native source registry;
         // the current inline model has entry links only, so retain their text.
-        if href.starts_with("source/") && self.context.known.contains(href) {
+        if href.to_ascii_lowercase().starts_with("source/") && self.context.known.contains(href) {
+            return None;
+        }
+        if href.contains("://") {
+            self.coverage
+                .record("external-link", href, EXTERNAL_LINK_REASON, &self.record);
+            return None;
+        }
+        if href.to_ascii_lowercase().starts_with("source/") {
+            self.coverage.record(
+                "source-reference",
+                href,
+                NON_ENTRY_LINK_REASON,
+                &self.record,
+            );
             return None;
         }
         let outside = self.context.known.contains(href) && !self.context.selected.contains(href);
@@ -1367,6 +1413,19 @@ impl crate::html::Env for ConvertEnv<'_> {
                 OUTSIDE_SAMPLE_REASON,
                 &self.record,
             );
+        } else if self.context.failed.contains(href) {
+            // The target was selected but its own conversion failed. That record
+            // already carries the root-cause finding; do not repeat it per link.
+            self.coverage.record(
+                "reference-to-failed-record",
+                href,
+                FAILED_TARGET_REASON,
+                &self.record,
+            );
+        } else if !href.starts_with('#') && !href.contains('/') {
+            // Same-document app routes and source-local shorthand are not entries.
+            self.coverage
+                .record("non-entry-link", href, NON_ENTRY_LINK_REASON, &self.record);
         } else {
             self.findings.push(Finding {
                 severity: "high".into(),
@@ -1463,6 +1522,67 @@ fn rewrite_derived_directives(
     }
 }
 
+/// The reviewed reminder text for each upstream addendum codeword. The pinned
+/// source stores only the codeword; these strings are the app's published notes.
+fn addendum_message(code: &str) -> Option<&'static str> {
+    Some(match code {
+        "1pt" => "This is a 1-point evolution.",
+        "2pts" => "This is a 2-point evolution.",
+        "3pts" => "This is a 3-point evolution.",
+        "4pts" => "This is a 4-point evolution.",
+        "uniquepatron" => "This is a unique patron that modifies aspects of a base patron.",
+        "primarybomb" => {
+            "This discovery modifies an alchemist's bomb, and has this limitation: These discoveries do not stack - only one such discovery can be applied to an individual bomb."
+        }
+        "devilbane" => {
+            "Devilbane gazes tend to be more limited in their scope than standard bold stare improvements, but cut to the core of an outsider's being. When a devilbane gaze is used against a creature with the outsider type, double the hypnotic stare penalty applied by the devilbane gaze improvement (but not the Will save penalty the original hypnotic stare imposes). Despite their moniker, devilbane gazes affect all outsiders equally well."
+        }
+        "studiedstrike" => {
+            "This type of talent adds effects to an investigator's studied combat or studied strike, and has this limitation: Only one of these talents can be applied to an individual attack, but the decision can be made when the damage is dealt."
+        }
+        "avenger" => "This talent can only be taken by avenger vigilantes.",
+        "stalker" => "This talent can only be taken by stalker vigilantes.",
+        "hiddenstrike" => {
+            "This type of talent can only be taken by stalker vigilantes, and it has a limitation: only one talent of this type can be added to a given hidden strike, and only when that hidden strike is dealt against a foe that is unaware of the stalker vigilante's presence (or who considers him an ally), unless otherwise noted."
+        }
+        "ninjasneak" => {
+            "This type of talent adds effects to a ninja's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
+        }
+        "sneakattack" => {
+            "This type of talent adds effects to a rogue's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
+        }
+        "slayersneak" => {
+            "This type of talent adds effects to a slayer's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
+        }
+        "blood" => {
+            "Blood rage powers grant powers in a theme. A barbarian cannot select from more than one group of blood rage powers."
+        }
+        "totem" => {
+            "Totem rage powers are only available to barbarians taking the Totem Warrior archetype. A barbarian cannot select from more than one group of totem rage powers; for example, a barbarian who selects a beast totem rage power cannot later choose to gain any of the dragon totem rage powers (any rage power with \"dragon totem\" in its title)."
+        }
+        _ => return None,
+    })
+}
+
+fn addenda_markdown(raw: &Value) -> Result<Vec<String>, String> {
+    let Some(value) = raw.get("addenda") else {
+        return Ok(Vec::new());
+    };
+    let codes = value
+        .as_array()
+        .ok_or_else(|| "addenda is not an array".to_string())?;
+    let mut out = Vec::new();
+    for code in codes {
+        let code = code
+            .as_str()
+            .ok_or_else(|| "non-string addenda codeword".to_string())?;
+        let message =
+            addendum_message(code).ok_or_else(|| format!("unknown addenda codeword {code}"))?;
+        out.push(format!("*{message}*"));
+    }
+    Ok(out)
+}
+
 fn convert(
     r: &InputRecord,
     context: &LinkContext,
@@ -1472,12 +1592,11 @@ fn convert(
     if r.shape != "description" {
         return Err(format!("{} expansion is not implemented", r.shape));
     }
-    // Table references have already been expanded by pf_records. Addenda still
-    // require their own ordered assembly and cannot be silently omitted.
-    if r.raw.get("addenda").is_some() {
-        return Err("addendum expansion required".into());
-    }
-    let lines = description(&r.raw)?;
+    // Table references have already been expanded by pf_records. Addenda are
+    // upstream codewords that append a reviewed rules reminder to the item.
+    let addenda = addenda_markdown(&r.raw)?;
+    let mut lines = description(&r.raw)?;
+    lines.extend(addenda);
     if r.name.is_empty() || r.publications.is_empty() {
         return Err("missing name or publication metadata".into());
     }
@@ -1949,6 +2068,154 @@ mod tests {
     }
 
     #[test]
+    fn mandatory_fixtures_resolve_every_link_in_full_mode() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let dataset = root.join(".cache/sources/pathfinder-data-1-e");
+        if !dataset.join("json").is_dir() {
+            eprintln!("skipping: the pinned primary source is not present");
+            return;
+        }
+        let inv = inventory(
+            &dataset,
+            &root.join("sources/pathfinder-data-1-e/source.json"),
+        )
+        .expect("inventory");
+        // The full run used to fail these fixtures because they link to records
+        // whose own conversion failed. Reproduce the fixture link graph and its
+        // selected targets without converting the whole corpus.
+        let fixture_records: Vec<&InputRecord> = inv
+            .records
+            .iter()
+            .filter(|r| {
+                r.shape != "publication"
+                    && FIXTURES
+                        .iter()
+                        .any(|name| r.name == *name || r.name.starts_with(&format!("{name} (")))
+            })
+            .collect();
+        assert_eq!(fixture_records.len(), FIXTURES.len());
+        let mut selected: BTreeSet<(String, String)> = fixture_records
+            .iter()
+            .map(|r| (r.path.clone(), r.key.clone()))
+            .collect();
+        for record in &fixture_records {
+            for line in description(&record.raw).unwrap() {
+                let mut rest = line.as_str();
+                while let Some(start) = rest.find('‹') {
+                    let open = '‹'.len_utf8();
+                    let Some(end) = rest[start + open..].find('›') else {
+                        break;
+                    };
+                    let inner = &rest[start + open..start + open + end];
+                    let (href, _) = pf_markdown::link_parts(inner);
+                    if let Some(target) = inv
+                        .records
+                        .iter()
+                        .find(|r| native_key(r).as_deref() == Some(href.as_str()))
+                    {
+                        selected.insert((target.path.clone(), target.key.clone()));
+                    }
+                    rest = &rest[start + open + end + '›'.len_utf8()..];
+                }
+            }
+        }
+        let mut context = LinkContext {
+            known: inv.records.iter().filter_map(native_key).collect(),
+            selected: inv
+                .records
+                .iter()
+                .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+                .filter_map(native_key)
+                .collect(),
+            ..Default::default()
+        };
+        let mut expanded_inputs = Vec::new();
+        for r in inv
+            .records
+            .iter()
+            .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+        {
+            let raw = crate::pf_records::expand(r, &inv.records).expect("expand fixture target");
+            expanded_inputs.push(expanded_input(r, raw));
+        }
+        let derivations = pf_derived::plan(&expanded_inputs, &mut Vec::new());
+        for derivation in &derivations {
+            context
+                .derived
+                .entry(derivation.parent_identity.clone())
+                .or_default()
+                .insert(derivation.name.clone(), derivation.id.clone());
+            context
+                .targets
+                .insert(derivation.id.as_str().to_string(), derivation.id.clone());
+        }
+        for r in &expanded_inputs {
+            if let Ok(entry) = convert(r, &context, &mut Vec::new(), &mut CoverageLog::default())
+                && let Some(key) = native_key(r)
+            {
+                context.targets.insert(key, entry.id);
+            }
+        }
+        for alias in inv.records.iter().filter(|r| r.shape == "redirect") {
+            if let (Some(protocol), Some(target)) = (
+                &alias.protocol,
+                alias.raw.get("redirect").and_then(Value::as_str),
+            ) && let Some(id) = context
+                .targets
+                .get(&format!("{protocol}/{target}"))
+                .cloned()
+            {
+                context
+                    .targets
+                    .insert(format!("{protocol}/{}", alias.key), id);
+            }
+        }
+        context.failed = selected
+            .iter()
+            .filter_map(|(path, key)| {
+                inv.records
+                    .iter()
+                    .find(|r| r.path == *path && r.key == *key)
+                    .and_then(native_key)
+            })
+            .filter(|key| !context.targets.contains_key(key))
+            .collect();
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let mut converted_fixtures = 0usize;
+        for r in &expanded_inputs {
+            match convert(r, &context, &mut findings, &mut coverage) {
+                Ok(_) => {
+                    if fixture_records
+                        .iter()
+                        .any(|fixture| fixture.path == r.path && fixture.key == r.key)
+                    {
+                        converted_fixtures += 1;
+                    }
+                }
+                Err(problem) => findings.push(Finding {
+                    severity: "high".into(),
+                    record: format!("{}#{}", r.path, r.key),
+                    problem,
+                }),
+            }
+        }
+        assert_eq!(converted_fixtures, fixture_records.len());
+        for record in &fixture_records {
+            let identity = format!("{}#{}", record.path, record.key);
+            let unresolved: Vec<_> = findings
+                .iter()
+                .filter(|f| f.record == identity && f.problem.starts_with("unresolved reference:"))
+                .collect();
+            assert!(unresolved.is_empty(), "{identity}: {unresolved:?}");
+        }
+    }
+
+    #[test]
     fn native_identity_survives_file_repartitioning() {
         let original = InputRecord {
             protocol: Some("feat".into()),
@@ -2128,6 +2395,92 @@ mod tests {
         assert!(rows[0].reason.contains("bounded selection"));
         // The visible text remains even though the target is out of sample.
         assert!(blocks_text(&entry.body).contains("haste"));
+    }
+
+    #[test]
+    fn reference_to_a_failed_selected_record_is_root_cause_coverage() {
+        let record = sample_record(&["## Sample Feat", "", "See ‹spell/haste›."]);
+        let context = LinkContext {
+            known: BTreeSet::from(["spell/haste".to_string()]),
+            selected: BTreeSet::from(["spell/haste".to_string()]),
+            failed: BTreeSet::from(["spell/haste".to_string()]),
+            ..Default::default()
+        };
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(&record, &context, &mut findings, &mut coverage).unwrap();
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+        let rows = coverage.into_rows();
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].category, "reference-to-failed-record");
+        assert_eq!(rows[0].detail, "spell/haste");
+        assert!(rows[0].reason.contains("root cause"));
+        assert!(blocks_text(&entry.body).contains("haste"));
+    }
+
+    #[test]
+    fn addenda_codewords_append_their_reviewed_reminder() {
+        let mut record = sample_record(&["## Sample Feat", "", "Base body."]);
+        record.raw = serde_json::json!({
+            "description": ["## Sample Feat", "", "Base body."],
+            "addenda": ["sneakattack"],
+        });
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(
+            &record,
+            &LinkContext::default(),
+            &mut findings,
+            &mut coverage,
+        )
+        .unwrap();
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+        let text = blocks_text(&entry.body);
+        assert!(text.contains("Base body."), "{text}");
+        assert!(text.contains("rogue's sneak attack"), "{text}");
+
+        record.raw = serde_json::json!({
+            "description": ["## Sample Feat", "", "Base body."],
+            "addenda": ["not_a_codeword"],
+        });
+        assert!(
+            convert(
+                &record,
+                &LinkContext::default(),
+                &mut Vec::new(),
+                &mut CoverageLog::default()
+            )
+            .unwrap_err()
+            .contains("unknown addenda codeword")
+        );
+    }
+
+    #[test]
+    fn external_and_non_entry_links_are_explained_coverage() {
+        let record = sample_record(&[
+            "## Sample Feat",
+            "",
+            "See the [FAQ](https://paizo.com/faq) and the [settings page](settings).",
+        ]);
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(
+            &record,
+            &LinkContext::default(),
+            &mut findings,
+            &mut coverage,
+        )
+        .unwrap();
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+        let rows = coverage.into_rows();
+        assert_eq!(
+            categories(&rows),
+            BTreeSet::from(["external-link", "non-entry-link"]),
+            "{rows:?}"
+        );
+        let text = blocks_text(&entry.body);
+        assert!(text.contains("FAQ"), "{text}");
+        assert!(text.contains("settings page"), "{text}");
     }
 
     #[test]
