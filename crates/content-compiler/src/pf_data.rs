@@ -440,6 +440,102 @@ pub struct Finding {
     pub problem: String,
 }
 
+/// A construct the converter deliberately omits because it carries no typed
+/// content, or a reference it cannot resolve inside a bounded sample. Each row
+/// names the category, the exact detail, the reason, and the affected record, so
+/// the omission is evidence rather than a silent drop.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+pub struct CoverageException {
+    pub category: String,
+    pub detail: String,
+    pub reason: String,
+    pub record: String,
+    pub occurrences: usize,
+}
+
+/// Deterministic accumulator keyed by category, detail, and record.
+#[derive(Default)]
+struct CoverageLog {
+    rows: BTreeMap<(String, String, String), (String, usize)>,
+}
+
+impl CoverageLog {
+    fn record(&mut self, category: &str, detail: &str, reason: &str, record: &str) {
+        let key = (category.to_string(), detail.to_string(), record.to_string());
+        let entry = self
+            .rows
+            .entry(key)
+            .or_insert_with(|| (reason.to_string(), 0));
+        entry.1 += 1;
+    }
+
+    fn into_rows(self) -> Vec<CoverageException> {
+        self.rows
+            .into_iter()
+            .map(
+                |((category, detail, record), (reason, occurrences))| CoverageException {
+                    category,
+                    detail,
+                    reason,
+                    record,
+                    occurrences,
+                },
+            )
+            .collect()
+    }
+}
+
+const OUTSIDE_SAMPLE_REASON: &str = "The target exists in the pinned Pf Data inventory but is outside this bounded selection. The visible link text is kept; a full import resolves the link.";
+
+/// Classify an HTML construct that the converter strips as presentation-only.
+/// `None` means the key is an actual missing renderer and must stay a finding.
+fn presentation_exception(key: &str) -> Option<(&'static str, String, &'static str)> {
+    let entry = match key {
+        "heading_jump_list" => (
+            "jump-list-metadata",
+            "The `jl` attribute only groups the heading in the upstream on-page jump list; the heading text itself is rendered.",
+        ),
+        "linked_heading_jump_list" => (
+            "jump-list-metadata",
+            "The `jl` attribute only groups the linked heading in the upstream on-page jump list; the heading text and link are rendered.",
+        ),
+        "ab_jump_list_metadata" => (
+            "jump-list-metadata",
+            "The `jl` attribute groups an ability in the upstream on-page jump list; `strip` and empty values add no prose or rules text.",
+        ),
+        "ab_order_metadata" => (
+            "ability-order-metadata",
+            "The `order` attribute only sorts abilities in the upstream jump list. Entries keep their source order and the flag adds no prose.",
+        ),
+        "ab_structural_metadata" => (
+            "ability-structure-metadata",
+            "The `head`, `next`, `sub`, and `indent` flags describe the upstream ability layout. Rendered content already follows the source order.",
+        ),
+        "aside_container" => (
+            "layout-container",
+            "An `::aside` is a layout wrapper. Its contents are converted as ordinary blocks and are not dropped.",
+        ),
+        "fake_footnotes_container" => (
+            "layout-container",
+            "`::fakeFootnotes` is a layout wrapper. Its `@FN` definitions are rendered by the inline pass, so no footnote text is lost.",
+        ),
+        "hr" => (
+            "layout-separator",
+            "A horizontal rule is a visual separator. Schema 3 has no divider block, and the surrounding paragraphs are preserved.",
+        ),
+        _ if key.starts_with("icon_directive:") => (
+            "presentation-icon",
+            "An `@I-` token selects an upstream UI icon. It carries no text or rules meaning; the surrounding prose is preserved.",
+        ),
+        _ if key.starts_with("class_options_external_list:") => (
+            "external-class-options",
+            "Favored class options for this class live in a separate generated upstream component. The body keeps an explicit pointer to that page.",
+        ),
+        _ => return None,
+    };
+    Some((entry.0, key.to_string(), entry.1))
+}
+
 #[derive(Default)]
 struct LinkContext {
     targets: BTreeMap<String, EntryId>,
@@ -507,6 +603,9 @@ pub struct MigrationReport {
     pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
+    /// Explained omissions: presentation metadata, layout wrappers, and
+    /// references outside the bounded sample. These are not converter defects.
+    pub coverage: Vec<CoverageException>,
     pub canonical_bytes: usize,
     pub search_bytes: usize,
     pub search_checks: usize,
@@ -625,6 +724,7 @@ fn run_import(
         out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: Vec::new(),
+        coverage: Vec::new(),
         canonical_bytes: 0,
         search_bytes: 0,
         search_checks: 0,
@@ -638,6 +738,7 @@ fn run_import(
         browser_verification: "not run; isolated compiler experiment".into(),
     };
     let mut entries = Vec::new();
+    let mut coverage = CoverageLog::default();
     let mut context = LinkContext {
         known: inv.records.iter().filter_map(native_key).collect(),
         selected: inv
@@ -661,12 +762,12 @@ fn run_import(
                     let derived = derive_publications(&record.raw, &inv.records);
                     if !derived.is_empty() {
                         record.publications = derived;
-                        report.findings.push(Finding {
-                            severity: "medium".into(),
-                            record: format!("{}#{}", r.path, r.key),
-                            problem: "publication metadata absent; derived from subtopic records"
-                                .into(),
-                        });
+                        coverage.record(
+                            "publication-derived",
+                            &format!("{}#{}", r.path, r.key),
+                            "The upstream record carries no publication of its own; its subtopic records supply the attribution.",
+                            &format!("{}#{}", r.path, r.key),
+                        );
                     }
                 }
                 expanded_inputs.push(record);
@@ -708,7 +809,7 @@ fn run_import(
     }
     let mut converted_inputs = Vec::new();
     for r in expanded_inputs {
-        match convert(&r, &context, &mut Vec::new()) {
+        match convert(&r, &context, &mut Vec::new(), &mut CoverageLog::default()) {
             Ok(entry) => {
                 if let Some(key) = native_key(&r) {
                     context.targets.insert(key, entry.id);
@@ -739,7 +840,7 @@ fn run_import(
     let mut entry_order: Vec<RuleEntry> = Vec::new();
     let mut index_by_identity: BTreeMap<String, usize> = BTreeMap::new();
     for r in &converted_inputs {
-        let entry = convert(r, &context, &mut report.findings)?;
+        let entry = convert(r, &context, &mut report.findings, &mut coverage)?;
         index_by_identity.insert(format!("{}#{}", r.path, r.key), entry_order.len());
         entry_order.push(entry);
     }
@@ -758,7 +859,13 @@ fn run_import(
                 ),
             });
         }
-        match derive_entry(derivation, parent, &context, &mut report.findings) {
+        match derive_entry(
+            derivation,
+            parent,
+            &context,
+            &mut report.findings,
+            &mut coverage,
+        ) {
             Ok(entry) => derived_entries.push(entry),
             Err(problem) => report.findings.push(Finding {
                 severity: "high".into(),
@@ -872,6 +979,7 @@ fn run_import(
                 &context,
                 &parent,
                 &mut report.findings,
+                &mut coverage,
             ) {
                 Ok(entry) => {
                     match extracted.shape {
@@ -1191,6 +1299,7 @@ fn run_import(
     report.publication_ready = report.cutover_blockers.is_empty();
     report.canonical_bytes = bytes.len();
     report.search_bytes = index_bytes.len();
+    report.coverage = coverage.into_rows();
     report
         .findings
         .sort_by(|a, b| (&a.record, &a.problem).cmp(&(&b.record, &b.problem)));
@@ -1217,6 +1326,7 @@ fn run_import(
 struct ConvertEnv<'a> {
     record: String,
     findings: &'a mut Vec<Finding>,
+    coverage: &'a mut CoverageLog,
     context: &'a LinkContext,
     references: BTreeSet<cast_iron_schema::EntryReference>,
     current: &'a EntryId,
@@ -1247,22 +1357,31 @@ impl crate::html::Env for ConvertEnv<'_> {
             return None;
         }
         let outside = self.context.known.contains(href) && !self.context.selected.contains(href);
-        self.findings.push(Finding {
-            severity: if outside { "medium" } else { "high" }.into(),
-            record: self.record.clone(),
-            problem: format!(
-                "{}: {href}",
-                if outside {
-                    "reference outside bounded sample"
-                } else {
-                    "unresolved reference"
-                }
-            ),
-        });
+        if outside {
+            // The target is real but not in this bounded selection, so the link
+            // text stays and the omission is recorded as explained coverage.
+            self.coverage.record(
+                "reference-outside-sample",
+                href,
+                OUTSIDE_SAMPLE_REASON,
+                &self.record,
+            );
+        } else {
+            self.findings.push(Finding {
+                severity: "high".into(),
+                record: self.record.clone(),
+                problem: format!("unresolved reference: {href}"),
+            });
+        }
         None
     }
 
     fn stripped(&mut self, key: &str) {
+        if let Some((category, detail, reason)) = presentation_exception(key) {
+            self.coverage
+                .record(category, &detail, reason, &self.record);
+            return;
+        }
         self.findings.push(Finding {
             severity: "medium".into(),
             record: self.record.clone(),
@@ -1347,6 +1466,7 @@ fn convert(
     r: &InputRecord,
     context: &LinkContext,
     findings: &mut Vec<Finding>,
+    coverage: &mut CoverageLog,
 ) -> Result<RuleEntry, String> {
     if r.shape != "description" {
         return Err(format!("{} expansion is not implemented", r.shape));
@@ -1375,6 +1495,7 @@ fn convert(
     let mut env = ConvertEnv {
         record: format!("{}#{}", r.path, r.key),
         findings,
+        coverage,
         context,
         references: BTreeSet::new(),
         current: &id,
@@ -1492,10 +1613,12 @@ fn derive_entry(
     parent: Option<&RuleEntry>,
     context: &LinkContext,
     findings: &mut Vec<Finding>,
+    coverage: &mut CoverageLog,
 ) -> Result<RuleEntry, String> {
     let mut env = ConvertEnv {
         record: derivation.parent_identity.clone(),
         findings,
+        coverage,
         context,
         references: BTreeSet::new(),
         current: &derivation.id,
@@ -1552,6 +1675,7 @@ fn derive_rule_entry(
     context: &LinkContext,
     parent: &EntryId,
     findings: &mut Vec<Finding>,
+    coverage: &mut CoverageLog,
 ) -> Result<RuleEntry, String> {
     let id = EntryId::parse(derived.id.clone()).map_err(|e| e.to_string())?;
     let record = format!(
@@ -1564,6 +1688,7 @@ fn derive_rule_entry(
     let mut env = ConvertEnv {
         record: record.clone(),
         findings,
+        coverage,
         context,
         references: BTreeSet::new(),
         current: &id,
@@ -1675,7 +1800,16 @@ pub fn markdown_report(r: &MigrationReport) -> String {
             }
         ));
     }
-    text.push_str("\nFindings:\n\n");
+    text.push_str(&format!(
+        "\nFindings: {} ({} medium, {} high, {} critical).\n",
+        r.findings.len(),
+        r.findings.iter().filter(|f| f.severity == "medium").count(),
+        r.findings.iter().filter(|f| f.severity == "high").count(),
+        r.findings
+            .iter()
+            .filter(|f| f.severity == "critical")
+            .count(),
+    ));
     for f in &r.findings {
         text.push_str(&format!(
             "- {}: `{}`: {}\n",
@@ -1684,7 +1818,51 @@ pub fn markdown_report(r: &MigrationReport) -> String {
             f.problem.replace('\n', " ")
         ));
     }
+    if !r.coverage.is_empty() {
+        let mut by_category: BTreeMap<&str, (&str, usize, usize, BTreeSet<&str>)> = BTreeMap::new();
+        for row in &r.coverage {
+            let entry =
+                by_category
+                    .entry(&row.category)
+                    .or_insert((&row.reason, 0, 0, BTreeSet::new()));
+            entry.1 += row.occurrences;
+            entry.2 += 1;
+            entry.3.insert(&row.record);
+        }
+        text.push('\n');
+        text.push_str(&format!(
+            "Coverage exceptions ({} {}, {} {}). These are explained, not defects:\n\n",
+            r.coverage.len(),
+            plural(r.coverage.len(), "row", "rows"),
+            r.coverage.iter().map(|row| row.occurrences).sum::<usize>(),
+            plural(
+                r.coverage.iter().map(|row| row.occurrences).sum::<usize>(),
+                "occurrence",
+                "occurrences"
+            )
+        ));
+        for (category, (reason, occurrences, rows, records)) in &by_category {
+            text.push_str(&format!(
+                "- `{category}`: {occurrences} {} in {rows} {} across {} {}. {reason}\n",
+                plural(*occurrences, "occurrence", "occurrences"),
+                plural(*rows, "row", "rows"),
+                records.len(),
+                plural(records.len(), "record", "records")
+            ));
+        }
+        text.push('\n');
+        for row in &r.coverage {
+            text.push_str(&format!(
+                "- `{}` `{}` ×{}: {}\n",
+                row.category, row.detail, row.occurrences, row.record
+            ));
+        }
+    }
     text
+}
+
+fn plural<'a>(count: usize, one: &'a str, many: &'a str) -> &'a str {
+    if count == 1 { one } else { many }
 }
 
 pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
@@ -1782,8 +1960,20 @@ mod tests {
         };
         let mut moved = original.clone();
         moved.path = "json/feat99.json".into();
-        let a = convert(&original, &LinkContext::default(), &mut Vec::new()).unwrap();
-        let b = convert(&moved, &LinkContext::default(), &mut Vec::new()).unwrap();
+        let a = convert(
+            &original,
+            &LinkContext::default(),
+            &mut Vec::new(),
+            &mut CoverageLog::default(),
+        )
+        .unwrap();
+        let b = convert(
+            &moved,
+            &LinkContext::default(),
+            &mut Vec::new(),
+            &mut CoverageLog::default(),
+        )
+        .unwrap();
         assert_eq!(a.id, b.id);
         assert_eq!(a.id.as_str(), "pf-data/feat/power-attack");
         assert_ne!(a.provenance, b.provenance);
@@ -1899,5 +2089,127 @@ mod tests {
             ["Book A".to_string(), "Book B".to_string()]
         );
         assert!(derive_publications(&serde_json::json!({}), &records).is_empty());
+    }
+
+    fn sample_record(description: &[&str]) -> InputRecord {
+        InputRecord {
+            protocol: Some("feat".into()),
+            path: "json/feat01.json".into(),
+            key: "sample_feat".into(),
+            name: "Sample Feat".into(),
+            shape: "description".into(),
+            publications: vec!["Core Rulebook".into()],
+            raw: serde_json::json!({"description": description}),
+        }
+    }
+
+    fn categories(rows: &[CoverageException]) -> BTreeSet<&str> {
+        rows.iter().map(|row| row.category.as_str()).collect()
+    }
+
+    #[test]
+    fn outside_sample_reference_is_explained_coverage_not_a_medium_finding() {
+        let record = sample_record(&["## Sample Feat", "", "See the ‹spell/haste› spell."]);
+        let context = LinkContext {
+            known: BTreeSet::from(["spell/haste".to_string()]),
+            ..Default::default()
+        };
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(&record, &context, &mut findings, &mut coverage).unwrap();
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+        let rows = coverage.into_rows();
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].category, "reference-outside-sample");
+        assert_eq!(rows[0].detail, "spell/haste");
+        assert_eq!(rows[0].record, "json/feat01.json#sample_feat");
+        assert_eq!(rows[0].occurrences, 1);
+        assert!(rows[0].reason.contains("bounded selection"));
+        // The visible text remains even though the target is out of sample.
+        assert!(blocks_text(&entry.body).contains("haste"));
+    }
+
+    #[test]
+    fn presentation_constructs_are_explained_coverage_with_content_kept() {
+        let record = sample_record(&[
+            "## Sample Feat",
+            "",
+            "::h3[Traits]{jl}",
+            "",
+            ":::aside",
+            "",
+            "Aside prose stays.",
+            "",
+            ":::",
+            "",
+            "<hr>",
+            "",
+            "::classoptions{cls=fighter}",
+            "",
+            "An @I-boost icon and text.",
+        ]);
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(
+            &record,
+            &LinkContext::default(),
+            &mut findings,
+            &mut coverage,
+        )
+        .unwrap();
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+        let rows = coverage.into_rows();
+        assert_eq!(
+            categories(&rows),
+            BTreeSet::from([
+                "external-class-options",
+                "jump-list-metadata",
+                "layout-container",
+                "layout-separator",
+                "presentation-icon",
+            ]),
+            "{rows:?}"
+        );
+        let text = blocks_text(&entry.body);
+        assert!(text.contains("Aside prose stays."), "{text}");
+        assert!(text.contains("favored class options"), "{text}");
+    }
+
+    #[test]
+    fn unknown_html_construct_stays_a_medium_finding() {
+        let record = sample_record(&["## Sample Feat", "", "<span>kept text</span>."]);
+        let mut findings = Vec::new();
+        let mut coverage = CoverageLog::default();
+        let entry = convert(
+            &record,
+            &LinkContext::default(),
+            &mut findings,
+            &mut coverage,
+        )
+        .unwrap();
+        assert!(coverage.into_rows().is_empty());
+        assert_eq!(findings.len(), 1, "{findings:?}");
+        assert_eq!(findings[0].severity, "medium");
+        assert!(findings[0].problem.contains("unwrapped_tag:span"));
+        // Unwrapping an unknown inline tag must not lose its text.
+        assert!(blocks_text(&entry.body).contains("kept text"));
+    }
+
+    #[test]
+    fn coverage_rows_are_deterministic_and_merge_duplicates() {
+        let record = sample_record(&[
+            "## Sample Feat",
+            "",
+            "One ‹spell/haste› and two ‹spell/haste›.",
+        ]);
+        let context = LinkContext {
+            known: BTreeSet::from(["spell/haste".to_string()]),
+            ..Default::default()
+        };
+        let mut coverage = CoverageLog::default();
+        convert(&record, &context, &mut Vec::new(), &mut coverage).unwrap();
+        let rows = coverage.into_rows();
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].occurrences, 2);
     }
 }
