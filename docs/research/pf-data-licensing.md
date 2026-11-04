@@ -105,10 +105,20 @@ cutover still needs per-record review. `json/faiths4.json#grandmother_spider`
 mentions PF2 Anadi in a footnote but is PF1e *Faiths of Golarion* content, so it is
 not excluded.
 
+## Product Identity screen
+
+The product owner chose fidelity under the Community Use Policy on 2026-11-04.
+Proper names inside game mechanics stay as descriptive references. Every Pf Data
+entry carries `ogl-1.0a` and `legal#community-use`. The reviewed section rules in
+`sources/pathfinder-data-1-e/pi-screen.json` omit deity `Description` lore, unique
+creature `Description` biographies, and named NPC stories, and remove outbound
+links. Each omission is a coverage row. See
+[decisions](../decisions.md#product-identity-screen-for-the-pf-data-corpus-2026-11-04).
+
 ## Publication gate
 
 The experimental inventory and conversion reports stay separate from the site
-library. Before cutover, resolve source notices, record-level PI exclusions,
-cross-source identities, and every critical or high conversion finding. Excluded
+library. Before cutover, resolve source notices, review the PI screen's coverage,
+resolve cross-source identities, and every critical or high conversion finding. Excluded
 records must remain visible in coverage. Do not replace a working offline library
 with a partly converted or unapproved corpus.

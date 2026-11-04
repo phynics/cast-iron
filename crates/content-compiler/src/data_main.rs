@@ -74,6 +74,7 @@ fn run() -> Result<(), String> {
         "unregistered_publications":inv.unregistered_publications,
         "out_of_scope_records":inv.out_of_scope.len(),
         "derived":derived,
+        "pi_screen":pi_screen_summary(&inv),
         "production_default":"psrd-data","cutover_verified":false
     });
     // Preserve an existing `derived_rules` block so `data-audit` does not strip
@@ -186,6 +187,21 @@ fn write_aliases(
             .display()
     );
     Ok(())
+}
+
+/// Counts of the PI screen's omissions over the whole in-scope inventory.
+fn pi_screen_summary(inv: &cast_iron_content_compiler::pf_data::Inventory) -> serde_json::Value {
+    let mut by_category = std::collections::BTreeMap::<&str, usize>::new();
+    let mut records = std::collections::BTreeSet::new();
+    for omission in &inv.pi_omissions {
+        *by_category.entry(omission.category.as_str()).or_default() += 1;
+        records.insert(omission.record.as_str());
+    }
+    serde_json::json!({
+        "omissions": inv.pi_omissions.len(),
+        "records": records.len(),
+        "by_category": by_category,
+    })
 }
 
 fn main() -> ExitCode {

@@ -1367,6 +1367,7 @@ note = "reviewed"
             directives: BTreeMap::new(),
             unregistered_publications: Vec::new(),
             out_of_scope: Vec::new(),
+            pi_omissions: Vec::new(),
             records,
         }
     }

@@ -139,8 +139,12 @@ record.
   OGL.
 - **PSRD-Data dataset license:** absent. The existing 16-book baseline relies on
   the upstream OGL/CUP grant; this risk is overridden for now and tracked.
-- **Corpus-wide PI screening:** incomplete. No bulk cutover or blanket clearance is
-  claimed.
+- **Corpus-wide PI screening:** the Pf Data screen in
+  `sources/pathfinder-data-1-e/pi-screen.json` omits deity lore, unique creature
+  biographies, named NPC stories, and outbound links, and every Pf Data entry carries
+  the Community Use notice path. Proper names inside mechanics stay as descriptive
+  references (decision of 2026-11-04). The screen is a reviewed rule set, not a
+  sentence-level classification, and no blanket clearance is claimed.
 
 ## Unverified items
 
