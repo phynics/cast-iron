@@ -2,7 +2,7 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 42 selected, 23 converted. Canonical data 205540 bytes; search 87434 bytes. 69 search checks; 3 schema errors.
+Observed 34530 input records, 42 selected, 23 converted. Canonical data 205626 bytes; search 87434 bytes. 69 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
@@ -215,6 +215,3 @@ Findings:
 - high: `json/spells.json#abjuring_step`: spell directive has no saving throw
 - medium: `json/spells8.json#realm_retribution`: reference outside bounded sample: spell/plane_shift
 - medium: `json/traits01.json#absolute_loyalty`: reference outside bounded sample: spell/atonement
-- critical: `pf-data/trait/abject-belief`: typed fields do not match the entry kind
-- critical: `pf-data/trait/absalom-bouncer`: typed fields do not match the entry kind
-- critical: `pf-data/trait/absolute-loyalty`: typed fields do not match the entry kind

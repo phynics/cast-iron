@@ -52,8 +52,46 @@ pub fn extract(kind: EntryKind, lines: &[String]) -> Result<TypedFields, String>
         EntryKind::Item => item(lines),
         EntryKind::Class | EntryKind::PrestigeClass => class(kind, lines),
         EntryKind::Creature => creature(lines),
+        EntryKind::Trait => trait_fields(lines),
         _ => Ok(TypedFields::None),
     }
+}
+
+/// Traits carry their category in the `::trait` directive. Schema validation rejects
+/// `TypedFields::None` for this kind, so a missing directive still gets a valid category.
+fn trait_fields(lines: &[String]) -> Result<TypedFields, String> {
+    let Some(a) = attrs(lines, "trait")? else {
+        return Ok(TypedFields::Trait(cast_iron_schema::TraitFields {
+            category: "Other".into(),
+            detail: None,
+        }));
+    };
+    reject_unknown(
+        &a,
+        "trait",
+        &[
+            "title", "type", "flavor", "benefit", "req", "region", "religion", "subs", "surs",
+            "campaign",
+        ],
+    )?;
+    let raw = get(&a, "type").unwrap_or_else(|| "Other".into());
+    let category = match raw.to_ascii_lowercase().as_str() {
+        "combat" => "Combat",
+        "faith" => "Faith",
+        "magic" => "Magic",
+        "social" => "Social",
+        "campaign" => "Campaign",
+        "regional" => "Regional",
+        "religion" => "Religion",
+        "race" => "Race",
+        "drawback" => "Drawback",
+        _ => raw.as_str(),
+    }
+    .to_string();
+    Ok(TypedFields::Trait(cast_iron_schema::TraitFields {
+        category,
+        detail: None,
+    }))
 }
 fn spell(lines: &[String]) -> Result<TypedFields, String> {
     let a = attrs(lines, "spell")?.ok_or("spell has no ::spell directive")?;
@@ -971,5 +1009,20 @@ mod tests {
         assert_eq!(f.creature_type.as_deref(), Some("undead"));
         assert_eq!(f.ac.as_deref(), Some("18/9/17"));
         assert_eq!(f.melee.as_deref(), Some("2 roots +7"));
+    }
+
+    #[test]
+    fn reads_trait_category_from_the_directive() {
+        let lines = vec![
+            r#"::trait{title="&L&Abject Belief&FN&" type=Faith flavor="..." benefit="..."}"#.into(),
+        ];
+        let TypedFields::Trait(f) = extract(EntryKind::Trait, &lines).unwrap() else {
+            panic!()
+        };
+        assert_eq!(f.category, "Faith");
+        let TypedFields::Trait(f) = extract(EntryKind::Trait, &[]).unwrap() else {
+            panic!()
+        };
+        assert_eq!(f.category, "Other");
     }
 }

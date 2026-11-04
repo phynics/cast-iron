@@ -1152,27 +1152,12 @@
       "severity": "medium",
       "record": "json/traits01.json#absolute_loyalty",
       "problem": "reference outside bounded sample: spell/atonement"
-    },
-    {
-      "severity": "critical",
-      "record": "pf-data/trait/abject-belief",
-      "problem": "typed fields do not match the entry kind"
-    },
-    {
-      "severity": "critical",
-      "record": "pf-data/trait/absalom-bouncer",
-      "problem": "typed fields do not match the entry kind"
-    },
-    {
-      "severity": "critical",
-      "record": "pf-data/trait/absolute-loyalty",
-      "problem": "typed fields do not match the entry kind"
     }
   ],
-  "canonical_bytes": 205540,
+  "canonical_bytes": 205626,
   "search_bytes": 87434,
   "search_checks": 69,
-  "schema_errors": 3,
+  "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
     "Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission",
