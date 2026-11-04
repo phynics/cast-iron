@@ -138,8 +138,9 @@ uses, in order:
    `Pathfinder Companion`, `Pathfinder Chronicles`, `Pathfinder Adventure
    Path`, `Pathfinder Society`, `GameMastery Module`, `Pathfinder`, `PRPG`),
    volume/scenario words, module codes such as `J1`, a leading article after an
-   adventure number, and treats `and` and `&` as the same connector. The first
-   match in document order wins.
+   adventure number, and treats `and` and `&` as the same connector. Every
+   distinct notice under one title key applies, so the Core Rulebook keeps both
+   its 2009 and 2010 printing notices.
 
 Exact and normalized matching accounted for 387 publications (44 exact, 343
 normalized-prefix). Ten publications needed a reviewed alias: the three *Book of

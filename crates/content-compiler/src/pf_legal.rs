@@ -24,7 +24,8 @@ pub struct PublicationLegal {
     pub records: usize,
     /// `exact`, `normalized-prefix`, or `alias`; absent when no notice matched.
     pub match_method: Option<String>,
-    pub notice: Option<Notice>,
+    /// Every applicable notice; empty when no notice matched.
+    pub notices: Vec<Notice>,
 }
 
 /// A publication excluded before matching, retained so nothing disappears silently.
@@ -53,7 +54,7 @@ impl LegalReport {
     pub fn blocking_publications(&self) -> Vec<&PublicationLegal> {
         self.publications
             .iter()
-            .filter(|publication| publication.notice.is_none())
+            .filter(|publication| publication.notices.is_empty())
             .collect()
     }
 
@@ -169,7 +170,7 @@ pub fn build(
     let (publications, used) = match_publications(&counts, &notices, &aliases)?;
     let matched_publication_count = publications
         .iter()
-        .filter(|publication| publication.notice.is_some())
+        .filter(|publication| !publication.notices.is_empty())
         .count();
     let unmatched_publication_count = publications.len() - matched_publication_count;
     let matched_titles: BTreeSet<String> = used
@@ -219,7 +220,8 @@ fn load_scope(path: &Path) -> Result<ScopePolicy, String> {
 /// Match sorted publication counts against the notice list.
 ///
 /// Precedence is exact title, reviewed alias, then the deterministic normalizer.
-/// The first notice in document order wins when a normalized title repeats.
+/// A title that names several notices matches only when every candidate carries the
+/// same notice text; otherwise the publication stays unmatched for review.
 fn match_publications(
     counts: &BTreeMap<String, usize>,
     notices: &[Notice],
@@ -246,33 +248,26 @@ fn match_publications(
     }
     let mut rows = Vec::with_capacity(counts.len());
     let mut used = BTreeSet::new();
+    let lookup = |table: &BTreeMap<String, Vec<usize>>, key: &str| {
+        table
+            .get(key)
+            .and_then(|matches| same_publication(matches, notices))
+    };
     for (publication, records) in counts {
-        let mut index = exact
-            .get(&normalize(publication, false))
-            .and_then(|matches| matches.first())
-            .copied();
-        let mut method = index.map(|_| "exact");
-        if index.is_none()
+        let mut found = lookup(&exact, &normalize(publication, false));
+        let mut method = found.as_ref().map(|_| "exact");
+        if found.is_none()
             && let Some(target) = aliases.get(publication)
         {
-            let target_index = exact
-                .get(&normalize(target, false))
-                .and_then(|matches| matches.first())
-                .copied()
-                .or_else(|| {
-                    let key = normalize(target, true);
-                    (!key.is_empty())
-                        .then(|| {
-                            normalized
-                                .get(&key)
-                                .and_then(|matches| matches.first())
-                                .copied()
-                        })
-                        .flatten()
-                });
-            match target_index {
-                Some(found) => {
-                    index = Some(found);
+            let key = normalize(target, true);
+            let target_found = lookup(&exact, &normalize(target, false)).or_else(|| {
+                (!key.is_empty())
+                    .then(|| lookup(&normalized, &key))
+                    .flatten()
+            });
+            match target_found {
+                Some(indices) => {
+                    found = Some(indices);
                     method = Some("alias");
                 }
                 None => {
@@ -282,26 +277,41 @@ fn match_publications(
                 }
             }
         }
-        if index.is_none() {
+        if found.is_none() {
             let key = normalize(publication, true);
             if !key.is_empty()
-                && let Some(&found) = normalized.get(&key).and_then(|matches| matches.first())
+                && let Some(indices) = lookup(&normalized, &key)
             {
-                index = Some(found);
+                found = Some(indices);
                 method = Some("normalized-prefix");
             }
         }
-        if let Some(found) = index {
-            used.insert(found);
-        }
+        let indices = found.unwrap_or_default();
+        used.extend(indices.iter().copied());
         rows.push(PublicationLegal {
             publication: publication.clone(),
             records: *records,
             match_method: method.map(str::to_owned),
-            notice: index.map(|found| notices[found].clone()),
+            notices: indices
+                .iter()
+                .map(|&index| notices[index].clone())
+                .collect(),
         });
     }
     Ok((rows, used))
+}
+
+/// Every distinct notice text among the candidates for one title key. Several
+/// printings of one book (the Core Rulebook has a 2009 and a 2010 notice) all apply,
+/// and Section 15 must carry each, so no candidate is dropped in favour of the first.
+fn same_publication(matches: &[usize], notices: &[Notice]) -> Option<Vec<usize>> {
+    let mut seen = BTreeSet::new();
+    let found: Vec<usize> = matches
+        .iter()
+        .copied()
+        .filter(|index| seen.insert(notices[*index].notice.clone()))
+        .collect();
+    (!found.is_empty()).then_some(found)
 }
 
 /// Lowercase alphanumeric tokens. `and` and `&` describe the same connector.
@@ -409,6 +419,19 @@ mod tests {
     }
 
     #[test]
+    fn every_distinct_notice_for_a_title_key_applies() {
+        let notices = vec![
+            notice("Core Rulebook", "© 2009 A"),
+            notice("Core Rulebook", "© 2010 A"),
+            notice("Core Rulebook", "© 2010 A"),
+            notice("Pathfinder Core Rulebook", "© 2011 B"),
+        ];
+        assert_eq!(same_publication(&[0, 1, 2], &notices), Some(vec![0, 1]));
+        assert_eq!(same_publication(&[0, 3], &notices), Some(vec![0, 3]));
+        assert_eq!(same_publication(&[], &notices), None);
+    }
+
+    #[test]
     fn parses_section_15_and_decodes_entities() {
         let input = "before\n**15. COPYRIGHT NOTICE**\n**Core &amp; More** &copy; 2025, Holder.\n## Product Identity\n";
         assert_eq!(
@@ -471,7 +494,7 @@ mod tests {
         assert_eq!(rows[0].publication, "Core Rulebook");
         assert_eq!(rows[0].match_method.as_deref(), Some("normalized-prefix"));
         assert_eq!(rows[1].match_method.as_deref(), Some("exact"));
-        assert_eq!(rows[2].notice, None);
+        assert!(rows[2].notices.is_empty());
         assert_eq!(used, BTreeSet::from([0, 1]));
     }
 
@@ -507,13 +530,13 @@ mod tests {
             publication: "Core Rulebook".into(),
             records: 1,
             match_method: Some("exact".into()),
-            notice: Some(notice("Core Rulebook", "© 2009.")),
+            notices: vec![notice("Core Rulebook", "© 2009.")],
         };
         let missing = PublicationLegal {
             publication: "Lost Book".into(),
             records: 3,
             match_method: None,
-            notice: None,
+            notices: Vec::new(),
         };
         let report = LegalReport {
             dataset: "pathfinder-data-1-e".into(),
