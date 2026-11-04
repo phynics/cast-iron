@@ -1183,1333 +1183,1333 @@
       {
         "id": "ref/affliction/aashaqs-wyvern/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/aashaqs-wyvern",
+        "parent": "ref/monster/aashaqs-wyvern",
         "provenance": "aashaqs_wyvern|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/adaro/nettlefin-toxin",
         "kind": "affliction",
-        "parent": "pf-data/monster/adaro",
+        "parent": "ref/monster/adaro",
         "provenance": "adaro|affliction:nettlefin-toxin"
       },
       {
         "id": "ref/affliction/akata/void-death",
         "kind": "affliction",
-        "parent": "pf-data/monster/akata",
+        "parent": "ref/monster/akata",
         "provenance": "akata|affliction:void-death"
       },
       {
         "id": "ref/affliction/ammut/wasting-curse-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/ammut",
+        "parent": "ref/monster/ammut",
         "provenance": "ammut|affliction:wasting-curse-su"
       },
       {
         "id": "ref/affliction/animate-dream/nightmare-curse",
         "kind": "affliction",
-        "parent": "pf-data/monster/animate-dream",
+        "parent": "ref/monster/animate-dream",
         "provenance": "animate_dream|affliction:nightmare-curse"
       },
       {
         "id": "ref/affliction/ant-giant-ant/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/ant-giant-ant",
+        "parent": "ref/monster/ant-giant-ant",
         "provenance": "ant_giant_ant|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/ant-knight-ant/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/ant-knight-ant",
+        "parent": "ref/monster/ant-knight-ant",
         "provenance": "ant_knight_ant|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/ant-megapon-ant/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/ant-megapon-ant",
+        "parent": "ref/monster/ant-megapon-ant",
         "provenance": "ant_megapon_ant|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/apocalypse-locust-mythic/sting-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/apocalypse-locust-mythic",
+        "parent": "ref/monster/apocalypse-locust-mythic",
         "provenance": "apocalypse_locust_mythic|affliction:sting-ex"
       },
       {
         "id": "ref/affliction/asura-asurendra/curse-of-false-wisdom-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/asura-asurendra",
+        "parent": "ref/monster/asura-asurendra",
         "provenance": "asura_asurendra|affliction:curse-of-false-wisdom-su"
       },
       {
         "id": "ref/affliction/asura-asurendra/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/asura-asurendra",
+        "parent": "ref/monster/asura-asurendra",
         "provenance": "asura_asurendra|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/automaton-familiar-automaton/arcane-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/automaton-familiar-automaton",
+        "parent": "ref/monster/automaton-familiar-automaton",
         "provenance": "automaton_familiar_automaton|affliction:arcane-fever"
       },
       {
         "id": "ref/affliction/basidirond/basidirond-spores",
         "kind": "affliction",
-        "parent": "pf-data/monster/basidirond",
+        "parent": "ref/monster/basidirond",
         "provenance": "basidirond|affliction:basidirond-spores"
       },
       {
         "id": "ref/affliction/benaioh/wormrot",
         "kind": "affliction",
-        "parent": "pf-data/monster/benaioh",
+        "parent": "ref/monster/benaioh",
         "provenance": "benaioh|affliction:wormrot"
       },
       {
         "id": "ref/affliction/black-shuck/shucks-kiss",
         "kind": "affliction",
-        "parent": "pf-data/monster/black-shuck",
+        "parent": "ref/monster/black-shuck",
         "provenance": "black_shuck|affliction:shucks-kiss"
       },
       {
         "id": "ref/affliction/bogwid/bogwid-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/bogwid",
+        "parent": "ref/monster/bogwid",
         "provenance": "bogwid|affliction:bogwid-fever"
       },
       {
         "id": "ref/affliction/bolla/bolla-lethargy",
         "kind": "affliction",
-        "parent": "pf-data/monster/bolla",
+        "parent": "ref/monster/bolla",
         "provenance": "bolla|affliction:bolla-lethargy"
       },
       {
         "id": "ref/affliction/botfly-botfly-swarm/botfly-larvae",
         "kind": "affliction",
-        "parent": "pf-data/monster/botfly-botfly-swarm",
+        "parent": "ref/monster/botfly-botfly-swarm",
         "provenance": "botfly_botfly_swarm|affliction:botfly-larvae"
       },
       {
         "id": "ref/affliction/botfly-giant-botfly/giant-botfly-larvae",
         "kind": "affliction",
-        "parent": "pf-data/monster/botfly-giant-botfly",
+        "parent": "ref/monster/botfly-giant-botfly",
         "provenance": "botfly_giant_botfly|affliction:giant-botfly-larvae"
       },
       {
         "id": "ref/affliction/bramblelash/tropical-bramblelash-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/bramblelash",
+        "parent": "ref/monster/bramblelash",
         "provenance": "bramblelash|affliction:tropical-bramblelash-poison"
       },
       {
         "id": "ref/affliction/capramace/waste-trembles",
         "kind": "affliction",
-        "parent": "pf-data/monster/capramace",
+        "parent": "ref/monster/capramace",
         "provenance": "capramace|affliction:waste-trembles"
       },
       {
         "id": "ref/affliction/cassomir-stray/cassomir-stray-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/cassomir-stray",
+        "parent": "ref/monster/cassomir-stray",
         "provenance": "cassomir_stray|affliction:cassomir-stray-poison"
       },
       {
         "id": "ref/affliction/caustic-stalker/caustic-creep",
         "kind": "affliction",
-        "parent": "pf-data/monster/caustic-stalker",
+        "parent": "ref/monster/caustic-stalker",
         "provenance": "caustic_stalker|affliction:caustic-creep"
       },
       {
         "id": "ref/affliction/cerberi/cerberuss-jaws-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/cerberi",
+        "parent": "ref/monster/cerberi",
         "provenance": "cerberi|affliction:cerberuss-jaws-su"
       },
       {
         "id": "ref/affliction/chickcharney/curse-of-ill-luck",
         "kind": "affliction",
-        "parent": "pf-data/monster/chickcharney",
+        "parent": "ref/monster/chickcharney",
         "provenance": "chickcharney|affliction:curse-of-ill-luck"
       },
       {
         "id": "ref/affliction/colossus-iron-colossus-mythic/deadly-fumes",
         "kind": "affliction",
-        "parent": "pf-data/monster/colossus-iron-colossus-mythic",
+        "parent": "ref/monster/colossus-iron-colossus-mythic",
         "provenance": "colossus_iron_colossus_mythic|affliction:deadly-fumes"
       },
       {
         "id": "ref/affliction/cunning/basic-poison",
         "kind": "affliction",
-        "parent": "pf-data/rule/cunning",
+        "parent": "ref/rule/cunning",
         "provenance": "cunning|affliction:basic-poison"
       },
       {
         "id": "ref/affliction/curse/curse-name-su",
         "kind": "affliction",
-        "parent": "pf-data/umr/curse",
+        "parent": "ref/umr/curse",
         "provenance": "curse|affliction:curse-name-su"
       },
       {
         "id": "ref/affliction/daemon-lacridaemon/lacridaemon-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/daemon-lacridaemon",
+        "parent": "ref/monster/daemon-lacridaemon",
         "provenance": "daemon_lacridaemon|affliction:lacridaemon-poison"
       },
       {
         "id": "ref/affliction/daemonic-harbinger-braismois/poison-1-broken-oath",
         "kind": "affliction",
-        "parent": "pf-data/monster/daemonic-harbinger-braismois",
+        "parent": "ref/monster/daemonic-harbinger-braismois",
         "provenance": "daemonic_harbinger_braismois|affliction:poison-1-broken-oath"
       },
       {
         "id": "ref/affliction/daemonic-harbinger-braismois/poison-2-promise-of-power",
         "kind": "affliction",
-        "parent": "pf-data/monster/daemonic-harbinger-braismois",
+        "parent": "ref/monster/daemonic-harbinger-braismois",
         "provenance": "daemonic_harbinger_braismois|affliction:poison-2-promise-of-power"
       },
       {
         "id": "ref/affliction/daemonic-harbinger-braismois/poison-3-silence",
         "kind": "affliction",
-        "parent": "pf-data/monster/daemonic-harbinger-braismois",
+        "parent": "ref/monster/daemonic-harbinger-braismois",
         "provenance": "daemonic_harbinger_braismois|affliction:poison-3-silence"
       },
       {
         "id": "ref/affliction/daughter-of-urgathoa/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/daughter-of-urgathoa",
+        "parent": "ref/monster/daughter-of-urgathoa",
         "provenance": "daughter_of_urgathoa|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/death-dog/wormpox",
         "kind": "affliction",
-        "parent": "pf-data/monster/death-dog",
+        "parent": "ref/monster/death-dog",
         "provenance": "death_dog|affliction:wormpox"
       },
       {
         "id": "ref/affliction/demon-schir/gray-pox",
         "kind": "affliction",
-        "parent": "pf-data/monster/demon-schir",
+        "parent": "ref/monster/demon-schir",
         "provenance": "demon_schir|affliction:gray-pox"
       },
       {
         "id": "ref/affliction/devil-rust-devil-ferrugon/scarlet-tetanus",
         "kind": "affliction",
-        "parent": "pf-data/monster/devil-rust-devil-ferrugon",
+        "parent": "ref/monster/devil-rust-devil-ferrugon",
         "provenance": "devil_rust_devil_ferrugon|affliction:scarlet-tetanus"
       },
       {
         "id": "ref/affliction/disease/disease-name-ex-or-su",
         "kind": "affliction",
-        "parent": "pf-data/umr/disease",
+        "parent": "ref/umr/disease",
         "provenance": "disease|affliction:disease-name-ex-or-su"
       },
       {
         "id": "ref/affliction/div-pairaka/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/div-pairaka",
+        "parent": "ref/monster/div-pairaka",
         "provenance": "div_pairaka|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/div-pairaka/shakes",
         "kind": "affliction",
-        "parent": "pf-data/monster/div-pairaka",
+        "parent": "ref/monster/div-pairaka",
         "provenance": "div_pairaka|affliction:shakes"
       },
       {
         "id": "ref/affliction/dorvae/dorvae-poison-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/dorvae",
+        "parent": "ref/monster/dorvae",
         "provenance": "dorvae|affliction:dorvae-poison-su"
       },
       {
         "id": "ref/affliction/drakainia/poison-glands-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/drakainia",
+        "parent": "ref/monster/drakainia",
         "provenance": "drakainia|affliction:poison-glands-poison"
       },
       {
         "id": "ref/affliction/drekavac/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/drekavac",
+        "parent": "ref/monster/drekavac",
         "provenance": "drekavac|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/duneshaker/duneshaker-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/duneshaker",
+        "parent": "ref/monster/duneshaker",
         "provenance": "duneshaker|affliction:duneshaker-poison"
       },
       {
         "id": "ref/affliction/embalming-bear/potent-embalming-fluid",
         "kind": "affliction",
-        "parent": "pf-data/monster/embalming-bear",
+        "parent": "ref/monster/embalming-bear",
         "provenance": "embalming_bear|affliction:potent-embalming-fluid"
       },
       {
         "id": "ref/affliction/empusa/lash-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/empusa",
+        "parent": "ref/monster/empusa",
         "provenance": "empusa|affliction:lash-venom"
       },
       {
         "id": "ref/affliction/energized/miasma",
         "kind": "affliction",
-        "parent": "pf-data/template/energized",
+        "parent": "ref/template/energized",
         "provenance": "energized|affliction:miasma"
       },
       {
         "id": "ref/affliction/fafnheir/curse-of-fafnheir",
         "kind": "affliction",
-        "parent": "pf-data/monster/fafnheir",
+        "parent": "ref/monster/fafnheir",
         "provenance": "fafnheir|affliction:curse-of-fafnheir"
       },
       {
         "id": "ref/affliction/festrog/necrotic-boils",
         "kind": "affliction",
-        "parent": "pf-data/monster/festrog",
+        "parent": "ref/monster/festrog",
         "provenance": "festrog|affliction:necrotic-boils"
       },
       {
         "id": "ref/affliction/fungal-creature/fungal-blood-or-flesh",
         "kind": "affliction",
-        "parent": "pf-data/template/fungal-creature",
+        "parent": "ref/template/fungal-creature",
         "provenance": "fungal_creature|affliction:fungal-blood-or-flesh"
       },
       {
         "id": "ref/affliction/fungal-creature/fungal-spores",
         "kind": "affliction",
-        "parent": "pf-data/template/fungal-creature",
+        "parent": "ref/template/fungal-creature",
         "provenance": "fungal_creature|affliction:fungal-spores"
       },
       {
         "id": "ref/affliction/gholdako/seaside-rot",
         "kind": "affliction",
-        "parent": "pf-data/monster/gholdako",
+        "parent": "ref/monster/gholdako",
         "provenance": "gholdako|affliction:seaside-rot"
       },
       {
         "id": "ref/affliction/ghole/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/ghole",
+        "parent": "ref/monster/ghole",
         "provenance": "ghole|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/ghoul-leng-ghoul/leng-ghoul-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/ghoul-leng-ghoul",
+        "parent": "ref/monster/ghoul-leng-ghoul",
         "provenance": "ghoul_leng_ghoul|affliction:leng-ghoul-fever"
       },
       {
         "id": "ref/affliction/giant-ash-giant/ash-leprosy",
         "kind": "affliction",
-        "parent": "pf-data/monster/giant-ash-giant",
+        "parent": "ref/monster/giant-ash-giant",
         "provenance": "giant_ash_giant|affliction:ash-leprosy"
       },
       {
         "id": "ref/affliction/giant-plague-giant/atrophic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/giant-plague-giant",
+        "parent": "ref/monster/giant-plague-giant",
         "provenance": "giant_plague_giant|affliction:atrophic-plague"
       },
       {
         "id": "ref/affliction/goldpebble/pebblefang",
         "kind": "affliction",
-        "parent": "pf-data/monster/goldpebble",
+        "parent": "ref/monster/goldpebble",
         "provenance": "goldpebble|affliction:pebblefang"
       },
       {
         "id": "ref/affliction/golem-gold-golem/prismatic-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/golem-gold-golem",
+        "parent": "ref/monster/golem-gold-golem",
         "provenance": "golem_gold_golem|affliction:prismatic-poison"
       },
       {
         "id": "ref/affliction/golem-inubrix-golem/abysium-residue",
         "kind": "affliction",
-        "parent": "pf-data/monster/golem-inubrix-golem",
+        "parent": "ref/monster/golem-inubrix-golem",
         "provenance": "golem_inubrix_golem|affliction:abysium-residue"
       },
       {
         "id": "ref/affliction/golem-lead-golem/poison-cloud",
         "kind": "affliction",
-        "parent": "pf-data/monster/golem-lead-golem",
+        "parent": "ref/monster/golem-lead-golem",
         "provenance": "golem_lead_golem|affliction:poison-cloud"
       },
       {
         "id": "ref/affliction/golem-viridium-golem/viridium-leprosy",
         "kind": "affliction",
-        "parent": "pf-data/monster/golem-viridium-golem",
+        "parent": "ref/monster/golem-viridium-golem",
         "provenance": "golem_viridium_golem|affliction:viridium-leprosy"
       },
       {
         "id": "ref/affliction/gravebound/false-death",
         "kind": "affliction",
-        "parent": "pf-data/monster/gravebound",
+        "parent": "ref/monster/gravebound",
         "provenance": "gravebound|affliction:false-death"
       },
       {
         "id": "ref/affliction/great-old-one-ithaqua/wendigo-psychosis-enhanced",
         "kind": "affliction",
-        "parent": "pf-data/monster/great-old-one-ithaqua",
+        "parent": "ref/monster/great-old-one-ithaqua",
         "provenance": "great_old_one_ithaqua|affliction:wendigo-psychosis-enhanced"
       },
       {
         "id": "ref/affliction/great-old-one-xhamen-dor/seeded-infestation",
         "kind": "affliction",
-        "parent": "pf-data/monster/great-old-one-xhamen-dor",
+        "parent": "ref/monster/great-old-one-xhamen-dor",
         "provenance": "great_old_one_xhamen_dor|affliction:seeded-infestation"
       },
       {
         "id": "ref/affliction/hag-moon-hag/dreadful-ravings",
         "kind": "affliction",
-        "parent": "pf-data/monster/hag-moon-hag",
+        "parent": "ref/monster/hag-moon-hag",
         "provenance": "hag_moon_hag|affliction:dreadful-ravings"
       },
       {
         "id": "ref/affliction/hag-sea-hag/evil-eye-curse",
         "kind": "affliction",
-        "parent": "pf-data/monster/hag-sea-hag",
+        "parent": "ref/monster/hag-sea-hag",
         "provenance": "hag_sea_hag|affliction:evil-eye-curse"
       },
       {
         "id": "ref/affliction/heartrot-tree/heartrot-disease",
         "kind": "affliction",
-        "parent": "pf-data/monster/heartrot-tree",
+        "parent": "ref/monster/heartrot-tree",
         "provenance": "heartrot_tree|affliction:heartrot-disease"
       },
       {
         "id": "ref/affliction/horsemen-of-the-apocalypse-apollyon/soul-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/horsemen-of-the-apocalypse-apollyon",
+        "parent": "ref/monster/horsemen-of-the-apocalypse-apollyon",
         "provenance": "horsemen_of_the_apocalypse_apollyon|affliction:soul-plague"
       },
       {
         "id": "ref/affliction/howler/howler-howl",
         "kind": "affliction",
-        "parent": "pf-data/monster/howler",
+        "parent": "ref/monster/howler",
         "provenance": "howler|affliction:howler-howl"
       },
       {
         "id": "ref/affliction/hungry-flesh/tumor-infestation",
         "kind": "affliction",
-        "parent": "pf-data/monster/hungry-flesh",
+        "parent": "ref/monster/hungry-flesh",
         "provenance": "hungry_flesh|affliction:tumor-infestation"
       },
       {
         "id": "ref/affliction/hypnalis/hypnalis-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/hypnalis",
+        "parent": "ref/monster/hypnalis",
         "provenance": "hypnalis|affliction:hypnalis-venom"
       },
       {
         "id": "ref/affliction/iku-turso/tursas",
         "kind": "affliction",
-        "parent": "pf-data/monster/iku-turso",
+        "parent": "ref/monster/iku-turso",
         "provenance": "iku_turso|affliction:tursas"
       },
       {
         "id": "ref/affliction/indarugant/curse-of-frozen-flesh-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/indarugant",
+        "parent": "ref/monster/indarugant",
         "provenance": "indarugant|affliction:curse-of-frozen-flesh-su"
       },
       {
         "id": "ref/affliction/inkanyamba/vacillating-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/inkanyamba",
+        "parent": "ref/monster/inkanyamba",
         "provenance": "inkanyamba|affliction:vacillating-venom"
       },
       {
         "id": "ref/affliction/irradiated-dead/radiation",
         "kind": "affliction",
-        "parent": "pf-data/monster/irradiated-dead",
+        "parent": "ref/monster/irradiated-dead",
         "provenance": "irradiated_dead|affliction:radiation"
       },
       {
         "id": "ref/affliction/jinmenju/head-fruit-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/jinmenju",
+        "parent": "ref/monster/jinmenju",
         "provenance": "jinmenju|affliction:head-fruit-poison"
       },
       {
         "id": "ref/affliction/julunggali-mythic/julunggali-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/julunggali-mythic",
+        "parent": "ref/monster/julunggali-mythic",
         "provenance": "julunggali_mythic|affliction:julunggali-venom"
       },
       {
         "id": "ref/affliction/kakuen-taka/carrionstorm-poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/kakuen-taka",
+        "parent": "ref/monster/kakuen-taka",
         "provenance": "kakuen_taka|affliction:carrionstorm-poison-ex"
       },
       {
         "id": "ref/affliction/kallas-devil/evil-eye-curse",
         "kind": "affliction",
-        "parent": "pf-data/monster/kallas-devil",
+        "parent": "ref/monster/kallas-devil",
         "provenance": "kallas_devil|affliction:evil-eye-curse"
       },
       {
         "id": "ref/affliction/khala/chillbane-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/khala",
+        "parent": "ref/monster/khala",
         "provenance": "khala|affliction:chillbane-fever"
       },
       {
         "id": "ref/affliction/kraken/kraken-ink",
         "kind": "affliction",
-        "parent": "pf-data/monster/kraken",
+        "parent": "ref/monster/kraken",
         "provenance": "kraken|affliction:kraken-ink"
       },
       {
         "id": "ref/affliction/kurobozu/black-apoxia",
         "kind": "affliction",
-        "parent": "pf-data/monster/kurobozu",
+        "parent": "ref/monster/kurobozu",
         "provenance": "kurobozu|affliction:black-apoxia"
       },
       {
         "id": "ref/affliction/kyton-cantor/lingering-touch",
         "kind": "affliction",
-        "parent": "pf-data/monster/kyton-cantor",
+        "parent": "ref/monster/kyton-cantor",
         "provenance": "kyton_cantor|affliction:lingering-touch"
       },
       {
         "id": "ref/affliction/kyton-termagant/flux-infusion",
         "kind": "affliction",
-        "parent": "pf-data/monster/kyton-termagant",
+        "parent": "ref/monster/kyton-termagant",
         "provenance": "kyton_termagant|affliction:flux-infusion"
       },
       {
         "id": "ref/affliction/lizard-monitor-lizard/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/lizard-monitor-lizard",
+        "parent": "ref/monster/lizard-monitor-lizard",
         "provenance": "lizard_monitor_lizard|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/magma-ooze/magma-ooze-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/magma-ooze",
+        "parent": "ref/monster/magma-ooze",
         "provenance": "magma_ooze|affliction:magma-ooze-poison"
       },
       {
         "id": "ref/affliction/mana-wastes-mutant/mana-fever",
         "kind": "affliction",
-        "parent": "pf-data/template/mana-wastes-mutant",
+        "parent": "ref/template/mana-wastes-mutant",
         "provenance": "mana_wastes_mutant|affliction:mana-fever"
       },
       {
         "id": "ref/affliction/me-pit-fiend/disease",
         "kind": "affliction",
-        "parent": "pf-data/rule/me-pit-fiend",
+        "parent": "ref/rule/me-pit-fiend",
         "provenance": "me_pit_fiend|affliction:disease"
       },
       {
         "id": "ref/affliction/me-pit-fiend/poison",
         "kind": "affliction",
-        "parent": "pf-data/rule/me-pit-fiend",
+        "parent": "ref/rule/me-pit-fiend",
         "provenance": "me_pit_fiend|affliction:poison"
       },
       {
         "id": "ref/affliction/merlucent/vitrify",
         "kind": "affliction",
-        "parent": "pf-data/monster/merlucent",
+        "parent": "ref/monster/merlucent",
         "provenance": "merlucent|affliction:vitrify"
       },
       {
         "id": "ref/affliction/monstrous/basic-disease",
         "kind": "affliction",
-        "parent": "pf-data/rule/monstrous",
+        "parent": "ref/rule/monstrous",
         "provenance": "monstrous|affliction:basic-disease"
       },
       {
         "id": "ref/affliction/mosquito-giant-mosquito/malaria",
         "kind": "affliction",
-        "parent": "pf-data/monster/mosquito-giant-mosquito",
+        "parent": "ref/monster/mosquito-giant-mosquito",
         "provenance": "mosquito_giant_mosquito|affliction:malaria"
       },
       {
         "id": "ref/affliction/moxix/moxixs-delectation",
         "kind": "affliction",
-        "parent": "pf-data/monster/moxix",
+        "parent": "ref/monster/moxix",
         "provenance": "moxix|affliction:moxixs-delectation"
       },
       {
         "id": "ref/affliction/mummy-lord/insidious-mummy-rot-su",
         "kind": "affliction",
-        "parent": "pf-data/template/mummy-lord",
+        "parent": "ref/template/mummy-lord",
         "provenance": "mummy_lord|affliction:insidious-mummy-rot-su"
       },
       {
         "id": "ref/affliction/myceloid/purple-pox",
         "kind": "affliction",
-        "parent": "pf-data/monster/myceloid",
+        "parent": "ref/monster/myceloid",
         "provenance": "myceloid|affliction:purple-pox"
       },
       {
         "id": "ref/affliction/necrocraft/rotting-flesh",
         "kind": "affliction",
-        "parent": "pf-data/monster/necrocraft",
+        "parent": "ref/monster/necrocraft",
         "provenance": "necrocraft|affliction:rotting-flesh"
       },
       {
         "id": "ref/affliction/nekomata/nekomata-madness",
         "kind": "affliction",
-        "parent": "pf-data/monster/nekomata",
+        "parent": "ref/monster/nekomata",
         "provenance": "nekomata|affliction:nekomata-madness"
       },
       {
         "id": "ref/affliction/ningyo-undead-ningyo/ningyo-flesh",
         "kind": "affliction",
-        "parent": "pf-data/monster/ningyo-undead-ningyo",
+        "parent": "ref/monster/ningyo-undead-ningyo",
         "provenance": "ningyo_undead_ningyo|affliction:ningyo-flesh"
       },
       {
         "id": "ref/affliction/ningyo/ningyo-flesh",
         "kind": "affliction",
-        "parent": "pf-data/monster/ningyo",
+        "parent": "ref/monster/ningyo",
         "provenance": "ningyo|affliction:ningyo-flesh"
       },
       {
         "id": "ref/affliction/nuckelavee/mortasheen",
         "kind": "affliction",
-        "parent": "pf-data/monster/nuckelavee",
+        "parent": "ref/monster/nuckelavee",
         "provenance": "nuckelavee|affliction:mortasheen"
       },
       {
         "id": "ref/affliction/phycomid/phycomid-spores",
         "kind": "affliction",
-        "parent": "pf-data/monster/phycomid",
+        "parent": "ref/monster/phycomid",
         "provenance": "phycomid|affliction:phycomid-spores"
       },
       {
         "id": "ref/affliction/plague-swarm-rat-plague-swarm-mythic/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/plague-swarm-rat-plague-swarm-mythic",
+        "parent": "ref/monster/plague-swarm-rat-plague-swarm-mythic",
         "provenance": "plague_swarm_rat_plague_swarm_mythic|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/poison/poison-name-ex",
         "kind": "affliction",
-        "parent": "pf-data/umr/poison",
+        "parent": "ref/umr/poison",
         "provenance": "poison|affliction:poison-name-ex"
       },
       {
         "id": "ref/affliction/polevik/pulsing-puffs",
         "kind": "affliction",
-        "parent": "pf-data/monster/polevik",
+        "parent": "ref/monster/polevik",
         "provenance": "polevik|affliction:pulsing-puffs"
       },
       {
         "id": "ref/affliction/pooka/pooka-dust-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/pooka",
+        "parent": "ref/monster/pooka",
         "provenance": "pooka|affliction:pooka-dust-su"
       },
       {
         "id": "ref/affliction/psychopomp-fulgati/fulgati-blood",
         "kind": "affliction",
-        "parent": "pf-data/monster/psychopomp-fulgati",
+        "parent": "ref/monster/psychopomp-fulgati",
         "provenance": "psychopomp_fulgati|affliction:fulgati-blood"
       },
       {
         "id": "ref/affliction/qlippoth-lord-isph-aun-vuln/winds-of-isph-aun-vuln",
         "kind": "affliction",
-        "parent": "pf-data/monster/qlippoth-lord-isph-aun-vuln",
+        "parent": "ref/monster/qlippoth-lord-isph-aun-vuln",
         "provenance": "qlippoth_lord_isph_aun_vuln|affliction:winds-of-isph-aun-vuln"
       },
       {
         "id": "ref/affliction/rat-king/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/rat-king",
+        "parent": "ref/monster/rat-king",
         "provenance": "rat_king|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/rokurokubi/rokurokubis-curse-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/rokurokubi",
+        "parent": "ref/monster/rokurokubi",
         "provenance": "rokurokubi|affliction:rokurokubis-curse-su"
       },
       {
         "id": "ref/affliction/runeslave/arcane-decay",
         "kind": "affliction",
-        "parent": "pf-data/template/runeslave",
+        "parent": "ref/template/runeslave",
         "provenance": "runeslave|affliction:arcane-decay"
       },
       {
         "id": "ref/affliction/runeslave/runeslave-poison",
         "kind": "affliction",
-        "parent": "pf-data/template/runeslave",
+        "parent": "ref/template/runeslave",
         "provenance": "runeslave|affliction:runeslave-poison"
       },
       {
         "id": "ref/affliction/sahkil-ximtal/forsaken-agony",
         "kind": "affliction",
-        "parent": "pf-data/monster/sahkil-ximtal",
+        "parent": "ref/monster/sahkil-ximtal",
         "provenance": "sahkil_ximtal|affliction:forsaken-agony"
       },
       {
         "id": "ref/affliction/sangoi/curse-of-misery",
         "kind": "affliction",
-        "parent": "pf-data/monster/sangoi",
+        "parent": "ref/monster/sangoi",
         "provenance": "sangoi|affliction:curse-of-misery"
       },
       {
         "id": "ref/affliction/scythe-glass-swarm/poison-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/scythe-glass-swarm",
+        "parent": "ref/monster/scythe-glass-swarm",
         "provenance": "scythe_glass_swarm|affliction:poison-su"
       },
       {
         "id": "ref/affliction/sea-urchin-giant-glass-urchin/sea-urchin-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/sea-urchin-giant-glass-urchin",
+        "parent": "ref/monster/sea-urchin-giant-glass-urchin",
         "provenance": "sea_urchin_giant_glass_urchin|affliction:sea-urchin-venom"
       },
       {
         "id": "ref/affliction/sea-urchin-giant-hunter-urchin/sea-urchin-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/sea-urchin-giant-hunter-urchin",
+        "parent": "ref/monster/sea-urchin-giant-hunter-urchin",
         "provenance": "sea_urchin_giant_hunter_urchin|affliction:sea-urchin-venom"
       },
       {
         "id": "ref/affliction/sea-urchin-giant-ravenous-urchin-swarm/sea-urchin-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/sea-urchin-giant-ravenous-urchin-swarm",
+        "parent": "ref/monster/sea-urchin-giant-ravenous-urchin-swarm",
         "provenance": "sea_urchin_giant_ravenous_urchin_swarm|affliction:sea-urchin-venom"
       },
       {
         "id": "ref/affliction/sea-urchin-giant-spear-urchin/sea-urchin-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/sea-urchin-giant-spear-urchin",
+        "parent": "ref/monster/sea-urchin-giant-spear-urchin",
         "provenance": "sea_urchin_giant_spear_urchin|affliction:sea-urchin-venom"
       },
       {
         "id": "ref/affliction/seeded/seedborne-consumption-su",
         "kind": "affliction",
-        "parent": "pf-data/template/seeded",
+        "parent": "ref/template/seeded",
         "provenance": "seeded|affliction:seedborne-consumption-su"
       },
       {
         "id": "ref/affliction/sha/touch-of-madness",
         "kind": "affliction",
-        "parent": "pf-data/monster/sha",
+        "parent": "ref/monster/sha",
         "provenance": "sha|affliction:touch-of-madness"
       },
       {
         "id": "ref/affliction/shadow/shadow-blight",
         "kind": "affliction",
-        "parent": "pf-data/monster/shadow",
+        "parent": "ref/monster/shadow",
         "provenance": "shadow|affliction:shadow-blight"
       },
       {
         "id": "ref/affliction/slime-mold/fungal-rot",
         "kind": "affliction",
-        "parent": "pf-data/monster/slime-mold",
+        "parent": "ref/monster/slime-mold",
         "provenance": "slime_mold|affliction:fungal-rot"
       },
       {
         "id": "ref/affliction/spark-nettle/levitation-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/spark-nettle",
+        "parent": "ref/monster/spark-nettle",
         "provenance": "spark_nettle|affliction:levitation-poison"
       },
       {
         "id": "ref/affliction/sphinx-cynosphinx/carrion-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/sphinx-cynosphinx",
+        "parent": "ref/monster/sphinx-cynosphinx",
         "provenance": "sphinx_cynosphinx|affliction:carrion-fever"
       },
       {
         "id": "ref/affliction/spider-giant-crab-spider/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/spider-giant-crab-spider",
+        "parent": "ref/monster/spider-giant-crab-spider",
         "provenance": "spider_giant_crab_spider|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/spider-ogre-spider/poison-ex",
         "kind": "affliction",
-        "parent": "pf-data/monster/spider-ogre-spider",
+        "parent": "ref/monster/spider-ogre-spider",
         "provenance": "spider_ogre_spider|affliction:poison-ex"
       },
       {
         "id": "ref/affliction/standard-offensive-traits/life-stealing-venom",
         "kind": "affliction",
-        "parent": "pf-data/rule/standard-offensive-traits",
+        "parent": "ref/rule/standard-offensive-traits",
         "provenance": "standard_offensive_traits|affliction:life-stealing-venom"
       },
       {
         "id": "ref/affliction/standard-offensive-traits/paralytic-venom",
         "kind": "affliction",
-        "parent": "pf-data/rule/standard-offensive-traits",
+        "parent": "ref/rule/standard-offensive-traits",
         "provenance": "standard_offensive_traits|affliction:paralytic-venom"
       },
       {
         "id": "ref/affliction/standard-offensive-traits/weakening-venom",
         "kind": "affliction",
-        "parent": "pf-data/rule/standard-offensive-traits",
+        "parent": "ref/rule/standard-offensive-traits",
         "provenance": "standard_offensive_traits|affliction:weakening-venom"
       },
       {
         "id": "ref/affliction/stygira/stone-curse",
         "kind": "affliction",
-        "parent": "pf-data/monster/stygira",
+        "parent": "ref/monster/stygira",
         "provenance": "stygira|affliction:stone-curse"
       },
       {
         "id": "ref/affliction/swamp-mummy/bog-rot",
         "kind": "affliction",
-        "parent": "pf-data/monster/swamp-mummy",
+        "parent": "ref/monster/swamp-mummy",
         "provenance": "swamp_mummy|affliction:bog-rot"
       },
       {
         "id": "ref/affliction/tatzlwyrm/tatzlwyrm-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/tatzlwyrm",
+        "parent": "ref/monster/tatzlwyrm",
         "provenance": "tatzlwyrm|affliction:tatzlwyrm-poison"
       },
       {
         "id": "ref/affliction/tetrolimulus/trtodotoxin",
         "kind": "affliction",
-        "parent": "pf-data/monster/tetrolimulus",
+        "parent": "ref/monster/tetrolimulus",
         "provenance": "tetrolimulus|affliction:trtodotoxin"
       },
       {
         "id": "ref/affliction/tick-giant-tick/red-ache",
         "kind": "affliction",
-        "parent": "pf-data/monster/tick-giant-tick",
+        "parent": "ref/monster/tick-giant-tick",
         "provenance": "tick_giant_tick|affliction:red-ache"
       },
       {
         "id": "ref/affliction/tick-tick-swarm/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/tick-tick-swarm",
+        "parent": "ref/monster/tick-tick-swarm",
         "provenance": "tick_tick_swarm|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/tobongo-mwangi-treant/curse-of-barkflesh",
         "kind": "affliction",
-        "parent": "pf-data/monster/tobongo-mwangi-treant",
+        "parent": "ref/monster/tobongo-mwangi-treant",
         "provenance": "tobongo_mwangi_treant|affliction:curse-of-barkflesh"
       },
       {
         "id": "ref/affliction/trollhound/bloodfire-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/trollhound",
+        "parent": "ref/monster/trollhound",
         "provenance": "trollhound|affliction:bloodfire-fever"
       },
       {
         "id": "ref/affliction/ubashki-ubashki-swarm/ubashki-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/ubashki-ubashki-swarm",
+        "parent": "ref/monster/ubashki-ubashki-swarm",
         "provenance": "ubashki_ubashki_swarm|affliction:ubashki-fever"
       },
       {
         "id": "ref/affliction/ugothokra/aklo-submission",
         "kind": "affliction",
-        "parent": "pf-data/monster/ugothokra",
+        "parent": "ref/monster/ugothokra",
         "provenance": "ugothokra|affliction:aklo-submission"
       },
       {
         "id": "ref/affliction/ugothokra/flesh-ripen-fever",
         "kind": "affliction",
-        "parent": "pf-data/monster/ugothokra",
+        "parent": "ref/monster/ugothokra",
         "provenance": "ugothokra|affliction:flesh-ripen-fever"
       },
       {
         "id": "ref/affliction/ugothokra/implant-rejection-syndrome",
         "kind": "affliction",
-        "parent": "pf-data/monster/ugothokra",
+        "parent": "ref/monster/ugothokra",
         "provenance": "ugothokra|affliction:implant-rejection-syndrome"
       },
       {
         "id": "ref/affliction/urhag/red-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/urhag",
+        "parent": "ref/monster/urhag",
         "provenance": "urhag|affliction:red-plague"
       },
       {
         "id": "ref/affliction/vampire-vampire-warrior/vishkanya-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/vampire-vampire-warrior",
+        "parent": "ref/monster/vampire-vampire-warrior",
         "provenance": "vampire_vampire_warrior|affliction:vishkanya-venom"
       },
       {
         "id": "ref/affliction/vishkanya/vishkanya-venom",
         "kind": "affliction",
-        "parent": "pf-data/monster/vishkanya",
+        "parent": "ref/monster/vishkanya",
         "provenance": "vishkanya|affliction:vishkanya-venom"
       },
       {
         "id": "ref/affliction/vorvorak/poisonous-bile",
         "kind": "affliction",
-        "parent": "pf-data/monster/vorvorak",
+        "parent": "ref/monster/vorvorak",
         "provenance": "vorvorak|affliction:poisonous-bile"
       },
       {
         "id": "ref/affliction/vrykolakas/bubonic-plague",
         "kind": "affliction",
-        "parent": "pf-data/monster/vrykolakas",
+        "parent": "ref/monster/vrykolakas",
         "provenance": "vrykolakas|affliction:bubonic-plague"
       },
       {
         "id": "ref/affliction/vydrarch/vydrarch-poison",
         "kind": "affliction",
-        "parent": "pf-data/monster/vydrarch",
+        "parent": "ref/monster/vydrarch",
         "provenance": "vydrarch|affliction:vydrarch-poison"
       },
       {
         "id": "ref/affliction/wamp/zombie-rot",
         "kind": "affliction",
-        "parent": "pf-data/monster/wamp",
+        "parent": "ref/monster/wamp",
         "provenance": "wamp|affliction:zombie-rot"
       },
       {
         "id": "ref/affliction/wendigo/wendigo-psychosis-su",
         "kind": "affliction",
-        "parent": "pf-data/monster/wendigo",
+        "parent": "ref/monster/wendigo",
         "provenance": "wendigo|affliction:wendigo-psychosis-su"
       },
       {
         "id": "ref/affliction/wolf-in-sheeps-clothing/wolf-in-sheeps-clothing-egg",
         "kind": "affliction",
-        "parent": "pf-data/monster/wolf-in-sheeps-clothing",
+        "parent": "ref/monster/wolf-in-sheeps-clothing",
         "provenance": "wolf_in_sheeps_clothing|affliction:wolf-in-sheeps-clothing-egg"
       },
       {
         "id": "ref/affliction/xacarba/fiendish-bile",
         "kind": "affliction",
-        "parent": "pf-data/monster/xacarba",
+        "parent": "ref/monster/xacarba",
         "provenance": "xacarba|affliction:fiendish-bile"
       },
       {
         "id": "ref/affliction/xacarba/mysterious-blood",
         "kind": "affliction",
-        "parent": "pf-data/monster/xacarba",
+        "parent": "ref/monster/xacarba",
         "provenance": "xacarba|affliction:mysterious-blood"
       },
       {
         "id": "ref/affliction/xacarba/vile-disjunction",
         "kind": "affliction",
-        "parent": "pf-data/monster/xacarba",
+        "parent": "ref/monster/xacarba",
         "provenance": "xacarba|affliction:vile-disjunction"
       },
       {
         "id": "ref/affliction/zombie/deathspore-toxin",
         "kind": "affliction",
-        "parent": "pf-data/template/zombie",
+        "parent": "ref/template/zombie",
         "provenance": "zombie|affliction:deathspore-toxin"
       },
       {
         "id": "ref/affliction/zombie/zombie-curse-su",
         "kind": "affliction",
-        "parent": "pf-data/template/zombie",
+        "parent": "ref/template/zombie",
         "provenance": "zombie|affliction:zombie-curse-su"
       },
       {
         "id": "ref/affliction/zombie/zombie-rot",
         "kind": "affliction",
-        "parent": "pf-data/template/zombie",
+        "parent": "ref/template/zombie",
         "provenance": "zombie|affliction:zombie-rot"
       },
       {
         "id": "ref/racial-trait/dwarf/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/dwarf/darkvision",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:darkvision"
       },
       {
         "id": "ref/racial-trait/dwarf/defensive-training",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:defensive-training"
       },
       {
         "id": "ref/racial-trait/dwarf/greed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:greed"
       },
       {
         "id": "ref/racial-trait/dwarf/hardy",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:hardy"
       },
       {
         "id": "ref/racial-trait/dwarf/hatred",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:hatred"
       },
       {
         "id": "ref/racial-trait/dwarf/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/dwarf/medium",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:medium"
       },
       {
         "id": "ref/racial-trait/dwarf/slow-and-steady",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:slow-and-steady"
       },
       {
         "id": "ref/racial-trait/dwarf/stability",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:stability"
       },
       {
         "id": "ref/racial-trait/dwarf/stonecunning",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:stonecunning"
       },
       {
         "id": "ref/racial-trait/dwarf/weapon-familiarity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/dwarf",
+        "parent": "ref/race/dwarf",
         "provenance": "dwarf|racial-trait:weapon-familiarity"
       },
       {
         "id": "ref/racial-trait/elf/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/elf/elven-immunities",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:elven-immunities"
       },
       {
         "id": "ref/racial-trait/elf/elven-magic",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:elven-magic"
       },
       {
         "id": "ref/racial-trait/elf/keen-senses",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:keen-senses"
       },
       {
         "id": "ref/racial-trait/elf/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/elf/low-light-vision",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:low-light-vision"
       },
       {
         "id": "ref/racial-trait/elf/medium",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:medium"
       },
       {
         "id": "ref/racial-trait/elf/normal-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:normal-speed"
       },
       {
         "id": "ref/racial-trait/elf/weapon-familiarity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/elf",
+        "parent": "ref/race/elf",
         "provenance": "elf|racial-trait:weapon-familiarity"
       },
       {
         "id": "ref/racial-trait/gnome/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/gnome/defensive-training",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:defensive-training"
       },
       {
         "id": "ref/racial-trait/gnome/gnome-magic",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:gnome-magic"
       },
       {
         "id": "ref/racial-trait/gnome/hatred",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:hatred"
       },
       {
         "id": "ref/racial-trait/gnome/illusion-resistance",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:illusion-resistance"
       },
       {
         "id": "ref/racial-trait/gnome/keen-senses",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:keen-senses"
       },
       {
         "id": "ref/racial-trait/gnome/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/gnome/low-light-vision",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:low-light-vision"
       },
       {
         "id": "ref/racial-trait/gnome/obsessive",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:obsessive"
       },
       {
         "id": "ref/racial-trait/gnome/slow-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:slow-speed"
       },
       {
         "id": "ref/racial-trait/gnome/small",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:small"
       },
       {
         "id": "ref/racial-trait/gnome/weapon-familiarity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/gnome",
+        "parent": "ref/race/gnome",
         "provenance": "gnome|racial-trait:weapon-familiarity"
       },
       {
         "id": "ref/racial-trait/half-elf/adaptability",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:adaptability"
       },
       {
         "id": "ref/racial-trait/half-elf/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/half-elf/elf-blood",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:elf-blood"
       },
       {
         "id": "ref/racial-trait/half-elf/elven-immunities",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:elven-immunities"
       },
       {
         "id": "ref/racial-trait/half-elf/keen-senses",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:keen-senses"
       },
       {
         "id": "ref/racial-trait/half-elf/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/half-elf/low-light-vision",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:low-light-vision"
       },
       {
         "id": "ref/racial-trait/half-elf/medium",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:medium"
       },
       {
         "id": "ref/racial-trait/half-elf/multitalented",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:multitalented"
       },
       {
         "id": "ref/racial-trait/half-elf/normal-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-elf",
+        "parent": "ref/race/half-elf",
         "provenance": "half_elf|racial-trait:normal-speed"
       },
       {
         "id": "ref/racial-trait/half-orc/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/half-orc/darkvision",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:darkvision"
       },
       {
         "id": "ref/racial-trait/half-orc/intimidating",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:intimidating"
       },
       {
         "id": "ref/racial-trait/half-orc/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/half-orc/medium",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:medium"
       },
       {
         "id": "ref/racial-trait/half-orc/normal-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:normal-speed"
       },
       {
         "id": "ref/racial-trait/half-orc/orc-blood",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:orc-blood"
       },
       {
         "id": "ref/racial-trait/half-orc/orc-ferocity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:orc-ferocity"
       },
       {
         "id": "ref/racial-trait/half-orc/weapon-familiarity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/half-orc",
+        "parent": "ref/race/half-orc",
         "provenance": "half_orc|racial-trait:weapon-familiarity"
       },
       {
         "id": "ref/racial-trait/halfling/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/halfling/fearless",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:fearless"
       },
       {
         "id": "ref/racial-trait/halfling/halfling-luck",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:halfling-luck"
       },
       {
         "id": "ref/racial-trait/halfling/keen-senses",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:keen-senses"
       },
       {
         "id": "ref/racial-trait/halfling/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/halfling/slow-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:slow-speed"
       },
       {
         "id": "ref/racial-trait/halfling/small",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:small"
       },
       {
         "id": "ref/racial-trait/halfling/sure-footed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:sure-footed"
       },
       {
         "id": "ref/racial-trait/halfling/weapon-familiarity",
         "kind": "racial-trait",
-        "parent": "pf-data/race/halfling",
+        "parent": "ref/race/halfling",
         "provenance": "halfling|racial-trait:weapon-familiarity"
       },
       {
         "id": "ref/racial-trait/human/attributes",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:attributes"
       },
       {
         "id": "ref/racial-trait/human/bonus-feat",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:bonus-feat"
       },
       {
         "id": "ref/racial-trait/human/languages",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:languages"
       },
       {
         "id": "ref/racial-trait/human/medium",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:medium"
       },
       {
         "id": "ref/racial-trait/human/normal-speed",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:normal-speed"
       },
       {
         "id": "ref/racial-trait/human/skilled",
         "kind": "racial-trait",
-        "parent": "pf-data/race/human",
+        "parent": "ref/race/human",
         "provenance": "human|racial-trait:skilled"
       }
     ],

@@ -3520,8 +3520,8 @@
       "occurrences": 1
     }
   ],
-  "canonical_bytes": 1179408,
-  "search_bytes": 208166,
+  "canonical_bytes": 1179224,
+  "search_bytes": 208006,
   "search_checks": 130,
   "schema_errors": 0,
   "publication_ready": false,
