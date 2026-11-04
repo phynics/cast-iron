@@ -20,9 +20,9 @@ Run all commands from the repository root. `rust-toolchain.toml` pins the toolch
 | Compile content | `cargo xtask content` |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Check before you finish | `cargo xtask check` |
-| Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test` |
+| Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 
-To prove a change in the real app, use the `verify` skill in `.claude/skills/verify/SKILL.md`.
+To prove a change in the real app, use the `verify` skill in `.agents/skills/verify/SKILL.md`.
 
 ## Layout
 
@@ -35,7 +35,9 @@ To prove a change in the real app, use the `verify` skill in `.claude/skills/ver
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
 | `sources/psrd-data/` | Dataset pin, reviewed selection, book order, id overrides, legal notices |
-| `LICENSES/` | Code, content, and upstream notices |
+| `sources/pathfinder-data-1-e/` | Supplemental pin, approval gate (`approved.json`), out-of-scope list |
+| `scripts/` | Source selection, publication, upgrade, and audit checks |
+| `LICENSE`, `LICENSES/` | MIT code license and content/upstream notices |
 | `generated/`, `dist/`, `.cache/` | Build output. Never commit these directories |
 | `tests/e2e` | Playwright acceptance tests |
 
@@ -50,8 +52,9 @@ To prove a change in the real app, use the `verify` skill in `.claude/skills/ver
 7. A partly installed library must never show as ready. Verify hashes before activation. The active library stays usable until a replacement is verified.
 8. JavaScript stays limited to `web/sw.js` and the small bridge in `crates/web/js/`. Put logic that can be tested natively in Rust.
 9. All asset URLs are relative to the document base, because the app runs under a project path (`/cast-iron/`).
-10. Do not ship artwork or other Product Identity. Read `docs/research/licensing-audit.md` before adding a source. Keep the legal page data complete.
+10. Do not ship artwork or other Product Identity. Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the supplemental dataset. Keep the legal page data complete and `LICENSES/README.md` accurate.
 11. The app must not use the Pathfinder logo, and must not claim official status or compatibility.
+12. Supplemental records enter production only through `sources/pathfinder-data-1-e/approved.json`. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope via `out-of-scope.json`.
 
 ## Working pattern
 

@@ -24,6 +24,8 @@ Selected-scope contrast measured 6.02:1 in light mode and 6.54:1 in dark mode. T
 
 ## Portable-star and publication-choice follow-up
 
-Home now supports manual JSON star transfer. Repeated same-kind titles expose publication choices in category lists, search, and ambiguous prestige requirement links. Two reported Combat navigation labels use reviewed display aliases. The AoN audit now distinguishes absent sources from missing or ambiguous sections; it does not establish complete corpus coverage.
+Home supported manual JSON star transfer at the time of this review. Repeated same-kind titles expose publication choices in category lists, search, and ambiguous prestige requirement links. Two reported Combat navigation labels use reviewed display aliases. The AoN audit now distinguishes absent sources from missing or ambiguous sections; it does not establish complete corpus coverage.
 
-The follow-up browser checks exercise keyboard focus, native disclosures, active-tab semantics, all 24 contents stops in the sampled Armor article, typed cross-links, history, and offline reading. WebKit uses Option-Tab in this environment to include buttons in sequential keyboard navigation. A manual T3-browser walkthrough also read the rendered Armor article and followed its book navigation. VoiceOver and physical-iPhone offline standalone restart remain open.
+Note: manual star transfer was later removed; stars stay local to the browser profile (see `docs/decisions.md`).
+
+The follow-up browser checks exercise keyboard focus, native disclosures, active-tab semantics, all 24 contents stops in the sampled Armor article, typed cross-links, history, and offline reading. WebKit uses Option-Tab in this environment to include buttons in sequential keyboard navigation. A manual browser walkthrough also read the rendered Armor article and followed its book navigation. VoiceOver and physical-iPhone offline standalone restart remain open.

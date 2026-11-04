@@ -1,6 +1,6 @@
 # iPhone journeys on the published site
 
-Observed on 3 November 2026 in the T3 Device panel, iPhone 18 Pro simulator, iOS 27.2, Safari, at https://phynics.github.io/cast-iron/. The earlier baseline used the published five-tab navigation before PR #5 deployed. Settings reported app version `d4c49d51d4bf4bc8`, library `vdb8e844bfc068446`, content format 3, 9,967 entries and 59.0 MB.
+Observed on 3 November 2026 in the device panel, iPhone 18 Pro simulator, iOS 27.2, Safari, at https://phynics.github.io/cast-iron/. The earlier baseline used the published five-tab navigation before PR #5 deployed. Settings reported app version `d4c49d51d4bf4bc8`, library `vdb8e844bfc068446`, content format 3, 9,967 entries and 59.0 MB.
 
 ## Earlier five-tab baseline
 

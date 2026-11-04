@@ -77,7 +77,7 @@ can finish first; verify the final successful run's SHA, not just any green run.
 2. Open `https://phynics.github.io/cast-iron/` in a fresh browser profile. Check
    asset loading under `/cast-iron/`, install the library, open a known entry,
    then go offline and reload. Check navigation and search, console errors,
-   and third-party requests. Use the [verification guide](../.claude/skills/verify/SKILL.md)
+   and third-party requests. Use the [verification guide](../.agents/skills/verify/SKILL.md)
    for affected acceptance tests.
 3. Check an existing installed profile separately. In Settings, check for an
    app update and reload when offered. Library download/update is a separate
