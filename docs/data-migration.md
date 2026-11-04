@@ -134,8 +134,10 @@ frozen `sources/canonical/legacy-ids.json` snapshot needs a reviewed disposition
 `sources/canonical/id-map.toml`. `cargo xtask data-alias` resolves each row through
 the canonical derivation over the pinned Pf Data corpus and writes
 `generated/content/<version>/aliases.json`. It fails on an unaccounted legacy id, a
-target the corpus cannot produce, a chain, or a many:1 merge that is not an explicit
-`[shared]` row.
+target the corpus cannot produce, a chain, a many:1 merge that is not an explicit
+`[shared]` row, or a `[map]` row whose legacy title and source book do not fit the
+canonical record. The fit gate is what rejects a row that shares only a slug with an
+unrelated record; a retired row from that gate says so in its note.
 
 The map is append-only. A route change or an upstream rename is an identity change:
 add the affected `[map]` rows instead of editing an already published target. The

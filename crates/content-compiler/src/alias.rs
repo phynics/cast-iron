@@ -16,8 +16,10 @@
 //!
 //! Every gate fails the command instead of guessing. A legacy identifier that is
 //! missing from the map, a canonical record claimed by two identifiers without an
-//! explicit `[shared]` row, and a target that the pinned corpus cannot produce are
-//! all build errors.
+//! explicit `[shared]` row, a target that the pinned corpus cannot produce, and a
+//! `[map]` row whose legacy title or source book does not fit the canonical record
+//! are all build errors. A shared slug is never enough: the same word appears in
+//! unrelated books.
 
 use crate::pf_data::{InputRecord, Inventory};
 use crate::pf_rules::RuleAllowlist;
@@ -91,7 +93,12 @@ impl MapRow {
     }
 }
 
-/// One `[shared]` row: a second legacy identifier explicitly merged onto a target.
+/// One `[shared]` row: a legacy identifier merged onto a target that at least two
+/// legacy ids name.
+///
+/// Every legacy id that names a merged target must be a `[shared]` row, including
+/// the first one. Injectivity counts claims per target, not per section, so a
+/// target named by two ids fails unless each of those ids is declared here.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SharedRow {
@@ -306,7 +313,9 @@ pub struct CanonicalRecord {
     pub identity: String,
     pub kind: String,
     pub title: String,
-    pub source: String,
+    /// Legacy book ids named by the record's publications, sorted and deduplicated.
+    /// The semantic fit gate compares a legacy id's source against this set.
+    pub source_ids: Vec<String>,
     /// `native`, `derived:<kind>`, or `carried`.
     pub origin: String,
 }
@@ -383,6 +392,91 @@ pub fn canonical_native_id(protocol: &str, key: &str) -> Result<String, String> 
     Ok(id)
 }
 
+/// Maps a canonical publication name (or its slug) to the legacy book id used by
+/// `legacy-ids.json`.
+///
+/// The frozen snapshot names PSRD books (`core-rulebook`, `bestiary`,
+/// `game-mastery-guide`); Pf Data names the same books with an edition prefix or a
+/// joined word. These are the only reviewed spelling differences. Every other
+/// publication keeps its slug, so an unknown book fails the fit gate instead of
+/// being folded onto a legacy id by guesswork.
+fn legacy_book_id(publication: &str) -> String {
+    let slug = slug_segment(publication.trim());
+    let mapped = match slug.as_str() {
+        "prpg-core-rulebook" | "pathfinder-rpg-core-rulebook" => "core-rulebook",
+        "pathfinder-rpg-bestiary" => "bestiary",
+        "pathfinder-rpg-bestiary-2" => "bestiary-2",
+        "pathfinder-rpg-bestiary-3" => "bestiary-3",
+        "pathfinder-rpg-bestiary-4" => "bestiary-4",
+        "gamemastery-guide" | "pathfinder-rpg-gamemastery-guide" => "game-mastery-guide",
+        _ => return slug,
+    };
+    mapped.to_string()
+}
+
+fn book_ids<'a>(publications: impl Iterator<Item = &'a str>) -> Vec<String> {
+    publications
+        .map(legacy_book_id)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+/// Comparison form for a title: lowercase alphanumeric words only.
+///
+/// Case, punctuation, and spacing differ between the two corpora; the words do
+/// not. The form is deliberately strict about the words themselves, because a
+/// title is half of what makes two records the same article.
+fn normalize_title(title: &str) -> String {
+    let mut out = String::with_capacity(title.len());
+    let mut pending_space = false;
+    for ch in title.chars() {
+        if ch.is_alphanumeric() {
+            if pending_space && !out.is_empty() {
+                out.push(' ');
+            }
+            out.extend(ch.to_lowercase());
+            pending_space = false;
+        } else {
+            pending_space = true;
+        }
+    }
+    out
+}
+
+/// The semantic fit gate for one `[map]` row.
+///
+/// A generated map once paired legacy ids with canonical records that shared only a
+/// slug: `environment/weather` pointed at the Ceremony spell's weather subsection,
+/// and `class-archetypes/monk` at a weapon-group row. The title and the source book
+/// together are the smallest reviewable evidence that the row names the same
+/// article. Both must agree.
+fn check_semantic_fit(
+    old: &str,
+    legacy: &LegacyEntry,
+    record: &CanonicalRecord,
+    errors: &mut Vec<String>,
+) {
+    if !record
+        .source_ids
+        .iter()
+        .any(|source| source == &legacy.source)
+    {
+        errors.push(format!(
+            "map row {old:?}: legacy source {:?} is not among canonical {} sources [{}]; a shared slug is not a verified match",
+            legacy.source,
+            record.id,
+            record.source_ids.join(", ")
+        ));
+    }
+    if normalize_title(&legacy.title) != normalize_title(&record.title) {
+        errors.push(format!(
+            "map row {old:?}: legacy title {:?} does not match canonical {} title {:?}",
+            legacy.title, record.id, record.title
+        ));
+    }
+}
+
 /// Builds the catalog from the pinned Pf Data inventory.
 ///
 /// Native records are the ones the full import selects: in-scope records with a
@@ -414,11 +508,7 @@ pub fn catalog_from_inventory(
                 identity: format!("{}#{}", record.path, record.key),
                 kind: crate::pf_data::record_kind(&record.path).slug().to_string(),
                 title: title_of(record),
-                source: record
-                    .publications
-                    .first()
-                    .map(|publication| slug_segment(publication))
-                    .unwrap_or_default(),
+                source_ids: book_ids(record.publications.iter().map(String::as_str)),
                 origin: "native".into(),
             })?;
             selected.push(record.clone());
@@ -437,7 +527,7 @@ pub fn catalog_from_inventory(
             identity: format!("{}|{suffix}", derivation.parent_identity),
             kind: derivation.kind.kind().slug().to_string(),
             title: derivation.title.clone(),
-            source: derivation.source_ids.first().cloned().unwrap_or_default(),
+            source_ids: book_ids(derivation.source_ids.iter().map(String::as_str)),
             origin: format!("derived:{}", derivation.kind.slug()),
         })?;
     }
@@ -462,11 +552,7 @@ pub fn catalog_from_inventory(
                 ),
                 kind: "rule".into(),
                 title: extracted.title.clone(),
-                source: record
-                    .publications
-                    .first()
-                    .map(|publication| slug_segment(publication))
-                    .unwrap_or_default(),
+                source_ids: book_ids(record.publications.iter().map(String::as_str)),
                 origin: "derived:rule".into(),
             })?;
         }
@@ -606,6 +692,7 @@ pub fn generate(
         .iter()
         .map(|entry| entry.id.as_str())
         .collect();
+    let legacy_by_id = snapshot.by_id();
 
     // Totality and disposition conflicts.
     for old in map
@@ -676,6 +763,15 @@ pub fn generate(
         } else {
             unreachable!("validated: exactly one disposition");
         };
+        // The semantic fit gate: the legacy record and the canonical record must
+        // describe the same book and the same title. Resolution alone cannot tell a
+        // real match from a slug coincidence.
+        let Some(record) = catalog.get(&target) else {
+            continue;
+        };
+        if let Some(legacy) = legacy_by_id.get(old.as_str()) {
+            check_semantic_fit(old, legacy, record, &mut errors);
+        }
         resolved.insert(old.clone(), (target, basis));
     }
     for (old, row) in &map.shared {
@@ -843,13 +939,19 @@ mod tests {
 
     fn catalog() -> CanonicalCatalog {
         let mut catalog = CanonicalCatalog::default();
-        for (id, identity, kind) in [
-            ("ref/main/magic", "json/main.json#magic", "rule"),
-            ("ref/spell/fireball", "json/spells.json#fireball", "spell"),
+        for (id, identity, kind, title) in [
+            ("ref/main/magic", "json/main.json#magic", "rule", "Magic"),
+            (
+                "ref/spell/fireball",
+                "json/spells.json#fireball",
+                "spell",
+                "Fireball",
+            ),
             (
                 "ref/racial-trait/dwarf/stonecunning",
                 "json/races.json#dwarf|racial-trait:stonecunning",
                 "racial_trait",
+                "Stonecunning",
             ),
         ] {
             catalog
@@ -857,8 +959,8 @@ mod tests {
                     id: id.into(),
                     identity: identity.into(),
                     kind: kind.into(),
-                    title: id.into(),
-                    source: "core-rulebook".into(),
+                    title: title.into(),
+                    source_ids: vec!["core-rulebook".into()],
                     origin: "native".into(),
                 })
                 .unwrap();
@@ -1127,7 +1229,7 @@ note = "reviewed"
                 identity: "broken:legacy".into(),
                 kind: "spell".into(),
                 title: "Fireball".into(),
-                source: "core-rulebook".into(),
+                source_ids: vec!["core-rulebook".into()],
                 origin: "native".into(),
             })
             .unwrap();
@@ -1187,7 +1289,7 @@ note = "reviewed"
                 identity: "carried:bestiary/monsters/example".into(),
                 kind: "creature".into(),
                 title: "Example".into(),
-                source: "bestiary".into(),
+                source_ids: vec!["bestiary".into()],
                 origin: "carried".into(),
             })
             .unwrap();
@@ -1206,7 +1308,7 @@ note = "reviewed"
             identity: "json/races.json#dwarf".into(),
             kind: "race".into(),
             title: "Dwarf".into(),
-            source: "core-rulebook".into(),
+            source_ids: vec!["core-rulebook".into()],
             origin: "native".into(),
         };
         catalog.insert(record.clone()).unwrap();
@@ -1325,6 +1427,137 @@ note = "reviewed"
             catalog.canonical_for_identity("json/rules_test.json#host|section:test-rule"),
             Some("ref/rule/rule-host/test-rule")
         );
+        // The fit gate compares legacy book ids, so the canonical publication name
+        // is folded to the same vocabulary as `legacy-ids.json`.
+        assert_eq!(
+            catalog.get("ref/race/dwarf").unwrap().source_ids,
+            ["core-rulebook"]
+        );
+        assert_eq!(
+            catalog
+                .get("ref/racial-trait/dwarf/stonecunning")
+                .unwrap()
+                .source_ids,
+            ["core-rulebook"]
+        );
+    }
+
+    #[test]
+    fn publication_variants_fold_to_legacy_book_ids() {
+        assert_eq!(legacy_book_id("PRPG Core Rulebook"), "core-rulebook");
+        assert_eq!(legacy_book_id("Pathfinder RPG Bestiary"), "bestiary");
+        assert_eq!(legacy_book_id("Pathfinder RPG Bestiary 2"), "bestiary-2");
+        assert_eq!(legacy_book_id("GameMastery Guide"), "game-mastery-guide");
+        assert_eq!(legacy_book_id("Bestiary 2"), "bestiary-2");
+        assert_eq!(legacy_book_id("Ultimate Campaign"), "ultimate-campaign");
+        // An unreviewed spelling is never forced onto a legacy book.
+        assert_eq!(legacy_book_id("Inner Sea Races"), "inner-sea-races");
+    }
+
+    #[test]
+    fn titles_compare_on_words_not_punctuation_or_case() {
+        assert_eq!(normalize_title("Fungal rot"), normalize_title("Fungal Rot"));
+        assert_eq!(normalize_title("Sure-Footed"), "sure footed");
+        assert_eq!(normalize_title("  Low-Light   Vision "), "low light vision");
+        assert_ne!(
+            normalize_title("Weather"),
+            normalize_title("Weather Events")
+        );
+    }
+
+    #[test]
+    fn semantic_gate_rejects_a_slug_coincidence() {
+        let (snapshot, bytes) = snapshot();
+        let sha = sha256_hex(&bytes);
+        let mut catalog = catalog();
+        // Same title, wrong book: the shape of the reported P1 rows such as
+        // `environment/weather` -> the Ceremony spell's weather subsection.
+        catalog
+            .insert(CanonicalRecord {
+                id: "ref/spell/ceremony-weather".into(),
+                identity: "json/spells.json#ceremony|section:weather".into(),
+                kind: "rule".into(),
+                title: "Magic".into(),
+                source_ids: vec!["quests-and-campaigns".into()],
+                origin: "derived:rule".into(),
+            })
+            .unwrap();
+        let body = "[map.\"core-rulebook/rules/magic\"]\ntarget = \"ref/spell/ceremony-weather\"\n\n[retired.\"bestiary/monsters/example\"]\nreason = \"no_source\"\n\n[retired.\"core-rulebook/spells/fireball\"]\nreason = \"no_source\"\n";
+        let map = IdMap::parse(&map_text(&sha, 3, body)).unwrap();
+        let errors = generate(&map, &snapshot, &bytes, &catalog).unwrap_err();
+        let message = errors
+            .iter()
+            .find(|e| e.contains("legacy source"))
+            .expect("the source mismatch must be reported");
+        assert!(message.contains("core-rulebook"), "{message}");
+        assert!(message.contains("quests-and-campaigns"), "{message}");
+        assert!(message.contains("not a verified match"), "{message}");
+    }
+
+    #[test]
+    fn semantic_gate_rejects_a_title_mismatch() {
+        let (snapshot, bytes) = snapshot();
+        let sha = sha256_hex(&bytes);
+        let mut catalog = catalog();
+        // Same book, different article.
+        catalog
+            .insert(CanonicalRecord {
+                id: "ref/main/arcane-magic".into(),
+                identity: "json/main.json#arcane".into(),
+                kind: "rule".into(),
+                title: "Arcane Magic".into(),
+                source_ids: vec!["core-rulebook".into()],
+                origin: "native".into(),
+            })
+            .unwrap();
+        let body = "[map.\"core-rulebook/rules/magic\"]\ntarget = \"ref/main/arcane-magic\"\n\n[retired.\"bestiary/monsters/example\"]\nreason = \"no_source\"\n\n[retired.\"core-rulebook/spells/fireball\"]\nreason = \"no_source\"\n";
+        let map = IdMap::parse(&map_text(&sha, 3, body)).unwrap();
+        let errors = generate(&map, &snapshot, &bytes, &catalog).unwrap_err();
+        let message = errors
+            .iter()
+            .find(|e| e.contains("legacy title"))
+            .expect("the title mismatch must be reported");
+        assert!(message.contains("Arcane Magic"), "{message}");
+    }
+
+    #[test]
+    fn semantic_gate_accepts_a_matching_title_and_source() {
+        let (snapshot, bytes) = snapshot();
+        let sha = sha256_hex(&bytes);
+        let body = "[map.\"core-rulebook/rules/magic\"]\ntarget = \"ref/main/magic\"\n\n[retired.\"bestiary/monsters/example\"]\nreason = \"no_source\"\n\n[retired.\"core-rulebook/spells/fireball\"]\nreason = \"no_source\"\n";
+        let map = IdMap::parse(&map_text(&sha, 3, body)).unwrap();
+        let (_, stats) = generate(&map, &snapshot, &bytes, &catalog()).unwrap();
+        assert_eq!(stats.mapped, 1);
+        assert_eq!(stats.retired, 2);
+    }
+
+    #[test]
+    fn committed_map_passes_every_gate_when_the_dataset_is_present() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dataset = root.join(".cache/sources/pathfinder-data-1-e");
+        if !dataset.is_dir() {
+            return;
+        }
+        let bytes = std::fs::read(root.join("sources/canonical/legacy-ids.json")).unwrap();
+        let snapshot = LegacySnapshot::parse(&bytes).unwrap();
+        let map = IdMap::load(&root.join("sources/canonical/id-map.toml")).unwrap();
+        let inv = crate::pf_data::inventory(
+            &dataset,
+            &root.join("sources/pathfinder-data-1-e/source.json"),
+        )
+        .unwrap();
+        let allowlist = RuleAllowlist::load_optional(
+            &root.join("sources/pathfinder-data-1-e/derived-rules.json"),
+        )
+        .unwrap();
+        let catalog = catalog_from_inventory(&inv, &allowlist).unwrap();
+        let (_, stats) = generate(&map, &snapshot, &bytes, &catalog).unwrap();
+        assert_eq!(
+            stats.mapped + stats.retired,
+            snapshot.count,
+            "every legacy id has one disposition"
+        );
+        assert!(stats.mapped > 0);
     }
 
     #[test]

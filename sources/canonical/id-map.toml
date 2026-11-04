@@ -6,50 +6,18 @@
 #   record  = "path#key"                     upstream native identity
 #   derived = "path#key|<kind>:<slug>"        upstream derived-child identity
 #   target  = "ref/..."                       explicit canonical id
-# A second legacy id may name an existing target only through [shared], with a note.
+# Every legacy id that names a merged target must be a [shared] row, including the
+# first one; a target named by two ids fails unless each of those rows is [shared].
+# Each [shared] row needs a note.
+# A [map] row is accepted only when the legacy title and source book match the
+# canonical record. A shared slug alone is not a verified match.
 # [retired] takes rights, out_of_scope, no_source, or unrepresentable.
 
 [meta]
 format = 1
 legacy_count = 9968
 legacy_sha256 = "492d3555079fd474395a9356897aee24f25e64c7c7ea6fc9bcb7d159579ddbf2"
-note = "Reviewed dispositions for the frozen legacy id snapshot. Rows with reason no_source are explicit unmapped placeholders: no canonical derivation or approved carry-over exists yet."
-
-[map."advanced-players-guide/rules/core-classes/barbarian"]
-derived = "json/rules_adv_gm02.json#class_grafts_1|section:barbarian"
-
-[map."advanced-players-guide/rules/core-classes/bard"]
-derived = "json/rules_adv_gm02.json#class_grafts_1|section:bard"
-
-[map."advanced-players-guide/rules/core-classes/cleric"]
-derived = "json/rules_adv_gm02.json#class_grafts_2|section:cleric"
-
-[map."advanced-players-guide/rules/core-classes/druid"]
-derived = "json/rules_adv_gm02.json#class_grafts_2|section:druid"
-
-[map."advanced-players-guide/rules/core-classes/fighter"]
-derived = "json/rules_adv_gm02.json#class_grafts_2|section:fighter"
-
-[map."advanced-players-guide/rules/core-classes/monk"]
-derived = "json/rules_adv_gm02.json#class_grafts_3|section:monk"
-
-[map."advanced-players-guide/rules/core-classes/paladin"]
-derived = "json/rules_adv_gm02.json#class_grafts_3|section:paladin"
-
-[map."advanced-players-guide/rules/core-classes/ranger"]
-derived = "json/rules_adv_gm02.json#class_grafts_3|section:ranger"
-
-[map."advanced-players-guide/rules/core-classes/rogue"]
-derived = "json/rules_adv_gm02.json#class_grafts_4|section:rogue"
-
-[map."advanced-players-guide/rules/core-classes/sorcerer"]
-derived = "json/rules_adv_gm02.json#class_grafts_4|section:sorcerer"
-
-[map."advanced-players-guide/rules/core-classes/wizard"]
-derived = "json/rules_adv_gm02.json#class_grafts_4|section:wizard"
-
-[map."advanced-players-guide/rules/feats/feat-descriptions"]
-derived = "json/rules_basics01.json#feats|section:feat-descriptions"
+note = "Reviewed dispositions for the frozen legacy id snapshot. Rows with reason no_source are explicit unmapped placeholders: no canonical derivation or approved carry-over exists yet; rows that failed the semantic fit gate say so in their own note."
 
 [map."bestiary-2/monsters/akata/special-abilities/disease/void-death"]
 derived = "json/monsters01.json#akata|affliction:void-death"
@@ -104,102 +72,6 @@ derived = "json/monsters03.json#basidirond|affliction:basidirond-spores"
 
 [map."bestiary/monsters/zombie/variant-zombies/plague-zombie/special-attacks/disease/zombie-rot"]
 derived = "json/monster_template4.json#zombie|affliction:zombie-rot"
-
-[map."bestiary/rules/encounter-tables/desert"]
-derived = "json/rules_adv_gm02.json#terrain_tiles|section:desert"
-
-[map."bestiary/rules/encounter-tables/swamp"]
-derived = "json/rules_adv_gm02.json#terrain_tiles|section:swamp"
-
-[map."bestiary/rules/encounter-tables/underground"]
-derived = "json/rules_adv_gm02.json#terrain_tiles|section:underground"
-
-[map."bestiary/rules/universal-monster-rules/amphibious"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:amphibious"
-
-[map."bestiary/rules/universal-monster-rules/bleed"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:bleed"
-
-[map."bestiary/rules/universal-monster-rules/blindsense"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:blindsense"
-
-[map."bestiary/rules/universal-monster-rules/blindsight"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:blindsight"
-
-[map."bestiary/rules/universal-monster-rules/breath-weapon"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:breath-weapon"
-
-[map."bestiary/rules/universal-monster-rules/disease"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:disease"
-
-[map."bestiary/rules/universal-monster-rules/earth-glide"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:earth-glide"
-
-[map."bestiary/rules/universal-monster-rules/energy-drain"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:energy-drain"
-
-[map."bestiary/rules/universal-monster-rules/fast-healing"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:fast-healing"
-
-[map."bestiary/rules/universal-monster-rules/fear"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:fear"
-
-[map."bestiary/rules/universal-monster-rules/ferocity"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:ferocity"
-
-[map."bestiary/rules/universal-monster-rules/flight"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:flight"
-
-[map."bestiary/rules/universal-monster-rules/grab"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:grab"
-
-[map."bestiary/rules/universal-monster-rules/immunity"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:immunity"
-
-[map."bestiary/rules/universal-monster-rules/incorporeal"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:incorporeal"
-
-[map."bestiary/rules/universal-monster-rules/light-blindness"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:light-blindness"
-
-[map."bestiary/rules/universal-monster-rules/light-sensitivity"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:light-sensitivity"
-
-[map."bestiary/rules/universal-monster-rules/low-light-vision"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:low-light-vision"
-
-[map."bestiary/rules/universal-monster-rules/paralysis"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:paralysis"
-
-[map."bestiary/rules/universal-monster-rules/rake"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:rake"
-
-[map."bestiary/rules/universal-monster-rules/regeneration"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:regeneration"
-
-[map."bestiary/rules/universal-monster-rules/rend"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:rend"
-
-[map."bestiary/rules/universal-monster-rules/rock-catching"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:rock-catching"
-
-[map."bestiary/rules/universal-monster-rules/rock-throwing"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:rock-throwing"
-
-[map."bestiary/rules/universal-monster-rules/scent"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:scent"
-
-[map."bestiary/rules/universal-monster-rules/spell-resistance"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:spell-resistance"
-
-[map."bestiary/rules/universal-monster-rules/tremorsense"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:tremorsense"
-
-[map."bestiary/rules/universal-monster-rules/trip"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:trip"
-
-[map."bestiary/rules/universal-monster-rules/unnatural-aura"]
-derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:unnatural-aura"
 
 [map."core-rulebook/races/dwarves/dwarf-racial-traits/attributes"]
 derived = "json/races.json#dwarf|racial-trait:attributes"
@@ -402,32 +274,14 @@ derived = "json/races2.json#human|racial-trait:normal-speed"
 [map."core-rulebook/races/humans/human-racial-traits/skilled"]
 derived = "json/races2.json#human|racial-trait:skilled"
 
-[map."core-rulebook/rules/additional-rules/exploration"]
-derived = "json/rules_campaign_types09.json#abaddon_pa|section:exploration"
-
-[map."core-rulebook/rules/additional-rules/movement"]
-derived = "json/rules_rulesets02.json#vic_initiative_and_movement|section:movement"
-
-[map."core-rulebook/rules/environment/weather"]
-derived = "json/spells2.json#ceremony|section:weather"
-
-[map."game-mastery-guide/rules/fast-play-ship-combat/water"]
-derived = "json/rules_adv_gm02.json#terrain_tiles|section:water"
-
 [map."game-mastery-guide/rules/npcs/npc-boons"]
 derived = "json/rules_gm07.json#npc_gallery|section:npc-boons"
-
-[map."game-mastery-guide/rules/planar-adventures/planar"]
-derived = "json/rules_adv_gm02.json#terrain_tiles|section:planar"
 
 [map."game-mastery-guide/rules/sanity-and-madness/curing-insanity"]
 derived = "json/rules_gm07.json#sanity_and_madness|section:curing-insanity"
 
 [map."game-mastery-guide/rules/sanity-and-madness/types-of-insanity"]
 derived = "json/rules_gm07.json#sanity_and_madness|section:types-of-insanity"
-
-[map."monster-codex/rules/drow/drow"]
-derived = "json/races.json#drow|section:drow"
 
 [map."monster-codex/rules/duergar/duergar"]
 derived = "json/races.json#duergar|section:duergar"
@@ -438,152 +292,14 @@ derived = "json/races3.json#ratfolk|section:ratfolk"
 [map."monster-codex/rules/sahuagin/sahuagin"]
 derived = "json/monsters37.json#sahuagin|section:sahuagin"
 
-[map."monster-codex/rules/trolls/trolls"]
-derived = "json/rules_adv_gm04.json#magical_affinities_of_trophies|section:trolls"
-
 [map."mythic-adventures/rules/mythic-spells/potent"]
 derived = "json/magic_enhancements2.json#potent|section:potent"
-
-[map."npc-codex/rules/core-class-npcs/barbarian"]
-derived = "json/rules_basics03.json#class_background_tables|section:barbarian"
-
-[map."npc-codex/rules/core-class-npcs/bard"]
-derived = "json/rules_basics03.json#class_background_tables|section:bard"
-
-[map."npc-codex/rules/core-class-npcs/cleric"]
-derived = "json/rules_basics03.json#class_background_tables|section:cleric"
-
-[map."npc-codex/rules/core-class-npcs/druid"]
-derived = "json/rules_basics03.json#class_background_tables|section:druid"
-
-[map."npc-codex/rules/core-class-npcs/fighter"]
-derived = "json/rules_basics03.json#class_background_tables|section:fighter"
-
-[map."npc-codex/rules/core-class-npcs/monk"]
-derived = "json/rules_basics03.json#class_background_tables|section:monk"
-
-[map."npc-codex/rules/core-class-npcs/paladin"]
-derived = "json/rules_basics03.json#class_background_tables|section:paladin"
-
-[map."npc-codex/rules/core-class-npcs/ranger"]
-derived = "json/rules_basics03.json#class_background_tables|section:ranger"
-
-[map."npc-codex/rules/core-class-npcs/rogue"]
-derived = "json/rules_basics03.json#class_background_tables|section:rogue"
-
-[map."npc-codex/rules/core-class-npcs/sorcerer"]
-derived = "json/rules_basics03.json#class_background_tables|section:sorcerer"
-
-[map."npc-codex/rules/core-class-npcs/wizard"]
-derived = "json/rules_basics03.json#class_background_tables|section:wizard"
-
-[map."npc-codex/rules/npc-class-npcs/adept"]
-derived = "json/npc_classes.json#adept|section:adept"
-
-[map."npc-codex/rules/npc-class-npcs/aristocrat"]
-derived = "json/npc_classes.json#aristocrat|section:aristocrat"
-
-[map."npc-codex/rules/npc-class-npcs/commoner"]
-derived = "json/npc_classes.json#commoner|section:commoner"
-
-[map."npc-codex/rules/npc-class-npcs/expert"]
-derived = "json/npc_classes.json#expert|section:expert"
-
-[map."npc-codex/rules/npc-class-npcs/warrior"]
-derived = "json/npc_classes.json#warrior|section:warrior"
-
-[map."npc-codex/rules/prestige-class-npcs/arcane-archer"]
-derived = "json/prestige_classes.json#arcane_archer|section:arcane-archer"
-
-[map."npc-codex/rules/prestige-class-npcs/arcane-trickster"]
-derived = "json/prestige_classes.json#arcane_trickster|section:arcane-trickster"
-
-[map."npc-codex/rules/prestige-class-npcs/assassin"]
-derived = "json/prestige_classes.json#assassin|section:assassin"
-
-[map."npc-codex/rules/prestige-class-npcs/dragon-disciple"]
-derived = "json/prestige_classes4.json#dragon_disciple|section:dragon-disciple"
-
-[map."npc-codex/rules/prestige-class-npcs/duelist"]
-derived = "json/prestige_classes4.json#duelist|section:duelist"
-
-[map."npc-codex/rules/prestige-class-npcs/eldritch-knight"]
-derived = "json/prestige_classes4.json#eldritch_knight|section:eldritch-knight"
-
-[map."npc-codex/rules/prestige-class-npcs/loremaster"]
-derived = "json/prestige_classes2.json#loremaster|section:loremaster"
-
-[map."npc-codex/rules/prestige-class-npcs/mystic-theurge"]
-derived = "json/prestige_classes2.json#mystic_theurge|section:mystic-theurge"
-
-[map."npc-codex/rules/prestige-class-npcs/pathfinder-chronicler"]
-derived = "json/prestige_classes4.json#pathfinder_chronicler|section:pathfinder-chronicler"
-
-[map."npc-codex/rules/prestige-class-npcs/shadowdancer"]
-derived = "json/prestige_classes3.json#shadowdancer|section:shadowdancer"
 
 [map."pf-data/rule/magic"]
 record = "json/rules_basics04.json#magic"
 
 [map."ultimate-campaign/rules/campaign-systems/companions"]
 derived = "json/rules_campaign_types05.json#special_abilities_ucp|row:companions"
-
-[map."ultimate-campaign/rules/campaign-systems/exploration"]
-derived = "json/rules_campaign_types09.json#astral_plane_pa|section:exploration"
-
-[map."ultimate-combat/rules/class-archetypes/alchemist"]
-derived = "json/rules_adv_gm02.json#class_grafts_1|section:alchemist"
-
-[map."ultimate-combat/rules/class-archetypes/cavalier"]
-derived = "json/rules_adv_gm02.json#class_grafts_1|section:cavalier"
-
-[map."ultimate-combat/rules/class-archetypes/fighter"]
-derived = "json/classes2.json#fighter|section:fighter"
-
-[map."ultimate-combat/rules/class-archetypes/gunslinger"]
-derived = "json/rules_adv_gm02.json#class_grafts_2|section:gunslinger"
-
-[map."ultimate-combat/rules/class-archetypes/inquisitor"]
-derived = "json/rules_adv_gm02.json#class_grafts_2|section:inquisitor"
-
-[map."ultimate-combat/rules/class-archetypes/magus"]
-derived = "json/rules_adv_gm02.json#class_grafts_3|section:magus"
-
-[map."ultimate-combat/rules/class-archetypes/monk"]
-derived = "json/class_abilities5.json#weapon_groups|section:monk"
-
-[map."ultimate-combat/rules/class-archetypes/rogue"]
-derived = "json/classes8.json#rogue|section:rogue"
-
-[map."ultimate-combat/rules/mastering-combat/firearms"]
-derived = "json/class_abilities5.json#weapon_groups|section:firearms"
-
-[map."ultimate-combat/rules/mastering-combat/siege-engines"]
-derived = "json/class_abilities5.json#weapon_groups|section:siege-engines"
-
-[map."ultimate-equipment/rules/wondrous-items/chest"]
-derived = "json/equipment_misc.json#chest_huge|section:chest"
-
-[map."ultimate-magic/rules/spellcasting-class-options/alchemist"]
-derived = "json/rules_basics03.json#class_background_tables|section:alchemist"
-
-[map."ultimate-magic/rules/spellcasting-class-options/inquisitor"]
-derived = "json/rules_basics03.json#class_background_tables|section:inquisitor"
-
-[map."ultimate-magic/rules/spellcasting-class-options/magus"]
-derived = "json/rules_basics03.json#class_background_tables|section:magus"
-
-[map."ultimate-magic/rules/spellcasting-class-options/monk"]
-derived = "json/classes5.json#monk|section:monk"
-
-[map."ultimate-magic/rules/spellcasting-class-options/oracle"]
-derived = "json/rules_adv_gm02.json#class_grafts_3|section:oracle"
-
-[map."ultimate-magic/rules/spellcasting-class-options/summoner"]
-derived = "json/rules_adv_gm02.json#class_grafts_4|section:summoner"
-
-[map."ultimate-magic/rules/spellcasting-class-options/witch"]
-derived = "json/rules_adv_gm02.json#class_grafts_4|section:witch"
 
 [retired."advanced-players-guide/classes/alchemist"]
 reason = "no_source"
@@ -1305,6 +1021,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/barbarian"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/core-classes/barbarian/barbarian-archetypes/breaker"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -1345,6 +1065,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/bard"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/core-classes/bard/bard-archetypes/arcane-duelist"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -1381,9 +1105,17 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/cleric"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/core-classes/core-classes"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."advanced-players-guide/rules/core-classes/druid"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."advanced-players-guide/rules/core-classes/druid/druid-archetypes/animal-shamans"]
 reason = "no_source"
@@ -1428,6 +1160,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."advanced-players-guide/rules/core-classes/druid/druid-archetypes/urban-druid"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."advanced-players-guide/rules/core-classes/fighter"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."advanced-players-guide/rules/core-classes/fighter/fighter-archetypes/archer"]
 reason = "no_source"
@@ -1477,6 +1213,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/monk"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/core-classes/monk/monk-archetypes/drunken-master"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -1517,6 +1257,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/paladin"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/core-classes/paladin/antipaladin"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -1544,6 +1288,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."advanced-players-guide/rules/core-classes/paladin/paladin-archetypes/warrior-of-the-holy-light"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."advanced-players-guide/rules/core-classes/ranger"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."advanced-players-guide/rules/core-classes/ranger/ranger-archetypes/beast-master"]
 reason = "no_source"
@@ -1576,6 +1324,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."advanced-players-guide/rules/core-classes/ranger/ranger-archetypes/urban-ranger"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."advanced-players-guide/rules/core-classes/rogue"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."advanced-players-guide/rules/core-classes/rogue/rogue-archetypes/acrobat"]
 reason = "no_source"
@@ -1625,9 +1377,21 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."advanced-players-guide/rules/core-classes/sorcerer"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."advanced-players-guide/rules/core-classes/wizard"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."advanced-players-guide/rules/feats"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."advanced-players-guide/rules/feats/feat-descriptions"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."advanced-players-guide/rules/feats/types-of-feats"]
 reason = "no_source"
@@ -13317,6 +13081,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."bestiary/rules/encounter-tables/desert"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/encounter-tables/dungeon-high-level"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -13352,6 +13120,14 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."bestiary/rules/encounter-tables/savannah-warm-plains"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."bestiary/rules/encounter-tables/swamp"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/encounter-tables/underground"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/encounter-tables/urban-dangerous-city"]
 reason = "no_source"
@@ -13457,9 +13233,25 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/amphibious"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/attach"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/bleed"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/blindsense"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/blindsight"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/blood-drain"]
 reason = "no_source"
@@ -13468,6 +13260,10 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 [retired."bestiary/rules/universal-monster-rules/blood-rage"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/breath-weapon"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/burn"]
 reason = "no_source"
@@ -13509,9 +13305,21 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."bestiary/rules/universal-monster-rules/disease"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/distraction"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/earth-glide"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/energy-drain"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/engulf"]
 reason = "no_source"
@@ -13521,9 +13329,25 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/fast-healing"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/fast-swallow"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/fear"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/ferocity"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/flight"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/freeze"]
 reason = "no_source"
@@ -13537,6 +13361,10 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/grab"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/heat"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
@@ -13544,6 +13372,14 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 [retired."bestiary/rules/universal-monster-rules/hold-breath"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/immunity"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/incorporeal"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/jet"]
 reason = "no_source"
@@ -13556,6 +13392,18 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 [retired."bestiary/rules/universal-monster-rules/lifesense"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/light-blindness"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/light-sensitivity"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/low-light-vision"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/lycanthropic-empathy"]
 reason = "no_source"
@@ -13581,6 +13429,10 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/paralysis"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/plant-traits"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
@@ -13605,9 +13457,33 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/rake"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/regeneration"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/rend"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/resistance"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/rock-catching"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/rock-throwing"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/scent"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/see-in-darkness"]
 reason = "no_source"
@@ -13620,6 +13496,10 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 [retired."bestiary/rules/universal-monster-rules/spell-like-abilities"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/spell-resistance"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/split"]
 reason = "no_source"
@@ -13653,6 +13533,14 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
 
+[retired."bestiary/rules/universal-monster-rules/tremorsense"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."bestiary/rules/universal-monster-rules/trip"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."bestiary/rules/universal-monster-rules/undead-traits"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
@@ -13660,6 +13548,10 @@ note = "allowlisted rule derivation is not extracted from the pinned host; no ca
 [retired."bestiary/rules/universal-monster-rules/undersized-weapons"]
 reason = "no_source"
 note = "allowlisted rule derivation is not extracted from the pinned host; no canonical record exists yet"
+
+[retired."bestiary/rules/universal-monster-rules/unnatural-aura"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."bestiary/rules/universal-monster-rules/vulnerabilities"]
 reason = "no_source"
@@ -14521,6 +14413,14 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."core-rulebook/rules/additional-rules/exploration"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."core-rulebook/rules/additional-rules/movement"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."core-rulebook/rules/additional-rules/vital-statistics"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -14740,6 +14640,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."core-rulebook/rules/environment/urban-adventures"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."core-rulebook/rules/environment/weather"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."core-rulebook/rules/environment/wilderness"]
 reason = "no_source"
@@ -20565,6 +20469,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."game-mastery-guide/rules/fast-play-ship-combat/water"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."game-mastery-guide/rules/haunts"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -20624,6 +20532,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."game-mastery-guide/rules/planar-adventures"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."game-mastery-guide/rules/planar-adventures/planar"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."game-mastery-guide/rules/planar-adventures/planar-traits"]
 reason = "no_source"
@@ -20852,6 +20764,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."monster-codex/rules/drow"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."monster-codex/rules/drow/drow"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."monster-codex/rules/drow/encounters"]
 reason = "no_source"
@@ -22176,6 +22092,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."monster-codex/rules/trolls/new-rules/troll-spells/trial-of-fire-and-acid"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."monster-codex/rules/trolls/trolls"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."monster-codex/rules/vampires"]
 reason = "no_source"
@@ -23741,6 +23661,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/barbarian"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/barbarian/barbarians/arcane-experimenter"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -23821,6 +23745,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/bard"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/bard/bards/chameleon"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -23900,6 +23828,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/core-class-npcs/bard/bards/tunnel-drummer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/core-class-npcs/cleric"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/core-class-npcs/cleric/clerics/carousing-champion"]
 reason = "no_source"
@@ -23985,6 +23917,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/druid"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/druid/druids/castaway"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24064,6 +24000,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/core-class-npcs/druid/druids/water-merchant"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/core-class-npcs/fighter"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/core-class-npcs/fighter/fighters/adventuring-blacksmith"]
 reason = "no_source"
@@ -24145,6 +24085,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/monk"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/monk/monks/ageless-master"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24224,6 +24168,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/core-class-npcs/monk/monks/warren-chief"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/core-class-npcs/paladin"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/core-class-npcs/paladin/paladins/axe-lord"]
 reason = "no_source"
@@ -24305,6 +24253,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/ranger"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/ranger/rangers/angel-slayer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24384,6 +24336,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/core-class-npcs/ranger/rangers/undead-slayer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/core-class-npcs/rogue"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/core-class-npcs/rogue/rogues/blade-lord"]
 reason = "no_source"
@@ -24465,6 +24421,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/core-class-npcs/sorcerer"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/core-class-npcs/sorcerer/sorcerers/arisen-sorcerer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24544,6 +24504,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/core-class-npcs/sorcerer/sorcerers/whiteclaw-sorcerer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/core-class-npcs/wizard"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/core-class-npcs/wizard/wizards/battle-mage"]
 reason = "no_source"
@@ -24629,6 +24593,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/npc-class-npcs/adept"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/npc-class-npcs/adept/adepts/acolyte"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24668,6 +24636,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/npc-class-npcs/adept/adepts/shaman"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/npc-class-npcs/aristocrat"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/npc-class-npcs/aristocrat/aristocrats/diplomat"]
 reason = "no_source"
@@ -24709,6 +24681,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/npc-class-npcs/commoner"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/npc-class-npcs/commoner/commoners/accomplished-angler"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24748,6 +24724,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/npc-class-npcs/commoner/commoners/village-elder"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/npc-class-npcs/expert"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/npc-class-npcs/expert/experts/apprentice-jeweler"]
 reason = "no_source"
@@ -24793,6 +24773,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/npc-class-npcs/warrior"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/npc-class-npcs/warrior/warriors/aloof-archer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24837,6 +24821,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/prestige-class-npcs/arcane-archer"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/prestige-class-npcs/arcane-archer/arcane-archers/chaos-arrow"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24852,6 +24840,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/prestige-class-npcs/arcane-archer/arcane-archers/undead-bane"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/prestige-class-npcs/arcane-trickster"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/prestige-class-npcs/arcane-trickster/arcane-tricksters/arcanothief"]
 reason = "no_source"
@@ -24869,6 +24861,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/prestige-class-npcs/assassin"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/prestige-class-npcs/assassin/assassins/death-initiate"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24884,6 +24880,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/prestige-class-npcs/assassin/assassins/sacred-killer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/prestige-class-npcs/dragon-disciple"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/prestige-class-npcs/dragon-disciple/dragon-disciples/acid-terror"]
 reason = "no_source"
@@ -24901,6 +24901,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/prestige-class-npcs/duelist"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/prestige-class-npcs/duelist/duelists/feisty-hotspur"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24916,6 +24920,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/prestige-class-npcs/duelist/duelists/tribal-champion"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/prestige-class-npcs/eldritch-knight"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/prestige-class-npcs/eldritch-knight/eldritch-knights/champion-of-magic"]
 reason = "no_source"
@@ -24933,6 +24941,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/prestige-class-npcs/loremaster"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/prestige-class-npcs/loremaster/loremasters/demonologist"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24949,6 +24961,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."npc-codex/rules/prestige-class-npcs/mystic-theurge"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."npc-codex/rules/prestige-class-npcs/mystic-theurge/mystic-theurges/celestial-theurge"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -24964,6 +24980,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/prestige-class-npcs/mystic-theurge/mystic-theurges/sound-warrior"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/prestige-class-npcs/pathfinder-chronicler"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/prestige-class-npcs/pathfinder-chronicler/pathfinder-chroniclers/aloof-scholar"]
 reason = "no_source"
@@ -24984,6 +25004,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."npc-codex/rules/prestige-class-npcs/prestige-classes"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."npc-codex/rules/prestige-class-npcs/shadowdancer"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."npc-codex/rules/prestige-class-npcs/shadowdancer/shadowdancers/black-ice"]
 reason = "no_source"
@@ -25816,6 +25840,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-campaign/rules/campaign-systems/contacts"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-campaign/rules/campaign-systems/exploration"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-campaign/rules/campaign-systems/honor"]
 reason = "no_source"
@@ -27845,6 +27873,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-combat/rules/class-archetypes/alchemist"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-combat/rules/class-archetypes/alchemist/alchemist-archetypes/beastmorph"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -27900,6 +27932,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/class-archetypes/bard/bard-archetypes/dervish-dancer"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/class-archetypes/cavalier"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/class-archetypes/cavalier/cavalier-archetypes/beast-rider"]
 reason = "no_source"
@@ -27977,6 +28013,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-combat/rules/class-archetypes/fighter"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-combat/rules/class-archetypes/fighter/fighter-archetypes/armor-master"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -28017,6 +28057,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-combat/rules/class-archetypes/gunslinger"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-combat/rules/class-archetypes/gunslinger/gunslinger-archetypes/gun-tank"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -28033,6 +28077,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-combat/rules/class-archetypes/inquisitor"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-combat/rules/class-archetypes/inquisitor/inquisitor-archetypes/iconoclast"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -28044,6 +28092,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/class-archetypes/inquisitor/inquisitor-archetypes/witch-hunter"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/class-archetypes/magus"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/class-archetypes/magus/magus-archetypes/kensai"]
 reason = "no_source"
@@ -28060,6 +28112,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/class-archetypes/magus/magus-archetypes/soul-forger"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/class-archetypes/monk"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/class-archetypes/monk/monk-archetypes/flowing-monk"]
 reason = "no_source"
@@ -28144,6 +28200,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/class-archetypes/ranger/ranger-archetypes/wild-stalker"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/class-archetypes/rogue"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/class-archetypes/rogue/rogue-archetypes/bandit"]
 reason = "no_source"
@@ -28428,6 +28488,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-weapons/weapon-descriptions/wushu-dart"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/mastering-combat/firearms"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/mastering-combat/firearms/firearm-descriptions/advanced-firearms/revolver"]
 reason = "no_source"
@@ -28772,6 +28836,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-combat/rules/mastering-combat/primitive-armor-and-weapons/the-stone-age/wahaika"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-combat/rules/mastering-combat/siege-engines"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-combat/rules/mastering-combat/siege-engines/siege-weapon-descriptions/ballista"]
 reason = "no_source"
@@ -35401,6 +35469,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-equipment/rules/wondrous-items/chest"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-equipment/rules/wondrous-items/chest/chest-slot-wondrous-items/all-tools-vest"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -38397,6 +38469,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-magic/rules/spellcasting-class-options/alchemist"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-magic/rules/spellcasting-class-options/alchemist/alchemist-archetypes/chirurgeon"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -38517,6 +38593,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-magic/rules/spellcasting-class-options/inquisitor"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-magic/rules/spellcasting-class-options/inquisitor/inquisitor-archetypes/exorcist"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -38537,6 +38617,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-magic/rules/spellcasting-class-options/magus"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-magic/rules/spellcasting-class-options/magus/magus-archetypes/bladebound"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -38552,6 +38636,14 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-magic/rules/spellcasting-class-options/magus/magus-archetypes/staff-magus"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-magic/rules/spellcasting-class-options/monk"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
+[retired."ultimate-magic/rules/spellcasting-class-options/oracle"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-magic/rules/spellcasting-class-options/oracle/oracle-archetypes/dual-cursed-oracle"]
 reason = "no_source"
@@ -38649,6 +38741,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 
+[retired."ultimate-magic/rules/spellcasting-class-options/summoner"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
+
 [retired."ultimate-magic/rules/spellcasting-class-options/summoner/summoner-archetypes/broodmaster"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
@@ -38664,6 +38760,10 @@ note = "alias not yet reviewed; no canonical derivation or approved carry-over"
 [retired."ultimate-magic/rules/spellcasting-class-options/summoner/summoner-archetypes/synthesist"]
 reason = "no_source"
 note = "alias not yet reviewed; no canonical derivation or approved carry-over"
+
+[retired."ultimate-magic/rules/spellcasting-class-options/witch"]
+reason = "no_source"
+note = "derived-rule slug coincidence; not a verified match"
 
 [retired."ultimate-magic/rules/spellcasting-class-options/witch/witch-archetypes/beast-bonded"]
 reason = "no_source"
