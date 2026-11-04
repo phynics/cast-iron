@@ -125,10 +125,13 @@ Issue [#34](https://github.com/phynics/cast-iron/issues/34) owns the open licens
 decisions. The current production scope remains PSRD-Data plus one reviewed Pf Data
 record.
 
-- **Apollyon Clasp / Spiral of Bones #5:** comics are out of scope permanently.
-  Apollyon Clasp stays excluded; no further evidence will be sought.
-- **Paizo Blog Hodgepodge:** ignored for now and tracked in
+- **Comics:** records whose only publications are *Pathfinder Comics* or
+  *Pathfinder Spiral of Bones* are out of scope permanently, including Apollyon
+  Clasp / *Spiral of Bones #5*. No further evidence will be sought.
+- **Paizo Blog:** records whose only publication is one of the five registered
+  blogs are ignored for now and tracked in
   [#36](https://github.com/phynics/cast-iron/issues/36) for a possible return.
+  Records also published in an in-scope PF1e book stay.
 - **PF2 material:** two PF2 publications are registered (`Monster Core`,
   `Bestiary 3 (2nd Edition)`). Eight tagged records, the `main.json#ogc` ORC
   notice, and the untagged PF2 *Player Core* description in

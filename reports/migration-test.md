@@ -2,21 +2,33 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 42 selected, 23 converted. Canonical data 205626 bytes; search 87434 bytes. 69 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 21 converted. Canonical data 195685 bytes; search 82574 bytes. 63 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
 Scope: `representative`. Input digest `0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083`.
 
-- Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission
 - Corpus-wide Product Identity screening and source notice reconciliation are incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
+- Comics are excluded permanently; Paizo Blog records are deferred to issue #36
 - Conversion still has critical or high findings; see complete diagnostics
 - Mandatory fixture checks have not all passed
 
 Out-of-scope input, excluded before selection:
 
+- `json/archetypes_magus.json#sorrowblade` (Sorrowblade): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/archetypes_skald.json#elegist` (Elegist): Comic publication. Comics are out of scope permanently. Tracked in #34.
 - `json/equipment_weapons2.json#gnome_flick_mace` (Gnome flick-mace): The PF1e record had no description; the imported prose is taken from PF2 Player Core and is not PF1e OGL content. Tracked in #34.
+- `json/feat12.json#psychovore_master` (Psychovore Master): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/feat12.json#psychovore_strike` (Psychovore Strike): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/feat12.json#psychovore_style` (Psychovore Style): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_weapon.json#bonespur_dagger` (Bonespur Dagger): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_weapon2.json#jackals_blade` (Jackal's Blade): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_wondrous_belt_body_chest.json#belt_of_trelmarixian` (Belt of Trelmarixian): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_wondrous_head_headband.json#bridle_of_charon` (Bridle of Charon): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_wondrous_head_headband.json#mortuary_mask` (Mortuary Mask): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_wondrous_neck.json#apollyon_clasp` (Apollyon Clasp): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/magic_wondrous_slotless06.json#szuriels_scabbard` (Szuriel's Scabbard): Comic publication. Comics are out of scope permanently. Tracked in #34.
 - `json/main.json#ogc` (Licenses): Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34.
 - `json/monster_families.json#alghollthu` (Alghollthu): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families.json#dark_folk` (Dark Folk): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
@@ -26,6 +38,17 @@ Out-of-scope input, excluded before selection:
 - `json/monster_families2.json#genie` (Genie): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families2.json#naga` (Naga): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families2.json#troll` (Troll): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/prestige_classes.json#thought_thief_arcane_trickster` (Thought Thief (Arcane Trickster)): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/races2.json#primitive_human` (Primitive Human): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells10.json#teratoid_caress` (Teratoid Caress): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/spells13.json#drench` (Drench): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells16.json#summon_barghest_1` (Summon Barghest I): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/spells2.json#breeze` (Breeze): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells3.json#demon_dream` (Demon Dream): Comic publication. Comics are out of scope permanently. Tracked in #34.
+- `json/spells6.json#jolt` (Jolt): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells7.json#penumbra` (Penumbra): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells8.json#root` (Root): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
+- `json/spells8.json#scoop` (Scoop): Paizo Blog publication. Blog records are ignored for now and tracked in #36.
 
 Fixture checks:
 
@@ -35,8 +58,6 @@ Fixture checks:
 - Arcing Weapon: not passed. Failed checks: references.
 - Realm Retribution: not passed. Failed checks: references.
 - Apocalyptic Spell: not passed. Failed checks: references.
-- Thought Thief: not passed. Failed checks: references.
-- Apollyon Clasp: not passed. Failed checks: references.
 
 Findings:
 
@@ -80,11 +101,6 @@ Findings:
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: magic-artifact/sphere_of_annihilation
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: rule/shadowbound
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: umr/fast_healing
-- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: faith/apollyon
-- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: family/daemon
-- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: feat/craft_wondrous_item
-- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: misc/sickened
-- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: spell/vomit_swarm
 - high: `json/monsters01.json#aashaqs_wyvern`: unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco; unsupported semantic renderer for directive ::aff
 - high: `json/monsters01.json#aasimar`: unsupported encoded skills values on ::mstats; unsupported coded treasure value on ::meco
 - high: `json/monsters01.json#aatheriexa`: unknown attribute month on ::mspell; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco
@@ -185,9 +201,6 @@ Findings:
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/ride
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/stealth
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/survival
-- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: pclass/arcane_trickster
-- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: spell/dominate_person
-- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: spell/mage_hand
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: class/wizard
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp

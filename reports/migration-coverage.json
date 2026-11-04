@@ -1172,7 +1172,7 @@
     "Pathfinder #125 Tower of the Drowned Dead",
     "Pathfinder #18: Descent Into Midnight"
   ],
-  "out_of_scope_records": 10,
+  "out_of_scope_records": 33,
   "production_default": "psrd-data",
   "cutover_verified": false
 }

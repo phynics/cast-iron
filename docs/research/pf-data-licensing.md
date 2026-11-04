@@ -76,6 +76,11 @@ still reports them, and the migration report lists them as out-of-scope input. N
 PF2 record or ORC notice enters the PF1e library or the OGL legal page. The source
 pin hashes the ORC and GNU license files so a changed notice cannot pass unnoticed.
 
+Records whose only publications are comics or Paizo Blog posts are also out of
+scope. Comics are excluded permanently; blog-only records are deferred to issue
+#36. A record that also appears in an in-scope PF1e book stays, so shared PF1e
+material is not lost.
+
 The filter is clean for known contamination. Residual risk is untagged PF2 prose
 that does not name its edition; the audit found no other instance, but a bulk
 cutover still needs per-record review. `json/faiths4.json#grandmother_spider`

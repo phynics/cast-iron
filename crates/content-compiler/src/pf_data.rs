@@ -198,15 +198,24 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
         .records
         .iter()
         .filter_map(|record| {
-            let reason = policy
+            let record_reason = policy
                 .records
-                .get(&format!("{}#{}", record.path, record.key))
-                .or_else(|| {
-                    record
-                        .publications
-                        .iter()
-                        .find_map(|publication| policy.publications.get(publication))
-                })?;
+                .get(&format!("{}#{}", record.path, record.key));
+            // A record with several publications stays in scope when at least one
+            // publication is in scope. Only blog/comic/PF2-only records are excluded.
+            let publication_reason = (!record.publications.is_empty()
+                && record
+                    .publications
+                    .iter()
+                    .all(|publication| policy.publications.contains_key(publication)))
+            .then(|| {
+                record
+                    .publications
+                    .iter()
+                    .find_map(|publication| policy.publications.get(publication))
+            })
+            .flatten();
+            let reason = record_reason.or(publication_reason)?;
             Some(OutOfScope {
                 path: record.path.clone(),
                 key: record.key.clone(),
@@ -343,8 +352,6 @@ pub const FIXTURES: &[&str] = &[
     "Arcing Weapon",
     "Realm Retribution",
     "Apocalyptic Spell",
-    "Thought Thief",
-    "Apollyon Clasp",
 ];
 
 #[derive(Debug, Serialize)]
@@ -481,9 +488,9 @@ fn run_import(
         schema_errors: 0,
         publication_ready: false,
         cutover_blockers: vec![
-            "Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission".into(),
             "Corpus-wide Product Identity screening and source notice reconciliation are incomplete".into(),
             "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated".into(),
+            "Comics are excluded permanently; Paizo Blog records are deferred to issue #36".into(),
         ],
         browser_verification: "not run; isolated compiler experiment".into(),
     };
@@ -698,18 +705,6 @@ fn run_import(
                 Some("22"),
                 "spell slot 1 level higher",
                 EntryKind::Feat,
-            ),
-            "Thought Thief" => (
-                "Paizo Blog - Hodgepodge from the Grand Lodge",
-                None,
-                "archetype of",
-                EntryKind::Archetype,
-            ),
-            "Apollyon Clasp" => (
-                "Pathfinder Spiral of Bones #5",
-                Some("29"),
-                "8d6",
-                EntryKind::Item,
             ),
             _ => return Err(format!("fixture expectations missing: {fixture}")),
         };
@@ -1231,6 +1226,14 @@ mod tests {
         );
         assert!(inventory.out_of_scope.iter().any(|record| {
             record.path == "json/equipment_weapons2.json" && record.key == "gnome_flick_mace"
+        }));
+        assert!(inventory.out_of_scope.iter().any(|record| {
+            record.path == "json/prestige_classes.json"
+                && record.key == "thought_thief_arcane_trickster"
+        }));
+        // A record that also appears in an in-scope PF1e book stays in scope.
+        assert!(!inventory.out_of_scope.iter().any(|record| {
+            record.path == "json/rules_basics01.json" && record.key == "rare_races"
         }));
         assert!(
             !inventory
