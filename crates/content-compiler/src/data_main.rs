@@ -1,5 +1,6 @@
 //! Isolated migration commands. A blocked gate exits nonzero after writing evidence.
 use cast_iron_content_compiler::alias::{self, IdMap, LegacySnapshot};
+use cast_iron_content_compiler::alias_propose;
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
@@ -21,7 +22,12 @@ fn run() -> Result<(), String> {
     let mut map = None;
     let mut legacy = None;
     let mut content = None;
+    let mut apply = false;
     while let Some(flag) = args.next() {
+        if flag == "--apply" {
+            apply = true;
+            continue;
+        }
         let value = PathBuf::from(args.next().ok_or_else(|| format!("{flag} needs a value"))?);
         match flag.as_str() {
             "--dataset" => dataset = Some(value),
@@ -35,7 +41,14 @@ fn run() -> Result<(), String> {
         }
     }
     if ![
-        "audit", "import", "validate", "report", "legal", "test", "alias",
+        "audit",
+        "import",
+        "validate",
+        "report",
+        "legal",
+        "test",
+        "alias",
+        "alias-propose",
     ]
     .contains(&command.as_str())
     {
@@ -53,6 +66,19 @@ fn run() -> Result<(), String> {
             .ok_or("registry has no parent")?
             .join("derived-rules.json"),
     )?;
+    if command == "alias-propose" {
+        return write_proposals(
+            &inv,
+            &allowlist,
+            map.as_deref()
+                .unwrap_or(std::path::Path::new("sources/canonical/id-map.toml")),
+            legacy
+                .as_deref()
+                .unwrap_or(std::path::Path::new("sources/canonical/legacy-ids.json")),
+            &out,
+            apply,
+        );
+    }
     if command == "alias" {
         return write_aliases(
             &inv,
@@ -222,6 +248,44 @@ fn pi_screen_summary(inv: &cast_iron_content_compiler::pf_data::Inventory) -> se
         "records": records.len(),
         "by_category": by_category,
     })
+}
+
+/// Proposes dispositions for every `no_source` row and optionally applies them.
+///
+/// The command is deterministic and idempotent. It writes the proposed map and a
+/// JSON report under `--out`, then rewrites the committed map only with `--apply`.
+fn write_proposals(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    allowlist: &RuleAllowlist,
+    map_path: &std::path::Path,
+    legacy_path: &std::path::Path,
+    output_dir: &std::path::Path,
+    apply: bool,
+) -> Result<(), String> {
+    let snapshot_bytes = std::fs::read(legacy_path)
+        .map_err(|e| format!("cannot read {}: {e}", legacy_path.display()))?;
+    let snapshot = LegacySnapshot::parse(&snapshot_bytes)
+        .map_err(|e| format!("invalid {}: {e}", legacy_path.display()))?;
+    let original = std::fs::read_to_string(map_path)
+        .map_err(|e| format!("cannot read {}: {e}", map_path.display()))?;
+    let map =
+        IdMap::parse(&original).map_err(|e| format!("invalid {}: {e}", map_path.display()))?;
+    let catalog = alias::catalog_from_inventory(inv, allowlist)?;
+    let report = alias_propose::propose(&map, &snapshot, &catalog)?;
+    alias_propose::validate_targets(&report)?;
+    alias_propose::write(&report, &original, map_path, output_dir, apply)?;
+    println!("{}", report.report());
+    println!(
+        "wrote {} and {}",
+        output_dir.join("id-map.proposed.toml").display(),
+        output_dir.join("alias-proposals.json").display()
+    );
+    if apply {
+        println!("applied proposals to {}", map_path.display());
+    } else {
+        println!("dry run; pass --apply to rewrite {}", map_path.display());
+    }
+    Ok(())
 }
 
 fn main() -> ExitCode {
