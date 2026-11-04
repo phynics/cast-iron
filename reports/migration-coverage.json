@@ -3847,13 +3847,13 @@
   "production_default": "psrd-data",
   "cutover_verified": false,
   "derived_rules": {
-    "scope": "representative",
+    "scope": "full-input",
     "allowlist": 178,
     "available": 178,
-    "expected": 1,
-    "derived": 1,
-    "sections": 1,
-    "rows": 0,
-    "skipped": 0
+    "expected": 178,
+    "derived": 169,
+    "sections": 139,
+    "rows": 30,
+    "skipped": 9
   }
 }

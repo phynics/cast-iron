@@ -1522,49 +1522,32 @@ fn rewrite_derived_directives(
     }
 }
 
-/// The reviewed reminder text for each upstream addendum codeword. The pinned
-/// source stores only the codeword; these strings are the app's published notes.
-fn addendum_message(code: &str) -> Option<&'static str> {
-    Some(match code {
-        "1pt" => "This is a 1-point evolution.",
-        "2pts" => "This is a 2-point evolution.",
-        "3pts" => "This is a 3-point evolution.",
-        "4pts" => "This is a 4-point evolution.",
-        "uniquepatron" => "This is a unique patron that modifies aspects of a base patron.",
-        "primarybomb" => {
-            "This discovery modifies an alchemist's bomb, and has this limitation: These discoveries do not stack - only one such discovery can be applied to an individual bomb."
-        }
-        "devilbane" => {
-            "Devilbane gazes tend to be more limited in their scope than standard bold stare improvements, but cut to the core of an outsider's being. When a devilbane gaze is used against a creature with the outsider type, double the hypnotic stare penalty applied by the devilbane gaze improvement (but not the Will save penalty the original hypnotic stare imposes). Despite their moniker, devilbane gazes affect all outsiders equally well."
-        }
-        "studiedstrike" => {
-            "This type of talent adds effects to an investigator's studied combat or studied strike, and has this limitation: Only one of these talents can be applied to an individual attack, but the decision can be made when the damage is dealt."
-        }
-        "avenger" => "This talent can only be taken by avenger vigilantes.",
-        "stalker" => "This talent can only be taken by stalker vigilantes.",
-        "hiddenstrike" => {
-            "This type of talent can only be taken by stalker vigilantes, and it has a limitation: only one talent of this type can be added to a given hidden strike, and only when that hidden strike is dealt against a foe that is unaware of the stalker vigilante's presence (or who considers him an ally), unless otherwise noted."
-        }
-        "ninjasneak" => {
-            "This type of talent adds effects to a ninja's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
-        }
-        "sneakattack" => {
-            "This type of talent adds effects to a rogue's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
-        }
-        "slayersneak" => {
-            "This type of talent adds effects to a slayer's sneak attack, and has this limitation: Only one of these talents can be applied to an individual attack and the decision must be made before the attack roll is made."
-        }
-        "blood" => {
-            "Blood rage powers grant powers in a theme. A barbarian cannot select from more than one group of blood rage powers."
-        }
-        "totem" => {
-            "Totem rage powers are only available to barbarians taking the Totem Warrior archetype. A barbarian cannot select from more than one group of totem rage powers; for example, a barbarian who selects a beast totem rage power cannot later choose to gain any of the dragon totem rage powers (any rage power with \"dragon totem\" in its title)."
-        }
-        _ => return None,
-    })
-}
+/// Upstream addendum codewords. The pinned OGC `json/` stores only the codeword;
+/// the reminder text exists only in upstream application code, which is GPL and not
+/// Open Game Content (AGENTS.md rule 12). The codeword is therefore validated and the
+/// omitted reminder is recorded as coverage instead of being copied.
+const ADDENDUM_CODEWORDS: &[&str] = &[
+    "1pt",
+    "2pts",
+    "3pts",
+    "4pts",
+    "avenger",
+    "blood",
+    "devilbane",
+    "hiddenstrike",
+    "ninjasneak",
+    "primarybomb",
+    "slayersneak",
+    "sneakattack",
+    "stalker",
+    "studiedstrike",
+    "totem",
+    "uniquepatron",
+];
 
-fn addenda_markdown(raw: &Value) -> Result<Vec<String>, String> {
+const ADDENDUM_REASON: &str = "The upstream record names a reminder by codeword only. Its text lives in the upstream renderer code, which is GPL and not Open Game Content, so it is not copied; the record body is complete without it.";
+
+fn addenda_codewords(raw: &Value) -> Result<Vec<&str>, String> {
     let Some(value) = raw.get("addenda") else {
         return Ok(Vec::new());
     };
@@ -1576,9 +1559,10 @@ fn addenda_markdown(raw: &Value) -> Result<Vec<String>, String> {
         let code = code
             .as_str()
             .ok_or_else(|| "non-string addenda codeword".to_string())?;
-        let message =
-            addendum_message(code).ok_or_else(|| format!("unknown addenda codeword {code}"))?;
-        out.push(format!("*{message}*"));
+        if !ADDENDUM_CODEWORDS.contains(&code) {
+            return Err(format!("unknown addenda codeword {code}"));
+        }
+        out.push(code);
     }
     Ok(out)
 }
@@ -1593,10 +1577,16 @@ fn convert(
         return Err(format!("{} expansion is not implemented", r.shape));
     }
     // Table references have already been expanded by pf_records. Addenda are
-    // upstream codewords that append a reviewed rules reminder to the item.
-    let addenda = addenda_markdown(&r.raw)?;
-    let mut lines = description(&r.raw)?;
-    lines.extend(addenda);
+    // upstream codewords whose reminder text is not Open Game Content.
+    for code in addenda_codewords(&r.raw)? {
+        coverage.record(
+            "addendum-reminder-omitted",
+            code,
+            ADDENDUM_REASON,
+            &format!("{}#{}", r.path, r.key),
+        );
+    }
+    let lines = description(&r.raw)?;
     if r.name.is_empty() || r.publications.is_empty() {
         return Err("missing name or publication metadata".into());
     }
@@ -2419,7 +2409,7 @@ mod tests {
     }
 
     #[test]
-    fn addenda_codewords_append_their_reviewed_reminder() {
+    fn addenda_codewords_are_coverage_not_copied_text() {
         let mut record = sample_record(&["## Sample Feat", "", "Base body."]);
         record.raw = serde_json::json!({
             "description": ["## Sample Feat", "", "Base body."],
@@ -2437,7 +2427,11 @@ mod tests {
         assert!(findings.is_empty(), "unexpected findings: {findings:?}");
         let text = blocks_text(&entry.body);
         assert!(text.contains("Base body."), "{text}");
-        assert!(text.contains("rogue's sneak attack"), "{text}");
+        assert!(!text.contains("sneak attack"), "{text}");
+        let rows = coverage.into_rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].category, "addendum-reminder-omitted");
+        assert_eq!(rows[0].detail, "sneakattack");
 
         record.raw = serde_json::json!({
             "description": ["## Sample Feat", "", "Base body."],
