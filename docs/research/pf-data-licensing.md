@@ -20,6 +20,13 @@ Cast Iron must preserve complete applicable notices and screen imported text.
 Upstream renderer code is not being copied. `routes.json` contains factual
 file-to-protocol associations extracted without executing that renderer.
 
+Production imports exactly one reviewed record from this pin:
+`pf-data/rule/magic`, the Core Rulebook page 206 opening passage, which is
+ordinary OGC game mechanics under the OGL. The compiler appends the pin's complete
+Section 15 list to the legal page and records the dataset. Every other record
+remains excluded from the library. This does not expand the rights review to the
+rest of the corpus.
+
 The source registry includes `Monster Core`, and upstream has a separate
 `ORCLICENSE.md` for that publication. It is not cleared by the OGL notice.
 Keep its content outside the OGL publication path until independently reviewed.

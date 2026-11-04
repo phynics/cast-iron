@@ -42,6 +42,22 @@ test("Book routes, legacy routes, and separate class categories work offline", a
   await expect(page.locator(".toc")).toContainText("Magus");
 });
 
+test("Reviewed primary-source passage appears under the Core Rulebook Magic article", async ({ page, context }) => {
+  const id = "pf-data/rule/magic";
+  expect(corpus.entries.get(id)?.title).toBe("Magic and Spellcasting");
+  await waitControlled(page);
+  await context.setOffline(true);
+  await page.goto("#/entry/core-rulebook/rules/magic");
+  await expect(page.getByRole("heading", { level: 1, name: "Magic", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Magic and Spellcasting", exact: true }).first().click();
+  await expect(page).toHaveURL(/#\/entry\/pf-data\/rule\/magic$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Magic and Spellcasting" })).toBeVisible();
+  await expect(page.getByText("From creating a wisp of light", { exact: false })).toBeVisible();
+  await expect(page.getByText("PRPG Core Rulebook pg 206", { exact: false })).toBeVisible();
+  await page.getByRole("link", { name: "Casting Spells", exact: true }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Casting Spells" })).toBeVisible();
+});
+
 test("Browse is category-only and Books is the publication directory", async ({ page }) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Browse" }).click();

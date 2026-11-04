@@ -2,7 +2,9 @@
 
 Tracking issue: [#18](https://github.com/phynics/cast-iron/issues/18).
 This document records the migration design and observed limitations. Acceptance
-and outstanding work remain in the issue. The production source is still PSRD-Data.
+and outstanding work remain in the issue. PSRD-Data remains the primary production
+source. One explicitly reviewed primary-source record is now imported through the
+bounded adapter; the rest stays in coverage.
 
 The migration branch was rebased onto `0111ea7` after PR #7 and the subsequent
 removal of star transfer in PR #28. PR #7's runs `41732375845` and `41732382340`
@@ -78,6 +80,31 @@ Supplementary sources require independent pins and rights decisions. They are no
 automatically imported. AoN source indexes are a benchmark, not a bulk export API
 or a redistribution grant. Count a publication registry separately from publications
 with imported records.
+
+## Reviewed supplemental records
+
+`sources/pathfinder-data-1-e/approved.json` is the only path from the primary
+source into production. Each record names an exact file and key, an expected name
+and publication, a permanent native-protocol ID, an optional parent, a review
+reason, and the reviewed topic targets. The adapter rejects a mismatched identity,
+an unapproved field, an unknown link target, a duplicate ID, or an unknown parent.
+All remaining inventory records appear in `coverage.json` with a reason. The
+initial selection is `pf-data/rule/magic`, "Magic and Spellcasting", the missing
+Core Rulebook page 206 opening passage under the existing Magic article.
+
+`sources/psrd-data/source.toml` points at this selection in its `[supplement]`
+table. The compile therefore appends the reviewed entry after the ordinary build,
+adds its links and nested placement, appends the dataset pin and Section 15
+notices, and folds the full inventory exclusions into coverage. The PSRD selection
+digest still gates its own inputs; the coverage report's `input_digest` also covers
+the primary inventory digest.
+
+`cargo xtask data-fetch` verifies the archive hash and the individual input hashes
+before activation. The migration commands remain isolated: `data-report` writes
+`reports/migration-coverage.json` and the representative test files, while full
+corpus diagnostics stay under ignored `reports/migration-full.*`. A blocked gate
+still exits nonzero for `import`, `validate`, and `test`; it cannot alter
+`generated/content`.
 
 ## Migration and test sequence
 
