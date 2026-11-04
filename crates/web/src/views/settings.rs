@@ -95,6 +95,8 @@ pub fn Settings() -> impl IntoView {
     };
 
     let on_update_done = Callback::new(move |active: ActiveLibrary| app.activate(active));
+    // The conversion is retried on the next load, so this is a notice, not an error.
+    let conversion_pending = library.migration_refused();
 
     view! {
         <h1>"Settings"</h1>
@@ -148,6 +150,11 @@ pub fn Settings() -> impl IntoView {
                     VerifyState::Failed(message) => format!("Verification failed: {message}"),
                 }}
             </div>
+            {conversion_pending.then(|| view! {
+                <p class="notice" role="status" data-testid="migration-notice">
+                    "Saved items will be converted when storage is available."
+                </p>
+            })}
             <p><a href=Route::Legal.href()>"Legal and attribution, and library coverage"</a></p>
         </section>
 
