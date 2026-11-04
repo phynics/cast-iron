@@ -679,14 +679,14 @@ fn render_prof_directive(rest: &str) -> Result<String, String> {
         .filter(|key| attrs.contains_key(**key))
         .map(|key| format!("{} armor", field_label(key)))
         .collect();
-    let shields = if attrs.contains_key("shields") {
+    let shields = if let Some(value) = attr(&attrs, "shields") {
+        convert_encoded_links(value)
+    } else if attrs.contains_key("shields") {
         if attrs.contains_key("tower") {
             "Yes, including tower shields".to_string()
         } else {
             "Yes, except tower shields".to_string()
         }
-    } else if let Some(value) = attr(&attrs, "shields") {
-        convert_encoded_links(value)
     } else {
         "No".to_string()
     };
@@ -3057,6 +3057,17 @@ fn replace_inline(s: &str) -> Result<String, Vec<String>> {
 mod tests {
     use super::*;
     use crate::html::NullEnv;
+
+    #[test]
+    fn explicit_prof_shields_value_is_not_overwritten() {
+        // An explicit `shields="bucklers only"` must survive; only a bare `shields`
+        // flag falls back to the tower-shield wording.
+        let explicit = render_prof_directive("{shields=\"bucklers only\"}").unwrap();
+        assert!(explicit.contains("bucklers only"), "{explicit}");
+        let bare = render_prof_directive("{shields}").unwrap();
+        assert!(bare.contains("except tower shields"), "{bare}");
+    }
+
     #[test]
     fn extras_follow_upstream_rules() {
         let examples = [
