@@ -302,15 +302,19 @@ fn EntryView(
 
 #[component]
 fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
+    let library = use_library();
     let bookmark = RwSignal::new(None::<Bookmark>);
     let loaded = RwSignal::new(false);
     let writing = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);
     {
         let id = id.clone();
+        let library = library.clone();
         spawn_local(async move {
-            match store::get_bookmark(&id).await {
-                Ok(found) => bookmark.set(found),
+            // Pressed means "some stored row resolves to this id", not just the exact key.
+            let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+            match store::bookmarks_matching(matches).await {
+                Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
                 Err(e) => error.set(Some(e.to_string())),
             }
             loaded.set(true);
@@ -324,16 +328,30 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
         writing.set(true);
         let id = id.clone();
         let title = toggle_title.clone();
+        let library = library.clone();
         spawn_local(async move {
             error.set(None);
-            let result = if bookmark.get_untracked().is_some() {
-                store::delete_bookmark(&id).await.map(|_| None)
+            let pressed = bookmark.get_untracked().is_some();
+            let result = if pressed {
+                // Unstar removes every row that resolves here, so a legacy row cannot return.
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                store::delete_bookmarks_matching(matches).await.map(|_| ())
             } else {
-                let fresh = Bookmark::new(id, title, kind, js::now_ms());
-                store::put_bookmark(&fresh).await.map(|_| Some(fresh))
+                // Star adds nothing when a resolving row exists, so it cannot duplicate.
+                let fresh = Bookmark::new(id.clone(), title, kind, js::now_ms());
+                let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                store::put_bookmark_unless_matching(&fresh, matches)
+                    .await
+                    .map(|_| ())
             };
             match result {
-                Ok(next) => bookmark.set(next),
+                Ok(()) => {
+                    let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                    match store::bookmarks_matching(matches).await {
+                        Ok(rows) => bookmark.set(store::combine_saved_rows(&rows)),
+                        Err(e) => error.set(Some(e.to_string())),
+                    }
+                }
                 Err(e) => error.set(Some(format!("Could not update starred status: {e}"))),
             }
             writing.set(false);

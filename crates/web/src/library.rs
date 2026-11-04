@@ -98,6 +98,9 @@ struct Inner {
     disabled_books: RefCell<BTreeSet<String>>,
     selection_revision: RwSignal<u64>,
     selection_write_in_flight: RefCell<bool>,
+    /// Set when IndexedDB refused the id rewrite. The library still reads correctly through
+    /// `resolve`; Settings tells the reader that the conversion waits for storage.
+    migration_refused: RwSignal<bool>,
 }
 
 /// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2
@@ -177,10 +180,14 @@ impl Library {
             disabled_books: RefCell::new(disabled_books),
             selection_revision: RwSignal::new(0),
             selection_write_in_flight: RefCell::new(false),
+            migration_refused: RwSignal::new(false),
         })));
         // A refused transaction is not fatal: every read still resolves the old id, and the
-        // next load retries. This is deliberately weaker than the disabled-books read.
-        let _ = library.migrate_stored_ids().await;
+        // next load retries. Settings shows the non-blocking conversion notice meanwhile.
+        if let Err(error) = library.migrate_stored_ids().await {
+            leptos::logging::warn!("the saved-item id conversion was refused: {error}");
+            library.0.migration_refused.set(true);
+        }
         Ok(library)
     }
 
@@ -188,6 +195,20 @@ impl Library {
     /// reports its reason and is left to its snapshot; an unmapped id is unknown.
     pub fn resolve(&self, id: &EntryId) -> Resolution {
         resolve_in(&self.0.catalog, &self.0.aliases, id)
+    }
+
+    /// True when a stored row under `stored` is the saved item for `target`: either the row
+    /// already uses the id, or the alias map sends it to `target`. This is the star contract,
+    /// so a legacy row that a refused migration left behind still reads as pressed.
+    pub fn resolves_to(&self, stored: &EntryId, target: &EntryId) -> bool {
+        resolves_to_in(&self.0.catalog, &self.0.aliases, stored, target)
+    }
+
+    /// The id that a stored row is shown and saved under: the alias target when the map has
+    /// one, otherwise the stored id itself. Retired and unknown rows keep their own id so
+    /// that their snapshot stays visible.
+    pub fn canonical_target(&self, stored: &EntryId) -> EntryId {
+        canonical_target_in(&self.0.catalog, &self.0.aliases, stored)
     }
 
     /// Rewrites stored bookmark and recent ids to canonical targets. Idempotent: the marker
@@ -228,6 +249,11 @@ impl Library {
 
     pub fn selection_revision(&self) -> RwSignal<u64> {
         self.0.selection_revision
+    }
+
+    /// True when the last id rewrite was refused, so saved items still hold legacy ids.
+    pub fn migration_refused(&self) -> bool {
+        self.0.migration_refused.get_untracked()
     }
 
     pub fn book_active(&self, canonical_id: &str) -> bool {
@@ -498,6 +524,26 @@ fn resolve_in(catalog: &Catalog, aliases: &AliasIndex, id: &EntryId) -> Resoluti
     Resolution::Unknown(id.clone())
 }
 
+fn resolves_to_in(
+    catalog: &Catalog,
+    aliases: &AliasIndex,
+    stored: &EntryId,
+    target: &EntryId,
+) -> bool {
+    stored == target
+        || matches!(
+            resolve_in(catalog, aliases, stored),
+            Resolution::Aliased { canonical, .. } if canonical == *target
+        )
+}
+
+fn canonical_target_in(catalog: &Catalog, aliases: &AliasIndex, stored: &EntryId) -> EntryId {
+    match resolve_in(catalog, aliases, stored) {
+        Resolution::Aliased { canonical, .. } => canonical,
+        _ => stored.clone(),
+    }
+}
+
 /// Placement in a newer library is authoritative; catalog source is the explicit legacy and
 /// unplaced-entry fallback. The schema has no separate stable source field to consult.
 fn canonical_book_source<'a>(
@@ -695,6 +741,72 @@ mod tests {
                 canonical: id("ref/rule/b"),
                 legacy: id("legacy/a"),
             }
+        );
+    }
+
+    #[test]
+    fn a_stored_legacy_row_resolves_to_its_canonical_target() {
+        let aliases = aliases();
+        let catalog = catalog(&["ref/rule/a", "ref/rule/b"]);
+        assert!(resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("legacy/a"),
+            &id("ref/rule/a")
+        ));
+        // The canonical row itself counts, which is what makes the star pressed.
+        assert!(resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("ref/rule/a"),
+            &id("ref/rule/a")
+        ));
+        // Another target, a retired id, and an unknown id do not.
+        assert!(!resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("legacy/a"),
+            &id("ref/rule/b")
+        ));
+        assert!(!resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("legacy/retired"),
+            &id("ref/rule/a")
+        ));
+        assert!(resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("legacy/retired"),
+            &id("legacy/retired")
+        ));
+        assert!(!resolves_to_in(
+            &catalog,
+            &aliases,
+            &id("legacy/missing"),
+            &id("ref/rule/a")
+        ));
+    }
+
+    #[test]
+    fn canonical_target_keeps_retired_and_unknown_rows_under_their_own_id() {
+        let aliases = aliases();
+        let catalog = catalog(&["ref/rule/a", "ref/rule/b"]);
+        assert_eq!(
+            canonical_target_in(&catalog, &aliases, &id("legacy/a")),
+            id("ref/rule/a")
+        );
+        assert_eq!(
+            canonical_target_in(&catalog, &aliases, &id("legacy/retired")),
+            id("legacy/retired")
+        );
+        assert_eq!(
+            canonical_target_in(&catalog, &aliases, &id("legacy/missing")),
+            id("legacy/missing")
+        );
+        assert_eq!(
+            canonical_target_in(&catalog, &aliases, &id("ref/rule/b")),
+            id("ref/rule/b")
         );
     }
 

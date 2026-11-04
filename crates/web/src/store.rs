@@ -456,6 +456,90 @@ pub async fn delete_bookmark(id: &EntryId) -> Result<()> {
     tx.finish().await
 }
 
+// ---- saved items that resolve through the alias map -------------------------------------------
+//
+// A star is "some stored row resolves to this canonical id" (design 6.2). The callers build
+// `matches` from `Library::resolves_to`, so a legacy row that a refused migration left behind
+// still counts as pressed and is removed by one unstar.
+
+/// Every stored row that `matches` accepts, newest first.
+pub async fn bookmarks_matching(matches: impl Fn(&EntryId) -> bool) -> Result<Vec<Bookmark>> {
+    Ok(list_bookmarks()
+        .await?
+        .into_iter()
+        .filter(|bookmark| matches(&bookmark.entry_id))
+        .collect())
+}
+
+/// The stored rows that one saved item owns. The star and unstar paths share this rule, so a
+/// legacy row and a canonical row for the same article are always treated as one item.
+pub fn matching_rows<'a>(
+    bookmarks: &'a [Bookmark],
+    matches: impl Fn(&EntryId) -> bool,
+) -> Vec<&'a Bookmark> {
+    bookmarks
+        .iter()
+        .filter(|bookmark| matches(&bookmark.entry_id))
+        .collect()
+}
+
+/// Writes one saved item for the rows that `matches` accepts: the newest row keeps its title,
+/// kind, and time, and the collection ids are the union across the group. `None` when no row
+/// matches.
+pub fn combine_saved_rows(rows: &[Bookmark]) -> Option<Bookmark> {
+    let mut rows = rows.to_vec();
+    sort_bookmarks(&mut rows);
+    let mut combined = rows.first()?.clone();
+    let mut collection_ids: Vec<String> = rows
+        .iter()
+        .flat_map(|row| row.collection_ids.iter().cloned())
+        .collect();
+    collection_ids.sort();
+    collection_ids.dedup();
+    combined.collection_ids = collection_ids;
+    Some(combined)
+}
+
+/// Adds a bookmark only when no stored row `matches`. Returns whether it was added, so a
+/// long-lived legacy row cannot gain a canonical duplicate.
+pub async fn put_bookmark_unless_matching(
+    bookmark: &Bookmark,
+    matches: impl Fn(&EntryId) -> bool,
+) -> Result<bool> {
+    let tx = Tx::begin(&[BOOKMARKS], true).await?;
+    let store = tx.store(BOOKMARKS)?;
+    let all = request(store.get_all().map_err(Into::into)).await?;
+    let current = from_js_all::<Bookmark>(all);
+    if !matching_rows(&current, &matches).is_empty() {
+        tx.finish().await?;
+        return Ok(false);
+    }
+    request(store.add(&to_js(bookmark)?).map_err(Into::into)).await?;
+    tx.finish().await?;
+    Ok(true)
+}
+
+/// Deletes every stored row that `matches`, in one transaction, and returns the count.
+pub async fn delete_bookmarks_matching(matches: impl Fn(&EntryId) -> bool) -> Result<usize> {
+    let tx = Tx::begin(&[BOOKMARKS], true).await?;
+    let store = tx.store(BOOKMARKS)?;
+    let all = request(store.get_all().map_err(Into::into)).await?;
+    let current = from_js_all::<Bookmark>(all);
+    let mut deleted = 0;
+    for row in matching_rows(&current, &matches) {
+        request(
+            store
+                .delete(&JsValue::from_str(row.entry_id.as_str()))
+                .map_err(Into::into),
+        )
+        .await?;
+        deleted += 1;
+    }
+    tx.finish().await?;
+    Ok(deleted)
+}
+
+
 // ---- canonical id migration ------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
@@ -719,6 +803,49 @@ pub async fn remove_from_collection(entry_id: &EntryId, collection_id: &str) -> 
 }
 
 async fn change_membership(entry_id: &EntryId, collection_id: &str, add: bool) -> Result<()> {
+    change_membership_matching(
+        collection_id,
+        add,
+        |stored| stored == entry_id,
+        format!("bookmark {entry_id}"),
+    )
+    .await
+}
+
+/// Collection membership on every stored row that `matches`. The picker on an entry uses
+/// this so a legacy row that a refused migration left behind still joins the collection.
+pub async fn add_to_collection_matching(
+    collection_id: &str,
+    matches: impl Fn(&EntryId) -> bool,
+) -> Result<()> {
+    change_membership_matching(
+        collection_id,
+        true,
+        matches,
+        format!("a bookmark in collection {collection_id}"),
+    )
+    .await
+}
+
+pub async fn remove_from_collection_matching(
+    collection_id: &str,
+    matches: impl Fn(&EntryId) -> bool,
+) -> Result<()> {
+    change_membership_matching(
+        collection_id,
+        false,
+        matches,
+        format!("a bookmark in collection {collection_id}"),
+    )
+    .await
+}
+
+async fn change_membership_matching(
+    collection_id: &str,
+    add: bool,
+    matches: impl Fn(&EntryId) -> bool,
+    missing: String,
+) -> Result<()> {
     let tx = Tx::begin(&[BOOKMARKS, COLLECTIONS], true).await?;
     if add {
         let found = request(
@@ -734,24 +861,26 @@ async fn change_membership(entry_id: &EntryId, collection_id: &str, add: bool) -
         }
     }
     let bookmarks = tx.store(BOOKMARKS)?;
-    let value = request(
-        bookmarks
-            .get(&JsValue::from_str(entry_id.as_str()))
-            .map_err(Into::into),
-    )
-    .await?;
-    let Some(mut bookmark) = from_js::<Bookmark>(value)? else {
+    let all = request(bookmarks.get_all().map_err(Into::into)).await?;
+    let mut found = false;
+    for mut bookmark in from_js_all::<Bookmark>(all) {
+        if !matches(&bookmark.entry_id) {
+            continue;
+        }
+        found = true;
+        let changed = if add {
+            bookmark.add_collection(collection_id)
+        } else {
+            bookmark.remove_collection(collection_id)
+        };
+        if changed {
+            request(bookmarks.put(&to_js(&bookmark)?).map_err(Into::into)).await?;
+        }
+    }
+    if !found {
         tx.tx.abort()?;
         let _ = tx.finish().await;
-        return Err(StoreError::NotFound(format!("bookmark {entry_id}")));
-    };
-    let changed = if add {
-        bookmark.add_collection(collection_id)
-    } else {
-        bookmark.remove_collection(collection_id)
-    };
-    if changed {
-        request(bookmarks.put(&to_js(&bookmark)?).map_err(Into::into)).await?;
+        return Err(StoreError::NotFound(missing));
     }
     tx.finish().await
 }
@@ -945,6 +1074,42 @@ mod tests {
         assert!(!again.recent_changed);
         assert_eq!(again.recent, plan.recent);
         assert!(!again.changed());
+    }
+
+    #[test]
+    fn a_legacy_row_and_its_canonical_row_are_one_saved_item() {
+        // `matches` stands in for `Library::resolves_to` on `ref/rule/merged`: the alias
+        // maps `legacy/a` there, and the canonical row is already there.
+        let target = id("ref/rule/merged");
+        let rows = vec![
+            row("legacy/a", "Old", EntryKind::Spell, 2.0, &["c"]),
+            row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["d"]),
+            row("legacy/c", "Other", EntryKind::Rule, 3.0, &[]),
+        ];
+        let matches = |stored: &EntryId| {
+            *stored == target || *stored == id("legacy/a")
+        };
+        let owned = matching_rows(&rows, &matches);
+        // Star sees the item as already saved, so it adds no canonical duplicate.
+        assert_eq!(owned.len(), 2);
+        // Unstar deletes both keys, so the legacy row cannot resurrect.
+        let keys: Vec<_> = owned.iter().map(|row| row.entry_id.as_str()).collect();
+        assert_eq!(keys, ["legacy/a", "ref/rule/merged"]);
+        assert!(!matches(&id("legacy/c")));
+    }
+
+    #[test]
+    fn combining_saved_rows_keeps_the_newest_row_and_unions_collections() {
+        let rows = vec![
+            row("legacy/a", "Old", EntryKind::Spell, 5.0, &["b", "a"]),
+            row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["c", "a"]),
+        ];
+        let combined = combine_saved_rows(&rows).expect("two rows");
+        assert_eq!(combined.title_snapshot, "Old");
+        assert_eq!(combined.kind, EntryKind::Spell);
+        assert_eq!(combined.added_at, 5.0);
+        assert_eq!(combined.collection_ids, ["a", "b", "c"]);
+        assert!(combine_saved_rows(&[]).is_none());
     }
 
     #[test]
