@@ -83,7 +83,8 @@ jobs:
 
   e2e:
     name: Browser acceptance tests
-    needs: [rust, content]
+    # Browser signal must not disappear when formatting, clippy, or unit tests fail.
+    needs: [content]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
