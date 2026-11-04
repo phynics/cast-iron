@@ -351,15 +351,14 @@ pub fn is_affliction_host(path: &str) -> bool {
         || file.starts_with("umr")
 }
 
-/// The canonical native ID of a Pf Data record, shared with the importer.
+/// The canonical native ID of a Pf Data record, shared with the alias catalog.
+///
+/// The derivation lives in [`crate::alias::canonical_native_id`] so conversion
+/// and the legacy alias catalog cannot disagree about a record's public id.
 pub fn native_id(record: &InputRecord) -> Option<EntryId> {
     let protocol = record.protocol.as_deref()?;
-    EntryId::parse(format!(
-        "pf-data/{}/{}",
-        slug_segment(protocol),
-        slug_segment(&record.key)
-    ))
-    .ok()
+    let id = crate::alias::canonical_native_id(protocol, &record.key).ok()?;
+    EntryId::parse(id).ok()
 }
 
 fn description_lines(record: &InputRecord) -> Vec<String> {
@@ -431,9 +430,11 @@ mod tests {
                 "ref/racial-trait/dwarf/stonecunning"
             ]
         );
-        assert!(derivations.iter().all(
-            |d| d.kind == DerivedKind::RacialTrait && d.parent.as_str() == "pf-data/race/dwarf"
-        ));
+        assert!(
+            derivations.iter().all(
+                |d| d.kind == DerivedKind::RacialTrait && d.parent.as_str() == "ref/race/dwarf"
+            )
+        );
         assert_eq!(
             derivations[2].provenance_record,
             "dwarf|racial-trait:stonecunning"
