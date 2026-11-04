@@ -485,11 +485,13 @@ fn merge_rows(target: &EntryId, rows: &[&Bookmark], target_kind: Option<EntryKin
         .copied()
         .filter(|row| row.added_at.total_cmp(&added_at) == std::cmp::Ordering::Equal)
         .collect();
+    // The slug, not the enum declaration order, is the documented tie-break, so a later
+    // variant that sorts earlier alphabetically wins without changing this rule.
     let kind = target_kind.unwrap_or_else(|| {
         earliest
             .iter()
             .map(|row| row.kind)
-            .min()
+            .min_by_key(|kind| kind.slug())
             .expect("non-empty")
     });
     let title_snapshot = earliest
@@ -880,15 +882,26 @@ mod tests {
 
     #[test]
     fn migration_falls_back_to_the_earliest_kind_and_title_with_lexicographic_ties() {
+        // Spell is declared before Feat, so the old declaration-order min chose Spell.
+        // The serialized slugs are "feat" < "spell", which is the documented tie-break.
         let rows = vec![
             row("legacy/a", "Zulu", EntryKind::Spell, 7.0, &[]),
-            row("legacy/b", "Alpha", EntryKind::Rule, 7.0, &[]),
+            row("legacy/b", "Alpha", EntryKind::Feat, 7.0, &[]),
         ];
         let plan = plan_migration(&rows, &[], &aliases(), known, |_| None);
         let merged = &plan.puts[0];
-        assert_eq!(merged.kind, EntryKind::Rule);
+        assert_eq!(merged.kind, EntryKind::Feat);
         assert_eq!(merged.title_snapshot, "Alpha");
         assert_eq!(merged.added_at, 7.0);
+
+        // Read order does not change the result.
+        let reversed = vec![
+            row("legacy/b", "Alpha", EntryKind::Feat, 7.0, &[]),
+            row("legacy/a", "Zulu", EntryKind::Spell, 7.0, &[]),
+        ];
+        let again = plan_migration(&reversed, &[], &aliases(), known, |_| None);
+        assert_eq!(again.puts[0].kind, EntryKind::Feat);
+        assert_eq!(again.puts[0].title_snapshot, "Alpha");
     }
 
     #[test]
