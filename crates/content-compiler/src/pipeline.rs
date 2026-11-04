@@ -1,4 +1,8 @@
-//! The end-to-end compile: select, parse, plan, build, validate, emit, report.
+//! The end-to-end compile: build one source into a `Library`, then package it.
+//!
+//! [`build_psrd`] holds everything that is specific to the PSRD-Data source. [`package`] is the
+//! source-independent tail: it validates, shards, writes reports, builds the search index, and
+//! publishes a version directory and manifest.
 
 use crate::build::{self, DedupeStats, RawRules, RawTyped};
 use crate::config::{self, IdOverrides, SourceConfig};
@@ -6,14 +10,14 @@ use crate::family;
 use crate::legal::{self, ExtractedNotices};
 use crate::model::Node;
 use crate::order::{BookOrderFile, UpstreamOrder};
-use crate::select::{self, Role, hex, sha256_hex};
+use crate::select::{self, Role, Survey, hex, sha256_hex};
 use crate::slug::slug_segment;
 use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
-    BOOKS_FILE, Catalog, ContentManifest, CoverageReport, DatasetRef, EntryKind, EntryStub,
-    ManifestFile, PublicationCoverage, RELATIONS_FILE, Rejection, RuleEntry, SCHEMA_VERSION,
-    SPELL_LISTS_FILE, SourceInfo,
+    BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest, CoverageReport, DatasetRef, EntryId,
+    EntryKind, EntryStub, LegalNotices, ManifestFile, PublicationCoverage, RELATIONS_FILE,
+    Rejection, RelationIndex, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -65,7 +69,35 @@ impl From<String> for Failure {
     }
 }
 
-pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
+/// The source-independent content that [`package`] writes.
+///
+/// A source builder fills every field, including the search aliases and facets, so that the
+/// package step needs no knowledge of where the records came from.
+pub struct Library {
+    /// Entries, sorted by id.
+    pub entries: Vec<RuleEntry>,
+    pub relations: RelationIndex,
+    pub spell_lists: SpellLists,
+    pub books: BookIndex,
+    pub legal: LegalNotices,
+    /// The coverage report, as written to `coverage.json`.
+    pub coverage: CoverageReport,
+    /// Search aliases per entry, already sorted and deduplicated.
+    pub aliases: BTreeMap<EntryId, Vec<String>>,
+    /// Search facets per entry.
+    pub facets: BTreeMap<EntryId, Vec<(String, String)>>,
+    pub datasets: Vec<DatasetRef>,
+    pub sources: Vec<SourceInfo>,
+    pub notes: Vec<String>,
+    pub dedupe: DedupeStats,
+    /// Upstream survey, for the report totals and unparsable list.
+    pub survey: Survey,
+    /// Namespace that marks supplemental exclusions in the coverage report.
+    pub supplement_prefix: Option<String>,
+}
+
+/// Builds the PSRD-Data library: select, parse, plan, build, and derive.
+pub fn build_psrd(opts: &Options) -> Result<Library, Failure> {
     let cfg = SourceConfig::load(&opts.source_config)?;
     let config_dir = opts.source_config.parent().unwrap_or(Path::new("."));
     let overrides = IdOverrides::load(
@@ -295,14 +327,97 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
             }
         }
     }
-    let facets_by_id: BTreeMap<_, _> = plan
+    let sources = build_sources(&built, &notices);
+    let by_publication = publications(&survey.source_counts, &sources);
+    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
+    for e in &built.entries {
+        *by_kind.entry(e.kind.slug().to_string()).or_default() += 1;
+    }
+    let facets: BTreeMap<EntryId, Vec<(String, String)>> = plan
         .typed
         .iter()
         .map(|t| (t.id.clone(), t.extracted.facets.clone()))
         .collect();
+    // A lookup such as "grapple" names a section inside Special Attacks. Use the existing
+    // alias field so that these headings rank above incidental body mentions.
+    let aliases: BTreeMap<EntryId, Vec<String>> = built
+        .entries
+        .iter()
+        .map(|e| {
+            let mut names: BTreeSet<String> = overrides
+                .aliases
+                .get(e.id.as_str())
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect();
+            if e.kind == EntryKind::Rule {
+                for block in &e.body {
+                    if let Block::Heading { content, .. } = block {
+                        let heading = inline_text(content);
+                        if !heading.is_empty() && heading != e.title {
+                            names.insert(heading);
+                        }
+                    }
+                }
+            }
+            (e.id.clone(), names.into_iter().collect())
+        })
+        .collect();
 
-    // Shards and catalog.
-    let (shard_files, shard_of, largest_entry) = shard(&built.entries)?;
+    let mut coverage = CoverageReport {
+        input_digest,
+        by_publication,
+        by_kind,
+        excluded: survey.exclusions.clone(),
+        rejected,
+        links: built.links.clone(),
+        stripped: built.stripped.clone(),
+        relations: cast_iron_schema::RelationCoverage {
+            spell_lists: spell_lists.coverage.clone(),
+            unpromoted,
+            book_order: books.coverage.clone(),
+            ..relations.coverage.clone()
+        },
+    };
+    let supplement_prefix = approved
+        .as_ref()
+        .map(|_| crate::pf_approved::COVERAGE_PREFIX.to_string());
+    let datasets: Vec<DatasetRef> = std::iter::once(DatasetRef {
+        id: cfg.dataset.id.clone(),
+        repository: cfg.dataset.repository.clone(),
+        commit: cfg.dataset.commit.clone(),
+    })
+    .chain(
+        approved
+            .as_ref()
+            .into_iter()
+            .flat_map(|extra| extra.datasets.clone()),
+    )
+    .collect();
+    if let Some(extra) = &approved {
+        coverage.excluded.extend(extra.exclusions.clone());
+    }
+
+    Ok(Library {
+        entries: built.entries,
+        relations: relations.index,
+        spell_lists: spell_lists.lists,
+        books: books.index,
+        legal,
+        coverage,
+        aliases,
+        facets,
+        datasets,
+        sources,
+        notes: built.notes,
+        dedupe: built.dedupe,
+        survey,
+        supplement_prefix,
+    })
+}
+
+fn build_sources(built: &build::Built, notices: &ExtractedNotices) -> Vec<SourceInfo> {
     let mut sources = Vec::new();
     for (slug, raws) in &built.source_titles {
         let title = raws.iter().next().cloned().unwrap_or_default();
@@ -318,10 +433,37 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         });
     }
     sources.sort_by(|a, b| a.id.cmp(&b.id));
+    sources
+}
+
+/// Validates and publishes a built [`Library`]: shards, catalog, reports, search index,
+/// manifest, and the content version.
+///
+/// The step holds no source-specific knowledge; every alias and facet it needs is already
+/// part of the library.
+pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, Failure> {
+    let Library {
+        entries,
+        relations,
+        spell_lists,
+        books,
+        legal,
+        coverage,
+        aliases,
+        facets,
+        datasets,
+        sources,
+        notes,
+        dedupe,
+        survey,
+        supplement_prefix,
+    } = library;
+
+    // Shards and catalog.
+    let (shard_files, shard_of, largest_entry) = shard(&entries)?;
     let catalog = Catalog {
         sources,
-        entries: built
-            .entries
+        entries: entries
             .iter()
             .map(|e| EntryStub {
                 id: e.id.clone(),
@@ -334,45 +476,19 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
             .collect(),
     };
 
-    let mut errors = validate_library(&built.entries, &catalog);
-    errors.extend(validate_derived(
-        &built.entries,
-        &relations.index,
-        &books.index,
-        &spell_lists.lists,
-    ));
-    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
-    for e in &built.entries {
-        *by_kind.entry(e.kind.slug().to_string()).or_default() += 1;
-    }
-
-    let mut coverage = CoverageReport {
-        input_digest,
-        by_publication: publications(&survey.source_counts, &catalog),
-        by_kind: by_kind.clone(),
-        excluded: survey.exclusions.clone(),
-        rejected: rejected.clone(),
-        links: built.links.clone(),
-        stripped: built.stripped.clone(),
-        relations: cast_iron_schema::RelationCoverage {
-            spell_lists: spell_lists.coverage.clone(),
-            unpromoted: unpromoted.clone(),
-            book_order: books.coverage.clone(),
-            ..relations.coverage.clone()
-        },
-    };
-    if let Some(extra) = &approved {
-        coverage.excluded.extend(extra.exclusions.clone());
-    }
+    let mut errors = validate_library(&entries, &catalog);
+    errors.extend(validate_derived(&entries, &relations, &books, &spell_lists));
+    let by_kind = coverage.by_kind.clone();
 
     write_reports(
-        &opts.reports,
+        reports,
         &errors,
         &coverage,
-        &built.notes,
-        &built.dedupe,
+        &notes,
+        &dedupe,
         &survey,
         &catalog,
+        supplement_prefix.as_deref(),
     )?;
     if !errors.is_empty() {
         let mut lines = vec![format!("validation failed with {} error(s):", errors.len())];
@@ -387,34 +503,15 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
 
     // Search index.
     let mut index = IndexBuilder::new();
-    for e in &built.entries {
-        let mut aliases: BTreeSet<String> = overrides
-            .aliases
-            .get(e.id.as_str())
-            .into_iter()
-            .flatten()
-            .cloned()
-            .collect();
-        // A lookup such as "grapple" names a section inside Special Attacks. Use the
-        // existing alias field so that these headings rank above incidental body mentions.
-        if e.kind == EntryKind::Rule {
-            for block in &e.body {
-                if let cast_iron_schema::Block::Heading { content, .. } = block {
-                    let heading = inline_text(content);
-                    if !heading.is_empty() && heading != e.title {
-                        aliases.insert(heading);
-                    }
-                }
-            }
-        }
+    for e in &entries {
         index.add(DocInput {
             id: e.id.to_string(),
             title: e.title.clone(),
-            aliases: aliases.into_iter().collect(),
+            aliases: aliases.get(&e.id).cloned().unwrap_or_default(),
             kind: e.kind.slug().to_string(),
             source: e.source_ids[0].clone(),
             section: e.section.join(" > "),
-            facets: facets_by_id.get(&e.id).cloned().unwrap_or_default(),
+            facets: facets.get(&e.id).cloned().unwrap_or_default(),
             text: blocks_text(&e.body),
         });
     }
@@ -428,9 +525,9 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     files.insert("search.bin".into(), search_bin);
     let mut derived_bytes = BTreeMap::new();
     for (name, bytes) in [
-        (RELATIONS_FILE, json_bytes(&relations.index)?),
-        (SPELL_LISTS_FILE, json_bytes(&spell_lists.lists)?),
-        (BOOKS_FILE, json_bytes(&books.index)?),
+        (RELATIONS_FILE, json_bytes(&relations)?),
+        (SPELL_LISTS_FILE, json_bytes(&spell_lists)?),
+        (BOOKS_FILE, json_bytes(&books)?),
     ] {
         derived_bytes.insert(name.to_string(), bytes.len() as u64);
         files.insert(name.into(), bytes);
@@ -459,27 +556,16 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
                 bytes: *n,
             })
             .collect(),
-        entry_count: built.entries.len() as u32,
-        datasets: std::iter::once(DatasetRef {
-            id: cfg.dataset.id.clone(),
-            repository: cfg.dataset.repository.clone(),
-            commit: cfg.dataset.commit.clone(),
-        })
-        .chain(
-            approved
-                .as_ref()
-                .into_iter()
-                .flat_map(|extra| extra.datasets.clone()),
-        )
-        .collect(),
+        entry_count: entries.len() as u32,
+        datasets,
     };
 
-    prepare_out(&opts.out)?;
+    prepare_out(out)?;
     for (path, bytes) in &files {
-        let target = opts.out.join(&content_version).join(path);
+        let target = out.join(&content_version).join(path);
         write_file(&target, bytes)?;
     }
-    write_file(&opts.out.join("manifest.json"), &json_bytes(&manifest)?)?;
+    write_file(&out.join("manifest.json"), &json_bytes(&manifest)?)?;
 
     let largest_shard = manifest
         .files
@@ -490,19 +576,24 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         .unwrap_or_default();
     Ok(Outcome {
         content_version,
-        entry_count: built.entries.len(),
+        entry_count: entries.len(),
         by_kind,
         total_bytes: manifest.total_bytes,
         largest_shard,
         largest_entry,
-        links: built.links,
-        rejected,
-        stripped: built.stripped,
-        dedupe: built.dedupe,
-        notes: built.notes.len(),
-        relations: coverage.relations,
+        links: coverage.links.clone(),
+        rejected: coverage.rejected.clone(),
+        stripped: coverage.stripped.clone(),
+        dedupe,
+        notes: notes.len(),
+        relations: coverage.relations.clone(),
         derived_bytes,
     })
+}
+
+/// The full compile for the configured source: build, then package.
+pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
+    package(build_psrd(opts)?, &opts.out, &opts.reports)
 }
 
 /// Archetypes live in a section whose title ends in `Archetypes`, such as
@@ -595,7 +686,7 @@ fn check_digest(opts: &Options, cfg: &SourceConfig, computed: &str) -> Result<()
 
 fn publications(
     source_counts: &BTreeMap<String, u32>,
-    catalog: &Catalog,
+    sources: &[SourceInfo],
 ) -> Vec<PublicationCoverage> {
     let mut by_slug: BTreeMap<String, (String, u32, u32)> = BTreeMap::new();
     for (raw, count) in source_counts {
@@ -603,7 +694,7 @@ fn publications(
         let entry = by_slug.entry(slug).or_insert_with(|| (raw.clone(), 0, 0));
         entry.1 += count;
     }
-    for s in &catalog.sources {
+    for s in sources {
         let entry = by_slug
             .entry(s.id.clone())
             .or_insert_with(|| (s.title.clone(), 0, 0));
@@ -814,6 +905,7 @@ fn write_reports(
     dedupe: &DedupeStats,
     survey: &select::Survey,
     catalog: &Catalog,
+    supplement_prefix: Option<&str>,
 ) -> Result<(), String> {
     let validation = serde_json::json!({
         "ok": errors.is_empty(),
@@ -839,7 +931,7 @@ fn write_reports(
     )?;
     write_file(
         &dir.join("coverage.md"),
-        coverage_markdown(coverage, notes, dedupe, survey).as_bytes(),
+        coverage_markdown(coverage, notes, dedupe, survey, supplement_prefix).as_bytes(),
     )
 }
 
@@ -848,6 +940,7 @@ fn coverage_markdown(
     notes: &[String],
     dedupe: &DedupeStats,
     survey: &select::Survey,
+    supplement_prefix: Option<&str>,
 ) -> String {
     use std::fmt::Write;
     let mut s = String::new();
@@ -933,7 +1026,7 @@ fn coverage_markdown(
     let (supplement, upstream): (Vec<_>, Vec<_>) = c
         .excluded
         .iter()
-        .partition(|e| e.path.starts_with(crate::pf_approved::COVERAGE_PREFIX));
+        .partition(|e| supplement_prefix.is_some_and(|prefix| e.path.starts_with(prefix)));
     let _ = writeln!(s, "\n## Excluded upstream directories\n");
     let _ = writeln!(
         s,
