@@ -44,6 +44,12 @@
   },
   "out_of_scope": [
     {
+      "path": "json/equipment_weapons2.json",
+      "key": "gnome_flick_mace",
+      "name": "Gnome flick-mace",
+      "reason": "The PF1e record had no description; the imported prose is taken from PF2 Player Core and is not PF1e OGL content. Tracked in #34."
+    },
+    {
       "path": "json/main.json",
       "key": "ogc",
       "name": "Licenses",
@@ -71,6 +77,12 @@
       "path": "json/monster_families.json",
       "key": "drake",
       "name": "Drake",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families2.json",
+      "key": "eurypterid",
+      "name": "Eurypterid",
       "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
     },
     {

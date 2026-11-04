@@ -1,8 +1,10 @@
 {
   "publications": {
+    "Bestiary 3 (2nd Edition)": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.",
     "Monster Core": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
   },
   "records": {
-    "json/main.json#ogc": "Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34."
+    "json/main.json#ogc": "Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34.",
+    "json/equipment_weapons2.json#gnome_flick_mace": "The PF1e record had no description; the imported prose is taken from PF2 Player Core and is not PF1e OGL content. Tracked in #34."
   }
 }

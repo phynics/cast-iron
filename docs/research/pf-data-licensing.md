@@ -59,19 +59,28 @@ advertised statblock counts do not prove coverage or redistribution permission.
 Issue [#34](https://github.com/phynics/cast-iron/issues/34) tracks the unresolved
 rights decisions. The pinned dataset is not purely PF1e OGL material:
 
-- `json/sources.json` registers `monster_core`, a PF2 book.
-- Seven monster-family records are tagged `Monster Core`:
-  `json/monster_families.json` (`alghollthu`, `dark_folk`, `dinosaur`, `drake`)
-  and `json/monster_families2.json` (`genie`, `naga`, `troll`).
+- `json/sources.json` registers two PF2 books: `monster_core` ("Monster Core")
+  and `bestiary_3_2nd_edition` ("Bestiary 3 (2nd Edition)").
+- Eight records are tagged with them: `json/monster_families.json`
+  (`alghollthu`, `dark_folk`, `dinosaur`, `drake`), and
+  `json/monster_families2.json` (`genie`, `naga`, `troll`, `eurypterid`).
 - `json/main.json#ogc` is a legal notice containing both OGL and ORC text.
+- `json/equipment_weapons2.json#gnome_flick_mace` has no PF1e description; its
+  imported prose is taken from PF2 *Player Core* page 279.
 - The dataset carries `ORCLICENSE.md` and `GNULICENSE.md` separately from the
   OGL notice.
 
-`sources/pathfinder-data-1-e/out-of-scope.json` excludes the publication and the
-legal notice before any selection. The inventory still reports them, and the
-migration report lists them as out-of-scope input. No Monster Core record or ORC
-notice enters the PF1e library or the OGL legal page. The source pin hashes the
-ORC and GNU license files so a changed notice cannot pass unnoticed.
+`sources/pathfinder-data-1-e/out-of-scope.json` excludes both publications, the
+legal notice, and the untagged PF2 description before any selection. The inventory
+still reports them, and the migration report lists them as out-of-scope input. No
+PF2 record or ORC notice enters the PF1e library or the OGL legal page. The source
+pin hashes the ORC and GNU license files so a changed notice cannot pass unnoticed.
+
+The filter is clean for known contamination. Residual risk is untagged PF2 prose
+that does not name its edition; the audit found no other instance, but a bulk
+cutover still needs per-record review. `json/faiths4.json#grandmother_spider`
+mentions PF2 Anadi in a footnote but is PF1e *Faiths of Golarion* content, so it is
+not excluded.
 
 ## Publication gate
 

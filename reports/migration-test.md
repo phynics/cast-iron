@@ -16,11 +16,13 @@ Scope: `representative`. Input digest `0fc0beb80abdfd8376bb9eac71a668ac3dce8af8b
 
 Out-of-scope input, excluded before selection:
 
+- `json/equipment_weapons2.json#gnome_flick_mace` (Gnome flick-mace): The PF1e record had no description; the imported prose is taken from PF2 Player Core and is not PF1e OGL content. Tracked in #34.
 - `json/main.json#ogc` (Licenses): Legal notice record containing OGL and ORC text. It is not a PF1e rule entry and must not enter the rules corpus. Tracked in #34.
 - `json/monster_families.json#alghollthu` (Alghollthu): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families.json#dark_folk` (Dark Folk): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families.json#dinosaur` (Dinosaur): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families.json#drake` (Drake): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
+- `json/monster_families2.json#eurypterid` (Eurypterid): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families2.json#genie` (Genie): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families2.json#naga` (Naga): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.
 - `json/monster_families2.json#troll` (Troll): PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34.

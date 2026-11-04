@@ -1220,12 +1220,18 @@ mod tests {
         assert!(inventory.out_of_scope.iter().any(|record| {
             record.path == "json/monster_families2.json" && record.key == "genie"
         }));
+        assert!(inventory.out_of_scope.iter().any(|record| {
+            record.path == "json/monster_families2.json" && record.key == "eurypterid"
+        }));
         assert!(
             inventory
                 .out_of_scope
                 .iter()
                 .any(|record| record.path == "json/main.json" && record.key == "ogc")
         );
+        assert!(inventory.out_of_scope.iter().any(|record| {
+            record.path == "json/equipment_weapons2.json" && record.key == "gnome_flick_mace"
+        }));
         assert!(
             !inventory
                 .out_of_scope
