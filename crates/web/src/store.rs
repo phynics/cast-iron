@@ -473,10 +473,7 @@ pub async fn bookmarks_matching(matches: impl Fn(&EntryId) -> bool) -> Result<Ve
 
 /// The stored rows that one saved item owns. The star and unstar paths share this rule, so a
 /// legacy row and a canonical row for the same article are always treated as one item.
-pub fn matching_rows<'a>(
-    bookmarks: &'a [Bookmark],
-    matches: impl Fn(&EntryId) -> bool,
-) -> Vec<&'a Bookmark> {
+pub fn matching_rows(bookmarks: &[Bookmark], matches: impl Fn(&EntryId) -> bool) -> Vec<&Bookmark> {
     bookmarks
         .iter()
         .filter(|bookmark| matches(&bookmark.entry_id))
@@ -510,7 +507,7 @@ pub async fn put_bookmark_unless_matching(
     let store = tx.store(BOOKMARKS)?;
     let all = request(store.get_all().map_err(Into::into)).await?;
     let current = from_js_all::<Bookmark>(all);
-    if !matching_rows(&current, &matches).is_empty() {
+    if !matching_rows(&current, matches).is_empty() {
         tx.finish().await?;
         return Ok(false);
     }
@@ -526,7 +523,7 @@ pub async fn delete_bookmarks_matching(matches: impl Fn(&EntryId) -> bool) -> Re
     let all = request(store.get_all().map_err(Into::into)).await?;
     let current = from_js_all::<Bookmark>(all);
     let mut deleted = 0;
-    for row in matching_rows(&current, &matches) {
+    for row in matching_rows(&current, matches) {
         request(
             store
                 .delete(&JsValue::from_str(row.entry_id.as_str()))
@@ -1095,7 +1092,7 @@ mod tests {
             row("legacy/c", "Other", EntryKind::Rule, 3.0, &[]),
         ];
         let matches = |stored: &EntryId| *stored == target || *stored == id("legacy/a");
-        let owned = matching_rows(&rows, &matches);
+        let owned = matching_rows(&rows, matches);
         // Star sees the item as already saved, so it adds no canonical duplicate.
         assert_eq!(owned.len(), 2);
         // Unstar deletes both keys, so the legacy row cannot resurrect.
