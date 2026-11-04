@@ -111,7 +111,8 @@ The projection deliberately leaves out three things:
 
 `family` is a route token, not an `EntryKind`. Some tokens look mechanical (`main`,
 `umr`); that is expected. The token is already what `pf-data/{protocol}/{key}` uses,
-and it is verified injective with the key over all 34,495 records.
+and Phase 1 must verify that the pair is injective over every protocol-carrying record
+(section 2); that check is a Phase 1 exit criterion, not a shipped property.
 
 Path participates in the override key and in provenance, not in the slug. Moving a
 record between files that share a family keeps its ID, which preserves the existing
@@ -148,6 +149,14 @@ core-rulebook/rules/magic           -> ref/main/magic
 core-rulebook/races/dwarves/...     -> ref/race/dwarf/racial-trait/stonecunning
 bestiary/monsters/example           -> ref/carried/bestiary/monsters/example
 ```
+
+Two distinct entries share the bare word `magic` and must never be conflated: the
+legacy Magic rules chapter `core-rulebook/rules/magic` maps to `ref/main/magic`
+(family `main`, its Pf counterpart lives in `main.json`), while the reviewed supplement
+`pf-data/rule/magic` (the page 206 opening passage) maps to `ref/rule/magic`
+(family `rule`, its native protocol). They are different families and different
+canonical IDs. The supplement is not a Pf record, so its `ref/rule/magic` claim must go
+through the `Claims` collision path (section 4.7), not rely on the protocol derivation.
 
 Structural disjointness makes injectivity easy to argue:
 
@@ -854,5 +863,5 @@ time.
 - `crates/content-compiler/src/build.rs`, `id_for` and the collision claim map.
 - `sources/psrd-data/id-overrides.toml` and `crates/content-compiler/src/config.rs`,
   the protection this design mirrors.
-- `scripts/check-library-upgrade.py` and `.claude/skills/verify/SKILL.md`, the upgrade
+- `scripts/check-library-upgrade.py` and `.agents/skills/verify/SKILL.md`, the upgrade
   checks this design extends.
