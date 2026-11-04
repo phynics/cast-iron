@@ -50,12 +50,15 @@ function buildFixtureLibrary(
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cast-iron-${label}-`));
   const files = new Map<string, Buffer>();
   const shard = entries.map(entry);
+  // The client binary-searches the catalog, which the compiler emits sorted by unique id.
+  // An unsorted fixture is out of contract and makes every catalog lookup unreliable.
+  const catalogEntries = [...entries].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   files.set(
     "catalog.json",
     Buffer.from(
       JSON.stringify({
         sources: [{ id: "legacy-book", title: "Legacy Book", entry_count: entries.length }],
-        entries: entries.map((item) => ({
+        entries: catalogEntries.map((item) => ({
           id: item.id,
           kind: item.kind,
           title: item.title,
@@ -246,9 +249,11 @@ test("Legacy bookmarks and recents migrate to canonical ids after a library cuto
 
     // The rewrite and resolution are local: they still work with the network off. WebKit
     // surfaces the deliberately refused connection as a page error; that is the test behaving
-    // as intended, not an app error.
+    // as intended, not an app error. Its service-worker update check for sw.js is the request
+    // that is refused, so both reported forms are allowed.
     await page.evaluate(() => navigator.serviceWorker.ready);
     guard.allow(/^pageerror: Load failed$/);
+    guard.allow(/^pageerror: .*\/sw\.js due to access control checks\.$/);
     await goOffline(context, server);
     await page.goto("#/");
     await waitReady(page);

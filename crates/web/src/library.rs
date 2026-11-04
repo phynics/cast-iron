@@ -133,6 +133,12 @@ impl Library {
             .await
             .map_err(LibraryError::Storage)?;
         let catalog: Catalog = read_json(&cache, &active.content_version, "catalog.json").await?;
+        catalog
+            .validate()
+            .map_err(|message| LibraryError::Corrupt {
+                path: format!("{}/catalog.json", active.content_version),
+                message,
+            })?;
         let books = if manifest_has_file(&manifest, BOOKS_FILE) {
             let index: BookIndex = read_json(&cache, &active.content_version, BOOKS_FILE).await?;
             Some(Rc::new(BookLookup::new(index)))
@@ -722,6 +728,48 @@ mod tests {
         assert!(catalog_has(&catalog, &id("ref/rule/c")));
         assert!(!catalog_has(&catalog, &id("ref/rule/between")));
         assert!(!catalog_has(&catalog, &id("0")));
+    }
+
+    #[test]
+    fn every_alias_row_of_a_sorted_catalog_resolves_to_a_catalog_target() {
+        // The cutover fixture: two shared rows and one derived row name a target each, and
+        // the direct row is the 1:1 control. Sortedness is what makes the target lookups
+        // agree with `catalog_has`, so a many:1 row is never dropped from the merge plan.
+        let catalog = catalog(&["ref/race/trait", "ref/rule/direct", "ref/rule/shared"]);
+        assert!(catalog.validate().is_ok());
+        let aliases: AliasIndex = serde_json::from_str(
+            r#"{
+                "format": 1,
+                "legacy": {"count": 5, "sha256": ""},
+                "entries": [
+                    {"old": "legacy/direct", "target": "ref/rule/direct", "basis": "direct"},
+                    {"old": "legacy/shared-a", "target": "ref/rule/shared", "basis": "shared"},
+                    {"old": "legacy/shared-b", "target": "ref/rule/shared", "basis": "shared"},
+                    {"old": "legacy/trait-a", "target": "ref/race/trait", "basis": "derived"},
+                    {"old": "legacy/trait-b", "target": "ref/race/trait", "basis": "shared"}
+                ],
+                "retired": []
+            }"#,
+        )
+        .unwrap();
+        assert!(aliases.validate().is_ok());
+        for (old, target) in [
+            ("legacy/direct", "ref/rule/direct"),
+            ("legacy/shared-a", "ref/rule/shared"),
+            ("legacy/shared-b", "ref/rule/shared"),
+            ("legacy/trait-a", "ref/race/trait"),
+            ("legacy/trait-b", "ref/race/trait"),
+        ] {
+            assert!(catalog_has(&catalog, &id(target)), "{target}");
+            assert_eq!(
+                resolve_in(&catalog, &aliases, &id(old)),
+                Resolution::Aliased {
+                    canonical: id(target),
+                    legacy: id(old),
+                },
+                "{old}"
+            );
+        }
     }
 
     #[test]

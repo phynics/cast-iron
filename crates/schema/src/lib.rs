@@ -906,6 +906,23 @@ pub struct Catalog {
     pub entries: Vec<EntryStub>,
 }
 
+impl Catalog {
+    /// Rejects a catalog whose entries are not strictly ascending by id. The client
+    /// binary-searches this list, so an unsorted or duplicated list would silently make
+    /// membership answers wrong; a catalog violation is a corrupt library, not a miss.
+    pub fn validate(&self) -> Result<(), String> {
+        for pair in self.entries.windows(2) {
+            if pair[0].id >= pair[1].id {
+                return Err(format!(
+                    "catalog.json entries are not sorted by unique id: {:?} then {:?}",
+                    pair[0].id, pair[1].id
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceInfo {
     /// Slug, such as `core-rulebook`.
@@ -1113,6 +1130,35 @@ mod tests {
         for kind in EntryKind::ALL {
             assert_eq!(EntryKind::from_slug(kind.slug()), Some(kind));
         }
+    }
+
+    #[test]
+    fn catalog_rejects_an_unsorted_or_duplicated_entry_list() {
+        let stub = |id: &str| EntryStub {
+            id: EntryId::parse(id).unwrap(),
+            kind: EntryKind::Rule,
+            title: id.into(),
+            source: "s".into(),
+            parent: None,
+            shard: "entries/rule-000.json".into(),
+        };
+        let catalog = |ids: &[&str]| Catalog {
+            sources: vec![],
+            entries: ids.iter().map(|id| stub(id)).collect(),
+        };
+        assert!(catalog(&[]).validate().is_ok());
+        assert!(
+            catalog(&["ref/race/trait", "ref/rule/direct", "ref/rule/shared"])
+                .validate()
+                .is_ok()
+        );
+
+        // The client binary-searches, so declaration order in the source is not enough.
+        let unsorted = catalog(&["ref/rule/direct", "ref/rule/shared", "ref/race/trait"]);
+        let message = unsorted.validate().unwrap_err();
+        assert!(message.contains("not sorted by unique id"), "{message}");
+        let duplicate = catalog(&["ref/rule/a", "ref/rule/a"]);
+        assert!(duplicate.validate().is_err());
     }
 
     #[test]
