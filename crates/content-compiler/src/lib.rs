@@ -19,6 +19,7 @@ pub mod pf_fields;
 pub mod pf_markdown;
 pub mod pf_records;
 pub mod pf_rules;
+pub mod pf_screen;
 pub mod pipeline;
 pub mod policy;
 pub mod prereq;

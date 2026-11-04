@@ -2,7 +2,8 @@
 """Screen a built rules library and record evidence, not a legal clearance.
 
 Run after cargo xtask build-site. The named-material list is deliberately
-explicit and incomplete. Any new book needs a separate licensing review.
+explicit and incomplete. Named material is allowed only where the entry carries
+the Community Use notice path. Any new book needs a separate licensing review.
 """
 
 import hashlib
@@ -73,6 +74,9 @@ def nodes(value):
             yield from nodes(child)
 
 
+COMMUNITY_USE = "legal#community-use"
+outbound = re.compile(r"https?://|pathfinderwiki", re.IGNORECASE)
+cup_named = 0
 counts = {}
 entries = []
 for file in sorted((library / "entries").glob("*.json")):
@@ -84,9 +88,16 @@ for entry in entries:
     if "ogl-1.0a" not in entry["license_refs"]:
         issues.append(f"Missing OGL reference: {entry['id']}")
     displayed = [entry["title"], entry["body"], entry["fields"], entry.get("tags", [])]
-    matches = sorted(set(named_material.findall("\n".join(strings(displayed)))))
+    text = "\n".join(strings(displayed))
+    matches = sorted(set(named_material.findall(text)))
+    # Proper names are descriptive references under the Community Use Policy, so
+    # they may appear only in an entry that carries that notice path.
+    if matches and COMMUNITY_USE not in entry["license_refs"]:
+        issues.append(f"Named material without the Community Use notice in {entry['id']}: {', '.join(matches)}")
     if matches:
-        issues.append(f"Review named material in {entry['id']}: {', '.join(matches)}")
+        cup_named += 1
+    if outbound.search(text):
+        issues.append(f"Outbound address in displayed text of {entry['id']}")
     if any(node.get("t") in {"image", "raw_html"} for node in nodes(entry["body"])):
         issues.append(f"Review artwork or raw HTML in {entry['id']}")
 if len(entries) != manifest["entry_count"] or len(entries) != len(catalog["entries"]):
@@ -97,8 +108,9 @@ report = {
     "entry_count": len(entries),
     "sources": sorted(sources),
     "by_kind": dict(sorted(counts.items())),
+    "community_use_named_entries": cup_named,
     "issues": issues,
-    "limitations": "Finite named-material screen and structural checks only. Does not classify every sentence or establish legal permission.",
+    "limitations": "Finite named-material screen and structural checks only. Named material is accepted only on entries that carry the Community Use notice path; descriptive Product Identity prose is screened at compile time by sources/pathfinder-data-1-e/pi-screen.json. Does not classify every sentence or establish legal permission.",
 }
 output = ROOT / "generated/reports/publication.json"
 output.parent.mkdir(parents=True, exist_ok=True)

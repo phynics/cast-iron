@@ -2,17 +2,17 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 40 selected, 42 converted. Canonical data 1178190 bytes; search 208166 bytes. 130 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 42 converted. Canonical data 1179408 bytes; search 208166 bytes. 130 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
-Scope: `representative`. Input digest `0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083`.
+Scope: `representative`. Input digest `e25c1b6d576228b184c9b3d5aaeadb1be35659d7890f4f8aeb3636308d7a5bc5`.
 
 Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivations refused: 0.
 
 Derived rules: 1 converted (1 sections, 0 rows; 1 expected in this scope, 0 skipped). The in-scope corpus exposes 178 derivable rules.
 
-- Corpus-wide Product Identity screening and source notice reconciliation are incomplete
+- Section 15 notice reconciliation for every imported publication is incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
 - Comics are excluded permanently; Paizo Blog records are deferred to issue #36
 
