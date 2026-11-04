@@ -3845,5 +3845,14 @@
     ]
   },
   "production_default": "psrd-data",
-  "cutover_verified": false
+  "cutover_verified": false,
+  "derived_rules": {
+    "allowlist": 178,
+    "available": 178,
+    "expected": 1,
+    "derived": 1,
+    "sections": 1,
+    "rows": 0,
+    "skipped": 0
+  }
 }

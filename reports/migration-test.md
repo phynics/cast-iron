@@ -2,13 +2,15 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 40 selected, 41 converted. Canonical data 1148088 bytes; search 200183 bytes. 125 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 42 converted. Canonical data 1178190 bytes; search 208166 bytes. 130 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
 Scope: `representative`. Input digest `0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083`.
 
 Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivations refused: 0.
+
+Derived rules: 1 converted (1 sections, 0 rows; 1 expected in this scope, 0 skipped). The in-scope corpus exposes 178 derivable rules.
 
 - Corpus-wide Product Identity screening and source notice reconciliation are incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
@@ -524,6 +526,24 @@ Findings:
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/ride
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/stealth
 - medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/survival
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: feat/point_blank_shot
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: feat/precise_shot
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/anarchic
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/axiomatic
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/distance
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/flaming
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/flaming_burst
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/frost
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/holy
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/icy_burst
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/shock
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/shocking_burst
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: magic-enh/unholy
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: skill/perception
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: skill/ride
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: skill/stealth
+- medium: `json/prestige_classes.json#arcane_archer|section:arcane-archer`: reference outside bounded sample: skill/survival
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: class/wizard
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp

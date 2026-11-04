@@ -190,7 +190,7 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
             }
             let (raw_name, rest) = split_directive(trimmed);
             let name = raw_name.trim_start_matches(':');
-            let allowed_headers = ["h2", "h3", "h4", "h5", "h6", "gh", "sh"];
+            let allowed_headers = ["mainheader", "h2", "h3", "h4", "h5", "h6", "gh", "sh"];
             let linked_headers = ["hl2", "hl3", "hl4", "hl5", "hl6"];
             let generic = [
                 "spell",
@@ -337,6 +337,38 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
             } else if name == "tabular" {
                 match render_tabular_directive(rest) {
                     Ok(rendered) => md.push_str(&format!("\n\n{rendered}\n\n")),
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "row" {
+                let title = bracket(rest).unwrap_or_default();
+                match attributes(trimmed) {
+                    Ok(attrs) => {
+                        let mut rendered = format!("**{}**", escape_html(&title));
+                        for (key, value) in attrs {
+                            if value.trim().is_empty() {
+                                continue;
+                            }
+                            let label = if key == "info" {
+                                "Details".to_string()
+                            } else {
+                                let label = key.replace('_', " ");
+                                let mut chars = label.chars();
+                                chars
+                                    .next()
+                                    .map(|first| {
+                                        first.to_ascii_uppercase().to_string() + chars.as_str()
+                                    })
+                                    .unwrap_or(label)
+                            };
+                            rendered.push_str(&format!(
+                                "\n\n**{label}:** {}",
+                                convert_encoded_links(&value)
+                            ));
+                        }
+                        md.push_str("\n\n");
+                        md.push_str(&rendered);
+                        md.push_str("\n\n");
+                    }
                     Err(error) => errors.push(error),
                 }
             } else if name == "rtraits" {
