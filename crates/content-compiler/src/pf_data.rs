@@ -496,6 +496,14 @@ pub struct MigrationReport {
     pub derived_by_kind: BTreeMap<String, usize>,
     /// Derivations refused in this run; each one is also a finding.
     pub derived_rejected: usize,
+    /// Every allowlisted rule derivable from the in-scope corpus.
+    pub derived_available: usize,
+    /// Reviewed rules the allowlist expects for the selected hosts.
+    pub derived_expected: usize,
+    pub derived_rules: usize,
+    pub derived_sections: usize,
+    pub derived_rows: usize,
+    pub derived_skipped: usize,
     pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
@@ -509,12 +517,22 @@ pub struct MigrationReport {
 }
 
 /// A bounded conversion experiment. All inputs stay available in inventory.json.
-pub fn experiment(inv: &Inventory, out: &Path, reports: &Path) -> Result<MigrationReport, String> {
-    run_import(inv, out, reports, false)
+pub fn experiment(
+    inv: &Inventory,
+    out: &Path,
+    reports: &Path,
+    allowlist: &crate::pf_rules::RuleAllowlist,
+) -> Result<MigrationReport, String> {
+    run_import(inv, out, reports, false, allowlist)
 }
 
-pub fn import_all(inv: &Inventory, out: &Path, reports: &Path) -> Result<MigrationReport, String> {
-    run_import(inv, out, reports, true)
+pub fn import_all(
+    inv: &Inventory,
+    out: &Path,
+    reports: &Path,
+    allowlist: &crate::pf_rules::RuleAllowlist,
+) -> Result<MigrationReport, String> {
+    run_import(inv, out, reports, true, allowlist)
 }
 
 fn run_import(
@@ -522,6 +540,7 @@ fn run_import(
     out: &Path,
     reports: &Path,
     full: bool,
+    allowlist: &crate::pf_rules::RuleAllowlist,
 ) -> Result<MigrationReport, String> {
     let out_of_scope: BTreeSet<(String, String)> = inv
         .out_of_scope
@@ -572,6 +591,18 @@ fn run_import(
             .map(|r| (r.path.clone(), r.key.clone()))
             .collect();
     }
+    // Count the derivable rules across the whole in-scope corpus, even when this
+    // run only converts a representative sample.
+    let mut derived_available = 0usize;
+    for record in inv.records.iter().filter(in_scope) {
+        let rules = allowlist.for_host(&record.path, &record.key);
+        if rules.is_empty() {
+            continue;
+        }
+        if let Ok(lines) = description(&record.raw) {
+            derived_available += crate::pf_rules::extract(&lines, rules).len();
+        }
+    }
     let mut report = MigrationReport {
         scope: if full { "full-input" } else { "representative" }.into(),
         input_digest:inv.input_digest.clone(),
@@ -585,6 +616,12 @@ fn run_import(
         derived_records: 0,
         derived_by_kind: BTreeMap::new(),
         derived_rejected: 0,
+        derived_available,
+        derived_expected: 0,
+        derived_rules: 0,
+        derived_sections: 0,
+        derived_rows: 0,
+        derived_skipped: 0,
         out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: Vec::new(),
@@ -701,8 +738,8 @@ fn run_import(
     }
     let mut entry_order: Vec<RuleEntry> = Vec::new();
     let mut index_by_identity: BTreeMap<String, usize> = BTreeMap::new();
-    for r in converted_inputs {
-        let entry = convert(&r, &context, &mut report.findings)?;
+    for r in &converted_inputs {
+        let entry = convert(r, &context, &mut report.findings)?;
         index_by_identity.insert(format!("{}#{}", r.path, r.key), entry_order.len());
         entry_order.push(entry);
     }
@@ -737,8 +774,131 @@ fn run_import(
             .or_default() += 1;
     }
     report.derived_records = derived_entries.len();
+    // PSRD promotes some rule sections and table rows that Pf Data keeps inside
+    // another record. The reviewed allowlist says which ones are derivable.
+    // Seed the collision set with every entry already built (natives and #47
+    // derived children) so a rule cannot silently claim an existing ID.
+    let mut seen_ids: BTreeSet<EntryId> = entry_order
+        .iter()
+        .chain(derived_entries.iter())
+        .map(|entry| entry.id.clone())
+        .collect();
+    let mut rule_entries: Vec<RuleEntry> = Vec::new();
+    let mut derived_expected = 0usize;
+    let mut derived_sections = 0usize;
+    let mut derived_rows = 0usize;
+    let mut derived_skipped = 0usize;
+    let by_identity: BTreeMap<String, &InputRecord> = converted_inputs
+        .iter()
+        .map(|r| (format!("{}#{}", r.path, r.key), r))
+        .collect();
+    for r in inv
+        .records
+        .iter()
+        .filter(in_scope)
+        .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+    {
+        let rules = allowlist.for_host(&r.path, &r.key);
+        if rules.is_empty() {
+            continue;
+        }
+        derived_expected += rules.len();
+        let identity = format!("{}#{}", r.path, r.key);
+        // The P2 rule: a host that failed conversion must not silently drop its
+        // allowlisted rules. Report each one and count it as skipped.
+        let Some(&expanded) = by_identity.get(&identity) else {
+            derived_skipped += rules.len();
+            for rule in rules {
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: identity.clone(),
+                    problem: format!(
+                        "allowlisted rule {} skipped; host record did not convert",
+                        rule.rule
+                    ),
+                });
+            }
+            continue;
+        };
+        let Some(parent) = native_key(expanded).and_then(|key| context.targets.get(&key).cloned())
+        else {
+            derived_skipped += rules.len();
+            for rule in rules {
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: identity.clone(),
+                    problem: format!(
+                        "allowlisted rule {} skipped; host record has no resolved parent",
+                        rule.rule
+                    ),
+                });
+            }
+            continue;
+        };
+        let lines = description(&expanded.raw)?;
+        let extracted = crate::pf_rules::extract(&lines, rules);
+        // Report every allowlisted rule that extraction did not produce, so a
+        // missing heading or empty body is never a silent drop.
+        let extracted_names: BTreeSet<&str> = extracted.iter().map(|e| e.rule.as_str()).collect();
+        for rule in rules {
+            if !extracted_names.contains(rule.rule.as_str()) {
+                derived_skipped += 1;
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: identity.clone(),
+                    problem: format!(
+                        "allowlisted rule {} was not extracted from the host body",
+                        rule.rule
+                    ),
+                });
+            }
+        }
+        for extracted in extracted {
+            let id = EntryId::parse(extracted.id.clone()).map_err(|e| e.to_string())?;
+            if !seen_ids.insert(id.clone()) {
+                derived_skipped += 1;
+                report.findings.push(Finding {
+                    severity: "medium".into(),
+                    record: extracted.id.clone(),
+                    problem:
+                        "duplicate derived id; another rule already claims this host and title"
+                            .into(),
+                });
+                continue;
+            }
+            match derive_rule_entry(
+                expanded,
+                &extracted,
+                &context,
+                &parent,
+                &mut report.findings,
+            ) {
+                Ok(entry) => {
+                    match extracted.shape {
+                        crate::pf_rules::RuleShape::Section => derived_sections += 1,
+                        crate::pf_rules::RuleShape::Row => derived_rows += 1,
+                    }
+                    rule_entries.push(entry);
+                }
+                Err(problem) => {
+                    derived_skipped += 1;
+                    report.findings.push(Finding {
+                        severity: "high".into(),
+                        record: extracted.rule.clone(),
+                        problem: format!("derived rule {}: {problem}", extracted.id),
+                    });
+                }
+            }
+        }
+    }
+    report.derived_expected = derived_expected;
+    report.derived_sections = derived_sections;
+    report.derived_rows = derived_rows;
+    report.derived_rules = derived_sections + derived_rows;
+    report.derived_skipped = derived_skipped;
     entries.extend(entry_order);
     entries.extend(derived_entries);
+    entries.extend(rule_entries);
     entries.sort_by(|a, b| a.id.cmp(&b.id));
     let mut sources = BTreeMap::new();
     for e in &entries {
@@ -1384,6 +1544,69 @@ fn derive_entry(
     })
 }
 
+/// Build one derived rule entry from a nested section or table row. The body is
+/// rendered through the shared typed converter so no content is dropped.
+fn derive_rule_entry(
+    r: &InputRecord,
+    derived: &crate::pf_rules::ExtractedRule,
+    context: &LinkContext,
+    parent: &EntryId,
+    findings: &mut Vec<Finding>,
+) -> Result<RuleEntry, String> {
+    let id = EntryId::parse(derived.id.clone()).map_err(|e| e.to_string())?;
+    let record = format!(
+        "{}#{}|{}:{}",
+        r.path,
+        r.key,
+        derived.shape.slug(),
+        derived.slug
+    );
+    let mut env = ConvertEnv {
+        record: record.clone(),
+        findings,
+        context,
+        references: BTreeSet::new(),
+        current: &id,
+        anchors: BTreeMap::new(),
+    };
+    // A nested spell section can carry the source spell directive. Its mechanics
+    // belong to the native spell entry, so retain only the attribution marker.
+    let mut render_lines = derived.body_lines.clone();
+    for line in &mut render_lines {
+        if line.trim_start().starts_with("::spell{")
+            && let Ok(attrs) = pf_markdown::attributes(line)
+        {
+            *line = attrs
+                .get("source")
+                .map(|source| format!("‹SOURCE {source}›"))
+                .unwrap_or_default();
+        }
+    }
+    let body = pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
+    if blocks_text(&body).trim().is_empty() {
+        return Err("empty derived description".into());
+    }
+    Ok(RuleEntry {
+        id: id.clone(),
+        kind: EntryKind::Rule,
+        title: derived.title.clone(),
+        source_ids: r.publications.iter().map(|s| slug_segment(s)).collect(),
+        section: vec![r.name.clone()],
+        parent: Some(parent.clone()),
+        body,
+        fields: cast_iron_schema::TypedFields::None,
+        tags: Vec::new(),
+        links: env.references.into_iter().collect(),
+        provenance: vec![Provenance {
+            dataset: "pathfinder-data-1-e".into(),
+            record,
+            path: r.path.clone(),
+        }],
+        license_refs: vec![crate::build::LICENSE_OGL.into()],
+        relations: Vec::new(),
+    })
+}
+
 pub fn markdown_report(r: &MigrationReport) -> String {
     let mut text = format!(
         "# Migration conversion report\n\nSource revision `{}`.\n\nObserved {} input records, {} selected, {} converted. Canonical data {} bytes; search {} bytes. {} search checks; {} schema errors.\n\nPublication gate: **blocked**. Browser checks: {}. These are experimental artifacts, not a production library.\n\n",
@@ -1407,6 +1630,15 @@ pub fn markdown_report(r: &MigrationReport) -> String {
         r.derived_by_kind.get("racial-trait").copied().unwrap_or(0),
         r.derived_by_kind.get("affliction").copied().unwrap_or(0),
         r.derived_rejected
+    ));
+    text.push_str(&format!(
+        "Derived rules: {} converted ({} sections, {} rows; {} expected in this scope, {} skipped). The in-scope corpus exposes {} derivable rules.\n\n",
+        r.derived_rules,
+        r.derived_sections,
+        r.derived_rows,
+        r.derived_expected,
+        r.derived_skipped,
+        r.derived_available
     ));
     for blocker in &r.cutover_blockers {
         text.push_str(&format!("- {blocker}\n"));

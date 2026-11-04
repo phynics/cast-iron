@@ -2,6 +2,7 @@
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
+use cast_iron_content_compiler::pf_rules::RuleAllowlist;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -33,11 +34,17 @@ fn run() -> Result<(), String> {
     let reports = reports.ok_or("missing --reports")?;
     let inv = inventory(&dataset, &registry)?;
     let derived = derived_coverage(&inv);
+    let allowlist = RuleAllowlist::load_optional(
+        &registry
+            .parent()
+            .ok_or("registry has no parent")?
+            .join("derived-rules.json"),
+    )?;
     write(
         &out.join("inventory.json"),
         &serde_json::to_vec_pretty(&inv).map_err(|e| e.to_string())?,
     )?;
-    let summary = serde_json::json!({
+    let mut summary = serde_json::json!({
         "dataset":inv.dataset,"commit":inv.commit,"input_digest":inv.input_digest,
         "json_files":inv.json_files,"input_records":inv.input_records,
         "registered_publications":inv.registered_publications,"by_file":inv.by_file,
@@ -47,8 +54,17 @@ fn run() -> Result<(), String> {
         "derived":derived,
         "production_default":"psrd-data","cutover_verified":false
     });
+    // Preserve an existing `derived_rules` block so `data-audit` does not strip
+    // the committed counts when it rewrites the coverage summary.
+    let coverage_path = reports.join("migration-coverage.json");
+    if let Ok(bytes) = std::fs::read(&coverage_path)
+        && let Ok(existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
+        && existing.get("derived_rules").is_some()
+    {
+        summary["derived_rules"] = existing["derived_rules"].clone();
+    }
     write(
-        &reports.join("migration-coverage.json"),
+        &coverage_path,
         &serde_json::to_vec_pretty(&summary).map_err(|e| e.to_string())?,
     )?;
     println!(
@@ -66,16 +82,38 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
     let result = if ["import", "validate"].contains(&command.as_str()) {
-        import_all(&inv, &out, &reports)?
+        import_all(&inv, &out, &reports, &allowlist)?
     } else {
-        experiment(&inv, &out, &reports)?
+        experiment(&inv, &out, &reports, &allowlist)?
     };
+    // Record the rule-derivation counts in the tracked coverage summary.
+    if let Ok(bytes) = std::fs::read(&coverage_path)
+        && let Ok(mut existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
+    {
+        existing["derived_rules"] = serde_json::json!({
+            "scope": result.scope,
+            "allowlist": allowlist.len(),
+            "available": result.derived_available,
+            "expected": result.derived_expected,
+            "derived": result.derived_rules,
+            "sections": result.derived_sections,
+            "rows": result.derived_rows,
+            "skipped": result.derived_skipped,
+        });
+        write(
+            &coverage_path,
+            &serde_json::to_vec_pretty(&existing).map_err(|e| e.to_string())?,
+        )?;
+    }
     println!(
-        "{} selected, {} converted, {} findings, {} search checks",
+        "{} selected, {} converted, {} findings, {} search checks, {} derived rules ({} sections, {} rows)",
         result.selected_records,
         result.imported_records,
         result.findings.len(),
-        result.search_checks
+        result.search_checks,
+        result.derived_rules,
+        result.derived_sections,
+        result.derived_rows
     );
     if ["validate", "test", "import"].contains(&command.as_str()) && !result.publication_ready {
         let report = if ["import", "validate"].contains(&command.as_str()) {

@@ -5,7 +5,7 @@
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
   "selected_records": 40,
-  "imported_records": 41,
+  "imported_records": 42,
   "by_kind": {
     "affliction": 1,
     "archetype": 3,
@@ -15,7 +15,7 @@
     "item": 4,
     "prestige_class": 4,
     "race": 3,
-    "rule": 5,
+    "rule": 6,
     "spell": 4,
     "trait": 3
   },
@@ -62,7 +62,7 @@
     "people-of-the-stars": 1,
     "planar-adventures": 1,
     "plane-hoppers-handbook": 3,
-    "prpg-core-rulebook": 1,
+    "prpg-core-rulebook": 2,
     "ultimate-campaign": 1,
     "ultimate-combat": 2,
     "ultimate-equipment": 1,
@@ -75,6 +75,12 @@
     "affliction": 1
   },
   "derived_rejected": 0,
+  "derived_available": 178,
+  "derived_expected": 1,
+  "derived_rules": 1,
+  "derived_sections": 1,
+  "derived_rows": 0,
+  "derived_skipped": 0,
   "out_of_scope": [
     {
       "path": "json/archetypes_magus.json",
@@ -2716,6 +2722,96 @@
     },
     {
       "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: feat/point_blank_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: feat/precise_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/anarchic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/axiomatic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/distance"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/flaming"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/flaming_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/frost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/holy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/icy_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/shock"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/shocking_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: magic-enh/unholy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: skill/perception"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: skill/ride"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: skill/stealth"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer|section:arcane-archer",
+      "problem": "reference outside bounded sample: skill/survival"
+    },
+    {
+      "severity": "medium",
       "record": "json/prestige_classes2.json#mortal_usher",
       "problem": "reference outside bounded sample: class/wizard"
     },
@@ -2930,9 +3026,9 @@
       "problem": "reference outside bounded sample: spell/atonement"
     }
   ],
-  "canonical_bytes": 1148088,
-  "search_bytes": 200183,
-  "search_checks": 125,
+  "canonical_bytes": 1178190,
+  "search_bytes": 208166,
+  "search_checks": 130,
   "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
