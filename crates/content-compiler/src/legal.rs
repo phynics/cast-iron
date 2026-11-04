@@ -7,6 +7,8 @@ use serde::Deserialize;
 const OGL_TEXT: &str = include_str!("../../../LICENSES/OGL-1.0a.txt");
 const LICENSING_AUDIT: &str = include_str!("../../../docs/research/licensing-audit.md");
 pub const PRODUCT_NAME: &str = "Cast Iron";
+/// The Community Use notice section of the legal page. CUP records record this path.
+pub const COMMUNITY_USE_NOTICE_PATH: &str = "legal#community-use";
 const PLACEHOLDER: &str = "[This website, product name, Twitch show title, etc.]";
 
 #[derive(Debug, Deserialize)]

@@ -86,11 +86,24 @@ with imported records.
 `sources/pathfinder-data-1-e/approved.json` is the only path from the primary
 source into production. Each record names an exact file and key, an expected name
 and publication, a permanent native-protocol ID, an optional parent, a review
-reason, and the reviewed topic targets. The adapter rejects a mismatched identity,
-an unapproved field, an unknown link target, a duplicate ID, or an unknown parent.
-All remaining inventory records appear in `coverage.json` with a reason. The
-initial selection is `pf-data/rule/magic`, "Magic and Spellcasting", the missing
-Core Rulebook page 206 opening passage under the existing Magic article.
+reason, a required `rights` basis, and the reviewed topic targets. The adapter
+rejects a mismatched identity, an unapproved field, an unknown link target, a
+duplicate ID, or an unknown parent. All remaining inventory records appear in
+`coverage.json` with a reason. The initial selection is `pf-data/rule/magic`,
+"Magic and Spellcasting", the missing Core Rulebook page 206 opening passage
+under the existing Magic article.
+
+The `rights` field accepts exactly four values:
+
+| Value | Meaning |
+|---|---|
+| `ogl` | Import under the Open Game License. The entry carries the canonical `ogl-1.0a` license reference. |
+| `cup` | Import under the OGL plus Paizo's Community Use Policy. The entry carries `ogl-1.0a` and the legal-page Community Use notice path, `legal#community-use`. |
+| `orc` | Refused. The current legal page has no ORC notice path, so an ORC record cannot be routed through the OGL page. |
+| `excluded` | Do not import. The record appears in coverage with the reviewed reason instead of becoming an entry. |
+
+An omitted or unknown `rights` value fails the selection, as does an `orc`
+record. A `cup` record is always emitted with the reviewed legal-page notice path.
 
 `sources/psrd-data/source.toml` points at this selection in its `[supplement]`
 table. The compile therefore appends the reviewed entry after the ordinary build,

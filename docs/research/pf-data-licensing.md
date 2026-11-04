@@ -22,10 +22,28 @@ file-to-protocol associations extracted without executing that renderer.
 
 Production imports exactly one reviewed record from this pin:
 `pf-data/rule/magic`, the Core Rulebook page 206 opening passage, which is
-ordinary OGC game mechanics under the OGL. The compiler appends the pin's complete
-Section 15 list to the legal page and records the dataset. Every other record
-remains excluded from the library. This does not expand the rights review to the
-rest of the corpus.
+ordinary OGC game mechanics under the OGL. Its `approved.json` row records
+`rights: "ogl"`, so the compiler emits the canonical `ogl-1.0a` license
+reference. The compiler appends the pin's complete Section 15 list to the legal
+page and records the dataset. Every other record remains excluded from the
+library. This does not expand the rights review to the rest of the corpus.
+
+## Per-record rights basis
+
+Each row in `sources/pathfinder-data-1-e/approved.json` must carry a required
+`rights` value. The adapter accepts four values and rejects every other value:
+
+- `ogl`: import as Open Game Content with the `ogl-1.0a` license reference.
+- `cup`: import with both `ogl-1.0a` and the Community Use notice path on the
+  legal page, `legal#community-use`.
+- `orc`: refuse. The current legal page has no ORC notice path, so ORC text must
+  not be presented under the OGL.
+- `excluded`: do not import. The record stays visible in coverage with the
+  reviewed reason from its `reason` field.
+
+The rights value is a separate gate from `out-of-scope.json`. A record that
+names an allowed import route still needs its publication, Product Identity, and
+notice review; the field records the basis, not a blanket clearance.
 
 The source registry includes `Monster Core`, and upstream has a separate
 `ORCLICENSE.md` for that publication. It is not cleared by the OGL notice.
