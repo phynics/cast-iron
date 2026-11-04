@@ -4,6 +4,7 @@ use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
 use cast_iron_content_compiler::pf_rules::RuleAllowlist;
+use cast_iron_content_compiler::pipeline::publish_extra_file;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -172,22 +173,18 @@ fn write_aliases(
             }
             message
         })?;
-    let manifest_bytes = std::fs::read(content_dir.join("manifest.json")).map_err(|e| {
-        format!(
-            "cannot read {}: {e}; run `cargo xtask content` first",
-            content_dir.join("manifest.json").display()
-        )
+    let bytes = alias::to_bytes(&file)?;
+    let version = publish_extra_file(content_dir, alias::ALIASES_FILE, bytes).map_err(|e| {
+        format!("{e}; run `cargo xtask content` first, then `cargo xtask data-alias`")
     })?;
-    let manifest: serde_json::Value =
-        serde_json::from_slice(&manifest_bytes).map_err(|e| format!("invalid manifest: {e}"))?;
-    let version = manifest
-        .get("content_version")
-        .and_then(serde_json::Value::as_str)
-        .ok_or("manifest.json has no content_version")?;
-    let target = content_dir.join(version).join(alias::ALIASES_FILE);
-    write(&target, &alias::to_bytes(&file)?)?;
     println!("{} canonical records; {}", catalog.len(), stats.report());
-    println!("wrote {}", target.display());
+    println!(
+        "wrote {}",
+        content_dir
+            .join(version)
+            .join(alias::ALIASES_FILE)
+            .display()
+    );
     Ok(())
 }
 

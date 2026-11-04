@@ -15,11 +15,14 @@
 //! <content_version>/relations.json RelationIndex (schema 3)
 //! <content_version>/lists.json     SpellLists (schema 3)
 //! <content_version>/books.json     BookIndex (schema 3)
+//! <content_version>/aliases.json   AliasIndex (optional, after the canonical cutover)
 //! ```
 //!
-//! Schema 3 adds the last three files. They are listed in the manifest and hashed like
-//! every other file. Libraries of schema 1 and 2 do not have them; a reader that accepts
-//! those versions must treat the files as optional.
+//! Schema 3 adds the relation, spell-list, and book-order files. They are listed in the
+//! manifest and hashed like every other file. Libraries of schema 1 and 2 do not have them;
+//! a reader that accepts those versions must treat the files as optional. `aliases.json`
+//! is a separate optional file with its own format version, so its presence does not change
+//! the schema version.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -40,6 +43,12 @@ pub const RELATIONS_FILE: &str = "relations.json";
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
 pub const BOOKS_FILE: &str = "books.json";
+/// Name of the legacy-to-canonical alias map, relative to the version directory.
+/// Optional: a library built before the canonical cutover has no such file.
+pub const ALIASES_FILE: &str = "aliases.json";
+/// Version of the alias file format. Independent of [`SCHEMA_VERSION`] and of the
+/// search index format, as `docs/research/canonical-id-design.md` requires.
+pub const ALIAS_FORMAT: u32 = 1;
 
 /// Stable canonical identifier. Lowercase `a-z0-9-` segments joined by `/`,
 /// such as `core-rulebook/spells/fireball`.
@@ -721,6 +730,137 @@ pub struct DatasetRef {
     pub id: String,
     pub repository: String,
     pub commit: String,
+}
+
+/// `aliases.json`: the one-step legacy-to-canonical map.
+///
+/// The file is optional. An older library has no file, and the client treats it as an
+/// empty map. `entries` and `retired` are sorted by `old`, and the format forbids chains:
+/// a canonical target never appears as an alias `old`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasIndex {
+    pub format: u32,
+    pub legacy: AliasLegacy,
+    #[serde(default)]
+    pub entries: Vec<AliasEntry>,
+    #[serde(default)]
+    pub retired: Vec<RetiredEntry>,
+}
+
+impl Default for AliasIndex {
+    fn default() -> Self {
+        Self {
+            format: ALIAS_FORMAT,
+            legacy: AliasLegacy {
+                count: 0,
+                sha256: String::new(),
+            },
+            entries: Vec::new(),
+            retired: Vec::new(),
+        }
+    }
+}
+
+impl AliasIndex {
+    /// Rejects a format this client does not read and an unsorted or duplicated map.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.format != ALIAS_FORMAT {
+            return Err(format!(
+                "aliases.json has format {}; this client reads {ALIAS_FORMAT}",
+                self.format
+            ));
+        }
+        for pair in self.entries.windows(2) {
+            if pair[0].old >= pair[1].old {
+                return Err(format!(
+                    "aliases.json entries are not sorted by old id: {:?}",
+                    pair[1].old
+                ));
+            }
+        }
+        for pair in self.retired.windows(2) {
+            if pair[0].old >= pair[1].old {
+                return Err(format!(
+                    "aliases.json retired rows are not sorted by old id: {:?}",
+                    pair[1].old
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty() && self.retired.is_empty()
+    }
+
+    /// The one alias row for `id`, found by binary search over the sorted list.
+    pub fn alias(&self, id: &EntryId) -> Option<&AliasEntry> {
+        self.entries
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .ok()
+            .map(|index| &self.entries[index])
+    }
+
+    /// The retirement row for `id`, if the map retired it.
+    pub fn retirement(&self, id: &EntryId) -> Option<&RetiredEntry> {
+        self.retired
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .ok()
+            .map(|index| &self.retired[index])
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasLegacy {
+    pub count: usize,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AliasEntry {
+    pub old: EntryId,
+    pub target: EntryId,
+    pub basis: AliasBasis,
+}
+
+/// Why a legacy id has a canonical target. The client does not branch on this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AliasBasis {
+    Direct,
+    Derived,
+    Carried,
+    Shared,
+    Renamed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetiredEntry {
+    pub old: EntryId,
+    pub reason: RetirementReason,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+}
+
+/// Why a legacy id has no canonical target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetirementReason {
+    Rights,
+    OutOfScope,
+    NoSource,
+    Unrepresentable,
+}
+
+impl RetirementReason {
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Rights => "rights",
+            Self::OutOfScope => "out_of_scope",
+            Self::NoSource => "no_source",
+            Self::Unrepresentable => "unrepresentable",
+        }
+    }
 }
 
 /// `catalog.json`: everything that browsing needs without loading entry shards.
