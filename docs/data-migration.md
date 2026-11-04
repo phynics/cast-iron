@@ -127,6 +127,25 @@ corpus diagnostics stay under ignored `reports/migration-full.*`. A blocked gate
 still exits nonzero for `import`, `validate`, and `test`; it cannot alter
 `generated/content`.
 
+## Legacy alias map
+
+The canonical cutover renumbers public entries under `ref/`, so every id in the
+frozen `sources/canonical/legacy-ids.json` snapshot needs a reviewed disposition in
+`sources/canonical/id-map.toml`. `cargo xtask data-alias` resolves each row through
+the canonical derivation over the pinned Pf Data corpus and writes
+`generated/content/<version>/aliases.json`. It fails on an unaccounted legacy id, a
+target the corpus cannot produce, a chain, a many:1 merge that is not an explicit
+`[shared]` row, or a `[map]` row whose legacy title and source book do not fit the
+canonical record. The fit gate is what rejects a row that shares only a slug with an
+unrelated record; a retired row from that gate says so in its note.
+
+The map is append-only. A route change or an upstream rename is an identity change:
+add the affected `[map]` rows instead of editing an already published target. The
+generated file is build output and is not committed. The client does not read it yet;
+schema version 3 and search format 1 remain unchanged. See the Phase D decision in
+[decisions](decisions.md#legacy-to-canonical-alias-map-2026-11-04) and
+[the canonical id design](research/canonical-id-design.md).
+
 ## Migration and test sequence
 
 1. Verify pinned source files and inventory every input, including non-content files.

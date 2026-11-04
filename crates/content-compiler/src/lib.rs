@@ -1,5 +1,6 @@
 //! Native content compiler: upstream PF1e JSON to the Cast Iron content library.
 
+pub mod alias;
 pub mod books;
 pub mod build;
 pub mod config;

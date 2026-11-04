@@ -34,6 +34,31 @@ change. Final-head GitHub CI is separate and remains visible on the PR.
 No release-branch deployment or live migration verification is claimed. See
 [release operations](releasing.md) for exact completion and recovery steps.
 
+### Canonical id alias map (Phase D)
+
+[PR #49](https://github.com/phynics/cast-iron/pull/49) on `data/pf-derived-rules`
+adds the Phase D alias map. `sources/canonical/id-map.toml` gives every one of the
+9,968 frozen legacy ids one disposition: 94 are mapped (1 direct, 93 derived from
+racial traits, afflictions, and extracted rules), none are shared, and 9,874 are
+retired as `no_source`. `cargo xtask data-alias` rebuilds the canonical catalog from
+the pinned Pf Data corpus, runs totality, injectivity, target, direction, hash, and
+semantic-fit gates, and writes `generated/content/<version>/aliases.json`.
+
+The semantic-fit gate requires each `[map]` row's legacy title and source book to
+match the canonical record. It demoted 96 slug-coincidence rows, such as
+`environment/weather` pointing at the Ceremony spell's weather subsection and
+`class-archetypes/monk` at a weapon-group row.
+
+Local verification on 2026-11-04: `cargo test -p cast-iron-content-compiler` passes
+(161 lib tests, 26 in the alias module), `cargo xtask check` passes, and two
+`cargo xtask data-alias` runs produced byte-identical output
+(`5638c81f8829f6fa5f77511d6fa54984a67a41ef973964d3b53225fae631e60b`). This is local
+evidence only; the PR's GitHub checks are separate and are not claimed here.
+
+The map is not deployed and the client does not consume it. `aliases.json` is build
+output, is not listed in the content manifest, and no bookmark is rewritten yet.
+Schema version 3 and search format 1 are unchanged.
+
 ## Outstanding work and UI history
 
 - [#8](https://github.com/phynics/cast-iron/issues/8) tracks installation controls;
