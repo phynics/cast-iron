@@ -148,6 +148,12 @@ target the corpus cannot produce, a chain, a many:1 merge that is not an explici
 canonical record. The fit gate is what rejects a row that shares only a slug with an
 unrelated record; a retired row from that gate says so in its note.
 
+`cargo xtask data-alias-propose` proposes dispositions for the `no_source` rows
+through the same kind, source-book, and `title_fit` rules the gate uses. It writes a
+reviewable map and JSON report under `generated/migration/`; `--apply` rewrites the
+committed map. The command is idempotent, and it leaves an ambiguous tie retired
+with an `ambiguous: <candidates>` note rather than guessing.
+
 The map is append-only. A route change or an upstream rename is an identity change:
 add the affected `[map]` rows instead of editing an already published target. The
 generated file is build output and is not committed. `cargo xtask data-alias` adds
