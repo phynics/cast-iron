@@ -10,7 +10,7 @@ use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::RichBody;
 use crate::views::util::{kind_name, local_resource, set_title};
-use cast_iron_schema::{EntryId, EntryKind, EntryReference, RuleEntry};
+use cast_iron_schema::{EntryId, EntryKind, EntryReference, RetirementReason, RuleEntry};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
@@ -53,12 +53,28 @@ pub fn unique_targets(links: &[EntryReference]) -> Vec<EntryReference> {
     out
 }
 
+/// The design 6.2 retirement reason, in reader-facing words. The category stays explicit so
+/// that a dead link never looks like a generic missing page.
+pub fn retirement_reason_label(reason: RetirementReason) -> &'static str {
+    match reason {
+        RetirementReason::Rights => "removed for licensing reasons",
+        RetirementReason::OutOfScope => "outside the scope of this library",
+        RetirementReason::NoSource => "no matching entry exists in this library",
+        RetirementReason::Unrepresentable => "cannot be represented in this format",
+    }
+}
+
 #[component]
 pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
     let library = use_library();
     // An old bookmark or link resolves in one step. The address bar becomes canonical without
     // a Back entry; the fetch below uses the canonical id immediately.
-    let (id, aliased) = match library.resolve(&id) {
+    let resolution = library.resolve(&id);
+    let retired_reason = match &resolution {
+        Resolution::Retired { reason, .. } => Some(*reason),
+        _ => None,
+    };
+    let (id, aliased) = match resolution {
         Resolution::Aliased { canonical, .. } => (canonical, true),
         _ => (id, false),
     };
@@ -68,6 +84,24 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
             anchor: anchor.clone(),
         };
         Effect::new(move |_| route::replace(&route));
+    }
+    // A retired id has no canonical record and is never redirected to a guessed article.
+    // Show the standard "not in this library" state with its reason category.
+    if let Some(reason) = retired_reason {
+        set_title("Not in this library");
+        return view! {
+            <article class="entry">
+                <h1 data-testid="entry-title">"Not in this library"</h1>
+                <p class="notice">"This saved entry is not part of the current library."</p>
+                <p class="muted">"Reason: " {retirement_reason_label(reason)}"."</p>
+                <p class="muted"><code>{id.to_string()}</code></p>
+                <p>
+                    <a class="btn" href=Route::Bookmarks.href()>"Open Bookmarks"</a>" "
+                    <a class="btn" href=Route::Home.href()>"Go to Home"</a>
+                </p>
+            </article>
+        }
+        .into_any();
     }
     let stub_title = library.stub(&id).map(|s| s.title.clone());
     set_title(stub_title.as_deref().unwrap_or("Entry"));
@@ -124,6 +158,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
             })}
         </article>
     }
+    .into_any()
 }
 
 #[component]
@@ -381,6 +416,24 @@ mod tests {
             target: EntryId::parse(target).unwrap(),
             anchor: anchor.map(String::from),
         }
+    }
+
+    #[test]
+    fn every_retirement_reason_has_its_own_reader_facing_label() {
+        let reasons = [
+            RetirementReason::Rights,
+            RetirementReason::OutOfScope,
+            RetirementReason::NoSource,
+            RetirementReason::Unrepresentable,
+        ];
+        let mut labels: Vec<&str> = reasons
+            .into_iter()
+            .map(retirement_reason_label)
+            .collect();
+        assert!(labels.iter().all(|label| !label.is_empty()));
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), reasons.len());
     }
 
     #[test]
