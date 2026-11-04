@@ -1179,7 +1179,12 @@ mod tests {
                 {"old":"a/y","target":"a/z","basis":"direct"}
             ],"retired":[]}"#,
         );
-        assert!(chain.validate().unwrap_err().contains("chains are forbidden"));
+        assert!(
+            chain
+                .validate()
+                .unwrap_err()
+                .contains("chains are forbidden")
+        );
 
         let retired_target = parse(
             r#"{"format":1,"legacy":{"count":1,"sha256":""},"entries":[

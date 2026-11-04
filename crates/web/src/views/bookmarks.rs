@@ -495,12 +495,7 @@ mod tests {
     }
 
     fn row(entry: &str, title: &str, at: f64, cols: &[&str]) -> Bookmark {
-        let mut b = Bookmark::new(
-            EntryId::parse(entry).unwrap(),
-            title,
-            EntryKind::Spell,
-            at,
-        );
+        let mut b = Bookmark::new(EntryId::parse(entry).unwrap(), title, EntryKind::Spell, at);
         for c in cols {
             b.add_collection(c);
         }
@@ -535,10 +530,7 @@ mod tests {
         assert_eq!(shown[0].entry_id, EntryId::parse("ref/rule/a").unwrap());
         assert_eq!(shown[0].title_snapshot, "Old"); // the newest row of the group
         assert_eq!(shown[0].collection_ids, ["x", "y"]);
-        assert_eq!(
-            shown[1].entry_id,
-            EntryId::parse("legacy/retired").unwrap()
-        );
+        assert_eq!(shown[1].entry_id, EntryId::parse("legacy/retired").unwrap());
         assert_eq!(shown[1].title_snapshot, "Gone");
     }
 }

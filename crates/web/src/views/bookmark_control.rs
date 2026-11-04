@@ -113,8 +113,7 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
                     Ok(created) => {
                         new_name.set(String::new());
                         let matches = |stored: &EntryId| library.resolves_to(stored, &id);
-                        let added =
-                            store::add_to_collection_matching(&created.id, matches).await;
+                        let added = store::add_to_collection_matching(&created.id, matches).await;
                         if let Err(e) = added {
                             error.set(Some(format!("Could not add to the collection: {e}")));
                         }

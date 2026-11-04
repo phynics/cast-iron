@@ -539,7 +539,6 @@ pub async fn delete_bookmarks_matching(matches: impl Fn(&EntryId) -> bool) -> Re
     Ok(deleted)
 }
 
-
 // ---- canonical id migration ------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1095,9 +1094,7 @@ mod tests {
             row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["d"]),
             row("legacy/c", "Other", EntryKind::Rule, 3.0, &[]),
         ];
-        let matches = |stored: &EntryId| {
-            *stored == target || *stored == id("legacy/a")
-        };
+        let matches = |stored: &EntryId| *stored == target || *stored == id("legacy/a");
         let owned = matching_rows(&rows, &matches);
         // Star sees the item as already saved, so it adds no canonical duplicate.
         assert_eq!(owned.len(), 2);

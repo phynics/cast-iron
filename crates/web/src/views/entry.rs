@@ -426,10 +426,7 @@ mod tests {
             RetirementReason::NoSource,
             RetirementReason::Unrepresentable,
         ];
-        let mut labels: Vec<&str> = reasons
-            .into_iter()
-            .map(retirement_reason_label)
-            .collect();
+        let mut labels: Vec<&str> = reasons.into_iter().map(retirement_reason_label).collect();
         assert!(labels.iter().all(|label| !label.is_empty()));
         labels.sort_unstable();
         labels.dedup();

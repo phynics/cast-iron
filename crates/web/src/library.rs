@@ -499,7 +499,10 @@ impl Library {
 
 fn catalog_has(catalog: &Catalog, id: &EntryId) -> bool {
     debug_assert!(
-        catalog.entries.windows(2).all(|pair| pair[0].id < pair[1].id),
+        catalog
+            .entries
+            .windows(2)
+            .all(|pair| pair[0].id < pair[1].id),
         "catalog entries are sorted by unique id"
     );
     catalog
