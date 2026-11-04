@@ -60,6 +60,8 @@ To prove a change in the real app, use the `verify` skill in `.agents/skills/ver
 
 Start new work from current `origin/main` on an issue-linked branch. Keep outstanding work in issues. Docs retain decisions, limitations, and evidence.
 
+In a T3 Code worktree (a path under `~/.t3/worktrees/`), the branch already exists: commit and push on it, and do not create, rename or switch branches. T3 removes a worktree only while it stays on the branch T3 recorded. Link the issue in the PR body instead of the branch name. To start from current `origin/main`, run `git fetch origin && git reset --hard origin/main` before you change any file.
+
 Work in small commits, each with a verifiable state. A task is finished only after `cargo xtask check` passes and, for user-visible behavior, the affected e2e test passes on a real `dist/` build. Report failures with their output.
 
 Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
