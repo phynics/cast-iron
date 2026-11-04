@@ -52,8 +52,51 @@ struct ApprovedRecord {
     source: String,
     expected_source: String,
     reason: String,
+    rights: RightsBasis,
     #[serde(default)]
     topics: BTreeMap<String, String>,
+}
+
+/// The reviewed rights basis for one primary-source record.
+///
+/// Every value must name a permission route the legal page can actually show:
+/// OGL, OGL plus the Community Use notice, no route yet (ORC), or no import.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum RightsBasis {
+    Ogl,
+    Cup,
+    Orc,
+    Excluded,
+}
+
+#[derive(Debug)]
+enum RightsDecision {
+    /// The license references the emitted entry must carry.
+    Import(Vec<String>),
+    /// The record is not imported and appears in coverage with this reason.
+    Exclude(Exclusion),
+}
+
+fn rights_decision(approved: &ApprovedRecord) -> Result<RightsDecision, String> {
+    match approved.rights {
+        RightsBasis::Ogl => Ok(RightsDecision::Import(vec![
+            crate::build::LICENSE_OGL.to_string(),
+        ])),
+        RightsBasis::Cup => Ok(RightsDecision::Import(vec![
+            crate::build::LICENSE_OGL.to_string(),
+            crate::legal::COMMUNITY_USE_NOTICE_PATH.to_string(),
+        ])),
+        RightsBasis::Orc => Err(format!(
+            "{}:{} has rights `orc`, but the current legal page has no ORC notice path",
+            approved.path, approved.key
+        )),
+        RightsBasis::Excluded => Ok(RightsDecision::Exclude(Exclusion {
+            path: format!("{COVERAGE_PREFIX}{}/{}", approved.path, approved.key),
+            records: 1,
+            reason: format!("rights basis `excluded`: {}", approved.reason.trim()),
+        })),
+    }
 }
 
 pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String> {
@@ -97,15 +140,6 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
                 key.0, key.1
             ));
         }
-        let id = EntryId::parse(approved.id.clone()).map_err(|e| e.to_string())?;
-        if !ids.insert(id.clone()) {
-            return Err(format!("duplicate approved entry id {id}"));
-        }
-        let parent = approved
-            .parent
-            .as_ref()
-            .map(|p| EntryId::parse(p.clone()).map_err(|e| e.to_string()))
-            .transpose()?;
         let record = inventory
             .records
             .iter()
@@ -126,6 +160,22 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
                 approved.path, approved.key, scope.reason
             ));
         }
+        let license_refs = match rights_decision(approved)? {
+            RightsDecision::Import(refs) => refs,
+            RightsDecision::Exclude(exclusion) => {
+                exclusions.push(exclusion);
+                continue;
+            }
+        };
+        let id = EntryId::parse(approved.id.clone()).map_err(|e| e.to_string())?;
+        if !ids.insert(id.clone()) {
+            return Err(format!("duplicate approved entry id {id}"));
+        }
+        let parent = approved
+            .parent
+            .as_ref()
+            .map(|p| EntryId::parse(p.clone()).map_err(|e| e.to_string()))
+            .transpose()?;
         validate_record(record, approved)?;
         let lines = description(&record.raw, &approved.path)?;
         let (mut body, links, render_error) = render_body(
@@ -202,7 +252,7 @@ pub fn load(config: &Config, config_dir: &Path) -> Result<ApprovedImport, String
             tags: Vec::new(),
             links: references.into_iter().collect(),
             provenance,
-            license_refs: vec![crate::build::LICENSE_OGL.to_string()],
+            license_refs,
             relations: Vec::new(),
         });
     }
@@ -483,6 +533,98 @@ mod tests {
         assert!(parse_copyrights("**15. COPYRIGHT NOTICE**\n**Title** Copyright 2025\n").is_err());
     }
 
+    fn selection_json(rights: &str) -> String {
+        format!(
+            r#"{{"records":[{{
+                "path": "json/rules.json",
+                "key": "magic",
+                "expected_name": "Magic and Spellcasting",
+                "id": "pf-data/rule/magic",
+                "source": "core-rulebook",
+                "expected_source": "PRPG Core Rulebook",
+                "reason": "reviewed",
+                "rights": "{rights}"
+            }}]}}"#
+        )
+    }
+
+    fn sample_record(rights: RightsBasis) -> ApprovedRecord {
+        ApprovedRecord {
+            path: "json/rules.json".into(),
+            key: "magic".into(),
+            expected_name: "Magic and Spellcasting".into(),
+            id: "pf-data/rule/magic".into(),
+            parent: None,
+            source: "core-rulebook".into(),
+            expected_source: "PRPG Core Rulebook".into(),
+            reason: "reviewed".into(),
+            rights,
+            topics: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn parses_every_allowed_rights_basis() {
+        for (text, expected) in [
+            ("ogl", RightsBasis::Ogl),
+            ("cup", RightsBasis::Cup),
+            ("orc", RightsBasis::Orc),
+            ("excluded", RightsBasis::Excluded),
+        ] {
+            let selection: Selection = serde_json::from_str(&selection_json(text)).unwrap();
+            assert_eq!(selection.records[0].rights, expected, "{text}");
+        }
+    }
+
+    #[test]
+    fn rejects_an_unknown_rights_basis() {
+        let error = serde_json::from_str::<Selection>(&selection_json("gpl")).unwrap_err();
+        assert!(error.to_string().contains("unknown variant"), "{error}");
+    }
+
+    #[test]
+    fn ogl_and_cup_records_carry_their_license_references() {
+        match rights_decision(&sample_record(RightsBasis::Ogl)).unwrap() {
+            RightsDecision::Import(refs) => {
+                assert_eq!(refs, vec![crate::build::LICENSE_OGL.to_string()]);
+            }
+            RightsDecision::Exclude(_) => panic!("an ogl record must be imported"),
+        }
+        match rights_decision(&sample_record(RightsBasis::Cup)).unwrap() {
+            RightsDecision::Import(refs) => assert_eq!(
+                refs,
+                vec![
+                    crate::build::LICENSE_OGL.to_string(),
+                    crate::legal::COMMUNITY_USE_NOTICE_PATH.to_string(),
+                ]
+            ),
+            RightsDecision::Exclude(_) => panic!("a cup record must be imported"),
+        }
+    }
+
+    #[test]
+    fn orc_records_are_refused_without_a_legal_page_path() {
+        let error = rights_decision(&sample_record(RightsBasis::Orc)).unwrap_err();
+        assert!(error.contains("`orc`"), "{error}");
+        assert!(error.contains("no ORC notice path"), "{error}");
+    }
+
+    #[test]
+    fn excluded_records_are_reported_in_coverage_instead_of_imported() {
+        match rights_decision(&sample_record(RightsBasis::Excluded)).unwrap() {
+            RightsDecision::Exclude(exclusion) => {
+                assert_eq!(
+                    exclusion.path,
+                    format!("{COVERAGE_PREFIX}json/rules.json/magic")
+                );
+                assert_eq!(exclusion.records, 1);
+                assert!(exclusion.reason.contains("rights basis `excluded`"));
+                assert!(exclusion.reason.contains("reviewed"));
+            }
+            RightsDecision::Import(_) => panic!("an excluded record must not be imported"),
+        }
+    }
+
     #[test]
     fn rejects_mismatched_approved_identity_and_publication() {
         let record = pf_data::InputRecord {
@@ -507,6 +649,7 @@ mod tests {
             source: "core-rulebook".into(),
             expected_source: "PRPG Core Rulebook".into(),
             reason: "reviewed".into(),
+            rights: RightsBasis::Ogl,
             topics: BTreeMap::new(),
         };
         assert!(
