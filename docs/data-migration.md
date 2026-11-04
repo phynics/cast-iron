@@ -60,7 +60,9 @@ unresolved compilation inputs, and unreviewed rights must appear in diagnostics.
 | File, record key, snapshot | `Provenance` and manifest dataset pin |
 | OGC notices and rights decisions | Legal notices and publication gate |
 
-Do not equate entries by name alone. Existing PSRD IDs must retain their meaning.
+Do not equate entries by name alone. Identity preservation is waived for the
+cutover (see [decisions](decisions.md#pf-data-cutover-policy-2026-11-04)): legacy ids
+resolve through the reviewed alias map or report their retirement reason.
 Source-native keys can distinguish same-name records. `copyof`, `redirect`,
 `compileFrom`, external table definitions, and addenda require explicit expansion
 before an entry can be considered complete.
@@ -75,6 +77,13 @@ Identity. The existing PSRD audit does not clear every passage in this new sourc
 Do not copy upstream renderer code or artwork. Preserve all applicable Section 15
 notices before distributing imported OGC. See [the source-specific audit](research/pf-data-licensing.md)
 and the measured migration reports.
+
+`sources/pathfinder-data-1-e/pi-screen.json` is the Product Identity screen. The
+inventory applies it after hash verification, so every later step reads screened text.
+It omits descriptive PI prose by reviewed section rules and removes outbound links;
+proper names inside mechanics stay under the Community Use Policy, and every Pf Data
+entry carries `legal#community-use`. Omissions are coverage rows, and
+`reports/migration-coverage.json` records their totals under `pi_screen`.
 
 Supplementary sources require independent pins and rights decisions. They are not
 automatically imported. AoN source indexes are a benchmark, not a bulk export API

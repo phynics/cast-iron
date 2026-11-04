@@ -66,7 +66,19 @@ pub struct Inventory {
     pub unregistered_publications: Vec<String>,
     /// Records excluded before selection because their publication or record is outside PF1e OGL scope.
     pub out_of_scope: Vec<OutOfScope>,
+    /// Product Identity and outbound-link omissions applied to `records` by
+    /// `sources/pathfinder-data-1-e/pi-screen.json`, in record order.
+    pub pi_omissions: Vec<PiOmission>,
     pub records: Vec<InputRecord>,
+}
+
+/// One screened omission, keyed by the upstream `path#key` it was taken from.
+#[derive(Debug, Clone, Serialize)]
+pub struct PiOmission {
+    pub record: String,
+    pub category: String,
+    pub detail: String,
+    pub reason: String,
 }
 
 pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
@@ -112,6 +124,11 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
         }
         digest_lines.push_str(&format!("{path}:{hash}\n"));
     }
+    let config_dir = registry.parent().ok_or("registry has no parent")?;
+    let screen_path = config_dir.join("pi-screen.json");
+    let screen = crate::pf_screen::PiScreen::load(&screen_path)?;
+    let screen_bytes = fs::read(&screen_path).map_err(|e| e.to_string())?;
+    digest_lines.push_str(&format!("pi-screen.json:{}\n", sha256_hex(&screen_bytes)));
     let publications: BTreeMap<String, Value> = read_json(&dataset.join("json/sources.json"))?;
     let routes: BTreeMap<String, String> = read_json(
         &registry
@@ -132,6 +149,7 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
         directives: BTreeMap::new(),
         unregistered_publications: Vec::new(),
         out_of_scope: Vec::new(),
+        pi_omissions: Vec::new(),
         records: Vec::new(),
     };
     for path in pin.files.keys().filter(|p| p.starts_with("json/")) {
@@ -196,6 +214,25 @@ pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
     out.records
         .sort_by(|a, b| (&a.path, &a.key).cmp(&(&b.path, &b.key)));
     out.input_records = out.records.len();
+    // Screen after the directive inventory, so the inventory still counts every
+    // upstream construct while every consumer sees only screened text.
+    for record in &mut out.records {
+        let Ok(lines) = description(&record.raw) else {
+            continue;
+        };
+        let (kept, omissions) = screen.apply(&record.path, &lines);
+        if omissions.is_empty() {
+            continue;
+        }
+        record.raw["description"] = Value::from(kept);
+        out.pi_omissions
+            .extend(omissions.into_iter().map(|omission| PiOmission {
+                record: format!("{}#{}", record.path, record.key),
+                category: omission.category.into(),
+                detail: omission.detail,
+                reason: omission.reason,
+            }));
+    }
     let policy = scope_policy(registry)?;
     out.out_of_scope = out
         .records
@@ -546,6 +583,16 @@ struct LinkContext {
     derived: BTreeMap<String, BTreeMap<String, EntryId>>,
 }
 
+/// Every Pf Data entry is Open Game Content under the OGL that may name Paizo
+/// Product Identity as a descriptive reference, so it carries both the OGL and the
+/// Community Use notice path (docs/decisions.md, PI screen decision).
+pub fn pf_license_refs() -> Vec<String> {
+    vec![
+        crate::build::LICENSE_OGL.into(),
+        crate::legal::COMMUNITY_USE_NOTICE_PATH.into(),
+    ]
+}
+
 fn native_key(r: &InputRecord) -> Option<String> {
     r.protocol.as_ref().map(|p| format!("{p}/{}", r.key))
 }
@@ -732,7 +779,7 @@ fn run_import(
         schema_errors: 0,
         publication_ready: false,
         cutover_blockers: vec![
-            "Corpus-wide Product Identity screening and source notice reconciliation are incomplete".into(),
+            "Section 15 notice reconciliation for every imported publication is incomplete".into(),
             "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated".into(),
             "Comics are excluded permanently; Paizo Blog records are deferred to issue #36".into(),
         ],
@@ -740,6 +787,22 @@ fn run_import(
     };
     let mut entries = Vec::new();
     let mut coverage = CoverageLog::default();
+    // The PI screen ran over the whole inventory; report the omissions taken from
+    // the records this run selected. The tracked coverage summary counts all of them.
+    for omission in &inv.pi_omissions {
+        let in_run = omission
+            .record
+            .split_once('#')
+            .is_some_and(|(path, key)| selected.contains(&(path.to_string(), key.to_string())));
+        if in_run {
+            coverage.record(
+                &omission.category,
+                &omission.detail,
+                &omission.reason,
+                &omission.record,
+            );
+        }
+    }
     let mut context = LinkContext {
         known: inv.records.iter().filter_map(native_key).collect(),
         selected: inv
@@ -1601,7 +1664,7 @@ fn convert(
             record: r.key.clone(),
             path: r.path.clone(),
         }],
-        license_refs: vec![crate::build::LICENSE_OGL.into()],
+        license_refs: pf_license_refs(),
         relations: Vec::new(),
     })
 }
@@ -1728,7 +1791,7 @@ fn derive_rule_entry(
             record,
             path: r.path.clone(),
         }],
-        license_refs: vec![crate::build::LICENSE_OGL.into()],
+        license_refs: pf_license_refs(),
         relations: Vec::new(),
     })
 }
@@ -1930,6 +1993,7 @@ mod tests {
             br#"{"json/sources.json":"source","json/feat.json":"feat"}"#,
         )
         .unwrap();
+        write(&root.join("pi-screen.json"), br#"{"sections":[]}"#).unwrap();
         let good = inventory(&root, &root.join("source.json")).unwrap();
         assert_eq!(good.input_records, 2);
         assert_eq!(good.by_shape["description"], 1);

@@ -1,6 +1,6 @@
 {
   "scope": "representative",
-  "input_digest": "0fc0beb80abdfd8376bb9eac71a668ac3dce8af8bf9dc4b1e2e10abc03069083",
+  "input_digest": "e25c1b6d576228b184c9b3d5aaeadb1be35659d7890f4f8aeb3636308d7a5bc5",
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
@@ -3520,13 +3520,13 @@
       "occurrences": 1
     }
   ],
-  "canonical_bytes": 1178190,
+  "canonical_bytes": 1179408,
   "search_bytes": 208166,
   "search_checks": 130,
   "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
-    "Corpus-wide Product Identity screening and source notice reconciliation are incomplete",
+    "Section 15 notice reconciliation for every imported publication is incomplete",
     "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated",
     "Comics are excluded permanently; Paizo Blog records are deferred to issue #36"
   ],
