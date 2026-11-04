@@ -735,8 +735,9 @@ pub struct DatasetRef {
 /// `aliases.json`: the one-step legacy-to-canonical map.
 ///
 /// The file is optional. An older library has no file, and the client treats it as an
-/// empty map. `entries` and `retired` are sorted by `old`, and the format forbids chains:
-/// a canonical target never appears as an alias `old`.
+/// empty map. `entries` and `retired` are sorted by `old`, each old id appears in exactly
+/// one list, and no target appears as an old id, so resolution is one step. [`AliasIndex::validate`]
+/// enforces all three rules before the map is used.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasIndex {
     pub format: u32,
@@ -786,7 +787,41 @@ impl AliasIndex {
                 ));
             }
         }
+        // Sortedness above makes these lookups binary searches. A target that is itself an
+        // old id would make resolution a chain; an old id in both lists has two dispositions.
+        for entry in &self.entries {
+            if self.is_old(&entry.target) {
+                return Err(format!(
+                    "aliases.json target {:?} is also an old id; chains are forbidden",
+                    entry.target
+                ));
+            }
+        }
+        for retired in &self.retired {
+            if self
+                .entries
+                .binary_search_by(|entry| entry.old.cmp(&retired.old))
+                .is_ok()
+            {
+                return Err(format!(
+                    "aliases.json old id {:?} appears in both entries and retired",
+                    retired.old
+                ));
+            }
+        }
         Ok(())
+    }
+
+    /// Whether `id` has a disposition in either table. Only correct after the sortedness
+    /// checks above; callers outside [`Self::validate`] hold a validated map.
+    fn is_old(&self, id: &EntryId) -> bool {
+        self.entries
+            .binary_search_by(|entry| entry.old.cmp(id))
+            .is_ok()
+            || self
+                .retired
+                .binary_search_by(|entry| entry.old.cmp(id))
+                .is_ok()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -1132,6 +1167,50 @@ mod tests {
             assert!(!kind.label().is_empty());
         }
         assert_eq!(EntryKind::ALL.len(), 14);
+    }
+
+    #[test]
+    fn alias_index_rejects_a_chain_a_retired_target_and_a_duplicate_old() {
+        let parse = |json: &str| serde_json::from_str::<AliasIndex>(json).unwrap();
+
+        let chain = parse(
+            r#"{"format":1,"legacy":{"count":2,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/y","basis":"direct"},
+                {"old":"a/y","target":"a/z","basis":"direct"}
+            ],"retired":[]}"#,
+        );
+        assert!(chain.validate().unwrap_err().contains("chains are forbidden"));
+
+        let retired_target = parse(
+            r#"{"format":1,"legacy":{"count":1,"sha256":""},"entries":[
+                {"old":"a/w","target":"a/x","basis":"direct"}
+            ],"retired":[{"old":"a/x","reason":"no_source"}]}"#,
+        );
+        assert!(
+            retired_target
+                .validate()
+                .unwrap_err()
+                .contains("chains are forbidden")
+        );
+
+        let duplicate = parse(
+            r#"{"format":1,"legacy":{"count":1,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/z","basis":"direct"}
+            ],"retired":[{"old":"a/x","reason":"no_source"}]}"#,
+        );
+        assert!(
+            duplicate
+                .validate()
+                .unwrap_err()
+                .contains("both entries and retired")
+        );
+
+        let valid = parse(
+            r#"{"format":1,"legacy":{"count":2,"sha256":""},"entries":[
+                {"old":"a/x","target":"a/z","basis":"direct"}
+            ],"retired":[{"old":"a/y","reason":"rights"}]}"#,
+        );
+        assert!(valid.validate().is_ok());
     }
 
     #[test]
