@@ -1,7 +1,8 @@
 # Canonical IDs and the Pf Data derived-record layer
 
 Chosen 2026-11-04. This is an implementation contract, not a shipped-behavior report.
-Base commit: `921e1d1ce2e3439d3bc04ad9e8cfab688cdc0660`.
+Authored at `921e1d1ce2e3439d3bc04ad9e8cfab688cdc0660`; rebased onto current `main`.
+Counts must be reconfirmed against the rebased tree before Phase 1 begins.
 
 The project has decided to extend the pinned Pf Data corpus with derived records and to
 cut over to canonical IDs derived from that source. This document fixes the namespace,
@@ -26,12 +27,26 @@ migration, the verification gates, and the order of work.
 | Fact | Value | Source |
 |---|---|---|
 | Production entries at the baseline | 9,968 | `docs/status.md`, `vff56b0e6310710c1` |
-| PSRD-derived entries | 9,967 | the cutover comparison |
+| PSRD-derived entries | 9,967 | baseline minus the supplement |
 | Entries already in the Pf namespace | 1 | `pf-data/rule/magic`, the reviewed supplement |
-| Pf Data input records in the pin | 34,495 | the pinned inventory |
-| Legacy IDs with a Pf counterpart | 8,088 | the cutover comparison |
-| Legacy IDs without a Pf counterpart | 1,879 | 9,967 - 8,088 |
-| Pf-derived IDs verified injective | 34,495 of 34,495 | `crates/content-compiler/src/pf_data.rs` |
+| Pf Data input records in the pin | 34,530 | `reports/migration-coverage.json`, `input_records` |
+| Of those, records carrying a protocol route | 34,495 | `generated/migration/inventory.json`, `records` with a non-empty `protocol` |
+| Legacy IDs with a Pf counterpart | 8,088 | unconfirmed estimate, see note below |
+| Legacy IDs without a Pf counterpart | 1,879 | 9,967 - 8,088, unconfirmed estimate |
+| Pf-derived IDs verified injective | Phase 1 exit criterion | not yet tested in code; see section 8.4 |
+
+> **Note on the counts.** The 8,088 / 1,879 / 342 / 171 / 526 / 355 / 486 figures come
+> from an analysis script run outside the repository. They are planning estimates, not
+> verified compiler output. Phase 0 must confirm them against the pinned code and commit
+> the comparison script and its output as research evidence before these numbers become
+> planning facts. Until then, no release note or issue comment may cite them as measured.
+
+> **Note on injectivity.** The claim that `ref/` IDs are injective over the pinned
+> corpus is a design requirement, not a shipped property. Phase 1 must add a compiler
+> test that derives IDs for every protocol-carrying record and fails on any collision.
+> The 34,530 total input records and the 34,495 protocol-carrying subset are distinct
+> numbers: publication and auxiliary records have no protocol route and therefore no
+> `ref/` ID.
 
 The gap counts are 342 racial traits, 171 afflictions, 526 rules, 355 monsters, and
 486 other attribution gaps. They sum to 1,880 against 1,879 distinct legacy IDs, so at
@@ -347,6 +362,10 @@ release decision list. Do not silently prefer the Pf attribution.
 
 ### 4.7 Gap accounting
 
+All counts in this table are unconfirmed estimates from an analysis script that is not
+yet committed. Phase 0 must confirm them and commit the script and output. See the note
+in section 2.
+
 | Legacy category | Count | Status in this design | Canonical origin |
 |---|---:|---|---|
 | Pf counterpart, native | 8,088 | direct alias | `ref/<family>/<key>` |
@@ -361,6 +380,13 @@ release decision list. Do not silently prefer the Pf attribution.
 The raw category rows sum to 9,969, not 9,968, because one gap ID is counted by two
 categories (1,880 vs 1,879) and the supplemental row is outside the 9,967 PSRD count.
 The reconciled total is the union, and the build report prints both numbers.
+
+The supplemental remap `pf-data/rule/magic` → `ref/rule/magic` must go through the same
+`Claims` collision path as every derived record (section 3.4). It is not a Pf record, so
+it cannot rely on the protocol derivation to avoid a collision: a Pf `rule`-family
+record with key `magic` would otherwise claim `ref/rule/magic` silently. Route the
+supplemental through the claim map, or pin it with an explicit row in
+`sources/canonical/id-overrides.toml`.
 
 Derivable by this design: 342 + 171 + 526 = 1,039, minus any recorded overlap.
 Carry-over or product decision: 355 + 486 = 841, minus any of the 486 that become
@@ -383,6 +409,7 @@ check shows every one of the 9,968 IDs in exactly one alias or retirement row.
 | `generated/content/<version>/aliases.json` | no | Runtime map, generated deterministically from `id-map.toml` and the canonical catalog. |
 | `sources/canonical/golden-ids.json` | yes | Sorted canonical catalog snapshot for review (section 8.1). |
 | `sources/canonical/new-records.toml` | when needed | Reviewed canonical entries with no legacy counterpart, so corpus growth is never implicit. |
+| `sources/canonical/title-exceptions.json` | yes | Reviewed title corrections and overrides (section 8.6). |
 
 `legacy-ids.json` is exported once from the last PSRD build. It is never regenerated;
 a later change to it is a deliberate, reviewed edit with a reason, because it is the
@@ -569,6 +596,8 @@ Add `store::migrate_entry_ids(index, aliases_sha256)`:
    - `added_at` = minimum in the group;
    - `collection_ids` = sorted union;
    - `kind` = the target's catalog kind when it exists, else the earliest row's kind;
+     ties on `added_at` break on the lexicographically smallest kind, so the result
+     does not depend on read order;
    - `title_snapshot` = the earliest row's snapshot; ties break on the
      lexicographically smallest title, so the result does not depend on read order.
 5. Put one row per target and delete every original key in the group.
