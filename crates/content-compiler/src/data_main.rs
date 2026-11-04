@@ -3,6 +3,7 @@ use cast_iron_content_compiler::alias::{self, IdMap, LegacySnapshot};
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
+use cast_iron_content_compiler::pf_legal;
 use cast_iron_content_compiler::pf_rules::RuleAllowlist;
 use cast_iron_content_compiler::pipeline::publish_extra_file;
 use std::path::PathBuf;
@@ -12,7 +13,7 @@ fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .ok_or("expected audit, import, validate, report, test, or alias")?;
+        .ok_or("expected audit, import, validate, report, legal, test, or alias")?;
     let mut dataset = None;
     let mut registry = None;
     let mut out = None;
@@ -33,7 +34,11 @@ fn run() -> Result<(), String> {
             _ => return Err(format!("unknown option {flag}")),
         }
     }
-    if !["audit", "import", "validate", "report", "test", "alias"].contains(&command.as_str()) {
+    if ![
+        "audit", "import", "validate", "report", "legal", "test", "alias",
+    ]
+    .contains(&command.as_str())
+    {
         return Err(format!("unknown data command {command}"));
     }
     let dataset = dataset.ok_or("missing --dataset")?;
@@ -62,6 +67,13 @@ fn run() -> Result<(), String> {
                 .unwrap_or(std::path::Path::new("generated/content")),
         );
     }
+    let config_dir = registry.parent().ok_or("registry has no parent")?;
+    let legal = pf_legal::build(
+        &inv,
+        &dataset.join("OPENGAMECONTENT.md"),
+        &config_dir.join("notice-aliases.json"),
+        &config_dir.join("out-of-scope.json"),
+    )?;
     write(
         &out.join("inventory.json"),
         &serde_json::to_vec_pretty(&inv).map_err(|e| e.to_string())?,
@@ -75,6 +87,7 @@ fn run() -> Result<(), String> {
         "out_of_scope_records":inv.out_of_scope.len(),
         "derived":derived,
         "pi_screen":pi_screen_summary(&inv),
+        "legal":legal.summary(),
         "production_default":"psrd-data","cutover_verified":false
     });
     // Preserve an existing `derived_rules` block so `data-audit` does not strip
@@ -90,9 +103,16 @@ fn run() -> Result<(), String> {
         &coverage_path,
         &serde_json::to_vec_pretty(&summary).map_err(|e| e.to_string())?,
     )?;
+    if matches!(command.as_str(), "report" | "legal") {
+        pf_legal::write_report(&reports.join("migration-legal.json"), &legal)?;
+    }
     println!(
         "{} JSON files, {} input records, {} registered publications",
         inv.json_files, inv.input_records, inv.registered_publications
+    );
+    println!(
+        "{} legal publications, {} matched, {} unmatched",
+        legal.publication_count, legal.matched_publication_count, legal.unmatched_publication_count
     );
     println!(
         "{} derived records ({} racial traits, {} afflictions), {} rejected",
@@ -101,7 +121,7 @@ fn run() -> Result<(), String> {
         derived.by_kind.get("affliction").copied().unwrap_or(0),
         derived.rejected.len()
     );
-    if command == "audit" {
+    if matches!(command.as_str(), "audit" | "legal") {
         return Ok(());
     }
     let result = if ["import", "validate"].contains(&command.as_str()) {

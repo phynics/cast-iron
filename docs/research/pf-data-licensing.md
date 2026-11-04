@@ -115,6 +115,126 @@ creature `Description` biographies, and named NPC stories, and remove outbound
 links. Each omission is a coverage row. See
 [decisions](../decisions.md#product-identity-screen-for-the-pf-data-corpus-2026-11-04).
 
+## Section 15 notice coverage
+
+`cargo xtask data-legal` (also run by `cargo xtask data-report`) checks every
+publication referenced by an in-scope record against the pinned
+`OPENGAMECONTENT.md` Section 15 list. It also writes
+`reports/migration-legal.json` and adds `legal` counts to
+`reports/migration-coverage.json`. The report is deterministic and sorted. This
+tool is evidence only: it does not change the production legal page until the
+canonical Pf Data library is built.
+
+The 2026-11-04 snapshot has 34,497 in-scope records referencing 453
+publications. 397 publications match a Section 15 entry; 56 do not. Matching
+uses, in order:
+
+1. Exact normalized title (`PRPG` is not expanded here).
+2. A reviewed alias from `sources/pathfinder-data-1-e/notice-aliases.json`,
+   whose target must exist in the pinned notice.
+3. A deterministic normalizer that removes the known line prefixes
+   (`Pathfinder Roleplaying Game`, `Pathfinder RPG`, `Pathfinder Player
+   Companion`, `Pathfinder Campaign Setting`, `Pathfinder Module`,
+   `Pathfinder Companion`, `Pathfinder Chronicles`, `Pathfinder Adventure
+   Path`, `Pathfinder Society`, `GameMastery Module`, `Pathfinder`, `PRPG`),
+   volume/scenario words, module codes such as `J1`, a leading article after an
+   adventure number, and treats `and` and `&` as the same connector. Every
+   distinct notice under one title key applies, so the Core Rulebook keeps both
+   its 2009 and 2010 printing notices.
+
+Exact and normalized matching accounted for 387 publications (44 exact, 343
+normalized-prefix). Ten publications needed a reviewed alias: the three *Book of
+the Damned* volumes, *GameMastery Condition Cards*, both Osirion titles,
+*Pathfinder #91* (notice says "Hill", source says "Hills"), *Pathfinder #139*
+("Road" versus "Roads"), *Pathfinder Society S03-10* (a title typo), and *Rivers
+into Darkness* (notice says "River Into Darkness").
+
+The 56 unmatched publications have in-scope records but no matching Section 15
+entry in the pin:
+
+| Publication | Records |
+|---|---|
+| Academy of Secrets | 1 |
+| Advanced Race Guide | 659 |
+| Armor Master's Handbook | 128 |
+| Bestiary 5 | 447 |
+| Bestiary 6 | 311 |
+| Carnival of Tears | 3 |
+| Carrion Crown Player's Guide | 6 |
+| Conquest of Bloodsworn Vale | 4 |
+| Crown of the Kobold King | 3 |
+| Cult of the Ebon Destroyers | 3 |
+| Curse of the Crimson Throne Player's Guide | 24 |
+| Dungeons of Golarion | 10 |
+| Faiths of Balance | 51 |
+| Faiths of Purity | 42 |
+| Goblins of Golarion | 61 |
+| Guide to Darkmoon Vale | 1 |
+| Halflings of Golarion | 49 |
+| Heart of the Jungle | 18 |
+| Heaven Unleashed | 10 |
+| Heroes of the Streets | 94 |
+| Hollow's Last Hope | 1 |
+| Horror Realms | 46 |
+| Humans of Golarion | 28 |
+| Inner Sea Magic | 75 |
+| Inner Sea Taverns | 16 |
+| Inner Sea World Guide | 118 |
+| Inner Sea world Guide | 1 |
+| Kingmaker Player's Guide | 7 |
+| Magic of Thassilon | 2 |
+| Occult Mysteries | 54 |
+| Pathfinder #119: Prisoners of the Blight | 23 |
+| Pathfinder #3: The Hook Mountain Massacre | 4 |
+| Pathfinder #63: The Asylum Stone | 11 |
+| Pathfinder #64: Beyond the Doomsday Door | 15 |
+| Pathfinder Campaign Setting | 84 |
+| Pathfinder Goblins #1 | 5 |
+| Pathfinder Goblins #5 | 1 |
+| Pathfinder Hollow Mountain #1 | 1 |
+| Pathfinder Hollow Mountain #4 | 1 |
+| Pathfinder Origins #6 Ezren | 1 |
+| Pathfinder Runescars #1 | 1 |
+| Pathfinder Runescars #4 | 1 |
+| Pathfinder Society Field Guide | 67 |
+| Pathfinder Worldscape #1 | 3 |
+| Pathfinder Worldscape #2 | 5 |
+| Pathfinder Worldscape #3 | 1 |
+| Pathfinder Worldscape #4 | 1 |
+| Realm of the Fellnight Queen | 2 |
+| Revenge of the Kobold King | 3 |
+| Rival Guide | 37 |
+| Serpent's Skull Player's Guide | 10 |
+| The Godsmouth Heresy | 1 |
+| Tomb of the Iron Medusa | 3 |
+| Tome of Horrors Complete (PF) | 3 |
+| Undead Revisited | 10 |
+| We Be Goblins! | 5 |
+
+`Pathfinder Campaign Setting` is a generic registry label, not a book title, and
+has no Section 15 entry of its own. The comics and *Magic of Thassilon* are also
+outside the current policy's explicit exclusions, even though they are not
+eligible content. The report lists six additional publication labels excluded
+by `out-of-scope.json` before matching; they are retained under
+`excluded_publications` rather than dropped.
+
+To resolve an unmatched publication, use one of these reviewed routes:
+
+- Add its complete Section 15 line to the upstream notice, advance the pin, and
+  re-run the audit. Do not edit the cached notice or bypass the hash pin.
+- Record a different permission route with the project owner and extend the
+  legal page model before claiming the publication is covered.
+- Move the publication to `out-of-scope.json` with a reason, so its records are
+  excluded from the cutover instead of shipped without attribution.
+- If the notice already exists under a different title, add a reviewed mapping
+  to `notice-aliases.json`. Never add a fuzzy or title-similarity alias.
+
+`pf_legal::gate` blocks a production build while any in-scope publication lacks
+a notice. `reports/migration-legal.json` also lists the 136 notices that match
+no in-scope publication. That list is informational: it includes the OGL, the
+System Reference Document, *Pf Data 1e*, third-party material, and Paizo books
+not present in the registry.
+
 ## Publication gate
 
 The experimental inventory and conversion reports stay separate from the site

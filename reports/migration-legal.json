@@ -1,0 +1,5289 @@
+{
+  "dataset": "pathfinder-data-1-e",
+  "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
+  "in_scope_records": 34497,
+  "publication_count": 453,
+  "matched_publication_count": 397,
+  "unmatched_publication_count": 56,
+  "publications": [
+    {
+      "publication": "Academy of Secrets",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Advanced Class Guide",
+      "records": 792,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Advanced Class Guide",
+          "notice": "© 2014, Paizo Inc.; Authors: Dennis Baker, Ross Byers, Jesse Benner, Savannah Broadway, Jason Bulmahn, Jim Groves, Tim Hitchcock, Tracy Hurley, Jonathan H. Keith, Will McCardell, Dale C. McCoy, Jr., Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Sean K Reynolds, Tork Shaw, Owen K.C. Stephens, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Advanced Class Origins",
+      "records": 89,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Advanced Class Origins",
+          "notice": "© 2014, Paizo Inc.; Authors: Dennis Baker, Ross Byers, Tom Phillips, Stephen Radney-MacFarland, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Advanced Player's Guide",
+      "records": 1234,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder RPG Advanced Player's Guide",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Jason Bulmahn."
+        }
+      ]
+    },
+    {
+      "publication": "Advanced Race Guide",
+      "records": 659,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Adventurer's Armory",
+      "records": 318,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Adventurer's Armory",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Jonathan Keith, Hal Maclean, Jeff Quick, Christopher Self, JD Wiker, and Keri Wiker."
+        }
+      ]
+    },
+    {
+      "publication": "Adventurer's Armory 2",
+      "records": 185,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Adventurer's Armory 2",
+          "notice": "© 2017, Paizo Inc.; Authors: Jenny Jarzabski, Mikko Kallio, Isabelle Lee, Luis Loza, Joe Pasini, David N. Ross, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Adventurer's Guide",
+      "records": 313,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Adventurer's Guide",
+          "notice": "© 2017, Paizo Inc.; Authors: Benjamin Bruck, John Compton, Crystal Frasier, Tim Hitchcock, Jenny Jarzabski, Isabelle Lee, Joe Pasini, Jessica Price, David Schwartz, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Agents of Evil",
+      "records": 88,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Agents of Evil",
+          "notice": "© 2015, Paizo Inc.; Author: Thurston Hillman."
+        }
+      ]
+    },
+    {
+      "publication": "Alchemy Manual",
+      "records": 129,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Alchemy Manual",
+          "notice": "© 2014, Paizo Inc.; Authors: Jason Nelson, Patrick Renie, and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Andoran, Birthplace of Freedom",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Andoran, Birthplace of Freedom",
+          "notice": "© 2015, Paizo Inc.; Authors: Tim Hitchcock and Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Andoran, Spirit of Liberty",
+      "records": 24,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Andoran, Spirit of Liberty",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Jonathan Keith, Hal Maclean, Colin Moulder-McComb, Jason Nelson, and Hank Woon."
+        }
+      ]
+    },
+    {
+      "publication": "Animal Archive",
+      "records": 73,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Animal Archive",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Amanda Hamon, Philip Minchin, Jason Nelson, Patrick Renie, Owen K.C. Stephens, and Christina Stiles."
+        }
+      ]
+    },
+    {
+      "publication": "Antihero's Handbook",
+      "records": 78,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Antihero's Handbook",
+          "notice": "© 2017, Paizo Inc.; Authors: Emily Brumfield, Violet Hargrave, Susann Hessen, Mikko Kallio, Lyz Liddell, Adrian Ng, Joe Pasini, Lacy Pellazar, Kyle T. Raes, David N. Ross, and Kendra Leigh Speedling."
+        }
+      ]
+    },
+    {
+      "publication": "Aquatic Adventures",
+      "records": 80,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Aquatic Adventures",
+          "notice": "© 2017, Paizo Inc.; Authors: Amber E. Scott and Mark Seifter."
+        }
+      ]
+    },
+    {
+      "publication": "Arcane Anthology",
+      "records": 89,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Arcane Anthology",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Steven T. Helt, and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Armor Master's Handbook",
+      "records": 128,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Artifacts and Legends",
+      "records": 65,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Artifacts & Legends",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Bastards of Golarion",
+      "records": 48,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Bastards of Golarion",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Judy Bauer, Neal Litherland, Ryan Macklin, and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Belkzen, Hold of the Orc Hordes",
+      "records": 30,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Belkzen, Hold of the Orc Hordes",
+          "notice": "© 2015, Paizo Inc.; Authors: Tyler Beck, Jason Garrett, Alex Greenshields, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Bestiary 2",
+      "records": 368,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Bestiary 2",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Wolfgang Baur, Jason Bulmahn, Adam Daigle, Graeme Davis, Crystal Frasier, Joshua J. Frost, Tim Hitchcock, Brandon Hodge, James Jacobs, Steve Kenson, Hal MacLean, Martin Mason, Rob McCreary, Erik Mona, Jason Nelson, Patrick Renie, Sean K Reynolds, F. Wesley Schneider, Owen K.C. Stephens, James L. Sutter, Russ Taylor, and Greg A. Vaughan, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+        }
+      ]
+    },
+    {
+      "publication": "Bestiary 3",
+      "records": 364,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Bestiary 3",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Jesse Benner, Jason Bulmahn, Adam Daigle, James Jacobs, Michael Kenway, Rob McCreary, Patrick Renie, Chris Sims, F. Wesley Schneider, James L. Sutter, and Russ Taylor, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+        }
+      ]
+    },
+    {
+      "publication": "Bestiary 4",
+      "records": 364,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Bestiary 4",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Dennis Baker, Jesse Benner, Savannah Broadway, Ross Byers, Adam Daigle, Tim Hitchcock, Tracy Hurley, James Jacobs, Matt James, Rob McCreary, Jason Nelson, Tom Phillips, Stephen Radney- MacFarland, Sean K Reynolds, F. Wesley Schneider, Tork Shaw, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Bestiary 5",
+      "records": 447,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Bestiary 6",
+      "records": 311,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Beyond the Vault of Souls",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module J5: Beyond the Vault of Souls",
+          "notice": "© 2009, Paizo Publishing, LLC. Author: Colin McComb."
+        }
+      ]
+    },
+    {
+      "publication": "Black Markets",
+      "records": 102,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Black Markets",
+          "notice": "© 2015, Paizo Inc.; Authors: Ron Lundeen, Jason Nelson, David N. Ross, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of Angels",
+      "records": 44,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of Angels",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of Dragonscar",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module E2: Blood of Dragonscar",
+          "notice": "© 2009, Paizo Publishing, LLC. Author: Keith Baker."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of Fiends",
+      "records": 66,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of Fiends",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Hal Maclean and Colin McComb."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of Shadows",
+      "records": 132,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of Shadows",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Steven T. Helt, Luis Loza, and Ron Lundeen."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Ancients",
+      "records": 75,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Ancients",
+          "notice": "© 2018, Paizo Inc.; Authors: John Compton, Andrew Hoskins, James Jacobs, Mikko Kallo, Alex Riggs, Stephen Rowe, and Jeffrey Swank."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Beast",
+      "records": 133,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Beast",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, John Compton, and Crystal Frasier."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Coven",
+      "records": 76,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Coven",
+          "notice": "© 2017, Paizo Inc.; Authors: John Compton, Eleanor Ferron, Crystal Frasier, Lissa Guillet, Elisa Mader, Adrian Ng, Mark Seifter, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Elements",
+      "records": 55,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Elements",
+          "notice": "© 2014, Paizo Inc.; Authors: Tim Akers, Judy Bauer, Jim Groves, Chris Lites, Dale C. McCoy, Jr., and Cassidy Werner."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Moon",
+      "records": 75,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Moon",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Tim Akers, Neal Litherland, David N. Ross, and Tork Shaw."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Night",
+      "records": 47,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Night",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Tork Shaw."
+        }
+      ]
+    },
+    {
+      "publication": "Blood of the Sea",
+      "records": 76,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Blood of the Sea",
+          "notice": "© 2017, Paizo Inc.; Author: Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Bonus Bestiary",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game: Bonus Bestiary",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Jason Bulmahn."
+        }
+      ]
+    },
+    {
+      "publication": "Book of the Damned",
+      "records": 284,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Book of the Damned",
+          "notice": "© 2017, Paizo Inc.; Authors: John Compton, Adam Daigle, Amanda Hamon Kunz, James Jacobs, Isabelle Lee, F. Wesley Schneider, Todd Stewart, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Book of the Damned - Volume 1: Princes of Darkness",
+      "records": 16,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Princes of Darkness, Book of the Damned, Vol. I",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Book of the Damned - Volume 2: Lords of Chaos",
+      "records": 56,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lords of Chaos: Book of the Damned, Vol. 2",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Book of the Damned - Volume 3: Horsemen of the Apocalypse",
+      "records": 28,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Horsemen of the Apocalypse: Book of the Damned, Vol. 3",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Broken Chains",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Broken Chains",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Carnival of Tears",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Carrion Crown Player's Guide",
+      "records": 6,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Carrion Hill",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Carrion Hill",
+          "notice": "© 2009, Paizo Publishing, LLC. Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Castles of the Inner Sea",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Castles of the Inner Sea",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Alyssa Faden and Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Champions of Balance",
+      "records": 65,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Champions of Balance",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Matt Goodall, Ron Lundeen, Philip Minchin, Patrick Renie, Jason Ridler, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Champions of Corruption",
+      "records": 74,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Champions of Corruption",
+          "notice": "© 2014, Paizo Inc.; Authors: Paris Crenshaw, Jim Groves, Sean McGowen, and Philip Minchin."
+        }
+      ]
+    },
+    {
+      "publication": "Champions of Purity",
+      "records": 75,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Champions of Purity",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Jessica Blomstrom, Adam Daigle, Shaun Hocking, Daniel Marthaler, Tork Shaw, and Christina Stiles."
+        }
+      ]
+    },
+    {
+      "publication": "Cheliax, Empire of Devils",
+      "records": 46,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Cheliax, Empire of Devils",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Jonathan H. Keith, Colin McComb, Steven E. Schend, Leandra Christine Schneider, and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Cheliax, the Infernal Empire",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Cheliax, The Infernal Empire",
+          "notice": "© 2015, Paizo Inc.; Authors: Amanda Hamon Kunz, Ron Lundeen, and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "Chronicle of Legends",
+      "records": 111,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Chronicle of Legends",
+          "notice": "© 2019, Paizo Inc.; Authors: Calder CaDavid, Vanessa Hoskins, Mike Kimmel, Isabelle Lee, Matt Morris, Mikhail Rekun, and Michael Sayre."
+        }
+      ]
+    },
+    {
+      "publication": "Chronicle of the Righteous",
+      "records": 74,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Chronicle of the Righteous",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Amber Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Cities of Golarion",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Cities of Golarion",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Joshua J. Frost, Tim Hitchcock, Jonathan Keith, Rob McCreary, Jason Nelson, and Jeff Quick."
+        }
+      ]
+    },
+    {
+      "publication": "City of Golden Death",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: City of Golden Death",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Joshua J. Frost."
+        }
+      ]
+    },
+    {
+      "publication": "City of Strangers",
+      "records": 5,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: City of Strangers",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Classic Horrors Revisited",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Classic Horrors Revisited",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: James Jacobs, Rob McCreary, and F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Classic Monsters Revisited",
+      "records": 4,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Classic Monsters Revisited",
+          "notice": "© 2008, Paizo Publishing, LLC; Authors: Wolfgang Baur, Jason Bulmahn, Joshua J. Frost, James Jacobs, Nicolas Logue, Mike McArtor, James L. Sutter, Greg A. Vaughan, Jeremy Walker."
+        }
+      ]
+    },
+    {
+      "publication": "Classic Treasures Revisited",
+      "records": 32,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Classic Treasures Revisited",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Jacob Burgess, Brian Cortijo, Jonathan H. Keith, Michael Kortes, Jeff Quick, Amber Scott, Todd Stewart, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Cohorts and Companions",
+      "records": 57,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Cohorts and Companions",
+          "notice": "© 2015, Paizo Inc.; Authors: Brian Duckwitz, Philip Minchin, and Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Concordance of Rivals",
+      "records": 37,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Concordance of Rivals",
+          "notice": "© 2019, Paizo Inc.; Authors: John Compton, Crystal Frasier, Ron Lundeen, and Amber Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Conquest of Bloodsworn Vale",
+      "records": 4,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Construct Handbook",
+      "records": 48,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Construct Handbook",
+          "notice": "© 2018, Paizo Inc.; Authors: Brian Duckwitz, Andrew Hoskins, Nathan King, Kris Leonard, Luis Loza, Adrian Ng, Tom Phillips, Alex Riggs, and Nicholas Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Council of Thieves Player's Guide",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Council of Thieves Player's Guide.",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: James Jacobs, F. Wesley Schneider, Amber Scott, and Hank Woon."
+        }
+      ]
+    },
+    {
+      "publication": "Cradle of Night",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Cradle of Night",
+          "notice": "© 2018, Paizo Inc.; Authors: James Jacobs, F. Wesley Schneider, Neil Spicer, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Crown of the Kobold King",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Crucible of Chaos",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module J3: Crucible of Chaos.",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: Wolfgang Baur."
+        }
+      ]
+    },
+    {
+      "publication": "Cult of the Ebon Destroyers",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Curse of the Crimson Throne",
+      "records": 35,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path: Curse of the Crimson Throne",
+          "notice": "© 2016, Paizo Publishing Inc.; Authors: Nicolas Logue, F. Wesley Schneider, Richard Pett, Michael Kortes, Greg A. Vaughan, Tito Leati, and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Curse of the Crimson Throne Player's Guide",
+      "records": 24,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Curse of the Riven Sky",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Curse of the Riven Sky",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Monte Cook."
+        }
+      ]
+    },
+    {
+      "publication": "Dark Markets - A Guide to Katapesh",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Dark Markets, A Guide to Katapesh",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Stephen S. Greer, Amber Scott, Greg A. Vaughan, and Sean K Reynolds."
+        }
+      ]
+    },
+    {
+      "publication": "Darklands Revisited",
+      "records": 21,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Darklands Revisited",
+          "notice": "© 2016, Paizo Inc.; Author: Thurston Hillman."
+        }
+      ]
+    },
+    {
+      "publication": "Daughters of Fury",
+      "records": 35,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Daughters of Fury",
+          "notice": "© 2015, Paizo Inc.; Authors: Victoria Jaczko, with Tyler Beck, Robert Brookes, J. R. Casey, Casey Clements, Clay Clouser, Tyler Cowart, Terry Dutton, Kenneth \"Tripp\" Elliott, Brian J. Fruzen, Emmanuel Greene, Sam Harris, Peter Johansen, Mikko Kallio, Joseph L. Kellogg, Mike Kimmel, Michele La Barbera, Brian Lefebvre, Richard Malena, Andrew Marlowe, Jacob W. Michaels, Mark Nordheim, Kalervo Oikarinen, Michael Patrick, Iain Reid, Calder Rooney, Mikael Sebag, Andrew Shumate, Jesse Southwick, Andrew Umphrey, and Christopher Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Demon Hunter's Handbook",
+      "records": 53,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Demon Hunter's Handbook",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Philip Minchin, F. Wesley Schneider, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Demons Revisited",
+      "records": 27,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Demons Revisited",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Dirty Tactics Toolbox",
+      "records": 121,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Dirty Tactics Toolbox",
+          "notice": "© 2015, Paizo Inc.; Authors: Alexander Augunas, Mikko Kallio, Anthony Li, Luis Loza, and Andrew Marlowe."
+        }
+      ]
+    },
+    {
+      "publication": "Disciple's Doctrine",
+      "records": 70,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Disciple's Doctrine",
+          "notice": "© 2018, Paizo Inc.; Authors: Saif Ansari, Mara Lynn Butler, Jeffrey Hersh, Andrew Hoskins, Lyz Liddell, Luis Loza, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Distant Realms",
+      "records": 34,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Distant Realms",
+          "notice": "© 2018, Paizo Inc.; Authors: John Compton, Crystal Frasier, Thurston Hillman, Amanda Hamon Kunz, Lyz Liddell, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Distant Shores",
+      "records": 32,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Distant Shores",
+          "notice": "© 2015, Paizo Inc.; Authors: John Compton, Adam Daigle, Crystal Frasier, Amanda Hamon Kunz, Rob McCreary, Mark Moreland, James L. Sutter, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Distant Worlds",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Distant Worlds",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Divine Anthology",
+      "records": 100,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Divine Anthology",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Russ Brown, John Compton, Alex Riggs, and David Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Doom Comes to Dustpawn",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Doom Comes to Dustpawn",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Mike Welham."
+        }
+      ]
+    },
+    {
+      "publication": "Down the Blighted Path",
+      "records": 22,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Down the Blighted Path",
+          "notice": "© 2016, Paizo Inc.; Author: Monica Marlowe."
+        }
+      ]
+    },
+    {
+      "publication": "Dragon Empires Gazetteer",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Dragon Empires Gazetteer",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Matthew Goodall, Dave Gross, James Jacobs, Steve Kenson, Michael Kortes, Colin McComb, Rob McCreary, Richard Pett, F. Wesley Schneider, Mike Shel, and Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Dragon Empires Primer",
+      "records": 83,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Dragon Empires Primer",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Tim Hitchcock and Colin McComb."
+        }
+      ]
+    },
+    {
+      "publication": "Dragonslayer's Handbook",
+      "records": 73,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Dragonslayer's Handbook",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Shaun Hocking, Marie Small, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Druma, Profit and Prophecy",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Druma, Profit and Prophecy",
+          "notice": "© 2019, Paizo Inc.; Authors: John Compton and Thurston Hillman."
+        }
+      ]
+    },
+    {
+      "publication": "Dungeon Denizens Revisited",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Dungeon Denizens Revisited",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Clinton Boomer, Jason Bulmahn, Joshua J. Frost, Nicolas Logue, Robert McCreary, Jason Nelson, Richard Pett, Sean K Reynolds, James L. Sutter, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Dungeoneer's Handbook",
+      "records": 67,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Dungeoneer's Handbook",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Amanda Hamon, Gareth Hanrahan, David Ross, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Dungeons of Golarion",
+      "records": 10,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Dwarves of Golarion",
+      "records": 52,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Dwarves of Golarion",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: David A. Eitelbach, Russ Taylor, JD Wiker, Keri Wiker, and Hank Woon."
+        }
+      ]
+    },
+    {
+      "publication": "Elemental Master's Handbook",
+      "records": 100,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Elemental Master's Handbook",
+          "notice": "© 2017, Paizo Inc.; Authors: John Compton, Eleanor Ferron, Mikko Kallio, Jason Keeley, Isabelle Lee, and Christopher Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Elves of Golarion",
+      "records": 35,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Elves of Golarion",
+          "notice": "© 2008, Paizo Publishing, LLC; Authors: Jeff Quick and Hal Maclean."
+        }
+      ]
+    },
+    {
+      "publication": "Entombed with the Pharaohs",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module J1: Entombed with the Pharaohs.",
+          "notice": "© 2007, Paizo Publishing, LLC. Author: Michael Kortes."
+        }
+      ]
+    },
+    {
+      "publication": "Faction Guide",
+      "records": 94,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Faction Guide",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Joshua J. Frost, Jason Nelson, and Sean K Reynolds."
+        }
+      ]
+    },
+    {
+      "publication": "Faiths and Philosophies",
+      "records": 68,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Faiths & Philosophies",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Savannah Broadway, Paris Crenshaw, Neall Raemonn Price, David Ross, Owen K.C. Stepehens, and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Faiths of Balance",
+      "records": 51,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Faiths of Corruption",
+      "records": 42,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Faiths of Corruption",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Colin McComb."
+        }
+      ]
+    },
+    {
+      "publication": "Faiths of Golarion",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Faiths of Golarion",
+          "notice": "© 2018, Paizo Inc.; Authors: Kate Baker, John Compton, Adam Daigle, Crystal Frasier, Ron Lundeen, Liane Merciel, Michael Sayre, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Faiths of Purity",
+      "records": 42,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Familiar Folio",
+      "records": 71,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Familiar Folio",
+          "notice": "© 2015, Paizo Inc.; Authors: Will McCardell, Philip Minchin, Mark Seifter, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Fangwood Keep",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Fangwood Keep",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Alex Greenshields."
+        }
+      ]
+    },
+    {
+      "publication": "Feast of Dust",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Feast of Dust",
+          "notice": "© 2015, Paizo Inc.; Author: Nicolas Logue."
+        }
+      ]
+    },
+    {
+      "publication": "Feast of Ravenmoor",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Feast of Ravenmoor.",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "Fey Revisited",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Fey Revisited",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Savannah Broadway, Amanda Hamon, Tim Hitchcock, Levi Miles, Ray Vallese, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Flight of the Red Raven",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module W3: Flight of the Red Raven",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "From Shore to Sea",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: From Shore to Sea",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "Gallery of Evil",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module U1: Gallery of Evil.",
+          "notice": "© 2007, Paizo Publishing, LLC. Author: Stephen S. Greer."
+        }
+      ]
+    },
+    {
+      "publication": "Gallows of Madness",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Gallows of Madness",
+          "notice": "© 2016, Paizo Inc.; Authors: Benjamin Bruck, Mikko Kallio, and Mike Kimmel."
+        }
+      ]
+    },
+    {
+      "publication": "GameMastery Condition Cards",
+      "records": 1,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Condition Cards.",
+          "notice": "© 2010, Paizo Publishing, LLC. Author: Jason Bulmahn."
+        }
+      ]
+    },
+    {
+      "publication": "GameMastery Guide",
+      "records": 612,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder RPG GameMastery Guide",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Cam Banks, Wolfgang Baur, Jason Bulmahn, Jim Butler, Eric Cagle, Graeme Davis, Adam Daigle, Joshua J. Frost, James Jacobs, Kenneth Hite, Steven Kenson, Robin Laws, Tito Leati, Rob McCreary, Hal Maclean, Colin McComb, Jason Nelson, David Noonan, Richard Pett, Rich Redman, Sean K Reynolds, F. Wesley Schneider, Amber Scott, Doug Seacat, Mike Selinker, Lisa Stevens, James L. Sutter, Russ Taylor, Penny Williams, Skip Williams, Teeuwynn Woodruff."
+        }
+      ]
+    },
+    {
+      "publication": "Giant Hunter's Handbook",
+      "records": 69,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Giant Hunter's Handbook",
+          "notice": "© 2014, Paizo Inc.; Authors: Alexander Augunas, Luis Loza, Ron Lundeen, and David Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Giants Revisited",
+      "records": 22,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Giants Revisited",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Jesse Benner, Ryan Costello, Brian R. James, Jason Nelson, Russ Taylor, and Ray Vallese."
+        }
+      ]
+    },
+    {
+      "publication": "Giantslayer Player's Guide",
+      "records": 10,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Giantslayer Player's Guide",
+          "notice": "© 2015, Paizo Inc.; Authors: Adam Daigle and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Gnomes of Golarion",
+      "records": 36,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Gnomes of Golarion",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Hal Maclean, Colin McComb, Mark Moreland, Jeff Quick, Sean K Reynolds, Steven Schend, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Goblins of Golarion",
+      "records": 61,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Gods and Magic",
+      "records": 70,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Gods and Magic",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Sean K Reynolds."
+        }
+      ]
+    },
+    {
+      "publication": "Guardians of Dragonfall",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module J2: Guardians of Dragonfall.",
+          "notice": "© 2007, Paizo Publishing, LLC. Author: Anson Caralya."
+        }
+      ]
+    },
+    {
+      "publication": "Guide to Darkmoon Vale",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Guide to the River Kingdoms",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Guide to the River Kingdoms",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Eric Bailey, Kevin Carter, Elaine Cunningham, Adam Daigle, Mike Ferguson, Joshua J. Frost, Steve Kenson, Rob Manning, Alison McKenzie, Colin Moulder-McComb, China Miéville, Brock Mitchel-Slentz, Jason Nelson, Richard Pett, Chris Pramas, Je' Quick, Sean K Reynolds, F. Wesley Schneider, Lisa Stevens, Neil Spicer, Matthew Stinson, and John Wick."
+        }
+      ]
+    },
+    {
+      "publication": "Halflings of Golarion",
+      "records": 49,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Haunted Heroes Handbook",
+      "records": 68,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Haunted Heroes Handbook",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Thurston Hillman, Isabelle Lee, Stephen Rowe, and Christopher Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Healer's Handbook",
+      "records": 96,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Healer's Handbook",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, David N. Ross, and Stephen Rowe."
+        }
+      ]
+    },
+    {
+      "publication": "Heart of the Jungle",
+      "records": 18,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Heaven Unleashed",
+      "records": 10,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Hell Unleashed",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Hell Unleashed",
+          "notice": "© 2015, Paizo Inc.; Authors: F. Wesley Schneider and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Hell's Rebels Player's Guide",
+      "records": 10,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Hell's Rebels Player's Guide",
+          "notice": "© 2015, Paizo Inc.; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Hell's Vengeance Player's Guide",
+      "records": 12,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Hell's Vengeance Player's Guide",
+          "notice": "© 2016, Paizo Inc.; Authors: Adam Daigle and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Heroes from the Fringe",
+      "records": 92,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes from the Fringe",
+          "notice": "© 2018, Paizo Inc.; Authors: Saif Ansari, Kate Baker, Michelle Jones, Isabelle Lee, Adrian Ng, Alex Riggs, Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Heroes of Golarion",
+      "records": 144,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes of Golarion",
+          "notice": "© 2019, Paizo Inc.; Authors: Saif Ansari, Alexander Augunas, Mara Lynn Butler, Michelle Jones, Avi Kool, and Alex Riggs."
+        }
+      ]
+    },
+    {
+      "publication": "Heroes of the Darklands",
+      "records": 78,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes of the Darklands",
+          "notice": "© 2017, Paizo Inc.; Authors: Robert Brookes, Eleanor Ferron, Michelle Jones, Alex Riggs, and Nicholas Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Heroes of the High Court",
+      "records": 88,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes of the High Court",
+          "notice": "© 2017, Paizo Inc.; Authors: Isabelle Lee, Luis Loza, Ron Lundeen, and Jacob W. Michaels."
+        }
+      ]
+    },
+    {
+      "publication": "Heroes of the Streets",
+      "records": 94,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Heroes of the Wild",
+      "records": 102,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes of the Wild",
+          "notice": "© 2015, Paizo Inc.; Authors: Tyler Beck, Pedro Coelho, Justin Juan, Mikko Kallio, Jason Keeley, Nick Salestrom, and William Thrasher."
+        }
+      ]
+    },
+    {
+      "publication": "Hollow's Last Hope",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Horror Adventures",
+      "records": 512,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Horror Adventures",
+          "notice": "© 2016, Paizo Inc.; Authors: John Bennett, Clinton J. Boomer, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, Jim Groves, Steven Helt, Thurston Hillman, Eric Hindley, Brandon Hodge, Mikko Kallio, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Alistair Rigg, Alex Riggs, David N. Ross, F. Wesley Schneider, David Schwartz, Mark Seifter, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Horror Realms",
+      "records": 46,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Humans of Golarion",
+      "records": 28,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Hungry are the Dead",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module D4: Hungry Are the Dead",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Bestiary",
+      "records": 59,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Bestiary",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Jim Groves, James Jacobs, Rob McCreary, Erik Mona, Jason Nelson, Patrick Renie, F. Wesley Schneider, James L. Sutter, Russ Taylor, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Combat",
+      "records": 128,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Combat",
+          "notice": "© 2014, Paizo Inc.; Authors: Dennis Baker, Jesse Benner, John Compton, and Thurston Hillman."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Faiths",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Faiths",
+          "notice": "© 2016, Paizo Inc.; Authors: Robert Brookes, Benjamin Bruck, Crystal Frasier, Thurston Hillman, Brandon Hodge, James Jacobs, Jessica Price, Patrick Renie, and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Gods",
+      "records": 734,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Gods",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Sean K Reynolds, with Amanda Hamon, James Jacobs, John Ling, Mark Moreland, David N. Ross, F. Wesley Schneider, Amber E. Scott, Tork Shaw, James L. Sutter, Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Intrigue",
+      "records": 129,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Intrigue",
+          "notice": "© 2016, Paizo Inc.; Authors: David N. Ross, with Ross Byers."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Magic",
+      "records": 75,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Inner Sea Monster Codex",
+      "records": 73,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Monster Codex",
+          "notice": "© 2015, Paizo Inc.; Authors: John Compton, Paris Crenshaw, Mike Myler, Tork Shaw, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea NPC Codex",
+      "records": 57,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea NPC Codex",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: John Compton, Paris Crenshaw, Adam Daigle, Josh Foster, Rob McCreary, Mark Moreland, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Primer",
+      "records": 82,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Inner Sea Primer",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Colin McComb."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Races",
+      "records": 275,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Races",
+          "notice": "© 2015, Paizo Inc.; Authors: Ross Byers, John Compton, Adam Daigle, Crystal Frasier, Matthew Goodall, Alex Greenshields, James Jacobs, Amanda Hamon Kunz, Ron Lundeen, Rob McCreary, Jessica Price, David N. Ross, Owen K.C. Stephens, James L. Sutter, Russ Taylor, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea Taverns",
+      "records": 16,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Inner Sea Temples",
+      "records": 49,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Inner Sea Temples",
+          "notice": "© 2016, Paizo Inc.; Authors: Robert Brookes, Liz Courts, Mikko Kallio, Jeffrey Swank, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Inner Sea World Guide",
+      "records": 118,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Inner Sea world Guide",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Into the Darklands",
+      "records": 6,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Into the Darklands",
+          "notice": "© 2008, Paizo Publishing, LLC; Authors: James Jacobs and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Ire of the Storm",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Ire of the Storm",
+          "notice": "© 2016, Paizo Inc.; Author: Thurston Hillman."
+        }
+      ]
+    },
+    {
+      "publication": "Iron Gods Player's Guide",
+      "records": 9,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Iron Gods Player's Guide",
+          "notice": "© 2014, Paizo Inc.; Authors: Adam Daigle and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Ironfang Invasion Player's Guide",
+      "records": 10,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Ironfang Invasion Player's Guide",
+          "notice": "© 2017, Paizo Inc.; Author: Crystal Frasier."
+        }
+      ]
+    },
+    {
+      "publication": "Irrisen - Land of Eternal Winter",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Irrisen, Land of Eternal Winter",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Mike Shel."
+        }
+      ]
+    },
+    {
+      "publication": "Isles of the Shackles",
+      "records": 27,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Isles of the Shackles",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Mike Shel."
+        }
+      ]
+    },
+    {
+      "publication": "Jade Regent Player's Guide",
+      "records": 27,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Jade Regent Player's Guide",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: James Jacobs and Patrick Renie."
+        }
+      ]
+    },
+    {
+      "publication": "Kingmaker Player's Guide",
+      "records": 7,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Knights of the Inner Sea",
+      "records": 53,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Knights of the Inner Sea",
+          "notice": "© 2012, Paizo Publishing, LLC. All Rights Reserved. Paizo Publishing, LLC, the Paizo golem logo, Pathfinder, Pathfinder Society, and GameMastery are registered trademarks of Paizo Publishing, LLC; Pathfinder Adventure Path, Pathfinder Campaign Setting, Pathfinder Module, Pathfinder Player Companion, Pathfinder Roleplaying Game, and Pathfinder Tales are trademarks of Paizo Publishing, LLC."
+        }
+      ]
+    },
+    {
+      "publication": "Kobolds of Golarion",
+      "records": 100,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Kobolds of Golarion",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Tork Shaw, Mat Smith, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Lands of Conflict",
+      "records": 57,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lands of Conflict",
+          "notice": "© 2017, Paizo Inc.; Authors: Lissa Guillet and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Lands of the Linnorm Kings",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lands of the Linnorm Kings",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Matthew Goodall, Jonathan Keith, Colin McComb, and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Legacy of Dragons",
+      "records": 81,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Legacy of Dragons",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Robert Brookes, Thurston Hillman, Michelle Jones, Mikko Kallio, and Mark Seifter."
+        }
+      ]
+    },
+    {
+      "publication": "Legacy of Fire Player's Guide",
+      "records": 43,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Legacy of Fire Player's Guide",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Brian Cortijo, Stephen S. Greer, James Jacobs, Jonathan H. Keith, F. Wesley Schneider, Amber E. Scott, and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Legacy of the First World",
+      "records": 98,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Legacy of the First World",
+          "notice": "© 2017, Paizo Inc.; Authors: Jake Alley, Judy Bauer, John Compton, Mikko Kallio, Jason Keeley, Joe Pasini, Mark Seifter, Kendra Leigh Speedling, Josh Vogt, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Lost Cities of Golarion",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lost Cities of Golarion",
+          "notice": "© 2011, Paizo Publishing, LLC. Authors: Tim Hitchcock, Brandon Hodge, Michael Kortes, Jason Nelson, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Lost Kingdoms",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lost Kingdoms",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Wolfgang Baur, Adam Daigle, Jeff Erwin, and F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Lost Treasures",
+      "records": 54,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Lost Treasures",
+          "notice": "© 2014, Paizo Inc.; Authors: Judy Bauer, Savannah Broadway, John Compton, Ron Lundeen, Levi Miles, Justin Riddler, F. Wesley Schneider, Mike Shel, Christina Stiles, James L. Sutter, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Magic Tactics Toolbox",
+      "records": 113,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Magic Tactics Toolbox",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Steven T. Helt, Thurston Hillman, and Ron Lundeen."
+        }
+      ]
+    },
+    {
+      "publication": "Magic of Thassilon",
+      "records": 2,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Magical Marketplace",
+      "records": 87,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Magical Marketplace",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: John Ling, Ron Lundeen, Patrick Renie, David Schwartz, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Magnimar, City of Monuments",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Magnimar, City of Monuments",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Adam Daigle and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Martial Arts Handbook",
+      "records": 130,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Martial Arts Handbook",
+          "notice": "© 2018, Paizo Inc.; Authors: Thurston Hillman, Mikko Kallio, Jacob W. Michaels, Matt Morris, Daniel Reed, Mikhail Rekun, Mark Seifter, and Jeffrey Swank."
+        }
+      ]
+    },
+    {
+      "publication": "Masks of the Living God",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Masks of the Living God",
+          "notice": "© 2009, Paizo Publishing, LLC. Author: Jason Bulmahn."
+        }
+      ]
+    },
+    {
+      "publication": "Melee Tactics Toolbox",
+      "records": 117,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Melee Tactics Toolbox",
+          "notice": "© 2015, Paizo Inc.; Authors: Paris Crenshaw, Ron Lundeen, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Merchant's Manifest",
+      "records": 113,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Merchant's Manifest",
+          "notice": "© 2018, Paizo Inc.; Authors: John Compton, Eleanor Ferron, Thurston Hillman, Nathan King, Isabelle Lee, Jacob W. Michaels, Adrian Ng, David N. Ross, and Mike Welham."
+        }
+      ]
+    },
+    {
+      "publication": "Misfit Monsters Redeemed",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Misfit Monsters Redeemed",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Adam Daigle, Crystal Frasier, Colin McComb, Rob McCreary, Jason Nelson, and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Monster Codex",
+      "records": 400,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Monster Codex",
+          "notice": "© 2014, Paizo Inc.; Authors: Dennis Baker, Jesse Benner, Logan Bonner, Jason Bulmahn, Ross Byers, John Compton, Robert N. Emerson, Jonathan H. Keith, Dale C. McCoy, Jr., Mark Moreland, Tom Phillips, Stephen Radney-MacFarland, Sean K Reynolds, Thomas M. Reid, Patrick Renie, Mark Seifter, Tork Shaw, Neil Spicer, Owen K.C. Stephens, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Monster Hunter's Handbook",
+      "records": 86,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Monster Hunter's Handbook",
+          "notice": "© 2017, Paizo Inc.; Authors: Eric Hindley, Mikko Kallio, Luis Loza, and Christopher Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Monster Summoner's Handbook",
+      "records": 67,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Monster Summoner's Handbook",
+          "notice": "© 2015, Paizo Inc.; Authors: Alexander Augunas, Tyler Beck, Anthony Li, Luis Loza, David N. Ross, Owen K.C. Stephens, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Mummy's Mask Player's Guide",
+      "records": 10,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Mummy's Mask Player's Guide",
+          "notice": "© 2014, Paizo Inc.; Authors: Adam Daigle and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Murder's Mark",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Murder's Mark",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Jim Groves."
+        }
+      ]
+    },
+    {
+      "publication": "Mystery Monsters Revisited",
+      "records": 19,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Mystery Monsters Revisited",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Richard Pett, Anthony Pryor, Amber Scott, and Ray Vallese."
+        }
+      ]
+    },
+    {
+      "publication": "Mythic Adventures",
+      "records": 692,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Mythic Adventures",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Jason Bulmahn, Stephen Radney-MacFarland, Sean K Reynolds, Dennis Baker, Jesse Benner, Ben Bruck, Jim Groves, Tim Hitchcock, Tracy Hurley, Jonathan Keith, Jason Nelson, Tom Phillips, Ryan Macklin, F. Wesley Schneider, Amber Scott, Tork Shaw, Russ Taylor, and Ray Vallese."
+        }
+      ]
+    },
+    {
+      "publication": "Mythic Origins",
+      "records": 43,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Mythic Origins",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Dennis Baker, Philip Minchin, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Mythic Realms",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Mythic Realms",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Benjamin Bruck, Jason Bulmahn, Amanda Hamon, Nicolas Logue, Jason Nelson, F. Wesley Schneider, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Mythical Monsters Revisited",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Mythical Monsters Revisited",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Jesse Benner, Jonathan H. Keith, Michael Kenway, Jason Nelson, Anthony Pryor, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "NPC Codex",
+      "records": 311,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game NPC Codex",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Jesse Benner, Jason Bulmahn, Adam Daigle, Alex Greenshields, Rob McCreary, Mark Moreland, Jason Nelson, Stephen Radney-MacFarland, Patrick Renie, Sean K Reynolds, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Nidal, Land of Shadows",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Nidal, Land of Shadows",
+          "notice": "© 2018, Paizo Inc.; Authors: Liane Merciel, with Lyz Liddell, Ron Lundeen, and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "No Response from Deepmar",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: No Response from Deepmar",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Stephen S. Greer."
+        }
+      ]
+    },
+    {
+      "publication": "Numeria, Land of Fallen Stars",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Numeria, Land of Fallen Stars",
+          "notice": "© 2014, Paizo Inc.; Authors: Jim Groves and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Occult Adventures",
+      "records": 680,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Occult Adventures",
+          "notice": "© 2015, Paizo Inc.; Authors: John Bennett, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, John Compton, Adam Daigle, Jim Groves, Thurston Hillman, Eric Hindley, Brandon Hodge, Ben McFarland, Erik Mona, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Alex Riggs, Robert Schwalb, Mark Seifter, Russ Taylor, and Steve Townshend."
+        }
+      ]
+    },
+    {
+      "publication": "Occult Bestiary",
+      "records": 51,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Occult Bestiary",
+          "notice": "© 2015, Paizo Inc.; Authors: Josh Colon, John Compton, Paris Crenshaw, Adam Daigle, Eleanor Ferron, James Jacobs, Joe Homes, Mikko Kallio, Mike Kimmel, Ron Lundeen, Kate Marshall, Kalervo Oikarinen, Stephen Radney-MacFarland, and F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Occult Mysteries",
+      "records": 54,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Occult Origins",
+      "records": 121,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Occult Origins",
+          "notice": "© 2015, Paizo Inc.; Authors: Robert Brookes, Ben McFarland, Jason Nelson, and Mark Seifter."
+        }
+      ]
+    },
+    {
+      "publication": "Occult Realms",
+      "records": 52,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Occult Realms",
+          "notice": "© 2015, Paizo Inc.; Authors: Robert Brookes, Thurston Hillman, Thomas M. Reed, and Mark Seifter."
+        }
+      ]
+    },
+    {
+      "publication": "Orcs of Golarion",
+      "records": 41,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Orcs of Golarion",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: Steve Kenson, Rob McCreary, Richard Pett, Sean K Reynolds, and JD Wiker."
+        }
+      ]
+    },
+    {
+      "publication": "Osirion, Land of the Pharaohs",
+      "records": 17,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Osirion, Land of Pharaohs",
+          "notice": "© 2008, Paizo Publishing, LLC; Authors: Jason Nelson and Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Osirion, Legacy of the Pharaohs",
+      "records": 14,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Osirion, Legacy of Pharaohs",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Alex Greenshields, Amanda Hamon, Jonathan H. Keith, Ron Lundeen, and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "PRPG Core Rulebook",
+      "records": 2161,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Core Rulebook",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Jason Bulmahn, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+        },
+        {
+          "title": "Pathfinder Roleplaying Game Core Rulebook",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Jason Bulmahn, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+        }
+      ]
+    },
+    {
+      "publication": "Path of the Hellknight",
+      "records": 59,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Path of the Hellknight",
+          "notice": "© 2016, Paizo Inc.; Author: F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #100: A Song of Silver",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #100: A Song of Silver",
+          "notice": "© 2015, Paizo Inc.; Authors: James Jacobs, with Adam Daigle, Crystal Frasier, Jim Groves, Tim Hitchcock, Brandon Hodge, Nicolas Logue, Stephanie Lorée, Rob McCreary, Erik Mona, Jason Nelson, Richard Pett, Sean K Reynolds, F. Wesley Schneider, Amber E. Scott, Mike Shel, Neil Spicer, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #101: The Kintargo Contract",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #101: The Kintargo Contract",
+          "notice": "© 2015, Paizo Inc.; Authors: Jim Groves, with Robert Brookes, Stephanie Lorée, Kalervo Oikarinen, David N. Ross, F. Wesley Schneider, and Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #102: Breaking the Bones of Hell",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #102: Breaking the Bones of Hell",
+          "notice": "© 2016, Paizo Inc.; Authors: Amber E. Scott, with Adam Daigle, James Jacobs, Jenny Jarzabski, Mikko Kallio, Stephanie Lorée, F. Wesley Schneider, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #103: The Hellfire Compact",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #103: The Hellfire Compact",
+          "notice": "© 2016, Paizo Inc.; Authors: F. Wesley Schneider, with Paris Crenshaw, Mikko Kallio, Jason Keeley, Rob McCreary, Mark Moreland, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #104: Wrath of Thrune",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #104: Wrath of Thrune",
+          "notice": "© 2016, Paizo Inc.; Authors: Thurston Hillman, with Jason Keeley, Rob McCreary, Kalervo Oikarinen, Josh Vogt, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #105: The Inferno Gate",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #105: The Inferno Gate",
+          "notice": "© 2016, Paizo Inc.; Authors: Patrick Renie, with Benjamin Bruck, Joe Homes, Jason Keeley, F. Wesley Schneider, Jeffrey Swank, Josh Vogt, and Mike Welham."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #106: For Queen and Empire",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #106: For Queen & Empire",
+          "notice": "© 2016, Paizo Inc.; Authors: Stephen Radney-MacFarland, with Adam Daigle, Crystal Frasier, Dave Gross, Garrett Guillotte, Steven T. Helt, Luis Loza, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #107: Scourge of the Godclaw",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #107: Scourge of the Godclaw",
+          "notice": "© 2016, Paizo Inc.; Authors: Larry Wilhelm, with Benjamin Bruck, Paris Crenshaw, Alex Greenshields, Jason Keeley, F. Wesley Schneider, Owen K.C. Stephens, Greg A. Vaughan, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #108: Hell Comes to Westcrown",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #108: Hell Comes to Westcrown",
+          "notice": "© 2016, Paizo Inc.; Authors: Ron Lundeen, with Jason Keeley, Rob McCreary, and Josh Vogt."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #109: In Search of Sanity",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #109: In Search of Sanity",
+          "notice": "© 2016, Paizo Inc.; Authors: F. Wesley Schneider, with Eric Hindley, James Jacobs, Jenny Jarzabski, and Jason Keeley."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #10: A History of Ashes",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 10: A History of Ashes",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Michael Kortes."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #110: The Thrushmoor Terror",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #110: The Thrushmoor Terror",
+          "notice": "© 2016, Paizo Inc.; Authors: Tito Leati, with James Jacobs, Michelle Jones, and Christopher Rowe."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #111: Dreams of the Yellow King",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #111: Dreams of the Yellow King",
+          "notice": "© 2016, Paizo Inc.; Authors: Ron Lundeen, with Liz Courts, James Jacobs, Todd Stewart, and Wendy N. Wagner."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #112: The Whisper Out of Time",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #112: The Whisper Out of Time",
+          "notice": "© 2016, Paizo Inc.; Authors: Richard Pett, with Jason Scott Aiken, Paris Crenshaw, Ed Grabianowski, James Jacobs, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #113: What Grows Within",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #113: What Grows Within",
+          "notice": "© 2016, Paizo Inc.; Authors: John Compton, with Adam Daigle, Arinn Dembo, and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #114: Black Stars Beckon",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #114: Black Stars Beckon",
+          "notice": "© 2017, Paizo Inc.; Authors: Jim Groves, with Adam Daigle, Benjamin Bruck, and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #115: Trail of the Hunted",
+      "records": 21,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #115: Trail of the Hunted",
+          "notice": "© 2017, Paizo Inc.; Authors: Amber E. Scott, with Crystal Frasier, Luis Loza, Ron Lundeen, Tonya Woldridge, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #116: Fangs of War",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #116: Fangs of War",
+          "notice": "© 2017, Paizo Inc.; Authors: Ron Lundeen, with John Compton, Adam Daigle, Crystal Frasier, Michelle Jones, and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #117: Assault on Longshadow",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #117: Assault on Longshadow",
+          "notice": "© 2017, Paizo Inc.; Authors: Benjamin Bruck and Thurston Hillman, with Liz Courts, Paris Crenshaw, and Jason Keeley."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #118: Siege of Stone",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #118: Siege of Stone",
+          "notice": "© 2017, Paizo Inc.; Authors: Thurston Hillman, with Paris Crenshaw, Crystal Frasier, Patchen Mortimer, and Kalervo Oikarinen."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #119: Prisoners of the Blight",
+      "records": 23,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder #11: Skeletons of Scarwall",
+      "records": 6,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 11: Skeletons of Scarwall",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #120: Vault of the Onyx Citadel",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #120: Vault of the Onyx Citadel",
+          "notice": "© 2017, Paizo Inc.; Authors: Larry Wilhelm, with Paris Crenshaw, Crystal Frasier, Tim Hitchcock, Kalervo Oikarinen, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #121: The Lost Outpost",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #121: The Lost Outpost",
+          "notice": "© 2017, Paizo Inc.; Authors: Jim Groves, with Adam Daigle, Isabelle Lee, Luis Loza, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #122: Into the Shattered Continent",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #122: Into the Shattered Continent",
+          "notice": "© 2017, Paizo Inc.; Authors: Robert Brookes, with Ayla Arthur, Adam Daigle, Lucas J.W. Johnson, Robin Loutzenhiser, Ron Lundeen, and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #123: The Flooded Cathedral",
+      "records": 27,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #123: The Flooded Cathedral",
+          "notice": "© 2017, Paizo Inc.; Authors: Mikko Kallio, with John Compton, Adam Daigle, Kalervo Oikarinen, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #124: City in the Deep",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #124: City in the Deep",
+          "notice": "© 2017, Paizo Inc.; Authors: Amber E. Scott, with Alex Greenshields, Mikko Kallio, Mark Moreland, Tim Nightengale, and Kalervo Oikarinen."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #125 Tower of the Drowned Dead",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #125: Tower of the Drowned Dead",
+          "notice": "© 2017, Paizo Inc.; Authors: Ron Lundeen, with Nathan King, Isabelle Lee, Erik Mona, Kalervo Oikarinen, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #125: Tower of the Drowned Dead",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #125: Tower of the Drowned Dead",
+          "notice": "© 2017, Paizo Inc.; Authors: Ron Lundeen, with Nathan King, Isabelle Lee, Erik Mona, Kalervo Oikarinen, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #126: Beyond the Veiled Past",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #126: Beyond the Veiled Past",
+          "notice": "© 2018, Paizo Inc.; Authors: Thurston Hillman, with Robert Brookes, Eleanor Ferron, Crystal Malarsky, and Scott Sharplin."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #127: Crownfall",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #127: Crownfall",
+          "notice": "© 2018, Paizo Inc.; Authors: Thurston Hillman, with Eleanor Ferron, Crystal Frasier, and Adrian Ng."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #128: Songbird, Scion, Saboteur",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #128: Songbird, Scion, Saboteur",
+          "notice": "© 2018, Paizo Inc.; Authors: Crystal Frasier and Richard Pett, with Tim Akers, Logan Bonner, Brian Duckwitz, Amanda Hamon Kunz, Troy Lavallee, Patchen Mortimer, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #129: The Twilight Child",
+      "records": 5,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #129: The Twilight Child",
+          "notice": "© 2018, Paizo Inc.; Authors: Ron Lundeen, with Patchen Mortimer, Andrew Mullen, Richard Pett, F. Wesley Schneider, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #12: Crown of Fangs",
+      "records": 14,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 12: Crown of Fangs",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Tito Leati."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #130: City in the Lion's Eye",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #130: City in the Lion's Eye",
+          "notice": "© 2018, Paizo Inc.; Authors: Mikko Kallio, with Eleanor Ferron, Mike Headley, Joe Kondrak, Kalervo Oikarinen, and Liz Smith."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #131: The Reaper's Right Hand",
+      "records": 23,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #131: The Reaper's Right Hand",
+          "notice": "© 2018, Paizo Inc.; Authors: John Compton, with Jason Keeley, Nathan King, Crystal Malarsky, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #132: The Six-Legend Soul",
+      "records": 24,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #132: The Six-Legend Soul",
+          "notice": "© 2018, Paizo Inc.; Authors: Amber E. Scott, with Kate Baker, Jay Erickson, Crystal Frasier, Tom Hansen, Lyz Liddell, Aerick Lim, Ron Lundeen, and Nathan Reinecke."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #133: Secrets of Roderic's Cove",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #133: Secrets of Roderic's Cove",
+          "notice": "© 2018, Paizo Inc.; Authors: Adam Daigle, with James Jacobs, Mikko Kallio, Luis Loza, Jacob W. Michaels, and Conor J. Owens."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #134: It Came from Hollow Mountain",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #134: It Came from Hollow Mountain",
+          "notice": "© 2018, Paizo Inc.; Authors: Mike Shel, with Jason Keeley, Mark Moreland, and Patchen Mortimer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #135: Runeplague",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #135: Runeplague",
+          "notice": "© 2018, Paizo Inc.; Authors: Richard Pett, with Eleanor Ferron, Jason Keeley, Mike Kimmel, Andrew Mullen, and Jeffrey Swank."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #136: Temple of the Peacock Spirit",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #136: Temple of the Peacock Spirit",
+          "notice": "© 2018, Paizo Inc.; Authors: Jason Keeley, with Dan Cascone, John Compton, James Jacobs, Nathan King, and Luis Loza."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #137: The City Outside of Time",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #137: The City Outside of Time",
+          "notice": "© 2018, Paizo Inc.; Authors: Amanda Hamon Kunz, with John Compton, Gregory Hanigan, and Mikko Kallio."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #138: Rise of New Thassilon",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #138: The Rise of New Thassilon",
+          "notice": "© 2019, Paizo Inc.; Authors: Greg A. Vaughan, with John Compton, Andrew D. Geels, James Jacobs, Lyz Liddell, Luis Loza, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #139: The Dead Road",
+      "records": 41,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #139: The Dead Roads",
+          "notice": "© 2019, Paizo Inc.; Authors: Ron Lundeen, with Crystal Frasier, Kyle T. Raes, Matt Morris, Mikhail Rekun, and Mike Welham."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #13: Shadow in the Sky",
+      "records": 3,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 13: Shadow in the Sky",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #140: Eulogy for Roslar's Coffer",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #140: Eulogy for Roslar's Coffer",
+          "notice": "© 2019, Paizo Inc.; Authors: Jason Keeley, with Eleanor Ferron, Sarah E. Hood, Lyz Liddell, Luis Loza, Crystal Malarsky, Jen McTeague, and Mikhail Rekun."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #141: Last Watch",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #141: Last Watch",
+          "notice": "© 2019, Paizo Inc.; Authors: Larry Wilhelm, with Alexander Augunas, Mike Headley, Isabelle Lee, Meagan Maricle, Patchen Mortimer, Kendra Leigh Speedling, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #142: Gardens of Gallowspire",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #142: Gardens of Gallowspire",
+          "notice": "© 2019, Paizo Inc.; Authors: Crystal Frasier, with Ron Lundeen, Andrew Mullen, Emily Parks, Rhett Skubis, and Christopher Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #143: Borne by the Sun's Grace",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #143: Borne by the Sun's Grace",
+          "notice": "© 2019, Paizo Inc.; Authors: Luis Loza, with Carlos Cabrera, Crystal Frasier, and Mikhail Rekun."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #144: Midwives to Death",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #144: Midwives to Death",
+          "notice": "© 2019, Paizo Inc.; Authors: John Compton, with Adam Daigle, Eleanor Ferron, Thurston Hillman, James Jacobs, Jason Keeley, Luis Loza, Ron Lundeen, Robert G. McCreary, Erik Mona, Michael Sayre, Owen K.C. Stephens, Mark Seifter, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #14: Children of the Void",
+      "records": 9,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 14: Children of the Void",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Mike McArtor."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #15: The Armageddon Echo",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 15: The Armageddon Echo",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Jason Bulmahn."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #16: Endless Night",
+      "records": 14,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 16: Endless Night",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #17: A Memory of Darkness",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 17: A Memory of Darkness",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: J. D. Wiker."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #18: Descent Into Midnight",
+      "records": 1,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 18: Descent into Midnight",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Brian Cortijo."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #18: Descent into Midnight",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 18: Descent into Midnight",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Brian Cortijo."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #19: Howl of the Carrion King",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 19: Howl of the Carrion King",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Erik Mona."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #1: Burnt Offerings",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 1: Burnt Offerings",
+          "notice": "© 2007, Paizo Publishing LLC. Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #20: House of the Beast",
+      "records": 3,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 20: House of the Beast",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #21: The Jackal's Price",
+      "records": 5,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 21: The Jackal's Price",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Darrin Drader."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #22: The End of Eternity",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #22: The End of Eternity",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #23: The Impossible Eye",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #23: The Impossible Eye",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #24: The Final Wish",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #24: The Final Wish",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #25: The Bastards of Erebus",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #25: Bastards of Erebus",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Sean K Reynolds."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #26: The Sixfold Trial",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #26: The Sixfold Trial",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #27: What Lies in Dust",
+      "records": 24,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #27: What Lies in Dust",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Michael Kortes."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #28: The Infernal Syndrome",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #28: The Infernal Syndrome",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Clinton Boomer and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #29: Mother of Flies",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #29: Mother of Flies",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #2: The Skinsaw Murders",
+      "records": 18,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 2: The Skinsaw Murders",
+          "notice": "© 2007, Paizo Publishing LLC. Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #30: The Twice-Damned Prince",
+      "records": 25,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #30: The Twice-Damned Prince",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Brian Cortijo and James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #31: Stolen Land",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #31: Stolen Land",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #32: Rivers Run Red",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #32: Rivers Run Red",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #33: The Varnhold Vanishing",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path volume #33: The Varnhold Vanishing",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #34: Blood for Blood",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #34: Blood for Blood",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #35: War of the River Kings",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #35: War of the River Kings",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #36: Sound of a Thousand Screams",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #36: Sound of a Thousand Screams",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #37: Souls for Smuggler's Shiv",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #37: Souls for Smuggler's Shiv",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #38: Racing to Ruin",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #38: Racing to Ruin",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #39: The City of Seven Spears",
+      "records": 29,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #39: City of Seven Spears",
+          "notice": "© 2010, Paizo Publishing, LLC; Authors: James Jacobs, Kevin Kulp, Rob McCreary, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #3: The Hook Mountain Massacre",
+      "records": 4,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder #40: Vaults of Madness",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #40: Vaults of Madness",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #41: The Thousand Fangs Below",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #41: The Thousand Fangs Below",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Graeme Davis and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #42: Sanctum of the Serpent God",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #42: Sanctum of the Serpent God",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #43: Haunting of Harrowstone",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #43: The Haunting of Harrowstone",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Michael Kortes."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #44: Trial of the Beast",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #44: Trial of the Beast",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #45: Broken Moon",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #45: Broken Moon",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #46: Wake of the Watcher",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #46: Wake of the Watcher",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #47: Ashes at Dawn",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #47: Ashes at Dawn",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #48: Shadows of Gallowspire",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #48: Shadows of Gallowspire",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #49: The Brinewall Legacy",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #49: The Brinewall Legacy",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #4: Fortress of the Stone Giants",
+      "records": 11,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 4: Fortress of the Stone Giants",
+          "notice": "© 2007, Paizo Publishing, LLC; Author: Wolfgang Baur."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #50: Night of Frozen Shadows",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #50: Night of Frozen Shadows",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #51: The Hungry Storm",
+      "records": 32,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #51: The Hungry Storm",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #52: Forest of Spirits",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #52: Forest of Spirits",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #53: Tide of Honor",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #53: Tide of Honor",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Tito Leati."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #54: The Empty Throne",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #54: The Empty Throne",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #55: The Wormwood Mutiny",
+      "records": 30,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #55: The Wormwood Mutiny",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #56: Raiders of the Fever Sea",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #56: Raiders of the Fever Sea",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #57: Tempest Rising",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #57: Tempest Rising",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Matthew Goodall."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #58: Island of Empty Eyes",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #58: Island of Empty Eyes",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #59: The Price of Infamy",
+      "records": 27,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #59: The Price of Infamy",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #5: Sins of the Saviors",
+      "records": 19,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 5: Sins of the Saviors",
+          "notice": "© 2007, Paizo Publishing, LLC; Author: Stephen S. Greer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #60: From Hell's Heart",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #60: From Hell's Heart",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Jason Nelson and Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #61: Shards of Sin",
+      "records": 31,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #61: Shards of Sin",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #62: Curse of the Lady's Light",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #62: Curse of the Lady's Light",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Mike Shel."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #63: The Asylum Stone",
+      "records": 11,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder #64: Beyond the Doomsday Door",
+      "records": 15,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder #65: Into the Nightmare Rift",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #65: Into the Nightmare Rift",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #66: The Dead Heart of Xin",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #66: The Dead Heart of Xin",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #67: The Snows of Summer",
+      "records": 25,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #67: The Snows of Summer",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #68: The Shackled Hut",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #68: The Shackled Hut",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Jim Groves."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #69: Maiden, Mother, Crone",
+      "records": 15,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #69: Maiden, Mother, Crone",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #6: Spires of Xin-Shalast",
+      "records": 14,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 6: Spires of Xin-Shalast",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #70: The Frozen Stars",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #70: The Frozen Stars",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Matthew Goodall."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #71: Rasputin Must Die!",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #71: Rasputin Must Die!",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #72: The Witch Queen's Revenge",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #72: The Witch Queen's Revenge",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #73: The Worldwound Incursion",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #73: The Worldwound Incursion",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #74: Sword of Valor",
+      "records": 34,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #74: Sword of Valor",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: James Jacobs, Jason Klimchok, Robin D. Laws, Ron Lundeen, Jason Nelson, David Schwartz, and Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #75: Demon's Heresy",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #75: Demon's Heresy",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Jim Groves."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #76: The Midnight Isles",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #76: The Midnight Isles",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: James Jacobs and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #77: Herald of the Ivory Labyrinth",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #77: Herald of the Ivory Labyrinth",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Wolfgang Baur."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #78: City of Locusts",
+      "records": 14,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #78: City of Locusts",
+          "notice": "© 2014, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #79: The Half-Dead City",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #79: The Half-Dead City",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Crystal Frasier, Jim Groves, Will McCardell, Michael McCarthy, and Amber E.Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #7: Edge of Anarchy",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 7: Edge of Anarchy",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Nicolas Logue."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #80: Empty Graves",
+      "records": 33,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #80: Empty Graves",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Crystal Frasier, with Thurston Hillman, Will McCardell, Rob McCreary, and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #81: Shifting Sands",
+      "records": 24,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #81: Shifting Sands",
+          "notice": "© 2014, Paizo Inc.; Authors: Richard Pett, with Benjamin Bruck, Adam Daigle, Thurston Hillman, Michael McCarthy, Patrick Renie, Amber E. Scott, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #82: Secrets of the Sphinx",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #82: Secrets of the Sphinx",
+          "notice": "© 2014, Paizo Inc.; Authors: Amber E. Scott, with Michael Kortes, Amber E. Scott, David Schwartz, Russ Taylor, Greg A. Vaughan, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #83: The Slave Trenches of Hakotep",
+      "records": 25,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #83: The Slave Trenches of Hakotep",
+          "notice": "© 2014, Paizo Inc.; Authors: Michael Kortes, with Robert Brookes, Adam Daigle, Tim Hitchcock, David N. Ross, Amber E. Scott, and Neil Spicer."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #84: Pyramid of the Sky Pharaoh",
+      "records": 17,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #84: Pyramid of the Sky Pharaoh",
+          "notice": "© 2014, Paizo Inc.; Authors: Mike Shel, with Tyler Beck, Adam Daigle, F. Wesley Schneider, and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #85: Fires of Creation",
+      "records": 20,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #85: Fires of Creation",
+          "notice": "© 2014, Paizo Inc.; Authors: Neil Spicer, with Mark Garringer, Amber E. Scott, Russ Taylor, and Mike Wellham."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #86: Lords of Rust",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #86: Lords of Rust",
+          "notice": "© 2014, Paizo Inc.; Authors: Nicolas Logue, with Adam Daigle, Jim Groves, James Jacobs, Sean K Reynolds, and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #87: The Choking Tower",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #87: The Choking Tower",
+          "notice": "© 2014, Paizo Inc.; Authors: Ron Lundeen, with Paris Crenshaw, Mark Garringer, Patrick Renie, and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #88: Valley of the Brain Collectors",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #88: Valley of the Brain Collectors",
+          "notice": "© 2014, Paizo Inc.; Authors: Mike Shel, with David Schwartz and Amber E. Scott."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #89: Palace of Fallen Stars",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #89: Palace of Fallen Stars",
+          "notice": "© 2014, Paizo Inc.; Authors: Tim Hitchcock, with Benjamin Bruck, Sean K Reynolds, Amber E. Scott, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #8: Seven Days to the Grave",
+      "records": 16,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 8: Seven Days to the Grave",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: F. Wesley Schneider."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #90: The Divinity Drive",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #90: The Divinity Drive",
+          "notice": "© 2014, Paizo Inc.; Authors: Crystal Frasier, with Adam Daigle, Thurston Hillman, James Jacobs, Will McCardell, Amber E. Scott, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #91: Battle of Bloodmarch Hills",
+      "records": 53,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #91: Battle of Bloodmarch Hill",
+          "notice": "© 2015, Paizo Inc.; Authors: Patrick Renie, with Tyler Beck, Adam Daigle, Richard Pett, Stephen Radney-MacFarland, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #92: The Hill Giant's Pledge",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #92: The Hill Giant's Pledge",
+          "notice": "© 2015, Paizo Inc.; Authors: Larry Wilhelm, with Benjamin Bruck, Thurston Hillman, Mikko Kallio, Michael Kortes, David Schwartz, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #93: Forge of the Giant God",
+      "records": 12,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #93: Forge of the Giant God",
+          "notice": "© 2015, Paizo Inc.; Authors: Tim Hitchcock, with Benjamin Bruck, Mark Moreland, Sean K Reynolds, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #94: Ice Tomb of the Giant Queen",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #94: Ice Tomb of the Giant Queen",
+          "notice": "© 2015, Paizo Inc.; Authors: Jim Groves, with Clinton Boomer, Benjamin Bruck, John Compton, Thurston Hillman, and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #95: Anvil of Fire",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #95: Anvil of Fire",
+          "notice": "© 2015, Paizo Inc.; Authors: Sean K Reynolds, with Benjamin Bruck, Mikko Kallio, David Schwartz, Russ Taylor, Jerome Virnych, and Wendy N. Wagner."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #96: Shadow of the Storm Tyrant",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #96: Shadow of the Storm Tyrant",
+          "notice": "© 2015, Paizo Inc.; Authors: Tito Leati, with Benjamin Bruck, Jim Groves, Steven T. Helt, Mikko Kallio, and Patrick Renie."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #97: In Hell's Bright Shadow",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #97: In Hell's Bright Shadow",
+          "notice": "© 2015, Paizo Inc.; Authors: Crystal Frasier, with Eric Hindley, Stephanie Lorée, and Michael McCarthy."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #98: Turn of the Torrent",
+      "records": 8,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #98: Turn of the Torrent",
+          "notice": "© 2015, Paizo Inc.; Authors: Mike Shel, with Thurston Hillman, Stephanie Lorée, Tim Nightengale, and Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #99: Dance of the Damned",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #99: Dance of the Damned",
+          "notice": "© 2015, Paizo Inc.; Authors: Richard Pett, with Stephanie Lorée, Michael McCarthy, Alistair Rigg, F. Wesley Schneider, and Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder #9: Escape from Old Korvosa",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder 9: Escape from Old Korvosa",
+          "notice": "© 2008, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder Campaign Setting",
+      "records": 84,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Goblins #1",
+      "records": 5,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Goblins #5",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Hollow Mountain #1",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Hollow Mountain #4",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Origins #6 Ezren",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder RPG Bestiary",
+      "records": 471,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Pathfinder RPG Bestiary",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Jason Bulmahn, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder Runescars #1",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Runescars #4",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Society Field Guide",
+      "records": 67,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Society Primer",
+      "records": 63,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Pathfinder Society Primer",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: John Compton and Mark Moreland."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder Society S03-10 The Immortal Connundrum",
+      "records": 1,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Society Scenario #3-10: The Immortal Conundrum",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder Unchained",
+      "records": 1066,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Pathfinder Unchained",
+          "notice": "© 2015, Paizo Inc.; Authors: Dennis Baker, Jesse Benner, Ross Beyers, Logan Bonner, Jason Bulmahn, Robert Emerson, Tim Hitchcock, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Robert Schwalb, Mark Seifter, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Pathfinder Worldscape #1",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Worldscape #2",
+      "records": 5,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Worldscape #3",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Pathfinder Worldscape #4",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Paths of Prestige",
+      "records": 30,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Paths of Prestige",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Benjamin Bruck, Jason Bulmahn, Matt Goodall, and Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "Paths of the Righteous",
+      "records": 30,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Paths of the Righteous",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, John Compton, Jenny Jarzabski, Isabelle Lee, Stephen Rowe, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "People of the North",
+      "records": 49,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: People of the North",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Matthew Goodall, Shaun Hocking, Rob McCreary, Philip Minchin, and William Thrasher."
+        }
+      ]
+    },
+    {
+      "publication": "People of the River",
+      "records": 70,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: People of the River",
+          "notice": "© 2014, Paizo Inc.; Authors: Tim Akers, Jason Brick, Ethan Day-Jones, James Jacobs, Nick Salestrom, David Schwartz, and William Thrasher."
+        }
+      ]
+    },
+    {
+      "publication": "People of the Sands",
+      "records": 62,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: People of the Sands",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Shaun Hocking, Rob McCreary, and Jason Nelson."
+        }
+      ]
+    },
+    {
+      "publication": "People of the Stars",
+      "records": 64,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: People of the Stars",
+          "notice": "© 2014, Paizo Inc.; Authors: Ethan Day-Jones, Jim Groves, Jonathan H. Keith, Andrew Romine, David N. Ross, and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "People of the Wastes",
+      "records": 94,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: People of the Wastes",
+          "notice": "© 2017, Paizo Inc.; Authors: Logan Bonner, John Compton, Nathan King, Luis Loza, Christopher Wasko, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Pirates of the Inner Sea",
+      "records": 59,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Pirates of the Inner Sea",
+          "notice": "© 2012, Paizo Publishing, LLC. All Rights Reserved. Paizo Publishing, LLC, the Paizo golem logo, Pathfinder, and GameMastery are registered trademarks of Paizo Publishing, LLC; Pathfinder Adventure Path, Pathfinder Campaign Setting, Pathfinder Module, Pathfinder Player Companion, Pathfinder Roleplaying Game, Pathfinder Society, and Pathfinder Tales are trademarks of Paizo Publishing, LLC."
+        }
+      ]
+    },
+    {
+      "publication": "Planar Adventures",
+      "records": 257,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Planar Adventures",
+          "notice": "© 2018, Paizo Inc.; Authors: Robert Brookes, John Compton, Paris Crenshaw, Eleanor Ferron, Thurston Hillman, James Jacobs, Isabelle Lee, Lyz Liddell, Ron Lundeen, Joe Pasini, Lacy Pellazar, Jessica Price, Mark Seifter, F. Wesley Schneider, Todd Stewart, James L. Sutter, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Plane-Hopper's Handbook",
+      "records": 118,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Plane-Hopper's Handbook",
+          "notice": "© 2018, Paizo Inc.; Authors: James Case, John Compton, Leo Glass, Avi Kool, Adrian Ng, Lacy Pellazar, Daniel Reed, Mikhail Rekun, Amber E. Scott, Tork Shaw, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Planes of Power",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Planes of Power",
+          "notice": "© 2016, Paizo Inc.; Authors: John Compton, Paris Crenshaw, Eleanor Ferron, Thurston Hillman, and Jessica Price."
+        }
+      ]
+    },
+    {
+      "publication": "Plunder and Peril",
+      "records": 7,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Plunder & Peril",
+          "notice": "© 2014, Paizo Inc.; Authors: Alex Greenshields, Matthew Goodall, Steven T. Helt, and Ben McFarland."
+        }
+      ]
+    },
+    {
+      "publication": "Potions and Poisons",
+      "records": 139,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Potions & Poisons",
+          "notice": "© 2017, Paizo Inc.; Authors: Kate Baker, Eleanor Ferron, Nathan King, Lyz Liddell, Luis Loza, Alex Putnam, Alex Riggs, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "Psychic Anthology",
+      "records": 95,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Psychic Anthology",
+          "notice": "© 2017, Paizo Inc.; Authors: Alexander Augunas, Isabelle Lee, Luis Loza, Alex Riggs, Mark Seifter, Loren Sieg, and Jeremy Smith."
+        }
+      ]
+    },
+    {
+      "publication": "Qadira, Gateway to the East",
+      "records": 22,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Qadira, Gateway to the East",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Brian Cortijo."
+        }
+      ]
+    },
+    {
+      "publication": "Qadira, Jewel of the East",
+      "records": 29,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Qadira, Jewel of the East",
+          "notice": "© 2016, Paizo Inc.; Authors: Jessica Price, with John Compton."
+        }
+      ]
+    },
+    {
+      "publication": "Quests and Campaigns",
+      "records": 103,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Quests & Campaigns",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Amanda Hamon and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Ranged Tactics Toolbox",
+      "records": 146,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Ranged Tactics Toolbox",
+          "notice": "© 2014, Paizo Inc.; Authors: David N. Ross, David Schwartz, and Kaitlyn Sprague."
+        }
+      ]
+    },
+    {
+      "publication": "Realm of the Fellnight Queen",
+      "records": 2,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Reign of Winter Player's Guide",
+      "records": 15,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Reign of Winter Player's Guide",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Adam Daigle et al."
+        }
+      ]
+    },
+    {
+      "publication": "Return of the Runelords Players Guide",
+      "records": 7,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Return of the Runelords Player's Guide",
+          "notice": "© 2018, Paizo Inc.; Author: James Jacobs."
+        }
+      ]
+    },
+    {
+      "publication": "Revenge of the Kobold King",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Rise of the Runelords Anniversary Edition",
+      "records": 50,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path: Rise of the Runelords Anniversary Edition",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Wolfgang Baur, Stephen S. Greer, James Jacobs, Nicolas Logue, Richard Pett, and Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Rise of the Runelords Anniversary Edition Player's Guide",
+      "records": 12,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Rise of the Runelords Anniversary Edition Player's Guide",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Adam Daigle and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Rise of the Runelords Player's Guide",
+      "records": 14,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Rise of the Runelords Player's Guide",
+          "notice": "© 2007, Paizo Publishing LLC. Author: James Jacobs and Mike McArtor."
+        }
+      ]
+    },
+    {
+      "publication": "Rival Guide",
+      "records": 37,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Rivers into Darkness",
+      "records": 1,
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "GameMastery Module W2: River Into Darkness.",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Ruins of Azlant Player's Guide",
+      "records": 13,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Ruins of Azlant Player's Guide",
+          "notice": "© 2017, Paizo Inc.; Author: Adam Daigle."
+        }
+      ]
+    },
+    {
+      "publication": "Sargava, the Lost Colony",
+      "records": 34,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Sargava, the Lost Colony.",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: JD Wiker."
+        }
+      ]
+    },
+    {
+      "publication": "Second Darkness Player's Guide",
+      "records": 57,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Second Darkness Player's Guide",
+          "notice": "© 2008, Paizo Publishing, LLC; Authors: James Jacobs, F. Wesley Schneider, Amber Scott, Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "Seekers of Secrets",
+      "records": 60,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: Seekers of Secrets",
+          "notice": "© 2009, Paizo Publishing, LLC; Authors: Tim Hitchcock, Erik Mona, Sean K Reynolds, James L. Sutter, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Seers of the Drowned City",
+      "records": 21,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Seers of the Drowned City",
+          "notice": "© 2016, Paizo Inc.; Author: Nicholas Wasko."
+        }
+      ]
+    },
+    {
+      "publication": "Serpent's Skull Player's Guide",
+      "records": 10,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Seven Swords of Sin",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module D2: Seven Swords of Sin.",
+          "notice": "© 2007, Paizo Publishing, LLC. Author: James Lafond Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Shattered Star Player's Guide",
+      "records": 19,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path: Shattered Star Player's Guide",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Adam Daigle, Mark Moreland, F. Wesley Schneider, James L Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "Ships of the Inner Sea",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Ships of the Inner Sea",
+          "notice": "© 2014, Paizo Inc.; Authors: Benjamin Bruck, Paris Crenshaw, Chris A. Jackson, Amanda Hamon Kunz, Philip A. Lee, and John Mangrum."
+        }
+      ]
+    },
+    {
+      "publication": "Skull and Shackles Player's Guide",
+      "records": 51,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Skull & Shackles Player's Guide",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Rob McCreary."
+        }
+      ]
+    },
+    {
+      "publication": "Spymaster's Handbook",
+      "records": 93,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Spymaster's Handbook",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, David N. Ross, and Owen K.C. Stephens."
+        }
+      ]
+    },
+    {
+      "publication": "Strange Aeons Player's Guide",
+      "records": 10,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Strange Aeons Player's Guide",
+          "notice": "© 2016, Paizo Inc.; Author: Adam Daigle."
+        }
+      ]
+    },
+    {
+      "publication": "Taldor, Echoes of Glory",
+      "records": 37,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Companion: Taldor, Echoes of Glory",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Joshua J. Frost."
+        }
+      ]
+    },
+    {
+      "publication": "Taldor, the First Empire",
+      "records": 9,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Taldor, The First Empire",
+          "notice": "© 2017, Paizo Inc.; Authors: Mark Moreland, with Crystal Frasier, Violet Hargrave, and Isabelle Lee."
+        }
+      ]
+    },
+    {
+      "publication": "Tears at Bitter Manor",
+      "records": 18,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Tears at Bitter Manor",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Pedro Coelho, Christopher Dudley, Guy Fox, Sam Harris, Landon Hatfield, Steven Helt, Nick Herold, Shawn Kowalke, Marc.Andre Patenaude, and Guy Russell."
+        }
+      ]
+    },
+    {
+      "publication": "Technology Guide",
+      "records": 192,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Technology Guide",
+          "notice": "© 2014, Paizo Inc.; Authors: James Jacobs and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "The Demon Within",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "GameMastery Module D3: The Demon Within.",
+          "notice": "© 2008, Paizo Publishing, LLC. Authors: Stephen S. Greer and Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "The Dragon's Demand",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Dragon's Demand",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Mike Shel."
+        }
+      ]
+    },
+    {
+      "publication": "The Elephant in the Room: Feat Taxes in Pathfinder",
+      "records": 133,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "The Elephant in the Room: Feat Taxes in Pathfinder",
+          "notice": "© 2012, Matthew Iantorno and Michael Iantorno."
+        }
+      ]
+    },
+    {
+      "publication": "The Emerald Spire Superdungeon",
+      "records": 13,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Emerald Spire Superdungeon",
+          "notice": "© 2014, Paizo Inc.; Authors: Keith Baker, Richard Baker, Wolfgang Baur, Jason Bulmahn, Ed Greenwood, Tim Hitchcock, James Jacobs, Nicolas Logue, Frank Mentzer, Erik Mona, Chris Pramas, Sean K Reynolds, F. Wesley Schneider, Michael A. Stackpole, Lisa Stevens, and James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "The First World, Realm of the Fey",
+      "records": 26,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: The First World, Realm of the Fey",
+          "notice": "© 2016, Paizo Inc.; Author: James L. Sutter."
+        }
+      ]
+    },
+    {
+      "publication": "The Godsmouth Heresy",
+      "records": 1,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "The Great Beyond - A Guide to the Multiverse",
+      "records": 6,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Chronicles: The Great Beyond, A Guide to the Multiverse",
+          "notice": "© 2009, Paizo Publishing, LLC; Author: Todd Stewart."
+        }
+      ]
+    },
+    {
+      "publication": "The Harrow Handbook",
+      "records": 39,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: The Harrow Handbook",
+          "notice": "© 2014, Paizo Inc.; Authors: Crystal Frasier, Will McCardell, and David Schwartz."
+        }
+      ]
+    },
+    {
+      "publication": "The Harrowing",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Harrowing.",
+          "notice": "© 2011, Paizo Publishing, LLC; Author: Crystal Frasier."
+        }
+      ]
+    },
+    {
+      "publication": "The House on Hook Street",
+      "records": 5,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The House on Hook Street",
+          "notice": "© 2015, Paizo Inc.; Author: Brandon Hodge."
+        }
+      ]
+    },
+    {
+      "publication": "The Midnight Mirror",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Midnight Mirror",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Sam Zeitlin."
+        }
+      ]
+    },
+    {
+      "publication": "The Moonscar",
+      "records": 4,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Moonscar",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "The Pact Stone Pyramid",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module J4: The Pact Stone Pyramid",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: Michael Kortes."
+        }
+      ]
+    },
+    {
+      "publication": "The Ruby Phoenix Tournament",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Ruby Phoenix Tournament",
+          "notice": "© 2012, Paizo Publishing, LLC; Author: Tim Hitchcock."
+        }
+      ]
+    },
+    {
+      "publication": "The Witchwar Legacy",
+      "records": 3,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: The Witchwar Legacy",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Greg A. Vaughan."
+        }
+      ]
+    },
+    {
+      "publication": "The Worldwound",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: The Worldwound",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: James Jacobs, Jonathan Keith, Jason Nelson, Todd Stewart, and Tanith Tyrr."
+        }
+      ]
+    },
+    {
+      "publication": "Tomb of the Iron Medusa",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Tombs of Golarion",
+      "records": 16,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Tombs of Golarion",
+          "notice": "© 2015, Paizo Inc.; Authors: Scott Fernandez, Ron Lundeen, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Tome of Horrors Complete (PF)",
+      "records": 3,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Treasure of Chimera Cove",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module LB2: Treasure of Chimera Cove",
+          "notice": "© 2008, Paizo Publishing, LLC. Author: Anson Caralya."
+        }
+      ]
+    },
+    {
+      "publication": "Tyrant's Grasp Player's Guide",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Tyrant's Grasp Player's Guide",
+          "notice": "© 2018, Paizo Inc.; Author: Crystal Frasier."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Campaign",
+      "records": 757,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Campaign",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Jesse Benner, Benjamin Bruck, Jason Bulmahn, Ryan Costello, Adam Daigle, Matt Goetz, Tim Hitchcock, James Jacobs, Ryan Macklin, Colin McComb, Jason Nelson, Richard Pett, Stephen Radney-MacFarland, Patrick Renie, Sean K Reynolds, F. Wesley Schneider, James L. Sutter, Russ Taylor, and Stephen Townshend."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Combat",
+      "records": 889,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Combat",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Dennis Baker, Jesse Benner, Benjamin Bruck, Jason Bulmahn, Brian J. Cortijo, Jim Groves, Tim Hitchcock, Richard A. Hunt, Colin McComb, Jason Nelson, Tom Phillips, Patrick Renie, Sean K Reynolds, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Equipment",
+      "records": 2183,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Equipment",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: Dennis Baker, Jesse Benner, Benjamin Bruck, Ross Byers, Brian J. Cortijo, Ryan Costello, Mike Ferguson, Matt Goetz, Jim Groves, Tracy Hurley, Matt James, Jonathan H. Keith, Michael Kenway, Hal MacLean, Jason Nelson, Tork Shaw, Owen KC Stephens, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Intrigue",
+      "records": 615,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Intrigue",
+          "notice": "© 2016, Paizo Inc.; Authors: Jesse Benner, John Bennett, Logan Bonner, Robert Brookes, Jason Bulmahn, Ross Byers, Robert N. Emerson, Amanda Hamon Kunz, Steven Helt, Thurston Hillman, Tim Hitchcock, Mikko Kallio, Rob McCreary, Jason Nelson, Tom Phillips, Stephen Radney-MacFarland, Thomas M. Reid, Alexander Riggs, David N. Ross, David Schwartz, Mark Seifter, Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Magic",
+      "records": 787,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Magic",
+          "notice": "© 2011, Paizo Publishing, LLC; Authors: Jason Bulmahn, Tim Hitchcock, Colin McComb, Rob McCreary, Jason Nelson, Stephen Radney-MacFarland, Sean K Reynolds, Owen K.C. Stephens, and Russ Taylor."
+        }
+      ]
+    },
+    {
+      "publication": "Ultimate Wilderness",
+      "records": 733,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Ultimate Wilderness",
+          "notice": "© 2017, Paizo Inc.; Authors: Alexander Augunas, John Bennett, Robert Brookes, John Compton, Dan Dillon, Steven T. Helt, Thurston Hillman, Eric Hindley, Mikko Kallio, Jason Keeley, Isabelle Lee, Jason Nelson, Stephen Radney-MacFarland, Alex Riggs, David N. Ross, David Schwartz, Mark Seifter, Jeffery Swank, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "Undead Revisited",
+      "records": 10,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Undead Slayer's Handbook",
+      "records": 59,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Undead Slayer's Handbook",
+          "notice": "© 2014, Paizo Publishing, LLC; Authors: Dennis Baker, Jay Loomis, Alex Putnam, Adam Roy, Tork Shaw, and Larry Wilhelm."
+        }
+      ]
+    },
+    {
+      "publication": "Undead Unleashed",
+      "records": 11,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Campaign Setting: Undead Unleashed",
+          "notice": "© 2014, Paizo Inc.; Authors: Adam Daigle, Dave Gross, Mark Moreland, David N. Ross, Todd Stewart, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Varisia, Birthplace of Legends",
+      "records": 49,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Varisia, Birthplace of Legends",
+          "notice": "© 2012, Paizo Publishing, LLC; Authors: F. Wesley Schneider, Amber E. Scott, Tork Shaw, James L. Sutter, and Jerome Virnich."
+        }
+      ]
+    },
+    {
+      "publication": "Villain Codex",
+      "records": 150,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Roleplaying Game Villain Codex",
+          "notice": "© 2016, Paizo Inc.; Authors: Alexander Augunas, Logan Bonner, Paris Crenshaw, Dan Dillon, Crystal Frasier, Amanda Hamon Kunz, Eric Hindley, Mikko Kallio, Dale C. McCoy, Jr., Stephen Radney-MacFarland, Thomas M. Reid, Alistair Rigg, Alex Riggs, Mark Seifter, and Linda Zayas-Palmer."
+        }
+      ]
+    },
+    {
+      "publication": "War for the Crown Player's Guide",
+      "records": 8,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "War for the Crown Player's Guide",
+          "notice": "© 2018, Paizo Inc.; Author: Crystal Frasier."
+        }
+      ]
+    },
+    {
+      "publication": "Wardens of the Reborn Forge",
+      "records": 10,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Wardens of the Reborn Forge",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Patrick Renie."
+        }
+      ]
+    },
+    {
+      "publication": "We Be Goblins Free!",
+      "records": 1,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: We Be Goblins Free!",
+          "notice": "© 2015, Paizo Inc.; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "We Be Goblins Too!",
+      "records": 2,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Module: We Be Goblins Too!",
+          "notice": "© 2013, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
+    },
+    {
+      "publication": "We Be Goblins!",
+      "records": 5,
+      "match_method": null,
+      "notices": []
+    },
+    {
+      "publication": "Weapon Master's Handbook",
+      "records": 159,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Weapon Master's Handbook",
+          "notice": "© 2015, Paizo Inc.; Authors: Alexander Augunas and David N. Ross."
+        }
+      ]
+    },
+    {
+      "publication": "Wilderness Origins",
+      "records": 133,
+      "match_method": "normalized-prefix",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Wilderness Origins",
+          "notice": "© 2019, Paizo Inc.; Authors: Kim Frandsen, Sasha Hall, Violet Hargrave, Andrew Mullen, Jessica Redekop, Mikhail Rekun, Sean K. Reynolds, and Rodney Sloan."
+        }
+      ]
+    },
+    {
+      "publication": "Wrath of the Righteous Player's Guide",
+      "records": 6,
+      "match_method": "exact",
+      "notices": [
+        {
+          "title": "Wrath of the Righteous Player's Guide",
+          "notice": "© 2013, Paizo Publishing, LLC; Authors: Adam Daigle and Jay Loomis."
+        }
+      ]
+    }
+  ],
+  "excluded_publications": [
+    {
+      "publication": "Paizo Blog - Golarion Day Subdomains",
+      "records": 4
+    },
+    {
+      "publication": "Paizo Blog - Sable Company Marine",
+      "records": 1
+    },
+    {
+      "publication": "Paizo Blog - The Gauntlet Will Be Ours!",
+      "records": 1
+    },
+    {
+      "publication": "Pathfinder Comics #11",
+      "records": 1
+    },
+    {
+      "publication": "Pathfinder Comics #3",
+      "records": 1
+    },
+    {
+      "publication": "Pathfinder Comics #5",
+      "records": 1
+    }
+  ],
+  "unmatched_notices": [
+    {
+      "title": "Abyssal Larva; Baccae; Brykolakas; Corpse Orgy; Crucifixion Spirit; Crystallis; Debased Fey; Demon Lord, Dagon; Devil, Flayer; Golem, Furnace; Golem, Ice; Golem, Mummy; Golem, Rope; Golem, Witch-Doll; Ice Golem; Mummy of the Deep; Ooze, Entropic; Ooze, Glacial; Ooze, Magma; Phantasm; Pit Hag; Slime Mold; Stone Maiden; Swarm, Adamantine Wasp; Swarm, Shadow Rat; Swarm, Warden Jack; Temporal Crawler; Time Flayer; Tombstone Fairy; Troll, Rock; Undead Lord; Willow Dusk; Witch Tree; and Zombie, Brine from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene."
+    },
+    {
+      "title": "Adherer from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Clark Peterson, based on original material by Guy Shearer."
+    },
+    {
+      "title": "Adherer from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Authors: Scott Greene and Clark Peterson, based on original material by Guy Shearer."
+    },
+    {
+      "title": "Advanced Bestiary",
+      "notice": "© 2004, Green Ronin Publishing, LLC; Author: Matthew Sernett."
+    },
+    {
+      "title": "Advanced Bestiary",
+      "notice": "© 2014, Green Ronin Publishing, LLC; Author: Jeff Hersh; Developer: Owen K.C. Stephens."
+    },
+    {
+      "title": "Aerial Servant from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Clark Greene and Clark Peterson, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Airfiend, Church Grim, Cinder Ghoul, and Sand Kraken from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Erica Balsley."
+    },
+    {
+      "title": "Amphisbaena; Angel, Monadic Deva; Angel, Movanic Deva; Animal Lord, Cat Lord; Ascomoid; Atomie; Aurumvorax; Axe Beak; Baphomet; Basidirond; Beetle, Slicer; Brownie; Daemon, Derghodaemon; Daemon, Hydrodaemon; Daemon, Oinodaemon; Daemon, Piscodaemon; Demodand, Shaggy; Demodand, Slime; Demodand, Slimy; Demodand, Tarry; Demon Lord, Baphomet; Demon Lord, Jubilex; Demon Lord, Kostchtchie; Demon Lord, Pazuzu; Demon, Alu-; Demon, Nabasu; Devil, Nupperibo; Dracolisk; Dragon Horse; Executioner's Hood; Foo Creature; Froghemoth; Genie, Marid; Gloomwing; Hangman Tree; Jackalwere; Jelly, Mustard; Jubilex; Juju Zombie; Kech; Kelpie; Korred; Kostchtchie; Leprechaun; Lurker Above; Marid; Mihstu; Monadic Deva; Moon Dog; Movanic Deva; Muckdweller; Nabasu Demon; Nabasu; Nereid; Ooze, Crystal from The Tome Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Amphisbaena; Angel, Monadic Deva; Angel, Movanic Deva; Animal Lord; Ascomid; Atomie; Aurumvorax; Axe Beak; Basidirond; Beetle, Slicer; Brownie; Daemon, Ceustodaemon (Guardian Daemon); Daemon, Derghodaemon; Daemon, Hydrodaemon; Daemon, Oinodaemon; Daemon, Piscodaemon; Demodand, Shaggy; Demodand, Slimy; Demodand, Tarry; Demon, Nabasu; Dracolisk; Dragon Horse; Dust Digger; Executioner's Hood; Foo Creature; Froghemoth; Giant Slug; Gloomwing; Grippli; Hangman Tree; Jackalwere; Jubilex; Kech; Korred; Leprechaun; Mihstu; Mongrelman; Nabasu Demon; Nereid; Pech; Phycomid; Quickling; Quickwood; Slime Mold; Slithering Tracker; Tenebrous Worm; Tick, Giant & Dragon; Vegepygmy; White Pudding; Wolf-In-Sheep's-Clothing; Yeti; and Zombie, Juju from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Anger of Angels",
+      "notice": "© 2003, Sean K Reynolds."
+    },
+    {
+      "title": "Armies of the Abyss",
+      "notice": "© 2002, Green Ronin Publishing; Authors: Erik Mona and Chris Pramas."
+    },
+    {
+      "title": "Bat, Mobat from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Authors: Scott Peterson and Clark Peterson, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Bat, Mobat; and Rot Grub from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Clark Peterson, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Blindheim, Crypt Thing, Disenchanter, Sandman, and Scarecrow from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Roger Musson."
+    },
+    {
+      "title": "Blindheim, Crypt Thing, Sandman, and Scarecrow from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Roger Musson."
+    },
+    {
+      "title": "Book of Fiends",
+      "notice": "© 2003, Green Ronin Publishing; Authors: Aaron Loeb, Erik Mona, Chris Pramas, Robert J. Schwalb."
+    },
+    {
+      "title": "Book of the Righteous",
+      "notice": "© 2002, Aaron Loeb."
+    },
+    {
+      "title": "Bunyip from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Dermot Jackson."
+    },
+    {
+      "title": "Bunyip from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Dermot Jackson."
+    },
+    {
+      "title": "Burning Dervish from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Casey Christofferson."
+    },
+    {
+      "title": "Carbuncle, and Yellow Musk Creeper from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Albie Fiore."
+    },
+    {
+      "title": "Carbuncle; Yellow Musk Creeper; and Yellow Musk Zombie from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Albie Fiore."
+    },
+    {
+      "title": "Caryatid Column and Decapus from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Jean Wells."
+    },
+    {
+      "title": "Caryatid Column and Decapus from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Jean Wells."
+    },
+    {
+      "title": "Cave Fisher and Kelpie from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Lawrence Schick."
+    },
+    {
+      "title": "Cave Fisher; Kelpie; and Sandling from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Lawrence Schick."
+    },
+    {
+      "title": "Cave Moray; Demon Lord, Orcus; and Mobat from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene and Clark Peterson, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Coffer Corpse from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Simon Eaton."
+    },
+    {
+      "title": "Daemon, Ceustodaemon (Guardian Daemon) and Daemon, Guardian from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Ian McDowall."
+    },
+    {
+      "title": "Daemon, Ceustodaemon and Daemon, Ceustodaemon (Guardian Daemon) from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Ian McDowall."
+    },
+    {
+      "title": "Dark Creeper from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Rik Shepard."
+    },
+    {
+      "title": "Dark Creeper from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Rik Shepard."
+    },
+    {
+      "title": "Dark Stalker and Skulk from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Simon Muth."
+    },
+    {
+      "title": "Dark Stalker and Skulk from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Simon Muth."
+    },
+    {
+      "title": "Dead Man's Chest",
+      "notice": "© 2005, Necromancer Games, Inc.; Authors: Lance Hawvermale, Rob Mason, Robert Hunter, Patrick Goulah, Greg Ragland, Matt McGee, Chris Bernhardt, Casey W. Christofferson, Chad Coulter, Skeeter Green, and Travis Hawvermale, with additional contributions by Erica Balsley, Lindsey Barrentine, Jay Decker, Rachel Mason, and Nadine Oatmeyer."
+    },
+    {
+      "title": "Death Dog and Huecuva from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Underworld Oracle."
+    },
+    {
+      "title": "Death Worm from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Erica Balsley."
+    },
+    {
+      "title": "Death Worm from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene and Erica Balsley."
+    },
+    {
+      "title": "Demon, Shadow from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Neville White."
+    },
+    {
+      "title": "Dire Corby from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Jeff Wyndham."
+    },
+    {
+      "title": "Dire Corby from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Jeff Wyndham."
+    },
+    {
+      "title": "Dragon, Faerie from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Brian Jaeger and Gary Gygax."
+    },
+    {
+      "title": "Dragon, Faerie from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Brian Jaeger and Gary Gygax."
+    },
+    {
+      "title": "Dust Digger from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Tracy and Laura Hickman."
+    },
+    {
+      "title": "Ear Seeker and Hippocampus from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene and Erica Balsley, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Flail Snail from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Simon Tilbrook."
+    },
+    {
+      "title": "Flail Snail from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Simon Tilbrook."
+    },
+    {
+      "title": "Flind and Flindbar from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by J.D. Morris."
+    },
+    {
+      "title": "Flumph and Jackalwere from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Ian McDowell and Douglas Naismith."
+    },
+    {
+      "title": "Flumph from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Ian McDowell and Douglas Naismith."
+    },
+    {
+      "title": "Forlarren from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Ian Livingstone."
+    },
+    {
+      "title": "Forlarren from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Ian Livingstone."
+    },
+    {
+      "title": "Freeport Companion: Pathfinder Roleplaying Game Edition",
+      "notice": "© 2008, Green Ronin Publishing, LLC; Authors: Robert J. Schwalb; Adam Daigle; Brandon Hodge; John E. Ling, Jr.; and Greg A. Vaughan."
+    },
+    {
+      "title": "GameMastery Module TC1: Into the Haunted Forest.",
+      "notice": "© 2007, Paizo Publishing, LLC. Author: Greg A. Vaughan."
+    },
+    {
+      "title": "GameMastery Module U2: Hangman's Noose.",
+      "notice": "© 2008, Paizo Publishing, LLC. Author: Nicolas Logue."
+    },
+    {
+      "title": "Giant, Wood from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Wizards of the Coast."
+    },
+    {
+      "title": "Giant, Wood from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Wizards of the Coast."
+    },
+    {
+      "title": "Gloomwing from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Nigel Morgan."
+    },
+    {
+      "title": "Golem, Wood from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Patrick Lawinger."
+    },
+    {
+      "title": "Grippli from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene and Erica Balsley, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Gryph from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Peter Brown."
+    },
+    {
+      "title": "Gryph from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Peter Brown."
+    },
+    {
+      "title": "Guide to Korvosa",
+      "notice": "© 2008, Paizo Publishing, LLC; Author: Mike McArtor."
+    },
+    {
+      "title": "Guide to Pathfinder Society Organized Play, Version 5.0",
+      "notice": "© 2013, Paizo Publishing, LLC; Authors: Mike Brock, Erik Mona, and Mark Moreland."
+    },
+    {
+      "title": "Hippocampus from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Erica Balsley, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Huecuva from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Underworld Oracle."
+    },
+    {
+      "title": "Ice Golem; Magma ooze; and Troll, Rock from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene."
+    },
+    {
+      "title": "Iron Cobra from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Philip Masters."
+    },
+    {
+      "title": "Iron Cobra from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Philip Masters."
+    },
+    {
+      "title": "It Came from the Stars Campaign Guide",
+      "notice": "© 2013, Zombie Sky Press; Authors: John Bennett, Clinton J. Boomer, Chuck DiTusa, Scott Gable, Michael Kortes, Colin McComb, Richard Pett, John Pingo, David Schwartz, and Mike Welham."
+    },
+    {
+      "title": "Jade Dragons and Hungry Ghosts",
+      "notice": "© 2001, Green Ronin Publishing; Authors: Wolfgang Baur, David \"Zeb\" Cook, Erik Mona, Leon Phillips, Chris Pramas, and Steven E. Schend."
+    },
+    {
+      "title": "Kamadan from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Nick Louth."
+    },
+    {
+      "title": "Kamadan from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Nick Louth."
+    },
+    {
+      "title": "Kobold Quarterly Issue 14",
+      "notice": "© 2010, Open Design LLC, [www.koboldquarterly.com](https://www.koboldquarterly.com)."
+    },
+    {
+      "title": "Kobold Quarterly Issue 7",
+      "notice": "© 2008, Open Design LLC, [www.koboldquarterly.com](https://www.koboldquarterly.com); Authors: John Baichtal, Wolfgang Baur, Ross Byers, Matthew Cicci, John Flemming, Jeremy Jones, Derek Kagemann, Phillip Larwood, Richard Pett, and Stan!"
+    },
+    {
+      "title": "Lantern Goat from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene and Lance Hawvermale."
+    },
+    {
+      "title": "Legions of Hell",
+      "notice": "© 2001, Green Ronin Publishing; Author: Chris Pramas."
+    },
+    {
+      "title": "Marid from The Tome of Horrors III",
+      "notice": "© 2005, Necromancer Games, Inc.; Author: Scott Greene."
+    },
+    {
+      "title": "Midgard Bestiary for Pathfinder RPG",
+      "notice": "© 2012, Open Design LLC; Authors: Adam Daigle with Chris Harris, Michael Kortes, James MacKenzie, Rob Manning, Ben McFarland, Carlos Ovalle, Jan Rodewald, Adam Roy, Christina Stiles, James Thomas, and Mike Welham."
+    },
+    {
+      "title": "Mite from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Skeeter Green, based on original material by Ian Livingstone and Mark Barnes."
+    },
+    {
+      "title": "Mite from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Ian Livingstone and Mark Barnes."
+    },
+    {
+      "title": "Mongrelman from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Roger Moore and Gary Gygax."
+    },
+    {
+      "title": "Monte Cook's Arcana Unearthed",
+      "notice": "© 2003, Monte J. Cook."
+    },
+    {
+      "title": "Necrophidius from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Simon Tillbrook."
+    },
+    {
+      "title": "Necrophidius from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Simon Tillbrook."
+    },
+    {
+      "title": "Open Game License v 1.0",
+      "notice": "Copyright 2000, Wizards of the Coast, Inc."
+    },
+    {
+      "title": "Orcus; Pazuzu; Pech; Phycomid; Pudding, White; Quickling; Quickwood; Russet Mold; Skeleton Warrior; Slithering Tracker; Slug, Giant; Swarm, Raven; Tenebrous Worm; Thorny; Tick, Giant; Trapper; Vegepygmy; Wolf-in-Sheep's-Clothing; Wolf-In-Sheep's-Clothing; Yeti; Zombie, Juju from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Path of the Magi",
+      "notice": "© 2002, Citizen Games/Troll Lord Games; Authors: Mike McArtor, W. Jason Peck, Jeff Quick, and Sean K Reynolds."
+    },
+    {
+      "title": "Pathfinder Adventure Path #119: Prisoner of the Blight",
+      "notice": "© 2017, Paizo Inc.; Authors: Amanda Hamon Kunz, with Paris Crenshaw, Crystal Frasier, Jason Keeley, Isabelle Lee, and Larry Wilhelm."
+    },
+    {
+      "title": "Pathfinder Bestiary 3 (Second Edition)",
+      "notice": "© 2021, Paizo Inc.; Authors: Logan Bonner, James Case, Jessica Catalan, John Compton, Paris Crenshaw, Adam Daigle, Katina Davis, Erik Scott de Bie, Jesse Decker, Brian Duckwitz, Hexe Fey, Keith Garrett, Matthew Goodall, Violet Gray, Alice Grizzle, Steven Hammond, Sasha Laranoa Harving, Joan Hong, James Jacobs, Michelle Jones, Virginia Jordan, TJ Kahn, Mikko Kallio, Jason Keeley, Joshua Kim, Avi Kool, Jeff Lee, Lyz Liddell, Luis Loza, Ron Lundeen, Philippe-Antoine Menard, Patchen Mortimer, Dennis Muldoon, Andrew Mullen, Quinn Murphy, Dave Nelson, Jason Nelson, Samantha Phelan, Stephen Radney-MacFarland, Danita Rambo, Shiv Ramdas, BJ Recio, Jessica Redekop, Mikhail Rekun, Patrick Renie, Alex Riggs, David N. Ross, Simone D. Sallé, Michael Sayre, Mark Seifter, Sen.H.H.S, Abigail Slater, Rodney Sloan, Shay Snow, Pidj Sorensen, Kendra Leigh Speedling, Tan Shao Han, William Thompson, Jason Tondro, Clark Valentine, Ruvaid Virk, Skylar Wall, Andrew White, and Landon Winkler."
+    },
+    {
+      "title": "Pathfinder Campaign Setting: Dragons Unleashed",
+      "notice": "© 2013, Paizo Publishing, LLC; Authors: Savannah Broadway, Joseph Carriker, Adam Daigle, Amanda Hamon, Steve Kenson, Tito Leati, Patrick Renie, F. Wesley Schneider, Tork Shaw, and Jerome Virnich."
+    },
+    {
+      "title": "Pathfinder Campaign Setting: Towns of the Inner Sea",
+      "notice": "© 2013, Paizo Publishing, LLC; Authors: Judy Bauer, Logan Bonner, Nicolas Logue, and Matt Vancil."
+    },
+    {
+      "title": "Pathfinder Chronicles: Dragons Revisited",
+      "notice": "© 2009, Paizo Publishing, LLC; Author: Mike McArtor."
+    },
+    {
+      "title": "Pathfinder Chronicles: Guide to Absalom",
+      "notice": "© 2008, Paizo Publishing, LLC; Author: Owen K.C. Stephens."
+    },
+    {
+      "title": "Pathfinder Module LB1: Tower of the Last Baron",
+      "notice": "© 2008, Paizo Publishing, LLC. Author: Stephen S. Greer."
+    },
+    {
+      "title": "Pathfinder Module S1: Clash of the Kingslayers",
+      "notice": "© 2009, Paizo Publishing, LLC. Author: Leandra Christine Schneider."
+    },
+    {
+      "title": "Pathfinder Module: Crypt of the Everflame",
+      "notice": "© 2009, Paizo Publishing, LLC. Author: Jason Bulmahn."
+    },
+    {
+      "title": "Pathfinder Module: Dawn of the Scarlet Sun",
+      "notice": "© 2012, Paizo Publishing, LLC; Author: James Jacobs."
+    },
+    {
+      "title": "Pathfinder Module: Master of the Fallen Fortress",
+      "notice": "© 2010, Paizo Publishing, LLC; Author: Rob McCreary."
+    },
+    {
+      "title": "Pathfinder Module: Realm of the Fellknight Queen",
+      "notice": "© 2010, Paizo Publishing, LLC; Author: Neil Spicer."
+    },
+    {
+      "title": "Pathfinder Module: Risen from the Sands",
+      "notice": "© 2014, Paizo Publishing, LLC; Author: Rob McCreary."
+    },
+    {
+      "title": "Pathfinder Module: We B4 Goblins!",
+      "notice": "© 2016, Paizo Inc.; Author: Crystal Frasier."
+    },
+    {
+      "title": "Pathfinder Player Companion: Heroes of the Street",
+      "notice": "© 2015, Paizo Inc.; Authors: John Compton, Mikko Kallio, Nicolas Logue, Michael McCarthy, Mike Myler, and David N. Ross."
+    },
+    {
+      "title": "Pathfinder RPG Core Rulebook",
+      "notice": "© 2010, Paizo Publishing, LLC; Author: Jason Bulmahn, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+    },
+    {
+      "title": "Pathfinder Roleplaying Game Bestiary",
+      "notice": "© 2009, Paizo Publishing, LLC; Authors: Jason Bulmahn, Brian Cortijo, Adam Daigle, Mike Ferguson, Joshua J. Frost, James Jacobs, Rob McCreary, Erik Mona, Sean K Reynolds, F. Wesley Schneider, Lisa Stephens, James L. Sutter, and Greg A. Vaughn, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+    },
+    {
+      "title": "Pathfinder Roleplaying Game Strategy Guide",
+      "notice": "© 2014, Paizo Inc.; Authors: Wolfgang Baur, Jason Bulmahn, John Compton, Jessica Price, and Sean K Reynolds."
+    },
+    {
+      "title": "Pf Data 1e",
+      "notice": "Copyright 2025, Jason Tamez"
+    },
+    {
+      "title": "Plot & Poison",
+      "notice": "© 2002, Green Ronin Publishing, LLC; Author: Matthew Sernett."
+    },
+    {
+      "title": "Plot & Poison: A Guidebook to Drow",
+      "notice": "© 2002, Green Ronin Publishing; Author: Matthew Sernett."
+    },
+    {
+      "title": "Poltergeist from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Lewis Pulsipher."
+    },
+    {
+      "title": "Poltergeist from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Lewis Pulsipher."
+    },
+    {
+      "title": "Rat, Shadow from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Clark Peterson and Scott Greene."
+    },
+    {
+      "title": "Rot Grub from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Authors: Scott Greene and Clark Peterson, based on original material by Gary Gygax."
+    },
+    {
+      "title": "Shadow Demon from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Neville White."
+    },
+    {
+      "title": "Skreyn's Register: The Bonds of Magic",
+      "notice": "© 2002, Sean K Reynolds."
+    },
+    {
+      "title": "Soul Eater from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by David Cook."
+    },
+    {
+      "title": "Soul Eater from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by David Cook."
+    },
+    {
+      "title": "Spriggan from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Erica Balsley, based on original material by Roger Moore and Gary Gygax."
+    },
+    {
+      "title": "Spriggan from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene and Erica Balsley, based on original material by Roger Moore and Gary Gygax."
+    },
+    {
+      "title": "System Reference Document",
+      "notice": "Copyright 2000, Wizards of the Coast, Inc; Authors: Jonathan Tweet, Monte Cook, Skip Williams, based on material by E. Gary Gygax and Dave Arneson."
+    },
+    {
+      "title": "Tentamort from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Mike Roberts."
+    },
+    {
+      "title": "Tentamort from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Mike Roberts."
+    },
+    {
+      "title": "The Avatar's Handbook",
+      "notice": "© 2003, Green Ronin Publishing; Authors: Jesse Decker and Chris Thomasson."
+    },
+    {
+      "title": "The Book of Fiends",
+      "notice": "© 2003, Green Ronin Publishing; Authors: Aaron Loeb, Erik Mona, Chris Pramas, Robert J. Schwalb."
+    },
+    {
+      "title": "The Book of Hallowed Might",
+      "notice": "© 2002, Monte J. Cook."
+    },
+    {
+      "title": "The Tome of Horrors 4",
+      "notice": "© 2013, Frog God Games, LLC. Authors: Erica Balsley, Casey Christofferson, Jim Collura, Lance Hawvermale, Patrick Lawinger, Phillip Larwood, Greg A. Vaughan, and Bill Webb, based on original material by Jonathan Tweet, Monte Cook, and Skip Williams."
+    },
+    {
+      "title": "The Tome of Horrors II",
+      "notice": "© 2005 Necromancer Games, Inc.; Author: Scott Greene; Additional Authors: Erica Balsley, Kevin Baase, Casey Christofferson, Jim Collura, Meghan Greene, Lance Hawvermale, Travis Hawvermale, Bill Kenower, Patrick Lawinger, Nathan Paul, Clark Peterson, Bill Webb and Monte Cook."
+    },
+    {
+      "title": "The Tome of Horrors III",
+      "notice": "© 2005, Necromancer Games, Inc; Author: Scott Greene, with Casey Christofferson, Erica Balsley, Kevin Baase, Lance Hawvermale, Travis Hawvermale, Ian S. Johnston, Patrick Lawinger, Nathan Paul, Clark Peterson, Greg Ragland, Robert Schwalb, and Bill Webb."
+    },
+    {
+      "title": "The Tome of Horrors Revised Edition",
+      "notice": "© 2005, Necromancer Games, Inc.; Authors: Scott Greene, Clark Peterson, Erica Balsley, Kevin Baase, Casey Christofferson, Lance Hawvermale, Travis Hawvermale, Patrick Lawinger, Bill Webb; Based on original content from TSR."
+    },
+    {
+      "title": "The Unholy Warrior's Handbook",
+      "notice": "© 2003, Green Ronin Publishing; Author: Robert J. Schwalb."
+    },
+    {
+      "title": "Thessalhydra from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Gary Gygax and Wizards of the Coast."
+    },
+    {
+      "title": "Treant, Lightning from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Casey Christofferson."
+    },
+    {
+      "title": "Troll, Ice from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Authors: Scott Greene and Erica Balsley, based on original material by Russell Cole."
+    },
+    {
+      "title": "Troll, Ice from The Tome of Horrors Revised",
+      "notice": "© 2002, Necromancer Games, Inc.; Author: Scott Greene, based on original material by Russell Cole."
+    },
+    {
+      "title": "Troll, Two-Headed from The Tome of Horrors Complete",
+      "notice": "© 2011, Necromancer Games, Inc.; published and distributed by Frog God Games; Author: Scott Greene, based on original material by Oliver Charles MacDonald."
+    },
+    {
+      "title": "Wood Golem from The Tome of Horrors",
+      "notice": "© 2002, Necromancer Games, Inc.; Authors: Scott Greene and Patrick Lawinger."
+    }
+  ]
+}
