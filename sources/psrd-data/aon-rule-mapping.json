@@ -797,12 +797,28 @@
           "status": "matched_verified_chapter",
           "subsections": [
             {
-              "candidate_entry_ids": [],
+              "candidate_entry_ids": [
+                "pf-data/rule/magic"
+              ],
               "depth": 0,
-              "evidence": "normalized exact title match against installed books.json nodes and typed rule-body headings",
+              "evidence": {
+                "first_section_paragraph_count": 2,
+                "matched_prefix_words": 24,
+                "method": "unique_exact_source_opening_passage",
+                "opening_words_sha256": "a99372928cae6eec5de36e5dfe635136f3b5e6fb18d656f2ed84fc861267394e",
+                "page_title": "Magic Basics",
+                "source_locator": "PRPG Core Rulebook pg. 206",
+                "source_url": "https://aonprd.com/Rules.aspx?ID=202"
+              },
               "label": "Magic Basics",
-              "status": "section_not_in_snapshot",
-              "targets": [],
+              "status": "matched_verified_passage",
+              "targets": [
+                {
+                  "anchor": null,
+                  "entry_id": "pf-data/rule/magic"
+                }
+              ],
+              "title_candidates": [],
               "url": "https://aonprd.com/Rules.aspx?ID=202"
             },
             {
@@ -5209,12 +5225,6 @@
       "source_label": "PRPG Core Rulebook",
       "status": "section_not_in_snapshot",
       "url": "https://aonprd.com/Rules.aspx?ID=65"
-    },
-    {
-      "label": "Magic Basics",
-      "source_label": "PRPG Core Rulebook",
-      "status": "section_not_in_snapshot",
-      "url": "https://aonprd.com/Rules.aspx?ID=202"
     },
     {
       "label": "Bestiary",

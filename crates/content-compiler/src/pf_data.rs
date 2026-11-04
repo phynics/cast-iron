@@ -1,0 +1,1125 @@
+//! Pinned primary-source inventory and isolated migration experiments.
+//! No output from this module is placed in the production library.
+
+use crate::{pf_fields, pf_markdown, select::sha256_hex, slug::slug_segment, text::blocks_text};
+use cast_iron_schema::{Catalog, EntryId, EntryKind, Provenance, RuleEntry, SourceInfo};
+use cast_iron_search::{DocInput, IndexBuilder, Query, SearchIndex};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::Path;
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourcePin {
+    pub id: String,
+    pub repository: String,
+    pub commit: String,
+    pub archive_sha256: String,
+    pub files: BTreeMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct InputRecord {
+    pub protocol: Option<String>,
+    pub path: String,
+    pub key: String,
+    pub name: String,
+    pub shape: String,
+    pub publications: Vec<String>,
+    /// Original input, retained only in the isolated build output.
+    pub raw: Value,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Inventory {
+    pub dataset: String,
+    pub commit: String,
+    pub input_digest: String,
+    pub json_files: usize,
+    pub input_records: usize,
+    pub registered_publications: usize,
+    pub by_file: BTreeMap<String, usize>,
+    pub by_shape: BTreeMap<String, usize>,
+    pub by_publication: BTreeMap<String, usize>,
+    pub directives: BTreeMap<String, usize>,
+    pub unregistered_publications: Vec<String>,
+    pub records: Vec<InputRecord>,
+}
+
+pub fn inventory(dataset: &Path, registry: &Path) -> Result<Inventory, String> {
+    let pin: SourcePin = read_json(registry)?;
+    if pin.id != "pathfinder-data-1-e"
+        || pin.repository != "https://github.com/jasontankapps/pathfinder-data-1-e"
+        || !is_hash(&pin.commit, 40)
+        || !is_hash(&pin.archive_sha256, 64)
+    {
+        return Err("invalid primary source identity or pin".into());
+    }
+    // Compare the file set too: a new or removed JSON file cannot go unnoticed.
+    let mut actual: BTreeSet<String> = fs::read_dir(dataset.join("json"))
+        .map_err(|e| e.to_string())?
+        .map(|e| e.map_err(|e| e.to_string()))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .filter(|e| e.path().extension().is_some_and(|e| e == "json"))
+        .map(|e| format!("json/{}", e.file_name().to_string_lossy()))
+        .collect();
+    actual.extend(
+        [
+            "README.md",
+            "JSON.md",
+            "OPENGAMECONTENT.md",
+            "prebuild/basic_data_groups.js",
+        ]
+        .map(String::from),
+    );
+    if actual != pin.files.keys().cloned().collect() {
+        return Err("source file set differs from the reviewed pin".into());
+    }
+    let mut digest_lines = String::new();
+    for (path, hash) in &pin.files {
+        if !is_hash(hash, 64) || path.contains("..") || path.starts_with('/') {
+            return Err(format!("invalid pinned path or hash: {path}"));
+        }
+        let bytes = fs::read(dataset.join(path)).map_err(|e| format!("{path}: {e}"))?;
+        if sha256_hex(&bytes) != *hash {
+            return Err(format!("source hash mismatch: {path}"));
+        }
+        digest_lines.push_str(&format!("{path}:{hash}\n"));
+    }
+    let publications: BTreeMap<String, Value> = read_json(&dataset.join("json/sources.json"))?;
+    let routes: BTreeMap<String, String> = read_json(
+        &registry
+            .parent()
+            .ok_or("registry has no parent")?
+            .join("routes.json"),
+    )?;
+    let mut out = Inventory {
+        dataset: pin.id,
+        commit: pin.commit,
+        input_digest: sha256_hex(digest_lines.as_bytes()),
+        json_files: 0,
+        input_records: 0,
+        registered_publications: publications.len(),
+        by_file: BTreeMap::new(),
+        by_shape: BTreeMap::new(),
+        by_publication: BTreeMap::new(),
+        directives: BTreeMap::new(),
+        unregistered_publications: Vec::new(),
+        records: Vec::new(),
+    };
+    for path in pin.files.keys().filter(|p| p.starts_with("json/")) {
+        out.json_files += 1;
+        let value: Value = read_json(&dataset.join(path))?;
+        let rows: Vec<(String, Value)> = match value {
+            Value::Object(rows) => rows.into_iter().collect(),
+            Value::Array(rows) => rows
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (i.to_string(), v))
+                .collect(),
+            other => vec![("root".into(), other)],
+        };
+        out.by_file.insert(path.clone(), rows.len());
+        for (key, raw) in rows {
+            let shape = if path == "json/sources.json" {
+                "publication"
+            } else if path.contains("color") || path.contains("feat_tree") {
+                "auxiliary"
+            } else if key == "not_found" {
+                "placeholder"
+            } else if raw.get("redirect").is_some() {
+                "redirect"
+            } else if raw.get("copyof").is_some() {
+                "copy"
+            } else if raw.get("compileFrom").is_some() {
+                "compilation"
+            } else if raw.get("description").is_some() {
+                "description"
+            } else {
+                "unsupported_shape"
+            }
+            .to_string();
+            let sources = publication_names(&raw);
+            for source in &sources {
+                *out.by_publication.entry(source.clone()).or_default() += 1;
+            }
+            *out.by_shape.entry(shape.clone()).or_default() += 1;
+            let lines = description(&raw).unwrap_or_default();
+            for line in &lines {
+                for directive in directives(line) {
+                    *out.directives.entry(directive).or_default() += 1;
+                }
+            }
+            out.records.push(InputRecord {
+                protocol: routes.get(path).cloned(),
+                path: path.clone(),
+                key,
+                name: raw
+                    .get("name")
+                    .or_else(|| raw.get("title"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                shape,
+                publications: sources,
+                raw,
+            });
+        }
+    }
+    out.records
+        .sort_by(|a, b| (&a.path, &a.key).cmp(&(&b.path, &b.key)));
+    out.input_records = out.records.len();
+    let registered: BTreeSet<_> = publications
+        .values()
+        .filter_map(|v| v.get("title").and_then(Value::as_str))
+        .collect();
+    out.unregistered_publications = out
+        .by_publication
+        .keys()
+        .filter(|name| !registered.contains(name.as_str()))
+        .cloned()
+        .collect();
+    Ok(out)
+}
+
+pub fn publication_names(raw: &Value) -> Vec<String> {
+    fn flatten(value: &Value, out: &mut BTreeSet<String>) {
+        match value {
+            Value::String(s) => {
+                out.insert(s.clone());
+            }
+            Value::Array(xs) => {
+                for x in xs {
+                    flatten(x, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut names = BTreeSet::new();
+    for key in ["sources", "compilationSources"] {
+        if let Some(v) = raw.get(key) {
+            flatten(v, &mut names);
+        }
+    }
+    names.into_iter().collect()
+}
+
+fn is_hash(s: &str, n: usize) -> bool {
+    s.len() == n
+        && s.bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+
+fn description(raw: &Value) -> Result<Vec<String>, String> {
+    raw.get("description")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "no description array".to_string())?
+        .iter()
+        .map(|v| {
+            v.as_str()
+                .map(String::from)
+                .ok_or_else(|| "non-string description line".into())
+        })
+        .collect()
+}
+
+/// Inventory tokens without interpreting or dropping unknown syntax.
+pub fn directives(line: &str) -> Vec<String> {
+    let mut result = Vec::new();
+    let mut chars = line.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c != '@' && !(c == ':' && line[i..].starts_with("::")) {
+            continue;
+        }
+        let prefix = if c == '@' { "@" } else { "::" };
+        if c == ':' {
+            while chars.peek().is_some_and(|(_, c)| *c == ':') {
+                chars.next();
+            }
+        }
+        let mut token = String::new();
+        while chars
+            .peek()
+            .is_some_and(|(_, c)| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        {
+            if let Some((_, c)) = chars.next() {
+                token.push(c);
+            }
+        }
+        if !token.is_empty() {
+            result.push(format!("{prefix}{token}"));
+        }
+    }
+    result
+}
+
+fn record_kind(path: &str) -> EntryKind {
+    let file = path.trim_start_matches("json/");
+    if file.starts_with("spells") {
+        EntryKind::Spell
+    } else if file.starts_with("feat") {
+        EntryKind::Feat
+    } else if file.starts_with("archetypes") {
+        EntryKind::Archetype
+    } else if file.starts_with("prestige_classes") {
+        EntryKind::PrestigeClass
+    } else if file.starts_with("classes") || file.starts_with("npc_classes") {
+        EntryKind::Class
+    } else if file.starts_with("monsters") || file.starts_with("npcs") {
+        EntryKind::Creature
+    } else if file.starts_with("magic") || file.starts_with("equipment") {
+        EntryKind::Item
+    } else if file.starts_with("race") {
+        EntryKind::Race
+    } else if file.starts_with("traits") {
+        EntryKind::Trait
+    } else {
+        EntryKind::Rule
+    }
+}
+
+pub const FIXTURES: &[&str] = &[
+    "Mortal Usher",
+    "Golem's Conviction",
+    "Cradle of Night",
+    "Arcing Weapon",
+    "Realm Retribution",
+    "Apocalyptic Spell",
+    "Thought Thief",
+    "Apollyon Clasp",
+];
+
+#[derive(Debug, Serialize)]
+pub struct Finding {
+    pub severity: String,
+    pub record: String,
+    pub problem: String,
+}
+
+#[derive(Default)]
+struct LinkContext {
+    targets: BTreeMap<String, EntryId>,
+    known: BTreeSet<String>,
+    selected: BTreeSet<String>,
+}
+
+fn native_key(r: &InputRecord) -> Option<String> {
+    r.protocol.as_ref().map(|p| format!("{p}/{}", r.key))
+}
+
+#[derive(Debug, Serialize)]
+pub struct FixtureResult {
+    pub name: String,
+    pub records: Vec<String>,
+    pub imported: bool,
+    pub publications: Vec<String>,
+    pub checks: BTreeMap<String, bool>,
+    pub passed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MigrationReport {
+    pub scope: String,
+    pub input_digest: String,
+    pub dataset: String,
+    pub commit: String,
+    pub input_records: usize,
+    pub selected_records: usize,
+    pub imported_records: usize,
+    pub by_kind: BTreeMap<String, usize>,
+    pub by_publication: BTreeMap<String, usize>,
+    pub fixtures: Vec<FixtureResult>,
+    pub findings: Vec<Finding>,
+    pub canonical_bytes: usize,
+    pub search_bytes: usize,
+    pub search_checks: usize,
+    pub schema_errors: usize,
+    pub publication_ready: bool,
+    pub cutover_blockers: Vec<String>,
+    pub browser_verification: String,
+}
+
+/// A bounded conversion experiment. All inputs stay available in inventory.json.
+pub fn experiment(inv: &Inventory, out: &Path, reports: &Path) -> Result<MigrationReport, String> {
+    run_import(inv, out, reports, false)
+}
+
+pub fn import_all(inv: &Inventory, out: &Path, reports: &Path) -> Result<MigrationReport, String> {
+    run_import(inv, out, reports, true)
+}
+
+fn run_import(
+    inv: &Inventory,
+    out: &Path,
+    reports: &Path,
+    full: bool,
+) -> Result<MigrationReport, String> {
+    let mut selected: BTreeSet<(String, String)> = BTreeSet::new();
+    // Mandatory records plus a bounded sample of every canonical family.
+    for record in &inv.records {
+        if record.shape != "publication"
+            && FIXTURES
+                .iter()
+                .any(|name| record.name == *name || record.name.starts_with(&format!("{name} (")))
+        {
+            selected.insert((record.path.clone(), record.key.clone()));
+        }
+    }
+    for kind in EntryKind::ALL {
+        for r in inv
+            .records
+            .iter()
+            .filter(|r| r.shape == "description" && record_kind(&r.path) == kind)
+            .take(3)
+        {
+            selected.insert((r.path.clone(), r.key.clone()));
+        }
+    }
+    for prefix in ["json/npcs", "json/rules_"] {
+        for r in inv
+            .records
+            .iter()
+            .filter(|r| r.path.starts_with(prefix) && r.shape == "description")
+            .take(2)
+        {
+            selected.insert((r.path.clone(), r.key.clone()));
+        }
+    }
+    if full {
+        selected = inv
+            .records
+            .iter()
+            .filter(|r| ["description", "copy", "compilation"].contains(&r.shape.as_str()))
+            .map(|r| (r.path.clone(), r.key.clone()))
+            .collect();
+    }
+    let mut report = MigrationReport {
+        scope: if full { "full-input" } else { "representative" }.into(),
+        input_digest:inv.input_digest.clone(),
+        dataset: inv.dataset.clone(),
+        commit: inv.commit.clone(),
+        input_records: inv.input_records,
+        selected_records: selected.len(),
+        imported_records: 0,
+        by_kind: BTreeMap::new(),
+        by_publication:BTreeMap::new(),
+        fixtures: Vec::new(),
+        findings: Vec::new(),
+        canonical_bytes: 0,
+        search_bytes: 0,
+        search_checks: 0,
+        schema_errors: 0,
+        publication_ready: false,
+        cutover_blockers: vec![
+            "Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission".into(),
+            "Corpus-wide Product Identity screening and source notice reconciliation are incomplete".into(),
+            "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated".into(),
+        ],
+        browser_verification: "not run; isolated compiler experiment".into(),
+    };
+    let mut entries = Vec::new();
+    let mut context = LinkContext {
+        known: inv.records.iter().filter_map(native_key).collect(),
+        selected: inv
+            .records
+            .iter()
+            .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+            .filter_map(native_key)
+            .collect(),
+        ..Default::default()
+    };
+    let mut converted_inputs = Vec::new();
+    for r in inv
+        .records
+        .iter()
+        .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
+    {
+        let identity = format!("{}#{}", r.path, r.key);
+        let expanded = crate::pf_records::expand(r, &inv.records).map(|raw| InputRecord {
+            name: raw
+                .get("name")
+                .or_else(|| raw.get("title"))
+                .and_then(Value::as_str)
+                .unwrap_or(&r.name)
+                .to_string(),
+            publications: publication_names(&raw),
+            shape: "description".into(),
+            raw,
+            ..r.clone()
+        });
+        match expanded.and_then(|r| convert(&r, &context, &mut Vec::new()).map(|e| (r, e))) {
+            Ok((expanded, entry)) => {
+                if let Some(key) = native_key(&expanded) {
+                    context.targets.insert(key, entry.id);
+                }
+                converted_inputs.push(expanded);
+            }
+            Err(problem) => report.findings.push(Finding {
+                severity: "high".into(),
+                record: identity,
+                problem,
+            }),
+        }
+    }
+    // Redirects are aliases of a canonical record, never duplicated rules pages.
+    for alias in inv.records.iter().filter(|r| r.shape == "redirect") {
+        if let (Some(protocol), Some(target)) = (
+            &alias.protocol,
+            alias.raw.get("redirect").and_then(Value::as_str),
+        ) {
+            let key = format!("{protocol}/{target}");
+            if let Some(id) = context.targets.get(&key).cloned() {
+                context
+                    .targets
+                    .insert(format!("{protocol}/{}", alias.key), id);
+            }
+        }
+    }
+    for r in converted_inputs {
+        entries.push(convert(&r, &context, &mut report.findings)?);
+    }
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut sources = BTreeMap::new();
+    for e in &entries {
+        for source in &e.source_ids {
+            sources.entry(source.clone()).or_insert(SourceInfo {
+                id: source.clone(),
+                title: source.clone(),
+                entry_count: 0,
+                copyright: None,
+            });
+        }
+    }
+    let catalog = Catalog {
+        sources: sources.into_values().collect(),
+        entries: entries
+            .iter()
+            .map(|e| cast_iron_schema::EntryStub {
+                id: e.id.clone(),
+                kind: e.kind,
+                title: e.title.clone(),
+                source: e.source_ids[0].clone(),
+                parent: None,
+                shard: "sample.json".into(),
+            })
+            .collect(),
+    };
+    let errors = cast_iron_schema::validate::validate_library(&entries, &catalog);
+    report.schema_errors = errors.len();
+    for error in errors {
+        report.findings.push(Finding {
+            severity: "critical".into(),
+            record: error.entry,
+            problem: error.problem,
+        });
+    }
+    let bytes = serde_json::to_vec_pretty(&entries).map_err(|e| e.to_string())?;
+    let output_name = if full { "full.json" } else { "sample.json" };
+    write(out.join(output_name).as_path(), &bytes)?;
+    let reread: Vec<RuleEntry> = read_json(&out.join(output_name))?;
+    if reread != entries {
+        return Err("canonical serialization round-trip changed entries".into());
+    }
+    let mut builder = IndexBuilder::new();
+    for e in &reread {
+        builder.add(DocInput {
+            id: e.id.to_string(),
+            title: e.title.clone(),
+            kind: e.kind.slug().into(),
+            source: e.source_ids[0].clone(),
+            text: blocks_text(&e.body),
+            ..Default::default()
+        });
+    }
+    let index_bytes = builder.build().to_bytes();
+    let search_name = if full {
+        "full-search.bin"
+    } else {
+        "search.bin"
+    };
+    write(&out.join(search_name), &index_bytes)?;
+    let index =
+        SearchIndex::from_bytes(&fs::read(out.join(search_name)).map_err(|e| e.to_string())?)
+            .map_err(|e| format!("{e:?}"))?;
+    for entry in &reread {
+        *report.by_kind.entry(entry.kind.slug().into()).or_default() += 1;
+        for source in &entry.source_ids {
+            *report.by_publication.entry(source.clone()).or_default() += 1;
+        }
+    }
+    for entry in reread
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| !full || *i < 100 || FIXTURES.iter().any(|f| e.title.starts_with(f)))
+        .map(|(_, e)| e)
+    {
+        for query in [
+            entry.title.clone(),
+            entry.title.chars().take(5).collect(),
+            blocks_text(&entry.body)
+                .split_whitespace()
+                .find(|w| w.len() > 6)
+                .unwrap_or(&entry.title)
+                .to_string(),
+        ] {
+            report.search_checks += 1;
+            if !index
+                .search(&Query {
+                    text: query.clone(),
+                    limit: 1000,
+                    ..Default::default()
+                })
+                .iter()
+                .any(|hit| hit.id == entry.id.as_str())
+            {
+                report.findings.push(Finding {
+                    severity: "high".into(),
+                    record: entry.id.to_string(),
+                    problem: format!("search did not retrieve record for {query:?}"),
+                });
+            }
+        }
+    }
+    for fixture in FIXTURES {
+        let records: Vec<_> = inv
+            .records
+            .iter()
+            .filter(|r| {
+                r.shape != "publication"
+                    && (r.name == *fixture || r.name.starts_with(&format!("{fixture} (")))
+            })
+            .collect();
+        let entry = reread
+            .iter()
+            .find(|e| e.title == *fixture || e.title.starts_with(&format!("{fixture} (")));
+        let (publication, page, needle, kind) = match *fixture {
+            "Mortal Usher" => (
+                "Pathfinder #144: Midwives to Death",
+                Some("76"),
+                "Reaping Strike",
+                EntryKind::PrestigeClass,
+            ),
+            "Golem's Conviction" => (
+                "Druma, Profit and Prophecy",
+                Some("19"),
+                "rudimentary programming",
+                EntryKind::Feat,
+            ),
+            "Cradle of Night" => (
+                "Cradle of Night",
+                Some("57"),
+                "shadowbound",
+                EntryKind::Item,
+            ),
+            "Arcing Weapon" => (
+                "Chronicle of Legends",
+                Some("8"),
+                "spellstrike",
+                EntryKind::Feat,
+            ),
+            "Realm Retribution" => (
+                "Chronicle of Legends",
+                Some("14"),
+                "Outer Plane",
+                EntryKind::Spell,
+            ),
+            "Apocalyptic Spell" => (
+                "Planar Adventures",
+                Some("22"),
+                "spell slot 1 level higher",
+                EntryKind::Feat,
+            ),
+            "Thought Thief" => (
+                "Paizo Blog - Hodgepodge from the Grand Lodge",
+                None,
+                "archetype of",
+                EntryKind::Archetype,
+            ),
+            "Apollyon Clasp" => (
+                "Pathfinder Spiral of Bones #5",
+                Some("29"),
+                "8d6",
+                EntryKind::Item,
+            ),
+            _ => return Err(format!("fixture expectations missing: {fixture}")),
+        };
+        let rendered = entry.map(|e| blocks_text(&e.body)).unwrap_or_default();
+        let mut checks = BTreeMap::from([
+            ("exact_source_record".into(), records.len() == 1),
+            (
+                "publication".into(),
+                records
+                    .iter()
+                    .any(|r| r.publications.iter().any(|s| s == publication))
+                    && entry.is_some_and(|e| e.source_ids.contains(&slug_segment(publication))),
+            ),
+            (
+                "page".into(),
+                page.is_none_or(|p| rendered.contains(&format!("pg {p}"))),
+            ),
+            (
+                "body".into(),
+                rendered.contains(needle) && rendered.len() > 100,
+            ),
+            ("kind".into(), entry.is_some_and(|e| e.kind == kind)),
+            (
+                "formatting".into(),
+                entry.is_some_and(|e| {
+                    e.body
+                        .iter()
+                        .any(|b| matches!(b, cast_iron_schema::Block::Heading { .. }))
+                }),
+            ),
+            (
+                "references".into(),
+                records.iter().all(|r| {
+                    !report.findings.iter().any(|f| {
+                        f.record == format!("{}#{}", r.path, r.key)
+                            && f.problem.contains("reference")
+                    })
+                }),
+            ),
+        ]);
+        checks.insert(
+            "mechanics".into(),
+            entry.is_some_and(|e| match &e.fields {
+                cast_iron_schema::TypedFields::Spell(s) => {
+                    !s.school.is_empty()
+                        && !s.levels.is_empty()
+                        && s.duration.is_some()
+                        && s.saving_throw.is_some()
+                }
+                cast_iron_schema::TypedFields::Feat(f) => {
+                    f.prerequisites.is_some() || f.benefit.is_some()
+                }
+                cast_iron_schema::TypedFields::Item(i) => {
+                    i.aura.is_some() && i.caster_level.is_some()
+                }
+                cast_iron_schema::TypedFields::Class(c) => c.hit_die.is_some(),
+                cast_iron_schema::TypedFields::None => {
+                    kind == EntryKind::Archetype && rendered.contains("archetype of")
+                }
+                _ => false,
+            }),
+        );
+        let passed = checks.values().all(|v| *v);
+        report.fixtures.push(FixtureResult {
+            name: fixture.to_string(),
+            records: records
+                .iter()
+                .map(|r| format!("{}#{}", r.path, r.key))
+                .collect(),
+            imported: reread
+                .iter()
+                .any(|e| e.title == *fixture || e.title.starts_with(&format!("{fixture} ("))),
+            publications: records
+                .iter()
+                .flat_map(|r| r.publications.clone())
+                .collect(),
+            checks,
+            passed,
+        });
+        if records.is_empty() {
+            report.findings.push(Finding {
+                severity: "high".into(),
+                record: fixture.to_string(),
+                problem:
+                    "mandatory fixture absent by exact name; manual alias investigation required"
+                        .into(),
+            });
+        }
+    }
+    report.imported_records = reread.len();
+    if report
+        .findings
+        .iter()
+        .any(|f| ["critical", "high"].contains(&f.severity.as_str()))
+    {
+        report.cutover_blockers.push(
+            "Conversion still has critical or high findings; see complete diagnostics".into(),
+        );
+    }
+    if !report.fixtures.iter().all(|f| f.passed) {
+        report
+            .cutover_blockers
+            .push("Mandatory fixture checks have not all passed".into());
+    }
+    report.publication_ready = report.cutover_blockers.is_empty();
+    report.canonical_bytes = bytes.len();
+    report.search_bytes = index_bytes.len();
+    report
+        .findings
+        .sort_by(|a, b| (&a.record, &a.problem).cmp(&(&b.record, &b.problem)));
+    write(
+        &reports.join(if full {
+            "migration-full.json"
+        } else {
+            "migration-test.json"
+        }),
+        &serde_json::to_vec_pretty(&report).map_err(|e| e.to_string())?,
+    )?;
+    write(
+        &reports.join(if full {
+            "migration-full.md"
+        } else {
+            "migration-test.md"
+        }),
+        markdown_report(&report).as_bytes(),
+    )?;
+    Ok(report)
+}
+
+fn convert(
+    r: &InputRecord,
+    context: &LinkContext,
+    findings: &mut Vec<Finding>,
+) -> Result<RuleEntry, String> {
+    if r.shape != "description" {
+        return Err(format!("{} expansion is not implemented", r.shape));
+    }
+    // Table references have already been expanded by pf_records. Addenda still
+    // require their own ordered assembly and cannot be silently omitted.
+    if r.raw.get("addenda").is_some() {
+        return Err("addendum expansion required".into());
+    }
+    let lines = description(&r.raw)?;
+    if r.name.is_empty() || r.publications.is_empty() {
+        return Err("missing name or publication metadata".into());
+    }
+    // Prestige-class archetypes share their parent family's upstream file.
+    let kind = if r.protocol.as_deref() == Some("pclass")
+        && lines
+            .iter()
+            .any(|l| l.starts_with("**This is an archetype of "))
+    {
+        EntryKind::Archetype
+    } else {
+        record_kind(&r.path)
+    };
+    let fields = pf_fields::extract(kind, &lines)?;
+    let id = EntryId::parse(format!(
+        "pf-data/{}/{}",
+        slug_segment(r.protocol.as_deref().ok_or("no native protocol mapping")?),
+        slug_segment(&r.key)
+    ))
+    .map_err(|e| e.to_string())?;
+    struct Env<'a> {
+        record: String,
+        findings: &'a mut Vec<Finding>,
+        context: &'a LinkContext,
+        references: BTreeSet<cast_iron_schema::EntryReference>,
+        current: &'a EntryId,
+        anchors: BTreeMap<String, String>,
+    }
+    impl crate::html::Env for Env<'_> {
+        fn link(&mut self, href: &str) -> Option<(EntryId, Option<String>)> {
+            if let Some(key) = href.strip_prefix('#')
+                && let Some(anchor) = self.anchors.get(key)
+            {
+                self.references.insert(cast_iron_schema::EntryReference {
+                    target: self.current.clone(),
+                    anchor: Some(anchor.clone()),
+                });
+                return Some((self.current.clone(), Some(anchor.clone())));
+            }
+            if let Some(target) = self.context.targets.get(href) {
+                self.references.insert(cast_iron_schema::EntryReference {
+                    target: target.clone(),
+                    anchor: None,
+                });
+                return Some((target.clone(), None));
+            }
+            // Publication references are verified against the native source registry;
+            // the current inline model has entry links only, so retain their text.
+            if href.starts_with("source/") && self.context.known.contains(href) {
+                return None;
+            }
+            let outside =
+                self.context.known.contains(href) && !self.context.selected.contains(href);
+            self.findings.push(Finding {
+                severity: if outside { "medium" } else { "high" }.into(),
+                record: self.record.clone(),
+                problem: format!(
+                    "{}: {href}",
+                    if outside {
+                        "reference outside bounded sample"
+                    } else {
+                        "unresolved reference"
+                    }
+                ),
+            });
+            None
+        }
+        fn stripped(&mut self, key: &str) {
+            self.findings.push(Finding {
+                severity: "medium".into(),
+                record: self.record.clone(),
+                problem: format!("HTML conversion: {key}"),
+            });
+        }
+    }
+    let mut env = Env {
+        record: format!("{}#{}", r.path, r.key),
+        findings,
+        context,
+        references: BTreeSet::new(),
+        current: &id,
+        anchors: pf_markdown::anchors(&lines),
+    };
+    let mut render_lines = lines.clone();
+    if matches!(fields, cast_iron_schema::TypedFields::Spell(_)) {
+        for line in &mut render_lines {
+            if line.trim_start().starts_with("::spell{") {
+                let attrs = pf_markdown::attributes(line)?;
+                *line = attrs
+                    .get("source")
+                    .map(|s| format!("‹SOURCE {s}›"))
+                    .unwrap_or_default();
+            }
+        }
+    }
+    let mut body =
+        pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
+    if let cast_iron_schema::TypedFields::Spell(spell) = &fields {
+        use cast_iron_schema::{Block, Inline, StatRow};
+        let mut rows = vec![
+            StatRow {
+                label: "School".into(),
+                value: vec![Inline::text(&spell.school)],
+            },
+            StatRow {
+                label: "Level".into(),
+                value: vec![Inline::text(
+                    spell
+                        .levels
+                        .iter()
+                        .map(|l| format!("{} {}", l.class, l.level))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                )],
+            },
+        ];
+        for (label, value) in [
+            ("Casting time", &spell.casting_time),
+            ("Components", &spell.components),
+            ("Range", &spell.range),
+            ("Duration", &spell.duration),
+            ("Saving throw", &spell.saving_throw),
+            ("Spell resistance", &spell.spell_resistance),
+        ] {
+            if let Some(value) = value {
+                rows.push(StatRow {
+                    label: label.into(),
+                    value: vec![Inline::text(value)],
+                });
+            }
+        }
+        for (label, value) in &spell.effects {
+            rows.push(StatRow {
+                label: label.clone(),
+                value: vec![Inline::text(value)],
+            });
+        }
+        if !spell.subschools.is_empty() {
+            rows.push(StatRow {
+                label: "Subschool".into(),
+                value: vec![Inline::text(spell.subschools.join(", "))],
+            });
+        }
+        if !spell.descriptors.is_empty() {
+            rows.push(StatRow {
+                label: "Descriptors".into(),
+                value: vec![Inline::text(spell.descriptors.join(", "))],
+            });
+        }
+        body.insert(
+            0,
+            Block::StatBlock {
+                title: Some("Spell statistics".into()),
+                rows,
+            },
+        );
+    }
+    if blocks_text(&body).trim().is_empty() {
+        return Err("empty rendered description".into());
+    }
+    Ok(RuleEntry {
+        id: id.clone(),
+        kind,
+        title: r.name.clone(),
+        source_ids: r.publications.iter().map(|s| slug_segment(s)).collect(),
+        section: Vec::new(),
+        parent: None,
+        body,
+        fields,
+        tags: Vec::new(),
+        links: env.references.into_iter().collect(),
+        provenance: vec![Provenance {
+            dataset: "pathfinder-data-1-e".into(),
+            record: r.key.clone(),
+            path: r.path.clone(),
+        }],
+        license_refs: vec![crate::build::LICENSE_OGL.into()],
+        relations: Vec::new(),
+    })
+}
+
+pub fn markdown_report(r: &MigrationReport) -> String {
+    let mut text = format!(
+        "# Migration conversion report\n\nSource revision `{}`.\n\nObserved {} input records, {} selected, {} converted. Canonical data {} bytes; search {} bytes. {} search checks; {} schema errors.\n\nPublication gate: **blocked**. Browser checks: {}. These are experimental artifacts, not a production library.\n\n",
+        r.commit,
+        r.input_records,
+        r.selected_records,
+        r.imported_records,
+        r.canonical_bytes,
+        r.search_bytes,
+        r.search_checks,
+        r.schema_errors,
+        r.browser_verification
+    );
+    text.push_str(&format!(
+        "Scope: `{}`. Input digest `{}`.\n\n",
+        r.scope, r.input_digest
+    ));
+    for blocker in &r.cutover_blockers {
+        text.push_str(&format!("- {blocker}\n"));
+    }
+    text.push_str("\nFixture checks:\n\n");
+    for f in &r.fixtures {
+        let failed: Vec<_> = f
+            .checks
+            .iter()
+            .filter(|(_, v)| !**v)
+            .map(|(k, _)| k.as_str())
+            .collect();
+        text.push_str(&format!(
+            "- {}: {}. Failed checks: {}.\n",
+            f.name,
+            if f.passed {
+                "passed conversion checks"
+            } else {
+                "not passed"
+            },
+            if failed.is_empty() {
+                "none".into()
+            } else {
+                failed.join(", ")
+            }
+        ));
+    }
+    text.push_str("\nFindings:\n\n");
+    for f in &r.findings {
+        text.push_str(&format!(
+            "- {}: `{}`: {}\n",
+            f.severity,
+            f.record,
+            f.problem.replace('\n', " ")
+        ));
+    }
+    text
+}
+
+pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, String> {
+    serde_json::from_slice(&fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?)
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+pub fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    if let Some(p) = path.parent() {
+        fs::create_dir_all(p).map_err(|e| e.to_string())?;
+    }
+    fs::write(path, bytes).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn tokens_include_unknown_directives() {
+        assert_eq!(
+            directives(":::unknown{a=1} @x[y] ::spell{foo}"),
+            ["::unknown", "@x", "::spell"]
+        );
+    }
+    #[test]
+    fn pins_reject_noncanonical_hashes() {
+        assert!(!is_hash("../x", 4));
+        assert!(!is_hash(&"A".repeat(40), 40));
+        assert!(is_hash(&"a".repeat(40), 40));
+    }
+
+    #[test]
+    fn audit_detects_changed_bytes_and_unaccounted_files() {
+        let root = std::env::temp_dir().join(format!("cast-iron-pin-test-{}", std::process::id()));
+        if root.exists() {
+            fs::remove_dir_all(&root).unwrap();
+        }
+        fs::create_dir_all(root.join("json")).unwrap();
+        fs::create_dir_all(root.join("prebuild")).unwrap();
+        let mut files = BTreeMap::new();
+        for (path, body) in [
+            ("json/sources.json", r#"{"core":{"title":"Core"}}"#),
+            (
+                "json/feat.json",
+                r#"{"a":{"name":"A","sources":["Core"],"description":["Benefit."]}}"#,
+            ),
+            ("README.md", "Source declaration"),
+            ("JSON.md", "Format"),
+            ("OPENGAMECONTENT.md", "Notice"),
+            ("prebuild/basic_data_groups.js", "Routing evidence"),
+        ] {
+            write(&root.join(path), body.as_bytes()).unwrap();
+            files.insert(path, sha256_hex(body.as_bytes()));
+        }
+        let pin = serde_json::json!({"id":"pathfinder-data-1-e","repository":"https://github.com/jasontankapps/pathfinder-data-1-e","commit":"a".repeat(40),"archive_sha256":"b".repeat(64),"files":files});
+        write(
+            &root.join("source.json"),
+            &serde_json::to_vec(&pin).unwrap(),
+        )
+        .unwrap();
+        write(
+            &root.join("routes.json"),
+            br#"{"json/sources.json":"source","json/feat.json":"feat"}"#,
+        )
+        .unwrap();
+        let good = inventory(&root, &root.join("source.json")).unwrap();
+        assert_eq!(good.input_records, 2);
+        assert_eq!(good.by_shape["description"], 1);
+        write(&root.join("json/feat.json"), b"{}").unwrap();
+        assert!(
+            inventory(&root, &root.join("source.json"))
+                .unwrap_err()
+                .contains("hash mismatch")
+        );
+        write(&root.join("json/new.json"), b"{}").unwrap();
+        assert!(
+            inventory(&root, &root.join("source.json"))
+                .unwrap_err()
+                .contains("file set")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_identity_survives_file_repartitioning() {
+        let original = InputRecord {
+            protocol: Some("feat".into()),
+            path: "json/feat01.json".into(),
+            key: "power_attack".into(),
+            name: "Power Attack".into(),
+            shape: "description".into(),
+            publications: vec!["Core Rulebook".into()],
+            raw: serde_json::json!({"description":["## Power Attack","","**Benefit:** Trade accuracy for damage."]}),
+        };
+        let mut moved = original.clone();
+        moved.path = "json/feat99.json".into();
+        let a = convert(&original, &LinkContext::default(), &mut Vec::new()).unwrap();
+        let b = convert(&moved, &LinkContext::default(), &mut Vec::new()).unwrap();
+        assert_eq!(a.id, b.id);
+        assert_eq!(a.id.as_str(), "pf-data/feat/power-attack");
+        assert_ne!(a.provenance, b.provenance);
+    }
+}

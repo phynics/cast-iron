@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-03. The repository is public. The latest observed successful
+Updated 2026-11-04. The repository is public. The latest observed successful
 [main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and
 [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41691686716)
 are for `d48eaa3c8dce901b80a777600ae09238647c41cd`. The release migration has
@@ -217,8 +217,37 @@ Sol reviewed head `2982678` and reported no P1/P2 findings and one P3 archive-si
 
 ## Local book target and source audit
 
-Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks this work. The 283 AoN directory rows now contain 90 exact-title targets, 59 source-validated passage targets, two source-validated chapter contexts, 27 rows without a verified installed target, and 105 rows under 14 absent source headings. All 49 prior title ambiguities have target evidence; 12 prior unmatched labels refer to installed passages. These are target resolutions, not new library text. The two chapter cases preserve explicit opening-passage limitations.
+Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks this work. The 283 AoN directory rows now contain 90 exact-title targets, 60 source-validated passage targets, two source-validated chapter contexts, 26 rows without a verified installed target, and 105 rows under 14 absent source headings. All 49 prior title ambiguities have target evidence; 12 prior unmatched labels refer to installed passages. These are target resolutions, not new library text. The two chapter cases preserve explicit opening-passage limitations.
 
-The pinned Pf Data audit contains source-tagged records for all 14 absent headings. PCGen has matching source manifests for nine. A source-bounded passage probe found candidate records for 13 of the 15 opening passages missing from the installed snapshot; it did not find the Bestiary or GameMastery Guide introductions. Exact source pins, count methods, JSON pointers, hashes, and directive inventories are committed as research evidence. The corpus remains 9,967 entries in 16 books. No new source is shipped by this audit, and no deployment is claimed.
+The pinned Pf Data audit contains source-tagged records for all 14 absent headings. PCGen has matching source manifests for nine. A source-bounded passage probe found candidate records for 12 of the 14 remaining opening passages missing from the installed snapshot; it did not find the Bestiary or GameMastery Guide introductions. Exact source pins, count methods, JSON pointers, hashes, and directive inventories are committed as research evidence. The corpus is now 9,968 entries in 16 books. No new source is shipped by this audit, and no deployment is claimed.
 
-Verification for this evidence change: `cargo xtask check` passes, including 23 Python audit/mapping fixtures and 101 web unit tests. Replayed passage/chapter evidence, applied mappings, and pinned source inventories compare byte-identically. Compiler inputs and client behavior are unchanged by the research files. Remaining corpus work stays open in [#11](https://github.com/phynics/cast-iron/issues/11), the parallel migration [#18](https://github.com/phynics/cast-iron/issues/18), and the bounded source adapter [#19](https://github.com/phynics/cast-iron/issues/19). A new corpus can invalidate the evidence hashes; regenerate against its actual entries/book index rather than weakening those checks.
+Verification for this evidence change: `cargo xtask check` passes, including 23 Python audit/mapping fixtures and 95 web unit tests. Replayed passage/chapter evidence, applied mappings, and pinned source inventories compare byte-identically. Compiler inputs and client behavior are unchanged by the research files. Remaining corpus work stays open in [#11](https://github.com/phynics/cast-iron/issues/11), the parallel migration [#18](https://github.com/phynics/cast-iron/issues/18), and the bounded source adapter [#19](https://github.com/phynics/cast-iron/issues/19). A new corpus can invalidate the evidence hashes; regenerate against its actual entries/book index rather than weakening those checks.
+
+## Reviewed supplemental source import
+
+Local branch `data/18-pf1e-corpus-migration` adds a native adapter for the pinned
+`jasontankapps/pathfinder-data-1-e` snapshot and imports one reviewed record:
+`pf-data/rule/magic`, "Magic and Spellcasting". It is the missing Core Rulebook
+page 206 opening passage and is placed first in the existing Core Rulebook Magic
+article. Its permanent ID uses the native protocol namespace; all earlier IDs and
+titles are unchanged. Every other primary-source record stays in coverage as
+`record shape ... is not approved`, not in the library.
+
+Content version `vacb1fef357b70f14` has 9,968 entries (was 9,967), schema 3 and
+search format 1. Raw content is 62,123,015 bytes (was 61,956,172); the search
+index is 20,330,948 bytes (was 20,329,611). Resolved links are 1,310, including
+the six reviewed links from the new passage. The legal page lists the new dataset
+pin and appends the pinned source's complete Section 15 notices. Supplemental
+coverage rows carry a `pathfinder-data-1-e:` prefix, so they cannot be read as
+PSRD-Data paths.
+
+Local verification: `cargo xtask check` passes. Two `cargo xtask content` runs
+produce the same tree hash. `scripts/check-library-upgrade.py dist/content
+generated/content` reports no missing IDs, no changed titles or kinds, and no
+dangling references. The offline Chromium check `Reviewed primary-source passage
+appears under the Core Rulebook Magic article` passes against the real `dist/`
+build. `cargo xtask data-report` is reproducible and its tracked reports are
+committed; the full-corpus experiment remains blocked and is not shipped.
+No CI, deployment, or full browser-matrix result is claimed for this content
+change. Apollyon Clasp and the other unreviewed comic and blog material remain
+excluded.

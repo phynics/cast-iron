@@ -184,7 +184,100 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         return Err(Failure { lines });
     }
 
+    let approved = cfg
+        .supplement
+        .as_ref()
+        .map(|config| crate::pf_approved::load(config, config_dir))
+        .transpose()?;
+    let input_digest = if let Some(extra) = &approved {
+        sha256_hex(format!("{}\n{}\n", selection.digest, extra.input_digest).as_bytes())
+    } else {
+        selection.digest.clone()
+    };
     let mut built = build::build(&plan);
+    if let Some(extra) = &approved {
+        let ids: BTreeSet<_> = built.entries.iter().map(|e| e.id.clone()).collect();
+        // Group by parent so multiple approved records keep a stable order instead of
+        // reversing each time a link is prepended to the parent body.
+        let mut children: BTreeMap<
+            cast_iron_schema::EntryId,
+            Vec<(cast_iron_schema::EntryId, String)>,
+        > = BTreeMap::new();
+        for entry in &extra.entries {
+            if ids.contains(&entry.id) {
+                return Err(format!(
+                    "approved source ID collides with published entry: {}",
+                    entry.id
+                )
+                .into());
+            }
+            if entry
+                .source_ids
+                .iter()
+                .any(|id| !built.source_titles.contains_key(id))
+            {
+                return Err(format!(
+                    "approved entry {} requires a separately reviewed publication",
+                    entry.id
+                )
+                .into());
+            }
+            if let Some(parent) = &entry.parent {
+                if !built.entries.iter().any(|e| &e.id == parent) {
+                    return Err(
+                        format!("approved entry {} has unknown parent {parent}", entry.id).into(),
+                    );
+                }
+                children
+                    .entry(parent.clone())
+                    .or_default()
+                    .push((entry.id.clone(), entry.title.clone()));
+            }
+            built.entries.push(entry.clone());
+        }
+        for (parent, links) in children {
+            let parent_entry = built
+                .entries
+                .iter_mut()
+                .find(|e| e.id == parent)
+                .expect("parent checked above");
+            let mut blocks: Vec<cast_iron_schema::Block> = links
+                .iter()
+                .map(|(target, title)| cast_iron_schema::Block::EntryLink {
+                    target: target.clone(),
+                    title: title.clone(),
+                })
+                .collect();
+            blocks.append(&mut parent_entry.body);
+            parent_entry.body = blocks;
+            for (target, _) in &links {
+                if !parent_entry.links.iter().any(|link| &link.target == target) {
+                    parent_entry.links.push(cast_iron_schema::EntryReference {
+                        target: target.clone(),
+                        anchor: None,
+                    });
+                    built.links.resolved += 1;
+                }
+            }
+            parent_entry.links.sort();
+            parent_entry.links.dedup();
+            for (target, _) in links {
+                built.nested.push(build::NestedLink {
+                    host: parent.clone(),
+                    target,
+                    trail: Vec::new(),
+                    child: true,
+                });
+            }
+        }
+        // Links inside the approved records were validated during conversion.
+        built.links.resolved += extra
+            .entries
+            .iter()
+            .map(|entry| entry.links.len() as u32)
+            .sum::<u32>();
+        built.entries.sort_by(|a, b| a.id.cmp(&b.id));
+    }
     let relations = crate::relations::apply(&mut built.entries, &plan, &built.nested);
     let spell_lists = crate::lists::build(&built.entries);
     let books = crate::books::build(
@@ -193,7 +286,15 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         book_order.as_ref(),
         &upstream_order,
     );
-    let legal = legal::build(&cfg.dataset, &notices)?;
+    let mut legal = legal::build(&cfg.dataset, &notices)?;
+    if let Some(extra) = &approved {
+        legal.datasets.extend(extra.notices.clone());
+        for notice in &extra.copyrights {
+            if !legal.section_15.contains(notice) {
+                legal.section_15.push(notice.clone());
+            }
+        }
+    }
     let facets_by_id: BTreeMap<_, _> = plan
         .typed
         .iter()
@@ -245,8 +346,8 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
         *by_kind.entry(e.kind.slug().to_string()).or_default() += 1;
     }
 
-    let coverage = CoverageReport {
-        input_digest: selection.digest.clone(),
+    let mut coverage = CoverageReport {
+        input_digest,
         by_publication: publications(&survey.source_counts, &catalog),
         by_kind: by_kind.clone(),
         excluded: survey.exclusions.clone(),
@@ -260,6 +361,9 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
             ..relations.coverage.clone()
         },
     };
+    if let Some(extra) = &approved {
+        coverage.excluded.extend(extra.exclusions.clone());
+    }
 
     write_reports(
         &opts.reports,
@@ -356,11 +460,18 @@ pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
             })
             .collect(),
         entry_count: built.entries.len() as u32,
-        datasets: vec![DatasetRef {
+        datasets: std::iter::once(DatasetRef {
             id: cfg.dataset.id.clone(),
             repository: cfg.dataset.repository.clone(),
             commit: cfg.dataset.commit.clone(),
-        }],
+        })
+        .chain(
+            approved
+                .as_ref()
+                .into_iter()
+                .flat_map(|extra| extra.datasets.clone()),
+        )
+        .collect(),
     };
 
     prepare_out(&opts.out)?;
@@ -683,6 +794,10 @@ fn coverage_markdown(
             p.source_id, p.title, p.upstream_records, p.included_entries
         );
     }
+    let _ = writeln!(
+        s,
+        "\nUpstream counts come from the PSRD-Data selection. Included entries also contain reviewed primary-source records."
+    );
     let _ = writeln!(s, "\n## Rejected records ({})\n", c.rejected.len());
     if c.rejected.is_empty() {
         let _ = writeln!(s, "None.");
@@ -741,6 +856,10 @@ fn coverage_markdown(
     if notes.len() > 50 {
         let _ = writeln!(s, "- ... {} more in validation.json", notes.len() - 50);
     }
+    let (supplement, upstream): (Vec<_>, Vec<_>) = c
+        .excluded
+        .iter()
+        .partition(|e| e.path.starts_with(crate::pf_approved::COVERAGE_PREFIX));
     let _ = writeln!(s, "\n## Excluded upstream directories\n");
     let _ = writeln!(
         s,
@@ -748,8 +867,20 @@ fn coverage_markdown(
         survey.total_files
     );
     let _ = writeln!(s, "| Path | Records | Reason |\n|---|---:|---|");
-    for e in &c.excluded {
+    for e in upstream {
         let _ = writeln!(s, "| {} | {} | {} |", e.path, e.records, e.reason);
+    }
+    if !supplement.is_empty() {
+        let records: u64 = supplement.iter().map(|e| u64::from(e.records)).sum();
+        let _ = writeln!(
+            s,
+            "\n## Reviewed supplemental source exclusions\n\n\
+             The pinned primary inventory excludes {records} records. Approved records are listed under Entries by kind.\n"
+        );
+        let _ = writeln!(s, "| Path | Records | Reason |\n|---|---:|---|");
+        for e in supplement {
+            let _ = writeln!(s, "| {} | {} | {} |", e.path, e.records, e.reason);
+        }
     }
     if !survey.unparsable.is_empty() {
         let _ = writeln!(s, "\n## Unparsable upstream files outside the selection\n");

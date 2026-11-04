@@ -209,3 +209,9 @@ ultimate_campaign = "Ultimate Campaign"
 ultimate_combat = "Ultimate Combat"
 ultimate_equipment = "Ultimate Equipment"
 ultimate_magic = "Ultimate Magic"
+
+# Only explicitly reviewed, whole records enter the production library.
+[supplement]
+registry = "../pathfinder-data-1-e/source.json"
+dataset = "../../.cache/sources/pathfinder-data-1-e"
+selection = "../pathfinder-data-1-e/approved.json"

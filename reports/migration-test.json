@@ -1,0 +1,1170 @@
+{
+  "scope": "representative",
+  "input_digest": "cbb609403720d358a92f5c75cbf8d74af776215c8fe329d6cddf3b034a2a6113",
+  "dataset": "pathfinder-data-1-e",
+  "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
+  "input_records": 34530,
+  "selected_records": 42,
+  "imported_records": 23,
+  "by_kind": {
+    "archetype": 2,
+    "creature": 2,
+    "feat": 6,
+    "item": 2,
+    "prestige_class": 4,
+    "rule": 1,
+    "spell": 3,
+    "trait": 3
+  },
+  "by_publication": {
+    "advanced-class-guide": 1,
+    "advanced-class-origins": 1,
+    "adventurers-guide": 1,
+    "blood-of-the-sea": 1,
+    "chronicle-of-legends": 2,
+    "cradle-of-night": 1,
+    "druma-profit-and-prophecy": 1,
+    "faiths-and-philosophies": 1,
+    "gods-and-magic": 1,
+    "horror-realms": 1,
+    "inner-sea-gods": 1,
+    "knights-of-the-inner-sea": 1,
+    "magic-tactics-toolbox": 1,
+    "npc-codex": 2,
+    "paizo-blog-hodgepodge-from-the-grand-lodge": 1,
+    "pathfinder-144-midwives-to-death": 1,
+    "pathfinder-45-broken-moon": 1,
+    "pathfinder-8-seven-days-to-the-grave": 1,
+    "pathfinder-82-secrets-of-the-sphinx": 1,
+    "pathfinder-spiral-of-bones-5": 1,
+    "paths-of-prestige": 1,
+    "planar-adventures": 1,
+    "prpg-core-rulebook": 1,
+    "ultimate-wilderness": 1
+  },
+  "fixtures": [
+    {
+      "name": "Mortal Usher",
+      "records": [
+        "json/prestige_classes2.json#mortal_usher"
+      ],
+      "imported": true,
+      "publications": [
+        "Pathfinder #144: Midwives to Death"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Golem's Conviction",
+      "records": [
+        "json/feat07.json#golems_conviction"
+      ],
+      "imported": true,
+      "publications": [
+        "Druma, Profit and Prophecy"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Cradle of Night",
+      "records": [
+        "json/magic_artifact2.json#cradle_of_night"
+      ],
+      "imported": true,
+      "publications": [
+        "Cradle of Night"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Arcing Weapon",
+      "records": [
+        "json/feat01.json#arcing_weapon"
+      ],
+      "imported": true,
+      "publications": [
+        "Chronicle of Legends"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Realm Retribution",
+      "records": [
+        "json/spells8.json#realm_retribution"
+      ],
+      "imported": true,
+      "publications": [
+        "Chronicle of Legends"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Apocalyptic Spell",
+      "records": [
+        "json/feat01.json#apocalyptic_spell"
+      ],
+      "imported": true,
+      "publications": [
+        "Planar Adventures"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Thought Thief",
+      "records": [
+        "json/prestige_classes.json#thought_thief_arcane_trickster"
+      ],
+      "imported": true,
+      "publications": [
+        "Paizo Blog - Hodgepodge from the Grand Lodge"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    },
+    {
+      "name": "Apollyon Clasp",
+      "records": [
+        "json/magic_wondrous_neck.json#apollyon_clasp"
+      ],
+      "imported": true,
+      "publications": [
+        "Pathfinder Spiral of Bones #5"
+      ],
+      "checks": {
+        "body": true,
+        "exact_source_record": true,
+        "formatting": true,
+        "kind": true,
+        "mechanics": true,
+        "page": true,
+        "publication": true,
+        "references": false
+      },
+      "passed": false
+    }
+  ],
+  "findings": [
+    {
+      "severity": "high",
+      "record": "json/archetypes_COMPANION.json#aberrant_companion",
+      "problem": "unsupported encoded replace value on ::ab"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: ability/wild_empathy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: disease/rabies"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: misc/confused"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: misc/nauseated"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: misc/sickened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: spell/crushing_despair"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: spell/freedom_of_movement"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: spell/haste"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: subtype/swarm"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#accursed_companion",
+      "problem": "reference outside bounded sample: umr/distraction"
+    },
+    {
+      "severity": "high",
+      "record": "json/archetypes_COMPANION.json#ambusher",
+      "problem": "unsupported encoded replace value on ::ab; unsupported encoded replace value on ::ab"
+    },
+    {
+      "severity": "high",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab"
+    },
+    {
+      "severity": "high",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "unsupported encoded ordering or usage metadata on ::ab"
+    },
+    {
+      "severity": "high",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::fakeFootnotes; unsupported or malformed inline directive @FN; unsupported or malformed inline directive @FN"
+    },
+    {
+      "severity": "high",
+      "record": "json/classes.json#alchemist",
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action"
+    },
+    {
+      "severity": "high",
+      "record": "json/classes.json#antipaladin",
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions"
+    },
+    {
+      "severity": "high",
+      "record": "json/classes.json#arcanist",
+      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions"
+    },
+    {
+      "severity": "high",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+    },
+    {
+      "severity": "high",
+      "record": "json/equipment_alchemical_reagents.json#alchemical_grease",
+      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+    },
+    {
+      "severity": "high",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#aberrant_tumor",
+      "problem": "reference outside bounded sample: blrgbloodline/aberrant"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#aberrant_tumor",
+      "problem": "reference outside bounded sample: discovery/tumor_familiar"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#aberrant_tumor",
+      "problem": "reference outside bounded sample: sorcbloodline/aberrant"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#aberration_bane_caster",
+      "problem": "reference outside bounded sample: ability/favored_enemy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#aberration_bane_caster",
+      "problem": "reference outside bounded sample: race/gillman"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#abeyance",
+      "problem": "reference outside bounded sample: rule/feats_class"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#apocalyptic_spell",
+      "problem": "reference outside bounded sample: rule/difficult_terrain"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#arcing_weapon",
+      "problem": "reference outside bounded sample: class/magus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat01.json#arcing_weapon",
+      "problem": "reference outside bounded sample: spell/scorching_ray"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: feat/improved_iron_will"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: feat/iron_will"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: misc/staggered"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: misc/total_defense"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: spell/dominate_person"
+    },
+    {
+      "severity": "medium",
+      "record": "json/feat07.json#golems_conviction",
+      "problem": "reference outside bounded sample: spell/hideous_laughter"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_artifact2.json#cradle_of_night",
+      "problem": "reference outside bounded sample: magic-artifact/sphere_of_annihilation"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_artifact2.json#cradle_of_night",
+      "problem": "reference outside bounded sample: rule/shadowbound"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_artifact2.json#cradle_of_night",
+      "problem": "reference outside bounded sample: umr/fast_healing"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
+      "problem": "reference outside bounded sample: faith/apollyon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
+      "problem": "reference outside bounded sample: family/daemon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
+      "problem": "reference outside bounded sample: feat/craft_wondrous_item"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
+      "problem": "reference outside bounded sample: misc/sickened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
+      "problem": "reference outside bounded sample: spell/vomit_swarm"
+    },
+    {
+      "severity": "high",
+      "record": "json/monsters01.json#aashaqs_wyvern",
+      "problem": "unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco; unsupported semantic renderer for directive ::aff"
+    },
+    {
+      "severity": "high",
+      "record": "json/monsters01.json#aasimar",
+      "problem": "unsupported encoded skills values on ::mstats; unsupported coded treasure value on ::meco"
+    },
+    {
+      "severity": "high",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "unknown attribute month on ::mspell; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: eq-misc/artisans_tools_mwk"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: eq-misc/everburning_torch"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: eq-misc/fishing_net"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: eq-weapon/sling"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: feat/point_blank_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: feat/skill_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: npcclass/commoner"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#accomplished_angler",
+      "problem": "reference outside bounded sample: spell/cure_light_wounds"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-armor/studded_leather"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-material/silver"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/guard_dog"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/healers_kit"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/silver_holy_symbol"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/smokestick"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/spell_component_pouch"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-misc/tindertwig"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-weapon/alchemists_fire"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-weapon/dagger"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: eq-weapon/morningstar"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: feat/skill_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: feat/toughness"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: npcclass/adept"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/bless"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/cure_light_wounds"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/guidance"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/light"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/mending"
+    },
+    {
+      "severity": "medium",
+      "record": "json/npcs.json#acolyte",
+      "problem": "reference outside bounded sample: spell/sleep"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: rule/whispering_way"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/bluff"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/heal"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/intimidate"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/knowledge_arcana"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/knowledge_history"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/knowledge_religion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/linguistics"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/spellcraft"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: skill/use_magic_device"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/animate_dead"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/animate_dead"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/charm_person"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/confusion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/deathwatch"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/desecrate"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/enervation"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/inflict_critical_wounds"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/magic_jar"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/nondetection"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/slay_living"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/undetectable_alignment"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: spell/vampiric_touch"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: template/lich"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#agent_of_the_grave",
+      "problem": "reference outside bounded sample: template/vampire"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: arc-fighter/aldori_defender"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/aldori_dueling_mastery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/combat_expertise"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/dazzling_display"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/exotic_weapon_proficiency"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/greater_weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/greater_weapon_specialization"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/improved_critical"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/quick_draw"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/weapon_finesse"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: feat/weapon_specialization"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: magic-enh/fortification"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: main/combat_feat"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: rule/aldori_swordlords"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: rule/dueling_parry"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: rule/dueling_resolve"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: rule/performance_combat"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/acrobatics"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/bluff"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/diplomacy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/intimidate"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/knowledge_nobility"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/perform"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#aldori_swordlord",
+      "problem": "reference outside bounded sample: skill/sense_motive"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: feat/point_blank_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: feat/precise_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/anarchic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/axiomatic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/distance"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/flaming"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/flaming_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/frost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/holy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/icy_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/shock"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/shocking_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: magic-enh/unholy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: skill/perception"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: skill/ride"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: skill/stealth"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#arcane_archer",
+      "problem": "reference outside bounded sample: skill/survival"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
+      "problem": "reference outside bounded sample: pclass/arcane_trickster"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
+      "problem": "reference outside bounded sample: spell/dominate_person"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
+      "problem": "reference outside bounded sample: spell/mage_hand"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: class/wizard"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: family/psychopomp"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: family/psychopomp"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: family/qlippoth"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: feat/improved_vital_strike"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: feat/vital_strike"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/brilliant_energy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/disruption"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/flaming"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/flaming_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/frost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/holy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/icy_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/shock"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/shocking_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/unholy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: magic-enh/vorpal"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: monster/nosoi"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: rule/concentration"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/bluff"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/diplomacy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/fly"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/intimidate"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/knowledge_planes"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/knowledge_religion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/perception"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/sense_motive"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: skill/use_magic_device"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: spell/antimagic_field"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: spell/calm_emotions"
+    },
+    {
+      "severity": "medium",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "reference outside bounded sample: spell/invisibility"
+    },
+    {
+      "severity": "high",
+      "record": "json/prestige_classes2.json#mortal_usher",
+      "problem": "unresolved reference: class/alchemist"
+    },
+    {
+      "severity": "high",
+      "record": "json/races.json#aasimar",
+      "problem": "unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::rtraits"
+    },
+    {
+      "severity": "high",
+      "record": "json/races.json#adaro",
+      "problem": "unsupported directive ::rtraits"
+    },
+    {
+      "severity": "high",
+      "record": "json/races.json#android",
+      "problem": "unknown attribute jl on ::h3; unsupported directive ::rtraits; unknown attribute jl on ::h3"
+    },
+    {
+      "severity": "high",
+      "record": "json/rules_adv_gm01.json#advanced_gm_topics",
+      "problem": "missing name or publication metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/spells.json#abeyance",
+      "problem": "reference outside bounded sample: spell/remove_curse"
+    },
+    {
+      "severity": "high",
+      "record": "json/spells.json#abjuring_step",
+      "problem": "spell directive has no saving throw"
+    },
+    {
+      "severity": "medium",
+      "record": "json/spells8.json#realm_retribution",
+      "problem": "reference outside bounded sample: spell/plane_shift"
+    },
+    {
+      "severity": "medium",
+      "record": "json/traits01.json#absolute_loyalty",
+      "problem": "reference outside bounded sample: spell/atonement"
+    }
+  ],
+  "canonical_bytes": 205626,
+  "search_bytes": 87434,
+  "search_checks": 69,
+  "schema_errors": 0,
+  "publication_ready": false,
+  "cutover_blockers": [
+    "Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission",
+    "Corpus-wide Product Identity screening and source notice reconciliation are incomplete",
+    "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated",
+    "Conversion still has critical or high findings; see complete diagnostics",
+    "Mandatory fixture checks have not all passed"
+  ],
+  "browser_verification": "not run; isolated compiler experiment"
+}

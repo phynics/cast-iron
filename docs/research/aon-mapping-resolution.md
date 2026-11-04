@@ -1,15 +1,15 @@
 # AoN rule target resolution
 
-Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks missing and ambiguous book content. Checked on 2026-11-03 against installed library `v171f0348e5717ee0`. AoN navigation identifies site sections; it does not establish printed book order.
+Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks missing and ambiguous book content. Checked on 2026-11-04 against installed library `vacb1fef357b70f14`. AoN navigation identifies site sections; it does not establish printed book order.
 
 ## Current targets and limits
 
 | Disposition | Rows |
 |---|---:|
 | Unique exact title target | 90 |
-| Source-validated opening passage target | 59 |
+| Source-validated opening passage target | 60 |
 | Source-validated chapter context | 2 |
-| No verified target in an installed source | 27 |
+| No verified target in an installed source | 26 |
 | Source not installed | 105 |
 
 The inventory has 283 topic/subsection rows under 23 source headings. All 49 formerly ambiguous rows now have target evidence: 47 match an opening passage and two match chapter context. Twelve formerly unmatched labels identify existing content, including Character Creation, Racial Favored Class Bonus, Effect Word Descriptions, Downtime Overview, and the misspelled Two Quirks title. The Optional label points to an unheaded paragraph within Words of Power.
@@ -20,11 +20,11 @@ The [AoN Alignment page](https://aonprd.com/Rules.aspx?ID=113) identifies the al
 
 The two chapter cases are [Magic](https://aonprd.com/Rules.aspx?ID=68) and [Magic Items](https://aonprd.com/Rules.aspx?ID=365). Their canonical chapter containers share 41 and 52 descendant headings with the primary pages. These matches identify reading context, not complete text. Magic has no opening prose at its top-level AoN heading. Magic Items has opening prose that is absent from the installed snapshot. These limits remain in the evidence. AoN reports page 83 for the top-level Magic heading while its children begin at page 206; that metadata does not supersede the publisher contents evidence.
 
-The 27 unmatched rows include 13 navigation headings without qualifying opening prose and 14 opening passages not matched in installed content. A `section_not_in_snapshot` status therefore means no verified target, not proof that every related rule is absent. No new book, rule text, or printed-order assertion was imported by this mapping work.
+The 26 unmatched rows include 13 navigation headings without qualifying opening prose and 13 opening passages not matched in installed content. The reviewed Magic and Spellcasting import resolves Magic Basics from `section_not_in_snapshot` to a verified passage target. A `section_not_in_snapshot` status therefore means no verified target, not proof that every related rule is absent. No new book, rule text, or printed-order assertion was imported by this mapping work.
 
 ## Sources for the remaining prose
 
-The passage audit also checked pinned Pf Data 1e descriptions. Thirteen of the 15 unmatched opening passages, including the Magic Items chapter introduction, have a source-tagged candidate record. No candidate opening passage was found for the Bestiary or GameMastery Guide book introductions. Each candidate includes its exact JSON pointer, file/description hashes, source tags, and unsupported-directive inventory. These are candidates for a native adapter, not newly installed content.
+The passage audit also checked pinned Pf Data 1e descriptions. Twelve of the 14 remaining unmatched opening passages, including the Magic Items chapter introduction, have a source-tagged candidate record. No candidate opening passage was found for the Bestiary or GameMastery Guide book introductions. Each candidate includes its exact JSON pointer, file/description hashes, source tags, and unsupported-directive inventory. These are candidates for a native adapter, not newly installed content.
 
 The [missing-book source audit](missing-books-source-audit.md) and its [machine-readable inventory](missing-books-source-inventory.json) separately inspect all 14 unavailable source headings. Pf Data 1e contains source-tagged records for each; PCGen has matching manifests for nine. Counts describe stored occurrences and referenced files, not complete books or automatic publication clearance. Start a bounded native import with the complete Magic and Spellcasting record at `json/rules_basics04.json#/magic`, which matches [Magic Basics](https://aonprd.com/Rules.aspx?ID=202), before expanding to more complex families. This bounded import is tracked in [#19](https://github.com/phynics/cast-iron/issues/19).
 
