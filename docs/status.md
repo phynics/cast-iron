@@ -251,7 +251,10 @@ committed; the full-corpus experiment remains blocked and is not shipped.
 No CI, deployment, or full browser-matrix result is claimed for this content
 change. Apollyon Clasp and the other unreviewed comic and blog material remain
 excluded. Licensing decisions are tracked in
-[#34](https://github.com/phynics/cast-iron/issues/34). Monster Core is a PF2/ORC
-publication present in the pinned registry; its seven tagged records and the
-`main.json#ogc` ORC notice are explicitly out of scope and cannot enter the PF1e
-path. The PSRD-Data dataset-license risk is overridden for now and tracked there.
+[#34](https://github.com/phynics/cast-iron/issues/34). Two PF2 publications are
+registered in the pinned source (`Monster Core`, `Bestiary 3 (2nd Edition)`);
+eight tagged records, the `main.json#ogc` ORC notice, and the untagged PF2
+*Player Core* description in `gnome_flick_mace` are explicitly out of scope and
+cannot enter the PF1e path. Comics are ignored permanently; blog records are
+deferred to [#36](https://github.com/phynics/cast-iron/issues/36). The PSRD-Data
+dataset-license risk is overridden for now and tracked in #34.

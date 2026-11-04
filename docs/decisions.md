@@ -161,7 +161,8 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 
 ## Licensing scope gates
 
-- Monster Core is a PF2/ORC publication present in the pinned Pf Data registry and seven monster-family records. It is outside the PF1e OGL corpus. `sources/pathfinder-data-1-e/out-of-scope.json` excludes those records and the `json/main.json#ogc` legal notice before selection. ORC text never enters the OGL legal page.
-- Apollyon Clasp and the Paizo Blog Hodgepodge record stay excluded until source-specific OGC/Section 15 or Community Use evidence exists. They are not inferred from a book title or registry entry.
+- PF2 material in the pinned Pf Data registry is out of scope. Two PF2 publications are registered (`Monster Core`, `Bestiary 3 (2nd Edition)`); eight records are tagged with them. Two more records carry PF2 text without a PF2 tag: `json/main.json#ogc` and `json/equipment_weapons2.json#gnome_flick_mace`. `sources/pathfinder-data-1-e/out-of-scope.json` excludes all ten before selection. ORC text never enters the OGL legal page. The filter is clean for known contamination; untagged PF2 prose still needs per-record review before a bulk cutover.
+- Comics are out of scope permanently. Records whose only publications are *Pathfinder Comics* or *Pathfinder Spiral of Bones* are excluded, including Apollyon Clasp and *Spiral of Bones #5*; no further evidence will be sought. A record also published in an in-scope PF1e book stays.
+- Paizo Blog publications are ignored for now and tracked in issue #36 for a possible return. Records whose only publication is a blog are excluded; records also published in an in-scope PF1e book stay.
 - PSRD-Data has no dataset-level license. That risk is accepted for the existing 16-book baseline, overridden for now, and tracked with the other unresolved rights in issue #34.
 - The pin hashes `ORCLICENSE.md` and `GNULICENSE.md` even though their content is not imported, so a changed or missing out-of-scope notice fails the source audit.

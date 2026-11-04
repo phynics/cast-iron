@@ -4,13 +4,13 @@
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
-  "selected_records": 42,
-  "imported_records": 23,
+  "selected_records": 40,
+  "imported_records": 21,
   "by_kind": {
-    "archetype": 2,
+    "archetype": 1,
     "creature": 2,
     "feat": 6,
-    "item": 2,
+    "item": 1,
     "prestige_class": 4,
     "rule": 1,
     "spell": 3,
@@ -31,18 +31,94 @@
     "knights-of-the-inner-sea": 1,
     "magic-tactics-toolbox": 1,
     "npc-codex": 2,
-    "paizo-blog-hodgepodge-from-the-grand-lodge": 1,
     "pathfinder-144-midwives-to-death": 1,
     "pathfinder-45-broken-moon": 1,
     "pathfinder-8-seven-days-to-the-grave": 1,
     "pathfinder-82-secrets-of-the-sphinx": 1,
-    "pathfinder-spiral-of-bones-5": 1,
     "paths-of-prestige": 1,
     "planar-adventures": 1,
     "prpg-core-rulebook": 1,
     "ultimate-wilderness": 1
   },
   "out_of_scope": [
+    {
+      "path": "json/archetypes_magus.json",
+      "key": "sorrowblade",
+      "name": "Sorrowblade",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/archetypes_skald.json",
+      "key": "elegist",
+      "name": "Elegist",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/equipment_weapons2.json",
+      "key": "gnome_flick_mace",
+      "name": "Gnome flick-mace",
+      "reason": "The PF1e record had no description; the imported prose is taken from PF2 Player Core and is not PF1e OGL content. Tracked in #34."
+    },
+    {
+      "path": "json/feat12.json",
+      "key": "psychovore_master",
+      "name": "Psychovore Master",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/feat12.json",
+      "key": "psychovore_strike",
+      "name": "Psychovore Strike",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/feat12.json",
+      "key": "psychovore_style",
+      "name": "Psychovore Style",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_weapon.json",
+      "key": "bonespur_dagger",
+      "name": "Bonespur Dagger",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_weapon2.json",
+      "key": "jackals_blade",
+      "name": "Jackal's Blade",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_wondrous_belt_body_chest.json",
+      "key": "belt_of_trelmarixian",
+      "name": "Belt of Trelmarixian",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_wondrous_head_headband.json",
+      "key": "bridle_of_charon",
+      "name": "Bridle of Charon",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_wondrous_head_headband.json",
+      "key": "mortuary_mask",
+      "name": "Mortuary Mask",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_wondrous_neck.json",
+      "key": "apollyon_clasp",
+      "name": "Apollyon Clasp",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/magic_wondrous_slotless06.json",
+      "key": "szuriels_scabbard",
+      "name": "Szuriel's Scabbard",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
     {
       "path": "json/main.json",
       "key": "ogc",
@@ -75,6 +151,12 @@
     },
     {
       "path": "json/monster_families2.json",
+      "key": "eurypterid",
+      "name": "Eurypterid",
+      "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/monster_families2.json",
       "key": "genie",
       "name": "Genie",
       "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
@@ -90,6 +172,72 @@
       "key": "troll",
       "name": "Troll",
       "reason": "PF2/ORC publication. It is not PF1e OGL content and must not enter the PF1e import path. Tracked in #34."
+    },
+    {
+      "path": "json/prestige_classes.json",
+      "key": "thought_thief_arcane_trickster",
+      "name": "Thought Thief (Arcane Trickster)",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/races2.json",
+      "key": "primitive_human",
+      "name": "Primitive Human",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells10.json",
+      "key": "teratoid_caress",
+      "name": "Teratoid Caress",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/spells13.json",
+      "key": "drench",
+      "name": "Drench",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells16.json",
+      "key": "summon_barghest_1",
+      "name": "Summon Barghest I",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/spells2.json",
+      "key": "breeze",
+      "name": "Breeze",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells3.json",
+      "key": "demon_dream",
+      "name": "Demon Dream",
+      "reason": "Comic publication. Comics are out of scope permanently. Tracked in #34."
+    },
+    {
+      "path": "json/spells6.json",
+      "key": "jolt",
+      "name": "Jolt",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells7.json",
+      "key": "penumbra",
+      "name": "Penumbra",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells8.json",
+      "key": "root",
+      "name": "Root",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
+    },
+    {
+      "path": "json/spells8.json",
+      "key": "scoop",
+      "name": "Scoop",
+      "reason": "Paizo Blog publication. Blog records are ignored for now and tracked in #36."
     }
   ],
   "fixtures": [
@@ -206,48 +354,6 @@
       "imported": true,
       "publications": [
         "Planar Adventures"
-      ],
-      "checks": {
-        "body": true,
-        "exact_source_record": true,
-        "formatting": true,
-        "kind": true,
-        "mechanics": true,
-        "page": true,
-        "publication": true,
-        "references": false
-      },
-      "passed": false
-    },
-    {
-      "name": "Thought Thief",
-      "records": [
-        "json/prestige_classes.json#thought_thief_arcane_trickster"
-      ],
-      "imported": true,
-      "publications": [
-        "Paizo Blog - Hodgepodge from the Grand Lodge"
-      ],
-      "checks": {
-        "body": true,
-        "exact_source_record": true,
-        "formatting": true,
-        "kind": true,
-        "mechanics": true,
-        "page": true,
-        "publication": true,
-        "references": false
-      },
-      "passed": false
-    },
-    {
-      "name": "Apollyon Clasp",
-      "records": [
-        "json/magic_wondrous_neck.json#apollyon_clasp"
-      ],
-      "imported": true,
-      "publications": [
-        "Pathfinder Spiral of Bones #5"
       ],
       "checks": {
         "body": true,
@@ -462,31 +568,6 @@
       "severity": "medium",
       "record": "json/magic_artifact2.json#cradle_of_night",
       "problem": "reference outside bounded sample: umr/fast_healing"
-    },
-    {
-      "severity": "medium",
-      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
-      "problem": "reference outside bounded sample: faith/apollyon"
-    },
-    {
-      "severity": "medium",
-      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
-      "problem": "reference outside bounded sample: family/daemon"
-    },
-    {
-      "severity": "medium",
-      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
-      "problem": "reference outside bounded sample: feat/craft_wondrous_item"
-    },
-    {
-      "severity": "medium",
-      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
-      "problem": "reference outside bounded sample: misc/sickened"
-    },
-    {
-      "severity": "medium",
-      "record": "json/magic_wondrous_neck.json#apollyon_clasp",
-      "problem": "reference outside bounded sample: spell/vomit_swarm"
     },
     {
       "severity": "high",
@@ -990,21 +1071,6 @@
     },
     {
       "severity": "medium",
-      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
-      "problem": "reference outside bounded sample: pclass/arcane_trickster"
-    },
-    {
-      "severity": "medium",
-      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
-      "problem": "reference outside bounded sample: spell/dominate_person"
-    },
-    {
-      "severity": "medium",
-      "record": "json/prestige_classes.json#thought_thief_arcane_trickster",
-      "problem": "reference outside bounded sample: spell/mage_hand"
-    },
-    {
-      "severity": "medium",
       "record": "json/prestige_classes2.json#mortal_usher",
       "problem": "reference outside bounded sample: class/wizard"
     },
@@ -1204,15 +1270,15 @@
       "problem": "reference outside bounded sample: spell/atonement"
     }
   ],
-  "canonical_bytes": 205626,
-  "search_bytes": 87434,
-  "search_checks": 69,
+  "canonical_bytes": 195685,
+  "search_bytes": 82574,
+  "search_checks": 63,
   "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
-    "Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission",
     "Corpus-wide Product Identity screening and source notice reconciliation are incomplete",
     "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated",
+    "Comics are excluded permanently; Paizo Blog records are deferred to issue #36",
     "Conversion still has critical or high findings; see complete diagnostics",
     "Mandatory fixture checks have not all passed"
   ],

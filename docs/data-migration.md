@@ -102,9 +102,10 @@ the primary inventory digest.
 `sources/pathfinder-data-1-e/out-of-scope.json` names publications and records
 that are outside the PF1e OGL scope. The inventory still counts them, the migration
 report lists them, and selection skips them. The initial policy excludes the PF2
-`Monster Core` publication, its seven tagged monster-family records, and the
-`json/main.json#ogc` legal notice that carries ORC text. The pin also hashes the
-ORC and GNU license files so a changed notice fails the source audit.
+`Monster Core` and `Bestiary 3 (2nd Edition)` publications, their eight tagged
+records, the `json/main.json#ogc` legal notice that carries ORC text, and the
+untagged PF2 *Player Core* description in `gnome_flick_mace`. The pin also hashes
+the ORC and GNU license files so a changed notice fails the source audit.
 
 `cargo xtask data-fetch` verifies the archive hash and the individual input hashes
 before activation. The migration commands remain isolated: `data-report` writes
