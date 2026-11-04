@@ -7,3 +7,6 @@ node_modules
 /tests/e2e/playwright-report
 .DS_Store
 __pycache__/
+# Full migration diagnostics are reproducible local artifacts, not source data.
+/reports/migration-full.json
+/reports/migration-full.md

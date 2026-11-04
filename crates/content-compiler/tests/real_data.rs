@@ -13,6 +13,50 @@ fn workspace() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
+/// A scratch copy of the production source layout, so relative supplement paths resolve.
+///
+/// The real `source.toml` points at `../pathfinder-data-1-e` and
+/// `../../.cache/sources/pathfinder-data-1-e`. Both tests copy the config into a
+/// scratch directory, so those trees are linked beside it instead of copied.
+fn production_config(scratch: &Path) -> PathBuf {
+    let repo = scratch.join("repo");
+    let config = repo.join("sources/psrd-data");
+    std::fs::create_dir_all(&config).unwrap();
+    let sources = repo.join("sources");
+    let cache = repo.join(".cache/sources");
+    std::fs::create_dir_all(&cache).unwrap();
+    let links = [
+        (
+            workspace().join("sources/pathfinder-data-1-e"),
+            sources.join("pathfinder-data-1-e"),
+        ),
+        (
+            workspace().join(".cache/sources/pathfinder-data-1-e"),
+            cache.join("pathfinder-data-1-e"),
+        ),
+    ];
+    for (target, link) in links {
+        if !link.exists() {
+            std::os::unix::fs::symlink(&target, &link).unwrap();
+        }
+    }
+    for name in [
+        "source.toml",
+        "legal-notices.json",
+        "id-overrides.toml",
+        "content-policy.toml",
+        "book-order.toml",
+        "upstream-order.json",
+    ] {
+        std::fs::copy(
+            workspace().join("sources/psrd-data").join(name),
+            config.join(name),
+        )
+        .unwrap();
+    }
+    config
+}
+
 /// Turns a upstream HTML string into the plain-text pieces that must appear in the output.
 /// Block-level tags split pieces, so words never merge across paragraphs.
 fn pieces(html: &str) -> Vec<String> {
@@ -174,21 +218,13 @@ fn aasimar_and_fireball_keep_all_of_their_text() {
         eprintln!("skipping: {} is not present", dataset.display());
         return;
     }
-    let scratch = scratch("real-data");
-    let config = scratch.join("config");
-    std::fs::create_dir_all(&config).unwrap();
-    for name in [
-        "source.toml",
-        "legal-notices.json",
-        "id-overrides.toml",
-        "content-policy.toml",
-    ] {
-        std::fs::copy(
-            workspace().join("sources/psrd-data").join(name),
-            config.join(name),
-        )
-        .unwrap();
+    let primary = workspace().join(".cache/sources/pathfinder-data-1-e");
+    if !primary.join("json").is_dir() {
+        eprintln!("skipping: {} is not present", primary.display());
+        return;
     }
+    let scratch = scratch("real-data");
+    let config = production_config(&scratch);
     let mut opts = options(
         &config,
         &dataset,
@@ -317,23 +353,13 @@ fn relationships_and_book_order_hold_on_the_real_library() {
         eprintln!("skipping: {} is not present", dataset.display());
         return;
     }
-    let scratch = scratch("real-relations");
-    let config = scratch.join("config");
-    std::fs::create_dir_all(&config).unwrap();
-    for name in [
-        "source.toml",
-        "legal-notices.json",
-        "id-overrides.toml",
-        "content-policy.toml",
-        "book-order.toml",
-        "upstream-order.json",
-    ] {
-        std::fs::copy(
-            workspace().join("sources/psrd-data").join(name),
-            config.join(name),
-        )
-        .unwrap();
+    let primary = workspace().join(".cache/sources/pathfinder-data-1-e");
+    if !primary.join("json").is_dir() {
+        eprintln!("skipping: {} is not present", primary.display());
+        return;
     }
+    let scratch = scratch("real-relations");
+    let config = production_config(&scratch);
     run(&options(
         &config,
         &dataset,

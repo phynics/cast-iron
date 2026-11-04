@@ -7,6 +7,8 @@ use std::path::Path;
 #[derive(Debug, Clone, Deserialize)]
 pub struct SourceConfig {
     pub dataset: DatasetConfig,
+    #[serde(default)]
+    pub supplement: Option<crate::pf_approved::Config>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

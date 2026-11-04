@@ -13,6 +13,10 @@ path = "src/lib.rs"
 name = "cast-iron-compile"
 path = "src/main.rs"
 
+[[bin]]
+name = "cast-iron-data"
+path = "src/data_main.rs"
+
 [dependencies]
 cast-iron-schema.workspace = true
 cast-iron-search.workspace = true
@@ -22,6 +26,7 @@ sha2.workspace = true
 scraper = "0.29"
 toml = "0.9"
 unicode-normalization = "0.1"
+pulldown-cmark = "0.13"
 
 [lints]
 workspace = true

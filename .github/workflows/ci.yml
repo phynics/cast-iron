@@ -37,13 +37,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Read the pinned dataset commit
+      - name: Read the pinned dataset commits
         id: pin
-        run: echo "commit=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/psrd-data/source.toml)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "commit=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/psrd-data/source.toml)" >> "$GITHUB_OUTPUT"
+          echo "primary=$(python3 -c 'import json; print(json.load(open("sources/pathfinder-data-1-e/source.json"))["commit"])')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         with:
           path: .cache/sources
-          key: psrd-data-${{ steps.pin.outputs.commit }}
+          key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
@@ -62,6 +64,10 @@ jobs:
           echo "first : ${{ steps.first.outputs.hash }}"
           echo "second: $second"
           test "$second" = "${{ steps.first.outputs.hash }}"
+      - name: Audit the complete pinned primary input and representative conversion
+        run: |
+          cargo xtask data-report
+          git diff --exit-code -- reports/migration-coverage.json reports/migration-test.json reports/migration-test.md
       - uses: actions/upload-artifact@v7
         with:
           name: generated

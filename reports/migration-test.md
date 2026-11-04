@@ -1,0 +1,220 @@
+# Migration conversion report
+
+Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
+
+Observed 34530 input records, 42 selected, 23 converted. Canonical data 205540 bytes; search 87434 bytes. 69 search checks; 3 schema errors.
+
+Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
+
+Scope: `representative`. Input digest `cbb609403720d358a92f5c75cbf8d74af776215c8fe329d6cddf3b034a2a6113`.
+
+- Apollyon Clasp: primary OGC designation and Section 15 evidence for Spiral of Bones #5 are not established; comic excerpts are excluded from Community Use permission
+- Corpus-wide Product Identity screening and source notice reconciliation are incomplete
+- Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
+- Conversion still has critical or high findings; see complete diagnostics
+- Mandatory fixture checks have not all passed
+
+Fixture checks:
+
+- Mortal Usher: not passed. Failed checks: references.
+- Golem's Conviction: not passed. Failed checks: references.
+- Cradle of Night: not passed. Failed checks: references.
+- Arcing Weapon: not passed. Failed checks: references.
+- Realm Retribution: not passed. Failed checks: references.
+- Apocalyptic Spell: not passed. Failed checks: references.
+- Thought Thief: not passed. Failed checks: references.
+- Apollyon Clasp: not passed. Failed checks: references.
+
+Findings:
+
+- high: `json/archetypes_COMPANION.json#aberrant_companion`: unsupported encoded replace value on ::ab
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: ability/wild_empathy
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: disease/rabies
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: misc/confused
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: misc/half
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: misc/nauseated
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: misc/sickened
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: spell/crushing_despair
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: spell/freedom_of_movement
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: spell/haste
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: subtype/swarm
+- medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: umr/distraction
+- high: `json/archetypes_COMPANION.json#ambusher`: unsupported encoded replace value on ::ab; unsupported encoded replace value on ::ab
+- high: `json/class_abilities.json#advanced_armor_training`: unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab
+- high: `json/class_abilities.json#advanced_versatile_performances`: unsupported encoded ordering or usage metadata on ::ab
+- high: `json/class_abilities.json#advanced_weapon_training`: unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::fakeFootnotes; unsupported or malformed inline directive @FN; unsupported or malformed inline directive @FN
+- high: `json/classes.json#alchemist`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action
+- high: `json/classes.json#antipaladin`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions
+- high: `json/classes.json#arcanist`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::h3; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unknown attribute jl on ::h3; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unknown attribute jl on ::h3; unsupported directive ::hl3; unsupported directive ::classoptions
+- high: `json/equipment_alchemical_reagents.json#acid`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
+- high: `json/equipment_alchemical_reagents.json#alchemical_grease`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
+- high: `json/equipment_alchemical_reagents.json#alchemists_fire`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
+- medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: blrgbloodline/aberrant
+- medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: discovery/tumor_familiar
+- medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: sorcbloodline/aberrant
+- medium: `json/feat01.json#aberration_bane_caster`: reference outside bounded sample: ability/favored_enemy
+- medium: `json/feat01.json#aberration_bane_caster`: reference outside bounded sample: race/gillman
+- medium: `json/feat01.json#abeyance`: reference outside bounded sample: rule/feats_class
+- medium: `json/feat01.json#apocalyptic_spell`: reference outside bounded sample: rule/difficult_terrain
+- medium: `json/feat01.json#arcing_weapon`: reference outside bounded sample: class/magus
+- medium: `json/feat01.json#arcing_weapon`: reference outside bounded sample: spell/scorching_ray
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: feat/improved_iron_will
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: feat/iron_will
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: misc/staggered
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: misc/total_defense
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: spell/dominate_person
+- medium: `json/feat07.json#golems_conviction`: reference outside bounded sample: spell/hideous_laughter
+- medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: magic-artifact/sphere_of_annihilation
+- medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: rule/shadowbound
+- medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: umr/fast_healing
+- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: faith/apollyon
+- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: family/daemon
+- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: feat/craft_wondrous_item
+- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: misc/sickened
+- medium: `json/magic_wondrous_neck.json#apollyon_clasp`: reference outside bounded sample: spell/vomit_swarm
+- high: `json/monsters01.json#aashaqs_wyvern`: unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco; unsupported semantic renderer for directive ::aff
+- high: `json/monsters01.json#aasimar`: unsupported encoded skills values on ::mstats; unsupported coded treasure value on ::meco
+- high: `json/monsters01.json#aatheriexa`: unknown attribute month on ::mspell; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/artisans_tools_mwk
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/everburning_torch
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/fishing_net
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-weapon/sling
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: feat/point_blank_shot
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: feat/skill_focus
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: npcclass/commoner
+- medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: spell/cure_light_wounds
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-armor/studded_leather
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-material/silver
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/guard_dog
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/healers_kit
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/silver_holy_symbol
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/smokestick
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/spell_component_pouch
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-misc/tindertwig
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-weapon/alchemists_fire
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-weapon/dagger
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: eq-weapon/morningstar
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: feat/skill_focus
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: feat/toughness
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: npcclass/adept
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/bless
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/cure_light_wounds
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/guidance
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/light
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/mending
+- medium: `json/npcs.json#acolyte`: reference outside bounded sample: spell/sleep
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: rule/whispering_way
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/bluff
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/heal
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/intimidate
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/knowledge_arcana
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/knowledge_history
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/knowledge_religion
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/linguistics
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/spellcraft
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: skill/use_magic_device
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/animate_dead
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/animate_dead
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/charm_person
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/confusion
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/deathwatch
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/desecrate
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/enervation
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/inflict_critical_wounds
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/magic_jar
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/nondetection
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/slay_living
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/undetectable_alignment
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: spell/vampiric_touch
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: template/lich
+- medium: `json/prestige_classes.json#agent_of_the_grave`: reference outside bounded sample: template/vampire
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: arc-fighter/aldori_defender
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/aldori_dueling_mastery
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/combat_expertise
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/dazzling_display
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/exotic_weapon_proficiency
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/greater_weapon_focus
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/greater_weapon_specialization
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/improved_critical
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/quick_draw
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/weapon_finesse
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: feat/weapon_specialization
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: magic-enh/fortification
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: main/combat_feat
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: rule/aldori_swordlords
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: rule/dueling_parry
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: rule/dueling_resolve
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: rule/performance_combat
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/acrobatics
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/bluff
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/diplomacy
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/intimidate
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/knowledge_nobility
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/perform
+- medium: `json/prestige_classes.json#aldori_swordlord`: reference outside bounded sample: skill/sense_motive
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: feat/point_blank_shot
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: feat/precise_shot
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/anarchic
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/axiomatic
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/distance
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/flaming
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/flaming_burst
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/frost
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/holy
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/icy_burst
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/shock
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/shocking_burst
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: magic-enh/unholy
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/perception
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/ride
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/stealth
+- medium: `json/prestige_classes.json#arcane_archer`: reference outside bounded sample: skill/survival
+- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: pclass/arcane_trickster
+- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: spell/dominate_person
+- medium: `json/prestige_classes.json#thought_thief_arcane_trickster`: reference outside bounded sample: spell/mage_hand
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: class/wizard
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/psychopomp
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: family/qlippoth
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: feat/improved_vital_strike
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: feat/vital_strike
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/brilliant_energy
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/disruption
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/flaming
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/flaming_burst
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/frost
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/holy
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/icy_burst
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/shock
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/shocking_burst
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/unholy
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: magic-enh/vorpal
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: monster/nosoi
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: rule/concentration
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/bluff
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/diplomacy
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/fly
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/intimidate
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/knowledge_planes
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/knowledge_religion
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/perception
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/sense_motive
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: skill/use_magic_device
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/antimagic_field
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/calm_emotions
+- medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/invisibility
+- high: `json/prestige_classes2.json#mortal_usher`: unresolved reference: class/alchemist
+- high: `json/races.json#aasimar`: unknown attribute jl on ::h3; unknown attribute jl on ::h3; unknown attribute jl on ::h3; unsupported directive ::rtraits
+- high: `json/races.json#adaro`: unsupported directive ::rtraits
+- high: `json/races.json#android`: unknown attribute jl on ::h3; unsupported directive ::rtraits; unknown attribute jl on ::h3
+- high: `json/rules_adv_gm01.json#advanced_gm_topics`: missing name or publication metadata
+- medium: `json/spells.json#abeyance`: reference outside bounded sample: spell/remove_curse
+- high: `json/spells.json#abjuring_step`: spell directive has no saving throw
+- medium: `json/spells8.json#realm_retribution`: reference outside bounded sample: spell/plane_shift
+- medium: `json/traits01.json#absolute_loyalty`: reference outside bounded sample: spell/atonement
+- critical: `pf-data/trait/abject-belief`: typed fields do not match the entry kind
+- critical: `pf-data/trait/absalom-bouncer`: typed fields do not match the entry kind
+- critical: `pf-data/trait/absolute-loyalty`: typed fields do not match the entry kind

@@ -9,6 +9,12 @@ const HELP: &str = "\
 cargo xtask <command>
 
   fetch-sources              Download the pinned PSRD-Data commit into .cache/sources/psrd-data
+  data-fetch                 Download the pinned Pathfinder Data 1e archive into .cache/sources/pathfinder-data-1-e
+  data-audit                 Audit the Pathfinder Data 1e source
+  data-import                Import the Pathfinder Data 1e source
+  data-validate              Validate the Pathfinder Data 1e source
+  data-report                Report Pathfinder Data 1e migration coverage
+  data-test                  Test the importer and Pathfinder Data 1e source
   content                    Compile content into generated/content and generated/reports
   build-site [--public-url P]  Compile content when missing, build the app, and write dist/
                              The default public URL is /cast-iron/, the GitHub Pages project path
@@ -22,6 +28,12 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
         Some("fetch-sources") => fetch_sources(),
+        Some("data-fetch") => data_fetch(),
+        Some("data-audit") => data_tool("audit"),
+        Some("data-import") => data_tool("import"),
+        Some("data-validate") => data_tool("validate"),
+        Some("data-report") => data_tool("report"),
+        Some("data-test") => data_test(),
         Some("content") => content(),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist")),
@@ -79,6 +91,11 @@ fn toml_string(text: &str, key: &str) -> Option<String> {
 }
 
 fn fetch_sources() -> Result {
+    fetch_legacy_sources()?;
+    data_fetch()
+}
+
+fn fetch_legacy_sources() -> Result {
     let config = fs::read_to_string(root().join("sources/psrd-data/source.toml"))
         .map_err(|e| format!("cannot read source.toml: {e}"))?;
     let commit = toml_string(&config, "commit").ok_or("source.toml has no commit")?;
@@ -105,6 +122,158 @@ fn fetch_sources() -> Result {
     // The compiler verifies input_digest, so a changed archive fails the content step.
     fs::write(&stamp, &commit).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn data_fetch() -> Result {
+    let repo = root();
+    let config_path = repo.join("sources/pathfinder-data-1-e/source.json");
+    let config: serde_json::Value = serde_json::from_slice(
+        &fs::read(&config_path)
+            .map_err(|e| format!("cannot read {}: {e}", config_path.display()))?,
+    )
+    .map_err(|e| format!("invalid source.json: {e}"))?;
+    let string_field = |key: &str| -> Result<String> {
+        config
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.is_empty())
+            .map(str::to_owned)
+            .ok_or_else(|| format!("source.json has no valid {key}"))
+    };
+    let commit = string_field("commit")?;
+    let repository = string_field("repository")?;
+    let expected = string_field("archive_sha256")?.to_ascii_lowercase();
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("source.json archive_sha256 must be 64 hexadecimal characters".into());
+    }
+    let repo_url = repository.trim_end_matches('/');
+    let (owner, name) = repo_url
+        .strip_prefix("https://github.com/")
+        .ok_or("source.json repository must be an https://github.com/ URL")?
+        .split_once('/')
+        .ok_or("source.json repository must include an owner and repository")?;
+    if owner.is_empty() || name.is_empty() || name.contains('/') || commit.contains('/') {
+        return Err("source.json repository or commit is invalid".into());
+    }
+
+    let target = repo.join(".cache/sources/pathfinder-data-1-e");
+    let parent = target.parent().ok_or("invalid cache target")?;
+    fs::create_dir_all(parent).map_err(|e| format!("cannot create cache parent: {e}"))?;
+    let files = config
+        .get("files")
+        .and_then(serde_json::Value::as_object)
+        .ok_or("source.json has no input hashes")?;
+    if files.is_empty() {
+        return Err("source.json input hashes are empty".into());
+    }
+    let cache_verified = files.iter().all(|(path, expected)| {
+        !path.starts_with('/')
+            && !path.split('/').any(|p| p == "..")
+            && fs::read(target.join(path))
+                .is_ok_and(|bytes| Some(hex(&Sha256::digest(&bytes)).as_str()) == expected.as_str())
+    });
+    if target.join("json").is_dir()
+        && fs::read_to_string(target.join(".commit")).is_ok_and(|found| found == commit)
+        && cache_verified
+    {
+        println!("Pathfinder Data 1e {commit} is already present");
+        return Ok(());
+    }
+
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    );
+    let stage = parent.join(format!(".pathfinder-data-1-e-stage-{unique}"));
+    let archive = parent.join(format!(".pathfinder-data-1-e-{unique}.tar.gz"));
+    let url = format!("https://codeload.github.com/{owner}/{name}/tar.gz/{commit}");
+    let archive_str = archive.to_str().ok_or("non-UTF-8 archive path")?;
+    let operation = (|| -> Result {
+        run("curl", &["-fsSL", "--retry", "3", "-o", archive_str, &url])?;
+        let bytes =
+            fs::read(&archive).map_err(|e| format!("cannot read downloaded archive: {e}"))?;
+        let actual = hex(&Sha256::digest(&bytes));
+        if actual != expected {
+            return Err(format!(
+                "archive SHA256 mismatch: expected {expected}, got {actual}"
+            ));
+        }
+        fs::create_dir(&stage).map_err(|e| format!("cannot create staging directory: {e}"))?;
+        let stage_str = stage.to_str().ok_or("non-UTF-8 staging path")?;
+        run(
+            "tar",
+            &["xzf", archive_str, "--strip-components=1", "-C", stage_str],
+        )?;
+        if !stage.join("json").is_dir() {
+            return Err(
+                "downloaded archive does not contain the expected root json/ directory".into(),
+            );
+        }
+        fs::write(stage.join(".commit"), &commit)
+            .map_err(|e| format!("cannot write cache stamp: {e}"))?;
+        Ok(())
+    })();
+    let _ = fs::remove_file(&archive);
+    if let Err(error) = operation {
+        let _ = fs::remove_dir_all(&stage);
+        return Err(error);
+    }
+
+    let backup = parent.join(format!(".pathfinder-data-1-e-old-{unique}"));
+    let had_target = target.exists();
+    if had_target {
+        fs::rename(&target, &backup).map_err(|e| format!("cannot preserve existing cache: {e}"))?;
+    }
+    if let Err(error) = fs::rename(&stage, &target) {
+        if had_target {
+            let _ = fs::rename(&backup, &target);
+        }
+        let _ = fs::remove_dir_all(&stage);
+        return Err(format!("cannot activate downloaded cache: {error}"));
+    }
+    if had_target {
+        fs::remove_dir_all(&backup)
+            .map_err(|e| format!("new cache is active but old cache cleanup failed: {e}"))?;
+    }
+    println!("Fetched Pathfinder Data 1e {commit}");
+    Ok(())
+}
+
+fn data_tool(command: &str) -> Result {
+    run_data_binary(command)
+}
+
+fn run_data_binary(command: &str) -> Result {
+    run(
+        "cargo",
+        &[
+            "run",
+            "--release",
+            "-p",
+            "cast-iron-content-compiler",
+            "--bin",
+            "cast-iron-data",
+            "--",
+            command,
+            "--dataset",
+            ".cache/sources/pathfinder-data-1-e",
+            "--registry",
+            "sources/pathfinder-data-1-e/source.json",
+            "--out",
+            "generated/migration",
+            "--reports",
+            "reports",
+        ],
+    )
+}
+
+fn data_test() -> Result {
+    run("cargo", &["test", "-p", "cast-iron-content-compiler"])?;
+    run_data_binary("test")
 }
 
 fn content() -> Result {
