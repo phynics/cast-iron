@@ -5,51 +5,70 @@
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "input_records": 34530,
   "selected_records": 40,
-  "imported_records": 25,
+  "imported_records": 41,
   "by_kind": {
     "affliction": 1,
-    "archetype": 1,
-    "creature": 2,
+    "archetype": 3,
+    "class": 3,
+    "creature": 5,
     "feat": 6,
-    "item": 1,
+    "item": 4,
     "prestige_class": 4,
     "race": 3,
-    "rule": 1,
-    "spell": 3,
+    "rule": 5,
+    "spell": 4,
     "trait": 3
   },
   "by_publication": {
-    "advanced-class-guide": 1,
+    "advanced-class-guide": 2,
     "advanced-class-origins": 1,
-    "advanced-race-guide": 1,
+    "advanced-players-guide": 3,
+    "advanced-race-guide": 3,
+    "adventurers-armory": 3,
     "adventurers-guide": 1,
-    "bestiary-5": 1,
+    "armor-masters-handbook": 1,
+    "bestiary-5": 2,
     "blood-of-angels": 1,
-    "blood-of-the-sea": 2,
-    "chronicle-of-legends": 2,
+    "blood-of-shadows": 2,
+    "blood-of-the-beast": 5,
+    "blood-of-the-sea": 3,
+    "chronicle-of-legends": 5,
     "cradle-of-night": 1,
     "druma-profit-and-prophecy": 1,
     "faiths-and-philosophies": 1,
+    "goblins-of-golarion": 1,
     "gods-and-magic": 1,
+    "heroes-of-golarion": 2,
+    "horror-adventures": 1,
     "horror-realms": 1,
     "inner-sea-bestiary": 1,
     "inner-sea-gods": 1,
     "inner-sea-races": 2,
     "iron-gods-players-guide": 1,
-    "isles-of-the-shackles": 1,
+    "isles-of-the-shackles": 2,
     "knights-of-the-inner-sea": 1,
-    "magic-tactics-toolbox": 1,
+    "legacy-of-the-first-world": 1,
+    "magic-tactics-toolbox": 2,
     "npc-codex": 2,
+    "occult-realms": 1,
     "pathfinder-144-midwives-to-death": 1,
+    "pathfinder-30-the-twice-damned-prince": 1,
     "pathfinder-45-broken-moon": 1,
     "pathfinder-8-seven-days-to-the-grave": 1,
     "pathfinder-82-secrets-of-the-sphinx": 1,
-    "pathfinder-rpg-bestiary": 1,
+    "pathfinder-rpg-bestiary": 2,
+    "pathfinder-unchained": 1,
     "paths-of-prestige": 1,
     "people-of-the-stars": 1,
     "planar-adventures": 1,
+    "plane-hoppers-handbook": 3,
     "prpg-core-rulebook": 1,
-    "ultimate-wilderness": 1
+    "ultimate-campaign": 1,
+    "ultimate-combat": 2,
+    "ultimate-equipment": 1,
+    "ultimate-intrigue": 1,
+    "ultimate-wilderness": 5,
+    "weapon-masters-handbook": 1
   },
   "derived_records": 1,
   "derived_by_kind": {
@@ -386,9 +405,19 @@
   ],
   "findings": [
     {
-      "severity": "high",
+      "severity": "medium",
       "record": "json/archetypes_COMPANION.json#aberrant_companion",
-      "problem": "unsupported encoded replace value on ::ab"
+      "problem": "reference outside bounded sample: rule/wisdom_damage"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#aberrant_companion",
+      "problem": "reference outside bounded sample: spell/charm_animal"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#aberrant_companion",
+      "problem": "reference outside bounded sample: umr/compression"
     },
     {
       "severity": "medium",
@@ -446,54 +475,1589 @@
       "problem": "reference outside bounded sample: umr/distraction"
     },
     {
-      "severity": "high",
+      "severity": "medium",
       "record": "json/archetypes_COMPANION.json#ambusher",
-      "problem": "unsupported encoded replace value on ::ab; unsupported encoded replace value on ::ab"
+      "problem": "reference outside bounded sample: ability/uncanny_dodge"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#ambusher",
+      "problem": "reference outside bounded sample: rule/concealment"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#ambusher",
+      "problem": "reference outside bounded sample: rule/cover"
+    },
+    {
+      "severity": "medium",
+      "record": "json/archetypes_COMPANION.json#ambusher",
+      "problem": "reference outside bounded sample: rule/flat_footed"
+    },
+    {
+      "severity": "medium",
       "record": "json/class_abilities.json#advanced_armor_training",
-      "problem": "unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab"
+      "problem": "HTML conversion: ab_jump_list_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: eq-armor/chain_shirt"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: eq-armor/scale_mail"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: eq-material/adamantine"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: eq-material/mithral"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: feat/advanced_armor_training"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: feat/craft_magic_arms_and_armor"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: feat/master_craftsman"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: feat/run"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: main/feats_armor_mastery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: main/feats_shield_mastery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: misc/helpless"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: misc/one_quarter"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: misc/stunned"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: misc/unconscious"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: rule/combat_maneuvers"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: rule/don_armor"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_armor_training",
+      "problem": "reference outside bounded sample: rule/grapple"
+    },
+    {
+      "severity": "medium",
       "record": "json/class_abilities.json#advanced_versatile_performances",
-      "problem": "unsupported encoded ordering or usage metadata on ::ab"
+      "problem": "HTML conversion: ab_order_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: ability/bardic_masterpieces"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: ability/weapon_groups"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: class/bard"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: class/skald"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_versatile_performances",
+      "problem": "reference outside bounded sample: race/kitsune"
+    },
+    {
+      "severity": "medium",
       "record": "json/class_abilities.json#advanced_weapon_training",
-      "problem": "unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::fakeFootnotes; unsupported or malformed inline directive @FN; unsupported or malformed inline directive @FN"
+      "problem": "HTML conversion: ab_jump_list_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "HTML conversion: fake_footnotes_container"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: ability/weapon_groups"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: class/warpriest"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/combat_stamina"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/dazzling_display"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/extra_stamina"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/quick_draw"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/stunning_fist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/throw_anything"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/weapon_finesse"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/weapon_finesse"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: feat/weapon_specialization"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: main/feats_item_mastery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: main/feats_weapon_mastery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: main/magic_enhancements"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: misc/frightened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: misc/panicked"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: misc/shaken"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: rule/combat_maneuvers"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: rule/fighting_with_two_weapons"
+    },
+    {
+      "severity": "medium",
+      "record": "json/class_abilities.json#advanced_weapon_training",
+      "problem": "reference outside bounded sample: rule/flat_footed"
+    },
+    {
+      "severity": "medium",
       "record": "json/classes.json#alchemist",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action"
+      "problem": "HTML conversion: ab_jump_list_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: aside_container"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: class_options_external_list:alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: icon_directive:@I-boost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "HTML conversion: linked_heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: ability/annointings"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: ability/discovery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: ability/grand_discovery"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/aerochemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/alchemical_sapper"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/alchemical_trapper"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/aquachymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/beastmorph"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/blazing_torchbearer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/blightseeker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/blood_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/bogborn_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/bramble_brewer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/chirurgeon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/clone_master"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/concocter"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/construct_rider"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/crimson_chymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/cruorchymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/crypt_breaker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/deep_bomber"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/dimensional_excavator"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/dragonblood_chymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/ectochymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/ectoplasm_master"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/eldritch_poisoner"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/energist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/energy_scientist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/fermenter"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/fire_bomber"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/first_world_innovator"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/gloom_chymist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/grenadier"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/grenadier_mc"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/gun_chemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/herbalist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/homunculist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/horticulturist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/ice_chemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/inspired_chemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/internal_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/interrogator"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/mad_scientist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/metamorph"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/mindchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/mixologist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/mnemostiller"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/oenopion_researcher"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/oozemaster"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/perfumer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/plague_bringer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/preservationist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/promethean_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/psychonaut"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/ragechemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/reanimator"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/royal_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/saboteur"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/sacrament_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/tinkerer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/toxicant"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/trap_breaker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/vaultbreaker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/vivisectionist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/wasteland_blightbreaker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: arc-alchemist/winged_marauder"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: discovery/infusion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: feat/brew_potion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: feat/point_blank_shot"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: feat/throw_anything"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: feat/vital_strike"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: feat/weapon_focus"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: main/spells_alchemist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: misc/nauseated"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: misc/spell_completion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: misc/spell_trigger"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: rule/adding_spells_to_a_wizards_spellbook"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: rule/determine_bonuses"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: rule/determine_bonuses"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: rule/throw_splash_weapon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: spell/detect_magic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#alchemist",
+      "problem": "reference outside bounded sample: spell/dispel_magic"
+    },
+    {
+      "severity": "medium",
       "record": "json/classes.json#antipaladin",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions"
+      "problem": "HTML conversion: ab_jump_list_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: ab_structural_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: aside_container"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: class_options_external_list:antipaladin"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: icon_directive:@I-boost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "HTML conversion: linked_heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: ability/channel_negative_energy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: ability/lay_on_hands"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: ability/variant_channeling"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/blighted_myrmidon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/dread_vanguard"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/fearmonger"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/insinuator"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/iron_tyrant"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/knight_of_the_sepulcher"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/rough_rampager"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/seal_breaker"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: arc-antipaladin/tyrant"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: class/cleric"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: class/paladin"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: class/paladin"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: eq-misc/torch"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: feat/extra_lay_on_hands"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: feat/leadership"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/anarchic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/flaming"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/flaming_burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/keen"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/speed"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/unholy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/vicious"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/vorpal"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: magic-enh/wounding"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: main/antipaladin_spell"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/blinded"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/burst"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/dazed"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/deafened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/exhausted"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/fatigued"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/frightened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/nauseated"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/shaken"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/sickened"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/staggered"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: misc/stunned"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: rule/bonus_spells"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: rule/damage_reduction"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: rule/paralyzed"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/atonement"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/atonement"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/banishment"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/bestow_curse"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/contagion"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/detect_evil"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/detect_good"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/poison"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: spell/summon_monster_iii"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: subtype/chaotic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: subtype/evil"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: subtype/good"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: template/advanced"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: template/fiendish"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: type/dragon"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#antipaladin",
+      "problem": "reference outside bounded sample: type/outsider"
+    },
+    {
+      "severity": "medium",
       "record": "json/classes.json#arcanist",
-      "problem": "unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions"
+      "problem": "HTML conversion: ab_jump_list_metadata"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: ab_jump_list_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: ab_order_metadata"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: aside_container"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: class_options_external_list:arcanist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: icon_directive:@I-boost"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "HTML conversion: linked_heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: ability/exploits"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: ability/greater_exploits"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: ability/outer_rifts_exploits"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: class/sorcerer"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: class/wizard"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: exploit/metamixing"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: main/metamagic_feat"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: main/spells_arcanist"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: misc/half"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: rule/arcane_magical_writing"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: rule/arcane_spells_and_armor"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: rule/bonus_spells"
+    },
+    {
+      "severity": "medium",
+      "record": "json/classes.json#arcanist",
+      "problem": "reference outside bounded sample: spell/read_magic"
+    },
+    {
+      "severity": "medium",
       "record": "json/equipment_alchemical_reagents.json#acid",
-      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+      "problem": "reference outside bounded sample: feat/improved_counterspell"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/acid_arrow"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/acid_fog"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/acid_splash"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/acid_splash"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/dispel_magic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/grease"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/greater_dispel_magic"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#acid",
+      "problem": "reference outside bounded sample: spell/wall_of_ice"
+    },
+    {
+      "severity": "medium",
       "record": "json/equipment_alchemical_reagents.json#alchemical_grease",
-      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+      "problem": "reference outside bounded sample: spell/grease"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemical_grease",
+      "problem": "reference outside bounded sample: spell/sleet_storm"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemical_grease",
+      "problem": "reference outside bounded sample: spell/wall_of_iron"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemical_grease",
+      "problem": "reference outside bounded sample: spell/wall_of_stone"
+    },
+    {
+      "severity": "medium",
       "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
-      "problem": "unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll"
+      "problem": "reference outside bounded sample: spell/burning_hands"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/fireball"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/flaming_sphere"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/protection_from_energy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/resist_energy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/scorching_ray"
+    },
+    {
+      "severity": "medium",
+      "record": "json/equipment_alchemical_reagents.json#alchemists_fire",
+      "problem": "reference outside bounded sample: spell/scorching_ray"
     },
     {
       "severity": "medium",
@@ -588,22 +2152,82 @@
     {
       "severity": "medium",
       "record": "json/monsters01.json#aashaqs_wyvern",
-      "problem": "derived record ref/affliction/aashaqs-wyvern/poison-ex was built without its host entry; host conversion is still blocked"
+      "problem": "HTML conversion: hr"
     },
     {
-      "severity": "high",
+      "severity": "medium",
       "record": "json/monsters01.json#aashaqs_wyvern",
-      "problem": "unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco"
+      "problem": "reference outside bounded sample: monster/wyvern"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/monsters01.json#aashaqs_wyvern",
+      "problem": "reference outside bounded sample: spell/glitterdust"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aashaqs_wyvern",
+      "problem": "reference outside bounded sample: umr/grab"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aashaqs_wyvern",
+      "problem": "reference outside bounded sample: umr/hold_breath"
+    },
+    {
+      "severity": "medium",
       "record": "json/monsters01.json#aasimar",
-      "problem": "unsupported encoded skills values on ::mstats; unsupported coded treasure value on ::meco"
+      "problem": "HTML conversion: hr"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/monsters01.json#aasimar",
+      "problem": "reference outside bounded sample: class/cleric"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aasimar",
+      "problem": "reference outside bounded sample: domain/good"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aasimar",
+      "problem": "reference outside bounded sample: domain/healing"
+    },
+    {
+      "severity": "medium",
       "record": "json/monsters01.json#aatheriexa",
-      "problem": "unknown attribute month on ::mspell; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco"
+      "problem": "HTML conversion: hr"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: rule/strength_damage"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: umr/compression"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: umr/grab"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: umr/no_breath"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: umr/telepathy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/monsters01.json#aatheriexa",
+      "problem": "reference outside bounded sample: umr/unnatural_aura"
     },
     {
       "severity": "medium",
@@ -1246,24 +2870,54 @@
       "problem": "reference outside bounded sample: spell/invisibility"
     },
     {
-      "severity": "high",
-      "record": "json/prestige_classes2.json#mortal_usher",
-      "problem": "unresolved reference: class/alchemist"
+      "severity": "medium",
+      "record": "json/races.json#aasimar",
+      "problem": "HTML conversion: heading_jump_list"
     },
     {
-      "severity": "high",
+      "severity": "medium",
+      "record": "json/races.json#aasimar",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#aasimar",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#aasimar",
+      "problem": "reference outside bounded sample: spell/daylight"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#android",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#android",
+      "problem": "HTML conversion: heading_jump_list"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#android",
+      "problem": "reference outside bounded sample: ability/favored_enemy"
+    },
+    {
+      "severity": "medium",
+      "record": "json/races.json#android",
+      "problem": "reference outside bounded sample: magic-enh/bane"
+    },
+    {
+      "severity": "medium",
       "record": "json/rules_adv_gm01.json#advanced_gm_topics",
-      "problem": "missing name or publication metadata"
+      "problem": "publication metadata absent; derived from subtopic records"
     },
     {
       "severity": "medium",
       "record": "json/spells.json#abeyance",
       "problem": "reference outside bounded sample: spell/remove_curse"
-    },
-    {
-      "severity": "high",
-      "record": "json/spells.json#abjuring_step",
-      "problem": "spell directive has no saving throw"
     },
     {
       "severity": "medium",
@@ -1276,16 +2930,15 @@
       "problem": "reference outside bounded sample: spell/atonement"
     }
   ],
-  "canonical_bytes": 277528,
-  "search_bytes": 110502,
-  "search_checks": 77,
+  "canonical_bytes": 1148088,
+  "search_bytes": 200183,
+  "search_checks": 125,
   "schema_errors": 0,
   "publication_ready": false,
   "cutover_blockers": [
     "Corpus-wide Product Identity screening and source notice reconciliation are incomplete",
     "Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated",
     "Comics are excluded permanently; Paizo Blog records are deferred to issue #36",
-    "Conversion still has critical or high findings; see complete diagnostics",
     "Mandatory fixture checks have not all passed"
   ],
   "browser_verification": "not run; isolated compiler experiment"

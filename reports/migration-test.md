@@ -2,7 +2,7 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 40 selected, 25 converted. Canonical data 277528 bytes; search 110502 bytes. 77 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 41 converted. Canonical data 1148088 bytes; search 200183 bytes. 125 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
@@ -13,7 +13,6 @@ Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivatio
 - Corpus-wide Product Identity screening and source notice reconciliation are incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
 - Comics are excluded permanently; Paizo Blog records are deferred to issue #36
-- Conversion still has critical or high findings; see complete diagnostics
 - Mandatory fixture checks have not all passed
 
 Out-of-scope input, excluded before selection:
@@ -63,7 +62,9 @@ Fixture checks:
 
 Findings:
 
-- high: `json/archetypes_COMPANION.json#aberrant_companion`: unsupported encoded replace value on ::ab
+- medium: `json/archetypes_COMPANION.json#aberrant_companion`: reference outside bounded sample: rule/wisdom_damage
+- medium: `json/archetypes_COMPANION.json#aberrant_companion`: reference outside bounded sample: spell/charm_animal
+- medium: `json/archetypes_COMPANION.json#aberrant_companion`: reference outside bounded sample: umr/compression
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: ability/wild_empathy
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: disease/rabies
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: misc/confused
@@ -75,16 +76,323 @@ Findings:
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: spell/haste
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: subtype/swarm
 - medium: `json/archetypes_COMPANION.json#accursed_companion`: reference outside bounded sample: umr/distraction
-- high: `json/archetypes_COMPANION.json#ambusher`: unsupported encoded replace value on ::ab; unsupported encoded replace value on ::ab
-- high: `json/class_abilities.json#advanced_armor_training`: unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab
-- high: `json/class_abilities.json#advanced_versatile_performances`: unsupported encoded ordering or usage metadata on ::ab
-- high: `json/class_abilities.json#advanced_weapon_training`: unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::fakeFootnotes; unsupported or malformed inline directive @FN; unsupported or malformed inline directive @FN
-- high: `json/classes.json#alchemist`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute increment on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions; unsupported or malformed inline directive @HLswift_action
-- high: `json/classes.json#antipaladin`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute incrementOrd on ::ab; unknown attribute jl on ::ab; unknown attribute provokes on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported encoded ordering or usage metadata on ::ab; unknown attribute incrementMax on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions
-- high: `json/classes.json#arcanist`: unsupported directive ::class; unsupported directive ::prof; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::aside; unknown attribute jl on ::ab; unknown attribute jl on ::ab; unsupported directive ::altCapstoneDesc; unsupported directive ::altCapstone; unsupported directive ::archetypeDesc; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported semantic renderer for directive ::archetype; unsupported directive ::hl3; unsupported directive ::classoptions
-- high: `json/equipment_alchemical_reagents.json#acid`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
-- high: `json/equipment_alchemical_reagents.json#alchemical_grease`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
-- high: `json/equipment_alchemical_reagents.json#alchemists_fire`: unsupported directive ::tabular; unsupported directive ::hl3; unsupported directive ::tabular; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll; unsupported or malformed inline directive @hll
+- medium: `json/archetypes_COMPANION.json#ambusher`: reference outside bounded sample: ability/uncanny_dodge
+- medium: `json/archetypes_COMPANION.json#ambusher`: reference outside bounded sample: rule/concealment
+- medium: `json/archetypes_COMPANION.json#ambusher`: reference outside bounded sample: rule/cover
+- medium: `json/archetypes_COMPANION.json#ambusher`: reference outside bounded sample: rule/flat_footed
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: eq-armor/chain_shirt
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: eq-armor/scale_mail
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: eq-material/adamantine
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: eq-material/mithral
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: feat/advanced_armor_training
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: feat/craft_magic_arms_and_armor
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: feat/master_craftsman
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: feat/run
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: main/feats_armor_mastery
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: main/feats_shield_mastery
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: misc/helpless
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: misc/one_quarter
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: misc/stunned
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: misc/unconscious
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: rule/combat_maneuvers
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: rule/don_armor
+- medium: `json/class_abilities.json#advanced_armor_training`: reference outside bounded sample: rule/grapple
+- medium: `json/class_abilities.json#advanced_versatile_performances`: HTML conversion: ab_order_metadata
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: ability/bardic_masterpieces
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: ability/weapon_groups
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: class/bard
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: class/skald
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/class_abilities.json#advanced_versatile_performances`: reference outside bounded sample: race/kitsune
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_jump_list_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_order_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_structural_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: ab_structural_metadata
+- medium: `json/class_abilities.json#advanced_weapon_training`: HTML conversion: fake_footnotes_container
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: ability/weapon_groups
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: class/warpriest
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/combat_stamina
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/dazzling_display
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/extra_stamina
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/quick_draw
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/stunning_fist
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/throw_anything
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/weapon_finesse
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/weapon_finesse
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: feat/weapon_specialization
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: main/feats_item_mastery
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: main/feats_weapon_mastery
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: main/magic_enhancements
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: misc/frightened
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: misc/half
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: misc/panicked
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: misc/shaken
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: rule/combat_maneuvers
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: rule/fighting_with_two_weapons
+- medium: `json/class_abilities.json#advanced_weapon_training`: reference outside bounded sample: rule/flat_footed
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#alchemist`: HTML conversion: aside_container
+- medium: `json/classes.json#alchemist`: HTML conversion: class_options_external_list:alchemist
+- medium: `json/classes.json#alchemist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#alchemist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#alchemist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#alchemist`: HTML conversion: icon_directive:@I-boost
+- medium: `json/classes.json#alchemist`: HTML conversion: linked_heading_jump_list
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: ability/annointings
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: ability/discovery
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: ability/grand_discovery
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/aerochemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/alchemical_sapper
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/alchemical_trapper
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/aquachymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/beastmorph
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/blazing_torchbearer
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/blightseeker
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/blood_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/bogborn_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/bramble_brewer
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/chirurgeon
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/clone_master
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/concocter
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/construct_rider
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/crimson_chymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/cruorchymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/crypt_breaker
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/deep_bomber
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/dimensional_excavator
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/dragonblood_chymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/ectochymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/ectoplasm_master
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/eldritch_poisoner
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/energist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/energy_scientist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/fermenter
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/fire_bomber
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/first_world_innovator
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/gloom_chymist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/grenadier
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/grenadier_mc
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/gun_chemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/herbalist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/homunculist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/horticulturist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/ice_chemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/inspired_chemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/internal_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/interrogator
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/mad_scientist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/metamorph
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/mindchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/mixologist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/mnemostiller
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/oenopion_researcher
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/oozemaster
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/perfumer
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/plague_bringer
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/preservationist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/promethean_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/psychonaut
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/ragechemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/reanimator
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/royal_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/saboteur
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/sacrament_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/tinkerer
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/toxicant
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/trap_breaker
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/vaultbreaker
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/vivisectionist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/wasteland_blightbreaker
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: arc-alchemist/winged_marauder
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: discovery/infusion
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: feat/brew_potion
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: feat/point_blank_shot
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: feat/throw_anything
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: feat/vital_strike
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: feat/weapon_focus
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: main/spells_alchemist
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: misc/half
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: misc/nauseated
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: misc/spell_completion
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: misc/spell_trigger
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: rule/adding_spells_to_a_wizards_spellbook
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: rule/determine_bonuses
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: rule/determine_bonuses
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: rule/throw_splash_weapon
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: spell/detect_magic
+- medium: `json/classes.json#alchemist`: reference outside bounded sample: spell/dispel_magic
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_structural_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_structural_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_structural_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_structural_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: ab_structural_metadata
+- medium: `json/classes.json#antipaladin`: HTML conversion: aside_container
+- medium: `json/classes.json#antipaladin`: HTML conversion: class_options_external_list:antipaladin
+- medium: `json/classes.json#antipaladin`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#antipaladin`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#antipaladin`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#antipaladin`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#antipaladin`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#antipaladin`: HTML conversion: icon_directive:@I-boost
+- medium: `json/classes.json#antipaladin`: HTML conversion: linked_heading_jump_list
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: ability/channel_negative_energy
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: ability/lay_on_hands
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: ability/variant_channeling
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/blighted_myrmidon
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/dread_vanguard
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/fearmonger
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/insinuator
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/iron_tyrant
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/knight_of_the_sepulcher
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/rough_rampager
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/seal_breaker
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: arc-antipaladin/tyrant
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: class/cleric
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: class/paladin
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: class/paladin
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: eq-misc/torch
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: feat/extra_lay_on_hands
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: feat/leadership
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/anarchic
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/flaming
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/flaming_burst
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/keen
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/speed
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/unholy
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/vicious
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/vorpal
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: magic-enh/wounding
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: main/antipaladin_spell
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/blinded
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/burst
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/dazed
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/deafened
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/exhausted
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/fatigued
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/frightened
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/half
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/half
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/nauseated
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/shaken
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/sickened
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/staggered
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: misc/stunned
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: rule/bonus_spells
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: rule/damage_reduction
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: rule/paralyzed
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/atonement
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/atonement
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/banishment
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/bestow_curse
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/contagion
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/detect_evil
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/detect_good
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/poison
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: spell/summon_monster_iii
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: subtype/chaotic
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: subtype/evil
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: subtype/good
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: template/advanced
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: template/fiendish
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: type/dragon
+- medium: `json/classes.json#antipaladin`: reference outside bounded sample: type/outsider
+- medium: `json/classes.json#arcanist`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#arcanist`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#arcanist`: HTML conversion: ab_jump_list_metadata
+- medium: `json/classes.json#arcanist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#arcanist`: HTML conversion: ab_order_metadata
+- medium: `json/classes.json#arcanist`: HTML conversion: aside_container
+- medium: `json/classes.json#arcanist`: HTML conversion: class_options_external_list:arcanist
+- medium: `json/classes.json#arcanist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#arcanist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#arcanist`: HTML conversion: heading_jump_list
+- medium: `json/classes.json#arcanist`: HTML conversion: icon_directive:@I-boost
+- medium: `json/classes.json#arcanist`: HTML conversion: linked_heading_jump_list
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: ability/exploits
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: ability/greater_exploits
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: ability/outer_rifts_exploits
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: class/sorcerer
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: class/wizard
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: exploit/metamixing
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: main/metamagic_feat
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: main/spells_arcanist
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: misc/half
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: rule/arcane_magical_writing
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: rule/arcane_spells_and_armor
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: rule/bonus_spells
+- medium: `json/classes.json#arcanist`: reference outside bounded sample: spell/read_magic
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: feat/improved_counterspell
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/acid_arrow
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/acid_fog
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/acid_splash
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/acid_splash
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/dispel_magic
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/grease
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/greater_dispel_magic
+- medium: `json/equipment_alchemical_reagents.json#acid`: reference outside bounded sample: spell/wall_of_ice
+- medium: `json/equipment_alchemical_reagents.json#alchemical_grease`: reference outside bounded sample: spell/grease
+- medium: `json/equipment_alchemical_reagents.json#alchemical_grease`: reference outside bounded sample: spell/sleet_storm
+- medium: `json/equipment_alchemical_reagents.json#alchemical_grease`: reference outside bounded sample: spell/wall_of_iron
+- medium: `json/equipment_alchemical_reagents.json#alchemical_grease`: reference outside bounded sample: spell/wall_of_stone
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/burning_hands
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/fireball
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/flaming_sphere
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/protection_from_energy
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/resist_energy
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/scorching_ray
+- medium: `json/equipment_alchemical_reagents.json#alchemists_fire`: reference outside bounded sample: spell/scorching_ray
 - medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: blrgbloodline/aberrant
 - medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: discovery/tumor_familiar
 - medium: `json/feat01.json#aberrant_tumor`: reference outside bounded sample: sorcbloodline/aberrant
@@ -103,10 +411,22 @@ Findings:
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: magic-artifact/sphere_of_annihilation
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: rule/shadowbound
 - medium: `json/magic_artifact2.json#cradle_of_night`: reference outside bounded sample: umr/fast_healing
-- medium: `json/monsters01.json#aashaqs_wyvern`: derived record ref/affliction/aashaqs-wyvern/poison-ex was built without its host entry; host conversion is still blocked
-- high: `json/monsters01.json#aashaqs_wyvern`: unknown attribute poor on ::moffense; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco
-- high: `json/monsters01.json#aasimar`: unsupported encoded skills values on ::mstats; unsupported coded treasure value on ::meco
-- high: `json/monsters01.json#aatheriexa`: unknown attribute month on ::mspell; unsupported encoded feats values on ::mstats; unsupported coded treasure value on ::meco
+- medium: `json/monsters01.json#aashaqs_wyvern`: HTML conversion: hr
+- medium: `json/monsters01.json#aashaqs_wyvern`: reference outside bounded sample: monster/wyvern
+- medium: `json/monsters01.json#aashaqs_wyvern`: reference outside bounded sample: spell/glitterdust
+- medium: `json/monsters01.json#aashaqs_wyvern`: reference outside bounded sample: umr/grab
+- medium: `json/monsters01.json#aashaqs_wyvern`: reference outside bounded sample: umr/hold_breath
+- medium: `json/monsters01.json#aasimar`: HTML conversion: hr
+- medium: `json/monsters01.json#aasimar`: reference outside bounded sample: class/cleric
+- medium: `json/monsters01.json#aasimar`: reference outside bounded sample: domain/good
+- medium: `json/monsters01.json#aasimar`: reference outside bounded sample: domain/healing
+- medium: `json/monsters01.json#aatheriexa`: HTML conversion: hr
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: rule/strength_damage
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: umr/compression
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: umr/grab
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: umr/no_breath
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: umr/telepathy
+- medium: `json/monsters01.json#aatheriexa`: reference outside bounded sample: umr/unnatural_aura
 - medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/artisans_tools_mwk
 - medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/everburning_torch
 - medium: `json/npcs.json#accomplished_angler`: reference outside bounded sample: eq-misc/fishing_net
@@ -235,9 +555,15 @@ Findings:
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/antimagic_field
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/calm_emotions
 - medium: `json/prestige_classes2.json#mortal_usher`: reference outside bounded sample: spell/invisibility
-- high: `json/prestige_classes2.json#mortal_usher`: unresolved reference: class/alchemist
-- high: `json/rules_adv_gm01.json#advanced_gm_topics`: missing name or publication metadata
+- medium: `json/races.json#aasimar`: HTML conversion: heading_jump_list
+- medium: `json/races.json#aasimar`: HTML conversion: heading_jump_list
+- medium: `json/races.json#aasimar`: HTML conversion: heading_jump_list
+- medium: `json/races.json#aasimar`: reference outside bounded sample: spell/daylight
+- medium: `json/races.json#android`: HTML conversion: heading_jump_list
+- medium: `json/races.json#android`: HTML conversion: heading_jump_list
+- medium: `json/races.json#android`: reference outside bounded sample: ability/favored_enemy
+- medium: `json/races.json#android`: reference outside bounded sample: magic-enh/bane
+- medium: `json/rules_adv_gm01.json#advanced_gm_topics`: publication metadata absent; derived from subtopic records
 - medium: `json/spells.json#abeyance`: reference outside bounded sample: spell/remove_curse
-- high: `json/spells.json#abjuring_step`: spell directive has no saving throw
 - medium: `json/spells8.json#realm_retribution`: reference outside bounded sample: spell/plane_shift
 - medium: `json/traits01.json#absolute_loyalty`: reference outside bounded sample: spell/atonement

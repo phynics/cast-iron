@@ -3570,10 +3570,10 @@ mod tests {
             "Per month",
             "interplanetary teleport",
             "fly 60 ft. (poor)",
-            "Affliction; Sting-injury",
-            "Fort 19",
+            "Poison (Sting-injury)",
+            "Fortitude DC 19",
             "1/round for 6 rounds",
-            "1d4 Con damage",
+            "Constitution damage 1d4",
             "2 consecutive saves",
         ] {
             assert!(text.contains(value), "missing {value}: {text}");
