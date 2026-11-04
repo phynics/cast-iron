@@ -1,7 +1,10 @@
 //! Pinned primary-source inventory and isolated migration experiments.
 //! No output from this module is placed in the production library.
 
-use crate::{pf_fields, pf_markdown, select::sha256_hex, slug::slug_segment, text::blocks_text};
+use crate::{
+    pf_derived, pf_directives, pf_fields, pf_markdown, select::sha256_hex, slug::slug_segment,
+    text::blocks_text,
+};
 use cast_iron_schema::{Catalog, EntryId, EntryKind, Provenance, RuleEntry, SourceInfo};
 use cast_iron_search::{DocInput, IndexBuilder, Query, SearchIndex};
 use serde::{Deserialize, Serialize};
@@ -345,6 +348,82 @@ fn record_kind(path: &str) -> EntryKind {
     }
 }
 
+/// Coverage for the mechanical derived layer over the whole in-scope inventory.
+///
+/// `data-report` writes this block so the derived counts describe the corpus rather
+/// than whichever records the representative sample happened to select.
+#[derive(Debug, Default, Serialize)]
+pub struct DerivedCoverage {
+    pub total: usize,
+    pub by_kind: BTreeMap<String, usize>,
+    pub records: Vec<DerivedRecordCoverage>,
+    pub rejected: Vec<pf_derived::Rejection>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DerivedRecordCoverage {
+    pub id: String,
+    pub kind: String,
+    pub parent: String,
+    pub provenance: String,
+}
+
+pub fn derived_coverage(inv: &Inventory) -> DerivedCoverage {
+    let out_of_scope: BTreeSet<(String, String)> = inv
+        .out_of_scope
+        .iter()
+        .map(|record| (record.path.clone(), record.key.clone()))
+        .collect();
+    let mut candidates = Vec::new();
+    let mut rejected = Vec::new();
+    for record in inv.records.iter().filter(|record| {
+        !out_of_scope.contains(&(record.path.clone(), record.key.clone()))
+            && pf_derived::is_candidate(record)
+    }) {
+        match crate::pf_records::expand(record, &inv.records) {
+            Ok(raw) => candidates.push(expanded_input(record, raw)),
+            Err(problem) => rejected.push(pf_derived::Rejection {
+                identity: format!("{}#{}", record.path, record.key),
+                problem,
+            }),
+        }
+    }
+    let derivations = pf_derived::plan(&candidates, &mut rejected);
+    let mut by_kind: BTreeMap<String, usize> = BTreeMap::new();
+    for derivation in &derivations {
+        *by_kind.entry(derivation.kind.slug().into()).or_default() += 1;
+    }
+    DerivedCoverage {
+        total: derivations.len(),
+        by_kind,
+        records: derivations
+            .iter()
+            .map(|derivation| DerivedRecordCoverage {
+                id: derivation.id.to_string(),
+                kind: derivation.kind.slug().into(),
+                parent: derivation.parent.to_string(),
+                provenance: derivation.provenance_record.clone(),
+            })
+            .collect(),
+        rejected,
+    }
+}
+
+fn expanded_input(record: &InputRecord, raw: Value) -> InputRecord {
+    InputRecord {
+        name: raw
+            .get("name")
+            .or_else(|| raw.get("title"))
+            .and_then(Value::as_str)
+            .unwrap_or(&record.name)
+            .to_string(),
+        publications: publication_names(&raw),
+        shape: "description".into(),
+        raw,
+        ..record.clone()
+    }
+}
+
 pub const FIXTURES: &[&str] = &[
     "Mortal Usher",
     "Golem's Conviction",
@@ -366,6 +445,8 @@ struct LinkContext {
     targets: BTreeMap<String, EntryId>,
     known: BTreeSet<String>,
     selected: BTreeSet<String>,
+    /// Canonical ID of every derived child, keyed by parent identity and display name.
+    derived: BTreeMap<String, BTreeMap<String, EntryId>>,
 }
 
 fn native_key(r: &InputRecord) -> Option<String> {
@@ -393,6 +474,11 @@ pub struct MigrationReport {
     pub imported_records: usize,
     pub by_kind: BTreeMap<String, usize>,
     pub by_publication: BTreeMap<String, usize>,
+    /// Entries this run built from Pf Data directives rather than one record.
+    pub derived_records: usize,
+    pub derived_by_kind: BTreeMap<String, usize>,
+    /// Derivations refused in this run; each one is also a finding.
+    pub derived_rejected: usize,
     pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
@@ -479,6 +565,9 @@ fn run_import(
         imported_records: 0,
         by_kind: BTreeMap::new(),
         by_publication:BTreeMap::new(),
+        derived_records: 0,
+        derived_by_kind: BTreeMap::new(),
+        derived_rejected: 0,
         out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: Vec::new(),
@@ -505,35 +594,61 @@ fn run_import(
             .collect(),
         ..Default::default()
     };
-    let mut converted_inputs = Vec::new();
+    let mut expanded_inputs = Vec::new();
     for r in inv
         .records
         .iter()
         .filter(|r| selected.contains(&(r.path.clone(), r.key.clone())))
     {
-        let identity = format!("{}#{}", r.path, r.key);
-        let expanded = crate::pf_records::expand(r, &inv.records).map(|raw| InputRecord {
-            name: raw
-                .get("name")
-                .or_else(|| raw.get("title"))
-                .and_then(Value::as_str)
-                .unwrap_or(&r.name)
-                .to_string(),
-            publications: publication_names(&raw),
-            shape: "description".into(),
-            raw,
-            ..r.clone()
+        match crate::pf_records::expand(r, &inv.records) {
+            Ok(raw) => expanded_inputs.push(expanded_input(r, raw)),
+            Err(problem) => report.findings.push(Finding {
+                severity: "high".into(),
+                record: format!("{}#{}", r.path, r.key),
+                problem,
+            }),
+        }
+    }
+    // Derived children are planned before conversion so that parent bodies can link
+    // to them and their IDs count as known targets.
+    let mut derived_rejections = Vec::new();
+    let derivations = pf_derived::plan(&expanded_inputs, &mut derived_rejections);
+    for rejection in &derived_rejections {
+        report.findings.push(Finding {
+            // An unnamed `::aff` block has a recognised shape but no derivable
+            // identity; that is a coverage gap, not a broken record.
+            severity: if rejection.problem.contains("has no name") {
+                "medium".into()
+            } else {
+                "high".into()
+            },
+            record: rejection.identity.clone(),
+            problem: rejection.problem.clone(),
         });
-        match expanded.and_then(|r| convert(&r, &context, &mut Vec::new()).map(|e| (r, e))) {
-            Ok((expanded, entry)) => {
-                if let Some(key) = native_key(&expanded) {
+    }
+    report.derived_rejected = derived_rejections.len();
+    for derivation in &derivations {
+        context
+            .derived
+            .entry(derivation.parent_identity.clone())
+            .or_default()
+            .insert(derivation.name.clone(), derivation.id.clone());
+        context
+            .targets
+            .insert(derivation.id.as_str().to_string(), derivation.id.clone());
+    }
+    let mut converted_inputs = Vec::new();
+    for r in expanded_inputs {
+        match convert(&r, &context, &mut Vec::new()) {
+            Ok(entry) => {
+                if let Some(key) = native_key(&r) {
                     context.targets.insert(key, entry.id);
                 }
-                converted_inputs.push(expanded);
+                converted_inputs.push(r);
             }
             Err(problem) => report.findings.push(Finding {
                 severity: "high".into(),
-                record: identity,
+                record: format!("{}#{}", r.path, r.key),
                 problem,
             }),
         }
@@ -552,9 +667,46 @@ fn run_import(
             }
         }
     }
+    let mut entry_order: Vec<RuleEntry> = Vec::new();
+    let mut index_by_identity: BTreeMap<String, usize> = BTreeMap::new();
     for r in converted_inputs {
-        entries.push(convert(&r, &context, &mut report.findings)?);
+        let entry = convert(&r, &context, &mut report.findings)?;
+        index_by_identity.insert(format!("{}#{}", r.path, r.key), entry_order.len());
+        entry_order.push(entry);
     }
+    let mut derived_entries = Vec::new();
+    for derivation in &derivations {
+        let parent = index_by_identity
+            .get(&derivation.parent_identity)
+            .map(|&index| &entry_order[index]);
+        if parent.is_none() {
+            report.findings.push(Finding {
+                severity: "medium".into(),
+                record: derivation.parent_identity.clone(),
+                problem: format!(
+                    "derived record {} was built without its host entry; host conversion is still blocked",
+                    derivation.id
+                ),
+            });
+        }
+        match derive_entry(derivation, parent, &context, &mut report.findings) {
+            Ok(entry) => derived_entries.push(entry),
+            Err(problem) => report.findings.push(Finding {
+                severity: "high".into(),
+                record: derivation.id.to_string(),
+                problem,
+            }),
+        }
+    }
+    for entry in &derived_entries {
+        *report
+            .derived_by_kind
+            .entry(entry.kind.slug().into())
+            .or_default() += 1;
+    }
+    report.derived_records = derived_entries.len();
+    entries.extend(entry_order);
+    entries.extend(derived_entries);
     entries.sort_by(|a, b| a.id.cmp(&b.id));
     let mut sources = BTreeMap::new();
     for e in &entries {
@@ -653,6 +805,41 @@ fn run_import(
                     severity: "high".into(),
                     record: entry.id.to_string(),
                     problem: format!("search did not retrieve record for {query:?}"),
+                });
+            }
+        }
+    }
+    // Derived records sort after the bounded sample, so verify every one explicitly.
+    // Title queries prove discovery by name; a body token is deliberately avoided
+    // because common words exceed the result window in a 20,000-entry corpus.
+    for entry in reread
+        .iter()
+        .filter(|entry| entry.id.as_str().starts_with("ref/"))
+    {
+        let tokens = cast_iron_search::tokenize(&entry.title);
+        let longest = tokens
+            .iter()
+            .max_by_key(|token| token.len())
+            .cloned()
+            .unwrap_or_else(|| entry.title.clone());
+        for query in [entry.title.clone(), longest] {
+            if query.is_empty() {
+                continue;
+            }
+            report.search_checks += 1;
+            if !index
+                .search(&Query {
+                    text: query.clone(),
+                    limit: 1000,
+                    ..Default::default()
+                })
+                .iter()
+                .any(|hit| hit.id == entry.id.as_str())
+            {
+                report.findings.push(Finding {
+                    severity: "high".into(),
+                    record: entry.id.to_string(),
+                    problem: format!("search did not retrieve derived record for {query:?}"),
                 });
             }
         }
@@ -834,6 +1021,122 @@ fn run_import(
     Ok(report)
 }
 
+/// Resolves upstream hrefs and records an entry's references and diagnostics.
+struct ConvertEnv<'a> {
+    record: String,
+    findings: &'a mut Vec<Finding>,
+    context: &'a LinkContext,
+    references: BTreeSet<cast_iron_schema::EntryReference>,
+    current: &'a EntryId,
+    anchors: BTreeMap<String, String>,
+}
+
+impl crate::html::Env for ConvertEnv<'_> {
+    fn link(&mut self, href: &str) -> Option<(EntryId, Option<String>)> {
+        if let Some(key) = href.strip_prefix('#')
+            && let Some(anchor) = self.anchors.get(key)
+        {
+            self.references.insert(cast_iron_schema::EntryReference {
+                target: self.current.clone(),
+                anchor: Some(anchor.clone()),
+            });
+            return Some((self.current.clone(), Some(anchor.clone())));
+        }
+        if let Some(target) = self.context.targets.get(href) {
+            self.references.insert(cast_iron_schema::EntryReference {
+                target: target.clone(),
+                anchor: None,
+            });
+            return Some((target.clone(), None));
+        }
+        // Publication references are verified against the native source registry;
+        // the current inline model has entry links only, so retain their text.
+        if href.starts_with("source/") && self.context.known.contains(href) {
+            return None;
+        }
+        let outside = self.context.known.contains(href) && !self.context.selected.contains(href);
+        self.findings.push(Finding {
+            severity: if outside { "medium" } else { "high" }.into(),
+            record: self.record.clone(),
+            problem: format!(
+                "{}: {href}",
+                if outside {
+                    "reference outside bounded sample"
+                } else {
+                    "unresolved reference"
+                }
+            ),
+        });
+        None
+    }
+
+    fn stripped(&mut self, key: &str) {
+        self.findings.push(Finding {
+            severity: "medium".into(),
+            record: self.record.clone(),
+            problem: format!("HTML conversion: {key}"),
+        });
+    }
+}
+
+/// Replace `::rtraits` and named `::aff` blocks with links to their derived records.
+///
+/// Retains inline Markdown for a trait or block that has no derivation, so a
+/// rejected child never disappears from its parent.
+fn rewrite_derived_directives(
+    lines: &mut [String],
+    identity: &str,
+    context: &LinkContext,
+    findings: &mut Vec<Finding>,
+) {
+    let Some(names) = context.derived.get(identity) else {
+        return;
+    };
+    for line in lines.iter_mut() {
+        let trimmed = line.trim_start().trim_start_matches('>').trim_start();
+        if trimmed.starts_with("::rtraits") {
+            match pf_directives::rtraits(trimmed) {
+                Ok(parsed) => {
+                    let mut rendered = Vec::new();
+                    for trait_ in parsed.traits {
+                        match names.get(&trait_.title) {
+                            Some(id) => {
+                                rendered.push(format!("* [{}]({})", trait_.title, id.as_str()))
+                            }
+                            None => rendered.push(pf_directives::trait_markdown(&trait_)),
+                        }
+                    }
+                    if !rendered.is_empty() {
+                        *line = rendered.join("\n\n");
+                    }
+                }
+                Err(problem) => findings.push(Finding {
+                    severity: "high".into(),
+                    record: identity.into(),
+                    problem: format!("::rtraits: {problem}"),
+                }),
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("::aff") {
+            match pf_directives::affliction(rest, true) {
+                Ok(parsed) => {
+                    if let Some(name) = &parsed.name
+                        && let Some(id) = names.get(name)
+                    {
+                        *line = format!("* [Affliction: {}]({})", name, id.as_str());
+                        continue;
+                    }
+                    *line = parsed.markdown;
+                }
+                Err(problem) => findings.push(Finding {
+                    severity: "high".into(),
+                    record: identity.into(),
+                    problem: format!("::aff: {problem}"),
+                }),
+            }
+        }
+    }
+}
+
 fn convert(
     r: &InputRecord,
     context: &LinkContext,
@@ -862,68 +1165,8 @@ fn convert(
         record_kind(&r.path)
     };
     let fields = pf_fields::extract(kind, &lines)?;
-    let id = EntryId::parse(format!(
-        "pf-data/{}/{}",
-        slug_segment(r.protocol.as_deref().ok_or("no native protocol mapping")?),
-        slug_segment(&r.key)
-    ))
-    .map_err(|e| e.to_string())?;
-    struct Env<'a> {
-        record: String,
-        findings: &'a mut Vec<Finding>,
-        context: &'a LinkContext,
-        references: BTreeSet<cast_iron_schema::EntryReference>,
-        current: &'a EntryId,
-        anchors: BTreeMap<String, String>,
-    }
-    impl crate::html::Env for Env<'_> {
-        fn link(&mut self, href: &str) -> Option<(EntryId, Option<String>)> {
-            if let Some(key) = href.strip_prefix('#')
-                && let Some(anchor) = self.anchors.get(key)
-            {
-                self.references.insert(cast_iron_schema::EntryReference {
-                    target: self.current.clone(),
-                    anchor: Some(anchor.clone()),
-                });
-                return Some((self.current.clone(), Some(anchor.clone())));
-            }
-            if let Some(target) = self.context.targets.get(href) {
-                self.references.insert(cast_iron_schema::EntryReference {
-                    target: target.clone(),
-                    anchor: None,
-                });
-                return Some((target.clone(), None));
-            }
-            // Publication references are verified against the native source registry;
-            // the current inline model has entry links only, so retain their text.
-            if href.starts_with("source/") && self.context.known.contains(href) {
-                return None;
-            }
-            let outside =
-                self.context.known.contains(href) && !self.context.selected.contains(href);
-            self.findings.push(Finding {
-                severity: if outside { "medium" } else { "high" }.into(),
-                record: self.record.clone(),
-                problem: format!(
-                    "{}: {href}",
-                    if outside {
-                        "reference outside bounded sample"
-                    } else {
-                        "unresolved reference"
-                    }
-                ),
-            });
-            None
-        }
-        fn stripped(&mut self, key: &str) {
-            self.findings.push(Finding {
-                severity: "medium".into(),
-                record: self.record.clone(),
-                problem: format!("HTML conversion: {key}"),
-            });
-        }
-    }
-    let mut env = Env {
+    let id = pf_derived::native_id(r).ok_or("no native protocol mapping")?;
+    let mut env = ConvertEnv {
         record: format!("{}#{}", r.path, r.key),
         findings,
         context,
@@ -943,6 +1186,12 @@ fn convert(
             }
         }
     }
+    rewrite_derived_directives(
+        &mut render_lines,
+        &format!("{}#{}", r.path, r.key),
+        context,
+        &mut *env.findings,
+    );
     let mut body =
         pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
     if let cast_iron_schema::TypedFields::Spell(spell) = &fields {
@@ -1029,6 +1278,66 @@ fn convert(
     })
 }
 
+/// Build one derived entry from its planned record. The host entry is optional
+/// because a host that still fails conversion must not suppress self-contained
+/// affliction or trait content; the parent link is omitted in that case.
+fn derive_entry(
+    derivation: &pf_derived::Derivation,
+    parent: Option<&RuleEntry>,
+    context: &LinkContext,
+    findings: &mut Vec<Finding>,
+) -> Result<RuleEntry, String> {
+    let mut env = ConvertEnv {
+        record: derivation.parent_identity.clone(),
+        findings,
+        context,
+        references: BTreeSet::new(),
+        current: &derivation.id,
+        anchors: BTreeMap::new(),
+    };
+    let body = pf_derived::body(derivation, &mut env)?;
+    if blocks_text(&body).trim().is_empty() {
+        return Err("empty rendered derived body".into());
+    }
+    let (fields, relations) = match derivation.kind {
+        pf_derived::DerivedKind::RacialTrait => (
+            cast_iron_schema::TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields {
+                alternate: false,
+            }),
+            parent
+                .map(|parent| cast_iron_schema::Relation {
+                    kind: cast_iron_schema::RelationKind::Part,
+                    target: parent.id.clone(),
+                    label: None,
+                })
+                .into_iter()
+                .collect(),
+        ),
+        pf_derived::DerivedKind::Affliction => (cast_iron_schema::TypedFields::None, Vec::new()),
+    };
+    Ok(RuleEntry {
+        id: derivation.id.clone(),
+        kind: derivation.kind.kind(),
+        title: derivation.title.clone(),
+        source_ids: derivation.source_ids.clone(),
+        section: Vec::new(),
+        parent: parent.map(|parent| parent.id.clone()),
+        body,
+        fields,
+        tags: Vec::new(),
+        links: env.references.into_iter().collect(),
+        provenance: vec![Provenance {
+            dataset: "pathfinder-data-1-e".into(),
+            record: derivation.provenance_record.clone(),
+            path: derivation.path.clone(),
+        }],
+        license_refs: parent
+            .map(|parent| parent.license_refs.clone())
+            .unwrap_or_else(|| vec![crate::build::LICENSE_OGL.into()]),
+        relations,
+    })
+}
+
 pub fn markdown_report(r: &MigrationReport) -> String {
     let mut text = format!(
         "# Migration conversion report\n\nSource revision `{}`.\n\nObserved {} input records, {} selected, {} converted. Canonical data {} bytes; search {} bytes. {} search checks; {} schema errors.\n\nPublication gate: **blocked**. Browser checks: {}. These are experimental artifacts, not a production library.\n\n",
@@ -1045,6 +1354,13 @@ pub fn markdown_report(r: &MigrationReport) -> String {
     text.push_str(&format!(
         "Scope: `{}`. Input digest `{}`.\n\n",
         r.scope, r.input_digest
+    ));
+    text.push_str(&format!(
+        "Derived records built in this run: {} ({} racial traits, {} afflictions). Derivations refused: {}.\n\n",
+        r.derived_records,
+        r.derived_by_kind.get("racial-trait").copied().unwrap_or(0),
+        r.derived_by_kind.get("affliction").copied().unwrap_or(0),
+        r.derived_rejected
     ));
     for blocker in &r.cutover_blockers {
         text.push_str(&format!("- {blocker}\n"));
@@ -1193,6 +1509,40 @@ mod tests {
         assert_eq!(a.id, b.id);
         assert_eq!(a.id.as_str(), "pf-data/feat/power-attack");
         assert_ne!(a.provenance, b.provenance);
+    }
+
+    #[test]
+    fn real_inventory_derives_core_traits_and_inline_afflictions() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let dataset = root.join(".cache/sources/pathfinder-data-1-e");
+        if !dataset.join("json").is_dir() {
+            eprintln!("skipping: the pinned primary source is not present");
+            return;
+        }
+        let inventory = inventory(
+            &dataset,
+            &root.join("sources/pathfinder-data-1-e/source.json"),
+        )
+        .expect("inventory");
+        let coverage = derived_coverage(&inventory);
+        assert_eq!(coverage.by_kind.get("racial-trait"), Some(&67));
+        assert_eq!(coverage.by_kind.get("affliction"), Some(&155));
+        assert_eq!(coverage.total, 222);
+        let ids: BTreeSet<_> = coverage.records.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids.len(), coverage.records.len(), "derived ids repeat");
+        assert!(ids.contains("ref/racial-trait/dwarf/stonecunning"));
+        assert!(ids.contains("ref/racial-trait/human/attributes"));
+        assert!(ids.contains("ref/affliction/xacarba/fiendish-bile"));
+        assert!(
+            coverage
+                .rejected
+                .iter()
+                .all(|rejection| rejection.problem == "::aff block has no name")
+        );
     }
 
     #[test]
