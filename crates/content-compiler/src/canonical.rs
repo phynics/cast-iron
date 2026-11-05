@@ -13,8 +13,10 @@
 
 use crate::pf_data::{InputRecord, Inventory, description, expanded_input, pf_license_refs};
 use crate::{
-    pf_derived, pf_directives, pf_fields, pf_markdown, pf_plain, select::sha256_hex,
-    slug::slug_segment, text::blocks_text,
+    pf_derived, pf_directives, pf_fields, pf_markdown, pf_plain,
+    select::sha256_hex,
+    slug::slug_segment,
+    text::{blocks_text, inline_text},
 };
 use cast_iron_schema::{EntryId, EntryKind, Provenance, RuleEntry};
 use serde::Serialize;
@@ -833,14 +835,27 @@ pub(crate) fn derive_publications(raw: &Value, records: &[InputRecord]) -> Vec<S
     let Some(subtopics) = raw.get("subtopics").and_then(Value::as_array) else {
         return Vec::new();
     };
-    let keys: BTreeSet<&str> = subtopics.iter().filter_map(Value::as_str).collect();
-    let mut publications = BTreeSet::new();
+    let mut by_key: BTreeMap<&str, Vec<&InputRecord>> = BTreeMap::new();
     for record in records {
-        if keys.contains(record.key.as_str()) {
-            publications.extend(record.publications.iter().cloned());
+        by_key.entry(record.key.as_str()).or_default().push(record);
+    }
+    let mut publications = Vec::new();
+    let mut seen = BTreeSet::new();
+    // Follow the subtopic order the aggregate lists, then each subtopic's own
+    // publication order. The first publication is the aggregate's primary book.
+    for key in subtopics.iter().filter_map(Value::as_str) {
+        let Some(matches) = by_key.get(key) else {
+            continue;
+        };
+        for record in matches {
+            for publication in &record.publications {
+                if seen.insert(publication.clone()) {
+                    publications.push(publication.clone());
+                }
+            }
         }
     }
-    publications.into_iter().collect()
+    publications
 }
 
 /// Page attribution from a record's screened source markers.
@@ -1176,6 +1191,27 @@ fn addenda_codewords(raw: &Value) -> Result<Vec<&str>, String> {
     Ok(out)
 }
 
+/// Drop the first content heading when it repeats the entry title.
+///
+/// Pf Data often starts a record with `## Title` or `::fh[Title]`, while the page
+/// already renders the title as its h1. Only that leading heading is removed, and
+/// only when its text equals the title; a generated stat block before it is not
+/// content. Later headings, including a repeated title inside a section, stay.
+fn drop_leading_title_heading(body: &mut Vec<cast_iron_schema::Block>, title: &str) {
+    let first = body
+        .iter()
+        .position(|block| !matches!(block, cast_iron_schema::Block::StatBlock { .. }));
+    let Some(index) = first else {
+        return;
+    };
+    let cast_iron_schema::Block::Heading { content, .. } = &body[index] else {
+        return;
+    };
+    if inline_text(content).trim() == title.trim() {
+        body.remove(index);
+    }
+}
+
 pub(crate) fn convert_record(
     record: &InputRecord,
     context: &LinkContext,
@@ -1300,6 +1336,7 @@ pub(crate) fn convert_record(
             },
         );
     }
+    drop_leading_title_heading(&mut body, &record.name);
     if blocks_text(&body).trim().is_empty() {
         return Err("empty rendered description".into());
     }
@@ -1347,7 +1384,8 @@ fn derive_entry(
         current: &derivation.id,
         anchors: BTreeMap::new(),
     };
-    let body = pf_derived::body(derivation, &mut env)?;
+    let mut body = pf_derived::body(derivation, &mut env)?;
+    drop_leading_title_heading(&mut body, &derivation.title);
     if blocks_text(&body).trim().is_empty() {
         return Err("empty rendered derived body".into());
     }
@@ -1471,8 +1509,9 @@ fn derive_rule_entry(
     // resolve inside the entry instead of becoming dangling `#N` references.
     append_referenced_footnotes(&mut render_lines, &description(&input.raw)?);
     env.anchors = pf_markdown::anchors(&render_lines);
-    let body =
+    let mut body =
         pf_plain::render_body(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
+    drop_leading_title_heading(&mut body, &derived.title);
     if blocks_text(&body).trim().is_empty() {
         return Err("empty derived description".into());
     }
@@ -1867,5 +1906,93 @@ mod tests {
                 record.id
             );
         }
+    }
+
+    #[test]
+    fn derived_publications_follow_subtopic_and_record_order() {
+        let mut first = record(
+            "feat",
+            "json/feats.json",
+            "first",
+            "First",
+            vec!["Text.".into()],
+        );
+        first.publications = vec!["Book B".into(), "Book A".into()];
+        let mut second = record(
+            "feat",
+            "json/feats.json",
+            "second",
+            "Second",
+            vec!["Text.".into()],
+        );
+        second.publications = vec!["Book A".into(), "Book C".into()];
+        let raw = json!({"subtopics": ["second", "first"]});
+        assert_eq!(
+            derive_publications(&raw, &[first, second]),
+            ["Book A", "Book C", "Book B"]
+        );
+    }
+
+    #[test]
+    fn only_a_leading_heading_that_repeats_the_title_is_dropped() {
+        let titled = convert_record(
+            &record(
+                "feat",
+                "json/feats.json",
+                "power_attack",
+                "Power Attack",
+                vec![
+                    "## Power Attack".into(),
+                    "".into(),
+                    "Trade accuracy for damage.".into(),
+                ],
+            ),
+            &LinkContext::default(),
+            &mut Vec::new(),
+            &mut CoverageLog::default(),
+        )
+        .unwrap();
+        let headings: Vec<String> = titled
+            .body
+            .iter()
+            .filter_map(|block| match block {
+                cast_iron_schema::Block::Heading { content, .. } => {
+                    Some(inline_text(content.as_slice()).trim().to_string())
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(headings.is_empty(), "{headings:?}");
+
+        let other = convert_record(
+            &record(
+                "feat",
+                "json/feats.json",
+                "other_heading",
+                "Other Heading",
+                vec![
+                    "## Different Heading".into(),
+                    "".into(),
+                    "## Other Heading".into(),
+                    "".into(),
+                    "Kept later.".into(),
+                ],
+            ),
+            &LinkContext::default(),
+            &mut Vec::new(),
+            &mut CoverageLog::default(),
+        )
+        .unwrap();
+        let headings: Vec<String> = other
+            .body
+            .iter()
+            .filter_map(|block| match block {
+                cast_iron_schema::Block::Heading { content, .. } => {
+                    Some(inline_text(content.as_slice()).trim().to_string())
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(headings, ["Different Heading", "Other Heading"]);
     }
 }

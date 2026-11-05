@@ -3,7 +3,12 @@
 //! inventory, the experiment selection, and the report files.
 //! No output from this module is placed in the production library.
 
-use crate::{pf_derived, select::sha256_hex, slug::slug_segment, text::blocks_text};
+use crate::{
+    pf_derived,
+    select::sha256_hex,
+    slug::slug_segment,
+    text::{blocks_text, inline_text},
+};
 use cast_iron_schema::{BookIndex, Catalog, EntryKind, RuleEntry, SourceInfo, SpellLists};
 use cast_iron_search::{DocInput, IndexBuilder, Query, SearchIndex};
 use serde::{Deserialize, Serialize};
@@ -288,26 +293,29 @@ fn scope_policy(registry: &Path) -> Result<ScopePolicy, String> {
 }
 
 pub fn publication_names(raw: &Value) -> Vec<String> {
-    fn flatten(value: &Value, out: &mut BTreeSet<String>) {
+    fn flatten(value: &Value, out: &mut Vec<String>, seen: &mut BTreeSet<String>) {
         match value {
             Value::String(s) => {
-                out.insert(s.clone());
+                if seen.insert(s.clone()) {
+                    out.push(s.clone());
+                }
             }
             Value::Array(xs) => {
                 for x in xs {
-                    flatten(x, out);
+                    flatten(x, out, seen);
                 }
             }
             _ => {}
         }
     }
-    let mut names = BTreeSet::new();
+    let mut names = Vec::new();
+    let mut seen = BTreeSet::new();
     for key in ["sources", "compilationSources"] {
         if let Some(v) = raw.get(key) {
-            flatten(v, &mut names);
+            flatten(v, &mut names, &mut seen);
         }
     }
-    names.into_iter().collect()
+    names
 }
 
 fn is_hash(s: &str, n: usize) -> bool {
@@ -845,9 +853,16 @@ fn run_import(
             (
                 "formatting".into(),
                 entry.is_some_and(|e| {
-                    e.body
-                        .iter()
-                        .any(|b| matches!(b, cast_iron_schema::Block::Heading { .. }))
+                    let starts_with_title = e.body.first().is_some_and(|block| {
+                        matches!(
+                            block,
+                            cast_iron_schema::Block::Heading { content, .. }
+                                if inline_text(content).trim() == e.title.trim()
+                        )
+                    });
+                    !e.body.is_empty()
+                        && !starts_with_title
+                        && !blocks_text(&e.body).trim().is_empty()
                 }),
             ),
             (
@@ -1152,6 +1167,22 @@ mod tests {
         assert_eq!(
             directives(":::unknown{a=1} @x[y] ::spell{foo}"),
             ["::unknown", "@x", "::spell"]
+        );
+    }
+
+    #[test]
+    fn publication_names_keep_upstream_order_and_dedupe() {
+        let raw = serde_json::json!({
+            "sources": ["Mythic Adventures", ["PRPG Core Rulebook", "Mythic Adventures"]],
+            "compilationSources": ["Ultimate Intrigue", "PRPG Core Rulebook"]
+        });
+        assert_eq!(
+            publication_names(&raw),
+            [
+                "Mythic Adventures",
+                "PRPG Core Rulebook",
+                "Ultimate Intrigue"
+            ]
         );
     }
     #[test]
