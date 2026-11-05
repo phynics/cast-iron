@@ -6,7 +6,7 @@
 //! ```text
 //! #/                                 Home
 //! #/search?q=..&kind=spell&source=core-rulebook&facet=school:evocation
-//! #/browse                           #/browse/kind/<slug>     #/browse/source/<id>
+//! #/browse (Home)                    #/browse/kind/<slug>     #/browse/source/<id>
 //! #/browse/books                     the list of books, in original order of the library
 //! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
@@ -28,7 +28,6 @@ pub enum Route {
         sources: Vec<String>,
         facets: Vec<(String, String)>,
     },
-    Browse,
     BrowseKind(EntryKind),
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
@@ -96,7 +95,7 @@ impl Route {
         match segments.as_slice() {
             [""] => Route::Home,
             ["search"] => parse_search(query),
-            ["browse"] => Route::Browse,
+            ["browse"] => Route::Home,
             ["browse", "kind", slug] => percent_decode(slug)
                 .and_then(|slug| EntryKind::from_slug(&slug))
                 .map_or_else(not_found, |kind| {
@@ -190,7 +189,6 @@ impl Route {
                     format!("#/search?{}", pairs.join("&"))
                 }
             }
-            Route::Browse => "#/browse".into(),
             Route::BrowseKind(kind) => format!("#/browse/kind/{}", kind.slug()),
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
@@ -454,7 +452,6 @@ mod tests {
     fn simple_routes_round_trip() {
         for route in [
             Route::Home,
-            Route::Browse,
             Route::Settings,
             Route::Legal,
             Route::BrowseKind(EntryKind::Spell),
@@ -472,6 +469,13 @@ mod tests {
         assert_eq!(Route::parse("#/bookmarks"), Route::Home);
         assert_eq!(Route::parse("#/bookmarks/"), Route::Home);
         assert_eq!(Route::parse("#/collection/old%20collection"), Route::Home);
+    }
+
+    #[test]
+    fn the_browse_hub_url_opens_home() {
+        for hash in ["#/browse", "#/browse/", "#/browse?x=1"] {
+            assert_eq!(Route::parse(hash), Route::Home, "{hash}");
+        }
     }
 
     #[test]

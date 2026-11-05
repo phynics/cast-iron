@@ -296,7 +296,7 @@ fn EntryView(
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
-                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Browse.href() }>{if kind == EntryKind::Rule { "Books" } else { "Browse" }}</a></li>
+                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
                 {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::BrowseKind(kind).href()>{kind.label()}</a></li> })}
                 {crumbs_chain}
                 {crumbs_sections}

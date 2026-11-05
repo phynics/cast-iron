@@ -330,6 +330,18 @@ main {
   margin: 0 auto;
 }
 
+.app-footer .footer-links {
+  margin-top: var(--space-2);
+}
+
+@media (pointer: coarse) {
+  .footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch);
+  }
+}
+
 /* ---- Controls ---------------------------------------------------------------------------- */
 
 .btn {
@@ -2757,6 +2769,8 @@ main,
 .home-bookmarks a, .home-bookmark-missing { display: flex; justify-content: space-between; gap: var(--space-3); align-items: center; min-height: var(--touch); padding: var(--space-2) 0; border-bottom: var(--border); text-decoration: none; }
 .home-bookmarks a:hover span:first-child { text-decoration: underline; }
 .home-bookmarks .muted { font-size: var(--step--1); }
+.home-bookmarks-more { margin-top: var(--space-2); }
+.cats-note { margin: 0 0 var(--space-3); }
 .home-books p { margin-block: var(--space-2); }
 @media (max-width: 47.99rem) {
   .app-header { gap: var(--space-2); }
