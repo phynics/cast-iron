@@ -143,7 +143,7 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
         view! {
             <section aria-labelledby="by-kind-more">
                 <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
-                <ul class="cats cats-quiet" aria-describedby="by-kind-scope">{rows}</ul>
+                <ul class="cats cats-quiet" aria-describedby=note.then_some("by-kind-scope")>{rows}</ul>
             </section>
         }
     });
@@ -160,7 +160,7 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
     });
     view! {
         <section aria-labelledby="by-kind">
-            <h2 id="by-kind" class="sub-head">"Categories"</h2>
+            <h2 id="by-kind">"Categories"</h2>
             {note.then(|| view! { <p id="by-kind-scope" class="muted cats-note">{ACTIVE_BOOKS_SCOPE}"."</p> })}
             <ul class="cats" aria-describedby=note.then_some("by-kind-scope")>{primary}</ul>
         </section>

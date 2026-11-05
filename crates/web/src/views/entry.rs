@@ -96,7 +96,6 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                 <p class="muted">"Reason: " {retirement_reason_label(reason)}"."</p>
                 <p class="muted"><code>{id.to_string()}</code></p>
                 <p>
-                    <a class="btn" href=Route::Bookmarks.href()>"Open Bookmarks"</a>" "
                     <a class="btn" href=Route::Home.href()>"Go to Home"</a>
                 </p>
             </article>

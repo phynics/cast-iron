@@ -14,6 +14,11 @@ test("Home shows starred entries above the category directory", async ({ page })
   const starred = await page.locator("#home-bookmarks").evaluate((el) => el.getBoundingClientRect().top);
   const categories = await page.locator("#by-kind").evaluate((el) => el.getBoundingClientRect().top);
   expect(starred).toBeLessThan(categories);
+
+  // The old Home sections are gone: the directory replaces the tiles and the books block.
+  await expect(page.locator(".home-page .tiles")).toHaveCount(0);
+  await expect(page.locator(".home-books")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Browse by category" })).toHaveCount(0);
 });
 
 test("#/browse opens Home and keeps Home current for category pages", async ({ page }) => {
@@ -71,4 +76,5 @@ test("Footer links to the source and the issue tracker", async ({ page }) => {
     "href",
     "https://github.com/phynics/cast-iron/issues",
   );
+  await expect(footer).toContainText("(needs a connection)");
 });

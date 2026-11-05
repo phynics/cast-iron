@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { openBookContents, installLibrary, waitControlled, waitResults, revealSourceChoice } from "./helpers";
+import { afterRouteFrame, openBookContents, installLibrary, waitControlled, waitResults, revealSourceChoice } from "./helpers";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -23,6 +23,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
 
   // A quick lookup from a non-search page uses the persistent header search.
   await primary.getByRole("link", { name: "Home", exact: true }).click();
+  await afterRouteFrame(page);
   await page.locator(".header-search #search-input").fill("grapple");
   await page.locator(".header-search #search-input").press("Enter");
   await waitResults(page, "grapple");
@@ -41,6 +42,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(page.locator(".rich")).toContainText(/grappl/i);
   await expect(page).toHaveURL(/special-attacks\?a=/);
   await primary.getByRole("link", { name: "Home", exact: true }).click();
+  await afterRouteFrame(page);
   await page.locator(".header-search #search-input").fill("fireball");
   await page.locator(".header-search #search-input").press("Enter");
   await waitResults(page, "fireball");
