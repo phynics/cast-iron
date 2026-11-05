@@ -427,7 +427,7 @@ fn book_ids<'a>(publications: impl Iterator<Item = &'a str>) -> Vec<String> {
 /// Case, punctuation, and spacing differ between the two corpora; the words do
 /// not. The form is deliberately strict about the words themselves, because a
 /// title is half of what makes two records the same article.
-pub fn normalize_title(title: &str) -> String {
+pub(crate) fn normalize_title(title: &str) -> String {
     let mut out = String::with_capacity(title.len());
     let mut pending_space = false;
     for ch in title.chars() {
@@ -1579,6 +1579,22 @@ note = "reviewed"
     }
 
     #[test]
+    fn a_carried_target_without_a_produced_entry_fails_the_target_gate() {
+        let (snapshot, bytes) = snapshot();
+        let sha = sha256_hex(&bytes);
+        let body = "[map.\"bestiary/monsters/example\"]\ntarget = \"ref/carried/bestiary/monsters/example\"\n\n[retired.\"core-rulebook/rules/magic\"]\nreason = \"no_source\"\n\n[retired.\"core-rulebook/spells/fireball\"]\nreason = \"no_source\"\n";
+        let map = IdMap::parse(&map_text(&sha, 3, body)).unwrap();
+        let errors = generate(&map, &snapshot, &bytes, &catalog()).unwrap_err();
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("ref/carried/bestiary/monsters/example")
+                    && error.contains("does not exist")
+            }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
     fn native_and_derived_catalog_ids_stay_injective() {
         let mut catalog = CanonicalCatalog::default();
         let record = CanonicalRecord {
@@ -1859,6 +1875,10 @@ note = "reviewed"
         if !dataset.is_dir() {
             return;
         }
+        let psrd_dataset = root.join(".cache/sources/psrd-data");
+        if !psrd_dataset.is_dir() {
+            return;
+        }
         let bytes = std::fs::read(root.join("sources/canonical/legacy-ids.json")).unwrap();
         let snapshot = LegacySnapshot::parse(&bytes).unwrap();
         let map = IdMap::load(&root.join("sources/canonical/id-map.toml")).unwrap();
@@ -1871,7 +1891,21 @@ note = "reviewed"
             &root.join("sources/pathfinder-data-1-e/derived-rules.json"),
         )
         .unwrap();
-        let catalog = catalog_from_inventory(&inv, &allowlist).unwrap();
+        let mut catalog = catalog_from_inventory(&inv, &allowlist).unwrap();
+        // The committed map names carried targets, so the gate must see the
+        // carried entries the PSRD snapshot actually produces.
+        let library = crate::pipeline::build_psrd(&crate::pipeline::Options {
+            source_config: root.join("sources/psrd-data/source.toml"),
+            dataset: psrd_dataset,
+            out: root.join("generated/test-carry"),
+            reports: root.join("generated/test-carry"),
+            write_digest: false,
+            strict: false,
+            overrides: None,
+        })
+        .unwrap();
+        let carried = crate::carry::carry_over(&library, &map, &catalog).unwrap();
+        carried.extend_catalog(&mut catalog).unwrap();
         let (_, stats) = generate(&map, &snapshot, &bytes, &catalog).unwrap();
         assert_eq!(
             stats.mapped + stats.retired,
@@ -1879,6 +1913,8 @@ note = "reviewed"
             "every legacy id has one disposition"
         );
         assert!(stats.mapped > 0);
+        assert_eq!(stats.carried, carried.report.carried);
+        assert!(stats.carried > 0);
     }
 
     #[test]
