@@ -170,9 +170,21 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   // Legacy source routes still reach the book contents when directly bookmarked. One route
   // renders every source the same way, so a spread sample (first, last, and evenly spaced)
   // checks the route without opening all of the library's publications.
+  // The sample also pins the edge cases a regression for one publication is most likely to hit:
+  // the shallowest and deepest contents trees and the longest id.
   const sources = corpus.catalog.sources;
   const step = Math.max(1, Math.floor(sources.length / 8));
-  const sample = [...new Set([...sources.filter((_, i) => i % step === 0), sources[sources.length - 1]])];
+  const chapters = new Map(bookTrees().map((tree) => [tree.source, tree.chapters.length]));
+  const byChapters = sources.filter((source) => chapters.has(source.id))
+    .sort((a, b) => chapters.get(a.id)! - chapters.get(b.id)! || a.id.localeCompare(b.id));
+  const longest = [...sources].sort((a, b) => b.id.length - a.id.length || a.id.localeCompare(b.id))[0];
+  const sample = [...new Set([
+    ...sources.filter((_, i) => i % step === 0),
+    sources[sources.length - 1],
+    byChapters[0],
+    byChapters[byChapters.length - 1],
+    longest,
+  ])];
   for (const source of sample) {
     await page.goto(`#/browse/source/${encodeURIComponent(source.id)}`);
     await expect(page.getByRole("heading", { level: 1, name: source.title })).toBeVisible();
