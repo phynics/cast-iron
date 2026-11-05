@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, installLibrary, waitControlled } from "./helpers";
+import { corpusEntry, installLibrary, letterId, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -10,23 +10,31 @@ test("A long kind opens one letter group, focuses it, and Back returns to it", a
 
   await page.goto("#/browse/kind/spell?l=F");
   await expect(page.getByRole("navigation", { name: "Jump to letter" })).toBeVisible();
-  const group = page.locator("#letter-F");
-  await expect(group.locator(".letter-head")).toHaveText(/^F/);
-  await expect(group).toBeInViewport();
-  await expect(group.locator(".letter-head")).toBeFocused();
+  const group = page.locator(`#${letterId("F")}`);
+  const heading = group.locator(".letter-head");
+  await expect(heading).toHaveText(/^F/);
+  await expect(heading).toBeInViewport();
+  await expect(heading).toBeFocused();
   await expect(page.locator('.letter-btn[aria-current="true"]')).toHaveText("F");
   // Only the selected group holds entry links; the other letters stay collapsed.
-  await expect(page.locator(".letter-group .show-letter").first()).toBeVisible();
+  await expect(page.locator(".letter-group .letter-head-link").first()).toBeVisible();
 
-  await group.getByRole("link", { name: fireball.title, exact: true }).click();
+  // A duplicated title sits inside a SourceVariants disclosure, so follow the entry href.
+  const link = group.locator(`a[href="#/entry/${fireball.id}"]`);
+  await expect(link).toHaveCount(1);
+  const details = link.locator("xpath=ancestor::details");
+  if ((await details.count()) > 0 && !(await details.evaluate((element: HTMLDetailsElement) => element.open))) {
+    await details.locator("summary").click();
+  }
+  await link.click();
   await expect(page.getByRole("heading", { level: 1, name: fireball.title })).toBeVisible();
   await expect.poll(() => new URL(page.url()).hash).toContain(`#/entry/${fireball.id}`);
 
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/spell?l=F");
-  await expect(page.locator("#letter-F")).toBeInViewport();
-  await expect(page.locator("#letter-F .letter-head")).toBeFocused();
-  await expect(page.locator("#letter-F .entry-list")).toBeVisible();
+  await expect(page.locator(`#${letterId("F")} .letter-head`)).toBeInViewport();
+  await expect(page.locator(`#${letterId("F")} .letter-head`)).toBeFocused();
+  await expect(page.locator(`#${letterId("F")} .entry-list`)).toBeVisible();
   await expect(page.locator('.letter-btn[aria-current="true"]')).toHaveText("F");
 });
 

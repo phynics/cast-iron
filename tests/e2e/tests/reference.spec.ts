@@ -12,6 +12,7 @@ import {
   headingAnchors,
   headingKeys,
   inlineText,
+  letterId,
   openBookEntry,
   pathToEntry,
   showAllResults,
@@ -130,20 +131,25 @@ test("Home is category-only and Books is the publication directory", async ({ pa
     (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
   );
   const firstLetter = letters[0];
+  const firstId = letterId(firstLetter);
   const firstGroup = spells.filter((stub) => groupLetter(stub.title) === firstLetter);
   await tiles.filter({ has: page.locator(".cat-name", { hasText: /^Spells$/ }) }).click();
   const jump = page.getByRole("navigation", { name: "Jump to letter" });
   await expect(jump).toBeVisible();
   await expect(jump.getByRole("link")).toHaveCount(letters.length);
-  await expect(page.locator(`#letter-${firstLetter} .entry-list a[href^="#/entry/"]`)).toHaveCount(firstGroup.length);
-  // Other groups stay collapsed behind a link that selects their letter.
+  await expect(page.locator(`#${firstId} .entry-list a[href^="#/entry/"]`)).toHaveCount(firstGroup.length);
+  // Other groups stay collapsed behind their heading link.
   const targetLetter = letters.find((letter) => letter !== firstLetter)!;
-  await expect(page.locator(`#letter-${firstLetter} .show-letter`)).toHaveCount(1);
+  const targetId = letterId(targetLetter);
+  const targetGroup = spells.filter((stub) => groupLetter(stub.title) === targetLetter);
+  const collapsed = page.locator(`#${targetId} .letter-head-link`);
+  await expect(collapsed).toHaveCount(1);
+  await expect(collapsed).toHaveAccessibleName(new RegExp(`^${targetLetter}, ${targetGroup.length} entr`));
   await jump.getByRole("link", { name: `Jump to ${targetLetter}`, exact: true }).click();
   await expect.poll(() => new URL(page.url()).hash).toContain(`l=${encodeURIComponent(targetLetter)}`);
-  await expect(page.locator(`#letter-${targetLetter}`)).toBeInViewport();
-  await expect(page.locator(`#letter-${firstLetter} .show-letter`)).toBeVisible();
-  expect(await page.evaluate((letter) => document.activeElement?.textContent?.startsWith(letter), targetLetter)).toBe(true);
+  await expect(page.locator(`#${targetId} .letter-head`)).toBeInViewport();
+  await expect(page.locator(`#${targetId} .letter-head`)).toBeFocused();
+  await expect(page.locator(`#${firstId} .letter-head-link`)).toBeVisible();
 
   // Rules have no standalone Browse category. The former route redirects to Books.
   await page.goto("#/browse/kind/rule");

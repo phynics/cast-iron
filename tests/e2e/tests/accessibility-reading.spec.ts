@@ -7,6 +7,7 @@ import {
   bookTrees,
   bookEntryOrder,
   firstEntry,
+  letterId,
   openBookEntry,
   pathToEntry,
 } from "./helpers";
@@ -116,8 +117,9 @@ test("Keyboard controls expose focus and native disclosure state at phone and de
     const rect = await jump.boundingBox();
     expect(rect!.width).toBeGreaterThanOrEqual(44); expect(rect!.height).toBeGreaterThanOrEqual(44);
     await jump.focus(); await page.keyboard.press("Enter");
-    await expect.poll(() => page.locator(`#letter-${letter}`).evaluate(el => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
-    await expect(page.locator(`#letter-${letter} .letter-head`)).toBeFocused();
+    const group = page.locator(`#${letterId(letter)}`);
+    await expect.poll(() => group.evaluate(el => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+    await expect(group.locator(".letter-head")).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

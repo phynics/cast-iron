@@ -6,6 +6,11 @@ export function groupLetter(title: string): string {
   return first && /^[A-Z]$/.test(first) ? first : "#";
 }
 
+/** Mirrors `letter_id` in `crates/web/src/views/browse.rs`. */
+export function letterId(letter: string): string {
+  return letter === "#" ? "letter-other" : `letter-${letter}`;
+}
+
 /** Open the app, accept the offer, and wait for the reader. */
 export async function installLibrary(page: Page) {
   await page.goto("./");

@@ -2,7 +2,7 @@
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
 use crate::library::{Library, use_library};
-use crate::route::Route;
+use crate::route::{Route, replace};
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
@@ -13,6 +13,7 @@ use crate::views::util::{
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
 
@@ -385,19 +386,87 @@ fn entry_count(n: usize) -> String {
     }
 }
 
+/// The jump bar for a long kind. It is one wrapping row on desktop and one horizontally
+/// scrolling row on phones, where a wrapped sticky bar would cover too much of the viewport.
+#[component]
+fn LetterNav(kind: EntryKind, letters: Vec<char>, selected: Option<char>) -> impl IntoView {
+    Effect::new(move |_| {
+        // Keep the open letter visible in the phone's single scrolling row. Read the DOM
+        // directly: a pending frame against a disposed NodeRef would panic after remount.
+        let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+            return;
+        };
+        let Some(nav) = document
+            .query_selector(".letter-nav")
+            .ok()
+            .flatten()
+            .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return;
+        };
+        let Some(link) = document
+            .query_selector(".letter-btn[aria-current='true']")
+            .ok()
+            .flatten()
+            .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        else {
+            return;
+        };
+        let target = link.offset_left() - (nav.client_width() - link.client_width()) / 2;
+        nav.set_scroll_left(target.max(0));
+    });
+    let links = letters
+        .iter()
+        .map(|letter| {
+            let label = letter.to_string();
+            let jump_label = label.clone();
+            let href = Route::browse_kind_letter(kind, *letter).href();
+            let current = Some(*letter) == selected;
+            if current {
+                view! {
+                    <li>
+                        <a
+                            class="letter-btn"
+                            href=href
+                            aria-current="true"
+                            aria-label=format!("Jump to {jump_label}")
+                        >{label}</a>
+                    </li>
+                }
+                .into_any()
+            } else {
+                view! {
+                    <li>
+                        <a class="letter-btn" href=href aria-label=format!("Jump to {jump_label}")>
+                            {label}
+                        </a>
+                    </li>
+                }
+                .into_any()
+            }
+        })
+        .collect_view();
+    view! {
+        <nav class="letter-nav" aria-label="Jump to letter">
+            <ul>{links}</ul>
+        </nav>
+    }
+}
+
 /// An A to Z list. A long kind groups its rows by first letter and renders only the selected
 /// group, so a 3,000-entry category no longer puts every link in the document. Short kinds
 /// render as one flat list.
 #[component]
 fn AzList(
     kind: EntryKind,
+    groups: Vec<(char, Vec<usize>)>,
     stubs: Vec<EntryStub>,
     source_titles: Vec<Option<String>>,
     show_source: bool,
-    letter: Option<char>,
+    selected: Option<char>,
+    focus: bool,
 ) -> impl IntoView {
-    let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
-    let groups = Shared::new(group_by_letter(&titles));
+    let groups = Shared::new(groups);
     let stubs = Shared::new(stubs);
     let source_titles = Shared::new(source_titles);
     // Group only for presentation, after the caller has selected active catalog stubs. The
@@ -479,44 +548,28 @@ fn AzList(
         return view! { <ul class="entry-list">{rows}</ul> }.into_any();
     }
 
-    // An unknown or absent letter falls back to the first group. Only a letter the list
-    // actually has moves focus, so a bare category URL behaves as it always did.
-    let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
-    let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
-    let heading_ref = NodeRef::<leptos::html::H2>::new();
-    if requested.is_some() {
+    if focus && let Some(letter) = selected {
         // The route frame scrolls to the top and focuses <main> in the next frame, so wait one
-        // more frame before moving focus to the group heading.
+        // more frame before moving focus to the group heading. Query the DOM by id: a pending
+        // frame against a disposed NodeRef would panic when the route changes again.
+        let heading_id = format!("{}-heading", letter_id(letter));
         Effect::new(move |_| {
+            let heading_id = heading_id.clone();
             request_animation_frame(move || {
+                let heading_id = heading_id.clone();
                 request_animation_frame(move || {
-                    if let Some(heading) = heading_ref.get() {
-                        let _ = heading.focus();
-                    }
+                    let Some(heading) = web_sys::window()
+                        .and_then(|window| window.document())
+                        .and_then(|document| document.get_element_by_id(&heading_id))
+                        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+                    else {
+                        return;
+                    };
+                    let _ = heading.focus();
                 });
             });
         });
     }
-
-    let jump = groups
-        .iter()
-        .map(|(letter, _)| {
-            let label = letter.to_string();
-            let jump_label = label.clone();
-            let href = Route::browse_kind_letter(kind, *letter).href();
-            let current = Some(*letter) == selected;
-            view! {
-                <li>
-                    <a
-                        class="letter-btn"
-                        href=href
-                        aria-current=if current { "true" } else { "false" }
-                        aria-label=format!("Jump to {jump_label}")
-                    >{label}</a>
-                </li>
-            }
-        })
-        .collect_view();
 
     let mut selected_rows = selected
         .and_then(|letter| groups.iter().position(|(group, _)| *group == letter))
@@ -533,8 +586,8 @@ fn AzList(
                 let rows = selected_rows.take().unwrap_or_default();
                 view! {
                     <section class="letter-group" id=dom_id data-letter=label.clone()>
-                        <h2 class="letter-head" tabindex="-1" node_ref=heading_ref>
-                            {label.clone()}<span class="letter-count">{count}</span>
+                        <h2 class="letter-head" id=format!("{dom_id}-heading") tabindex="-1">
+                            {label.clone()}<span class="letter-count">{format!(" {count}")}</span>
                         </h2>
                         <ul class="entry-list">{rows}</ul>
                     </section>
@@ -542,14 +595,15 @@ fn AzList(
                 .into_any()
             } else {
                 let href = Route::browse_kind_letter(kind, *group_letter).href();
+                let group_name = format!("{label}, {count}");
                 view! {
                     <section class="letter-group" id=dom_id data-letter=label.clone()>
                         <h2 class="letter-head">
-                            {label.clone()}<span class="letter-count">{count.clone()}</span>
+                            // The whole collapsed row is the one link to this letter.
+                            <a class="letter-head-link" href=href aria-label=group_name>
+                                {label.clone()}<span class="letter-count">{format!(" {count}")}</span>
+                            </a>
                         </h2>
-                        <p class="letter-more">
-                            <a class="show-letter" href=href>{format!("Show {count}")}</a>
-                        </p>
                     </section>
                 }
                 .into_any()
@@ -557,11 +611,7 @@ fn AzList(
         })
         .collect_view();
 
-    view! {
-        <nav class="letter-nav" aria-label="Jump to letter"><ul>{jump}</ul></nav>
-        {sections}
-    }
-    .into_any()
+    view! { {sections} }.into_any()
 }
 
 #[component]
@@ -571,6 +621,17 @@ pub fn BrowseKind(kind: EntryKind, letter: Option<char>) -> impl IntoView {
     let stubs = sorted_of_kind(&library, kind);
     let count = stubs.len();
     let multi_source = stubs.iter().any(|s| s.source != stubs[0].source);
+    let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
+    let groups = group_by_letter(&titles);
+    let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
+    let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
+    // A letter the kind does not have still renders the first group; make the URL match it.
+    if letter.is_some() && requested.is_none() {
+        Effect::new(move |_| replace(&Route::browse_kind(kind)));
+    }
+    let letters: Vec<char> = groups.iter().map(|(letter, _)| *letter).collect();
+    let jump = (count > GROUP_THRESHOLD)
+        .then(|| view! { <LetterNav kind letters=letters selected=selected /> });
 
     let body = if kind == EntryKind::Rule {
         let items: Vec<(EntryId, Option<EntryId>, String)> = stubs
@@ -584,7 +645,11 @@ pub fn BrowseKind(kind: EntryKind, letter: Option<char>) -> impl IntoView {
             .iter()
             .map(|s| library.source(&s.source).map(|src| src.title.clone()))
             .collect();
-        view! { <AzList kind stubs=stubs.clone() source_titles show_source=multi_source letter=letter /> }.into_any()
+        view! {
+            <AzList kind groups=groups stubs=stubs.clone() source_titles show_source=multi_source
+                selected=selected focus=requested.is_some() />
+        }
+        .into_any()
     };
 
     let search_href = Route::Search {
@@ -607,6 +672,7 @@ pub fn BrowseKind(kind: EntryKind, letter: Option<char>) -> impl IntoView {
                 {format!("Search {}", kind.label().to_lowercase())}
             </a>
         </p>
+        {jump}
         <Lenses kind />
         <h2 class="sub-head az-head">"All, A to Z"</h2>
         {body}
