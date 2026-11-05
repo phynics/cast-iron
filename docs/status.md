@@ -463,10 +463,10 @@ checked against the same full suite, one `dist/` at a time.
 
 | Project | Canonical | PSRD |
 |---|---:|---:|
-| chromium | 53/53 | 53/53 |
-| webkit | 53/53 | 53/53 |
+| chromium | 54/54 | 54/54 |
+| webkit | 54/54 | 54/54 |
 | mobile-chromium | 2/2 | 2/2 |
-| Total | 108/108 | 108/108 |
+| Total | 110/110 | 110/110 |
 
 Commands, run from the repository root:
 
@@ -492,12 +492,12 @@ the distribution server on localhost:
 
 | Measure | Chromium | WebKit |
 |---|---:|---:|
-| Install, Download click to reader (s) | 1.3 | 1.8 |
+| Install, Download click to reader (s) | 1.3 | 2.3 |
 | Storage usage / quota | 209.1 MB / 10.9 GB | 208.9 MB / 20.6 GB |
-| First entry render (ms) | 29 | 27 |
-| Search engine p50 / p95 (ms) | 50.5 / 192.5 | 47.0 / 195.0 |
-| Search input to results p50 / p95 (ms) | 173 / 320 | 169 / 316 |
-| JS heap after search | 4 MB | not available |
+| First entry render (ms) | 32 | 36 |
+| Search engine p50 / p95 (ms) | 53.5 / 200.0 | 52.0 / 211.0 |
+| Search input to results p50 / p95 (ms) | 178 / 324 | 174 / 342 |
+| JS heap after search | 5 MB | not available |
 | Console errors | 0 | 0 |
 
 The storage figures are `navigator.storage.estimate().usage`: the library plus the app
