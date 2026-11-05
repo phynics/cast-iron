@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from "./fixtures";
-import { installLibrary, waitReady } from "./helpers";
+import { installLibrary, waitControlled, waitReady } from "./helpers";
 
 // The header Install button and the Settings install option. Real browsers fire
 // `beforeinstallprompt` on their own terms, so these tests dispatch a fake one that has the same
@@ -7,6 +7,7 @@ import { installLibrary, waitReady } from "./helpers";
 // before the app has started.
 
 const INSTALL_NAME = "Install Cast Iron as an app";
+const UPDATE_NAME = "App update ready. Reload to apply";
 const IOS_SAFARI =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 
@@ -138,6 +139,27 @@ test("A browser without an install option gets only a hint in Settings", async (
   await page.goto("#/settings");
   await expect(page.getByTestId("app-install")).toHaveText("Your browser's menu may offer Install or Add to Home Screen.");
   await expect(page.getByRole("button", { name: "Install app" })).toHaveCount(0);
+});
+
+test("When an app update is ready, only the Update button shows", async ({ page, context, server }) => {
+  await firePromptEarly(context);
+  await installLibrary(page);
+  await waitControlled(page);
+  await expect(headerButton(page)).toBeVisible();
+
+  await page.goto("#/settings");
+  const shell = page.getByTestId("shell-version");
+  await expect(shell).not.toHaveText(/Checking|Not available/);
+  const nextShell = `e2e-both-${(await shell.innerText()).trim()}`;
+  await server.shellVersion(nextShell);
+  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+
+  // Both actions apply, but the header has one slot and the update wins.
+  const update = page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME });
+  await expect(update).toBeVisible();
+  await expect(headerButton(page)).toHaveCount(0);
+  // Settings keeps offering install, so the update does not hide that option.
+  await expect(page.getByTestId("app-install")).toContainText("for full-screen reading and an icon on your device");
 });
 
 test("Unavailable storage hides the header button without breaking the app", async ({ page, context }) => {
