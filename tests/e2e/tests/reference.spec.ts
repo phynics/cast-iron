@@ -58,10 +58,10 @@ test("Reviewed primary-source passage appears under the Core Rulebook Magic arti
   await expect(page.getByRole("heading", { level: 1, name: "Casting Spells" })).toBeVisible();
 });
 
-test("Browse is category-only and Books is the publication directory", async ({ page }) => {
+test("Home is category-only and Books is the publication directory", async ({ page }) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
-  await nav.getByRole("link", { name: "Browse" }).click();
-  await expect(page.getByRole("heading", { name: "Browse", level: 1 })).toBeVisible();
+  await nav.getByRole("link", { name: "Home", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your rules reference", level: 1 })).toBeVisible();
 
   // Every category tile shows the count that the compiled catalog has.
   const tiles = page.locator("section[aria-labelledby=by-kind] a.cat");
@@ -85,7 +85,7 @@ test("Browse is category-only and Books is the publication directory", async ({ 
   await page.goto("#/browse/kind/rule");
   await expect(page.getByRole("heading", { name: "Books", level: 1 })).toBeVisible();
   await expect(page.locator(".book-directory-row")).toHaveCount(corpus.catalog.sources.length);
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Browse" }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.locator("section[aria-labelledby=by-kind] .cat-name", { hasText: /^Rules$/ })).toHaveCount(0);
 
   // Each installed publication has an expandable row and a direct contents link.

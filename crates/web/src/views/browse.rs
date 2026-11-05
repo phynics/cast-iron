@@ -125,9 +125,10 @@ fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
     }
 }
 
+/// The category directory shared by Home and any other screen that lists every category.
+/// `note` adds the line about what the counts mean, which only Home shows.
 #[component]
-pub fn Browse() -> impl IntoView {
-    set_title("Browse");
+pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
     let library = use_library();
     let (primary, more) = categories::arrange(&library.discovery().kind_counts());
     let primary = primary
@@ -142,7 +143,7 @@ pub fn Browse() -> impl IntoView {
         view! {
             <section aria-labelledby="by-kind-more">
                 <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
-                <ul class="cats cats-quiet" aria-describedby="by-kind-scope">{rows}</ul>
+                <ul class="cats cats-quiet" aria-describedby=note.then_some("by-kind-scope")>{rows}</ul>
             </section>
         }
     });
@@ -158,19 +159,13 @@ pub fn Browse() -> impl IntoView {
         }
     });
     view! {
-        <div class="wide">
-            <h1>"Browse"</h1>
-            <Show when=move || library.discovery().entries().next().is_none()>
-                <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>
-            </Show>
-            <section aria-labelledby="by-kind">
-                <h2 id="by-kind" class="sub-head">"Categories"</h2>
-                <p id="by-kind-scope" class="count-scope">{ACTIVE_BOOKS_SCOPE}</p>
-                <ul class="cats" aria-describedby="by-kind-scope">{primary}</ul>
-            </section>
-            {more_section}
-            {shortcuts}
-        </div>
+        <section aria-labelledby="by-kind">
+            <h2 id="by-kind">"Categories"</h2>
+            {note.then(|| view! { <p id="by-kind-scope" class="muted cats-note">{ACTIVE_BOOKS_SCOPE}"."</p> })}
+            <ul class="cats" aria-describedby=note.then_some("by-kind-scope")>{primary}</ul>
+        </section>
+        {more_section}
+        {shortcuts}
     }
 }
 
@@ -568,7 +563,7 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
     view! {
         <div class="wide">
         <nav class="crumbs" aria-label="Breadcrumb">
-            <ol><li><a href=Route::Browse.href()>"Browse"</a></li></ol>
+            <ol><li><a href=Route::Home.href()>"Home"</a></li></ol>
         </nav>
         <h1>{kind.label()}</h1>
         <p class="lede-line">{categories::blurb(kind)}</p>
@@ -625,7 +620,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
             <div class="wide">
             <h1>"Publication not found"</h1>
             <p>{format!("This library has no publication {id:?}.")}</p>
-            <p><a href=Route::Browse.href()>"Back to Browse"</a></p>
+            <p><a href=Route::Home.href()>"Back to Home"</a></p>
             </div>
         }
         .into_any();
@@ -681,7 +676,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
     view! {
         <div class="wide">
         <nav class="crumbs" aria-label="Breadcrumb">
-            <ol><li><a href=Route::Browse.href()>"Browse"</a></li></ol>
+            <ol><li><a href=Route::Home.href()>"Home"</a></li></ol>
         </nav>
         <h1>{source.title.clone()}</h1>
         <p class="muted">{format!("{} entries in this library", source.entry_count)}</p>

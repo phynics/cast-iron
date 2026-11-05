@@ -261,7 +261,7 @@ fn BookmarksScreen(collection: Option<String>) -> impl IntoView {
                             <p class="muted">"Open any entry and choose Bookmark. It is saved on this device and works offline."</p>
                             <p>
                                 <a class="btn" href=Route::search("").href()>"Search"</a>" "
-                                <a class="btn" href=Route::Browse.href()>"Browse"</a>
+                                <a class="btn" href=Route::Home.href()>"Home"</a>
                             </p>
                         </div>
                     }

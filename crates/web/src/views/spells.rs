@@ -61,7 +61,7 @@ fn spell_crumbs(last: Option<(&'static str, Route)>) -> impl IntoView {
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
-                <li><a href=Route::Browse.href()>"Browse"</a></li>
+                <li><a href=Route::Home.href()>"Home"</a></li>
                 <li><a href=Route::BrowseKind(EntryKind::Spell).href()>"Spells"</a></li>
                 {last.map(|(label, route)| view! { <li><a href=route.href()>{label}</a></li> })}
             </ol>

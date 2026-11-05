@@ -10,7 +10,7 @@ use crate::theme::{self, Theme};
 use crate::views::{
     self,
     book::{BookView, same_book},
-    browse::{Books, Browse, BrowseKind, BrowseSource},
+    browse::{Books, BrowseKind, BrowseSource},
     chains::FeatChains,
     entry::Entry,
     header_action::{HeaderAction, InstallGuide},
@@ -310,7 +310,6 @@ fn Reader(library: Library) -> impl IntoView {
                 </Show>
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
-                    <NavLink label="Browse" route=Route::Browse />
                     <NavLink label="Books" route=Route::Books />
                     <NavLink label="Settings" route=Route::Settings />
                 </nav>
@@ -328,6 +327,12 @@ fn Reader(library: Library) -> impl IntoView {
                     "Cast Iron is an unofficial fan project. It is not published, endorsed, or approved by Paizo Inc. "
                     <a href=Route::Legal.href()>"Legal and attribution"</a>
                 </p>
+                <p class="footer-links">
+                    <a href="https://github.com/phynics/cast-iron" rel="noopener noreferrer">"Source on GitHub"</a>
+                    " · "
+                    <a href="https://github.com/phynics/cast-iron/issues" rel="noopener noreferrer">"Send feedback or report a problem"</a>
+                    <span class="muted">" (needs a connection)"</span>
+                </p>
             </footer>
         </div>
     }
@@ -337,17 +342,15 @@ fn Reader(library: Library) -> impl IntoView {
 fn in_section(link: &Route, current: &Route) -> bool {
     matches!(
         (link, current),
-        (Route::Home, Route::Home)
-            | (
-                Route::Browse,
-                Route::Browse
-                    | Route::BrowseKind(_)
-                    | Route::BrowseSource(_)
-                    | Route::Spells
-                    | Route::SpellList { .. }
-                    | Route::FeatChains
-            )
-            | (Route::Books, Route::Books | Route::Book { .. })
+        (
+            Route::Home,
+            Route::Home
+                | Route::BrowseKind(_)
+                | Route::BrowseSource(_)
+                | Route::Spells
+                | Route::SpellList { .. }
+                | Route::FeatChains,
+        ) | (Route::Books, Route::Books | Route::Book { .. })
             | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -366,7 +369,6 @@ fn NavLink(label: &'static str, route: Route) -> impl IntoView {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                     {match label {
                         "Home" => view! { <path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5z"/><path d="M9 21v-7h6v7"/> }.into_any(),
-                        "Browse" => view! { <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/> }.into_any(),
                         "Books" => view! { <path d="M12 6c-2-2-5-2.5-9-2v15c4-.5 7 0 9 2m0-15c2-2 5-2.5 9-2v15c-4-.5-7 0-9 2m0-15v15"/> }.into_any(),
                         _ => view! { <circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a7.7 7.7 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 3a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.7 7.7 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5l.4 3h4l.4-3a8 8 0 0 0 2.6-1.5l2.4 1 2-3.5z"/> }.into_any(),
                     }}
@@ -414,7 +416,6 @@ fn RouteView() -> impl IntoView {
     move || match page.get().0 {
         Route::Home => view! { <Home /> }.into_any(),
         Route::Search { .. } => view! { <Search /> }.into_any(),
-        Route::Browse => view! { <Browse /> }.into_any(),
         Route::BrowseKind(kind) => view! { <BrowseKind kind /> }.into_any(),
         // Old links to a publication land on its book when the library has book order.
         Route::BrowseSource(id) if use_library().has_books() => {
@@ -444,8 +445,12 @@ mod tests {
     #[test]
     fn nav_highlights_the_containing_section() {
         assert!(in_section(
-            &Route::Browse,
+            &Route::Home,
             &Route::BrowseKind(cast_iron_schema::EntryKind::Spell)
+        ));
+        assert!(in_section(
+            &Route::Home,
+            &Route::BrowseSource("core-rulebook".into())
         ));
         assert!(in_section(&Route::Settings, &Route::Legal));
         for inside in [
@@ -456,7 +461,7 @@ mod tests {
             },
             Route::FeatChains,
         ] {
-            assert!(in_section(&Route::Browse, &inside), "{inside:?}");
+            assert!(in_section(&Route::Home, &inside), "{inside:?}");
         }
         assert!(in_section(
             &Route::Books,
@@ -465,9 +470,9 @@ mod tests {
                 chapter: Some(vec![1])
             }
         ));
-        assert!(!in_section(&Route::Browse, &Route::Books));
+        assert!(!in_section(&Route::Home, &Route::Books));
         assert!(in_section(&Route::Home, &Route::Home));
         assert!(!in_section(&Route::Home, &Route::Settings));
-        assert!(!in_section(&Route::Browse, &Route::search("fire")));
+        assert!(!in_section(&Route::Home, &Route::search("fire")));
     }
 }

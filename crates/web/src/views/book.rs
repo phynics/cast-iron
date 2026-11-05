@@ -394,7 +394,7 @@ mod tests {
         };
         assert!(same_book(&book("a", None), &book("a", Some(vec![1]))));
         assert!(!same_book(&book("a", None), &book("b", None)));
-        assert!(!same_book(&Route::Browse, &book("a", None)));
+        assert!(!same_book(&Route::Home, &book("a", None)));
     }
 
     #[test]

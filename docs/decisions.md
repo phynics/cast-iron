@@ -374,6 +374,13 @@ Settles #41 (split from #15). Search and Browse used to show the same active-boo
 - **The banner is gone.** The full-width `.banner` below the header pushed the reading content down when an update arrived. The header button keeps `--header-h` fixed, so `<main>` does not move. Settings keeps its `.banner-inline` row with "App update ready. Reload" for readers who look there.
 - **The button announces once, the click reloads.** Update uses the shared `.header-action-btn` pill: a 14px refresh arc in `currentColor` and a 6px `var(--accent)` pip on the icon, with the visible label on screens 48rem and wider and the icon alone below it. Its accessible name is "App update ready. Reload to apply". A visually hidden `role="status"` element carries "App update ready." when the state becomes ready; the button itself is not a live region, so it does not re-announce. Clicking it calls `js::apply_shell_update()`.
 
+## Categories on Home, 2026-11-05
+
+- **Home is the category directory.** The full directory (primary categories, more categories, and shortcuts) now renders on Home under starred entries and recent reading. The separate Browse destination is gone from the navigation; `#/browse` and `#/browse/` open Home, while kind, source, book, and books routes keep their own pages.
+- **Starred entries show five rows first.** When more than five are saved, a button with `aria-expanded` reveals the rest and collapses them again; the stored order and the open and unstar actions do not change.
+- **Links that named Browse now name Home.** Breadcrumbs, the entry crumb, and the empty-bookmarks action point at `Route::Home`. `BrowseKind`, `BrowseSource`, `Spells`, `SpellList`, and `FeatChains` mark Home as the current section.
+- **The footer links to the project and its issue tracker.** The existing disclaimer is unchanged and always visible; the new links are marked as needing a connection, and coarse-pointer targets keep the standard touch height.
+
 ## Heading DOM ids and URL anchor keys, 2026-11-05
 
 This replaces the earlier rule that heading ids were the compiler's anchors, unprefixed. That rule let a content anchor such as `main` or `references-heading` collide with an app element, and let two headings with the same text share one id.

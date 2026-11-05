@@ -74,6 +74,8 @@ test("More than six starred entries stay independently openable and removable", 
   }
   await page.goto("#/");
   const rows = page.locator(".home-bookmarks > li");
+  await expect(rows).toHaveCount(5);
+  await page.getByRole("button", { name: "Show all 7 starred entries" }).click();
   await expect(rows).toHaveCount(7);
   const fireballRow = rows.filter({ has: page.getByRole("link", { name: "Fireball", exact: true }) });
   await fireballRow.getByRole("button", { name: "Unstar Fireball" }).click();

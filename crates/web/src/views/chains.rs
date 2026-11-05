@@ -86,7 +86,7 @@ pub fn FeatChains() -> impl IntoView {
         <div class="wide">
             <nav class="crumbs" aria-label="Breadcrumb">
                 <ol>
-                    <li><a href=Route::Browse.href()>"Browse"</a></li>
+                    <li><a href=Route::Home.href()>"Home"</a></li>
                     <li><a href=Route::BrowseKind(EntryKind::Feat).href()>"Feats"</a></li>
                 </ol>
             </nav>
