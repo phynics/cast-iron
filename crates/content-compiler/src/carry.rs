@@ -78,6 +78,9 @@ pub struct CarryReport {
 pub struct CarryOver {
     /// Carried entries sorted by legacy id.
     pub records: Vec<Carried>,
+    /// Legacy ids carried because their planned canonical target was not emitted,
+    /// keyed by legacy id and pointing at `ref/carried/<legacy>`.
+    pub fallbacks: BTreeMap<String, String>,
     pub report: CarryReport,
 }
 
@@ -117,11 +120,102 @@ pub fn carry_over(
     carry_entries(&library.entries, map, catalog)
 }
 
+/// Carries the explicit `ref/carried/...` rows plus every legacy id whose planned
+/// canonical target exists in the catalog but was not emitted by the converter.
+///
+/// The fallback is the "no OGC lost" half of the cutover policy. A row whose
+/// target is legally excluded is not carried here: that target has a rights
+/// disposition and the caller renders it as a rights retirement. A legacy id
+/// that the PSRD library does not publish cannot be carried and stays retired
+/// with its own reason.
+pub fn carry_over_with_fallback(
+    library: &Library,
+    map: &IdMap,
+    catalog: &CanonicalCatalog,
+    emitted: &BTreeSet<String>,
+    legally_excluded: &BTreeSet<String>,
+) -> Result<CarryOver, Vec<String>> {
+    carry_entries_with_fallback(&library.entries, map, catalog, emitted, legally_excluded)
+}
+
 /// The entry-only form of [`carry_over`], for fixtures and tests.
 pub fn carry_entries(
     entries: &[RuleEntry],
     map: &IdMap,
     catalog: &CanonicalCatalog,
+) -> Result<CarryOver, Vec<String>> {
+    carry_entries_with(entries, map, catalog, &BTreeMap::new())
+}
+
+/// The entry-only form of [`carry_over_with_fallback`], for fixtures and tests.
+pub fn carry_entries_with_fallback(
+    entries: &[RuleEntry],
+    map: &IdMap,
+    catalog: &CanonicalCatalog,
+    emitted: &BTreeSet<String>,
+    legally_excluded: &BTreeSet<String>,
+) -> Result<CarryOver, Vec<String>> {
+    let fallbacks = fallback_targets(entries, map, catalog, emitted, legally_excluded);
+    carry_entries_with(entries, map, catalog, &fallbacks)
+}
+
+/// Resolves map rows whose canonical target is missing from the installed library.
+///
+/// The target must exist in the catalog, must not be legally excluded, and must
+/// not already be a carried row. Only ids that the PSRD library publishes are
+/// fallback candidates; carrying an unpublished id would invent a record.
+fn fallback_targets(
+    entries: &[RuleEntry],
+    map: &IdMap,
+    catalog: &CanonicalCatalog,
+    emitted: &BTreeSet<String>,
+    legally_excluded: &BTreeSet<String>,
+) -> BTreeMap<String, String> {
+    let published: BTreeSet<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
+    let mut out = BTreeMap::new();
+    let mut consider = |old: &str, target: Option<&str>| {
+        let Some(target) = target else {
+            return;
+        };
+        if target.starts_with(CARRIED_PREFIX)
+            || emitted.contains(target)
+            || legally_excluded.contains(target)
+            || !catalog.contains(target)
+            || !published.contains(old)
+        {
+            return;
+        }
+        if let Ok(carried) = carried_target(old) {
+            out.insert(old.to_string(), carried);
+        }
+    };
+    for (old, row) in &map.map {
+        let target = row
+            .target
+            .as_deref()
+            .or_else(|| {
+                row.record
+                    .as_deref()
+                    .and_then(|id| catalog.canonical_for_identity(id))
+            })
+            .or_else(|| {
+                row.derived
+                    .as_deref()
+                    .and_then(|id| catalog.canonical_for_identity(id))
+            });
+        consider(old, target);
+    }
+    for (old, row) in &map.shared {
+        consider(old, Some(row.target.as_str()));
+    }
+    out
+}
+
+fn carry_entries_with(
+    entries: &[RuleEntry],
+    map: &IdMap,
+    catalog: &CanonicalCatalog,
+    fallbacks: &BTreeMap<String, String>,
 ) -> Result<CarryOver, Vec<String>> {
     let mut errors = Vec::new();
     let by_id: BTreeMap<&str, &RuleEntry> = entries
@@ -148,6 +242,22 @@ pub fn carry_entries(
                 "map row {old:?}: carried target {target:?} must be {expected:?}"
             )),
             Err(error) => errors.push(format!("map row {old:?}: {error}")),
+        }
+    }
+    for (old, target) in fallbacks {
+        let expected = carried_target(old);
+        match expected {
+            Ok(expected) if expected == *target => {
+                if carried.insert(old.clone(), target.clone()).is_some() {
+                    errors.push(format!(
+                        "legacy id {old:?} is both an explicit and a fallback carry-over"
+                    ));
+                }
+            }
+            Ok(_) => errors.push(format!(
+                "fallback target for {old:?} is {target:?}, must be {expected:?}"
+            )),
+            Err(error) => errors.push(format!("fallback legacy id {old:?}: {error}")),
         }
     }
 
@@ -249,7 +359,11 @@ pub fn carry_entries(
         possible_duplicates,
         links: counts,
     };
-    Ok(CarryOver { records, report })
+    Ok(CarryOver {
+        records,
+        fallbacks: fallbacks.clone(),
+        report,
+    })
 }
 
 /// The canonical id of a carried legacy id.
@@ -879,5 +993,73 @@ mod tests {
         .unwrap();
         let second = carry_entries(&[source], &map, &CanonicalCatalog::default()).unwrap();
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn an_unemitted_target_falls_back_to_carry_over() {
+        let source = entry(
+            "bestiary/monsters/example",
+            EntryKind::Creature,
+            "Example",
+            "bestiary",
+        );
+        let map = map(&[("bestiary/monsters/example", "ref/monster/example")]);
+        let catalog = catalog(&[("ref/monster/example", "creature", "Example", "bestiary")]);
+        let out = carry_entries_with_fallback(
+            &[source],
+            &map,
+            &catalog,
+            &BTreeSet::new(),
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        assert_eq!(out.records.len(), 1);
+        assert_eq!(
+            out.records[0].entry.id.as_str(),
+            "ref/carried/bestiary/monsters/example"
+        );
+        assert_eq!(
+            out.fallbacks["bestiary/monsters/example"],
+            "ref/carried/bestiary/monsters/example"
+        );
+    }
+
+    #[test]
+    fn an_emitted_target_or_a_legally_excluded_one_is_not_carried() {
+        let source = entry(
+            "bestiary/monsters/example",
+            EntryKind::Creature,
+            "Example",
+            "bestiary",
+        );
+        let map = map(&[("bestiary/monsters/example", "ref/monster/example")]);
+        let catalog = catalog(&[("ref/monster/example", "creature", "Example", "bestiary")]);
+        let emitted: BTreeSet<String> = ["ref/monster/example".to_string()].into();
+        let out = carry_entries_with_fallback(
+            std::slice::from_ref(&source),
+            &map,
+            &catalog,
+            &emitted,
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        assert!(out.records.is_empty());
+
+        let excluded: BTreeSet<String> = ["ref/monster/example".to_string()].into();
+        let out =
+            carry_entries_with_fallback(&[source], &map, &catalog, &BTreeSet::new(), &excluded)
+                .unwrap();
+        assert!(out.records.is_empty());
+    }
+
+    #[test]
+    fn a_legacy_id_the_psrd_library_does_not_publish_stays_retired() {
+        let map = map(&[("bestiary/monsters/example", "ref/monster/example")]);
+        let catalog = catalog(&[("ref/monster/example", "creature", "Example", "bestiary")]);
+        let out =
+            carry_entries_with_fallback(&[], &map, &catalog, &BTreeSet::new(), &BTreeSet::new())
+                .unwrap();
+        assert!(out.records.is_empty());
+        assert!(out.fallbacks.is_empty());
     }
 }

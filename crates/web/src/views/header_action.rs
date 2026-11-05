@@ -1,8 +1,10 @@
 //! The one quiet action in the Reader header, and the dialog that Install can open.
 //!
-//! The header shows at most one action. Today that is Install; the enum leaves room for the
-//! app update action, which takes priority over Install when it applies.
+//! The header shows at most one action. An app update takes priority over Install, because it is
+//! the only thing the reader can act on right away.
 
+use crate::app::use_app;
+use crate::js;
 use crate::pwa::{InstallCtx, restore_focus, use_install};
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -11,6 +13,7 @@ use wasm_bindgen::JsCast;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HeaderActionKind {
     Install,
+    Update,
 }
 
 impl HeaderActionKind {
@@ -18,6 +21,7 @@ impl HeaderActionKind {
     fn label(self) -> &'static str {
         match self {
             Self::Install => "Install",
+            Self::Update => "Update",
         }
     }
 
@@ -25,6 +29,7 @@ impl HeaderActionKind {
     fn aria_label(self) -> &'static str {
         match self {
             Self::Install => "Install Cast Iron as an app",
+            Self::Update => "App update ready. Reload to apply",
         }
     }
 
@@ -34,28 +39,50 @@ impl HeaderActionKind {
                 <path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/>
             }
             .into_any(),
+            Self::Update => view! {
+                <path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/>
+            }
+            .into_any(),
         }
+    }
+
+    /// Update marks the icon with a pip, so the waiting update is visible without a label.
+    fn has_pip(self) -> bool {
+        matches!(self, Self::Update)
     }
 
     fn activate(self, install: InstallCtx, opener: Option<web_sys::HtmlElement>) {
         match self {
             Self::Install => install.request(opener),
+            Self::Update => js::apply_shell_update(),
         }
     }
 }
 
-/// The action that applies right now, if any.
-fn current_action(install: InstallCtx) -> Option<HeaderActionKind> {
-    install
-        .show_in_header()
-        .then_some(HeaderActionKind::Install)
+/// The action that applies right now, if any. An update outranks Install: it is the one the
+/// reader can apply now, and the header has room for only one button.
+fn choose_action(update_ready: bool, install_should_show: bool) -> Option<HeaderActionKind> {
+    if update_ready {
+        Some(HeaderActionKind::Update)
+    } else {
+        install_should_show.then_some(HeaderActionKind::Install)
+    }
 }
 
 #[component]
 pub fn HeaderAction() -> impl IntoView {
+    let app = use_app();
     let install = use_install();
-    let current = Memo::new(move |_| current_action(install));
-    move || current.get().map(|kind| view! { <ActionButton kind /> })
+    let current =
+        Memo::new(move |_| choose_action(app.shell_update_ready.get(), install.show_in_header()));
+    view! {
+        // Announced once, when the update becomes ready. The button is not a live region, so it
+        // cannot re-announce itself.
+        <span class="sr-only" role="status">
+            {move || app.shell_update_ready.get().then_some("App update ready.")}
+        </span>
+        {move || current.get().map(|kind| view! { <ActionButton kind /> })}
+    }
 }
 
 #[component]
@@ -73,12 +100,30 @@ fn ActionButton(kind: HeaderActionKind) -> impl IntoView {
                 kind.activate(install, opener);
             }
         >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                {kind.icon()}
-            </svg>
+            <span class="header-action-icon">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    {kind.icon()}
+                </svg>
+                {kind.has_pip().then(|| view! {
+                    <span class="header-action-pip" aria-hidden="true"></span>
+                })}
+            </span>
             <span class="header-action-label">{kind.label()}</span>
         </button>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn update_outranks_install_in_the_one_header_slot() {
+        assert_eq!(choose_action(false, false), None);
+        assert_eq!(choose_action(false, true), Some(HeaderActionKind::Install));
+        assert_eq!(choose_action(true, false), Some(HeaderActionKind::Update));
+        assert_eq!(choose_action(true, true), Some(HeaderActionKind::Update));
     }
 }
 

@@ -320,12 +320,6 @@ fn Reader(library: Library) -> impl IntoView {
                 </Show>
             </header>
             <InstallGuide />
-            <Show when=move || app.shell_update_ready.get()>
-                <div class="banner" role="status">
-                    <span>"Update ready."</span>
-                    <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
-                </div>
-            </Show>
             <main id="main" tabindex="-1">
                 <RouteView />
             </main>
