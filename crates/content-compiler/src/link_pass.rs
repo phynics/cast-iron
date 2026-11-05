@@ -9,22 +9,24 @@
 //!
 //! The rules, in the order that the pass applies them to each text span:
 //!
-//! 1. **Curated terms.** A [`TERMS`] row names plain text that links to one fixed target. An
-//!    italic or bold span that is exactly a curated term links to that target, because the
-//!    curated target settles an ambiguous title (`spell resistance` names several entries).
-//!    Plain text links only at its first occurrence in a block, which avoids a wall of
-//!    links. Emphasis is deliberate markup, so every emphasised span links.
-//! 2. **Blocklist.** A [`BLOCKLIST`] term is never linked automatically.
-//! 3. **Exact title.** An italic or bold span whose whole text equals the title of a spell or
+//! 1. **Blocklist.** A [`BLOCKLIST`] term is never linked automatically.
+//! 2. **Exact title.** An italic or bold span whose whole text equals the title of a spell or
 //!    special-ability entry, ignoring case, runs of whitespace, and trailing punctuation,
 //!    links to that entry. Plain, non-emphasised text is never linked automatically.
-//!    Several entries with one title resolve to the one in the Core Rulebook, then to the one
-//!    from the earliest publication. A tie that remains stays unlinked and is reported.
+//!    A spell wins over a special ability of the same title, because the books set spell
+//!    names in italic. Among the rest, the Core Rulebook wins, then the earliest
+//!    publication. A tie that remains stays unlinked and is reported.
+//! 3. **Curated terms.** A [`TERMS`] row names plain text that links to one fixed target.
+//!    Plain text links only at its first occurrence in a block, which avoids a wall of
+//!    links. An italic or bold span that is exactly a curated term and names no spell links
+//!    to the curated target, because that target settles a title with many copies. A span
+//!    that also names a spell links to the spell (rule 2).
 //!
 //! A span is left alone, and counted, when it is already inside a link, inside a heading, a
-//! whole-paragraph label, or a header cell, or when it names the entry that holds it. The
-//! pass never changes a word: it only wraps existing text in a link, and the wrapped text
-//! keeps its original case and spelling.
+//! whole-paragraph label, or a header cell, or when it names the entry that holds it. A
+//! curated plain-text match that sits in a heading, a label, a link, or emphasised text is
+//! counted too. The pass never changes a word: it only wraps existing text in a link, and
+//! the wrapped text keeps its original case and spelling.
 
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RuleEntry, StatRow, Table, TableCell,
@@ -44,15 +46,15 @@ const CORE_SOURCE: &str = "core-rulebook";
 pub const BLOCKLIST: &[(&str, &str)] = &[
     (
         "poison",
-        "The Core spell and the Core poison rule share the title and both come from the Core Rulebook, so no link is the right one. The word is also common emphasis.",
+        "A spell and a Core rule share the title, and the spell would win, but emphasised `poison` usually names the poison rules or the word itself.",
     ),
     (
         "fear",
-        "The Core spell and the Core fear rule share the title and both come from the Core Rulebook, so no link is the right one. The word is also common emphasis for the condition family.",
+        "A spell and a Core rule share the title, and the spell would win, but emphasised `fear` usually names the fear rules or the condition family.",
     ),
     (
         "invisibility",
-        "The Core spell and the Core invisibility rule share the title and both come from the Core Rulebook, so no link is the right one.",
+        "A spell and a Core rule share the title, and the spell would win, but emphasised `invisibility` often names the condition or the rules.",
     ),
     (
         "resistance",
@@ -298,6 +300,14 @@ pub struct CuratedRow {
     pub skipped_repeat: u32,
     /// Matches inside the target entry or an entry with the term as its title.
     pub skipped_self: u32,
+    /// Emphasised spans that name a spell as well, and so link to the spell, not to the
+    /// curated target.
+    pub emphasised_to_spell: u32,
+    /// Plain-text matches that the pass did not link, by where they sit.
+    pub skipped_in_heading: u32,
+    pub skipped_in_label: u32,
+    pub skipped_in_link: u32,
+    pub skipped_in_emphasis: u32,
 }
 
 /// The pass's output.
@@ -403,6 +413,15 @@ struct Holder {
     title_key: String,
 }
 
+/// Where a plain-text match sits when the pass cannot link it.
+#[derive(Clone, Copy)]
+enum Place {
+    Heading,
+    Label,
+    Link,
+    Emphasis,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Context {
     in_link: bool,
@@ -476,23 +495,44 @@ impl Pass {
         }
     }
 
+    /// Picks the target of a title. A spell wins over a special ability of the same title,
+    /// because the books set spell names in italic. Among the remaining candidates the Core
+    /// Rulebook, then the earliest publication, wins. The category of an ambiguous title is
+    /// the category of the entries tied for first place, not of every entry with the title.
     fn resolve(&self, candidates: &[Candidate]) -> Resolution {
-        let best = candidates.iter().map(Candidate::rank).min();
-        let tied: Vec<&Candidate> = candidates
+        let spells: Vec<&Candidate> = candidates
             .iter()
+            .filter(|c| c.category == Category::Spell)
+            .collect();
+        let pool: Vec<&Candidate> = if spells.is_empty() {
+            candidates.iter().collect()
+        } else {
+            spells
+        };
+        let best = pool.iter().map(|c| c.rank()).min();
+        let tied: Vec<&Candidate> = pool
+            .into_iter()
             .filter(|c| Some(c.rank()) == best)
             .collect();
         match tied.as_slice() {
             [only] => Resolution::Linked(only.id.clone()),
             _ => {
-                let categories: BTreeSet<Category> =
-                    candidates.iter().map(|c| c.category).collect();
+                let categories: BTreeSet<Category> = tied.iter().map(|c| c.category).collect();
                 Resolution::Ambiguous {
                     tied: tied.iter().map(|c| c.id.to_string()).collect(),
                     category: category_label(&categories),
                 }
             }
         }
+    }
+
+    /// True when `holder` is the term's target, or is titled like any term for that target.
+    fn is_self_for(&self, holder: &Holder, term: &Term, target: &EntryId) -> bool {
+        &holder.id == target
+            || self
+                .target_texts
+                .get(term.target)
+                .is_some_and(|texts| texts.contains(&holder.title_key))
     }
 
     fn count_added(&mut self, target: &EntryId, category: &str, rule: String) {
@@ -608,6 +648,16 @@ impl Pass {
     fn run(&mut self, content: Vec<Inline>, holder: &Holder, context: Context) -> Vec<Inline> {
         let mut linked = BTreeSet::new();
         existing_targets(&content, &mut linked);
+        // Plain-text matches that this block cannot link are counted from the input, before
+        // the span pass adds links of its own.
+        let place = if context.heading {
+            Some(Place::Heading)
+        } else if context.label {
+            Some(Place::Label)
+        } else {
+            None
+        };
+        self.count_skipped_plain(&content, place);
         let content = self.spans(content, holder, context, &mut linked);
         if context.heading || context.label {
             return content;
@@ -708,11 +758,17 @@ impl Pass {
             return None;
         }
 
-        let (target, category, rule) = if let Some(term) = curated {
+        // A span that names a spell links to the spell: italic is how the books mark spell
+        // names. The curated target covers the other emphasised spans.
+        let names_spell = candidates
+            .as_ref()
+            .is_some_and(|all| all.iter().any(|c| c.category == Category::Spell));
+        let (target, category, rule) = if let Some(term) = curated.filter(|_| !names_spell) {
             let target = EntryId::parse(term.target).ok()?;
+            let is_self = self.is_self_for(holder, term, &target);
             let row = self.report.curated.entry(term.text.into()).or_default();
             row.target = term.target.into();
-            if target == holder.id {
+            if is_self {
                 row.skipped_self += 1;
                 return None;
             }
@@ -752,6 +808,13 @@ impl Pass {
                     return None;
                 }
                 Resolution::Linked(id) => {
+                    if let Some(term) = curated {
+                        self.report
+                            .curated
+                            .entry(term.text.into())
+                            .or_default()
+                            .emphasised_to_spell += 1;
+                    }
                     let category = self.category_of_target(&id);
                     let rule = if trail.trim().is_empty() {
                         "auto:title"
@@ -802,23 +865,80 @@ impl Pass {
         out
     }
 
+    /// The earliest curated term at or after `pos`; at one position the longer term wins.
+    fn next_match(&self, lower: &str, pos: usize) -> Option<(usize, &'static Term)> {
+        let mut best: Option<(usize, &'static Term)> = None;
+        for term in self.terms.values().copied() {
+            if let Some(start) = find_word(lower, term.text, pos)
+                && best.is_none_or(|(at, held)| {
+                    start < at || (start == at && term.text.len() > held.text.len())
+                })
+            {
+                best = Some((start, term));
+            }
+        }
+        best
+    }
+
+    /// Counts curated plain-text matches that the pass leaves alone because of where they
+    /// sit: in a heading, in a label, inside a link, or inside emphasised text that is not
+    /// itself a curated term. `place` is where the walk starts; `None` counts nothing at the
+    /// top level, because the plain pass handles that text.
+    fn count_skipped_plain(&mut self, inlines: &[Inline], place: Option<Place>) {
+        for node in inlines {
+            match node {
+                Inline::Text { v } => {
+                    if let Some(place) = place {
+                        self.count_text(v, place);
+                    }
+                }
+                Inline::Link { c, .. } => {
+                    self.count_skipped_plain(c, place.or(Some(Place::Link)));
+                }
+                Inline::Em { c } | Inline::Strong { c } => {
+                    // A span that is exactly a curated term is counted by the span pass.
+                    let whole: Option<String> = c
+                        .iter()
+                        .map(|n| match n {
+                            Inline::Text { v } => Some(v.as_str()),
+                            _ => None,
+                        })
+                        .collect();
+                    if let Some(text) = whole
+                        && self.terms.contains_key(&normalise(split_edges(&text).1))
+                    {
+                        continue;
+                    }
+                    self.count_skipped_plain(c, place.or(Some(Place::Emphasis)));
+                }
+                Inline::Sup { c } | Inline::Sub { c } => self.count_skipped_plain(c, place),
+                Inline::Break => {}
+            }
+        }
+    }
+
+    fn count_text(&mut self, v: &str, place: Place) {
+        let lower = v.to_ascii_lowercase();
+        let mut pos = 0;
+        while let Some((start, term)) = self.next_match(&lower, pos) {
+            pos = start + term.text.len();
+            let row = self.report.curated.entry(term.text.into()).or_default();
+            row.target = term.target.into();
+            match place {
+                Place::Heading => row.skipped_in_heading += 1,
+                Place::Label => row.skipped_in_label += 1,
+                Place::Link => row.skipped_in_link += 1,
+                Place::Emphasis => row.skipped_in_emphasis += 1,
+            }
+        }
+    }
+
     fn text(&mut self, v: String, holder: &Holder, linked: &mut BTreeSet<EntryId>) -> Vec<Inline> {
         let lower = v.to_ascii_lowercase();
         let mut out = Vec::new();
         let (mut pos, mut last) = (0, 0);
         while pos < v.len() {
-            // The earliest match wins; at one position the longer term wins.
-            let mut best: Option<(usize, &'static Term)> = None;
-            for term in self.terms.values().copied() {
-                if let Some(start) = find_word(&lower, term.text, pos)
-                    && best.is_none_or(|(at, held)| {
-                        start < at || (start == at && term.text.len() > held.text.len())
-                    })
-                {
-                    best = Some((start, term));
-                }
-            }
-            let Some((start, term)) = best else {
+            let Some((start, term)) = self.next_match(&lower, pos) else {
                 break;
             };
             let end = start + term.text.len();
@@ -826,13 +946,10 @@ impl Pass {
             let Ok(target) = EntryId::parse(term.target) else {
                 continue;
             };
+            let is_self = self.is_self_for(holder, term, &target);
             let row = self.report.curated.entry(term.text.into()).or_default();
             row.target = term.target.into();
-            let titled_like_term = self
-                .target_texts
-                .get(term.target)
-                .is_some_and(|texts| texts.contains(&holder.title_key));
-            if holder.id == target || titled_like_term {
+            if is_self {
                 row.skipped_self += 1;
                 continue;
             }
@@ -956,13 +1073,22 @@ pub fn markdown(report: &Report) -> String {
     let _ = writeln!(s, "\n### Curated terms\n");
     let _ = writeln!(
         s,
-        "| Term | Target | Emphasised | Plain | Repeats skipped | Self skipped |\n|---|---|---:|---:|---:|---:|"
+        "| Term | Target | Emphasised | To spell | Plain | Repeats skipped | Self skipped | In heading | In label | In link | In emphasis |\n|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
     );
     for (term, row) in &report.curated {
         let _ = writeln!(
             s,
-            "| {term} | `{}` | {} | {} | {} | {} |",
-            row.target, row.emphasised, row.plain, row.skipped_repeat, row.skipped_self
+            "| {term} | `{}` | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            row.target,
+            row.emphasised,
+            row.emphasised_to_spell,
+            row.plain,
+            row.skipped_repeat,
+            row.skipped_self,
+            row.skipped_in_heading,
+            row.skipped_in_label,
+            row.skipped_in_link,
+            row.skipped_in_emphasis
         );
     }
     for missing in &report.missing_targets {
@@ -1324,26 +1450,75 @@ mod tests {
         );
     }
 
+    fn cast_aid() -> RuleEntry {
+        host(
+            "ref/monster/a",
+            "A",
+            vec![para(vec![t("Cast "), em("aid"), t(".")])],
+        )
+    }
+
     #[test]
     fn a_tie_stays_unlinked_and_is_reported() {
         let linked = ranked(
             vec![
+                spell("ref/spell/aid-a", "Aid", &["core-rulebook"]),
                 spell("ref/spell/aid-b", "Aid", &["core-rulebook"]),
-                ability("ref/umr/aid", "Aid", &["core-rulebook"]),
-                host(
-                    "ref/monster/a",
-                    "A",
-                    vec![para(vec![t("Cast "), em("aid"), t(".")])],
-                ),
+                cast_aid(),
             ],
             &[("core-rulebook", "2009-08-01")],
         );
         assert_eq!(target_of(&linked, "ref/monster/a"), None);
         let row = &linked.report.ambiguous["aid"];
         assert_eq!(row.spans, 1);
-        assert_eq!(row.category, "mixed");
-        assert_eq!(row.candidates, vec!["ref/spell/aid-b", "ref/umr/aid"]);
-        assert_eq!(linked.report.categories["mixed"].skipped_ambiguous, 1);
+        assert_eq!(row.category, "spell");
+        assert_eq!(row.candidates, vec!["ref/spell/aid-a", "ref/spell/aid-b"]);
+        assert_eq!(linked.report.categories["spell"].skipped_ambiguous, 1);
+    }
+
+    #[test]
+    fn the_ambiguous_category_comes_from_the_tied_entries_only() {
+        // Two Core spells tie. A later special ability with the same title is not tied and
+        // must not turn the category into `mixed`.
+        let linked = ranked(
+            vec![
+                spell("ref/spell/aid-a", "Aid", &["core-rulebook"]),
+                spell("ref/spell/aid-b", "Aid", &["core-rulebook"]),
+                ability("ref/umr/aid", "Aid", &["bestiary-5"]),
+                cast_aid(),
+            ],
+            &[
+                ("core-rulebook", "2009-08-01"),
+                ("bestiary-5", "2017-01-01"),
+            ],
+        );
+        assert_eq!(linked.report.ambiguous["aid"].category, "spell");
+        assert_eq!(linked.report.categories["spell"].skipped_ambiguous, 1);
+        assert!(!linked.report.categories.contains_key("mixed"));
+        // A tie between abilities reports the ability category.
+        let linked = run(vec![
+            ability("ref/umr/aid-a", "Aid", &["bestiary-5"]),
+            ability("ref/umr/aid-b", "Aid", &["bestiary-5"]),
+            cast_aid(),
+        ]);
+        assert_eq!(linked.report.ambiguous["aid"].category, "special_ability");
+    }
+
+    #[test]
+    fn a_spell_wins_over_a_special_ability_of_the_same_title() {
+        let linked = ranked(
+            vec![
+                ability("ref/umr/aid", "Aid", &["core-rulebook"]),
+                spell("ref/spell/aid", "Aid", &["core-rulebook"]),
+                cast_aid(),
+            ],
+            &[("core-rulebook", "2009-08-01")],
+        );
+        assert_eq!(
+            target_of(&linked, "ref/monster/a").as_deref(),
+            Some("ref/spell/aid")
+        );
+        assert!(linked.report.ambiguous.is_empty());
     }
 
     #[test]
@@ -1429,10 +1604,45 @@ mod tests {
     }
 
     #[test]
-    fn an_emphasised_curated_term_overrides_the_title_lookup() {
+    fn an_emphasised_curated_term_that_names_a_spell_links_the_spell() {
         let linked = run(vec![
             darkvision(),
             spell("ref/spell/darkvision", "Darkvision", &["core-rulebook"]),
+            host(
+                "ref/monster/a",
+                "A",
+                vec![para(vec![
+                    t("It casts "),
+                    em("darkvision"),
+                    t(" and has darkvision, "),
+                    strong("Darkvision"),
+                    t("."),
+                ])],
+            ),
+        ]);
+        let content = content_of(&body_of(&linked, "ref/monster/a")[0]);
+        assert_eq!(
+            content[1],
+            Inline::Em {
+                c: vec![link("ref/spell/darkvision", "darkvision")],
+            }
+        );
+        // The plain occurrence still takes the curated rule target.
+        assert_eq!(content[2], t(" and has "));
+        assert_eq!(content[3], link("ref/rule/darkvision", "darkvision"));
+        let row = &linked.report.curated["darkvision"];
+        assert_eq!(
+            (row.emphasised, row.emphasised_to_spell, row.plain),
+            (0, 2, 1)
+        );
+        assert!(linked.report.ambiguous.is_empty());
+    }
+
+    #[test]
+    fn an_emphasised_curated_term_with_no_spell_title_links_the_curated_target() {
+        let linked = run(vec![
+            darkvision(),
+            ability("ref/umr/darkvision", "Darkvision", &["bestiary-5"]),
             host(
                 "ref/monster/a",
                 "A",
@@ -1446,8 +1656,71 @@ mod tests {
                 c: vec![link("ref/rule/darkvision", "darkvision")],
             }
         );
-        assert_eq!(linked.report.curated["darkvision"].emphasised, 2);
+        let row = &linked.report.curated["darkvision"];
+        assert_eq!((row.emphasised, row.emphasised_to_spell), (2, 0));
         assert!(linked.report.ambiguous.is_empty());
+    }
+
+    #[test]
+    fn an_emphasised_curated_term_skips_an_entry_titled_like_another_form_of_the_term() {
+        // The entry is titled `Spell-Like Abilities`, the target's title. The span is the
+        // singular form, so only the title-like check can catch it.
+        let linked = run(vec![
+            ability(
+                "ref/umr/spell-like-abilities",
+                "Spell-Like Abilities",
+                &["bestiary-5"],
+            ),
+            host(
+                "ref/rule/copy",
+                "Spell-Like Abilities",
+                vec![para(vec![t("Use a "), em("spell-like ability"), t(".")])],
+            ),
+        ]);
+        assert_eq!(linked.report.links_added, 0);
+        let row = &linked.report.curated["spell-like ability"];
+        assert_eq!((row.skipped_self, row.emphasised), (1, 0));
+    }
+
+    #[test]
+    fn plain_matches_in_headings_labels_links_and_emphasis_are_counted() {
+        let other = Inline::Link {
+            target: EntryId::parse("ref/other/x").unwrap(),
+            anchor: None,
+            c: vec![t("see darkvision")],
+        };
+        let exact_in_link = Inline::Link {
+            target: EntryId::parse("ref/other/y").unwrap(),
+            anchor: None,
+            c: vec![em("darkvision")],
+        };
+        let before = vec![
+            Block::Heading {
+                level: 2,
+                anchor: None,
+                content: vec![t("About darkvision and Darkvision")],
+            },
+            // A label that is not itself a term, and a label that is exactly the term.
+            para(vec![strong("Darkvision 60 ft.")]),
+            para(vec![strong("Darkvision")]),
+            para(vec![t("x "), other, t(" "), exact_in_link]),
+            para(vec![t("y "), em("darkvision 60 ft.")]),
+        ];
+        let linked = run(vec![
+            darkvision(),
+            host("ref/monster/a", "A", before.clone()),
+        ]);
+        assert_eq!(body_of(&linked, "ref/monster/a"), before.as_slice());
+        assert_eq!(linked.report.links_added, 0);
+        let row = &linked.report.curated["darkvision"];
+        assert_eq!(row.skipped_in_heading, 2);
+        // Only the label with extra text is a plain match; the exact label is counted once,
+        // by the span pass.
+        assert_eq!(row.skipped_in_label, 1);
+        assert_eq!(linked.report.skipped.label, 1);
+        assert_eq!(row.skipped_in_link, 1);
+        assert_eq!(linked.report.skipped.in_link, 1);
+        assert_eq!(row.skipped_in_emphasis, 1);
     }
 
     #[test]
