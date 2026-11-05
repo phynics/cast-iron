@@ -108,9 +108,38 @@ pub fn sort_key(title: &str) -> String {
     title.to_lowercase()
 }
 
+/// The line under a book's title. An active book counts the entries the kind groups below it
+/// show; a disabled book has none there, so it states its full publication size instead.
+pub fn source_count_line(active: bool, eligible: usize, total: usize) -> String {
+    let noun = |n: usize| if n == 1 { "entry" } else { "entries" };
+    if active {
+        format!("{} {} in your active books", eligible, noun(eligible))
+    } else {
+        format!("{} {} in this book", total, noun(total))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_count_line_says_which_set_it_counts() {
+        assert_eq!(
+            source_count_line(true, 12, 40),
+            "12 entries in your active books"
+        );
+        assert_eq!(
+            source_count_line(true, 1, 40),
+            "1 entry in your active books"
+        );
+        assert_eq!(source_count_line(false, 0, 40), "40 entries in this book");
+        assert_eq!(source_count_line(false, 0, 1), "1 entry in this book");
+        assert_eq!(
+            source_count_line(true, 0, 40),
+            "0 entries in your active books"
+        );
+    }
 
     #[test]
     fn letters_group_titles() {

@@ -6,7 +6,7 @@
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, toc_id, use_route};
-use crate::views::util::{Shared, local_resource, set_title};
+use crate::views::util::{Shared, local_resource, set_title, source_count_line};
 use cast_iron_schema::EntryId;
 use leptos::prelude::*;
 
@@ -65,8 +65,15 @@ pub fn BookView(source: String) -> impl IntoView {
         .as_ref()
         .map_or_else(|| source.clone(), |s| s.title.clone());
     let copyright = info.as_ref().and_then(|s| s.copyright.clone());
-    let count = info.as_ref().map(|s| s.entry_count);
-    let disabled = !library.book_active(&source);
+    let active = library.book_active(&source);
+    let count = info.as_ref().map(|s| {
+        source_count_line(
+            active,
+            library.discovery().entries_of_source(&source).count(),
+            s.entry_count as usize,
+        )
+    });
+    let disabled = !active;
     view! {
         <div class="wide book">
             <nav class="crumbs" aria-label="Breadcrumb">
@@ -76,7 +83,7 @@ pub fn BookView(source: String) -> impl IntoView {
             </nav>
             <h1>{title}</h1>
             {disabled.then(|| view! { <p class="notice">"This book is disabled for search and category browsing. You can still read its contents here. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it."</p> })}
-            {count.map(|n| view! { <p class="muted">{format!("{n} entries in this library")}</p> })}
+            {count.map(|line| view! { <p class="muted" data-testid="source-count">{line}</p> })}
             {copyright.map(|line| view! { <p class="copyright">{line}</p> })}
             {move || {
                 let source = source.clone();
