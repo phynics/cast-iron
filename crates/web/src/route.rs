@@ -419,13 +419,17 @@ pub fn go_back() {
     }
 }
 
-/// Scrolls the element with this id into view. Returns false when it is not in the document yet.
-/// An entry view calls this after its content renders.
+/// Scrolls the element for this anchor into view. Content headings use `h-<key>`; the raw id is
+/// the fallback for app elements such as `entry-related` and the browse letter groups.
+/// Returns false when neither element is in the document yet.
 pub fn scroll_to_anchor(anchor: &str) -> bool {
-    let Some(element) = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id(anchor))
-    else {
+    let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+        return false;
+    };
+    let element = document
+        .get_element_by_id(&format!("h-{anchor}"))
+        .or_else(|| document.get_element_by_id(anchor));
+    let Some(element) = element else {
         return false;
     };
     element.scroll_into_view();

@@ -5,6 +5,7 @@
 use crate::route::{self, Route};
 use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
 use leptos::prelude::*;
+use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -47,8 +48,8 @@ pub fn slugify(text: &str) -> String {
     out
 }
 
-/// The DOM id of a heading: the compiler's anchor, else a slug of its text.
-pub fn heading_id(anchor: Option<&str>, content: &[Inline]) -> Option<String> {
+/// A heading's base key: the compiler's anchor, else `sec-` plus a slug of its text.
+fn heading_base(anchor: Option<&str>, content: &[Inline]) -> Option<String> {
     match anchor {
         Some(anchor) if !anchor.is_empty() => Some(anchor.to_string()),
         _ => {
@@ -56,6 +57,63 @@ pub fn heading_id(anchor: Option<&str>, content: &[Inline]) -> Option<String> {
             (!slug.is_empty()).then(|| format!("sec-{slug}"))
         }
     }
+}
+
+/// Final URL anchor keys for every heading in `body`, in document order.
+///
+/// The first heading with a base key keeps it. Later headings with the same base get `-2`,
+/// `-3`, ... skipping any key that another heading in this body already claims. An empty
+/// anchor falls back to a slug of the heading text; a heading with neither has no key.
+pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
+    fn collect(blocks: &[Block], out: &mut Vec<Option<String>>) {
+        for block in blocks {
+            match block {
+                Block::Heading {
+                    anchor, content, ..
+                } => out.push(heading_base(anchor.as_deref(), content)),
+                Block::List { items, .. } => {
+                    for item in items {
+                        collect(item, out);
+                    }
+                }
+                Block::Quote { content } => collect(content, out),
+                _ => {}
+            }
+        }
+    }
+
+    let mut bases = Vec::new();
+    collect(body, &mut bases);
+    // Reserve every literal key first, so a generated suffix never steals one of them.
+    let reserved: BTreeSet<String> = bases.iter().flatten().cloned().collect();
+    let mut used: BTreeSet<String> = BTreeSet::new();
+    let mut keys = Vec::with_capacity(bases.len());
+    for base in bases {
+        let Some(base) = base else {
+            keys.push(None);
+            continue;
+        };
+        let mut key = base.clone();
+        if used.contains(&key) {
+            let mut suffix = 2u32;
+            loop {
+                let candidate = format!("{base}-{suffix}");
+                if !reserved.contains(candidate.as_str()) && !used.contains(&candidate) {
+                    key = candidate;
+                    break;
+                }
+                suffix += 1;
+            }
+        }
+        used.insert(key.clone());
+        keys.push(Some(key));
+    }
+    keys
+}
+
+/// The DOM id for a heading key. The prefix keeps content ids away from app ids.
+pub fn heading_dom_id(key: &str) -> String {
+    format!("h-{key}")
 }
 
 /// The `scope` of a header cell. `section` is `"head"`, `"body"`, or `"foot"`.
@@ -114,63 +172,79 @@ fn inline(item: &Inline) -> AnyView {
 
 /// Renders blocks in order. Consecutive entry links share one list.
 pub fn blocks(items: &[Block]) -> Vec<AnyView> {
-    let mut out = Vec::with_capacity(items.len());
-    let mut run: Vec<AnyView> = Vec::new();
-    for item in items {
-        if let Block::EntryLink { target, title } = item {
-            let href = Route::entry(target.clone()).href();
-            run.push(view! { <li><a href=href>{title.clone()}</a></li> }.into_any());
-            continue;
-        }
-        if !run.is_empty() {
-            let list = std::mem::take(&mut run);
-            out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
-        }
-        out.push(block(item));
+    let keys = heading_keys(items);
+    Renderer {
+        keys: &keys,
+        next: 0,
     }
-    if !run.is_empty() {
-        out.push(view! { <ul class="entry-links">{run}</ul> }.into_any());
-    }
-    out
+    .blocks(items)
 }
 
-fn block(item: &Block) -> AnyView {
-    match item {
-        Block::Heading {
-            level,
-            anchor,
-            content,
-        } => heading(
-            *level,
-            heading_id(anchor.as_deref(), content),
-            inlines(content),
-        ),
-        Block::Paragraph { style, content } => {
-            let class = match style {
-                ParagraphStyle::Normal => None,
-                ParagraphStyle::StatLine => Some("stat-line"),
-                ParagraphStyle::Indented => Some("indented"),
-            };
-            view! { <p class=class>{inlines(content)}</p> }.into_any()
-        }
-        Block::List { ordered, items } => {
-            let rows: Vec<AnyView> = items
-                .iter()
-                .map(|cell| view! { <li>{blocks(cell)}</li> }.into_any())
-                .collect();
-            if *ordered {
-                view! { <ol>{rows}</ol> }.into_any()
-            } else {
-                view! { <ul>{rows}</ul> }.into_any()
+/// Renders a body and consumes its precomputed heading keys in document order.
+struct Renderer<'a> {
+    keys: &'a [Option<String>],
+    next: usize,
+}
+
+impl Renderer<'_> {
+    fn blocks(&mut self, items: &[Block]) -> Vec<AnyView> {
+        let mut out = Vec::with_capacity(items.len());
+        let mut run: Vec<AnyView> = Vec::new();
+        for item in items {
+            if let Block::EntryLink { target, title } = item {
+                let href = Route::entry(target.clone()).href();
+                run.push(view! { <li><a href=href>{title.clone()}</a></li> }.into_any());
+                continue;
             }
+            if !run.is_empty() {
+                let list = std::mem::take(&mut run);
+                out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
+            }
+            out.push(self.block(item));
         }
-        Block::Table(table) => rules_table(table),
-        Block::Quote { content } => view! { <blockquote>{blocks(content)}</blockquote> }.into_any(),
-        Block::StatBlock { title, rows } => stat_block(title.as_deref(), rows),
-        Block::EntryLink { target, title } => {
-            let href = Route::entry(target.clone()).href();
-            view! { <ul class="entry-links"><li><a href=href>{title.clone()}</a></li></ul> }
-                .into_any()
+        if !run.is_empty() {
+            out.push(view! { <ul class="entry-links">{run}</ul> }.into_any());
+        }
+        out
+    }
+
+    fn block(&mut self, item: &Block) -> AnyView {
+        match item {
+            Block::Heading { level, content, .. } => {
+                let key = self.keys[self.next].clone();
+                self.next += 1;
+                let id = key.as_deref().map(heading_dom_id);
+                heading(*level, id, inlines(content))
+            }
+            Block::Paragraph { style, content } => {
+                let class = match style {
+                    ParagraphStyle::Normal => None,
+                    ParagraphStyle::StatLine => Some("stat-line"),
+                    ParagraphStyle::Indented => Some("indented"),
+                };
+                view! { <p class=class>{inlines(content)}</p> }.into_any()
+            }
+            Block::List { ordered, items } => {
+                let rows: Vec<AnyView> = items
+                    .iter()
+                    .map(|cell| view! { <li>{self.blocks(cell)}</li> }.into_any())
+                    .collect();
+                if *ordered {
+                    view! { <ol>{rows}</ol> }.into_any()
+                } else {
+                    view! { <ul>{rows}</ul> }.into_any()
+                }
+            }
+            Block::Table(table) => rules_table(table),
+            Block::Quote { content } => {
+                view! { <blockquote>{self.blocks(content)}</blockquote> }.into_any()
+            }
+            Block::StatBlock { title, rows } => stat_block(title.as_deref(), rows),
+            Block::EntryLink { target, title } => {
+                let href = Route::entry(target.clone()).href();
+                view! { <ul class="entry-links"><li><a href=href>{title.clone()}</a></li></ul> }
+                    .into_any()
+            }
         }
     }
 }
@@ -279,7 +353,12 @@ fn table_rows(rows: &[TableRow], section: &'static str) -> Vec<AnyView> {
 /// renders at once. With an anchor, the view scrolls to it after the first frame.
 #[component]
 pub fn RichBody(body: Vec<Block>, anchor: Option<String>) -> impl IntoView {
-    let content = blocks(&body);
+    let keys = heading_keys(&body);
+    let content = Renderer {
+        keys: &keys,
+        next: 0,
+    }
+    .blocks(&body);
     if let Some(anchor) = anchor {
         request_animation_frame(move || {
             route::scroll_to_anchor(&anchor);
@@ -326,13 +405,73 @@ mod tests {
         assert_eq!(slugify("Élan 5"), "lan-5");
     }
 
+    fn h(anchor: Option<&str>, title: &str) -> Block {
+        Block::Heading {
+            level: 2,
+            anchor: anchor.map(String::from),
+            content: vec![text(title)],
+        }
+    }
+
     #[test]
-    fn heading_id_prefers_the_anchor() {
-        let c = vec![text("Big Table")];
-        assert_eq!(heading_id(Some("big"), &c).as_deref(), Some("big"));
-        assert_eq!(heading_id(None, &c).as_deref(), Some("sec-big-table"));
-        assert_eq!(heading_id(Some(""), &c).as_deref(), Some("sec-big-table"));
-        assert_eq!(heading_id(None, &[text("!!")]), None);
+    fn heading_dom_ids_are_namespaced_away_from_app_ids() {
+        let body = vec![h(Some("main"), "Main")];
+        let keys = heading_keys(&body);
+        assert_eq!(keys, vec![Some("main".to_string())]);
+        assert_eq!(heading_dom_id(keys[0].as_deref().unwrap()), "h-main");
+    }
+
+    #[test]
+    fn duplicate_heading_text_gets_distinct_keys() {
+        let body = vec![h(None, "X"), h(None, "X")];
+        assert_eq!(
+            heading_keys(&body),
+            vec![Some("sec-x".to_string()), Some("sec-x-2".to_string())]
+        );
+    }
+
+    #[test]
+    fn duplicate_suffix_skips_a_literal_key_later_in_the_body() {
+        let body = vec![h(None, "X"), h(None, "X"), h(Some("sec-x-2"), "Y")];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("sec-x".to_string()),
+                Some("sec-x-3".to_string()),
+                Some("sec-x-2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn empty_anchor_falls_back_to_the_slug_and_an_empty_slug_has_no_key() {
+        let body = vec![h(Some(""), "Big Table"), h(None, "!!")];
+        assert_eq!(
+            heading_keys(&body),
+            vec![Some("sec-big-table".to_string()), None]
+        );
+    }
+
+    #[test]
+    fn heading_keys_follow_nested_blocks_in_document_order() {
+        let body = vec![
+            h(None, "X"),
+            Block::List {
+                ordered: false,
+                items: vec![vec![h(None, "X")]],
+            },
+            Block::Quote {
+                content: vec![h(Some("q"), "Q")],
+            },
+        ];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("sec-x".to_string()),
+                Some("sec-x-2".to_string()),
+                Some("q".to_string()),
+            ]
+        );
     }
 
     #[test]
