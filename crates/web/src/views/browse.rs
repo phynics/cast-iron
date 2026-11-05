@@ -134,9 +134,9 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
         view! {
             <section aria-labelledby="shortcuts">
                 <h2 id="shortcuts" class="sub-head">"Shortcuts"</h2>
-                <ul class="pill-list">
-                    <li><a class="pill" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
-                    <li><a class="pill" href=Route::FeatChains.href()>"Feat chains"</a></li>
+                <ul class="jump-list">
+                    <li><a class="jump" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
+                    <li><a class="jump" href=Route::FeatChains.href()>"Feat chains"</a></li>
                 </ul>
             </section>
         }
@@ -281,7 +281,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
         };
         view! {
             <li>
-                <a class="chip-link lens-chip" href=route.href()>
+                <a class="lens-chip" href=route.href()>
                     {facet_label(field, &value)}<small>{n}</small>
                 </a>
             </li>

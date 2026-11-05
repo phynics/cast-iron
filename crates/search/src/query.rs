@@ -1,7 +1,6 @@
 use crate::build::cap_text;
 use crate::text::{Tok, scan};
 use crate::{FilterCounts, Filters, Hit, Query, SearchIndex, Snippet, normalize};
-use std::collections::BTreeMap;
 
 const DEFAULT_LIMIT: usize = 50;
 const MAX_PREFIX_TERMS: usize = 512;
@@ -21,13 +20,112 @@ const SNIP_BEFORE: usize = 50;
 const SNIP_LEN: usize = 200;
 const SNIP_SNAP: usize = 20;
 
+/// Query phases that the native benchmark can time separately.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Phase {
+    Tokenize,
+    Lookup,
+    Scoring,
+    Sort,
+    Materialize,
+    Snippets,
+}
+
+/// Phase recorder. Release builds use [`NoTimer`], whose methods inline away.
+trait PhaseTimer {
+    #[inline]
+    fn enter(&mut self, _phase: Phase) {}
+
+    #[inline]
+    fn exit(&mut self, _phase: Phase) {}
+}
+
+struct NoTimer;
+
+impl PhaseTimer for NoTimer {}
+
+/// Per-query timings from [`SearchIndex::search_profiled`]. Native only.
+#[cfg(feature = "profile")]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SearchTiming {
+    pub tokenize: std::time::Duration,
+    pub lookup: std::time::Duration,
+    pub scoring: std::time::Duration,
+    pub sort: std::time::Duration,
+    pub materialize: std::time::Duration,
+    pub snippets: std::time::Duration,
+    pub total: std::time::Duration,
+    pub hits: usize,
+}
+
+#[cfg(feature = "profile")]
+struct ProfilingTimer {
+    at: std::time::Instant,
+    timing: SearchTiming,
+}
+
+#[cfg(feature = "profile")]
+impl PhaseTimer for ProfilingTimer {
+    #[inline]
+    fn enter(&mut self, _phase: Phase) {
+        self.at = std::time::Instant::now();
+    }
+
+    #[inline]
+    fn exit(&mut self, phase: Phase) {
+        let elapsed = self.at.elapsed();
+        let field = match phase {
+            Phase::Tokenize => &mut self.timing.tokenize,
+            Phase::Lookup => &mut self.timing.lookup,
+            Phase::Scoring => &mut self.timing.scoring,
+            Phase::Sort => &mut self.timing.sort,
+            Phase::Materialize => &mut self.timing.materialize,
+            Phase::Snippets => &mut self.timing.snippets,
+        };
+        *field += elapsed;
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 struct TokHit {
     score: f32,
     in_title: bool,
 }
 
+/// Per-token matches indexed by document ordinal. A dense table beats a tree
+/// for common terms such as "of", whose postings cover most of the corpus.
+#[derive(Default)]
+struct TokenHits {
+    by_doc: Vec<Option<TokHit>>,
+    docs: Vec<u32>,
+}
+
+impl TokenHits {
+    fn new(docs: usize) -> Self {
+        Self {
+            by_doc: vec![None; docs],
+            docs: Vec::new(),
+        }
+    }
+
+    #[inline]
+    fn entry(&mut self, doc: u32) -> &mut TokHit {
+        let slot = &mut self.by_doc[doc as usize];
+        if slot.is_none() {
+            *slot = Some(TokHit::default());
+            self.docs.push(doc);
+        }
+        slot.as_mut().expect("just inserted")
+    }
+
+    #[inline]
+    fn get(&self, doc: u32) -> Option<TokHit> {
+        self.by_doc[doc as usize]
+    }
+}
+
 /// Decides which text tokens count as query matches for highlighting.
+#[derive(Clone, Debug)]
 struct Matcher {
     exact: Vec<String>,
     prefix: Vec<String>,
@@ -44,6 +142,42 @@ impl Matcher {
             .map(|t| (t.start, t.end))
             .collect()
     }
+}
+
+/// Ranking-only result: enough to group, count, and order results without
+/// scanning document text for a snippet. `SearchIndex::materialize_hit` fills
+/// the highlighted title and snippet for the rows that the page displays.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HitSummary {
+    pub ord: u32,
+    pub id: String,
+    pub title: String,
+    pub kind: String,
+    pub source: String,
+    pub score: f32,
+}
+
+impl HitSummary {
+    /// Converts to a display hit with an empty snippet. Fill it with
+    /// [`SearchIndex::materialize_hit`] before rendering.
+    pub fn into_hit(self) -> Hit {
+        Hit {
+            ord: self.ord,
+            id: self.id,
+            title: self.title,
+            kind: self.kind,
+            source: self.source,
+            score: self.score,
+            title_matches: Vec::new(),
+            snippet: Snippet::default(),
+        }
+    }
+}
+
+/// Reusable query pattern for [`SearchIndex::materialize_hit`].
+#[derive(Clone, Debug)]
+pub struct Highlighter {
+    matcher: Matcher,
 }
 
 impl SearchIndex {
@@ -103,7 +237,7 @@ impl SearchIndex {
         (out, use_prefix)
     }
 
-    fn token_hits(&self, expansion: &[(usize, f32)]) -> BTreeMap<u32, TokHit> {
+    fn token_hits<T: PhaseTimer>(&self, expansion: &[(usize, f32)], timer: &mut T) -> TokenHits {
         let n = self.meta.docs.len() as f32;
         let m = &self.meta;
         let avg = |a: f32| a.max(1.0);
@@ -112,22 +246,36 @@ impl SearchIndex {
         // completion with its own IDF lets the rarest completion win, which is noise. All
         // completions share the IDF of the set of documents that the prefix matches.
         let prefix_idf = {
-            let mut docs = std::collections::BTreeSet::new();
+            timer.enter(Phase::Lookup);
+            let mut seen = vec![false; m.docs.len()];
+            let mut count = 0u32;
             for &(ti, weight) in expansion {
                 if weight < 1.0 {
-                    docs.extend(self.postings.decode(ti).into_iter().map(|p| p.doc));
+                    for p in self.postings.decode(ti) {
+                        if let Some(slot) = seen.get_mut(p.doc as usize)
+                            && !*slot
+                        {
+                            *slot = true;
+                            count += 1;
+                        }
+                    }
                 }
             }
-            idf_of(docs.len() as f32)
+            timer.exit(Phase::Lookup);
+            idf_of(count as f32)
         };
-        let mut map: BTreeMap<u32, TokHit> = BTreeMap::new();
+        let mut map = TokenHits::new(m.docs.len());
         for &(ti, weight) in expansion {
             let idf = if weight < 1.0 {
                 prefix_idf
             } else {
                 idf_of(self.postings.dfs[ti] as f32)
             };
-            for p in self.postings.decode(ti) {
+            timer.enter(Phase::Lookup);
+            let postings = self.postings.decode(ti);
+            timer.exit(Phase::Lookup);
+            timer.enter(Phase::Scoring);
+            for p in postings {
                 let Some(d) = m.docs.get(p.doc as usize) else {
                     continue;
                 };
@@ -141,10 +289,11 @@ impl SearchIndex {
                 let s = part(p.tf_title, d.len_title, m.avg_title, W_TITLE)
                     + part(p.tf_alias, d.len_alias, m.avg_alias, W_ALIAS)
                     + part(p.tf_text, d.len_text, m.avg_text, W_TEXT);
-                let e = map.entry(p.doc).or_default();
+                let e = map.entry(p.doc);
                 e.score += s * idf * weight;
                 e.in_title |= p.tf_title > 0;
             }
+            timer.exit(Phase::Scoring);
         }
         map
     }
@@ -181,7 +330,7 @@ impl SearchIndex {
                 .map(|i| i as u32)
                 .collect()
         } else {
-            match self.score_docs(&qtokens, |doc| eligible_mask[doc]) {
+            match self.score_docs(&qtokens, |doc| eligible_mask[doc], &mut NoTimer) {
                 Some((scored, _)) => scored.into_iter().map(|(doc, _)| doc).collect(),
                 None => return FilterCounts::default(),
             }
@@ -287,16 +436,125 @@ impl SearchIndex {
 
     /// Search only eligible document IDs, applying eligibility before the result limit.
     pub fn search_eligible(&self, query: &Query, eligible: impl Fn(&str) -> bool) -> Vec<Hit> {
-        let limit = if query.limit == 0 {
-            DEFAULT_LIMIT
-        } else {
-            query.limit
+        self.search_eligible_timed(query, eligible, &mut NoTimer)
+    }
+
+    /// Ranked results without snippets, for callers that only show a page.
+    /// [`SearchIndex::materialize_hit`] fills the rows that are rendered.
+    pub fn search_summaries(&self, query: &Query) -> Vec<HitSummary> {
+        self.search_summaries_eligible(query, |_| true)
+    }
+
+    /// Summary-only search over eligible IDs, applying eligibility before the limit.
+    pub fn search_summaries_eligible(
+        &self,
+        query: &Query,
+        eligible: impl Fn(&str) -> bool,
+    ) -> Vec<HitSummary> {
+        let limit = result_limit(query);
+        let Some((ranked, _)) = self.ranked(query, eligible, &mut NoTimer, limit) else {
+            return Vec::new();
         };
+        ranked
+            .into_iter()
+            .map(|(ord, score)| self.summary(ord, score))
+            .collect()
+    }
+
+    /// Builds the reusable highlighter for materializing summary hits.
+    pub fn highlighter(&self, query: &Query) -> Highlighter {
         let qtokens: Vec<String> = scan(&query.text).into_iter().map(|t| t.norm).collect();
+        let matcher = self.matcher(&qtokens).unwrap_or(Matcher {
+            exact: Vec::new(),
+            prefix: Vec::new(),
+        });
+        Highlighter { matcher }
+    }
+
+    /// Fills a hit's highlighted title and snippet. The hit fields, score, and
+    /// order must come from the same query and index.
+    pub fn materialize_hit(&self, highlighter: &Highlighter, hit: &mut Hit) {
+        self.fill_highlight(hit, &highlighter.matcher, &mut NoTimer);
+    }
+
+    /// Runs a search and reports the time spent in each phase. Native measurements only.
+    #[cfg(feature = "profile")]
+    pub fn search_profiled(
+        &self,
+        query: &Query,
+        eligible: impl Fn(&str) -> bool,
+    ) -> (Vec<Hit>, SearchTiming) {
+        let started = std::time::Instant::now();
+        let mut timer = ProfilingTimer {
+            at: started,
+            timing: SearchTiming::default(),
+        };
+        let hits = self.search_eligible_timed(query, eligible, &mut timer);
+        let mut timing = timer.timing;
+        timing.total = started.elapsed();
+        timing.hits = hits.len();
+        (hits, timing)
+    }
+
+    /// Summary-only search with per-phase timings. Native measurements only.
+    #[cfg(feature = "profile")]
+    pub fn search_summaries_profiled(
+        &self,
+        query: &Query,
+        eligible: impl Fn(&str) -> bool,
+    ) -> (Vec<HitSummary>, SearchTiming) {
+        let started = std::time::Instant::now();
+        let mut timer = ProfilingTimer {
+            at: started,
+            timing: SearchTiming::default(),
+        };
+        let limit = result_limit(query);
+        let summaries = match self.ranked(query, eligible, &mut timer, limit) {
+            Some((ranked, _)) => ranked
+                .into_iter()
+                .map(|(ord, score)| self.summary(ord, score))
+                .collect(),
+            None => Vec::new(),
+        };
+        let mut timing = timer.timing;
+        timing.total = started.elapsed();
+        timing.hits = summaries.len();
+        (summaries, timing)
+    }
+
+    fn search_eligible_timed<T: PhaseTimer>(
+        &self,
+        query: &Query,
+        eligible: impl Fn(&str) -> bool,
+        timer: &mut T,
+    ) -> Vec<Hit> {
+        let limit = result_limit(query);
+        let Some((ranked, matcher)) = self.ranked(query, eligible, timer, limit) else {
+            return Vec::new();
+        };
+        ranked
+            .into_iter()
+            .map(|(ord, score)| self.make_hit(ord, score, &matcher, timer))
+            .collect()
+    }
+
+    /// Ranks matching documents and keeps the best `limit`, in final display
+    /// order. `None` when a query token matches no term at all.
+    fn ranked<T: PhaseTimer>(
+        &self,
+        query: &Query,
+        eligible: impl Fn(&str) -> bool,
+        timer: &mut T,
+        limit: usize,
+    ) -> Option<(Vec<(u32, f32)>, Matcher)> {
+        timer.enter(Phase::Tokenize);
+        let qtokens: Vec<String> = scan(&query.text).into_iter().map(|t| t.norm).collect();
+        timer.exit(Phase::Tokenize);
         if qtokens.is_empty() {
             if query.filters.is_empty() {
-                return Vec::new();
+                return Some((Vec::new(), empty_matcher()));
             }
+            timer.enter(Phase::Scoring);
             let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
                 .filter(|&i| eligible(&self.meta.docs[i].id) && self.passes(i, &query.filters))
                 .map(|i| {
@@ -307,49 +565,44 @@ impl SearchIndex {
                     )
                 })
                 .collect();
+            timer.exit(Phase::Scoring);
+            timer.enter(Phase::Sort);
             ords.sort();
-            let m = Matcher {
-                exact: vec![],
-                prefix: vec![],
-            };
-            return ords
+            timer.exit(Phase::Sort);
+            let ranked = ords
                 .into_iter()
                 .take(limit)
-                .map(|(_, _, o)| self.make_hit(o, 0.0, &m))
+                .map(|(_, _, ord)| (ord, 0.0))
                 .collect();
+            return Some((ranked, empty_matcher()));
         }
 
-        let Some((mut scored, matcher)) = self.score_docs(&qtokens, |doc| {
-            eligible(&self.meta.docs[doc].id) && self.passes(doc, &query.filters)
-        }) else {
-            return Vec::new();
-        };
-        scored.sort_by(|a, b| {
-            let (da, db) = (&self.meta.docs[a.0 as usize], &self.meta.docs[b.0 as usize]);
-            b.1.total_cmp(&a.1)
-                .then_with(|| da.title.cmp(&db.title))
-                .then_with(|| da.id.cmp(&db.id))
-        });
-        scored
-            .into_iter()
-            .take(limit)
-            .map(|(o, s)| self.make_hit(o, s, &matcher))
-            .collect()
+        let (mut scored, matcher) = self.score_docs(
+            &qtokens,
+            |doc| eligible(&self.meta.docs[doc].id) && self.passes(doc, &query.filters),
+            timer,
+        )?;
+        timer.enter(Phase::Sort);
+        sort_scored(&mut scored, &self.meta.docs, limit);
+        timer.exit(Phase::Sort);
+        Some((scored, matcher))
     }
 
-    /// Scores every document that holds all query tokens and that `accept` allows. `None` when a
-    /// token matches no term at all.
-    fn score_docs(
-        &self,
-        qtokens: &[String],
-        accept: impl Fn(usize) -> bool,
-    ) -> Option<(Vec<(u32, f32)>, Matcher)> {
-        let last = qtokens.len() - 1;
-        let mut per_token = Vec::with_capacity(qtokens.len());
-        let mut matcher = Matcher {
-            exact: vec![],
-            prefix: vec![],
-        };
+    fn summary(&self, ord: u32, score: f32) -> HitSummary {
+        let d = &self.meta.docs[ord as usize];
+        HitSummary {
+            ord,
+            id: d.id.clone(),
+            title: d.title.clone(),
+            kind: d.kind.clone(),
+            source: d.source.clone(),
+            score,
+        }
+    }
+
+    fn matcher(&self, qtokens: &[String]) -> Option<Matcher> {
+        let last = qtokens.len().checked_sub(1)?;
+        let mut matcher = empty_matcher();
         for (i, q) in qtokens.iter().enumerate() {
             let (exp, prefixed) = self.expand(q, i == last);
             if exp.is_empty() {
@@ -359,12 +612,43 @@ impl SearchIndex {
             if prefixed {
                 matcher.prefix.push(q.clone());
             }
-            per_token.push(self.token_hits(&exp));
+        }
+        Some(matcher)
+    }
+
+    /// Scores every document that holds all query tokens and that `accept` allows. `None` when a
+    /// token matches no term at all.
+    fn score_docs<T: PhaseTimer>(
+        &self,
+        qtokens: &[String],
+        accept: impl Fn(usize) -> bool,
+        timer: &mut T,
+    ) -> Option<(Vec<(u32, f32)>, Matcher)> {
+        let last = qtokens.len() - 1;
+        let mut per_token = Vec::with_capacity(qtokens.len());
+        let mut matcher = Matcher {
+            exact: vec![],
+            prefix: vec![],
+        };
+        for (i, q) in qtokens.iter().enumerate() {
+            timer.enter(Phase::Lookup);
+            let (exp, prefixed) = self.expand(q, i == last);
+            timer.exit(Phase::Lookup);
+            if exp.is_empty() {
+                return None;
+            }
+            matcher.exact.push(q.clone());
+            if prefixed {
+                matcher.prefix.push(q.clone());
+            }
+            per_token.push(self.token_hits(&exp, timer));
         }
         let qn = qtokens.join(" ");
         let (first, rest) = per_token.split_first().expect("non-empty");
         let mut scored: Vec<(u32, f32)> = Vec::new();
-        for (&doc, h0) in first {
+        timer.enter(Phase::Scoring);
+        for &doc in &first.docs {
+            let h0 = first.get(doc).expect("touched document");
             if !accept(doc as usize) {
                 continue;
             }
@@ -372,7 +656,7 @@ impl SearchIndex {
             let mut all_title = h0.in_title;
             let mut ok = true;
             for m in rest {
-                match m.get(&doc) {
+                match m.get(doc) {
                     Some(h) => {
                         score += h.score;
                         all_title &= h.in_title;
@@ -403,28 +687,78 @@ impl SearchIndex {
             }
             scored.push((doc, score + boost));
         }
+        timer.exit(Phase::Scoring);
         Some((scored, matcher))
     }
 
-    fn make_hit(&self, ord: u32, score: f32, m: &Matcher) -> Hit {
+    fn make_hit<T: PhaseTimer>(&self, ord: u32, score: f32, m: &Matcher, timer: &mut T) -> Hit {
         let d = &self.meta.docs[ord as usize];
+        timer.enter(Phase::Materialize);
+        let (id, title, kind, source) = (
+            d.id.clone(),
+            d.title.clone(),
+            d.kind.clone(),
+            d.source.clone(),
+        );
+        timer.exit(Phase::Materialize);
+        let mut hit = Hit {
+            ord,
+            id,
+            title,
+            kind,
+            source,
+            score,
+            title_matches: Vec::new(),
+            snippet: Snippet::default(),
+        };
+        self.fill_highlight(&mut hit, m, timer);
+        hit
+    }
+
+    fn fill_highlight<T: PhaseTimer>(&self, hit: &mut Hit, m: &Matcher, timer: &mut T) {
+        timer.enter(Phase::Snippets);
+        let d = &self.meta.docs[hit.ord as usize];
         let title_matches = m.ranges(&scan(&d.title));
         let body = self
             .texts
             .texts
-            .get(ord as usize)
+            .get(hit.ord as usize)
             .map_or("", |s| cap_text(s));
-        Hit {
-            ord,
-            id: d.id.clone(),
-            title: d.title.clone(),
-            kind: d.kind.clone(),
-            source: d.source.clone(),
-            score,
-            title_matches,
-            snippet: snippet(body, m),
-        }
+        let snippet = snippet(body, m);
+        timer.exit(Phase::Snippets);
+        hit.title_matches = title_matches;
+        hit.snippet = snippet;
     }
+}
+
+fn result_limit(query: &Query) -> usize {
+    if query.limit == 0 {
+        DEFAULT_LIMIT
+    } else {
+        query.limit
+    }
+}
+
+fn empty_matcher() -> Matcher {
+    Matcher {
+        exact: Vec::new(),
+        prefix: Vec::new(),
+    }
+}
+
+fn sort_scored(scored: &mut Vec<(u32, f32)>, docs: &[crate::store::DocMeta], limit: usize) {
+    let order = |a: &(u32, f32), b: &(u32, f32)| {
+        let (da, db) = (&docs[a.0 as usize], &docs[b.0 as usize]);
+        b.1.total_cmp(&a.1)
+            .then_with(|| da.title.cmp(&db.title))
+            .then_with(|| da.id.cmp(&db.id))
+    };
+    if limit < scored.len() {
+        // Keep only the best `limit` rows before the final ordering pass.
+        scored.select_nth_unstable_by(limit, order);
+        scored.truncate(limit);
+    }
+    scored.sort_unstable_by(order);
 }
 
 fn snippet(body: &str, m: &Matcher) -> Snippet {

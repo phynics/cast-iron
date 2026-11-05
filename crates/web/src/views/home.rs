@@ -76,7 +76,7 @@ pub fn Home() -> impl IntoView {
                                 } else {
                                     view! { <span class="home-bookmark-missing"><span>{title}</span><span class="muted">"Not in this library"</span></span> }.into_any()
                                 }}
-                                <button class="btn" type="button" aria-label=format!("Unstar {title_for_error}") disabled=move || unstarring.get() on:click=move |_| {
+                                <button class="btn star-btn is-on" type="button" aria-label=format!("Unstar {title_for_error}") disabled=move || unstarring.get() on:click=move |_| {
                                     if unstarring.get_untracked() { return; }
                                     unstarring.set(true);
                                     let id = id.clone();
@@ -96,7 +96,6 @@ pub fn Home() -> impl IntoView {
                                     });
                                 }>
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
-                                    "Unstar"
                                 </button>
                             </li> }.into_any()
                         }).collect_view();
@@ -125,9 +124,9 @@ pub fn Home() -> impl IntoView {
             <Show when=move || !recents.with(|r| r.is_empty())>
                 <section aria-labelledby="home-recent">
                     <h2 id="home-recent">"Recently viewed"</h2>
-                    <ul class="pill-list">
+                    <ul class="jump-list">
                         <For each=move || recents.get() key=|r| r.id.clone() let:item>
-                            <li><a class="pill" href=Route::entry(item.id.clone()).href()>{item.title.clone()}</a></li>
+                            <li><a class="jump" href=Route::entry(item.id.clone()).href()>{item.title.clone()}</a></li>
                         </For>
                     </ul>
                 </section>

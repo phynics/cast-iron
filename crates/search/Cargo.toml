@@ -10,5 +10,12 @@ publish.workspace = true
 serde.workspace = true
 postcard.workspace = true
 
+[features]
+profile = []
+
+[[example]]
+name = "bench_library"
+required-features = ["profile"]
+
 [lints]
 workspace = true

@@ -104,6 +104,24 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   }
 });
 
+test("every feat chain Open the feat link has a 24 px hit area", async ({ page }) => {
+  await page.goto("#/feats/chains");
+  const heads = page.locator(".chain-head details");
+  await expect(heads.first()).toBeVisible();
+  const headCount = await heads.count();
+  expect(headCount).toBeGreaterThan(0);
+
+  // Every link lives inside its chain's disclosure. Open them all, then measure each one.
+  await page.evaluate(() => {
+    for (const details of document.querySelectorAll<HTMLDetailsElement>(".chain-head details")) details.open = true;
+  });
+  const heights = await page
+    .locator(".chain-open a")
+    .evaluateAll((links) => links.map((link) => link.getBoundingClientRect().height));
+  expect(heights).toHaveLength(headCount);
+  expect(heights.filter((height) => height < 24)).toEqual([]);
+});
+
 test("category hub exposes requested reference areas and dedicated lenses", async ({ page }) => {
   await page.goto("#/browse");
   const names = ["Spells", "Feats", "Classes", "Prestige classes", "Races", "Traits", "Items", "Creatures"];

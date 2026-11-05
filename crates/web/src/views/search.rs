@@ -7,7 +7,7 @@ use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind};
-use cast_iron_search::{FilterCounts, Filters, Hit, Query, SearchIndex};
+use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::BTreeMap;
@@ -229,20 +229,20 @@ impl SearchState {
 }
 
 /// Keep the best ranked record as the group position, retaining every publication choice.
-fn grouped_hits(hits: Vec<Hit>) -> Vec<SearchHit> {
+fn grouped_hits(hits: Vec<HitSummary>) -> Vec<SearchHit> {
     let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
     let mut groups: Vec<SearchHit> = Vec::new();
-    for hit in hits {
+    for summary in hits {
         let key = (
-            hit.kind.clone(),
-            crate::views::source_variants::normalized_title(&hit.title),
+            summary.kind.clone(),
+            crate::views::source_variants::normalized_title(&summary.title),
         );
         if let Some(&position) = positions.get(&key) {
-            groups[position].variants.push((hit, None));
+            groups[position].variants.push((summary.into_hit(), None));
         } else {
             positions.insert(key, groups.len());
             groups.push(SearchHit {
-                hit,
+                hit: summary.into_hit(),
                 anchor: None,
                 variants: Vec::new(),
             });
@@ -296,20 +296,33 @@ fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
         .and_then(|e| e.dyn_into().ok())
 }
 
+/// True when the event target is a text field or sits inside a contenteditable region, where
+/// `/` is a character rather than a shortcut.
+fn is_text_entry(target: &web_sys::EventTarget) -> bool {
+    let Some(node) = target.dyn_ref::<web_sys::Node>() else {
+        return false;
+    };
+    let mut current = Some(node.clone());
+    while let Some(node) = current {
+        if let Some(element) = node.dyn_ref::<web_sys::HtmlElement>()
+            && (matches!(element.tag_name().as_str(), "INPUT" | "TEXTAREA" | "SELECT")
+                || element.is_content_editable())
+        {
+            return true;
+        }
+        current = node.parent_node();
+    }
+    false
+}
+
 /// `/` focuses the search box from anywhere outside a text field, or opens Search.
 pub fn install_slash_shortcut() {
     let handle = window_event_listener(leptos::ev::keydown, move |ev| {
-        if ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
+        // Match the produced character, not Shift: some layouts (German, French) need Shift for `/`.
+        if ev.is_composing() || ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
             return;
         }
-        let typing = ev
-            .target()
-            .and_then(|t| t.dyn_into::<web_sys::HtmlElement>().ok())
-            .is_some_and(|el| {
-                matches!(el.tag_name().as_str(), "INPUT" | "TEXTAREA" | "SELECT")
-                    || el.is_content_editable()
-            });
-        if typing {
+        if ev.target().is_some_and(|target| is_text_entry(&target)) {
             return;
         }
         ev.prevent_default();
@@ -450,9 +463,9 @@ pub fn Search() -> impl IntoView {
                 if seq.get_value() != id {
                     return;
                 }
-                let Some(_idx) = loaded else { return };
+                let Some(idx) = loaded else { return };
                 let started = now();
-                let all_hits = match discovery.search(&query).await {
+                let all_hits = match discovery.search_summaries(&query).await {
                     Ok(hits) => hits,
                     Err(error) => {
                         if seq.get_value() == id {
@@ -465,15 +478,23 @@ pub fn Search() -> impl IntoView {
                 {
                     return;
                 }
-                let engine_ms = now() - started;
                 let total = all_hits.len();
+                let grouped = grouped_hits(all_hits);
+                let groups = grouped.len();
+                let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
+                // Only the rendered rows scan their document text for highlights.
+                let highlighter = idx.highlighter(&query);
+                for result in &mut hits {
+                    idx.materialize_hit(&highlighter, &mut result.hit);
+                    for (hit, _) in &mut result.variants {
+                        idx.materialize_hit(&highlighter, hit);
+                    }
+                }
+                let engine_ms = now() - started;
                 let fresh_counts = discovery
                     .filter_counts(&current.q, &query.filters)
                     .await
                     .ok();
-                let grouped = grouped_hits(all_hits);
-                let groups = grouped.len();
-                let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
                 let mut facet_data = Vec::new();
                 for (field, _) in facet_fields_for(&current.kinds) {
                     let cached = facet_values_cache.with_value(|slot| match slot {
@@ -763,7 +784,7 @@ pub fn Search() -> impl IntoView {
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {["fireball", "grapple", "cure light", "dragon"].into_iter().map(|q| {
-                            view! { <a class="pill" href=Route::search(q).href()>{q}</a> }
+                            view! { <a class="jump" href=Route::search(q).href()>{q}</a> }
                         }).collect_view()}
                     </p>
                 </div>
