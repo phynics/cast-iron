@@ -296,20 +296,32 @@ fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
         .and_then(|e| e.dyn_into().ok())
 }
 
+/// True when the event target is a text field or sits inside a contenteditable region, where
+/// `/` is a character rather than a shortcut.
+fn is_text_entry(target: &web_sys::EventTarget) -> bool {
+    let Some(node) = target.dyn_ref::<web_sys::Node>() else {
+        return false;
+    };
+    let mut current = Some(node.clone());
+    while let Some(node) = current {
+        if let Some(element) = node.dyn_ref::<web_sys::HtmlElement>()
+            && (matches!(element.tag_name().as_str(), "INPUT" | "TEXTAREA" | "SELECT")
+                || element.is_content_editable())
+        {
+            return true;
+        }
+        current = node.parent_node();
+    }
+    false
+}
+
 /// `/` focuses the search box from anywhere outside a text field, or opens Search.
 pub fn install_slash_shortcut() {
     let handle = window_event_listener(leptos::ev::keydown, move |ev| {
-        if ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
+        if ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() || ev.shift_key() {
             return;
         }
-        let typing = ev
-            .target()
-            .and_then(|t| t.dyn_into::<web_sys::HtmlElement>().ok())
-            .is_some_and(|el| {
-                matches!(el.tag_name().as_str(), "INPUT" | "TEXTAREA" | "SELECT")
-                    || el.is_content_editable()
-            });
-        if typing {
+        if ev.target().is_some_and(|target| is_text_entry(&target)) {
             return;
         }
         ev.prevent_default();
