@@ -199,8 +199,8 @@ test("Rule entries preserve complex formatting: stat block", async ({ page }) =>
   const expected = inlineText(paragraph.content).trim().slice(0, 60);
   await page.goto(`#/entry/${spell.id}`);
   await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
-  const labels = await page.locator(".stat-block .stat-row dt").allInnerTexts();
-  expect(labels.map((label) => label.trim())).toEqual(statBlock.rows.map((row: any) => row.label));
+  // A retrying assertion: one allInnerTexts() read can catch the block while it still renders.
+  await expect(page.locator(".stat-block .stat-row dt")).toHaveText(statBlock.rows.map((row: any) => row.label));
   await expect(page.locator(".stat-block")).toContainText(spell.fields.school);
   await expect(page.locator(".rich")).toContainText(expected);
 });
