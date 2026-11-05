@@ -270,7 +270,8 @@ export function bodyHeadings(entry: Entry): { anchor?: string; text: string; lev
     if (value.t === "heading") {
       found.push({
         anchor: value.anchor,
-        text: inlineText(value.content ?? []),
+        // Same text as Rust `plain_text`: a line break counts as a space.
+        text: headingPlainText(value.content ?? []),
         level: value.level,
         content: value.content ?? [],
       });
