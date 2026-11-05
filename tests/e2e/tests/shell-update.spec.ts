@@ -22,12 +22,14 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
   const mainTop = (await page.locator("main").boundingBox())!.y;
 
+  // Start the update through the app's own control, as a user would.
   await server.shellVersion(nextShell);
-  await page.evaluate(async () => {
-    await (await navigator.serviceWorker.getRegistration())!.update();
-  });
-
+  await page.goto("#/settings");
+  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
   const update = page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME });
+  await expect(update).toBeVisible();
+  await page.goto("#/entry/core-rulebook/spells/fireball");
+  await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
   await expect(update).toBeVisible();
   await expect(update).toHaveAttribute("aria-label", UPDATE_NAME);
   await expect(update).toContainText("Update");
