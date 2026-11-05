@@ -3,8 +3,8 @@
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "in_scope_records": 34497,
   "publication_count": 453,
-  "matched_publication_count": 397,
-  "unmatched_publication_count": 56,
+  "matched_publication_count": 400,
+  "unmatched_publication_count": 53,
   "publications": [
     {
       "publication": "Academy of Secrets",
@@ -1399,8 +1399,13 @@
     {
       "publication": "Heroes of the Streets",
       "records": 94,
-      "match_method": null,
-      "notices": []
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Player Companion: Heroes of the Street",
+          "notice": "© 2015, Paizo Inc.; Authors: John Compton, Mikko Kallio, Nicolas Logue, Michael McCarthy, Mike Myler, and David N. Ross."
+        }
+      ]
     },
     {
       "publication": "Heroes of the Wild",
@@ -2360,8 +2365,13 @@
     {
       "publication": "Pathfinder #119: Prisoners of the Blight",
       "records": 23,
-      "match_method": null,
-      "notices": []
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Adventure Path #119: Prisoner of the Blight",
+          "notice": "© 2017, Paizo Inc.; Authors: Amanda Hamon Kunz, with Paris Crenshaw, Crystal Frasier, Jason Keeley, Isabelle Lee, and Larry Wilhelm."
+        }
+      ]
     },
     {
       "publication": "Pathfinder #11: Skeletons of Scarwall",
@@ -4046,8 +4056,13 @@
     {
       "publication": "Realm of the Fellnight Queen",
       "records": 2,
-      "match_method": null,
-      "notices": []
+      "match_method": "alias",
+      "notices": [
+        {
+          "title": "Pathfinder Module: Realm of the Fellknight Queen",
+          "notice": "© 2010, Paizo Publishing, LLC; Author: Neil Spicer."
+        }
+      ]
     },
     {
       "publication": "Reign of Winter Player's Guide",
@@ -5094,10 +5109,6 @@
       "notice": "© 2002, Citizen Games/Troll Lord Games; Authors: Mike McArtor, W. Jason Peck, Jeff Quick, and Sean K Reynolds."
     },
     {
-      "title": "Pathfinder Adventure Path #119: Prisoner of the Blight",
-      "notice": "© 2017, Paizo Inc.; Authors: Amanda Hamon Kunz, with Paris Crenshaw, Crystal Frasier, Jason Keeley, Isabelle Lee, and Larry Wilhelm."
-    },
-    {
       "title": "Pathfinder Bestiary 3 (Second Edition)",
       "notice": "© 2021, Paizo Inc.; Authors: Logan Bonner, James Case, Jessica Catalan, John Compton, Paris Crenshaw, Adam Daigle, Katina Davis, Erik Scott de Bie, Jesse Decker, Brian Duckwitz, Hexe Fey, Keith Garrett, Matthew Goodall, Violet Gray, Alice Grizzle, Steven Hammond, Sasha Laranoa Harving, Joan Hong, James Jacobs, Michelle Jones, Virginia Jordan, TJ Kahn, Mikko Kallio, Jason Keeley, Joshua Kim, Avi Kool, Jeff Lee, Lyz Liddell, Luis Loza, Ron Lundeen, Philippe-Antoine Menard, Patchen Mortimer, Dennis Muldoon, Andrew Mullen, Quinn Murphy, Dave Nelson, Jason Nelson, Samantha Phelan, Stephen Radney-MacFarland, Danita Rambo, Shiv Ramdas, BJ Recio, Jessica Redekop, Mikhail Rekun, Patrick Renie, Alex Riggs, David N. Ross, Simone D. Sallé, Michael Sayre, Mark Seifter, Sen.H.H.S, Abigail Slater, Rodney Sloan, Shay Snow, Pidj Sorensen, Kendra Leigh Speedling, Tan Shao Han, William Thompson, Jason Tondro, Clark Valentine, Ruvaid Virk, Skylar Wall, Andrew White, and Landon Winkler."
     },
@@ -5138,20 +5149,12 @@
       "notice": "© 2010, Paizo Publishing, LLC; Author: Rob McCreary."
     },
     {
-      "title": "Pathfinder Module: Realm of the Fellknight Queen",
-      "notice": "© 2010, Paizo Publishing, LLC; Author: Neil Spicer."
-    },
-    {
       "title": "Pathfinder Module: Risen from the Sands",
       "notice": "© 2014, Paizo Publishing, LLC; Author: Rob McCreary."
     },
     {
       "title": "Pathfinder Module: We B4 Goblins!",
       "notice": "© 2016, Paizo Inc.; Author: Crystal Frasier."
-    },
-    {
-      "title": "Pathfinder Player Companion: Heroes of the Street",
-      "notice": "© 2015, Paizo Inc.; Authors: John Compton, Mikko Kallio, Nicolas Logue, Michael McCarthy, Mike Myler, and David N. Ross."
     },
     {
       "title": "Pathfinder RPG Core Rulebook",
