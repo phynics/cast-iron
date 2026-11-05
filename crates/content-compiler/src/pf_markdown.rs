@@ -1990,18 +1990,6 @@ fn render_list(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, 
     ))
 }
 
-fn article(word: &str) -> &'static str {
-    if word
-        .chars()
-        .next()
-        .is_some_and(|first| "aeiouAEIOU".contains(first))
-    {
-        "An"
-    } else {
-        "A"
-    }
-}
-
 fn capitalize_first(value: &str) -> String {
     let mut chars = value.chars();
     match chars.next() {
@@ -2010,148 +1998,137 @@ fn capitalize_first(value: &str) -> String {
     }
 }
 
+/// A class spellcasting summary from the attributes of `::spellAb`.
+///
+/// The pinned OGC JSON stores only flags (`type`, `stat`, `caster`, `spontaneous`,
+/// `trade53`, ...). Upstream's prose for them lives in its GPL renderer
+/// (`prebuild/block/spellAb.js`), which must not be copied or ported (AGENTS.md
+/// rule 12). This states the same mechanics as short labelled facts in our own words.
 fn render_spell_ability(attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    let has = |key: &str| attrs.contains_key(key);
     let caster = attr(attrs, "caster").unwrap_or("class");
     let stat = attr(attrs, "stat").unwrap_or("spellcasting ability");
-    let kind = attr(attrs, "type").unwrap_or("spell");
-    let action = match (attrs.contains_key("learn"), attrs.contains_key("prepare")) {
-        (true, true) => "learn, prepare, or cast",
-        (true, false) => "learn or cast",
-        (false, true) => "prepare or cast",
-        (false, false) => "cast",
-    };
     let mut out = String::from("**Spells**");
-    push_labeled(&mut out, "Gained", "At 1st Level");
-    let zero = if attrs.contains_key("zeroMsg") {
-        "; if the table shows that you get 0 spells per day of a given spell level, you gain only these bonus spells for that spell level."
-    } else {
-        "."
-    };
+    let kind = attr(attrs, "type").map(capitalize_first);
     push_labeled(
         &mut out,
-        "Usage",
-        &format!(
-            "To {action} a spell, you must have a {stat} score equal to at least 10 + the spell level. You can cast only a certain number of spells of each spell level per day, as shown on the table above. In addition, you receive bonus spells per day if you have a high {stat} score{zero}"
-        ),
+        "Spell list",
+        &match kind {
+            Some(kind) => format!("{kind} spells from the {caster} list, from 1st level"),
+            None => format!("Spells from the {caster} list, from 1st level"),
+        },
     );
     let mut ability = format!(
-        "You gain the ability to cast {kind} spells drawn from the {caster} spell list. The DC for a saving throw against spells you cast is 10 + the spell level + your {stat} modifier."
+        "{stat}. Minimum score 10 + spell level; save DC 10 + spell level + {stat} modifier; a high score grants bonus spells per day"
     );
-    if attrs.contains_key("alignLimit") {
-        ability.push_str(
-            " Your alignment may restrict you from casting certain spells opposed to your moral or ethical beliefs.",
-        );
+    if has("zeroMsg") {
+        ability.push_str(", even at a level where the table shows 0 spells per day");
     }
-    if attrs.contains_key("spontaneous") {
-        ability.push_str(
-            " You do not need to prepare these spells in advance; you can cast any spell you know at any time, assuming you have not yet used up your allotment of spells per day for the spell's level.",
-        );
+    ability.push('.');
+    push_labeled(&mut out, "Key ability", &ability);
+    let casting = if has("spontaneous") {
+        "Spontaneous: cast any spell known without preparation, within the daily allotment per spell level."
     } else {
-        ability.push_str(" You must choose and prepare your spells in advance.");
+        "Prepared: choose and prepare spells in advance."
+    };
+    push_labeled(&mut out, "Casting", casting);
+    if has("limited") || has("limitedFull") {
+        let start = if has("medium") {
+            "two 0-level spells"
+        } else {
+            "four 0-level and two 1st-level spells"
+        };
+        push_labeled(
+            &mut out,
+            "Spells known",
+            &format!(
+                "{} selection; starts with {start} and grows by level as shown on the table. {stat} does not change the number known.",
+                if has("limited") {
+                    "Very limited"
+                } else {
+                    "Limited"
+                }
+            ),
+        );
     }
-    push_labeled(&mut out, "Ability", &ability);
-
-    let mut info = Vec::new();
-    if attrs.contains_key("limited") || attrs.contains_key("limitedFull") {
-        let degree = if attrs.contains_key("limited") {
-            "extremely "
+    if has("trade53") || has("trade42") {
+        let (first, step) = if has("trade53") { (5, 3) } else { (4, 2) };
+        let mut swap = format!(
+            "At {}, {}, {}, and every {step} levels after, one known spell may be exchanged for another of the same level",
+            ordinal(first),
+            ordinal(first + step),
+            ordinal(first + 2 * step)
+        );
+        if has("tradeLimit") {
+            swap.push_str(" that is at least one level below the highest level you can cast");
+        }
+        swap.push('.');
+        push_labeled(&mut out, "Spell swap", &swap);
+    }
+    let mut added = Vec::new();
+    if has("cureInflict") {
+        added.push("all cure or all inflict spells (chosen at 1st level, permanent)");
+    }
+    if has("summonNature") {
+        added.push("all summon nature's ally spells");
+    }
+    if has("occultist") {
+        added.push("one spell per castable level from each implement school's list");
+    }
+    if !added.is_empty() {
+        push_labeled(
+            &mut out,
+            "Added to spells known",
+            &format!("{}.", added.join("; ")),
+        );
+    }
+    let mut notes = Vec::new();
+    if has("alignLimit") {
+        notes.push("Alignment can bar spells opposed to it.".to_string());
+    }
+    if has("bard") || has("skald") {
+        notes.push("Every spell has a verbal component (song, recitation, or music).".into());
+    }
+    if has("occultist") {
+        notes.push("Every spell has an implement component.".into());
+    }
+    if has("oracle") {
+        notes.push("No divine focus is needed for spells that list DF.".into());
+    }
+    if has("ritualDivine") {
+        let how = if has("druid") {
+            "meditating on nature"
+        } else if has("meditate") {
+            "in meditation"
+        } else {
+            "in contemplation or prayer"
+        };
+        let when = if has("choice") {
+            " at a chosen time"
         } else {
             ""
         };
-        let known = if attrs.contains_key("medium") {
-            "You begin play knowing two 0-level spells of your choice."
+        notes.push(format!(
+            "Regains spells after 1 hour {how}{when} each day; any spell on the list can be prepared."
+        ));
+    }
+    if has("ritualArcane") {
+        let with = if has("witch") {
+            "communing with the familiar"
         } else {
-            "You begin play knowing four 0-level spells and two 1st-level spells of your choice."
+            "with the spellbook"
         };
-        info.push(format!(
-            "{} {caster}'s selection of spells is {degree}limited. {known} At each new {caster} level you gain one or more new spells as indicated on the table above. Unlike spells per day, the number of spells you know is not affected by your {stat} score.",
-            article(caster)
+        notes.push(format!(
+            "Prepares spells after 8 hours of rest and 1 hour {with}; no limit on spells known."
         ));
     }
-    if attrs.contains_key("occultist") {
-        info.push("For each implement school you learn to use, you can add one spell of each level you can cast to your list of spells known, chosen from that school's spell list. When you learn to cast a new level of spells, you immediately add one spell of that level to your list of spells known from each implement school you know.".into());
-    }
-    if attrs.contains_key("cureInflict") {
-        info.push(format!(
-            "In addition to the spells gained by {caster}s as they gain levels, you also add all of either the cure spells or the inflict spells to your list of spells known. This choice is made when you gain your first {caster} level and cannot be changed."
-        ));
-    }
-    if attrs.contains_key("summonNature") {
-        info.push(format!(
-            "In addition to the spells gained by {caster}s as they gain levels, you also add all summon nature's ally spells to your list of spells known."
-        ));
-    }
-    if attrs.contains_key("trade53") || attrs.contains_key("trade42") {
-        let (begin, jump) = if attrs.contains_key("trade53") {
-            (5, 3)
-        } else {
-            (4, 2)
-        };
-        let limit = if attrs.contains_key("tradeLimit") {
-            format!(
-                ", and it must be at least one level lower than the highest-level {caster} spell you can cast."
-            )
-        } else {
-            ".".to_string()
-        };
-        info.push(format!(
-            "At {} level, and every {jump} levels thereafter ({} and {}), you can choose to learn a new spell in place of one you already know. The new spell's level must be the same as that of the spell being exchanged{limit}",
-            ordinal(begin),
-            ordinal(begin + jump),
-            ordinal(begin + jump + jump)
-        ));
-    }
-    if !info.is_empty() {
-        push_labeled(&mut out, "Info", &info.join(" "));
-    }
-
-    let mut special: Vec<String> = Vec::new();
-    if attrs.contains_key("occultist") {
-        special.push("Every occultist spell has an implement component.".into());
-    }
-    if attrs.contains_key("bard") {
-        special
-            .push("Every bard spell has a verbal component (song, recitation, or music).".into());
-    }
-    if attrs.contains_key("skald") {
-        special.push("Every skald spell has a verbal component, which can take the form of song, recitation, or even non-verbal music like percussion.".into());
-    }
-    if attrs.contains_key("ritualDivine") {
-        let time = if attrs.contains_key("choice") {
-            "You must choose a time when you must spend 1 hour each day"
-        } else {
-            "You must spend 1 hour each day"
-        };
-        let focus = if attrs.contains_key("druid") {
-            "in a trance-like meditation on the mysteries of nature"
-        } else if attrs.contains_key("meditate") {
-            "in quiet meditation"
-        } else {
-            "in quiet contemplation or supplication"
-        };
-        special.push(format!(
-            "{time} {focus} to regain your daily allotment of spells. You may prepare and cast any spell on your spell list, provided that you can cast spells of that level, but you must choose which spells to prepare."
-        ));
-    }
-    if attrs.contains_key("ritualArcane") {
-        special.push(format!(
-            "You may know any number of spells. You must choose and prepare your spells ahead of time by getting 8 hours of sleep and spending 1 hour {}.",
-            if attrs.contains_key("witch") {
-                "communing with your familiar"
-            } else {
-                "studying your spellbook"
-            }
-        ));
-    }
-    if attrs.contains_key("oracle") {
-        special.push("Oracles do not need to provide a divine focus to cast spells that list divine focus (DF) as part of the components.".into());
-    }
-    if !special.is_empty() {
-        push_labeled(&mut out, "Special", &special.join(" "));
+    if !notes.is_empty() {
+        push_labeled(&mut out, "Notes", &notes.join(" "));
     }
     Ok(out)
 }
 
+/// A cantrip summary from `::cantrips{c=... p}` attributes, in our own words.
 fn render_cantrips(attrs: &BTreeMap<String, String>) -> Result<String, String> {
     let c = attr(attrs, "c").unwrap_or("cantrips");
     let kind = match c {
@@ -2159,23 +2136,17 @@ fn render_cantrips(attrs: &BTreeMap<String, String>) -> Result<String, String> {
         "orisons" => "divine",
         _ => "arcane",
     };
-    let text = capitalize_first(c);
-    let prepared = attrs.contains_key("p");
-    let (prepcast, reused, consumed) = if prepared {
-        (
-            "prepared",
-            "are not expended when cast and may",
-            "are expended",
-        )
+    let mut out = format!("**{}**", capitalize_first(c));
+    let reuse = if attrs.contains_key("p") {
+        "Prepared like other spells but not expended when cast"
     } else {
-        ("cast", "don't consume slots and can", "consume slots")
+        "Cast without using a spell slot"
     };
-    let mut out = format!("**{text}**");
     push_labeled(
         &mut out,
         "Ability",
         &format!(
-            "You learn a number of {c}, or 0-level {kind} spells. These spells are {prepcast} like any other spell, but they {reused} be used again. {text} {prepcast} using other spell slots, such as those due to metamagic feats, {consumed} normally."
+            "0-level {kind} spells. {reuse}; one placed in a higher slot (for example through metamagic) uses that slot."
         ),
     );
     Ok(out)
@@ -3803,11 +3774,18 @@ mod tests {
             "Spells",
             "Intelligence",
             "arcane",
-            "wizard spell list",
+            "wizard list",
             "Cantrips",
-            "prepared",
+            "Prepared",
         ] {
             assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+        // Upstream renderer prose (GPL, prebuild/block/spellAb.js) must not appear.
+        for copied in [
+            "You can cast only a certain number of spells of each spell level per day",
+            "You learn a number of",
+        ] {
+            assert!(!rendered.contains(copied), "copied renderer text: {copied}");
         }
     }
 
