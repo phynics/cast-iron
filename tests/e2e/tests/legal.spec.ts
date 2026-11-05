@@ -26,6 +26,14 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(page.locator("#community-use + .legal-text")).toHaveText(legal.community_use_notice);
   await expect(page.getByRole("heading", { name: "Product Identity declaration" })).toBeVisible();
 
+  // Both dataset pins and their commits are shown, whichever library is installed.
+  const datasets = page.locator("#dataset ~ .legal-list > li");
+  await expect(datasets).toHaveCount(legal.datasets.length);
+  for (const dataset of legal.datasets) {
+    await expect(datasets.filter({ hasText: dataset.id })).toHaveCount(1);
+    await expect(datasets.filter({ hasText: dataset.commit })).toHaveCount(1);
+  }
+
   // Every Section 15 line the compiler collected is shown.
   const lines = page.locator("#section-15 ~ .legal-list > li");
   await expect(lines).toHaveCount(legal.section_15.length);

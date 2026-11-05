@@ -1,8 +1,12 @@
 // Local acceptance measurements for one built library: install, storage, search, memory.
 // Dev and test only; it is not part of the product.
 //
-//   cargo xtask build-site --canonical            (or the PSRD default)
-//   CAST_IRON_CONTENT=generated/canonical node tests/e2e/measure-library.mjs
+//   cargo xtask build-site                        (canonical default)
+//   node tests/e2e/measure-library.mjs
+//
+// For the PSRD carry-over library:
+//   cargo xtask content --psrd && cargo xtask build-site --psrd
+//   CAST_IRON_CONTENT=generated/psrd node tests/e2e/measure-library.mjs
 //
 // It serves dist/ on its own port, installs the library in a fresh profile per browser,
 // and prints one JSON object plus a short table. Record the output in docs/status.md.
