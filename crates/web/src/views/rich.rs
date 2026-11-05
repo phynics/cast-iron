@@ -59,6 +59,14 @@ fn heading_base(anchor: Option<&str>, content: &[Inline]) -> Option<String> {
     }
 }
 
+/// The anchor that jumps to the Related panel of an entry page.
+pub const RELATED_ANCHOR: &str = "entry-related";
+
+/// Route anchors that target app elements on an entry page. `scroll_to_anchor` falls back to the
+/// raw id for them, so content must never take one of these keys: `heading_keys` treats each as
+/// already used and gives a colliding content heading the next free suffix.
+pub const RESERVED_ANCHOR_KEYS: &[&str] = &[RELATED_ANCHOR];
+
 /// Every heading block in `body`, in document order, descending into list items and quotes.
 ///
 /// This is the single heading traversal. Key assignment, the article contents, and the renderer's
@@ -86,7 +94,8 @@ pub fn headings_in_order(body: &[Block]) -> Vec<&Block> {
 /// Each heading block of `body` with its final URL anchor key, in document order.
 ///
 /// The first heading with a base key keeps it. Later headings with the same base get `-2`,
-/// `-3`, ... skipping any key that another heading in this body already claims. An empty anchor falls back to a slug of the heading text; a
+/// `-3`, ... skipping any key that another heading in this body already claims and any
+/// [`RESERVED_ANCHOR_KEYS`] entry. An empty anchor falls back to a slug of the heading text; a
 /// heading with neither has no key.
 pub fn keyed_headings(body: &[Block]) -> Vec<(&Block, Option<String>)> {
     let headings = headings_in_order(body);
@@ -101,7 +110,10 @@ pub fn keyed_headings(body: &[Block]) -> Vec<(&Block, Option<String>)> {
         .collect();
     // Reserve every literal key first, so a generated suffix never steals one of them.
     let literal: BTreeSet<String> = bases.iter().flatten().cloned().collect();
-    let mut used: BTreeSet<String> = BTreeSet::new();
+    let mut used: BTreeSet<String> = RESERVED_ANCHOR_KEYS
+        .iter()
+        .map(|key| (*key).to_string())
+        .collect();
     let mut keyed = Vec::with_capacity(bases.len());
     for (block, base) in headings.into_iter().zip(bases) {
         let Some(base) = base else {
@@ -496,6 +508,39 @@ mod tests {
                 Some("sec-x".to_string()),
                 Some("sec-x-2".to_string()),
                 Some("q".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_content_heading_never_takes_a_reserved_app_anchor() {
+        let body = vec![
+            h(Some(RELATED_ANCHOR), "Related"),
+            h(Some(RELATED_ANCHOR), "Related again"),
+            h(None, "Entry Related"),
+        ];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("entry-related-2".to_string()),
+                Some("entry-related-3".to_string()),
+                Some("sec-entry-related".to_string()),
+            ]
+        );
+        assert!(RESERVED_ANCHOR_KEYS.contains(&RELATED_ANCHOR));
+    }
+
+    #[test]
+    fn a_reserved_anchor_suffix_skips_a_literal_key_in_the_body() {
+        let body = vec![
+            h(Some(RELATED_ANCHOR), "A"),
+            h(Some("entry-related-2"), "B"),
+        ];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("entry-related-3".to_string()),
+                Some("entry-related-2".to_string()),
             ]
         );
     }
