@@ -659,6 +659,13 @@ Local verification: `cargo xtask check` passes, and the full Playwright suite pa
 114/114 (chromium 56, webkit 56, mobile-chromium 2) against the canonical `dist/` in
 14.0 minutes. Nothing here is deployed, and the 250 ms smoke bound is unchanged.
 
+After merging main again, the canonical build moved to `v3767562a585b5ce4`, so the pinned
+golden skips. The baseline engine at `404c530` and the current engine were run over the
+same `search.bin` and the same 50 queries: all 2,550 lines (top 50 ids and scores) are
+identical. On that build `measure-library.mjs` reports engine p50 / p95 of 4 / 14.8 ms in
+Chromium and 4 / 10 ms in WebKit, and the three search specs pass in both browsers. This is
+local verification.
+
 ## Pf Data class conversion, 2026-11-05
 
 Local results against the same pin after the class-conversion fixes:
