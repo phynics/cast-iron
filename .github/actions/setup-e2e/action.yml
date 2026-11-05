@@ -27,7 +27,7 @@ runs:
     # The browser build is chosen by the Playwright version, so the key carries it.
     - name: Restore the ${{ inputs.browser }} browser
       id: browser
-      uses: actions/cache@v6
+      uses: actions/cache/restore@v6
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ inputs.browser }}
@@ -35,6 +35,15 @@ runs:
       if: ${{ steps.browser.outputs.cache-hit != 'true' }}
       shell: bash
       run: npx --prefix tests/e2e playwright install ${{ inputs.browser }}
+    # Save right after the download, before any test runs. A plain actions/cache
+    # saves only when the whole job succeeds, so a failing suite would never fill it.
+    # Every shard of a browser uses this one key; the first to finish saves it.
+    - name: Save the ${{ inputs.browser }} browser
+      if: ${{ steps.browser.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ steps.browser.outputs.cache-primary-key }}
     # System libraries live outside the cached browser directory, so install them every run.
     - name: Install ${{ inputs.browser }} system dependencies
       shell: bash

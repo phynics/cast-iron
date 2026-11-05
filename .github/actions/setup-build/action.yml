@@ -13,6 +13,16 @@ inputs:
     description: Install Trunk and restore its tools ("true" or "false").
     default: "false"
 
+outputs:
+  trunk-tools-key:
+    description: >-
+      Cache key of Trunk's downloaded tools. The caller saves the cache right
+      after its build step, because only that step downloads them.
+    value: ${{ steps.trunk-tools.outputs.cache-primary-key }}
+  trunk-tools-hit:
+    description: '"true" when the Trunk tools cache was restored.'
+    value: ${{ steps.trunk-tools.outputs.cache-hit }}
+
 runs:
   using: composite
   steps:
@@ -22,6 +32,8 @@ runs:
     - uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ inputs.cache-key }}
+        # Save the dependency build even when a later check in the job fails.
+        cache-on-failure: true
     - name: Read the Trunk pin and the wasm-bindgen version
       if: ${{ inputs.trunk == 'true' }}
       id: pin
@@ -44,7 +56,7 @@ runs:
     - name: Restore the Trunk binary
       if: ${{ inputs.trunk == 'true' }}
       id: trunk-bin
-      uses: actions/cache@v6
+      uses: actions/cache/restore@v6
       with:
         path: ~/.local/bin/trunk
         key: trunk-bin-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.trunk_version }}-${{ steps.pin.outputs.trunk_sha256 }}
@@ -61,6 +73,13 @@ runs:
         echo "${TRUNK_SHA256}  $RUNNER_TEMP/$asset" | sha256sum -c -
         mkdir -p "$HOME/.local/bin"
         tar xzf "$RUNNER_TEMP/$asset" -C "$HOME/.local/bin" trunk
+    # Save at once, so a later failure in the job cannot skip the save.
+    - name: Save the verified Trunk binary
+      if: ${{ inputs.trunk == 'true' && steps.trunk-bin.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.local/bin/trunk
+        key: ${{ steps.trunk-bin.outputs.cache-primary-key }}
     - name: Put Trunk on the path
       if: ${{ inputs.trunk == 'true' }}
       shell: bash
@@ -69,7 +88,8 @@ runs:
     # keeps them in its cache directory (~/.cache/trunk on Linux).
     - name: Restore Trunk's downloaded tools
       if: ${{ inputs.trunk == 'true' }}
-      uses: actions/cache@v6
+      id: trunk-tools
+      uses: actions/cache/restore@v6
       with:
         path: ~/.cache/trunk
         key: trunk-tools-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.trunk_version }}-wbg-${{ steps.pin.outputs.wasm_bindgen }}
