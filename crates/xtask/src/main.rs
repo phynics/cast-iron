@@ -1,6 +1,14 @@
 //! Repository automation. Run `cargo xtask help`.
 
+use cast_iron_corpus::{
+    entry_path, read_aliases, read_books, read_entry, read_legal, read_publications, write_aliases,
+    write_books, write_entry, write_legal, write_publications,
+};
+use cast_iron_schema::{
+    AliasIndex, BookIndex, Catalog, ContentManifest, LegalNotices, RuleEntry, SourceInfo,
+};
 use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -32,6 +40,13 @@ cargo xtask <command>
                              generated/psrd with --psrd. The default public URL is /cast-iron/,
                              the GitHub Pages project path
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
+  corpus-export <out-dir> [--content <dir>]
+                             Write the plain-text corpus from the compiled library
+                             (default generated/content)
+  corpus-check <dir>         Read a plain-text corpus and validate ids, paths, sources,
+                             and licences; exits non-zero and names the file and line
+  corpus-roundtrip <dir> [--content <dir>]
+                             Compare every corpus file with the compiled library
   check                      Run fmt, clippy, tests, and the WASM build
 ";
 
@@ -55,6 +70,9 @@ fn main() -> ExitCode {
         Some("content") => content(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist")),
+        Some("corpus-export") => corpus_export(&args[1..]),
+        Some("corpus-check") => corpus_check(&args[1..]),
+        Some("corpus-roundtrip") => corpus_roundtrip(&args[1..]),
         Some("check") => check(),
         Some("help") | None => {
             print!("{HELP}");
@@ -714,6 +732,544 @@ fn stamp_shell(dist: &Path) -> Result {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+struct Library {
+    entries: Vec<RuleEntry>,
+    catalog: Catalog,
+    books: BookIndex,
+    legal: LegalNotices,
+    aliases: Option<AliasIndex>,
+}
+
+fn load_library(content: &Path) -> Result<Library> {
+    let manifest_path = content.join("manifest.json");
+    let manifest: ContentManifest = serde_json::from_slice(
+        &fs::read(&manifest_path)
+            .map_err(|e| format!("cannot read {}: {e}", manifest_path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", manifest_path.display()))?;
+    let version = content.join(&manifest.content_version);
+    let mut entries = Vec::new();
+    let entries_dir = version.join("entries");
+    for item in fs::read_dir(&entries_dir)
+        .map_err(|e| format!("cannot read {}: {e}", entries_dir.display()))?
+    {
+        let path = item.map_err(|e| e.to_string())?.path();
+        if path.extension().is_some_and(|ext| ext == "json") {
+            let mut shard: Vec<RuleEntry> = serde_json::from_slice(
+                &fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
+            )
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+            entries.append(&mut shard);
+        }
+    }
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    if entries.len() != manifest.entry_count as usize {
+        return Err(format!(
+            "{} has {} entries but the manifest names {}",
+            entries_dir.display(),
+            entries.len(),
+            manifest.entry_count
+        ));
+    }
+    for pair in entries.windows(2) {
+        if pair[0].id == pair[1].id {
+            return Err(format!(
+                "duplicate id {} in {}",
+                pair[0].id,
+                entries_dir.display()
+            ));
+        }
+    }
+    let read = |name: &str| -> Result<Vec<u8>> {
+        let path = version.join(name);
+        fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    };
+    let catalog: Catalog =
+        serde_json::from_slice(&read("catalog.json")?).map_err(|e| format!("catalog.json: {e}"))?;
+    let books: BookIndex =
+        serde_json::from_slice(&read("books.json")?).map_err(|e| format!("books.json: {e}"))?;
+    let legal: LegalNotices =
+        serde_json::from_slice(&read("legal.json")?).map_err(|e| format!("legal.json: {e}"))?;
+    let aliases_path = version.join("aliases.json");
+    let aliases = if aliases_path.is_file() {
+        Some(
+            serde_json::from_slice(&fs::read(&aliases_path).map_err(|e| e.to_string())?)
+                .map_err(|e| format!("aliases.json: {e}"))?,
+        )
+    } else {
+        None
+    };
+    Ok(Library {
+        entries,
+        catalog,
+        books,
+        legal,
+        aliases,
+    })
+}
+
+fn corpus_args(args: &[String], command: &str) -> Result<(PathBuf, PathBuf)> {
+    let mut positional = None;
+    let mut content = None;
+    let mut rest = args.iter();
+    while let Some(argument) = rest.next() {
+        if argument == "--content" {
+            content = Some(PathBuf::from(
+                rest.next().ok_or("--content needs a directory")?,
+            ));
+        } else if argument.starts_with('-') {
+            return Err(format!("unknown argument {argument:?} for {command}"));
+        } else if positional.replace(PathBuf::from(argument)).is_some() {
+            return Err(format!("{command} takes one corpus directory"));
+        }
+    }
+    let corpus = positional.ok_or_else(|| format!("usage: {command} <dir> [--content <dir>]"))?;
+    Ok((
+        corpus,
+        content.unwrap_or_else(|| root().join("generated/content")),
+    ))
+}
+
+fn corpus_export(args: &[String]) -> Result {
+    let (out, content) = corpus_args(args, "corpus-export")?;
+    let library = load_library(&content)?;
+    if out.exists() {
+        let empty = fs::read_dir(&out)
+            .map_err(|e| format!("cannot read {}: {e}", out.display()))?
+            .next()
+            .is_none();
+        let corpus = out.join("entries").is_dir() || out.join("publications.toml").is_file();
+        if !empty && !corpus {
+            return Err(format!(
+                "refusing to clear {}: it is not an empty directory or a corpus",
+                out.display()
+            ));
+        }
+        fs::remove_dir_all(&out).map_err(|e| format!("cannot clear {}: {e}", out.display()))?;
+    }
+    fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
+
+    let mut files = 0usize;
+    let mut bytes = 0u64;
+    for entry in &library.entries {
+        let path = out.join(entry_path(&entry.id));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+        }
+        let text = write_entry(entry);
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
+    let stored = [
+        (
+            "publications.toml",
+            write_publications(&library.catalog.sources),
+        ),
+        ("books.toml", write_books(&library.books)),
+        ("legal.toml", write_legal(&library.legal)),
+    ];
+    for (name, text) in stored {
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(out.join(name), text)
+            .map_err(|e| format!("cannot write {}: {e}", out.join(name).display()))?;
+    }
+    if let Some(aliases) = &library.aliases {
+        let text = write_aliases(aliases);
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(out.join("aliases.toml"), text)
+            .map_err(|e| format!("cannot write aliases.toml: {e}"))?;
+    }
+    println!(
+        "exported {} entries, {} files, {:.2} MB to {}",
+        library.entries.len(),
+        files,
+        bytes as f64 / (1024.0 * 1024.0),
+        out.display()
+    );
+    Ok(())
+}
+
+fn corpus_check(args: &[String]) -> Result {
+    if args.len() != 1 {
+        return Err("usage: corpus-check <dir>".into());
+    }
+    let dir = Path::new(&args[0]);
+    let mut problems: Vec<String> = Vec::new();
+    let read_stored = |name: &str| -> Result<String> {
+        let path = dir.join(name);
+        fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    };
+    let publications = read_publications(
+        &dir.join("publications.toml"),
+        &read_stored("publications.toml")?,
+    )
+    .map_err(|e| e.to_string())?;
+    let books = read_books(&dir.join("books.toml"), &read_stored("books.toml")?)
+        .map_err(|e| e.to_string())?;
+    let legal = read_legal(&dir.join("legal.toml"), &read_stored("legal.toml")?)
+        .map_err(|e| e.to_string())?;
+    let aliases = if dir.join("aliases.toml").is_file() {
+        Some(
+            read_aliases(&dir.join("aliases.toml"), &read_stored("aliases.toml")?)
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        None
+    };
+
+    let mut files = Vec::new();
+    list_files(&dir.join("entries"), &mut files)?;
+    files.sort();
+    let mut entries: BTreeMap<String, RuleEntry> = BTreeMap::new();
+    let mut texts: BTreeMap<String, String> = BTreeMap::new();
+    for file in &files {
+        if file.extension().is_none_or(|ext| ext != "md") {
+            continue;
+        }
+        let text =
+            fs::read_to_string(file).map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+        let relative = file
+            .strip_prefix(dir)
+            .map_err(|e| e.to_string())?
+            .to_path_buf();
+        let entry = read_entry(&relative, &text).map_err(|e| e.to_string())?;
+        let id = entry.id.to_string();
+        if entries.insert(id.clone(), entry).is_some() {
+            problems.push(format!("{}:1: duplicate entry id {id}", relative.display()));
+        }
+        texts.insert(id, text);
+    }
+
+    let publication_ids: BTreeSet<&str> = publications
+        .iter()
+        .map(|publication| publication.id.as_str())
+        .collect();
+    let mut license_ids: BTreeSet<&str> = legal
+        .licenses
+        .iter()
+        .map(|license| license.id.as_str())
+        .collect();
+    if !legal.community_use_notice.is_empty() {
+        license_ids.insert("legal#community-use");
+    }
+    let ids: BTreeSet<&str> = entries.keys().map(String::as_str).collect();
+    for (id, entry) in &entries {
+        let text = &texts[id];
+        let line = |needle: &str| {
+            text.lines()
+                .position(|l| l.contains(needle))
+                .map(|i| i + 1)
+                .unwrap_or(1)
+        };
+        for source in &entry.source_ids {
+            if !publication_ids.contains(source.as_str()) {
+                problems.push(format!(
+                    "{}:{}: unknown publication `{source}`",
+                    entry_path(&entry.id).display(),
+                    line(source)
+                ));
+            }
+        }
+        for license in &entry.license_refs {
+            if !license_ids.contains(license.as_str()) {
+                problems.push(format!(
+                    "{}:{}: unknown licence `{license}`",
+                    entry_path(&entry.id).display(),
+                    line(license)
+                ));
+            }
+        }
+        if let Some(parent) = &entry.parent
+            && !ids.contains(parent.as_str())
+        {
+            problems.push(format!(
+                "{}:{}: unknown parent `{parent}`",
+                entry_path(&entry.id).display(),
+                line(parent.as_str())
+            ));
+        }
+        for link in &entry.links {
+            if !ids.contains(link.target.as_str()) {
+                problems.push(format!(
+                    "{}:{}: unknown link target `{}`",
+                    entry_path(&entry.id).display(),
+                    line(link.target.as_str()),
+                    link.target
+                ));
+            }
+        }
+        for relation in &entry.relations {
+            if !ids.contains(relation.target.as_str()) {
+                problems.push(format!(
+                    "{}:{}: unknown relation target `{}`",
+                    entry_path(&entry.id).display(),
+                    line(relation.target.as_str()),
+                    relation.target
+                ));
+            }
+        }
+    }
+    for tree in &books.books {
+        let mut placed = BTreeSet::new();
+        for chapter in &tree.chapters {
+            check_book_node(chapter, &ids, &mut placed, &mut problems);
+        }
+    }
+    if let Some(aliases) = &aliases {
+        for entry in &aliases.entries {
+            if !ids.contains(entry.target.as_str()) {
+                problems.push(format!(
+                    "aliases.toml:1: alias target `{}` is not an entry",
+                    entry.target
+                ));
+            }
+        }
+    }
+
+    if !problems.is_empty() {
+        for problem in &problems {
+            eprintln!("{problem}");
+        }
+        return Err(format!(
+            "corpus check failed with {} problem(s)",
+            problems.len()
+        ));
+    }
+    println!(
+        "corpus ok: {} entries, {} publications, {} books, {} licences",
+        entries.len(),
+        publications.len(),
+        books.books.len(),
+        legal.licenses.len()
+    );
+    Ok(())
+}
+
+fn check_book_node(
+    node: &cast_iron_schema::BookNode,
+    ids: &BTreeSet<&str>,
+    placed: &mut BTreeSet<String>,
+    problems: &mut Vec<String>,
+) {
+    if let Some(entry) = &node.entry {
+        if !ids.contains(entry.as_str()) {
+            problems.push(format!(
+                "books.toml:1: book node `{}` names unknown entry `{entry}`",
+                node.title
+            ));
+        } else if node.anchor.is_none() && !placed.insert(entry.to_string()) {
+            problems.push(format!("books.toml:1: book places `{entry}` twice"));
+        }
+    }
+    for child in &node.children {
+        check_book_node(child, ids, placed, problems);
+    }
+}
+
+fn corpus_roundtrip(args: &[String]) -> Result {
+    let (dir, content) = corpus_args(args, "corpus-roundtrip")?;
+    let library = load_library(&content)?;
+
+    let mut files = Vec::new();
+    list_files(&dir.join("entries"), &mut files)?;
+    files.sort();
+    let mut read_entries: BTreeMap<String, RuleEntry> = BTreeMap::new();
+    for file in &files {
+        if file.extension().is_none_or(|ext| ext != "md") {
+            continue;
+        }
+        let text =
+            fs::read_to_string(file).map_err(|e| format!("cannot read {}: {e}", file.display()))?;
+        let relative = file
+            .strip_prefix(&dir)
+            .map_err(|e| e.to_string())?
+            .to_path_buf();
+        let entry = read_entry(&relative, &text).map_err(|e| e.to_string())?;
+        read_entries.insert(entry.id.to_string(), entry);
+    }
+
+    let expected: BTreeMap<String, RuleEntry> = library
+        .entries
+        .iter()
+        .cloned()
+        .map(|mut entry| {
+            entry.links = cast_iron_corpus::derived_links(&entry.body);
+            (entry.id.to_string(), entry)
+        })
+        .collect();
+    let mut mismatches = 0usize;
+    let mut link_recomputed = 0usize;
+    for entry in &library.entries {
+        let id = entry.id.to_string();
+        if entry.links != expected[&id].links {
+            link_recomputed += 1;
+        }
+        match read_entries.get(&id) {
+            None => {
+                mismatches += 1;
+                eprintln!("missing entry file for {id}");
+            }
+            Some(read) if read != &expected[&id] => {
+                mismatches += 1;
+                let field = first_difference(&expected[&id], read);
+                eprintln!("{id}: {field}");
+            }
+            Some(_) => {}
+        }
+    }
+    for id in read_entries.keys() {
+        if !expected.contains_key(id) {
+            mismatches += 1;
+            eprintln!("unexpected entry file for {id}");
+        }
+    }
+
+    let publications = read_publications(
+        &dir.join("publications.toml"),
+        &fs::read_to_string(dir.join("publications.toml"))
+            .map_err(|e| format!("cannot read publications.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut counts: BTreeMap<&str, u32> = BTreeMap::new();
+    for entry in &library.entries {
+        if let Some(source) = entry.source_ids.first() {
+            *counts.entry(source.as_str()).or_default() += 1;
+        }
+    }
+    let expected_publications: Vec<SourceInfo> = library
+        .catalog
+        .sources
+        .iter()
+        .map(|source| {
+            let mut source = source.clone();
+            source.entry_count = counts.get(source.id.as_str()).copied().unwrap_or(0);
+            source
+        })
+        .collect();
+    for source in &expected_publications {
+        let found = publications
+            .iter()
+            .find(|publication| publication.id == source.id)
+            .map(|publication| publication.to_source(source.entry_count));
+        if found.as_ref() != Some(source) {
+            mismatches += 1;
+            eprintln!(
+                "publications.toml: {} does not match the catalogue",
+                source.id
+            );
+        }
+    }
+    for publication in &publications {
+        if !expected_publications
+            .iter()
+            .any(|source| source.id == publication.id)
+        {
+            mismatches += 1;
+            eprintln!(
+                "publications.toml: unexpected publication {}",
+                publication.id
+            );
+        }
+    }
+
+    let read_books = read_books(
+        &dir.join("books.toml"),
+        &fs::read_to_string(dir.join("books.toml"))
+            .map_err(|e| format!("cannot read books.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if read_books != library.books {
+        mismatches += 1;
+        eprintln!("books.toml does not match the compiled book index");
+    }
+    let read_legal = read_legal(
+        &dir.join("legal.toml"),
+        &fs::read_to_string(dir.join("legal.toml"))
+            .map_err(|e| format!("cannot read legal.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if read_legal != library.legal {
+        mismatches += 1;
+        eprintln!("legal.toml does not match the compiled legal notices");
+    }
+    match (&library.aliases, dir.join("aliases.toml").is_file()) {
+        (Some(expected), true) => {
+            let read = read_aliases(
+                &dir.join("aliases.toml"),
+                &fs::read_to_string(dir.join("aliases.toml"))
+                    .map_err(|e| format!("cannot read aliases.toml: {e}"))?,
+            )
+            .map_err(|e| e.to_string())?;
+            if &read != expected {
+                mismatches += 1;
+                eprintln!("aliases.toml does not match the compiled alias index");
+            }
+        }
+        (None, false) => {}
+        (Some(_), false) => {
+            mismatches += 1;
+            eprintln!("aliases.toml is missing");
+        }
+        (None, true) => {
+            mismatches += 1;
+            eprintln!("aliases.toml is present but the library has no alias index");
+        }
+    }
+
+    if mismatches > 0 {
+        return Err(format!("round trip has {mismatches} mismatch(es)"));
+    }
+    println!(
+        "round trip ok: {} entries, 0 mismatches; {} entries had links recomputed from the body; {} publications, {} books",
+        library.entries.len(),
+        link_recomputed,
+        publications.len(),
+        library.books.books.len()
+    );
+    Ok(())
+}
+
+fn first_difference(expected: &RuleEntry, read: &RuleEntry) -> String {
+    let expected = serde_json::to_value(expected).unwrap_or_default();
+    let read = serde_json::to_value(read).unwrap_or_default();
+    if let (Some(a), Some(b)) = (expected.as_object(), read.as_object()) {
+        for key in a.keys() {
+            if a.get(key) != b.get(key) {
+                if key == "body"
+                    && let (Some(expected), Some(read)) = (
+                        a.get(key).and_then(serde_json::Value::as_array),
+                        b.get(key).and_then(serde_json::Value::as_array),
+                    )
+                {
+                    let index = expected
+                        .iter()
+                        .zip(read)
+                        .position(|(left, right)| left != right)
+                        .unwrap_or_else(|| expected.len().min(read.len()));
+                    let left = expected.get(index);
+                    let right = read.get(index);
+                    return format!(
+                        "field `body` differs at block {index}: expected {}, read {}",
+                        left.map_or_else(|| "<missing>".into(), serde_json::Value::to_string),
+                        right.map_or_else(|| "<missing>".into(), serde_json::Value::to_string)
+                    );
+                }
+                return format!("field `{key}` differs");
+            }
+        }
+        for key in b.keys() {
+            if a.get(key).is_none() {
+                return format!("unexpected field `{key}`");
+            }
+        }
+    }
+    "values differ".into()
 }
 
 fn check() -> Result {

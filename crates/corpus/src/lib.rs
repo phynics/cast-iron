@@ -1,0 +1,37 @@
+//! Lossless plain-text corpus format for Cast Iron.
+//!
+//! One entry file per [`RuleEntry`], plus a small set of stored source files
+//! (`publications.toml`, `books.toml`, `legal.toml`, `aliases.toml`). Every
+//! compiler-derived file (relations, spell lists, coverage, backlinks, catalog
+//! stubs, search index, manifest) is rebuilt by the compiler, not stored.
+//!
+//! The format is documented in `docs/corpus-format.md`. This crate is the
+//! executable definition: [`write_entry`] and [`read_entry`] must agree for
+//! every value the schema can hold.
+//!
+//! ```text
+//! entries/<id-path>.md          one RuleEntry, front matter and body
+//! publications.toml             source metadata for the catalog
+//! books.toml                    BookIndex (curated chapter order)
+//! legal.toml                    LegalNotices
+//! aliases.toml                  AliasIndex (optional, as in the library)
+//! ```
+
+mod block;
+mod entry;
+mod error;
+mod files;
+mod inline;
+mod tomlutil;
+
+pub use entry::{derived_links, entry_path, read_entry, write_entry};
+pub use error::{Error, Result};
+pub use files::{
+    Publication, PublicationsFile, read_aliases, read_books, read_legal, read_publications,
+    write_aliases, write_books, write_legal, write_publications,
+};
+
+/// Format version of the plain-text corpus. Independent of the serialized
+/// content schema: the corpus carries schema 3 fields today, but a schema
+/// change adds fields here rather than changing this number.
+pub const CORPUS_FORMAT: u32 = 1;

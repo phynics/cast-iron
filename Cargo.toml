@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/schema", "crates/search", "crates/content-compiler", "crates/web", "crates/xtask"]
+members = ["crates/schema", "crates/search", "crates/content-compiler", "crates/corpus", "crates/web", "crates/xtask"]
 
 [workspace.package]
 version = "0.1.0"
@@ -12,6 +12,7 @@ publish = false
 [workspace.dependencies]
 cast-iron-schema = { path = "crates/schema" }
 cast-iron-search = { path = "crates/search" }
+cast-iron-corpus = { path = "crates/corpus" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
