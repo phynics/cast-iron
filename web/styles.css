@@ -913,6 +913,11 @@ mark {
 
 .row-source {
   font-size: var(--step--1);
+  /* A publication title can be longer than a phone screen; the row must fit, not the page. */
+  flex: 0 1 auto;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .ref-list {
@@ -1773,14 +1778,17 @@ main,
 
 .entry-list li {
   flex-wrap: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .entry-list a {
   flex: 1 1 auto;
+  min-width: 0;
 }
 
 .row-source {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .crumbs a,
