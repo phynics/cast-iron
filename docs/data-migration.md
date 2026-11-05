@@ -52,7 +52,7 @@ unresolved compilation inputs, and unreviewed rights must appear in diagnostics.
 | File and record key | Immutable namespaced identity, explicit equivalence map for existing IDs |
 | `name` or `title` | `RuleEntry.title` |
 | Record family | `EntryKind` and `TypedFields` |
-| `sources` and `SOURCE` markers | Publication registry, `source_ids`, page attribution in body |
+| `sources` and `SOURCE` markers | Publication registry, `source_ids`, and structured page attribution for the canonical book index |
 | Description Markdown and directives | Typed `Block` and `Inline` nodes |
 | Spell, class, monster, and item directives | Mechanical fields and labelled body statistics |
 | Encoded links and Markdown links | Resolved `EntryReference` targets, reported misses |

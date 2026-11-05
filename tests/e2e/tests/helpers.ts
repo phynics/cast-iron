@@ -12,9 +12,24 @@ export async function waitReady(page: Page) {
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible({ timeout: 90_000 });
 }
 
-/** The service worker controls this page (needed before any offline claim). */
+/**
+ * The service worker controls this page (needed before any offline claim).
+ *
+ * `clients.claim()` can run before this page is ready to observe it, which leaves
+ * `controller` null until a navigation. Wait for an active registration, give the
+ * claim a short window, and otherwise reload once so the active worker controls
+ * the new document.
+ */
 export async function waitControlled(page: Page) {
-  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const claimed = await page
+    .waitForFunction(() => !!navigator.serviceWorker.controller, undefined, { timeout: 10_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!claimed) {
+    await page.reload();
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  }
 }
 
 export async function activeLibrary(page: Page) {
@@ -141,6 +156,11 @@ export async function openBookContents(page: Page, title: string) {
   const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
   await row.locator("summary").click();
   await row.getByRole("link", { name: `Open ${title} contents`, exact: true }).click();
+  // A route change moves focus to <main> on the next animation frame so screen readers announce the
+  // page. A key pressed on a contents control before that move lands on <main> instead, and the
+  // control never reacts. Wait for the move rather than racing it.
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.locator("main#main")).toBeFocused();
 }
 
 /** Open a publication choice before following its permanent entry link. */

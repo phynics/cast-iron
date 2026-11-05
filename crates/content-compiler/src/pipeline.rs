@@ -4,20 +4,28 @@
 //! source-independent tail: it validates, shards, writes reports, builds the search index, and
 //! publishes a version directory and manifest.
 
+use crate::alias::{self, LegacySnapshot};
 use crate::build::{self, DedupeStats, RawRules, RawTyped};
+use crate::canonical;
+use crate::carry;
 use crate::config::{self, IdOverrides, SourceConfig};
 use crate::family;
 use crate::legal::{self, ExtractedNotices};
 use crate::model::Node;
 use crate::order::{BookOrderFile, UpstreamOrder};
+use crate::pf_data::{self, Inventory};
+use crate::pf_legal;
+use crate::publications::{self, Registry};
 use crate::select::{self, Role, Survey, hex, sha256_hex};
 use crate::slug::slug_segment;
 use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
-    BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest, CoverageReport, DatasetRef, EntryId,
-    EntryKind, EntryStub, LegalNotices, ManifestFile, PublicationCoverage, RELATIONS_FILE,
-    Rejection, RelationIndex, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists,
+    BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest, CopyrightNotice, CoverageReport,
+    DatasetNotice, DatasetRef, EntryId, EntryKind, EntryStub, Exclusion, Inline, LegalNotices,
+    ManifestFile, ParagraphStyle, PublicationCoverage, RELATIONS_FILE, Rejection, RelationIndex,
+    RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, StatRow, Table, TableCell,
+    TableRow, TypedFields,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -36,6 +44,19 @@ pub struct Options {
     pub write_digest: bool,
     pub strict: bool,
     pub overrides: Option<PathBuf>,
+}
+
+/// Inputs for the canonical (Pf Data plus PSRD carry-over) library.
+///
+/// The PSRD options still drive [`build_psrd`] because the PSRD snapshot is the
+/// carry-over input, the source of the baseline Section 15 notices, and the
+/// reviewed book titles. They are not the content being compiled.
+#[derive(Debug, Clone)]
+pub struct CanonicalOptions {
+    pub psrd: Options,
+    pub pf_dataset: PathBuf,
+    pub pf_registry: PathBuf,
+    pub canonical_dir: PathBuf,
 }
 
 #[derive(Debug)]
@@ -94,6 +115,10 @@ pub struct Library {
     pub survey: Survey,
     /// Namespace that marks supplemental exclusions in the coverage report.
     pub supplement_prefix: Option<String>,
+    /// The generated legacy-to-canonical map, when the builder produces one.
+    /// [`package`] adds it to the version directory and the manifest so the
+    /// content version covers its bytes; it is never appended after publication.
+    pub aliases_file: Option<Vec<u8>>,
 }
 
 /// Builds the PSRD-Data library: select, parse, plan, build, and derive.
@@ -414,6 +439,7 @@ pub fn build_psrd(opts: &Options) -> Result<Library, Failure> {
         dedupe: built.dedupe,
         survey,
         supplement_prefix,
+        aliases_file: None,
     })
 }
 
@@ -457,6 +483,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         dedupe,
         survey,
         supplement_prefix,
+        aliases_file,
     } = library;
 
     // Shards and catalog.
@@ -523,6 +550,9 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
     files.insert("legal.json".into(), json_bytes(&legal)?);
     files.insert("coverage.json".into(), json_bytes(&coverage)?);
     files.insert("search.bin".into(), search_bin);
+    if let Some(aliases) = aliases_file {
+        files.insert(crate::alias::ALIASES_FILE.into(), aliases);
+    }
     let mut derived_bytes = BTreeMap::new();
     for (name, bytes) in [
         (RELATIONS_FILE, json_bytes(&relations)?),
@@ -594,6 +624,928 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
 /// The full compile for the configured source: build, then package.
 pub fn compile(opts: &Options) -> Result<Outcome, Failure> {
     package(build_psrd(opts)?, &opts.out, &opts.reports)
+}
+
+/// The canonical compile: package the Pf Data library and its PSRD carry-over.
+pub fn compile_canonical(opts: &CanonicalOptions) -> Result<Outcome, Failure> {
+    package(build_canonical(opts)?, &opts.psrd.out, &opts.psrd.reports)
+}
+
+/// One Pf Data publication as the canonical build sees it.
+#[derive(Debug, Clone)]
+struct PublicationState {
+    /// Canonical source id, shared with PSRD when the book exists there.
+    source: String,
+    /// Display title used by the catalog and the book view.
+    title: String,
+    /// Every notice that matches this publication in the union of PSRD and
+    /// Pf Data Section 15 lists, with duplicates removed.
+    notices: Vec<pf_legal::Notice>,
+}
+
+impl PublicationState {
+    fn noticed(&self) -> bool {
+        !self.notices.is_empty()
+    }
+}
+
+/// The note stored with the Pf Data dataset pin on the legal page.
+const PF_DATASET_NOTE: &str = "Open Game Content from the pinned Pathfinder Data 1e corpus, used under the Open Game License 1.0a and Paizo's Community Use Policy; see docs/research/pf-data-licensing.md.";
+
+/// Builds the complete canonical library: screened Pf Data conversion, typed
+/// relations, PSRD carry-over, page-ordered books, spell lists, legal notices,
+/// and the generated alias map.
+pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
+    let psrd = build_psrd(&opts.psrd)?;
+    let pf_config_dir = opts
+        .pf_registry
+        .parent()
+        .ok_or_else(|| failure("the Pf Data registry has no parent directory"))?;
+    let allowlist =
+        crate::pf_rules::RuleAllowlist::load_optional(&pf_config_dir.join("derived-rules.json"))?;
+    let inv = pf_data::inventory(&opts.pf_dataset, &opts.pf_registry)
+        .map_err(|error| failure(format!("cannot read the Pf Data inventory: {error}")))?;
+
+    // The registry is reviewed input. A new publication in the pin must be
+    // reviewed and registered; it never gets an automatic source id.
+    let registry = Registry::load(&opts.canonical_dir.join("publications.toml"))?;
+    check_publication_registry(&registry, &inv)?;
+
+    let legal_report = pf_legal::build(
+        &inv,
+        &opts.pf_dataset.join("OPENGAMECONTENT.md"),
+        &pf_config_dir.join("notice-aliases.json"),
+        &pf_config_dir.join("out-of-scope.json"),
+    )
+    .map_err(|error| failure(format!("cannot build the Pf Data legal report: {error}")))?;
+    let pf_pin: pf_data::SourcePin = pf_data::read_json(&opts.pf_registry)
+        .map_err(|error| failure(format!("cannot read the Pf Data pin: {error}")))?;
+    let psrd_notices: Vec<pf_legal::Notice> = psrd
+        .legal
+        .section_15
+        .iter()
+        .map(|notice| pf_legal::Notice {
+            title: notice.title.clone(),
+            notice: notice.notice.clone(),
+        })
+        .collect();
+    let states = publication_states(&registry, &legal_report, &psrd_notices)?;
+
+    let mut converted = canonical::convert_corpus(&inv, &allowlist)
+        .map_err(|error| failure(format!("canonical conversion failed: {error}")))?;
+    let mut rejected: Vec<Rejection> = Vec::new();
+    let legally_excluded = apply_legal_screen(&mut converted.entries, &states, &mut rejected)?;
+    for excluded in &converted.excluded {
+        rejected.push(Rejection {
+            path: excluded.identity.clone(),
+            reason: format!(
+                "converter {} exclusion{}: {}",
+                excluded.category,
+                excluded
+                    .id
+                    .as_deref()
+                    .map(|id| format!(" ({id})"))
+                    .unwrap_or_default(),
+                excluded.reason
+            ),
+        });
+    }
+
+    // Relations run over the entries that survived the legal screen, so a
+    // target that cannot be redistributed never becomes a dangling edge.
+    let pf_relations = crate::relations::apply_canonical(&mut converted.entries, &converted.links);
+
+    // Carry-over is explicit in the reviewed id map. Its inputs are the PSRD
+    // library and the same canonical catalog the alias gate uses.
+    let map = alias::IdMap::load(&opts.canonical_dir.join("id-map.toml"))?;
+    let snapshot_path = opts.canonical_dir.join("legacy-ids.json");
+    let snapshot_bytes = fs::read(&snapshot_path)
+        .map_err(|e| format!("cannot read {}: {e}", snapshot_path.display()))?;
+    let snapshot = LegacySnapshot::parse(&snapshot_bytes)
+        .map_err(|e| format!("invalid {}: {e}", snapshot_path.display()))?;
+    let mut catalog = alias::catalog_from_inventory(&inv, &allowlist)?;
+    let carried = carry::carry_over(&psrd, &map, &catalog)
+        .map_err(|errors| problems("carry-over", errors))?;
+    carried
+        .extend_catalog(&mut catalog)
+        .map_err(|errors| problems("carried catalog", errors))?;
+
+    let mut entries = std::mem::take(&mut converted.entries);
+    entries.extend(carried.records.iter().map(|record| record.entry.clone()));
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    check_unique_ids(&entries)?;
+
+    let ids: BTreeSet<EntryId> = entries.iter().map(|entry| entry.id.clone()).collect();
+    let settlement = settle_references(&mut entries, &ids);
+
+    // Carried entries have a PSRD source but no page attribution. Giving their
+    // book a display title keeps the canonical book view from showing a slug.
+    let mut pages = converted.pages.clone();
+    add_carried_pages(&mut pages, &carried.records, &psrd.sources);
+    let books = crate::books::build_canonical(&entries, &converted.links, &pages);
+    let spell_lists = crate::lists::build(&entries);
+    let relations = crate::relations::index_over(&entries, pf_relations.coverage);
+    let relation_coverage = relations.coverage.clone();
+
+    let legal = canonical_legal(&psrd.legal, &legal_report, &pf_pin);
+    let (aliases_file, alias_retirements) = canonical_aliases(
+        &entries,
+        &legally_excluded,
+        &map,
+        &snapshot,
+        &snapshot_bytes,
+        &catalog,
+    )?;
+
+    let sources = canonical_sources(&entries, &psrd.sources, &states);
+    let by_publication =
+        canonical_publications(&entries, &inv, &states, &carried.report, &sources)?;
+    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
+    for entry in &entries {
+        *by_kind.entry(entry.kind.slug().to_string()).or_default() += 1;
+    }
+    let aliases = search_aliases(&entries);
+
+    let mut excluded = canonical_coverage_rows(
+        &inv,
+        &converted,
+        &carried.report,
+        &settlement,
+        alias_retirements,
+    );
+    excluded.sort_by(|a, b| (&a.path, &a.reason).cmp(&(&b.path, &b.reason)));
+    rejected.sort_by(|a, b| (&a.path, &a.reason).cmp(&(&b.path, &b.reason)));
+    rejected.dedup();
+
+    let coverage = CoverageReport {
+        input_digest: sha256_hex(
+            format!("{}\n{}\n", psrd.coverage.input_digest, inv.input_digest).as_bytes(),
+        ),
+        by_publication,
+        by_kind,
+        excluded,
+        rejected,
+        links: canonical_links(&entries),
+        stripped: BTreeMap::new(),
+        relations: cast_iron_schema::RelationCoverage {
+            spell_lists: spell_lists.coverage.clone(),
+            book_order: books.coverage.clone(),
+            ..relation_coverage
+        },
+    };
+
+    let mut notes = psrd.notes.clone();
+    notes.push(format!(
+        "canonical build: {} entries ({} Pf Data, {} carried), {} rejected records, {} alias retirements ({} rights, {} unrepresentable)",
+        entries.len(),
+        entries.len() - carried.report.carried,
+        carried.report.carried,
+        coverage.rejected.len(),
+        alias_retirements.rights + alias_retirements.unrepresentable,
+        alias_retirements.rights,
+        alias_retirements.unrepresentable,
+    ));
+
+    let datasets: Vec<DatasetRef> = legal
+        .datasets
+        .iter()
+        .map(|dataset| DatasetRef {
+            id: dataset.id.clone(),
+            repository: dataset.repository.clone(),
+            commit: dataset.commit.clone(),
+        })
+        .collect();
+    Ok(Library {
+        entries,
+        relations: relations.index,
+        spell_lists: spell_lists.lists,
+        books: books.index,
+        legal,
+        coverage,
+        aliases,
+        facets: BTreeMap::new(),
+        datasets,
+        sources,
+        notes,
+        dedupe: DedupeStats::default(),
+        survey: psrd.survey,
+        supplement_prefix: None,
+        aliases_file: Some(aliases_file),
+    })
+}
+
+fn failure(message: impl Into<String>) -> Failure {
+    Failure {
+        lines: vec![message.into()],
+    }
+}
+
+fn problems(context: &str, errors: Vec<String>) -> Failure {
+    let mut lines = vec![format!("{context} failed: {} problem(s):", errors.len())];
+    lines.extend(errors.into_iter().map(|error| format!("  {error}")));
+    Failure { lines }
+}
+
+/// Fails when the pinned inventory names a publication the registry lacks.
+fn check_publication_registry(registry: &Registry, inv: &Inventory) -> Result<(), Failure> {
+    let missing: Vec<String> = publications::inventory_publications(inv)
+        .into_iter()
+        .filter(|title| registry.get(title).is_none())
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let mut lines = vec![format!(
+        "{} Pf Data publication(s) are missing from {}:",
+        missing.len(),
+        publications::REGISTRY_PATH
+    )];
+    lines.extend(missing.into_iter().map(|title| format!("  {title}")));
+    lines.push(
+        "Run `cargo xtask data-publications`, review the rows, and commit the registry.".into(),
+    );
+    Err(Failure { lines })
+}
+
+/// Matches every registry publication against the union of PSRD and Pf Data
+/// notices. A record is kept only when at least one of its publications has a
+/// notice, so an absent notice excludes the record rather than shipping it
+/// without a redistribution basis.
+fn publication_states(
+    registry: &Registry,
+    report: &pf_legal::LegalReport,
+    psrd_notices: &[pf_legal::Notice],
+) -> Result<BTreeMap<String, PublicationState>, Failure> {
+    let by_publication: BTreeMap<&str, &pf_legal::PublicationLegal> = report
+        .publications
+        .iter()
+        .map(|publication| (publication.publication.as_str(), publication))
+        .collect();
+    let empty_aliases = BTreeMap::new();
+    let mut errors = Vec::new();
+    let mut states = BTreeMap::new();
+    for (title, row) in &registry.publication {
+        let mut notices = by_publication
+            .get(title.as_str())
+            .map(|publication| publication.notices.clone())
+            .unwrap_or_default();
+        match pf_legal::match_publication(title, psrd_notices, &empty_aliases) {
+            Ok(psrd_matches) => notices.extend(psrd_matches),
+            Err(error) => errors.push(error),
+        }
+        notices.sort_by(|a, b| (&a.title, &a.notice).cmp(&(&b.title, &b.notice)));
+        notices.dedup();
+        states.insert(
+            title.clone(),
+            PublicationState {
+                source: row.source.clone(),
+                title: row.title.clone(),
+                notices,
+            },
+        );
+    }
+    if !errors.is_empty() {
+        return Err(problems("publication notice matching", errors));
+    }
+    Ok(states)
+}
+
+/// Rewrites each converted entry's source ids through the registry and drops the
+/// publications with no notice. Returns the ids that were excluded.
+fn apply_legal_screen(
+    entries: &mut Vec<RuleEntry>,
+    states: &BTreeMap<String, PublicationState>,
+    rejected: &mut Vec<Rejection>,
+) -> Result<BTreeSet<String>, Failure> {
+    let mut by_slug: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut noticed: BTreeMap<String, bool> = BTreeMap::new();
+    for (title, state) in states {
+        by_slug
+            .entry(slug_segment(title))
+            .or_default()
+            .insert(state.source.clone());
+        noticed
+            .entry(state.source.clone())
+            .and_modify(|value| *value |= state.noticed())
+            .or_insert_with(|| state.noticed());
+    }
+    let mut errors = Vec::new();
+    let mut excluded = BTreeSet::new();
+    entries.retain_mut(|entry| {
+        let mut kept = Vec::new();
+        let mut seen = BTreeSet::new();
+        for slug in &entry.source_ids {
+            let Some(sources) = by_slug.get(slug) else {
+                errors.push(format!(
+                    "entry {} names publication slug {slug:?}, which has no registry row",
+                    entry.id
+                ));
+                continue;
+            };
+            for source in sources {
+                if noticed.get(source).copied().unwrap_or(false) && seen.insert(source.clone()) {
+                    kept.push(source.clone());
+                }
+            }
+        }
+        if kept.is_empty() {
+            excluded.insert(entry.id.as_str().to_string());
+            rejected.push(Rejection {
+                path: entry.id.to_string(),
+                reason: format!(
+                    "no publication with a Section 15 notice ({}); redistribution cannot be established",
+                    if entry.source_ids.is_empty() {
+                        "no publication attribution".to_string()
+                    } else {
+                        entry.source_ids.join(", ")
+                    }
+                ),
+            });
+            false
+        } else {
+            entry.source_ids = kept;
+            true
+        }
+    });
+    if !errors.is_empty() {
+        return Err(problems("publication source rewrite", errors));
+    }
+    Ok(excluded)
+}
+
+fn check_unique_ids(entries: &[RuleEntry]) -> Result<(), Failure> {
+    let mut lines = Vec::new();
+    for pair in entries.windows(2) {
+        if pair[0].id == pair[1].id {
+            lines.push(format!(
+                "canonical id {} is produced by both Pf Data and carry-over",
+                pair[0].id
+            ));
+        }
+    }
+    if lines.is_empty() {
+        Ok(())
+    } else {
+        Err(Failure { lines })
+    }
+}
+
+/// The canonical legal page: PSRD's notices plus every matched Pf Data notice,
+/// with both dataset pins. Deduplicates by title and notice text.
+fn canonical_legal(
+    psrd: &LegalNotices,
+    report: &pf_legal::LegalReport,
+    pf_pin: &pf_data::SourcePin,
+) -> LegalNotices {
+    let mut legal = psrd.clone();
+    let mut seen: BTreeSet<(String, String)> = legal
+        .section_15
+        .iter()
+        .map(|notice| (notice.title.clone(), notice.notice.clone()))
+        .collect();
+    for publication in &report.publications {
+        for notice in &publication.notices {
+            if seen.insert((notice.title.clone(), notice.notice.clone())) {
+                legal.section_15.push(CopyrightNotice {
+                    title: notice.title.clone(),
+                    notice: notice.notice.clone(),
+                });
+            }
+        }
+    }
+    // The PSRD build may already add the Pf Data pin when the reviewed
+    // supplement is configured. Keep exactly one notice per dataset id and use
+    // the canonical note, which describes the whole corpus rather than one row.
+    legal.datasets.retain(|dataset| dataset.id != pf_pin.id);
+    legal.datasets.push(DatasetNotice {
+        id: pf_pin.id.clone(),
+        repository: pf_pin.repository.clone(),
+        commit: pf_pin.commit.clone(),
+        note: PF_DATASET_NOTE.to_string(),
+    });
+    legal
+}
+
+fn add_carried_pages(
+    pages: &mut BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
+    carried: &[carry::Carried],
+    sources: &[SourceInfo],
+) {
+    let titles: BTreeMap<&str, &str> = sources
+        .iter()
+        .map(|source| (source.id.as_str(), source.title.as_str()))
+        .collect();
+    for record in carried {
+        let rows = pages.entry(record.entry.id.clone()).or_default();
+        for source in &record.entry.source_ids {
+            if let Some(title) = titles.get(source.as_str())
+                && !rows.iter().any(|(existing, _)| existing == title)
+            {
+                rows.push(((*title).to_string(), None));
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct Settlement {
+    body: u32,
+    parents: u32,
+    relations: u32,
+    prerequisites: u32,
+}
+
+impl Settlement {
+    fn total(&self) -> u32 {
+        self.body + self.parents + self.relations + self.prerequisites
+    }
+}
+
+/// Removes references to entries the legal screen removed. The body keeps the
+/// visible text, exactly as carry-over does for an unresolvable target, and the
+/// count is reported in coverage. Every remaining reference names a real entry.
+fn settle_references(entries: &mut [RuleEntry], ids: &BTreeSet<EntryId>) -> Settlement {
+    let mut settlement = Settlement::default();
+    for entry in entries.iter_mut() {
+        if let Some(parent) = entry.parent.clone()
+            && !ids.contains(&parent)
+        {
+            entry.parent = None;
+            settlement.parents += 1;
+        }
+        let relations = std::mem::take(&mut entry.relations);
+        for relation in relations {
+            if ids.contains(&relation.target) {
+                entry.relations.push(relation);
+            } else {
+                settlement.relations += 1;
+            }
+        }
+        let body = std::mem::take(&mut entry.body);
+        entry.body = settle_blocks(body, ids, &mut settlement);
+        entry.links.retain(|link| ids.contains(&link.target));
+        entry.links.sort();
+        entry.links.dedup();
+        if let TypedFields::Feat(fields) = &mut entry.fields {
+            let feats = std::mem::take(&mut fields.prerequisite_feats);
+            for feat in feats {
+                if ids.contains(&feat) {
+                    fields.prerequisite_feats.push(feat);
+                } else {
+                    settlement.prerequisites += 1;
+                }
+            }
+            fields.prerequisite_feats.sort();
+            fields.prerequisite_feats.dedup();
+        }
+    }
+    settlement
+}
+
+fn settle_blocks(
+    blocks: Vec<Block>,
+    ids: &BTreeSet<EntryId>,
+    counts: &mut Settlement,
+) -> Vec<Block> {
+    let mut out = Vec::with_capacity(blocks.len());
+    for block in blocks {
+        match block {
+            Block::Heading {
+                level,
+                anchor,
+                content,
+            } => out.push(Block::Heading {
+                level,
+                anchor,
+                content: settle_inlines(content, ids, counts),
+            }),
+            Block::Paragraph { style, content } => out.push(Block::Paragraph {
+                style,
+                content: settle_inlines(content, ids, counts),
+            }),
+            Block::List { ordered, items } => out.push(Block::List {
+                ordered,
+                items: items
+                    .into_iter()
+                    .map(|item| settle_blocks(item, ids, counts))
+                    .collect(),
+            }),
+            Block::Table(table) => out.push(Block::Table(settle_table(table, ids, counts))),
+            Block::Quote { content } => out.push(Block::Quote {
+                content: settle_blocks(content, ids, counts),
+            }),
+            Block::StatBlock { title, rows } => out.push(Block::StatBlock {
+                title,
+                rows: rows
+                    .into_iter()
+                    .map(|row| StatRow {
+                        label: row.label,
+                        value: settle_inlines(row.value, ids, counts),
+                    })
+                    .collect(),
+            }),
+            Block::EntryLink { target, title } => {
+                if ids.contains(&target) {
+                    out.push(Block::EntryLink { target, title });
+                } else {
+                    counts.body += 1;
+                    out.push(Block::Paragraph {
+                        style: ParagraphStyle::Normal,
+                        content: vec![Inline::Text { v: title }],
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+fn settle_inlines(
+    inlines: Vec<Inline>,
+    ids: &BTreeSet<EntryId>,
+    counts: &mut Settlement,
+) -> Vec<Inline> {
+    let mut out = Vec::with_capacity(inlines.len());
+    for inline in inlines {
+        match inline {
+            Inline::Link { target, anchor, c } => {
+                if ids.contains(&target) {
+                    out.push(Inline::Link {
+                        target,
+                        anchor,
+                        c: settle_inlines(c, ids, counts),
+                    });
+                } else {
+                    counts.body += 1;
+                    out.extend(settle_inlines(c, ids, counts));
+                }
+            }
+            Inline::Em { c } => out.push(Inline::Em {
+                c: settle_inlines(c, ids, counts),
+            }),
+            Inline::Strong { c } => out.push(Inline::Strong {
+                c: settle_inlines(c, ids, counts),
+            }),
+            Inline::Sup { c } => out.push(Inline::Sup {
+                c: settle_inlines(c, ids, counts),
+            }),
+            Inline::Sub { c } => out.push(Inline::Sub {
+                c: settle_inlines(c, ids, counts),
+            }),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+fn settle_table(table: Table, ids: &BTreeSet<EntryId>, counts: &mut Settlement) -> Table {
+    Table {
+        caption: settle_inlines(table.caption, ids, counts),
+        head: settle_rows(table.head, ids, counts),
+        body: settle_rows(table.body, ids, counts),
+        foot: settle_rows(table.foot, ids, counts),
+    }
+}
+
+fn settle_rows(
+    rows: Vec<TableRow>,
+    ids: &BTreeSet<EntryId>,
+    counts: &mut Settlement,
+) -> Vec<TableRow> {
+    rows.into_iter()
+        .map(|row| TableRow {
+            cells: row
+                .cells
+                .into_iter()
+                .map(|cell| TableCell {
+                    header: cell.header,
+                    colspan: cell.colspan,
+                    rowspan: cell.rowspan,
+                    content: settle_inlines(cell.content, ids, counts),
+                })
+                .collect(),
+        })
+        .collect()
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+struct AliasRetirements {
+    rights: usize,
+    unrepresentable: usize,
+}
+
+/// Generates the alias map in process and retires every row whose canonical
+/// target is not in the installed library. A retired row names the reason
+/// instead of pointing outside the library. The alias gate still runs against
+/// the full planned catalog, so a map row that names something the pin cannot
+/// produce fails here rather than being silently retired.
+fn canonical_aliases(
+    entries: &[RuleEntry],
+    legally_excluded: &BTreeSet<String>,
+    map: &alias::IdMap,
+    snapshot: &LegacySnapshot,
+    snapshot_bytes: &[u8],
+    catalog: &alias::CanonicalCatalog,
+) -> Result<(Vec<u8>, AliasRetirements), Failure> {
+    let (mut file, _stats) = alias::generate(map, snapshot, snapshot_bytes, catalog)
+        .map_err(|errors| problems("alias gate(s)", errors))?;
+    let final_ids: BTreeSet<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
+    let mut kept = Vec::new();
+    let mut retirements = AliasRetirements::default();
+    for entry in file.entries.drain(..) {
+        if final_ids.contains(entry.target.as_str()) {
+            kept.push(entry);
+            continue;
+        }
+        if legally_excluded.contains(entry.target.as_str()) {
+            retirements.rights += 1;
+            file.retired.push(alias::RetiredEntry {
+                old: entry.old,
+                reason: alias::RetirementReason::Rights,
+                note: Some(
+                    "canonical target excluded: no Section 15 notice covers its publications"
+                        .into(),
+                ),
+            });
+        } else {
+            retirements.unrepresentable += 1;
+            file.retired.push(alias::RetiredEntry {
+                old: entry.old,
+                reason: alias::RetirementReason::Unrepresentable,
+                note: Some(
+                    "canonical target was planned from the pin but the converter did not emit it"
+                        .into(),
+                ),
+            });
+        }
+    }
+    file.entries = kept;
+    file.retired.sort_by(|a, b| a.old.cmp(&b.old));
+    let bytes = alias::to_bytes(&file)?;
+    Ok((bytes, retirements))
+}
+
+fn search_aliases(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<String>> {
+    entries
+        .iter()
+        .map(|entry| {
+            let mut names: BTreeSet<String> = BTreeSet::new();
+            if entry.kind == EntryKind::Rule {
+                for block in &entry.body {
+                    if let Block::Heading { content, .. } = block {
+                        let heading = inline_text(content);
+                        if !heading.is_empty() && heading != entry.title {
+                            names.insert(heading);
+                        }
+                    }
+                }
+            }
+            (entry.id.clone(), names.into_iter().collect())
+        })
+        .collect()
+}
+
+fn canonical_sources(
+    entries: &[RuleEntry],
+    psrd_sources: &[SourceInfo],
+    states: &BTreeMap<String, PublicationState>,
+) -> Vec<SourceInfo> {
+    let psrd_by_id: BTreeMap<&str, &SourceInfo> = psrd_sources
+        .iter()
+        .map(|source| (source.id.as_str(), source))
+        .collect();
+    let mut titles: BTreeMap<String, String> = BTreeMap::new();
+    let mut notices: BTreeMap<String, BTreeSet<(String, String)>> = BTreeMap::new();
+    for state in states.values() {
+        titles
+            .entry(state.source.clone())
+            .or_insert_with(|| state.title.clone());
+        if !state.notices.is_empty() {
+            let slot = notices.entry(state.source.clone()).or_default();
+            for notice in &state.notices {
+                slot.insert((notice.title.clone(), notice.notice.clone()));
+            }
+        }
+    }
+    let mut used: BTreeSet<&str> = BTreeSet::new();
+    for entry in entries {
+        for source in &entry.source_ids {
+            used.insert(source.as_str());
+        }
+    }
+    let mut sources = Vec::with_capacity(used.len());
+    for source in used {
+        let title = titles
+            .get(source)
+            .cloned()
+            .or_else(|| psrd_by_id.get(source).map(|info| info.title.clone()))
+            .unwrap_or_else(|| source.to_string());
+        let copyright = notices.get(source).and_then(|rows| {
+            (!rows.is_empty()).then(|| {
+                rows.iter()
+                    .map(|(title, notice)| format!("{}. {}", title.trim_end_matches('.'), notice))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            })
+        });
+        let copyright = copyright.or_else(|| {
+            psrd_by_id
+                .get(source)
+                .and_then(|info| info.copyright.clone())
+        });
+        sources.push(SourceInfo {
+            id: source.to_string(),
+            title,
+            entry_count: entries
+                .iter()
+                .filter(|entry| entry.source_ids.first().is_some_and(|id| id == source))
+                .count() as u32,
+            copyright,
+        });
+    }
+    sources.sort_by(|a, b| a.id.cmp(&b.id));
+    sources
+}
+
+fn canonical_publications(
+    entries: &[RuleEntry],
+    inv: &Inventory,
+    states: &BTreeMap<String, PublicationState>,
+    carried: &carry::CarryReport,
+    sources: &[SourceInfo],
+) -> Result<Vec<PublicationCoverage>, Failure> {
+    let excluded: BTreeSet<(&str, &str)> = inv
+        .out_of_scope
+        .iter()
+        .map(|record| (record.path.as_str(), record.key.as_str()))
+        .collect();
+    let mut upstream: BTreeMap<String, u32> = BTreeMap::new();
+    for record in &inv.records {
+        if excluded.contains(&(record.path.as_str(), record.key.as_str())) {
+            continue;
+        }
+        for publication in &record.publications {
+            let state = states.get(publication).ok_or_else(|| {
+                failure(format!(
+                    "publication {publication:?} has no registry row while counting coverage"
+                ))
+            })?;
+            *upstream.entry(state.source.clone()).or_default() += 1;
+        }
+    }
+    for (book, count) in &carried.by_book {
+        *upstream.entry(book.clone()).or_default() += *count as u32;
+    }
+    let mut included: BTreeMap<String, u32> = BTreeMap::new();
+    for entry in entries {
+        for source in &entry.source_ids {
+            *included.entry(source.clone()).or_default() += 1;
+        }
+    }
+    let titles: BTreeMap<String, String> = sources
+        .iter()
+        .map(|source| (source.id.clone(), source.title.clone()))
+        .chain(
+            states
+                .values()
+                .map(|state| (state.source.clone(), state.title.clone())),
+        )
+        .collect();
+    let mut ids: BTreeSet<String> = upstream.keys().cloned().collect();
+    ids.extend(included.keys().cloned());
+    Ok(ids
+        .into_iter()
+        .map(|source_id| PublicationCoverage {
+            title: titles
+                .get(&source_id)
+                .cloned()
+                .unwrap_or_else(|| source_id.clone()),
+            upstream_records: upstream.get(&source_id).copied().unwrap_or(0),
+            included_entries: included.get(&source_id).copied().unwrap_or(0),
+            source_id,
+        })
+        .collect())
+}
+
+fn canonical_links(entries: &[RuleEntry]) -> cast_iron_schema::LinkCoverage {
+    cast_iron_schema::LinkCoverage {
+        resolved: entries.iter().map(|entry| entry.links.len() as u32).sum(),
+        out_of_selection: 0,
+        broken: 0,
+    }
+}
+
+fn canonical_coverage_rows(
+    inv: &Inventory,
+    converted: &canonical::Converted,
+    carried: &carry::CarryReport,
+    settlement: &Settlement,
+    alias_retirements: AliasRetirements,
+) -> Vec<Exclusion> {
+    let mut rows = Vec::new();
+    let mut pi_by_category: BTreeMap<&str, usize> = BTreeMap::new();
+    for omission in &inv.pi_omissions {
+        *pi_by_category
+            .entry(omission.category.as_str())
+            .or_default() += 1;
+    }
+    if !inv.pi_omissions.is_empty() {
+        rows.push(Exclusion {
+            path: "pi-screen".into(),
+            records: inv.pi_omissions.len() as u32,
+            reason: format!(
+                "Product Identity and outbound-link omissions across the in-scope inventory: {}",
+                pi_by_category
+                    .iter()
+                    .map(|(category, count)| format!("{category} {count}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        });
+    }
+    for row in &converted.coverage {
+        rows.push(Exclusion {
+            path: row.record.clone(),
+            records: row.occurrences as u32,
+            reason: format!(
+                "converter coverage [{}] {}: {}",
+                row.category, row.detail, row.reason
+            ),
+        });
+    }
+    let mut findings: BTreeMap<&str, usize> = BTreeMap::new();
+    for finding in &converted.findings {
+        *findings.entry(finding.severity.as_str()).or_default() += 1;
+    }
+    if !converted.findings.is_empty() {
+        rows.push(Exclusion {
+            path: "converter-findings".into(),
+            records: converted.findings.len() as u32,
+            reason: format!(
+                "converter findings, by severity: {}",
+                findings
+                    .iter()
+                    .map(|(severity, count)| format!("{severity} {count}"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        });
+    }
+    if carried.carried > 0 {
+        rows.push(Exclusion {
+            path: "carry-over".into(),
+            records: carried.carried as u32,
+            reason: format!(
+                "PSRD carry-over under ref/carried/; references rewritten {}, flattened {}; {} possible duplicate review leads",
+                carried.links.rewritten,
+                carried.links.flattened,
+                carried.possible_duplicate_count
+            ),
+        });
+        for (book, count) in &carried.by_book {
+            rows.push(Exclusion {
+                path: format!("carry-over/{book}"),
+                records: *count as u32,
+                reason: "PSRD carry-over; no canonical Pf Data record replaces the legacy entry"
+                    .into(),
+            });
+        }
+    }
+    if settlement.total() > 0 {
+        rows.push(Exclusion {
+            path: "legal-reference-settlement".into(),
+            records: settlement.total(),
+            reason: format!(
+                "references to legally excluded records were flattened or dropped (body {}, parent {}, relation {}, prerequisite {})",
+                settlement.body,
+                settlement.parents,
+                settlement.relations,
+                settlement.prerequisites
+            ),
+        });
+    }
+    if alias_retirements.rights > 0 {
+        rows.push(Exclusion {
+            path: "alias-rights-retirements".into(),
+            records: alias_retirements.rights as u32,
+            reason: "legacy aliases whose canonical target has no Section 15 notice now resolve as retired for rights".into(),
+        });
+    }
+    if alias_retirements.unrepresentable > 0 {
+        rows.push(Exclusion {
+            path: "alias-unrepresentable-retirements".into(),
+            records: alias_retirements.unrepresentable as u32,
+            reason: "legacy aliases whose planned canonical target was not emitted by the converter now resolve as retired".into(),
+        });
+    }
+    for record in &inv.out_of_scope {
+        rows.push(Exclusion {
+            path: format!("{}#{}", record.path, record.key),
+            records: 1,
+            reason: format!("out of scope: {}", record.reason),
+        });
+    }
+    rows
 }
 
 /// Archetypes live in a section whose title ends in `Archetypes`, such as
@@ -1120,6 +2072,147 @@ mod tests {
         assert!(err.contains("refusing"), "{err}");
         assert!(dir.join("keep.txt").exists());
         fs::remove_dir_all(&dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod canonical_tests {
+    use super::*;
+    use cast_iron_schema::{EntryReference, Provenance};
+
+    fn entry(id: &str, source: &str) -> RuleEntry {
+        RuleEntry {
+            id: EntryId::parse(id).unwrap(),
+            kind: EntryKind::Rule,
+            title: id.into(),
+            source_ids: vec![source.into()],
+            section: vec![],
+            parent: None,
+            body: vec![],
+            fields: TypedFields::None,
+            tags: vec![],
+            links: vec![],
+            provenance: vec![Provenance {
+                dataset: "d".into(),
+                record: "r".into(),
+                path: "p".into(),
+            }],
+            license_refs: vec!["ogl-1.0a".into()],
+            relations: vec![],
+        }
+    }
+
+    fn state(source: &str, title: &str, noticed: bool) -> PublicationState {
+        PublicationState {
+            source: source.into(),
+            title: title.into(),
+            notices: noticed
+                .then(|| pf_legal::Notice {
+                    title: title.into(),
+                    notice: "notice".into(),
+                })
+                .into_iter()
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn legal_screen_keeps_only_noticed_publications_and_reports_the_rest() {
+        let mut states = BTreeMap::new();
+        states.insert(
+            "Noticed Book".into(),
+            state("noticed-book", "Noticed Book", true),
+        );
+        states.insert(
+            "Unnoticed Book".into(),
+            state("unnoticed-book", "Unnoticed Book", false),
+        );
+        let mut entries = vec![
+            entry("ref/rule/both", "noticed-book"),
+            entry("ref/rule/only-bad", "unnoticed-book"),
+        ];
+        entries[0].source_ids = vec!["noticed-book".into(), "unnoticed-book".into()];
+        let mut rejected = Vec::new();
+        let excluded = apply_legal_screen(&mut entries, &states, &mut rejected).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].source_ids, ["noticed-book"]);
+        assert_eq!(excluded, BTreeSet::from(["ref/rule/only-bad".to_string()]));
+        assert_eq!(rejected.len(), 1);
+        assert!(rejected[0].reason.contains("Section 15"));
+    }
+
+    #[test]
+    fn settlement_flattens_a_link_to_a_missing_record() {
+        let mut source = entry("ref/rule/host", "book");
+        source.body = vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![Inline::Link {
+                target: EntryId::parse("ref/rule/missing").unwrap(),
+                anchor: None,
+                c: vec![Inline::Text {
+                    v: "visible text".into(),
+                }],
+            }],
+        }];
+        source.links = vec![EntryReference {
+            target: EntryId::parse("ref/rule/missing").unwrap(),
+            anchor: None,
+        }];
+        let ids = BTreeSet::from([source.id.clone()]);
+        let mut entries = vec![source];
+        let settlement = settle_references(&mut entries, &ids);
+        assert_eq!(settlement.body, 1);
+        assert!(entries[0].links.is_empty());
+        let Block::Paragraph { content, .. } = &entries[0].body[0] else {
+            panic!("expected paragraph");
+        };
+        assert_eq!(
+            content,
+            &[Inline::Text {
+                v: "visible text".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn canonical_legal_has_one_notice_per_dataset() {
+        let psrd = LegalNotices {
+            licenses: vec![],
+            product_identity: "pi".into(),
+            community_use_notice: "cup".into(),
+            section_15: vec![CopyrightNotice {
+                title: "A".into(),
+                notice: "one".into(),
+            }],
+            datasets: vec![DatasetNotice {
+                id: "pathfinder-data-1-e".into(),
+                repository: "r".into(),
+                commit: "old".into(),
+                note: "old note".into(),
+            }],
+        };
+        let report = pf_legal::LegalReport {
+            dataset: "d".into(),
+            commit: "c".into(),
+            in_scope_records: 0,
+            publication_count: 0,
+            matched_publication_count: 0,
+            unmatched_publication_count: 0,
+            publications: vec![],
+            excluded_publications: vec![],
+            unmatched_notices: vec![],
+        };
+        let pin = pf_data::SourcePin {
+            id: "pathfinder-data-1-e".into(),
+            repository: "r".into(),
+            commit: "new".into(),
+            archive_sha256: "0".repeat(64),
+            files: BTreeMap::new(),
+        };
+        let legal = canonical_legal(&psrd, &report, &pin);
+        assert_eq!(legal.datasets.len(), 1);
+        assert_eq!(legal.datasets[0].commit, "new");
+        assert_eq!(legal.section_15.len(), 1);
     }
 }
 

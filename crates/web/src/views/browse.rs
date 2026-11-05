@@ -7,7 +7,10 @@ use crate::route::{Route, scroll_to_anchor};
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
-use crate::views::util::{Shared, group_letter, local_resource, set_title, sort_key};
+use crate::views::util::{
+    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, group_letter, local_resource, set_title,
+    sort_key,
+};
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -139,7 +142,7 @@ pub fn Browse() -> impl IntoView {
         view! {
             <section aria-labelledby="by-kind-more">
                 <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
-                <ul class="cats cats-quiet">{rows}</ul>
+                <ul class="cats cats-quiet" aria-describedby="by-kind-scope">{rows}</ul>
             </section>
         }
     });
@@ -162,7 +165,8 @@ pub fn Browse() -> impl IntoView {
             </Show>
             <section aria-labelledby="by-kind">
                 <h2 id="by-kind" class="sub-head">"Categories"</h2>
-                <ul class="cats">{primary}</ul>
+                <p id="by-kind-scope" class="count-scope">{ACTIVE_BOOKS_SCOPE}</p>
+                <ul class="cats" aria-describedby="by-kind-scope">{primary}</ul>
             </section>
             {more_section}
             {shortcuts}
@@ -267,8 +271,9 @@ pub fn Books() -> impl IntoView {
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
+                <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
                 {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-                <ul class="book-directory">{rows}</ul>
+                <ul class="book-directory" aria-describedby="books-scope">{rows}</ul>
             </section>
         </div>
     }
@@ -568,7 +573,7 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
         <h1>{kind.label()}</h1>
         <p class="lede-line">{categories::blurb(kind)}</p>
         <p class="muted">
-            {format!("{count} entries")}" · "
+            {format!("{count} entries in your active books")}" · "
             <a href=search_href>
                 {format!("Search {}", kind.label().to_lowercase())}
             </a>

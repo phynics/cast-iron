@@ -59,11 +59,62 @@ pub fn attributes(input: &str) -> Result<BTreeMap<String, String>, String> {
                 }
             }
         }
-        if out.insert(key.clone(), value).is_some() {
+        if let Some(existing) = out.get(&key) {
+            if existing == &value {
+                // The upstream data repeats some flags verbatim. A repeated value
+                // adds no second meaning, so keep the first and move on.
+                continue;
+            }
+            if key == "type" {
+                // A duplicated `type` is an upstream data defect. The first value
+                // names the supported category; later repeats are stray copies.
+                continue;
+            }
+            if repeatable_metadata(&key) {
+                // Presentation and ordering keys are sometimes written twice with
+                // different values (an ability ordered into two jump-list groups).
+                // The last value is the one the upstream renderer uses.
+                out.insert(key, value);
+                continue;
+            }
             return Err(format!("duplicate attribute {key}"));
         }
+        out.insert(key, value);
     }
     Ok(out)
+}
+
+/// Keys whose repeated occurrence is upstream presentation/ordering metadata
+/// rather than two competing content values. Repeats are safe to collapse.
+fn repeatable_metadata(key: &str) -> bool {
+    matches!(
+        key,
+        "icon"
+            | "order"
+            | "clear"
+            | "jl"
+            | "id"
+            | "head"
+            | "next"
+            | "sub"
+            | "indent"
+            | "useMod"
+            | "useF"
+            | "useL"
+            | "useM"
+            | "useHD"
+            | "useNC"
+            | "useUnit"
+    ) || numbered_key(key, 'l')
+        || numbered_key(key, 's')
+        || key
+            .strip_prefix("imp")
+            .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+}
+
+fn numbered_key(key: &str, prefix: char) -> bool {
+    key.strip_prefix(prefix)
+        .is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
 }
 
 /// Parse a directive's attributes when it has braces; a directive without
@@ -234,6 +285,9 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                 "mfn",
                 "trait",
                 "rtraits",
+                "list",
+                "spellAb",
+                "cantrips",
             ];
             if allowed_headers.contains(&name) {
                 let title = bracket(rest).unwrap_or_default();
@@ -372,11 +426,32 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                     }
                     Err(error) => errors.push(error),
                 }
-            } else if name == "aside" || name == "fakeFootnotes" {
-                // Both are layout containers. `@FN` definitions inside the
+            } else if name == "aside" || name == "fakeFootnotes" || name == "elephant" {
+                // These are layout containers. `@FN` definitions inside the
                 // fake-footnote container are rendered by the inline pass.
+                if name == "elephant" {
+                    match optional_attributes(trimmed) {
+                        Ok(attrs) => {
+                            for key in attrs.keys() {
+                                if !["title", "jl", "clear", "id"].contains(&key.as_str()) {
+                                    errors.push(format!("unknown attribute {key} on :::elephant"));
+                                }
+                            }
+                            if let Some(title) = attrs.get("title").filter(|t| !t.trim().is_empty())
+                            {
+                                md.push_str(&format!(
+                                    "\n\n<h3>{}</h3>\n\n",
+                                    escape_html(&convert_encoded_links(title))
+                                ));
+                            }
+                        }
+                        Err(error) => errors.push(error),
+                    }
+                }
                 env.stripped(if name == "aside" {
                     "aside_container"
+                } else if name == "elephant" {
+                    "elephant_container"
                 } else {
                     "fake_footnotes_container"
                 });
@@ -1199,7 +1274,9 @@ fn render_semantic_directive(
         return Ok(crate::pf_directives::affliction(rest, true)?.markdown);
     }
     let title = bracket(rest).unwrap_or_default();
-    let attrs = if name == "mfn" {
+    let attrs = if name == "mfn"
+        || (!rest.contains('{') && matches!(name, "spellAb" | "cantrips" | "list"))
+    {
         BTreeMap::new()
     } else {
         attributes(&format!("::{name}{rest}"))?
@@ -1613,6 +1690,52 @@ fn render_semantic_directive(
             "maybesummon",
             "clear",
         ],
+        "prereq" => &[
+            "clear",
+            "l",
+            "c",
+            "r",
+            "g1",
+            "g1title",
+            "g1protocol",
+            "other",
+            "sep",
+        ],
+        "list" => &[
+            "clear", "all", "link", "and", "end", "hl", "em", "sep", "comma", "special",
+        ],
+        "spellAb" => &[
+            "stat",
+            "learn",
+            "prepare",
+            "zeroMsg",
+            "type",
+            "caster",
+            "alignLimit",
+            "spontaneous",
+            "occultist",
+            "bard",
+            "skald",
+            "ritualDivine",
+            "choice",
+            "druid",
+            "meditate",
+            "shaman",
+            "oracle",
+            "medium",
+            "ritualArcane",
+            "witch",
+            "limited",
+            "limitedFull",
+            "cureInflict",
+            "summonNature",
+            "trade53",
+            "trade42",
+            "tradeLimit",
+            "clear",
+            "id",
+        ],
+        "cantrips" => &["c", "p", "clear", "id"],
         _ => {
             return Err(format!(
                 "unsupported semantic renderer for directive ::{name}"
@@ -1620,7 +1743,9 @@ fn render_semantic_directive(
         }
     };
     for key in attrs.keys() {
-        if !allowed.contains(&key.as_str()) {
+        let extension =
+            name == "ab" && key.len() > 1 && matches!(key.chars().next(), Some('x' | 'y' | 'z'));
+        if !allowed.contains(&key.as_str()) && !extension {
             return Err(format!("unknown attribute {key} on ::{name}"));
         }
     }
@@ -1674,6 +1799,18 @@ fn render_semantic_directive(
             }
         }
         return Ok(out);
+    }
+    if name == "prereq" {
+        return Ok(render_prerequisite(&attrs));
+    }
+    if name == "list" {
+        return render_list(&title, &attrs);
+    }
+    if name == "spellAb" {
+        return render_spell_ability(&attrs);
+    }
+    if name == "cantrips" {
+        return render_cantrips(&attrs);
     }
     if name == "mstats" {
         return render_mstats(&title, &attrs);
@@ -1757,6 +1894,341 @@ fn render_semantic_directive(
     Ok(out)
 }
 
+fn render_prerequisite(attrs: &BTreeMap<String, String>) -> String {
+    let separator = attr(attrs, "sep").unwrap_or("~");
+    let mut lines = Vec::new();
+    if let Some(level) = attr(attrs, "l") {
+        let label = level
+            .parse::<u32>()
+            .map(ordinal)
+            .unwrap_or_else(|_| level.to_string());
+        if let Some(class) = attr(attrs, "c") {
+            lines.push(format!("{label} level {class}"));
+        } else {
+            lines.push(format!("{label} level"));
+        }
+    }
+    if let Some(race) = attr(attrs, "r") {
+        lines.push(convert_encoded_links(race));
+    }
+    if let (Some(items), Some(_protocol)) = (attr(attrs, "g1"), attr(attrs, "g1protocol")) {
+        let list = items
+            .split(separator)
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(convert_encoded_links)
+            .collect::<Vec<_>>()
+            .join(", ");
+        if let Some(title) = attr(attrs, "g1title") {
+            lines.push(format!("{}: {list}", convert_encoded_links(title)));
+        } else {
+            lines.push(list);
+        }
+    }
+    if let Some(other) = attr(attrs, "other") {
+        lines.push(convert_encoded_links(other));
+    }
+    if lines.is_empty() {
+        String::new()
+    } else {
+        format!("**Prerequisites:** {}", lines.join("; "))
+    }
+}
+
+/// The `::list` values use upstream link markers (`»`, `«`, `<_`, `_>`).
+/// Only the visible text belongs in the typed body.
+fn clean_list_item(input: &str) -> String {
+    let mut text = input.trim();
+    if let Some((_, after)) = text.rsplit_once('»') {
+        text = after;
+    }
+    if let Some((before, _)) = text.split_once('<') {
+        text = before;
+    }
+    if let Some((_, after)) = text.split_once('>') {
+        text = after;
+    }
+    convert_encoded_links(text.replace('«', "").trim())
+}
+
+fn render_list(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    let all = attr(attrs, "all").ok_or("::list has no all attribute")?;
+    let separator = attr(attrs, "sep").unwrap_or("~");
+    let comma = attr(attrs, "comma").unwrap_or(", ");
+    let items: Vec<String> = all
+        .split(separator)
+        .map(clean_list_item)
+        .filter(|item| !item.is_empty())
+        .collect();
+    if items.is_empty() {
+        return Ok(String::new());
+    }
+    let joined = if let Some(and) = attr(attrs, "and") {
+        if items.len() >= 3 {
+            format!(
+                "{}{comma}{and} {}",
+                items[..items.len() - 1].join(comma),
+                items[items.len() - 1]
+            )
+        } else if items.len() == 2 {
+            format!("{} {and} {}", items[0], items[1])
+        } else {
+            items[0].clone()
+        }
+    } else {
+        items.join(comma)
+    };
+    let heading = if title.trim().is_empty() {
+        "List"
+    } else {
+        title.trim()
+    };
+    Ok(format!(
+        "**{}:** {joined}{}",
+        convert_encoded_links(heading),
+        attr(attrs, "end").unwrap_or("")
+    ))
+}
+
+fn capitalize_first(value: &str) -> String {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// A class spellcasting summary from the attributes of `::spellAb`.
+///
+/// The pinned OGC JSON stores only flags (`type`, `stat`, `caster`, `spontaneous`,
+/// `trade53`, ...). Upstream's prose for them lives in its GPL renderer
+/// (`prebuild/block/spellAb.js`), which must not be copied or ported (AGENTS.md
+/// rule 12). This states the same mechanics as short labelled facts in our own words.
+fn render_spell_ability(attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    let has = |key: &str| attrs.contains_key(key);
+    let caster = attr(attrs, "caster").unwrap_or("class");
+    let stat = attr(attrs, "stat").unwrap_or("spellcasting ability");
+    let mut out = String::from("**Spells**");
+    let kind = attr(attrs, "type").map(capitalize_first);
+    push_labeled(
+        &mut out,
+        "Spell list",
+        &match kind {
+            Some(kind) => format!("{kind} spells from the {caster} list, from 1st level"),
+            None => format!("Spells from the {caster} list, from 1st level"),
+        },
+    );
+    let mut ability = format!(
+        "{stat}. Minimum score 10 + spell level; save DC 10 + spell level + {stat} modifier; a high score grants bonus spells per day"
+    );
+    if has("zeroMsg") {
+        ability.push_str(", even at a level where the table shows 0 spells per day");
+    }
+    ability.push('.');
+    push_labeled(&mut out, "Key ability", &ability);
+    let casting = if has("spontaneous") {
+        "Spontaneous: cast any spell known without preparation, within the daily allotment per spell level."
+    } else {
+        "Prepared: choose and prepare spells in advance."
+    };
+    push_labeled(&mut out, "Casting", casting);
+    if has("limited") || has("limitedFull") {
+        let start = if has("medium") {
+            "two 0-level spells"
+        } else {
+            "four 0-level and two 1st-level spells"
+        };
+        push_labeled(
+            &mut out,
+            "Spells known",
+            &format!(
+                "{} selection; starts with {start} and grows by level as shown on the table. {stat} does not change the number known.",
+                if has("limited") {
+                    "Very limited"
+                } else {
+                    "Limited"
+                }
+            ),
+        );
+    }
+    if has("trade53") || has("trade42") {
+        let (first, step) = if has("trade53") { (5, 3) } else { (4, 2) };
+        let mut swap = format!(
+            "At {}, {}, {}, and every {step} levels after, one known spell may be exchanged for another of the same level",
+            ordinal(first),
+            ordinal(first + step),
+            ordinal(first + 2 * step)
+        );
+        if has("tradeLimit") {
+            swap.push_str(" that is at least one level below the highest level you can cast");
+        }
+        swap.push('.');
+        push_labeled(&mut out, "Spell swap", &swap);
+    }
+    let mut added = Vec::new();
+    if has("cureInflict") {
+        added.push("all cure or all inflict spells (chosen at 1st level, permanent)");
+    }
+    if has("summonNature") {
+        added.push("all summon nature's ally spells");
+    }
+    if has("occultist") {
+        added.push("one spell per castable level from each implement school's list");
+    }
+    if !added.is_empty() {
+        push_labeled(
+            &mut out,
+            "Added to spells known",
+            &format!("{}.", added.join("; ")),
+        );
+    }
+    let mut notes = Vec::new();
+    if has("alignLimit") {
+        notes.push("Alignment can bar spells opposed to it.".to_string());
+    }
+    if has("bard") || has("skald") {
+        notes.push("Every spell has a verbal component (song, recitation, or music).".into());
+    }
+    if has("occultist") {
+        notes.push("Every spell has an implement component.".into());
+    }
+    if has("oracle") {
+        notes.push("No divine focus is needed for spells that list DF.".into());
+    }
+    if has("ritualDivine") {
+        let how = if has("druid") {
+            "meditating on nature"
+        } else if has("meditate") {
+            "in meditation"
+        } else {
+            "in contemplation or prayer"
+        };
+        let when = if has("choice") {
+            " at a chosen time"
+        } else {
+            ""
+        };
+        notes.push(format!(
+            "Regains spells after 1 hour {how}{when} each day; any spell on the list can be prepared."
+        ));
+    }
+    if has("ritualArcane") {
+        let with = if has("witch") {
+            "communing with the familiar"
+        } else {
+            "with the spellbook"
+        };
+        notes.push(format!(
+            "Prepares spells after 8 hours of rest and 1 hour {with}; no limit on spells known."
+        ));
+    }
+    if !notes.is_empty() {
+        push_labeled(&mut out, "Notes", &notes.join(" "));
+    }
+    Ok(out)
+}
+
+/// A cantrip summary from `::cantrips{c=... p}` attributes, in our own words.
+fn render_cantrips(attrs: &BTreeMap<String, String>) -> Result<String, String> {
+    let c = attr(attrs, "c").unwrap_or("cantrips");
+    let kind = match c {
+        "knacks" => "psychic",
+        "orisons" => "divine",
+        _ => "arcane",
+    };
+    let mut out = format!("**{}**", capitalize_first(c));
+    let reuse = if attrs.contains_key("p") {
+        "Prepared like other spells but not expended when cast"
+    } else {
+        "Cast without using a spell slot"
+    };
+    push_labeled(
+        &mut out,
+        "Ability",
+        &format!(
+            "0-level {kind} spells. {reuse}; one placed in a higher slot (for example through metamagic) uses that slot."
+        ),
+    );
+    Ok(out)
+}
+
+fn render_bonus_macro(token: &str) -> Option<String> {
+    let body = token.strip_prefix("@B-")?;
+    let parts: Vec<&str> = body.split('-').collect();
+    let formula_index = parts.iter().position(|part| {
+        part.chars()
+            .next()
+            .is_some_and(|first| matches!(first, '2' | '3' | '4' | '5' | '6'))
+    })?;
+    let formula = parts[formula_index];
+    let class = parts.get(formula_index + 1)?;
+    let mut chars = formula.chars();
+    let denominator = chars.next()?.to_digit(10)?;
+    let gender = chars.next()?;
+    let rest: String = chars.collect();
+    let plural = rest.contains('p');
+    let extra = rest
+        .chars()
+        .find(|c| c.is_ascii_digit())
+        .and_then(|c| c.to_digit(10))
+        .unwrap_or(0);
+    let fraction = match denominator {
+        2 => "half",
+        3 => "one-third",
+        4 => "one-fourth",
+        5 => "one-fifth",
+        6 => "one-sixth",
+        _ => return None,
+    };
+    let possessive = match gender {
+        'm' => "his",
+        'f' => "her",
+        'y' => "your",
+        't' => "the",
+        'a' => "a",
+        'n' => "an",
+        _ => return None,
+    };
+    let apostrophe = if matches!(gender, 't' | 'a' | 'n') {
+        "'s"
+    } else {
+        ""
+    };
+    let kind = if formula_index > 0 {
+        parts[..formula_index].join("-").replace('_', " ")
+    } else {
+        String::new()
+    };
+    let pre = if plural {
+        format!(
+            "These {} are equal to ",
+            if kind.is_empty() {
+                "bonuses"
+            } else {
+                kind.as_str()
+            }
+        )
+    } else {
+        format!(
+            "This {} is equal to ",
+            if kind.is_empty() {
+                "bonus"
+            } else {
+                kind.as_str()
+            }
+        )
+    };
+    let plus = if extra > 0 {
+        format!("{extra} + ")
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "{pre}{plus}{fraction} of {possessive} {}{apostrophe} level",
+        class.replace('_', " ")
+    ))
+}
+
 fn pretty_value(value: &str) -> String {
     value.replace("~~~", "\n\n").replace('~', ", ")
 }
@@ -1836,6 +2308,16 @@ fn render_ability(
                 push_labeled(
                     &mut out,
                     if key == "s0" { "Cantrips" } else { "Spells" },
+                    &convert_encoded_links(&pretty_value(value)),
+                )
+            }
+            key if key.len() > 1 && matches!(key.chars().next(), Some('x' | 'y' | 'z')) => {
+                // The upstream renderer marks source-extension fields with a
+                // leading `x`, `y`, or `z`. They carry content (alternate orders,
+                // penalties, descriptions), so render the field without the prefix.
+                push_labeled(
+                    &mut out,
+                    &field_label(&key[1..].replace('_', " ")),
                     &convert_encoded_links(&pretty_value(value)),
                 )
             }
@@ -3185,6 +3667,13 @@ fn replace_inline(s: &str) -> Result<String, Vec<String>> {
                         format!("<p><sup>{marker}</sup> {body}</p>")
                     }
                 }
+                token if token.starts_with("@B-") => match render_bonus_macro(token) {
+                    Some(rendered) => rendered,
+                    None => {
+                        errors.push(format!("unsupported or malformed inline directive {token}"));
+                        token.to_string()
+                    }
+                },
                 _ => {
                     errors.push(format!("unsupported or malformed inline directive {token}"));
                     token.to_string()
@@ -3195,6 +3684,13 @@ fn replace_inline(s: &str) -> Result<String, Vec<String>> {
         } else {
             let replacement = match token {
                 "@altCapstoneDesc" => CAPSTONE_NOTE.to_string(),
+                token if token.starts_with("@B-") => match render_bonus_macro(token) {
+                    Some(rendered) => rendered,
+                    None => {
+                        errors.push(format!("unsupported or malformed inline directive {token}"));
+                        token.to_string()
+                    }
+                },
                 token if token.starts_with("@HL") => {
                     let text = token[3..].replace('_', " ");
                     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -3240,6 +3736,141 @@ mod tests {
     use super::*;
     use crate::html::NullEnv;
     use crate::text::blocks_text;
+
+    #[test]
+    fn duplicate_presentation_metadata_is_collapsed_but_content_is_not() {
+        let attrs = attributes("::ab{icon=power icon=power order=sw order=uswa l=1 l=1}")
+            .expect("repeated presentation metadata");
+        assert_eq!(attrs["icon"], "power");
+        assert_eq!(attrs["order"], "uswa");
+        assert_eq!(attrs["l"], "1");
+        assert!(
+            attributes("::ab{ability=one ability=two}").is_err(),
+            "two competing content values must still fail"
+        );
+        // `::spellAb{caster=shaman ... type=divine type=Wisdom}` keeps the first type.
+        assert_eq!(
+            attributes("::spellAb{type=divine type=Wisdom}")
+                .unwrap()
+                .get("type")
+                .map(String::as_str),
+            Some("divine")
+        );
+    }
+
+    #[test]
+    fn class_spellcasting_directives_render_rules_text() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &[
+                "::spellAb{stat=Intelligence type=arcane caster=wizard learn prepare ritualArcane zeroMsg}".into(),
+                "::cantrips{p}".into(),
+            ],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        for value in [
+            "Spells",
+            "Intelligence",
+            "arcane",
+            "wizard list",
+            "Cantrips",
+            "Prepared",
+        ] {
+            assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+        // Upstream renderer prose (GPL, prebuild/block/spellAb.js) must not appear.
+        for copied in [
+            "You can cast only a certain number of spells of each spell level per day",
+            "You learn a number of",
+        ] {
+            assert!(!rendered.contains(copied), "copied renderer text: {copied}");
+        }
+    }
+
+    #[test]
+    fn generated_bonus_macro_expands_to_readable_prose() {
+        assert_eq!(
+            render_bonus_macro("@B-3y-ninja-x").as_deref(),
+            Some("This bonus is equal to one-third of your ninja level")
+        );
+        assert_eq!(
+            render_bonus_macro("@B-morale_bonus-4m1-cavalier").as_deref(),
+            Some("This morale bonus is equal to 1 + one-fourth of his cavalier level")
+        );
+        let mut env = NullEnv;
+        let blocks = render(&["A bonus on checks. @B-5yp-cavalier-x.".into()], &mut env).unwrap();
+        let rendered = format!("{blocks:?}");
+        assert!(rendered.contains("These bonuses are equal to one-fifth of your cavalier level"));
+    }
+
+    #[test]
+    fn source_extension_attributes_on_ability_render_their_values() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &["::ab[Resolute (Ex)]{xPossible_Mounts=\"camel, horse\" yResolute=+2}".into()],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        assert!(rendered.contains("Possible Mounts"));
+        assert!(rendered.contains("camel, horse"));
+        assert!(rendered.contains("Resolute"));
+        assert!(rendered.contains("+2"));
+    }
+
+    #[test]
+    fn optional_rules_container_keeps_its_contents() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &[
+                ":::elephant".into(),
+                "‹SOURCE The Elephant in the Room›  ".into(),
+                "An optional rule.".into(),
+                ":::".into(),
+            ],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        assert!(rendered.contains("An optional rule"));
+        assert!(rendered.contains("The Elephant in the Room"));
+    }
+
+    #[test]
+    fn list_directive_keeps_visible_names_and_drops_link_markers() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &["::list[Companions]{link=companion end=\".\" all=\"Antelope~Bird« (Eagle)~Swan, »Trumpeter<_swan\"}".into()],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        for value in ["Companions", "Antelope", "Bird (Eagle)", "Trumpeter"] {
+            assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+        assert!(!rendered.contains('«') && !rendered.contains('»'));
+    }
+
+    #[test]
+    fn prerequisite_directive_renders_levels_races_and_other_requirements() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &["::prereq{l=3 c=wizard r=Elf other=\"Must prepare spells.\"}".into()],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        for value in [
+            "Prerequisites",
+            "3rd level wizard",
+            "Elf",
+            "Must prepare spells",
+        ] {
+            assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+    }
 
     #[test]
     fn explicit_prof_shields_value_is_not_overwritten() {

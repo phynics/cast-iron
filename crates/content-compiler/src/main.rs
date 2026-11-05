@@ -1,15 +1,24 @@
-use cast_iron_content_compiler::pipeline::{Options, compile};
+use cast_iron_content_compiler::pipeline::{CanonicalOptions, Options, compile, compile_canonical};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cast-iron-compile --source-config <source.toml> --dataset <dir> --out <dir> --reports <dir> [--write-digest] [--strict] [--id-overrides <file>]";
+const USAGE: &str = "usage: cast-iron-compile --source-config <source.toml> --dataset <dir> --out <dir> --reports <dir> [--write-digest] [--strict] [--id-overrides <file>] [--canonical --pf-dataset <dir> --pf-registry <source.json> --canonical-dir <dir>]";
 
-fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
+struct Args {
+    options: Options,
+    canonical: Option<CanonicalOptions>,
+}
+
+fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut source_config = None;
     let mut dataset = None;
     let mut out = None;
     let mut reports = None;
     let mut overrides = None;
+    let mut pf_dataset = None;
+    let mut pf_registry = None;
+    let mut canonical_dir = None;
+    let mut canonical = false;
     let mut write_digest = false;
     let mut strict = false;
     let mut args = args;
@@ -21,6 +30,10 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--out" => out = Some(PathBuf::from(value("--out")?)),
             "--reports" => reports = Some(PathBuf::from(value("--reports")?)),
             "--id-overrides" => overrides = Some(PathBuf::from(value("--id-overrides")?)),
+            "--pf-dataset" => pf_dataset = Some(PathBuf::from(value("--pf-dataset")?)),
+            "--pf-registry" => pf_registry = Some(PathBuf::from(value("--pf-registry")?)),
+            "--canonical-dir" => canonical_dir = Some(PathBuf::from(value("--canonical-dir")?)),
+            "--canonical" => canonical = true,
             "--write-digest" => write_digest = true,
             "--strict" => strict = true,
             "--help" | "-h" => return Err(USAGE.into()),
@@ -28,7 +41,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
         }
     }
     let need = |v: Option<PathBuf>, n: &str| v.ok_or_else(|| format!("missing {n}\n{USAGE}"));
-    Ok(Options {
+    let options = Options {
         source_config: need(source_config, "--source-config")?,
         dataset: need(dataset, "--dataset")?,
         out: need(out, "--out")?,
@@ -36,21 +49,41 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Options, String> {
         write_digest,
         strict,
         overrides,
-    })
+    };
+    let canonical = if canonical {
+        Some(CanonicalOptions {
+            psrd: options.clone(),
+            pf_dataset: need(pf_dataset, "--pf-dataset")?,
+            pf_registry: need(pf_registry, "--pf-registry")?,
+            canonical_dir: need(canonical_dir, "--canonical-dir")?,
+        })
+    } else {
+        if pf_dataset.is_some() || pf_registry.is_some() || canonical_dir.is_some() {
+            return Err(format!(
+                "--pf-dataset, --pf-registry, and --canonical-dir require --canonical\n{USAGE}"
+            ));
+        }
+        None
+    };
+    Ok(Args { options, canonical })
 }
 
 fn main() -> ExitCode {
-    let opts = match parse_args(std::env::args().skip(1)) {
+    let args = match parse_args(std::env::args().skip(1)) {
         Ok(o) => o,
         Err(message) => {
             eprintln!("{message}");
             return ExitCode::from(2);
         }
     };
+    let Args { options, canonical } = args;
     // Rules trees nest up to 15 JSON levels. A large stack keeps deeper input from overflowing.
     let worker = std::thread::Builder::new()
         .stack_size(256 * 1024 * 1024)
-        .spawn(move || compile(&opts));
+        .spawn(move || match canonical {
+            Some(canonical) => compile_canonical(&canonical),
+            None => compile(&options),
+        });
     let result = match worker.map(|h| h.join()) {
         Ok(Ok(result)) => result,
         _ => {
