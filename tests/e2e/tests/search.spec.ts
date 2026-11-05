@@ -67,7 +67,7 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   }
 });
 
-test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
+test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page, browserName }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -84,9 +84,16 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   expect(firstPageCounts.every((count) => Number(count) > 0)).toBe(true);
 
   // The name box and every chip are keyboard reachable, and a chip announces its count.
+  // Safari on macOS keeps form controls out of the Tab order unless the reader changes that OS
+  // setting, so WebKit checks that the chip takes focus; Chromium checks the Tab order itself.
   const filterBox = group.getByRole("searchbox", { name: "Filter publications by name" });
   await filterBox.focus();
-  await page.keyboard.press("Tab");
+  expect(await filterBox.evaluate((el) => document.activeElement === el)).toBe(true);
+  if (browserName === "webkit") {
+    await group.getByRole("checkbox").first().focus();
+  } else {
+    await page.keyboard.press("Tab");
+  }
   const focused = await page.evaluate(() => {
     const el = document.activeElement as HTMLInputElement | null;
     return { type: el?.type, label: el?.getAttribute("aria-label") };
@@ -137,6 +144,16 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
     return new URLSearchParams(hash.split("?")[1] ?? "").getAll("source");
   };
   await expect.poll(selected).toContain(selectedSource.id);
+
+  // Let the filtered search finish before reloading. A reload while it is still reading cached
+  // entry shards abandons a Cache API read, which WebKit reports as a page error at teardown.
+  // Waiting also proves the publication really filters the results, not just the URL.
+  await expect
+    .poll(async () => {
+      const metas = await page.locator(".results li.hit:not(.hit-group) .hit-meta").allTextContents();
+      return metas.length > 0 && metas.every((meta) => meta.endsWith(`· ${chosenTitle}`));
+    })
+    .toBe(true);
 
   await page.reload();
   await waitResults(page, "fire");

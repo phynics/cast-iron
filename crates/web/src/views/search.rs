@@ -539,21 +539,27 @@ pub fn Search() -> impl IntoView {
             let page_limit = limit;
             let runs = !current.q.trim().is_empty() || current.filter_count() > 0;
             spawn_local(async move {
+                // A search that outlives the screen must not read its signals: the owner is
+                // disposed when the reader leaves, and reading a disposed value panics. Finish
+                // the run only while it is still the current one.
+                let alive = || {
+                    seq.try_get_value() == Some(id)
+                        && library.selection_revision().get_untracked() == revision
+                };
                 if !runs {
                     phase.set(Phase::Idle);
                     search_ms.set(None);
                     // Warm the index so the first keystroke does not wait for it.
                     ensure_index(&library, index, index_ms, phase, false).await;
                     if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
-                        && seq.get_value() == id
-                        && library.selection_revision().get_untracked() == revision
+                        && alive()
                     {
                         counts.set(Some(fresh));
                     }
                     return;
                 }
                 let loaded = ensure_index(&library, index, index_ms, phase, true).await;
-                if seq.get_value() != id {
+                if !alive() {
                     return;
                 }
                 let Some(idx) = loaded else { return };
@@ -561,14 +567,13 @@ pub fn Search() -> impl IntoView {
                 let all_hits = match discovery.search_summaries(&query).await {
                     Ok(hits) => hits,
                     Err(error) => {
-                        if seq.get_value() == id {
+                        if alive() {
                             phase.set(Phase::Failed(error.to_string()));
                         }
                         return;
                     }
                 };
-                if seq.get_value() != id || library.selection_revision().get_untracked() != revision
-                {
+                if !alive() {
                     return;
                 }
                 let total = all_hits.len();
@@ -590,6 +595,9 @@ pub fn Search() -> impl IntoView {
                     .ok();
                 let mut facet_data = Vec::new();
                 for (field, _) in facet_fields_for(&current.kinds) {
+                    if !alive() {
+                        return;
+                    }
                     let cached = facet_values_cache.with_value(|slot| match slot {
                         Some((cached, values)) if *cached == revision => values.get(field).cloned(),
                         _ => None,
@@ -642,8 +650,7 @@ pub fn Search() -> impl IntoView {
                         }
                     }
                 }
-                if seq.get_value() != id || library.selection_revision().get_untracked() != revision
-                {
+                if !alive() {
                     return;
                 }
                 eligible_facets.set(facet_data);
