@@ -45,7 +45,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     const slow = next.manifest.files.find((file) =>
       file.path.includes("/entries/") && file.path.endsWith(".json"))!.path;
     await server.overlay(next.dir);
-    await server.hook(`content/${slow}`, "slow", { ms: 150 });
+    await server.hook(`content/${slow}`, "slow", { ms: 1500 });
     await page.getByRole("button", { name: "Check for updates", exact: true }).click();
     await expect(page.getByText("Newer library available")).toBeVisible();
     await expect(page.locator(".install-panel .facts")).toContainText(next.version);

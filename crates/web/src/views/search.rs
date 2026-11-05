@@ -7,7 +7,7 @@ use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind};
-use cast_iron_search::{FilterCounts, Filters, Hit, Query, SearchIndex};
+use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::BTreeMap;
@@ -229,20 +229,20 @@ impl SearchState {
 }
 
 /// Keep the best ranked record as the group position, retaining every publication choice.
-fn grouped_hits(hits: Vec<Hit>) -> Vec<SearchHit> {
+fn grouped_hits(hits: Vec<HitSummary>) -> Vec<SearchHit> {
     let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
     let mut groups: Vec<SearchHit> = Vec::new();
-    for hit in hits {
+    for summary in hits {
         let key = (
-            hit.kind.clone(),
-            crate::views::source_variants::normalized_title(&hit.title),
+            summary.kind.clone(),
+            crate::views::source_variants::normalized_title(&summary.title),
         );
         if let Some(&position) = positions.get(&key) {
-            groups[position].variants.push((hit, None));
+            groups[position].variants.push((summary.into_hit(), None));
         } else {
             positions.insert(key, groups.len());
             groups.push(SearchHit {
-                hit,
+                hit: summary.into_hit(),
                 anchor: None,
                 variants: Vec::new(),
             });
@@ -427,9 +427,9 @@ pub fn Search() -> impl IntoView {
                 if seq.get_value() != id {
                     return;
                 }
-                let Some(_idx) = loaded else { return };
+                let Some(idx) = loaded else { return };
                 let started = now();
-                let all_hits = match discovery.search(&query).await {
+                let all_hits = match discovery.search_summaries(&query).await {
                     Ok(hits) => hits,
                     Err(error) => {
                         if seq.get_value() == id {
@@ -442,15 +442,23 @@ pub fn Search() -> impl IntoView {
                 {
                     return;
                 }
-                let engine_ms = now() - started;
                 let total = all_hits.len();
+                let grouped = grouped_hits(all_hits);
+                let groups = grouped.len();
+                let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
+                // Only the rendered rows scan their document text for highlights.
+                let highlighter = idx.highlighter(&query);
+                for result in &mut hits {
+                    idx.materialize_hit(&highlighter, &mut result.hit);
+                    for (hit, _) in &mut result.variants {
+                        idx.materialize_hit(&highlighter, hit);
+                    }
+                }
+                let engine_ms = now() - started;
                 let fresh_counts = discovery
                     .filter_counts(&current.q, &query.filters)
                     .await
                     .ok();
-                let grouped = grouped_hits(all_hits);
-                let groups = grouped.len();
-                let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
                 let mut facet_data = Vec::new();
                 for (field, _) in facet_fields_for(&current.kinds) {
                     if let Ok(values) = discovery.facet_values(field).await {

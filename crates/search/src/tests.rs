@@ -801,3 +801,60 @@ fn every_count_equals_the_result_size_of_choosing_that_chip() {
         }
     }
 }
+
+#[test]
+fn top_k_matches_full_ranking_and_summaries() {
+    let mut docs = Vec::new();
+    for i in 0..120 {
+        docs.push(doc(
+            &format!("rule:item-{i:03}"),
+            "Shared Word",
+            if i % 3 == 0 { "rule" } else { "spell" },
+            if i % 2 == 0 { "core" } else { "apg" },
+            "A common token appears here.",
+            &[("school", "evocation")],
+        ));
+    }
+    let idx = build(docs);
+    let full = idx.search(&Query {
+        text: "common".into(),
+        limit: usize::MAX,
+        ..Default::default()
+    });
+    assert_eq!(full.len(), 120);
+    for limit in [1, 2, 7, 50, 119] {
+        let hits = idx.search(&Query {
+            text: "common".into(),
+            limit,
+            ..Default::default()
+        });
+        let got: Vec<(String, u32)> = hits
+            .iter()
+            .map(|hit| (hit.id.clone(), hit.score.to_bits()))
+            .collect();
+        let expected: Vec<(String, u32)> = full
+            .iter()
+            .take(limit)
+            .map(|hit| (hit.id.clone(), hit.score.to_bits()))
+            .collect();
+        assert_eq!(got, expected, "limit {limit}");
+    }
+
+    let summaries = idx.search_summaries(&Query {
+        text: "common".into(),
+        limit: 50,
+        ..Default::default()
+    });
+    let summary_ids: Vec<&str> = summaries.iter().map(|hit| hit.id.as_str()).collect();
+    let full_ids: Vec<&str> = full.iter().take(50).map(|hit| hit.id.as_str()).collect();
+    assert_eq!(summary_ids, full_ids);
+
+    let highlighter = idx.highlighter(&Query {
+        text: "common".into(),
+        ..Default::default()
+    });
+    let mut hit = summaries[0].clone().into_hit();
+    idx.materialize_hit(&highlighter, &mut hit);
+    assert_eq!(hit.snippet, full[0].snippet);
+    assert_eq!(hit.title_matches, full[0].title_matches);
+}
