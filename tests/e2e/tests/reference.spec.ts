@@ -9,6 +9,7 @@ import {
   firstBookPlacement,
   hasBlock,
   headingAnchors,
+  headingKeys,
   inlineText,
   openBookEntry,
   pathToEntry,
@@ -259,7 +260,7 @@ test("Rule entries preserve complex formatting: nested headings with anchors", a
 
 test("Duplicate heading keys scroll to their own section and old anchor URLs still work", async ({ page }) => {
   // Find an article with repeated unanchored heading text, so the reader must give each
-  // rendered heading its own suffixed key.
+  // rendered heading its own suffixed key. Every key below comes from the compiled body.
   const entry = entries.find((candidate) => {
     const headings = bodyHeadings(candidate).filter((heading) => heading.text.trim());
     const texts = headings.filter((heading) => !heading.anchor).map((heading) => heading.text.trim());
@@ -267,25 +268,31 @@ test("Duplicate heading keys scroll to their own section and old anchor URLs sti
     return headings.length >= 4 && texts.length >= 2 && new Set(texts).size < texts.length;
   })!;
   expect(entry, "an article with repeated heading text").toBeTruthy();
-  const texts = bodyHeadings(entry)
-    .filter((heading) => !heading.anchor && heading.text.trim())
-    .map((heading) => heading.text.trim());
+  const keyed = headingKeys(entry);
+  const unanchored = bodyHeadings(entry).map((heading, i) => ({ ...heading, key: keyed[i].key }));
+  const texts = unanchored.filter((heading) => !heading.anchor && heading.text.trim()).map((heading) => heading.text.trim());
   const repeated = texts.find((text) => texts.filter((other) => other === text).length > 1)!;
+  const anchors = unanchored
+    .filter((heading) => !heading.anchor && heading.text.trim() === repeated)
+    .map((heading) => heading.key!);
+  expect(anchors.length).toBeGreaterThan(1);
+  expect(new Set(anchors).size).toBe(anchors.length);
 
   await page.goto(`#/entry/${entry.id}`);
   await expect(page.locator(".rich")).toBeVisible();
+  // The rendered ids are exactly the keys the corpus implies, in order.
+  const ids = await page.locator(".rich :is(h2,h3,h4,h5,h6)[id]").evaluateAll((els) => els.map((e) => e.id));
+  expect(ids).toEqual(keyed.filter((heading) => heading.key !== null).map((heading) => `h-${heading.key}`));
   const contents = page.locator(".article-contents");
   await expect(contents).toBeVisible();
-  await contents.locator("summary").click();
   const links = contents.getByRole("link").filter({ hasText: new RegExp(`^${escape(repeated)}$`) });
-  const count = await links.count();
-  expect(count).toBeGreaterThan(1);
-  const anchors: string[] = [];
-  for (let i = 0; i < count; i++) {
+  await contents.locator("summary").click();
+  expect(await links.count()).toBe(anchors.length);
+  for (let i = 0; i < anchors.length; i++) {
     const href = (await links.nth(i).getAttribute("href"))!;
-    anchors.push(new URLSearchParams(href.split("?")[1]).get("a")!);
+    expect(new URLSearchParams(href.split("?")[1]).get("a")).toBe(anchors[i]);
   }
-  expect(new Set(anchors).size).toBe(count);
+  // Every duplicate scrolls into view from the contents list.
   for (const anchor of anchors) {
     if (!(await contents.evaluate((e: HTMLDetailsElement) => e.open))) await contents.locator("summary").click();
     await contents.locator(`a[href="#/entry/${entry.id}?a=${anchor}"]`).click();
@@ -295,13 +302,15 @@ test("Duplicate heading keys scroll to their own section and old anchor URLs sti
       return top >= 0 && top < innerHeight / 2;
     }, anchor)).toBe(true);
   }
-  // An old-style URL with the first key still lands on the first heading.
-  await page.goto(`#/entry/${entry.id}?a=${anchors[0]}`);
-  await expect(page.locator(`#h-${anchors[0]}`)).toBeInViewport();
-  await expect.poll(() => page.evaluate((key) => {
-    const top = document.getElementById(`h-${key}`)?.getBoundingClientRect().top ?? -1;
-    return top >= 0 && top < innerHeight / 2;
-  }, anchors[0])).toBe(true);
+  // A direct URL for every duplicate key lands on that heading, the first included.
+  for (const anchor of anchors) {
+    await page.goto(`#/entry/${entry.id}?a=${anchor}`);
+    await expect(page.locator(`#h-${anchor}`)).toBeInViewport();
+    await expect.poll(() => page.evaluate((key) => {
+      const top = document.getElementById(`h-${key}`)?.getBoundingClientRect().top ?? -1;
+      return top >= 0 && top < innerHeight / 2;
+    }, anchor)).toBe(true);
+  }
 });
 
 test("Cross-reference navigation works", async ({ page }) => {
