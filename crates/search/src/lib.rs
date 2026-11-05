@@ -11,6 +11,9 @@ mod text;
 mod tests;
 
 pub use build::IndexBuilder;
+#[cfg(feature = "profile")]
+pub use query::SearchTiming;
+pub use query::{Highlighter, HitSummary};
 pub use store::IndexError;
 pub use text::{normalize, tokenize};
 
