@@ -6,7 +6,7 @@ Observed 34530 input records, 40 selected, 42 converted. Canonical data 1179225 
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
-Scope: `representative`. Input digest `e25c1b6d576228b184c9b3d5aaeadb1be35659d7890f4f8aeb3636308d7a5bc5`.
+Scope: `representative`. Input digest `45a5bf5e8d39c49ca5705b59cee82e7618fdb5eb26c632f3835ab0f4d56716da`.
 
 Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivations refused: 0.
 

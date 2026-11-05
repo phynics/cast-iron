@@ -56,7 +56,7 @@ To prove a change in the real app, use the `verify` skill in `.agents/skills/ver
 7. A partly installed library must never show as ready. Verify hashes before activation. The active library stays usable until a replacement is verified.
 8. JavaScript stays limited to `web/sw.js` and the small bridge in `crates/web/js/`. Put logic that can be tested natively in Rust.
 9. All asset URLs are relative to the document base, because the app runs under a project path (`/cast-iron/`).
-10. Do not ship artwork or other Product Identity. Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the canonical Pf Data corpus. Keep the legal page data complete for both dataset pins and `LICENSES/README.md` accurate.
+10. Do not ship artwork. Paizo Product Identity (names, deities, characters, setting prose) ships only under Paizo's Community Use Policy: every entry carries the `legal#community-use` notice path, and the legal page keeps the Community Use notice. Never imply official status (rule 11). Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the canonical Pf Data corpus. Keep the legal page data complete for both dataset pins and `LICENSES/README.md` accurate.
 11. The app must not use the Pathfinder logo, and must not claim official status or compatibility.
 12. PSRD supplemental records enter its library only through `sources/pathfinder-data-1-e/approved.json`. Canonical Pf Data records enter through the screened inventory and the reviewed `sources/canonical/publications.toml` registry. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope via `out-of-scope.json`.
 
