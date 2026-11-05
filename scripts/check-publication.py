@@ -29,8 +29,28 @@ for item in manifest["files"]:
 sources = {source["id"] for source in catalog["sources"]}
 books = tomllib.loads((ROOT / "sources/psrd-data/source.toml").read_text())["dataset"]["books"]
 expected_sources = {re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-") for title in books.values()}
-if sources != expected_sources:
-    issues.append("Publication scope changed: review the new source selection")
+# The canonical library publishes a wider scope. Its reviewed registry is the
+# authority for that scope; the PSRD book set must still be present. A PSRD
+# library keeps the exact-scope check unchanged. The library kind is the
+# manifest, not the source set, so a missing book cannot pass by looking like a
+# legitimate subset.
+canonical_library = any(item["path"].endswith("/aliases.json") for item in manifest["files"])
+if canonical_library:
+    registry = tomllib.loads((ROOT / "sources/canonical/publications.toml").read_text())
+    canonical_sources = {row["source"] for row in registry["publication"].values()}
+    if not expected_sources <= sources:
+        issues.append("Canonical library is missing a PSRD publication: review the source selection")
+    if not sources <= canonical_sources:
+        unreviewed = sorted(sources - canonical_sources)
+        issues.append(
+            "Canonical library names publications outside the reviewed registry: "
+            + ", ".join(unreviewed)
+        )
+    if not sources:
+        issues.append("Canonical library has no publications")
+else:
+    if sources != expected_sources:
+        issues.append("Publication scope changed: review the new source selection")
 if any(not source["copyright"] for source in catalog["sources"]):
     issues.append("Missing source copyright notice")
 if "Cast Iron uses trademarks" not in legal["community_use_notice"]:

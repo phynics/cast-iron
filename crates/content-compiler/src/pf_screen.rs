@@ -174,12 +174,23 @@ fn heading_level(line: &str) -> Option<usize> {
     }
 }
 
-/// Replaces each `[text](http…)` with `text`. Returns the new line and the number of
-/// links removed, or `None` when the line has none.
+/// Replaces each `[text](http…)` with `text`, then removes any bare outbound
+/// address that survived as text. Returns the new line and the number of
+/// removals, or `None` when the line has none.
+///
+/// A bare address occurs in upstream source annotations such as
+/// `‹‹From the FAQ/https://…››`, which is not a Markdown link. Keeping the
+/// address would make the reference point at a third-party site even though the
+/// schema has no outbound-link node.
 fn strip_external_links(line: &str) -> Option<(String, usize)> {
-    if !line.contains("](http") {
-        return None;
-    }
+    let (mut text, mut removed) = strip_markdown_links(line);
+    let (bare_text, bare) = strip_bare_outbound(&text);
+    text = bare_text;
+    removed += bare;
+    (removed > 0).then_some((text, removed))
+}
+
+fn strip_markdown_links(line: &str) -> (String, usize) {
     let mut out = String::with_capacity(line.len());
     let mut removed = 0;
     let mut rest = line;
@@ -197,7 +208,39 @@ fn strip_external_links(line: &str) -> Option<(String, usize)> {
         removed += 1;
     }
     out.push_str(rest);
-    Some((out, removed))
+    (out, removed)
+}
+
+/// Removes `http://…`, `https://…`, and the bare word `pathfinderwiki`.
+fn strip_bare_outbound(text: &str) -> (String, usize) {
+    let mut out = String::with_capacity(text.len());
+    let mut removed = 0;
+    let mut rest = text;
+    loop {
+        let lower = rest.to_ascii_lowercase();
+        let hit = ["https://", "http://", "pathfinderwiki"]
+            .iter()
+            .filter_map(|needle| lower.find(needle).map(|index| (index, *needle)))
+            .min_by_key(|(index, _)| *index);
+        let Some((index, needle)) = hit else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..index]);
+        let after = &rest[index + needle.len()..];
+        if needle == "pathfinderwiki" {
+            rest = after;
+        } else {
+            let end = after
+                .find(|c: char| {
+                    c.is_whitespace() || matches!(c, ')' | '›' | ']' | '"' | '<' | '>' | ',' | ';')
+                })
+                .unwrap_or(after.len());
+            rest = &after[end..];
+        }
+        removed += 1;
+    }
+    (out, removed)
 }
 
 /// A line such as `**Pathfinder Wiki** Abadar` that only labelled the removed link.
@@ -271,6 +314,20 @@ mod tests {
         assert_eq!(kept, lines("See the map and ‹spell/wish›."));
         assert_eq!(omitted.len(), 2);
         assert!(omitted.iter().all(|o| o.category == EXTERNAL_LINK_CATEGORY));
+    }
+
+    #[test]
+    fn a_bare_address_in_a_source_annotation_is_removed() {
+        let input = lines(
+            "::ab[Wild Shape]{special=\"‹‹From the FAQ/https://paizo.com/paizo/faq/x››: The lack of stat blocks.\"}",
+        );
+        let (kept, omitted) = screen().apply("json/archetypes_druid.json", &input);
+        assert_eq!(
+            kept,
+            lines("::ab[Wild Shape]{special=\"‹‹From the FAQ/››: The lack of stat blocks.\"}")
+        );
+        assert_eq!(omitted.len(), 1);
+        assert!(kept[0].find("https://").is_none());
     }
 
     #[test]
