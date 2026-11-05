@@ -156,6 +156,11 @@ export async function openBookContents(page: Page, title: string) {
   const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
   await row.locator("summary").click();
   await row.getByRole("link", { name: `Open ${title} contents`, exact: true }).click();
+  // A route change moves focus to <main> on the next animation frame so screen readers announce the
+  // page. A key pressed on a contents control before that move lands on <main> instead, and the
+  // control never reacts. Wait for the move rather than racing it.
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.locator("main#main")).toBeFocused();
 }
 
 /** Open a publication choice before following its permanent entry link. */
