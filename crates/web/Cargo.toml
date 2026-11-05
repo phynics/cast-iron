@@ -41,5 +41,8 @@ features = [
   "Performance", "KeyboardEvent", "HtmlInputElement", "HtmlDetailsElement", "Blob", "File", "FileList", "HtmlAnchorElement", "Url", "HtmlDialogElement",
 ]
 
+[dev-dependencies]
+toml = "0.9"
+
 [lints]
 workspace = true

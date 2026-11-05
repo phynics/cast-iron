@@ -311,6 +311,22 @@ impl Library {
         canonical_id: &str,
         active: bool,
     ) -> Result<(), LibraryError> {
+        let ids = [canonical_id.to_owned()];
+        if active {
+            self.update_active_books(&ids, &[]).await
+        } else {
+            self.update_active_books(&[], &ids).await
+        }
+    }
+
+    /// Activates and deactivates many books with one stored write and one revision bump, so a
+    /// bulk control refreshes discovery once. It changes only the disabled set: downloads and
+    /// stars stay, and ids that are in neither list keep their state.
+    pub async fn update_active_books(
+        &self,
+        activate: &[String],
+        deactivate: &[String],
+    ) -> Result<(), LibraryError> {
         {
             let mut busy = self.0.selection_write_in_flight.borrow_mut();
             if *busy {
@@ -327,12 +343,7 @@ impl Library {
             }
         }
         let _reset = Reset(&self.0.selection_write_in_flight);
-        let mut next = self.0.disabled_books.borrow().clone();
-        if active {
-            next.remove(canonical_id);
-        } else {
-            next.insert(canonical_id.to_owned());
-        }
+        let next = next_disabled(&self.0.disabled_books.borrow(), activate, deactivate);
         if next == *self.0.disabled_books.borrow() {
             return Ok(());
         }
@@ -651,6 +662,21 @@ fn is_book_disabled(disabled: &BTreeSet<String>, canonical_id: &str) -> bool {
     disabled.contains(canonical_id)
 }
 
+/// The disabled set after one update. Ids in neither list, including ids that this catalog
+/// does not know, keep their state. An id in both lists ends active.
+fn next_disabled(
+    current: &BTreeSet<String>,
+    activate: &[String],
+    deactivate: &[String],
+) -> BTreeSet<String> {
+    let mut next = current.clone();
+    next.extend(deactivate.iter().cloned());
+    for id in activate {
+        next.remove(id);
+    }
+    next
+}
+
 async fn read_file(cache: &Cache, version: &str, relative: &str) -> Result<Vec<u8>, LibraryError> {
     let path = format!("{version}/{relative}");
     content_cache::read(cache, &path)
@@ -675,6 +701,29 @@ async fn read_json<T: DeserializeOwned>(
 mod tests {
     use super::*;
     use cast_iron_schema::ManifestFile;
+
+    fn ids(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn bulk_update_changes_only_the_listed_books_and_keeps_unknown_ids() {
+        let current: BTreeSet<String> = ids(&["kept-unknown", "a"]).into_iter().collect();
+        let next = next_disabled(&current, &ids(&["a"]), &ids(&["b", "c"]));
+        assert_eq!(
+            next.into_iter().collect::<Vec<_>>(),
+            ids(&["b", "c", "kept-unknown"])
+        );
+        // Repeating the same update changes nothing, so the caller skips the write.
+        let again = next_disabled(&current, &[], &[]);
+        assert_eq!(again, current);
+    }
+
+    #[test]
+    fn a_book_in_both_lists_ends_active() {
+        let next = next_disabled(&BTreeSet::new(), &ids(&["a"]), &ids(&["a", "b"]));
+        assert_eq!(next.into_iter().collect::<Vec<_>>(), ids(&["b"]));
+    }
 
     fn manifest(files: &[&str]) -> ContentManifest {
         ContentManifest {

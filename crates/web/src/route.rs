@@ -21,22 +21,27 @@
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
-/// A displayed order for the publication directory. Library order is [`Route::Books`].
+/// A displayed order for the publication directory. [`Route::Books`] is the default: priority
+/// tier groups with titles in order inside each. These orders change the order inside each
+/// tier, except `Library`, which shows one ungrouped list in catalog order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BookSort {
-    /// Group by the reviewed publication category, with `Unknown` last.
+    /// Inside each tier, by reviewed product line and then title.
     Category,
-    /// Group by publication year, newest first, with `Unknown` last.
+    /// Inside each tier, by publication date newest first, with unknown dates last.
     Date,
+    /// One ungrouped list in catalog order.
+    Library,
 }
 
 impl BookSort {
-    pub const ALL: [BookSort; 2] = [BookSort::Category, BookSort::Date];
+    pub const ALL: [BookSort; 3] = [BookSort::Category, BookSort::Date, BookSort::Library];
 
     pub fn slug(self) -> &'static str {
         match self {
             BookSort::Category => "category",
             BookSort::Date => "date",
+            BookSort::Library => "library",
         }
     }
 
@@ -48,6 +53,7 @@ impl BookSort {
         match self {
             BookSort::Category => "Category",
             BookSort::Date => "Publication date",
+            BookSort::Library => "Library order",
         }
     }
 }
@@ -68,7 +74,7 @@ pub enum Route {
     },
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
-    /// The publication directory, each a doorway into its contents, in library order.
+    /// The publication directory, each a doorway into its contents, in priority tiers.
     Books,
     /// The publication directory grouped by one reviewed catalogue field.
     BooksSorted(BookSort),
@@ -561,6 +567,7 @@ mod tests {
             Route::Books,
             Route::BooksSorted(BookSort::Category),
             Route::BooksSorted(BookSort::Date),
+            Route::BooksSorted(BookSort::Library),
             Route::Spells,
             Route::FeatChains,
         ] {
@@ -594,7 +601,7 @@ mod tests {
     }
 
     #[test]
-    fn book_sorts_round_trip_and_unknown_values_fall_back_to_library_order() {
+    fn book_sorts_round_trip_and_unknown_values_fall_back_to_the_default_tiers() {
         assert_eq!(Route::Books.href(), "#/books");
         assert_eq!(
             Route::BooksSorted(BookSort::Category).href(),
@@ -611,6 +618,14 @@ mod tests {
         assert_eq!(
             Route::parse("#/books?sort=date"),
             Route::BooksSorted(BookSort::Date)
+        );
+        assert_eq!(
+            Route::BooksSorted(BookSort::Library).href(),
+            "#/books?sort=library"
+        );
+        assert_eq!(
+            Route::parse("#/books?sort=library"),
+            Route::BooksSorted(BookSort::Library)
         );
         // An unknown value is the default list, not an error or a second history entry.
         for hash in [
