@@ -159,11 +159,21 @@ fn run() -> Result<(), String> {
         );
     }
     let config_dir = registry.parent().ok_or("registry has no parent")?;
+    let psrd_notices = psrd_config
+        .parent()
+        .ok_or("the PSRD source config has no parent directory")?
+        .join("legal-notices.json");
+    let section15 = config_dir.join("section15");
     let legal = pf_legal::build(
         &inv,
-        &dataset.join("OPENGAMECONTENT.md"),
-        &config_dir.join("notice-aliases.json"),
-        &config_dir.join("out-of-scope.json"),
+        &pf_legal::Inputs {
+            opengamecontent: &dataset.join("OPENGAMECONTENT.md"),
+            psrd_notices: Some(&psrd_notices),
+            aliases: &config_dir.join("notice-aliases.json"),
+            out_of_scope: &config_dir.join("out-of-scope.json"),
+            d20pfsrd_csv: &section15.join("d20pfsrd-section15.csv"),
+            d20pfsrd_provenance: &section15.join("d20pfsrd-section15.provenance.json"),
+        },
     )?;
     write(
         &out.join("inventory.json"),
