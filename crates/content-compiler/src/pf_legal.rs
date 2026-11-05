@@ -209,6 +209,104 @@ fn load_aliases(path: &Path) -> Result<BTreeMap<String, String>, String> {
     Ok(file.aliases)
 }
 
+/// Every notice that matches one publication title, in Section 15 order.
+///
+/// This is the single-publication form of [`build`], used when the canonical
+/// legal page unions PSRD and Pf Data notices. An empty result means no notice
+/// matched.
+pub fn match_publication(
+    publication: &str,
+    notices: &[Notice],
+    aliases: &BTreeMap<String, String>,
+) -> Result<Vec<Notice>, String> {
+    let index = NoticeIndex::new(notices);
+    let Some((_, indices)) = index.matches(publication, aliases)? else {
+        return Ok(Vec::new());
+    };
+    Ok(indices
+        .iter()
+        .map(|&index| notices[index].clone())
+        .collect())
+}
+
+/// Precomputed exact and normalized title indexes for one notice list.
+struct NoticeIndex<'a> {
+    notices: &'a [Notice],
+    exact: BTreeMap<String, Vec<usize>>,
+    normalized: BTreeMap<String, Vec<usize>>,
+}
+
+impl<'a> NoticeIndex<'a> {
+    fn new(notices: &'a [Notice]) -> Self {
+        let mut exact: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        let mut normalized: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+        for (index, notice) in notices.iter().enumerate() {
+            exact
+                .entry(normalize(&notice.title, false))
+                .or_default()
+                .push(index);
+            let key = normalize(&notice.title, true);
+            if !key.is_empty() {
+                normalized.entry(key).or_default().push(index);
+            }
+        }
+        Self {
+            notices,
+            exact,
+            normalized,
+        }
+    }
+
+    fn lookup(&self, table: &BTreeMap<String, Vec<usize>>, key: &str) -> Option<Vec<usize>> {
+        table
+            .get(key)
+            .and_then(|matches| same_publication(matches, self.notices))
+    }
+
+    /// Exact title, reviewed alias, then the deterministic normalizer.
+    fn matches(
+        &self,
+        publication: &str,
+        aliases: &BTreeMap<String, String>,
+    ) -> Result<Option<(&'static str, Vec<usize>)>, String> {
+        let mut found = self.lookup(&self.exact, &normalize(publication, false));
+        let mut method = found.as_ref().map(|_| "exact");
+        if found.is_none()
+            && let Some(target) = aliases.get(publication)
+        {
+            let key = normalize(target, true);
+            let target_found = self
+                .lookup(&self.exact, &normalize(target, false))
+                .or_else(|| {
+                    (!key.is_empty())
+                        .then(|| self.lookup(&self.normalized, &key))
+                        .flatten()
+                });
+            match target_found {
+                Some(indices) => {
+                    found = Some(indices);
+                    method = Some("alias");
+                }
+                None => {
+                    return Err(format!(
+                        "notice alias for {publication:?} points to a missing Section 15 title: {target:?}"
+                    ));
+                }
+            }
+        }
+        if found.is_none() {
+            let key = normalize(publication, true);
+            if !key.is_empty()
+                && let Some(indices) = self.lookup(&self.normalized, &key)
+            {
+                found = Some(indices);
+                method = Some("normalized-prefix");
+            }
+        }
+        Ok(found.map(|indices| (method.unwrap_or("exact"), indices)))
+    }
+}
+
 fn load_scope(path: &Path) -> Result<ScopePolicy, String> {
     if !path.exists() {
         return Ok(ScopePolicy::default());
@@ -227,18 +325,6 @@ fn match_publications(
     notices: &[Notice],
     aliases: &BTreeMap<String, String>,
 ) -> Result<(Vec<PublicationLegal>, BTreeSet<usize>), String> {
-    let mut exact: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    let mut normalized: BTreeMap<String, Vec<usize>> = BTreeMap::new();
-    for (index, notice) in notices.iter().enumerate() {
-        exact
-            .entry(normalize(&notice.title, false))
-            .or_default()
-            .push(index);
-        let key = normalize(&notice.title, true);
-        if !key.is_empty() {
-            normalized.entry(key).or_default().push(index);
-        }
-    }
     for publication in aliases.keys() {
         if !counts.contains_key(publication) {
             return Err(format!(
@@ -246,52 +332,20 @@ fn match_publications(
             ));
         }
     }
+    let index = NoticeIndex::new(notices);
     let mut rows = Vec::with_capacity(counts.len());
     let mut used = BTreeSet::new();
-    let lookup = |table: &BTreeMap<String, Vec<usize>>, key: &str| {
-        table
-            .get(key)
-            .and_then(|matches| same_publication(matches, notices))
-    };
     for (publication, records) in counts {
-        let mut found = lookup(&exact, &normalize(publication, false));
-        let mut method = found.as_ref().map(|_| "exact");
-        if found.is_none()
-            && let Some(target) = aliases.get(publication)
-        {
-            let key = normalize(target, true);
-            let target_found = lookup(&exact, &normalize(target, false)).or_else(|| {
-                (!key.is_empty())
-                    .then(|| lookup(&normalized, &key))
-                    .flatten()
-            });
-            match target_found {
-                Some(indices) => {
-                    found = Some(indices);
-                    method = Some("alias");
-                }
-                None => {
-                    return Err(format!(
-                        "notice alias for {publication:?} points to a missing Section 15 title: {target:?}"
-                    ));
-                }
-            }
-        }
-        if found.is_none() {
-            let key = normalize(publication, true);
-            if !key.is_empty()
-                && let Some(indices) = lookup(&normalized, &key)
-            {
-                found = Some(indices);
-                method = Some("normalized-prefix");
-            }
-        }
-        let indices = found.unwrap_or_default();
+        let found = index.matches(publication, aliases)?;
+        let (method, indices) = match found {
+            Some((method, indices)) => (Some(method.to_owned()), indices),
+            None => (None, Vec::new()),
+        };
         used.extend(indices.iter().copied());
         rows.push(PublicationLegal {
             publication: publication.clone(),
             records: *records,
-            match_method: method.map(str::to_owned),
+            match_method: method,
             notices: indices
                 .iter()
                 .map(|&index| notices[index].clone())

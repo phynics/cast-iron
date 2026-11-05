@@ -203,7 +203,7 @@ fn finish(
     entries: &mut [RuleEntry],
     found: BTreeMap<EntryId, Vec<Relation>>,
     resolved: BTreeMap<EntryId, Vec<EntryId>>,
-    mut coverage: RelationCoverage,
+    coverage: RelationCoverage,
 ) -> Report {
     let position: BTreeMap<EntryId, usize> = entries
         .iter()
@@ -244,6 +244,17 @@ fn finish(
         }
     }
 
+    index_over(entries, coverage)
+}
+
+/// Rebuilds the relation index from the relations already stored on the entries.
+///
+/// The canonical build merges carried entries after [`apply_canonical`] and may
+/// drop a reference to a record that the legal screen excluded. Rebuilding the
+/// index from the settled entries keeps `relations.json` and the per-entry
+/// relations identical, which [`cast_iron_schema::validate::validate_derived`]
+/// requires.
+pub fn index_over(entries: &[RuleEntry], mut coverage: RelationCoverage) -> Report {
     let mut edges: BTreeSet<RelationEdge> = BTreeSet::new();
     for entry in entries.iter() {
         for relation in &entry.relations {

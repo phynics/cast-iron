@@ -160,6 +160,12 @@ screen already unions the PSRD and Pf Data lists (PR #67); with that union the
 effective count is 401 covered and 52 unmatched. The OGL-only report keeps it in
 the unmatched list so this file and the report stay one evidence set.
 
+PR #67 is now on `main`. The 2026-11-05 aliases raise the canonical build from
+29,388 to 29,486 entries and cut legal rejections from 1,324 to 1,226 records
+(98 rescued: 74 *Heroes of the Streets*, 23 *Pathfinder #119*, 1 *Realm of the
+Fellnight Queen*). The flattened-reference count stays 5,159, and two canonical
+builds are byte-identical (`content_version` `v2232ccd945bb8029`).
+
 The following table records the decision for all 56 publications that were
 unmatched before the 2026-11-05 alias review. The three alias rows now match;
 the others reflect the current OGL report. "Records" is the number of in-scope
