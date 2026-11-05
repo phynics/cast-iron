@@ -19,6 +19,9 @@ cargo xtask <command>
   data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
   data-alias-propose [--apply]
                              Propose dispositions for every no_source alias row; --apply rewrites id-map.toml
+  data-carry-review [--apply] [--threshold N]
+                             Compare carried PSRD entries with same-title Pf Data entries by
+                             body similarity; --apply merges the accepted pairs into id-map.toml
   data-publications [--check]
                              Generate sources/canonical/publications.toml, or verify the committed copy
   data-test                  Test the importer and Pathfinder Data 1e source
@@ -46,6 +49,7 @@ fn main() -> ExitCode {
         Some("data-legal") => data_tool("legal"),
         Some("data-alias") => data_alias(),
         Some("data-alias-propose") => data_alias_propose(&args[1..]),
+        Some("data-carry-review") => data_carry_review(&args[1..]),
         Some("data-publications") => data_publications(&args[1..]),
         Some("data-test") => data_test(),
         Some("content") => content(&args[1..]),
@@ -354,6 +358,38 @@ fn data_alias_propose(args: &[String]) -> Result {
         "sources/canonical/id-map.toml".to_string(),
         "--legacy".to_string(),
         "sources/canonical/legacy-ids.json".to_string(),
+    ];
+    arguments.extend(args.iter().cloned());
+    let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    run("cargo", &borrowed)
+}
+
+/// Reviews carried entries against same-title canonical entries using body text.
+/// The extra arguments are forwarded, so `--apply` and `--threshold` pass through.
+fn data_carry_review(args: &[String]) -> Result {
+    let mut arguments = vec![
+        "run".to_string(),
+        "--release".to_string(),
+        "-p".to_string(),
+        "cast-iron-content-compiler".to_string(),
+        "--bin".to_string(),
+        "cast-iron-data".to_string(),
+        "--".to_string(),
+        "carry-review".to_string(),
+        "--dataset".to_string(),
+        ".cache/sources/pathfinder-data-1-e".to_string(),
+        "--registry".to_string(),
+        "sources/pathfinder-data-1-e/source.json".to_string(),
+        "--out".to_string(),
+        "generated/migration".to_string(),
+        "--reports".to_string(),
+        "reports".to_string(),
+        "--map".to_string(),
+        "sources/canonical/id-map.toml".to_string(),
+        "--legacy".to_string(),
+        "sources/canonical/legacy-ids.json".to_string(),
+        "--canonical-dir".to_string(),
+        "sources/canonical".to_string(),
     ];
     arguments.extend(args.iter().cloned());
     let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();

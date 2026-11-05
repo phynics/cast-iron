@@ -369,7 +369,10 @@ fn proposal_for(entry: &LegacyEntry, record: &CanonicalRecord, evidence: &'stati
 
 /// Collects the canonical target of every existing row. A missing identity is
 /// left out; generation reports it separately.
-fn existing_claims(map: &IdMap, catalog: &CanonicalCatalog) -> BTreeMap<String, Vec<String>> {
+pub(crate) fn existing_claims(
+    map: &IdMap,
+    catalog: &CanonicalCatalog,
+) -> BTreeMap<String, Vec<String>> {
     let mut claims: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (old, row) in &map.map {
         let target = if let Some(identity) = row.record.as_deref() {
@@ -532,7 +535,7 @@ fn push_section(out: &mut String, blocks: &BTreeMap<String, String>) {
     }
 }
 
-fn map_block(proposal: &Proposal) -> String {
+pub(crate) fn map_block(proposal: &Proposal) -> String {
     let mut block = format!("[map.\"{}\"]\n", escape(&proposal.old));
     if proposal.origin == "native" {
         block.push_str(&format!("record = \"{}\"\n", escape(&proposal.identity)));
@@ -544,7 +547,7 @@ fn map_block(proposal: &Proposal) -> String {
     block
 }
 
-fn shared_block(proposal: &Proposal) -> String {
+pub(crate) fn shared_block(proposal: &Proposal) -> String {
     format!(
         "[shared.\"{}\"]\ntarget = \"{}\"\nnote = \"one canonical record shared by legacy books {}; migration merges these rows\"\n",
         escape(&proposal.old),
