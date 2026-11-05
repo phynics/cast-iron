@@ -50,6 +50,7 @@
     "legacy-of-the-first-world": 1,
     "magic-tactics-toolbox": 2,
     "npc-codex": 2,
+    "occult-realms": 1,
     "pathfinder-144-midwives-to-death": 1,
     "pathfinder-30-the-twice-damned-prince": 1,
     "pathfinder-45-broken-moon": 1,
@@ -142,15 +143,15 @@
     }
   },
   "books": {
-    "books": 48,
+    "books": 49,
     "entries": 42,
     "placed_by_page": 37,
     "unpaged": 5,
     "multiple_books": 9,
     "no_publication": 0,
-    "placements": 81,
+    "placements": 82,
     "paged_placements": 47,
-    "unpaged_placements": 34,
+    "unpaged_placements": 35,
     "curated": []
   },
   "out_of_scope": [
@@ -3592,7 +3593,7 @@
       "occurrences": 1
     }
   ],
-  "canonical_bytes": 1174462,
+  "canonical_bytes": 1174219,
   "search_bytes": 207767,
   "search_checks": 130,
   "schema_errors": 0,

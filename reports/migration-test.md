@@ -2,7 +2,7 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 40 selected, 42 converted. Canonical data 1174462 bytes; search 207767 bytes. 130 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 42 converted. Canonical data 1174219 bytes; search 207767 bytes. 130 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
@@ -14,7 +14,7 @@ Derived rules: 1 converted (1 sections, 0 rows; 1 expected in this scope, 0 skip
 
 Typed relations: 0 edges (0 part, 0 archetype, 0 prerequisite). 3 entries have no parent; 3 of 11 prerequisite requirements are unread.
 
-Canonical book index: 48 books, 42 entries, 37 placed by page, 5 unpaged, 9 in more than one book, 0 without publication attribution; 81 placements (47 paged, 34 unpaged).
+Canonical book index: 49 books, 42 entries, 37 placed by page, 5 unpaged, 9 in more than one book, 0 without publication attribution; 82 placements (47 paged, 35 unpaged).
 
 - Section 15 notice reconciliation for every imported publication is incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated

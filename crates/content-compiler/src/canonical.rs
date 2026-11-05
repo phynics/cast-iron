@@ -837,10 +837,7 @@ pub(crate) fn derive_publications(raw: &Value, records: &[InputRecord]) -> Vec<S
     };
     let mut by_key: BTreeMap<&str, Vec<&InputRecord>> = BTreeMap::new();
     for record in records {
-        by_key
-            .entry(record.key.as_str())
-            .or_default()
-            .push(record);
+        by_key.entry(record.key.as_str()).or_default().push(record);
     }
     let mut publications = Vec::new();
     let mut seen = BTreeSet::new();
