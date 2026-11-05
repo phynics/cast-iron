@@ -139,7 +139,8 @@ record.
   OGL.
 - **PSRD-Data dataset license:** absent. The existing 16-book baseline relies on
   the upstream OGL/CUP grant; this risk is overridden for now and tracked.
-- **Corpus-wide PI screening:** the Pf Data screen in
+- **Product Identity kept under the CUP (2026-11-05):** the owner chose to ship Paizo Product Identity, including deity descriptions, character biographies, and NPC stories, under the Community Use Policy. Every entry carries the notice path. This goes beyond the descriptive-reference reading in Q3 above; the owner accepts that risk. See the decision log.
+- **Superseded: corpus-wide PI screening:** the Pf Data screen in
   `sources/pathfinder-data-1-e/pi-screen.json` omits deity lore, unique creature
   biographies, named NPC stories, and outbound links, and every Pf Data entry carries
   the Community Use notice path. Proper names inside mechanics stay as descriptive

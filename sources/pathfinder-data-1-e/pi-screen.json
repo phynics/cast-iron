@@ -1,21 +1,4 @@
 {
-  "note": "Product Identity screen for Pf Data records. Proper names inside game mechanics stay as descriptive references under Paizo's Community Use Policy; every Pf Data entry carries the Community Use notice. These rules omit descriptive Product Identity prose. Each omission appears in the migration coverage report. See docs/decisions.md, 'Product Identity screen for the Pf Data corpus'.",
-  "sections": [
-    {
-      "files": "json/faiths",
-      "heading": "::h2[Description]",
-      "reason": "Product Identity: deity description and lore omitted; alignment, domains, favored weapon, obediences, boons, and follower options retained"
-    },
-    {
-      "files": "json/monsters_unique",
-      "heading": "::sh[Description]",
-      "reason": "Product Identity: unique character biography omitted; statistics, tactics, and special abilities retained"
-    },
-    {
-      "files": "json/npcs",
-      "heading": "### ",
-      "prefix": true,
-      "reason": "Product Identity: named NPC story omitted; generic stat block, description, and tactics retained"
-    }
-  ]
+  "note": "Product Identity screen for Pf Data records. Since 2026-11-05 the owner keeps Paizo Product Identity under Paizo's Community Use Policy: names, deity descriptions, unique character biographies, and NPC stories ship, and every entry carries the Community Use notice. The screen still removes outbound links (the reference is offline). Add a section rule here only to omit specific material by a reviewed decision. See docs/decisions.md, 'Paizo Product Identity kept under the Community Use Policy'.",
+  "sections": []
 }

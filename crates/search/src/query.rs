@@ -1,7 +1,6 @@
 use crate::build::cap_text;
 use crate::text::{Tok, scan};
 use crate::{FilterCounts, Filters, Hit, Query, SearchIndex, Snippet, normalize};
-use std::collections::BTreeMap;
 
 const DEFAULT_LIMIT: usize = 50;
 const MAX_PREFIX_TERMS: usize = 512;
@@ -145,48 +144,6 @@ impl Matcher {
     }
 }
 
-enum Skip<'a> {
-    Nothing,
-    Kinds,
-    Sources,
-    Field(&'a str),
-}
-
-/// Query filters prepared once per search instead of once per candidate.
-struct PreparedFilters {
-    kinds: Vec<String>,
-    sources: Vec<String>,
-    facets: Vec<(String, String)>,
-    fields: Vec<String>,
-}
-
-impl PreparedFilters {
-    fn new(filters: &Filters) -> Self {
-        let mut fields: Vec<String> = filters
-            .facets
-            .iter()
-            .map(|(key, _)| key.to_lowercase())
-            .collect();
-        fields.sort();
-        fields.dedup();
-        Self {
-            kinds: filters.kinds.clone(),
-            sources: filters.sources.clone(),
-            facets: filters.facets.clone(),
-            fields,
-        }
-    }
-}
-
-fn eq_ci(a: &str, b: &str) -> bool {
-    a.eq_ignore_ascii_case(b)
-        || (!a.is_ascii() || !b.is_ascii()) && a.to_lowercase() == b.to_lowercase()
-}
-
-fn contains_ci(list: &[String], v: &str) -> bool {
-    list.iter().any(|x| eq_ci(x, v))
-}
-
 /// Ranking-only result: enough to group, count, and order results without
 /// scanning document text for a snippet. `SearchIndex::materialize_hit` fills
 /// the highlighted title and snippet for the rows that the page displays.
@@ -224,22 +181,36 @@ pub struct Highlighter {
 }
 
 impl SearchIndex {
-    fn passes_prepared(&self, ord: usize, f: &PreparedFilters) -> bool {
+    fn passes(&self, ord: usize, f: &Filters) -> bool {
         let d = &self.meta.docs[ord];
-        if !f.kinds.is_empty() && !contains_ci(&f.kinds, &d.kind) {
+        if !f.kinds.is_empty() && !f.kinds.iter().any(|k| k.eq_ignore_ascii_case(&d.kind)) {
             return false;
         }
-        if !f.sources.is_empty() && !contains_ci(&f.sources, &d.source) {
+        if !f.sources.is_empty() && !f.sources.iter().any(|s| s.eq_ignore_ascii_case(&d.source)) {
             return false;
         }
-        f.fields.iter().all(|field| {
-            d.facets.iter().any(|(k, v)| {
-                eq_ci(k, field)
-                    && f.facets
-                        .iter()
-                        .any(|(fk, fv)| eq_ci(fk, field) && eq_ci(fv, v))
-            })
-        })
+        // Facets are OR within one field and AND across fields. Compare in place: the old
+        // implementation lowercased every field and value for every document, which allocated
+        // millions of strings over one full-library count.
+        for (i, (field, _)) in f.facets.iter().enumerate() {
+            if f.facets[..i]
+                .iter()
+                .any(|(earlier, _)| earlier.eq_ignore_ascii_case(field))
+            {
+                continue;
+            }
+            let found = f.facets.iter().any(|(filter_field, filter_value)| {
+                filter_field.eq_ignore_ascii_case(field)
+                    && d.facets.iter().any(|(doc_field, doc_value)| {
+                        doc_field.eq_ignore_ascii_case(field)
+                            && doc_value.eq_ignore_ascii_case(filter_value)
+                    })
+            });
+            if !found {
+                return false;
+            }
+        }
+        true
     }
 
     /// (term index, weight) pairs for one query token.
@@ -338,59 +309,121 @@ impl SearchIndex {
         filters: &Filters,
         eligible: impl Fn(&str) -> bool,
     ) -> FilterCounts {
+        let n = self.meta.docs.len();
+        let mut eligible_mask = vec![false; n];
+        let mut all_eligible = true;
+        for (i, doc) in self.meta.docs.iter().enumerate() {
+            let ok = eligible(&doc.id);
+            eligible_mask[i] = ok;
+            all_eligible &= ok;
+        }
+
+        // Nothing is filtered: the precomputed library totals are the answer.
+        if filters.is_empty() && text.trim().is_empty() && all_eligible {
+            return self.doc_lists.totals.clone();
+        }
+
         let qtokens: Vec<String> = scan(text).into_iter().map(|t| t.norm).collect();
-        let base: Vec<usize> = if qtokens.is_empty() {
-            (0..self.meta.docs.len())
-                .filter(|&i| eligible(&self.meta.docs[i].id))
+        let base: Vec<u32> = if qtokens.is_empty() {
+            (0..n)
+                .filter(|&i| eligible_mask[i])
+                .map(|i| i as u32)
                 .collect()
         } else {
-            match self.score_docs(
-                &qtokens,
-                |doc| eligible(&self.meta.docs[doc].id),
-                &mut NoTimer,
-            ) {
-                Some((scored, _)) => scored.into_iter().map(|(doc, _)| doc as usize).collect(),
-                None => Vec::new(),
+            match self.score_docs(&qtokens, |doc| eligible_mask[doc], &mut NoTimer) {
+                Some((scored, _)) => scored.into_iter().map(|(doc, _)| doc).collect(),
+                None => return FilterCounts::default(),
             }
         };
-        let without = |skip: Skip| {
-            let mut f = filters.clone();
-            match skip {
-                Skip::Kinds => f.kinds.clear(),
-                Skip::Sources => f.sources.clear(),
-                Skip::Field(field) => f.facets.retain(|(k, _)| !k.eq_ignore_ascii_case(field)),
-                Skip::Nothing => {}
-            }
-            f
+
+        // Each active filter group gets one bit. A document's failure mask then answers every
+        // chip at once: the full result passes no bit, and a chip ignores its own group, so a
+        // document counts for it when it fails no group or only that one. This replaces one
+        // `passes` call per document per group with one evaluation per document.
+        let mut next_bit = 0u32;
+        let mut take_bit = || {
+            let bit = 1u64 << next_bit;
+            next_bit += 1;
+            bit
         };
+        let kind_bit = (!filters.kinds.is_empty()).then(&mut take_bit);
+        let source_bit = (!filters.sources.is_empty()).then(&mut take_bit);
+        let mut facet_bits: std::collections::BTreeMap<String, u64> = Default::default();
+        for (field, _) in &filters.facets {
+            facet_bits
+                .entry(field.to_lowercase())
+                .or_insert_with(&mut take_bit);
+        }
+        debug_assert!(next_bit <= 64, "too many active filter groups");
+
+        let fail_mask = |doc: &crate::store::DocMeta| {
+            let mut fail = 0u64;
+            if let Some(bit) = kind_bit
+                && !filters
+                    .kinds
+                    .iter()
+                    .any(|kind| kind.eq_ignore_ascii_case(&doc.kind))
+            {
+                fail |= bit;
+            }
+            if let Some(bit) = source_bit
+                && !filters
+                    .sources
+                    .iter()
+                    .any(|source| source.eq_ignore_ascii_case(&doc.source))
+            {
+                fail |= bit;
+            }
+            for (field, bit) in &facet_bits {
+                let found = filters.facets.iter().any(|(filter_field, filter_value)| {
+                    filter_field.eq_ignore_ascii_case(field)
+                        && doc.facets.iter().any(|(doc_field, doc_value)| {
+                            doc_field.eq_ignore_ascii_case(field)
+                                && doc_value.eq_ignore_ascii_case(filter_value)
+                        })
+                });
+                if !found {
+                    fail |= bit;
+                }
+            }
+            fail
+        };
+
         let mut counts = FilterCounts::default();
-        let kind_filters = PreparedFilters::new(&without(Skip::Kinds));
-        let source_filters = PreparedFilters::new(&without(Skip::Sources));
-        let plain = PreparedFilters::new(&without(Skip::Nothing));
-        let mut field_filters: BTreeMap<String, PreparedFilters> = BTreeMap::new();
-        for &i in &base {
-            let d = &self.meta.docs[i];
-            if self.passes_prepared(i, &plain) {
+        // Reused per document so duplicate `(field, value)` pairs count once without allocating
+        // a new set for every document.
+        let mut seen: Vec<(&str, &str)> = Vec::new();
+        for ord in base {
+            let doc = &self.meta.docs[ord as usize];
+            let fail = fail_mask(doc);
+            if fail == 0 {
                 counts.total += 1;
             }
-            if self.passes_prepared(i, &kind_filters) {
-                *counts.kinds.entry(d.kind.clone()).or_default() += 1;
+            if fail == 0 || Some(fail) == kind_bit {
+                *counts.kinds.entry(doc.kind.clone()).or_default() += 1;
             }
-            if self.passes_prepared(i, &source_filters) {
-                *counts.sources.entry(d.source.clone()).or_default() += 1;
+            if fail == 0 || Some(fail) == source_bit {
+                *counts.sources.entry(doc.source.clone()).or_default() += 1;
             }
-            let mut seen: Vec<(&str, &str)> = Vec::new();
-            for (field, value) in &d.facets {
+            seen.clear();
+            for (field, value) in &doc.facets {
                 if seen.contains(&(field.as_str(), value.as_str())) {
                     continue;
                 }
                 seen.push((field, value));
-                let key = field.to_lowercase();
-                let f = field_filters
-                    .entry(key.clone())
-                    .or_insert_with(|| PreparedFilters::new(&without(Skip::Field(&key))));
-                if self.passes_prepared(i, f) {
-                    *counts.facets.entry((key, value.clone())).or_default() += 1;
+                let bit = facet_bits.get(field.as_str()).copied().or_else(|| {
+                    facet_bits
+                        .iter()
+                        .find(|(name, _)| name.eq_ignore_ascii_case(field))
+                        .map(|(_, bit)| *bit)
+                });
+                let counts_here = match bit {
+                    Some(bit) => fail == 0 || fail == bit,
+                    None => fail == 0,
+                };
+                if counts_here {
+                    let key = (field.to_lowercase(), value.clone());
+                    *counts.facets.entry(key).or_default() += 1;
                 }
             }
         }
@@ -522,9 +555,8 @@ impl SearchIndex {
                 return Some((Vec::new(), empty_matcher()));
             }
             timer.enter(Phase::Scoring);
-            let prepared = PreparedFilters::new(&query.filters);
             let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
-                .filter(|&i| eligible(&self.meta.docs[i].id) && self.passes_prepared(i, &prepared))
+                .filter(|&i| eligible(&self.meta.docs[i].id) && self.passes(i, &query.filters))
                 .map(|i| {
                     (
                         normalize(&self.meta.docs[i].title),
@@ -545,10 +577,9 @@ impl SearchIndex {
             return Some((ranked, empty_matcher()));
         }
 
-        let prepared = PreparedFilters::new(&query.filters);
         let (mut scored, matcher) = self.score_docs(
             &qtokens,
-            |doc| eligible(&self.meta.docs[doc].id) && self.passes_prepared(doc, &prepared),
+            |doc| eligible(&self.meta.docs[doc].id) && self.passes(doc, &query.filters),
             timer,
         )?;
         timer.enter(Phase::Sort);

@@ -12,11 +12,6 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-env:
-  TRUNK_VERSION: "0.22.1"
-  # SHA-256 of trunk-x86_64-unknown-linux-gnu.tar.gz in the v0.22.1 release.
-  TRUNK_SHA256: 2ab8d548fd5ed9cda50906f61fd8654204e7893bd52ebbfd90533862b7d71ee1
-
 jobs:
   build:
     if: github.ref == 'refs/heads/release'
@@ -32,24 +27,23 @@ jobs:
         with:
           path: .cache/sources
           key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Trunk ${{ env.TRUNK_VERSION }}
-        run: |
-          asset="trunk-x86_64-unknown-linux-gnu.tar.gz"
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$asset" \
-            "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/${asset}"
-          echo "${TRUNK_SHA256}  $RUNNER_TEMP/$asset" | sha256sum -c -
-          mkdir -p "$HOME/.local/bin"
-          tar xzf "$RUNNER_TEMP/$asset" -C "$HOME/.local/bin" trunk
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/setup-build
+        with:
+          # Same key as the CI site job, so a release build reuses compiled dependencies.
+          cache-key: site
+          trunk: "true"
       # build-site fetches both datasets and compiles the canonical default when
       # generated/content is missing.
       - name: Build the site
         run: |
           trunk --version
-          cargo xtask build-site --public-url /cast-iron/
+          # Trunk fetches wasm-bindgen and wasm-opt from GitHub on a cold tools cache.
+          for attempt in 1 2 3; do
+            cargo xtask build-site --public-url /cast-iron/ && exit 0
+            echo "::warning::build-site attempt $attempt failed"
+            sleep 10
+          done
+          exit 1
       - name: Screen the publication scope and attribution
         run: python3 scripts/check-publication.py
       - uses: actions/upload-pages-artifact@v5

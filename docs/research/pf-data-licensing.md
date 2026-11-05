@@ -107,6 +107,8 @@ not excluded.
 
 ## Product Identity screen
 
+**Superseded on 2026-11-05:** Paizo Product Identity is now kept under the Community Use Policy, and the section rules below were removed. The screen only strips outbound links. See [decisions](../decisions.md#paizo-product-identity-kept-under-the-community-use-policy-2026-11-05).
+
 The product owner chose fidelity under the Community Use Policy on 2026-11-04.
 Proper names inside game mechanics stay as descriptive references. Every Pf Data
 entry carries `ogl-1.0a` and `legal#community-use`. The reviewed section rules in

@@ -38,6 +38,21 @@ ITEM_MEASURE_WORDS = frozenset(
 )
 
 
+PUBLISHED_IDS = Path(__file__).resolve().parents[1] / "sources/canonical/legacy-ids.json"
+
+
+def published_ids(path=PUBLISHED_IDS):
+    """The frozen ids the last PSRD release published, or None without the snapshot.
+
+    Only these can be held in a user's bookmarks or recents. A fresh PSRD build can
+    contain ids that never shipped (for example records an earlier content policy
+    omitted), and those need no alias.
+    """
+    if not path.exists():
+        return None
+    return {entry["id"] for entry in json.loads(path.read_text())["entries"]}
+
+
 def library(root):
     """Return the manifest, catalog entries by id, and the version directory."""
     root = Path(root)
@@ -261,8 +276,12 @@ def walk_book_node(node, new, placed, dangling, duplicate_placements):
         walk_book_node(child, new, placed, dangling, duplicate_placements)
 
 
-def check(old_root, new_root):
-    """Compare two libraries, returning the report and a list of failure reasons."""
+def check(old_root, new_root, published=None):
+    """Compare two libraries, returning the report and a list of failure reasons.
+
+    `published` restricts the cutover check to ids that were ever published; main()
+    passes the frozen legacy snapshot.
+    """
     old_manifest, old, _old_directory = library(old_root)
     new_manifest, new, new_directory = library(new_root)
     wrong_categories = class_category_errors(new)
@@ -289,7 +308,11 @@ def check(old_root, new_root):
             coverage,
             relation_edges,
         )
-    return cutover_report(
+    unpublished = []
+    if published is not None:
+        unpublished = sorted(set(old) - published)
+        old = {key: value for key, value in old.items() if key in published}
+    report, failures = cutover_report(
         old_manifest,
         new_manifest,
         old,
@@ -302,6 +325,9 @@ def check(old_root, new_root):
         coverage,
         relation_edges,
     )
+    # Reported, not failed: never-published ids cannot be in anyone's saved state.
+    report["unpublished_old_ids"] = unpublished
+    return report, failures
 
 
 def legacy_report(
@@ -484,7 +510,7 @@ def main(argv):
         return 2
     old_root = argv[0]
     new_root = argv[1] if len(argv) > 1 else "dist/content"
-    report, failures = check(old_root, new_root)
+    report, failures = check(old_root, new_root, published_ids())
     print(json.dumps(report, indent=2, sort_keys=True))
     return 1 if failures else 0
 

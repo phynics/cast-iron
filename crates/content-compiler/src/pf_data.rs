@@ -714,15 +714,20 @@ fn run_import(
                 .to_string(),
         ] {
             report.search_checks += 1;
-            if !index
-                .search(&Query {
-                    text: query.clone(),
-                    limit: 1000,
-                    ..Default::default()
-                })
-                .iter()
-                .any(|hit| hit.id == entry.id.as_str())
-            {
+            let found = |limit| {
+                index
+                    .search(&Query {
+                        text: query.clone(),
+                        limit,
+                        ..Default::default()
+                    })
+                    .iter()
+                    .any(|hit| hit.id == entry.id.as_str())
+            };
+            // A broad term such as "sources" can fall outside the first 1,000
+            // ranked hits in a 20,000-entry corpus even though it is indexed. The
+            // check proves retrieval; ranking has its own rule tests.
+            if !found(1000) && !found(reread.len().max(1000)) {
                 report.findings.push(Finding {
                     severity: "high".into(),
                     record: entry.id.to_string(),

@@ -8,7 +8,7 @@ use crate::views::book::BookPosition;
 use crate::views::entry_contents::ArticleContents;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
-use crate::views::rich::RichBody;
+use crate::views::rich::{RELATED_ANCHOR, RichBody};
 use crate::views::util::{kind_name, local_resource, set_title};
 use cast_iron_schema::{EntryId, EntryKind, EntryReference, RetirementReason, RuleEntry};
 use leptos::prelude::*;
@@ -283,7 +283,7 @@ fn EntryView(
         );
     let related_href = Route::Entry {
         id: entry.id.clone(),
-        anchor: Some("entry-related".into()),
+        anchor: Some(RELATED_ANCHOR.into()),
     }
     .href();
     let category_route = if kind == EntryKind::Rule {
@@ -313,7 +313,7 @@ fn EntryView(
         {has_related.then(|| view! { <p class="reader-jumps"><a href=related_href>"Related entries"</a></p> })}
         <ArticleContents body=entry.body.clone() id=entry.id.clone() />
         <RichBody body=entry.body.clone() anchor=anchor />
-        <div id="entry-related"><Related library=library.clone() entry=entry.clone() indexes /></div>
+        <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />
         {has_references.then(|| view! {
             <section class="entry-refs" aria-labelledby="references-heading">

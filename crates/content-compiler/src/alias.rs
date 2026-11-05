@@ -404,7 +404,7 @@ pub fn canonical_source_id(publication: &str) -> String {
     legacy_book_id(publication)
 }
 
-fn legacy_book_id(publication: &str) -> String {
+pub(crate) fn legacy_book_id(publication: &str) -> String {
     let slug = slug_segment(publication.trim());
     let mapped = match slug.as_str() {
         "prpg-core-rulebook" | "pathfinder-rpg-core-rulebook" => "core-rulebook",
@@ -759,6 +759,31 @@ fn check_semantic_fit(
     }
 }
 
+/// Legacy book ids a record actually publishes in.
+///
+/// A top-level Pf record can carry no `sources` of its own and inherit them from
+/// the record it expands or redirects to. The converter reads attribution from
+/// the expanded record, so the catalog must do the same; otherwise a correct map
+/// row would fail the semantic fit gate with an empty source list. Subtopics are
+/// the last fallback, matching the converter's publication derivation.
+fn record_source_ids(record: &InputRecord, inv: &Inventory) -> Vec<String> {
+    if !record.publications.is_empty() {
+        return book_ids(record.publications.iter().map(String::as_str));
+    }
+    let Ok(raw) = crate::pf_records::expand(record, &inv.records) else {
+        return Vec::new();
+    };
+    let own = crate::pf_data::publication_names(&raw);
+    if !own.is_empty() {
+        return book_ids(own.iter().map(String::as_str));
+    }
+    book_ids(
+        crate::canonical::derive_publications(&raw, &inv.records)
+            .iter()
+            .map(String::as_str),
+    )
+}
+
 /// Builds the catalog from the pinned Pf Data inventory.
 ///
 /// Native records are the ones the full import selects: in-scope records with a
@@ -790,7 +815,7 @@ pub fn catalog_from_inventory(
                 identity: format!("{}#{}", record.path, record.key),
                 kind: crate::pf_data::record_kind(&record.path).slug().to_string(),
                 title: title_of(record),
-                source_ids: book_ids(record.publications.iter().map(String::as_str)),
+                source_ids: record_source_ids(record, inv),
                 origin: "native".into(),
             })?;
             selected.push(record.clone());
@@ -834,7 +859,7 @@ pub fn catalog_from_inventory(
                 ),
                 kind: "rule".into(),
                 title: extracted.title.clone(),
-                source_ids: book_ids(record.publications.iter().map(String::as_str)),
+                source_ids: record_source_ids(record, inv),
                 origin: "derived:rule".into(),
             })?;
         }
@@ -1737,6 +1762,39 @@ note = "reviewed"
                 .get("ref/racial-trait/dwarf/stonecunning")
                 .unwrap()
                 .source_ids,
+            ["core-rulebook"]
+        );
+    }
+
+    #[test]
+    fn catalog_follows_copyof_for_publication_attribution() {
+        // A top-level record can carry no `sources` and inherit them from the
+        // record it copies. The converter attributes the emitted entry to the
+        // expanded record, so the catalog must not leave the source set empty or
+        // a correct map row fails the semantic fit gate.
+        let base = InputRecord {
+            protocol: Some("spell".into()),
+            path: "json/spells.json".into(),
+            key: "lesser".into(),
+            name: "Lesser".into(),
+            shape: "description".into(),
+            publications: vec!["PRPG Core Rulebook".into()],
+            raw: json!({"sources": ["PRPG Core Rulebook"], "description": ["Base spell text."]}),
+        };
+        let copy = InputRecord {
+            protocol: Some("spell".into()),
+            path: "json/spells.json".into(),
+            key: "greater".into(),
+            name: "Greater".into(),
+            shape: "description".into(),
+            publications: Vec::new(),
+            raw: json!({"copyof": "lesser", "description": ["Copied spell text."]}),
+        };
+        let catalog =
+            catalog_from_inventory(&inventory(vec![base, copy]), &RuleAllowlist::default())
+                .unwrap();
+        assert_eq!(
+            catalog.get("ref/spell/greater").unwrap().source_ids,
             ["core-rulebook"]
         );
     }

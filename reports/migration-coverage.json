@@ -1,7 +1,7 @@
 {
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
-  "input_digest": "e25c1b6d576228b184c9b3d5aaeadb1be35659d7890f4f8aeb3636308d7a5bc5",
+  "input_digest": "45a5bf5e8d39c49ca5705b59cee82e7618fdb5eb26c632f3835ab0f4d56716da",
   "json_files": 401,
   "input_records": 34530,
   "registered_publications": 469,
@@ -3845,11 +3845,10 @@
     ]
   },
   "pi_screen": {
-    "omissions": 1301,
-    "records": 836,
+    "omissions": 484,
+    "records": 482,
     "by_category": {
-      "external-link": 484,
-      "product-identity-section": 817
+      "external-link": 484
     }
   },
   "legal": {
@@ -3861,40 +3860,40 @@
   "production_default": "psrd-data",
   "cutover_verified": false,
   "carry_over": {
-    "carried": 2216,
+    "carried": 2096,
     "by_kind": {
       "affliction": 214,
       "archetype": 4,
       "creature": 327,
       "feat": 165,
-      "item": 418,
+      "item": 365,
       "race": 36,
       "racial_trait": 275,
-      "rule": 512,
+      "rule": 511,
       "skill": 26,
-      "spell": 179,
+      "spell": 113,
       "trait": 2,
       "trap": 58
     },
     "by_book": {
-      "advanced-players-guide": 161,
+      "advanced-players-guide": 151,
       "advanced-race-guide": 302,
       "bestiary": 232,
       "bestiary-2": 123,
       "bestiary-3": 77,
       "bestiary-4": 53,
-      "core-rulebook": 295,
+      "core-rulebook": 238,
       "game-mastery-guide": 108,
       "monster-codex": 130,
-      "mythic-adventures": 235,
+      "mythic-adventures": 234,
       "npc-codex": 33,
-      "technology-guide": 40,
+      "technology-guide": 38,
       "ultimate-campaign": 7,
       "ultimate-combat": 123,
-      "ultimate-equipment": 213,
-      "ultimate-magic": 84
+      "ultimate-equipment": 178,
+      "ultimate-magic": 69
     },
-    "possible_duplicate_count": 434,
+    "possible_duplicate_count": 314,
     "possible_duplicates": [
       {
         "legacy": "advanced-players-guide/rules/core-classes",
@@ -3949,31 +3948,10 @@
         ]
       },
       {
-        "legacy": "advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/buoy/superior",
-        "carried": "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/buoy/superior",
-        "candidates": [
-          "ref/eq-misc/buoy-superior"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/chest",
-        "carried": "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/chest",
-        "candidates": [
-          "ref/eq-misc/chest"
-        ]
-      },
-      {
         "legacy": "advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/cauldron",
         "carried": "ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/cauldron",
         "candidates": [
           "ref/eq-misc/cauldron"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/fortune-tellers-deck",
-        "carried": "ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/fortune-tellers-deck",
-        "candidates": [
-          "ref/eq-misc/fortune-telling-deck"
         ]
       },
       {
@@ -4109,59 +4087,10 @@
         ]
       },
       {
-        "legacy": "advanced-players-guide/spells/acid-pit",
-        "carried": "ref/carried/advanced-players-guide/spells/acid-pit",
-        "candidates": [
-          "ref/spell/acid-pit"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/detect-aberration",
-        "carried": "ref/carried/advanced-players-guide/spells/detect-aberration",
-        "candidates": [
-          "ref/spell/detect-aberration"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/evolution-surge",
-        "carried": "ref/carried/advanced-players-guide/spells/evolution-surge",
-        "candidates": [
-          "ref/spell/evolution-surge"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/flare-burst",
-        "carried": "ref/carried/advanced-players-guide/spells/flare-burst",
-        "candidates": [
-          "ref/spell/flare-burst"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/hungry-pit",
-        "carried": "ref/carried/advanced-players-guide/spells/hungry-pit",
-        "candidates": [
-          "ref/spell/hungry-pit"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/rejuvenate-eidolon",
-        "carried": "ref/carried/advanced-players-guide/spells/rejuvenate-eidolon",
-        "candidates": [
-          "ref/spell/rejuvenate-eidolon"
-        ]
-      },
-      {
         "legacy": "advanced-players-guide/spells/shared-wrath",
         "carried": "ref/carried/advanced-players-guide/spells/shared-wrath",
         "candidates": [
           "ref/spell/shared-wrath"
-        ]
-      },
-      {
-        "legacy": "advanced-players-guide/spells/spiked-pit",
-        "carried": "ref/carried/advanced-players-guide/spells/spiked-pit",
-        "candidates": [
-          "ref/spell/spiked-pit"
         ]
       },
       {
@@ -5180,32 +5109,10 @@
         ]
       },
       {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/adventuring-gear/backpack",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/backpack",
-        "candidates": [
-          "ref/eq-misc/backpack"
-        ]
-      },
-      {
         "legacy": "core-rulebook/rules/equipment/goods-and-services/adventuring-gear/chest",
         "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/chest",
         "candidates": [
           "ref/eq-misc/chest"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/adventuring-gear/grappling-hook",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/grappling-hook",
-        "candidates": [
-          "ref/eq-misc/grappling-hook",
-          "ref/eq-weapon/grappling-hook"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/adventuring-gear/ink",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/ink",
-        "candidates": [
-          "ref/eq-misc/ink"
         ]
       },
       {
@@ -5230,45 +5137,10 @@
         ]
       },
       {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/military",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/military",
-        "candidates": [
-          "ref/eq-misc/military-saddle"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/pack",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/pack",
-        "candidates": [
-          "ref/eq-misc/saddle-pack"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/riding",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/riding",
-        "candidates": [
-          "ref/eq-misc/saddle-riding"
-        ]
-      },
-      {
         "legacy": "core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/artisans-tools/masterwork",
         "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/artisans-tools/masterwork",
         "candidates": [
           "ref/eq-misc/artisans-tools-masterwork"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools",
-        "candidates": [
-          "ref/eq-misc/thieves-tools"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools/masterwork",
-        "carried": "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools/masterwork",
-        "candidates": [
-          "ref/eq-misc/thieves-tools-masterwork"
         ]
       },
       {
@@ -5383,43 +5255,6 @@
         ]
       },
       {
-        "legacy": "core-rulebook/rules/magic-items/wondrous-items/bracers-of-archery/lesser",
-        "carried": "ref/carried/core-rulebook/rules/magic-items/wondrous-items/bracers-of-archery/lesser",
-        "candidates": [
-          "ref/magic-wondrous/bracers-of-archery-lesser"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/magic-items/wondrous-items/cloak-of-displacement/major",
-        "carried": "ref/carried/core-rulebook/rules/magic-items/wondrous-items/cloak-of-displacement/major",
-        "candidates": [
-          "ref/magic-wondrous/cloak-of-displacement-major"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/magic-items/wondrous-items/crown-of-blasting/major",
-        "carried": "ref/carried/core-rulebook/rules/magic-items/wondrous-items/crown-of-blasting/major",
-        "candidates": [
-          "ref/magic-wondrous/crown-of-blasting-major"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/magic-items/wondrous-items/horn-of-blasting/greater",
-        "carried": "ref/carried/core-rulebook/rules/magic-items/wondrous-items/horn-of-blasting/greater",
-        "candidates": [
-          "ref/magic-wondrous/horn-of-blasting-greater"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/rules/magic/special-abilities",
-        "carried": "ref/carried/core-rulebook/rules/magic/special-abilities",
-        "candidates": [
-          "ref/rule/special-abilities",
-          "ref/rule/special-abilities-2",
-          "ref/rule/special-abilities-ucp"
-        ]
-      },
-      {
         "legacy": "core-rulebook/rules/spells",
         "carried": "ref/carried/core-rulebook/rules/spells",
         "candidates": [
@@ -5433,314 +5268,6 @@
         "carried": "ref/carried/core-rulebook/rules/spells/spell-lists",
         "candidates": [
           "ref/rule/spell-lists"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/animal-shapes",
-        "carried": "ref/carried/core-rulebook/spells/animal-shapes",
-        "candidates": [
-          "ref/spell/animal-shapes"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/beast-shape-i",
-        "carried": "ref/carried/core-rulebook/spells/beast-shape-i",
-        "candidates": [
-          "ref/spell/beast-shape-1"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/beast-shape-ii",
-        "carried": "ref/carried/core-rulebook/spells/beast-shape-ii",
-        "candidates": [
-          "ref/spell/beast-shape-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/beast-shape-iii",
-        "carried": "ref/carried/core-rulebook/spells/beast-shape-iii",
-        "candidates": [
-          "ref/spell/beast-shape-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/beast-shape-iv",
-        "carried": "ref/carried/core-rulebook/spells/beast-shape-iv",
-        "candidates": [
-          "ref/spell/beast-shape-4"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/call-lightning-storm",
-        "carried": "ref/carried/core-rulebook/spells/call-lightning-storm",
-        "candidates": [
-          "ref/spell/call-lightning-storm"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/detect-chaos",
-        "carried": "ref/carried/core-rulebook/spells/detect-chaos",
-        "candidates": [
-          "ref/spell/detect-chaos"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/detect-good",
-        "carried": "ref/carried/core-rulebook/spells/detect-good",
-        "candidates": [
-          "ref/spell/detect-good"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/detect-law",
-        "carried": "ref/carried/core-rulebook/spells/detect-law",
-        "candidates": [
-          "ref/spell/detect-law"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/elemental-body-ii",
-        "carried": "ref/carried/core-rulebook/spells/elemental-body-ii",
-        "candidates": [
-          "ref/spell/elemental-body-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/elemental-body-iii",
-        "carried": "ref/carried/core-rulebook/spells/elemental-body-iii",
-        "candidates": [
-          "ref/spell/elemental-body-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/elemental-body-iv",
-        "carried": "ref/carried/core-rulebook/spells/elemental-body-iv",
-        "candidates": [
-          "ref/spell/elemental-body-4"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/form-of-the-dragon-ii",
-        "carried": "ref/carried/core-rulebook/spells/form-of-the-dragon-ii",
-        "candidates": [
-          "ref/spell/form-of-the-dragon-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/form-of-the-dragon-iii",
-        "carried": "ref/carried/core-rulebook/spells/form-of-the-dragon-iii",
-        "candidates": [
-          "ref/spell/form-of-the-dragon-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/geas-quest",
-        "carried": "ref/carried/core-rulebook/spells/geas-quest",
-        "candidates": [
-          "ref/spell/geas-quest"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/giant-form-ii",
-        "carried": "ref/carried/core-rulebook/spells/giant-form-ii",
-        "candidates": [
-          "ref/spell/giant-form-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/magic-circle-against-chaos",
-        "carried": "ref/carried/core-rulebook/spells/magic-circle-against-chaos",
-        "candidates": [
-          "ref/spell/magic-circle-against-chaos"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/magic-circle-against-good",
-        "carried": "ref/carried/core-rulebook/spells/magic-circle-against-good",
-        "candidates": [
-          "ref/spell/magic-circle-against-good"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/magic-circle-against-law",
-        "carried": "ref/carried/core-rulebook/spells/magic-circle-against-law",
-        "candidates": [
-          "ref/spell/magic-circle-against-law"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/major-creation",
-        "carried": "ref/carried/core-rulebook/spells/major-creation",
-        "candidates": [
-          "ref/spell/major-creation"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/major-image",
-        "carried": "ref/carried/core-rulebook/spells/major-image",
-        "candidates": [
-          "ref/spell/major-image"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/plant-shape-ii",
-        "carried": "ref/carried/core-rulebook/spells/plant-shape-ii",
-        "candidates": [
-          "ref/spell/plant-shape-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/plant-shape-iii",
-        "carried": "ref/carried/core-rulebook/spells/plant-shape-iii",
-        "candidates": [
-          "ref/spell/plant-shape-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/protection-from-chaos",
-        "carried": "ref/carried/core-rulebook/spells/protection-from-chaos",
-        "candidates": [
-          "ref/spell/protection-from-chaos"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/protection-from-good",
-        "carried": "ref/carried/core-rulebook/spells/protection-from-good",
-        "candidates": [
-          "ref/spell/protection-from-good"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/protection-from-law",
-        "carried": "ref/carried/core-rulebook/spells/protection-from-law",
-        "candidates": [
-          "ref/spell/protection-from-law"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-i",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-i",
-        "candidates": [
-          "ref/spell/summon-monster-1"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-ii",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-ii",
-        "candidates": [
-          "ref/spell/summon-monster-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-iii",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-iii",
-        "candidates": [
-          "ref/spell/summon-monster-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-iv",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-iv",
-        "candidates": [
-          "ref/spell/summon-monster-4"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-ix",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-ix",
-        "candidates": [
-          "ref/spell/summon-monster-9"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-v",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-v",
-        "candidates": [
-          "ref/spell/summon-monster-5"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-vi",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-vi",
-        "candidates": [
-          "ref/spell/summon-monster-6"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-vii",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-vii",
-        "candidates": [
-          "ref/spell/summon-monster-7"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-monster-viii",
-        "carried": "ref/carried/core-rulebook/spells/summon-monster-viii",
-        "candidates": [
-          "ref/spell/summon-monster-8"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-i",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-i",
-        "candidates": [
-          "ref/spell/summon-natures-ally-1"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-ii",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-ii",
-        "candidates": [
-          "ref/spell/summon-natures-ally-2"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-iii",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-iii",
-        "candidates": [
-          "ref/spell/summon-natures-ally-3"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-iv",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-iv",
-        "candidates": [
-          "ref/spell/summon-natures-ally-4"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-ix",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-ix",
-        "candidates": [
-          "ref/spell/summon-natures-ally-9"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-v",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-v",
-        "candidates": [
-          "ref/spell/summon-natures-ally-5"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-vi",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-vi",
-        "candidates": [
-          "ref/spell/summon-natures-ally-6"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-vii",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-vii",
-        "candidates": [
-          "ref/spell/summon-natures-ally-7"
-        ]
-      },
-      {
-        "legacy": "core-rulebook/spells/summon-natures-ally-viii",
-        "carried": "ref/carried/core-rulebook/spells/summon-natures-ally-viii",
-        "candidates": [
-          "ref/spell/summon-natures-ally-8"
         ]
       },
       {
@@ -5954,13 +5481,6 @@
         "candidates": [
           "ref/main/magic-artifacts",
           "ref/rule/artifacts"
-        ]
-      },
-      {
-        "legacy": "mythic-adventures/rules/mythic-items/magic-items/other-magic-items/figurine-of-wondrous-power/basalt-dragon",
-        "carried": "ref/carried/mythic-adventures/rules/mythic-items/magic-items/other-magic-items/figurine-of-wondrous-power/basalt-dragon",
-        "candidates": [
-          "ref/magic-wondrous/figurine-of-wondrous-power-basalt-dragon"
         ]
       },
       {
@@ -6227,20 +5747,6 @@
         "candidates": [
           "ref/main/equipment-armor",
           "ref/rule/armor"
-        ]
-      },
-      {
-        "legacy": "technology-guide/rules/equipment/armor/smart-armor-expanded-form",
-        "carried": "ref/carried/technology-guide/rules/equipment/armor/smart-armor-expanded-form",
-        "candidates": [
-          "ref/tech-armor/smart-armor-expanded-form"
-        ]
-      },
-      {
-        "legacy": "technology-guide/rules/equipment/gear/technological-gear/on-signals/e-pick",
-        "carried": "ref/carried/technology-guide/rules/equipment/gear/technological-gear/on-signals/e-pick",
-        "candidates": [
-          "ref/tech-misc/e-pick"
         ]
       },
       {
@@ -6726,88 +6232,10 @@
         ]
       },
       {
-        "legacy": "ultimate-equipment/rules/artifacts-and-other-items/intelligent-items/specific-intelligent-items/rod-that-should-not-be-greater",
-        "carried": "ref/carried/ultimate-equipment/rules/artifacts-and-other-items/intelligent-items/specific-intelligent-items/rod-that-should-not-be-greater",
-        "candidates": [
-          "ref/magic-rod/rod-that-should-not-be-greater"
-        ]
-      },
-      {
         "legacy": "ultimate-equipment/rules/gear/adventuring-gear",
         "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear",
         "candidates": [
           "ref/main/equipment-adventuring-gear"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/backpack",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/backpack",
-        "candidates": [
-          "ref/eq-misc/backpack"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/buoy",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/buoy",
-        "candidates": [
-          "ref/eq-misc/buoy"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/cauldron",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/cauldron",
-        "candidates": [
-          "ref/eq-misc/cauldron"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/chest",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/chest",
-        "candidates": [
-          "ref/eq-misc/chest"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/ear-trumpet",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/ear-trumpet",
-        "candidates": [
-          "ref/eq-misc/ear-trumpet"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/gamblers-kit",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/gamblers-kit",
-        "candidates": [
-          "ref/eq-misc/gamblers-kit"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/grappling-hook",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/grappling-hook",
-        "candidates": [
-          "ref/eq-misc/grappling-hook",
-          "ref/eq-weapon/grappling-hook"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/holy-symbol",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/holy-symbol",
-        "candidates": [
-          "ref/eq-misc/holy-symbol"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/ink",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/ink",
-        "candidates": [
-          "ref/eq-misc/ink"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/perfume-cologne",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/perfume-cologne",
-        "candidates": [
-          "ref/eq-misc/perfume-cologne"
         ]
       },
       {
@@ -6816,13 +6244,6 @@
         "candidates": [
           "ref/eq-misc/powder-horn",
           "ref/eq-weapon/powder-horn"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/adventuring-gear/skillet",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/skillet",
-        "candidates": [
-          "ref/eq-misc/skillet"
         ]
       },
       {
@@ -6840,31 +6261,10 @@
         ]
       },
       {
-        "legacy": "ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/horse",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/horse",
-        "candidates": [
-          "ref/eq-misc/horse"
-        ]
-      },
-      {
         "legacy": "ultimate-equipment/rules/gear/clothing",
         "carried": "ref/carried/ultimate-equipment/rules/gear/clothing",
         "candidates": [
           "ref/main/equipment-clothing"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/lodging-and-services/laundry",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/laundry",
-        "candidates": [
-          "ref/eq-misc/laundry"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/lodging-and-services/lawyer",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/lawyer",
-        "candidates": [
-          "ref/eq-misc/lawyer"
         ]
       },
       {
@@ -6873,41 +6273,6 @@
         "candidates": [
           "ref/main/equipment-poisons",
           "ref/rule/poisons"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/tools-and-skill-kits/fortune-tellers-deck",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/fortune-tellers-deck",
-        "candidates": [
-          "ref/eq-misc/fortune-telling-deck"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/gear/tools-and-skill-kits/thieves-tools",
-        "carried": "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/thieves-tools",
-        "candidates": [
-          "ref/eq-misc/thieves-tools"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/axiomatic",
-        "carried": "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/axiomatic",
-        "candidates": [
-          "ref/magic-enh/axiomatic"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/holy",
-        "carried": "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/holy",
-        "candidates": [
-          "ref/magic-enh/holy"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/unholy",
-        "carried": "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/unholy",
-        "candidates": [
-          "ref/magic-enh/unholy"
         ]
       },
       {
@@ -6942,66 +6307,10 @@
         ]
       },
       {
-        "legacy": "ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/belt-of-mighty-hurling/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/belt-of-mighty-hurling/greater",
-        "candidates": [
-          "ref/magic-wondrous/belt-of-mighty-hurling-greater"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/monkey-belt/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/monkey-belt/greater",
-        "candidates": [
-          "ref/magic-wondrous/monkey-belt-greater"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/plague-rat-belt/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/plague-rat-belt/greater",
-        "candidates": [
-          "ref/magic-wondrous/plague-rat-belt-greater"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/serpent-belt/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/serpent-belt/greater",
-        "candidates": [
-          "ref/magic-wondrous/serpent-belt-greater"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/chest/chest-slot-wondrous-items/poisoners-jacket/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/chest/chest-slot-wondrous-items/poisoners-jacket/greater",
-        "candidates": [
-          "ref/magic-wondrous/poisoners-jacket-greater"
-        ]
-      },
-      {
         "legacy": "ultimate-equipment/rules/wondrous-items/extradimensional-spaces",
         "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/extradimensional-spaces",
         "candidates": [
           "ref/rule/extradimensional-spaces"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/eyes/eyes-slot-wondrous-items/sniper-goggles/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/eyes/eyes-slot-wondrous-items/sniper-goggles/greater",
-        "candidates": [
-          "ref/magic-wondrous/sniper-goggles-greater"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/feet/feet-slot-wondrous-items/burglar-boots/major",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/feet/feet-slot-wondrous-items/burglar-boots/major",
-        "candidates": [
-          "ref/magic-wondrous/burglar-boots-major"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/hands/hands-slot-wondrous-items/gauntlet-of-rust/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/hands/hands-slot-wondrous-items/gauntlet-of-rust/greater",
-        "candidates": [
-          "ref/magic-wondrous/gauntlet-of-rust-greater"
         ]
       },
       {
@@ -7013,27 +6322,6 @@
         ]
       },
       {
-        "legacy": "ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/crown-of-blasting/major",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/crown-of-blasting/major",
-        "candidates": [
-          "ref/magic-wondrous/crown-of-blasting-major"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/helm-of-brilliance/lesser",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/helm-of-brilliance/lesser",
-        "candidates": [
-          "ref/magic-wondrous/helm-of-brilliance-lesser"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/mask-of-giants/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/mask-of-giants/greater",
-        "candidates": [
-          "ref/magic-wondrous/mask-of-giants-greater"
-        ]
-      },
-      {
         "legacy": "ultimate-equipment/rules/wondrous-items/neck",
         "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/neck",
         "candidates": [
@@ -7041,38 +6329,10 @@
         ]
       },
       {
-        "legacy": "ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/cloak-of-displacement/major",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/cloak-of-displacement/major",
-        "candidates": [
-          "ref/magic-wondrous/cloak-of-displacement-major"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/stone-cloak/major",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/stone-cloak/major",
-        "candidates": [
-          "ref/magic-wondrous/stone-cloak-major"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/horn-of-blasting/greater",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/horn-of-blasting/greater",
-        "candidates": [
-          "ref/magic-wondrous/horn-of-blasting-greater"
-        ]
-      },
-      {
         "legacy": "ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bonebreaker-gauntlets",
         "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bonebreaker-gauntlets",
         "candidates": [
           "ref/magic-wondrous/bonebreaker-gauntlets"
-        ]
-      },
-      {
-        "legacy": "ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bracers-of-archery/lesser",
-        "carried": "ref/carried/ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bracers-of-archery/lesser",
-        "candidates": [
-          "ref/magic-wondrous/bracers-of-archery-lesser"
         ]
       },
       {
@@ -7235,129 +6495,24 @@
         ]
       },
       {
-        "legacy": "ultimate-magic/spells/age-resistance",
-        "carried": "ref/carried/ultimate-magic/spells/age-resistance",
-        "candidates": [
-          "ref/spell/age-resistance"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/create-demiplane",
-        "carried": "ref/carried/ultimate-magic/spells/create-demiplane",
-        "candidates": [
-          "ref/spell/create-demiplane"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/dance-of-a-thousand-cuts",
-        "carried": "ref/carried/ultimate-magic/spells/dance-of-a-thousand-cuts",
-        "candidates": [
-          "ref/spell/dance-of-a-thousand-cuts"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/disguise-other",
-        "carried": "ref/carried/ultimate-magic/spells/disguise-other",
-        "candidates": [
-          "ref/spell/disguise-other"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/monstrous-physique-ii",
-        "carried": "ref/carried/ultimate-magic/spells/monstrous-physique-ii",
-        "candidates": [
-          "ref/spell/monstrous-physique-2"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/monstrous-physique-iii",
-        "carried": "ref/carried/ultimate-magic/spells/monstrous-physique-iii",
-        "candidates": [
-          "ref/spell/monstrous-physique-3"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/monstrous-physique-iv",
-        "carried": "ref/carried/ultimate-magic/spells/monstrous-physique-iv",
-        "candidates": [
-          "ref/spell/monstrous-physique-4"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/possess-object",
-        "carried": "ref/carried/ultimate-magic/spells/possess-object",
-        "candidates": [
-          "ref/spell/possess-object"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/rain-of-frogs",
-        "carried": "ref/carried/ultimate-magic/spells/rain-of-frogs",
-        "candidates": [
-          "ref/spell/rain-of-frogs"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/raise-animal-companion",
-        "carried": "ref/carried/ultimate-magic/spells/raise-animal-companion",
-        "candidates": [
-          "ref/spell/raise-animal-companion"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/ray-of-sickening",
-        "carried": "ref/carried/ultimate-magic/spells/ray-of-sickening",
-        "candidates": [
-          "ref/spell/ray-of-sickening"
-        ]
-      },
-      {
         "legacy": "ultimate-magic/spells/restore-eidolon",
         "carried": "ref/carried/ultimate-magic/spells/restore-eidolon",
         "candidates": [
           "ref/spell/restore-eidolon"
         ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/undead-anatomy-ii",
-        "carried": "ref/carried/ultimate-magic/spells/undead-anatomy-ii",
-        "candidates": [
-          "ref/spell/undead-anatomy-2"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/undead-anatomy-iii",
-        "carried": "ref/carried/ultimate-magic/spells/undead-anatomy-iii",
-        "candidates": [
-          "ref/spell/undead-anatomy-3"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/undead-anatomy-iv",
-        "carried": "ref/carried/ultimate-magic/spells/undead-anatomy-iv",
-        "candidates": [
-          "ref/spell/undead-anatomy-4"
-        ]
-      },
-      {
-        "legacy": "ultimate-magic/spells/vermin-shape-ii",
-        "carried": "ref/carried/ultimate-magic/spells/vermin-shape-ii",
-        "candidates": [
-          "ref/spell/vermin-shape-2"
-        ]
       }
     ],
     "links": {
-      "body_rewritten": 6201,
-      "body_flattened": 0,
-      "parent_rewritten": 438,
+      "body_rewritten": 5319,
+      "body_flattened": 20,
+      "parent_rewritten": 437,
       "parent_flattened": 0,
       "relation_rewritten": 439,
       "relation_flattened": 0,
       "field_rewritten": 160,
       "field_flattened": 0,
-      "rewritten": 7238,
-      "flattened": 0
+      "rewritten": 6355,
+      "flattened": 20
     }
   },
   "derived_rules": {

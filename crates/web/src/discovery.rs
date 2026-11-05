@@ -20,7 +20,7 @@ impl Discovery {
             .catalog()
             .entries
             .iter()
-            .filter(|stub| library.is_entry_active(&stub.id))
+            .filter(|stub| library.is_stub_active(stub))
             .map(|stub| stub.id.to_string())
             .collect();
         Self {

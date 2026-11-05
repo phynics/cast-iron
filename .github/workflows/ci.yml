@@ -13,10 +13,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  TRUNK_VERSION: "0.22.1"
-  # SHA-256 of trunk-x86_64-unknown-linux-gnu.tar.gz in the v0.22.1 release
-  # (the release publishes it as trunk-x86_64-unknown-linux-gnu.tar.gz.sha256).
-  TRUNK_SHA256: 2ab8d548fd5ed9cda50906f61fd8654204e7893bd52ebbfd90533862b7d71ee1
 
 jobs:
   rust:
@@ -24,9 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key: check
       - name: Release promotion safety checks
         run: python3 scripts/test-promote-release.py
       - name: cargo xtask check
@@ -46,9 +42,9 @@ jobs:
         with:
           path: .cache/sources
           key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key: content
       - run: cargo xtask fetch-sources
       # The canonical library is the default build (generated/content).
       - run: cargo xtask content
@@ -101,8 +97,8 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  e2e:
-    name: Browser acceptance tests
+  site:
+    name: Build the site
     # Browser signal must not disappear when formatting, clippy, or unit tests fail.
     needs: [content]
     runs-on: ubuntu-latest
@@ -112,22 +108,20 @@ jobs:
         with:
           name: generated
           path: generated
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Trunk ${{ env.TRUNK_VERSION }}
-        run: |
-          asset="trunk-x86_64-unknown-linux-gnu.tar.gz"
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$asset" \
-            "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/${asset}"
-          echo "${TRUNK_SHA256}  $RUNNER_TEMP/$asset" | sha256sum -c -
-          mkdir -p "$HOME/.local/bin"
-          tar xzf "$RUNNER_TEMP/$asset" -C "$HOME/.local/bin" trunk
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key: site
+          trunk: "true"
       - name: Build the site
         run: |
           trunk --version
-          cargo xtask build-site --public-url /cast-iron/
+          # Trunk fetches wasm-bindgen and wasm-opt from GitHub on a cold tools cache.
+          for attempt in 1 2 3; do
+            cargo xtask build-site --public-url /cast-iron/ && exit 0
+            echo "::warning::build-site attempt $attempt failed"
+            sleep 10
+          done
+          exit 1
       - name: Screen the publication scope and attribution
         run: python3 scripts/check-publication.py
       - name: Dist size summary
@@ -140,37 +134,83 @@ jobs:
             find dist -maxdepth 1 -type f -printf '%s\t%f\n' | sort -rn | head -10
             echo '```'
           } | tee dist-size.txt >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/setup-node@v7
+      - uses: actions/upload-artifact@v7
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: tests/e2e/package-lock.json
-      - run: npm --prefix tests/e2e ci
-      - name: Install Chromium and its system dependencies
-        run: npx --prefix tests/e2e playwright install --with-deps chromium
+          name: dist
+          path: |
+            dist
+            dist-size.txt
+          # dist holds .nojekyll, which the browser tests load as published.
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  e2e-chromium:
+    name: Browser acceptance tests (Chromium, required)
+    needs: [site]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: generated
+          path: generated
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: .
+      - uses: ./.github/actions/setup-e2e
+        with:
+          browser: chromium
       - name: Tests on Chromium (required)
         env:
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/chromium
         run: npm --prefix tests/e2e test -- --project=chromium --project=mobile-chromium --output=test-results/chromium
-      - name: Install WebKit
-        if: ${{ !cancelled() }}
-        run: npx --prefix tests/e2e playwright install --with-deps webkit
-      # Firefox is disabled in CI after repeated installer timeouts; see docs/decisions.md.
-      # WebKit remains informational until its service worker behavior is stable on Linux.
-      - name: Tests on WebKit (informational)
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/webkit
-        run: npm --prefix tests/e2e test -- --project=webkit --output=test-results/webkit
       - name: Upload the report, traces and dist size
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-report
+          name: e2e-report-chromium
           path: |
             tests/e2e/playwright-report
             tests/e2e/test-results
             dist-size.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  e2e-webkit:
+    name: Browser acceptance tests (WebKit, informational)
+    needs: [site]
+    runs-on: ubuntu-latest
+    # WebKit remains informational until its service worker behavior is stable on
+    # Linux. A job-level continue-on-error keeps a failure here from failing the
+    # workflow run, which scripts/promote-release.py reads. Firefox is disabled in
+    # CI after repeated installer timeouts; see docs/decisions.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: generated
+          path: generated
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: .
+      - uses: ./.github/actions/setup-e2e
+        with:
+          browser: webkit
+      - name: Tests on WebKit (informational)
+        env:
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/webkit
+        run: npm --prefix tests/e2e test -- --project=webkit --output=test-results/webkit
+      - name: Upload the report and traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report-webkit
+          path: |
+            tests/e2e/playwright-report
+            tests/e2e/test-results
           if-no-files-found: warn
           retention-days: 14
