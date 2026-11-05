@@ -111,11 +111,13 @@ test("Keyboard controls expose focus and native disclosure state at phone and de
     })).toBe(true);
     await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "page");
     await page.goto("#/browse/kind/spell");
-    const jump = page.getByRole("button", { name: `Jump to ${letter}`, exact: true });
-    await jump.focus(); await page.keyboard.press("Enter");
-    await expect.poll(() => page.locator(`#letter-${letter}`).evaluate(el => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+    const jump = page.getByRole("link", { name: `Jump to ${letter}`, exact: true });
+    // Measure the control before activation: the route change remounts the jump bar.
     const rect = await jump.boundingBox();
     expect(rect!.width).toBeGreaterThanOrEqual(44); expect(rect!.height).toBeGreaterThanOrEqual(44);
+    await jump.focus(); await page.keyboard.press("Enter");
+    await expect.poll(() => page.locator(`#letter-${letter}`).evaluate(el => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+    await expect(page.locator(`#letter-${letter} .letter-head`)).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });

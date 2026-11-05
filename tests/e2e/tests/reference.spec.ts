@@ -7,6 +7,7 @@ import {
   corpusEntry,
   firstEntry,
   firstBookPlacement,
+  groupLetter,
   hasBlock,
   headingAnchors,
   headingKeys,
@@ -123,16 +124,26 @@ test("Home is category-only and Books is the publication directory", async ({ pa
     expect(shown, name).toBe(count((s) => s.kind === kind));
   }
 
-  // The Spells category lists every spell, and a letter jump scrolls to its group.
-  const spellStub = firstEntry("a spell", (entry) => entry.kind === "spell");
-  const letter = spellStub.title[0].toUpperCase();
+  // The Spells category opens one letter group at a time; the jump bar moves between them.
+  const spells = corpus.catalog.entries.filter((stub) => stub.kind === "spell");
+  const letters = [...new Set(spells.map((stub) => groupLetter(stub.title)))].sort(
+    (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
+  );
+  const firstLetter = letters[0];
+  const firstGroup = spells.filter((stub) => groupLetter(stub.title) === firstLetter);
   await tiles.filter({ has: page.locator(".cat-name", { hasText: /^Spells$/ }) }).click();
-  const rows = page.locator('.entry-list a[href^="#/entry/"]');
-  await expect(rows).toHaveCount(count((s) => s.kind === "spell"));
-  await page.locator(".letter-btn", { hasText: new RegExp(`^${letter}$`) }).click();
-  await expect
-    .poll(() => page.evaluate((value) => document.getElementById(`letter-${value}`)!.getBoundingClientRect().top, letter))
-    .toBeLessThan(250);
+  const jump = page.getByRole("navigation", { name: "Jump to letter" });
+  await expect(jump).toBeVisible();
+  await expect(jump.getByRole("link")).toHaveCount(letters.length);
+  await expect(page.locator(`#letter-${firstLetter} .entry-list a[href^="#/entry/"]`)).toHaveCount(firstGroup.length);
+  // Other groups stay collapsed behind a link that selects their letter.
+  const targetLetter = letters.find((letter) => letter !== firstLetter)!;
+  await expect(page.locator(`#letter-${firstLetter} .show-letter`)).toHaveCount(1);
+  await jump.getByRole("link", { name: `Jump to ${targetLetter}`, exact: true }).click();
+  await expect.poll(() => new URL(page.url()).hash).toContain(`l=${encodeURIComponent(targetLetter)}`);
+  await expect(page.locator(`#letter-${targetLetter}`)).toBeInViewport();
+  await expect(page.locator(`#letter-${firstLetter} .show-letter`)).toBeVisible();
+  expect(await page.evaluate((letter) => document.activeElement?.textContent?.startsWith(letter), targetLetter)).toBe(true);
 
   // Rules have no standalone Browse category. The former route redirects to Books.
   await page.goto("#/browse/kind/rule");

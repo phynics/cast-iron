@@ -6,6 +6,7 @@ import {
   buildLibraryWithoutBooks,
   corpusEntry,
   firstBookPlacement,
+  groupLetter,
   installLibrary,
   waitControlled,
   waitReady,
@@ -54,11 +55,12 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await waitReady(page);
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
-  await page.goto("#/browse/kind/spell");
+  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(entry.title))}`);
   // The reader places an entry in its first book, so an entry that a second book also
-  // holds disappears with this one. Derive the count from that same rule.
+  // holds disappears with this one. Only the selected letter group is in the document.
   const expected = corpus.catalog.entries.filter((stub) =>
-    stub.kind === "spell" && (owners.get(stub.id) ?? stub.source) !== book.source).length;
+    stub.kind === "spell" && groupLetter(stub.title) === groupLetter(entry.title) &&
+    (owners.get(stub.id) ?? stub.source) !== book.source).length;
   await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(expected);
   await expect(page.getByRole("link", { name: entry.title, exact: true })).toHaveCount(0);
 

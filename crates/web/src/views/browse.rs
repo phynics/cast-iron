@@ -1,9 +1,8 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
-use crate::js;
 use crate::library::{Library, use_library};
-use crate::route::{Route, scroll_to_anchor};
+use crate::route::Route;
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
@@ -14,11 +13,6 @@ use crate::views::util::{
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-
-/// Rows built before the first paint of an A to Z list, and rows added per step after it.
-/// A step is one task, so the page stays responsive while the rest of a long list arrives.
-const FIRST_ROWS: usize = 240;
-const STEP_ROWS: usize = 480;
 
 // ---- pure helpers -----------------------------------------------------------------------
 
@@ -83,18 +77,6 @@ pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode>
         .collect()
 }
 
-/// How many letter groups to show now so that at least `rows` rows are built, starting after
-/// `from` groups. Always makes progress while groups remain.
-pub fn groups_for_rows(groups: &[(char, Vec<usize>)], from: usize, rows: usize) -> usize {
-    let mut shown = from;
-    let mut built = 0;
-    while shown < groups.len() && (built < rows || shown == from) {
-        built += groups[shown].1.len();
-        shown += 1;
-    }
-    shown
-}
-
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
@@ -116,7 +98,7 @@ fn entry_row(stub: &EntryStub, source: Option<String>) -> impl IntoView + use<> 
 fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
     view! {
         <li>
-            <a class="cat" href=Route::BrowseKind(kind).href()>
+            <a class="cat" href=Route::browse_kind(kind).href()>
                 <span class="cat-name">{kind.label()}</span>
                 <span class="cat-count">{n}</span>
                 <span class="cat-blurb">{categories::blurb(kind)}</span>
@@ -391,21 +373,35 @@ fn Lenses(kind: EntryKind) -> impl IntoView {
     .into_any()
 }
 
-/// An A to Z list that builds its rows in steps. The first screenful is there at once; the rest
-/// follows task by task, so a 3,500-row category never blocks input. Every row ends up in the
-/// document, which keeps find-in-page working.
+/// Kinds with more entries than this open one letter group at a time. Shorter kinds stay a
+/// plain list.
+const GROUP_THRESHOLD: usize = 200;
+
+fn entry_count(n: usize) -> String {
+    if n == 1 {
+        "1 entry".to_string()
+    } else {
+        format!("{n} entries")
+    }
+}
+
+/// An A to Z list. A long kind groups its rows by first letter and renders only the selected
+/// group, so a 3,000-entry category no longer puts every link in the document. Short kinds
+/// render as one flat list.
 #[component]
 fn AzList(
+    kind: EntryKind,
     stubs: Vec<EntryStub>,
     source_titles: Vec<Option<String>>,
     show_source: bool,
+    letter: Option<char>,
 ) -> impl IntoView {
     let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
     let groups = Shared::new(group_by_letter(&titles));
     let stubs = Shared::new(stubs);
     let source_titles = Shared::new(source_titles);
     // Group only for presentation, after the caller has selected active catalog stubs. The
-    // letter index still counts source records, so incremental loading thresholds stay stable.
+    // letter index still counts source records, so the counts match the category total.
     let mut grouped_by_entry = Vec::with_capacity(stubs.len());
     for (i, stub) in stubs.iter().enumerate() {
         let source = source_titles[i]
@@ -434,59 +430,16 @@ fn AzList(
         .enumerate()
         .map(|(index, stub)| (stub.id.clone(), index))
         .collect::<std::collections::HashMap<_, _>>();
-    let shown = RwSignal::new(groups_for_rows(&groups, 0, FIRST_ROWS));
 
-    {
-        let groups = groups.clone();
-        spawn_local(async move {
-            loop {
-                js::sleep(0).await;
-                let Some(current) = shown.try_get_untracked() else {
-                    return;
-                };
-                if current >= groups.len() {
-                    return;
-                }
-                shown.set(groups_for_rows(&groups, current, STEP_ROWS));
-            }
-        });
-    }
-
-    let jump = groups
-        .iter()
-        .enumerate()
-        .map(|(position, (letter, _))| {
-            let id = letter_id(*letter);
-            let label = letter.to_string();
-            view! {
-                <li>
-                    <button
-                        type="button"
-                        class="letter-btn"
-                        aria-label=format!("Jump to {label}")
-                        on:click=move |_| {
-                            // The group may not be built yet; build up to it, then scroll.
-                            if shown.get_untracked() <= position {
-                                shown.set(position + 1);
-                            }
-                            let id = id.clone();
-                            request_animation_frame(move || { scroll_to_anchor(&id); });
-                        }
-                    >{label.clone()}</button>
-                </li>
-            }
-        })
-        .collect_view();
-
-    let group_rows = {
-        let groups = groups.clone();
+    // One list item per entry, with same-title records folded into one disclosure. The indices
+    // belong to one letter group, or to the whole list when the kind is short.
+    let rows_for = {
         let stubs = stubs.clone();
         let source_titles = source_titles.clone();
         let presentation_groups = presentation_groups.clone();
         let variant_group_by_id = variant_group_by_id.clone();
         let entry_index_by_id = entry_index_by_id.clone();
-        move |position: usize| {
-            let (letter, indices) = &groups[position];
+        move |indices: &[usize]| {
             let mut rendered = Vec::<AnyView>::new();
             let mut consumed = std::collections::HashSet::new();
             for &i in indices {
@@ -515,23 +468,104 @@ fn AzList(
                     );
                 }
             }
-            let rows = rendered;
-            view! {
-                <section class="letter-group" id=letter_id(*letter)>
-                    <h2 class="letter-head">{letter.to_string()}</h2>
-                    <ul class="entry-list">{rows}</ul>
-                </section>
-            }
+            rendered
         }
     };
+
+    // Short lists keep the plain, ungrouped list.
+    if stubs.len() <= GROUP_THRESHOLD {
+        let indices: Vec<usize> = (0..stubs.len()).collect();
+        let rows = rows_for(&indices);
+        return view! { <ul class="entry-list">{rows}</ul> }.into_any();
+    }
+
+    // An unknown or absent letter falls back to the first group. Only a letter the list
+    // actually has moves focus, so a bare category URL behaves as it always did.
+    let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
+    let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
+    let heading_ref = NodeRef::<leptos::html::H2>::new();
+    if requested.is_some() {
+        // The route frame scrolls to the top and focuses <main> in the next frame, so wait one
+        // more frame before moving focus to the group heading.
+        Effect::new(move |_| {
+            request_animation_frame(move || {
+                request_animation_frame(move || {
+                    if let Some(heading) = heading_ref.get() {
+                        let _ = heading.focus();
+                    }
+                });
+            });
+        });
+    }
+
+    let jump = groups
+        .iter()
+        .map(|(letter, _)| {
+            let label = letter.to_string();
+            let jump_label = label.clone();
+            let href = Route::browse_kind_letter(kind, *letter).href();
+            let current = Some(*letter) == selected;
+            view! {
+                <li>
+                    <a
+                        class="letter-btn"
+                        href=href
+                        aria-current=if current { "true" } else { "false" }
+                        aria-label=format!("Jump to {jump_label}")
+                    >{label}</a>
+                </li>
+            }
+        })
+        .collect_view();
+
+    let mut selected_rows = selected
+        .and_then(|letter| groups.iter().position(|(group, _)| *group == letter))
+        .map(|position| rows_for(&groups[position].1));
+    let sections = groups
+        .iter()
+        .map(|(group_letter, indices)| {
+            let n = indices.len();
+            let count = entry_count(n);
+            let label = group_letter.to_string();
+            let dom_id = letter_id(*group_letter);
+            let is_selected = Some(*group_letter) == selected;
+            if is_selected {
+                let rows = selected_rows.take().unwrap_or_default();
+                view! {
+                    <section class="letter-group" id=dom_id data-letter=label.clone()>
+                        <h2 class="letter-head" tabindex="-1" node_ref=heading_ref>
+                            {label.clone()}<span class="letter-count">{count}</span>
+                        </h2>
+                        <ul class="entry-list">{rows}</ul>
+                    </section>
+                }
+                .into_any()
+            } else {
+                let href = Route::browse_kind_letter(kind, *group_letter).href();
+                view! {
+                    <section class="letter-group" id=dom_id data-letter=label.clone()>
+                        <h2 class="letter-head">
+                            {label.clone()}<span class="letter-count">{count.clone()}</span>
+                        </h2>
+                        <p class="letter-more">
+                            <a class="show-letter" href=href>{format!("Show {count}")}</a>
+                        </p>
+                    </section>
+                }
+                .into_any()
+            }
+        })
+        .collect_view();
+
     view! {
         <nav class="letter-nav" aria-label="Jump to letter"><ul>{jump}</ul></nav>
-        <For each=move || 0..shown.get() key=|position| *position children=group_rows />
+        {sections}
     }
+    .into_any()
 }
 
 #[component]
-pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
+pub fn BrowseKind(kind: EntryKind, letter: Option<char>) -> impl IntoView {
     set_title(kind.label());
     let library = use_library();
     let stubs = sorted_of_kind(&library, kind);
@@ -550,7 +584,7 @@ pub fn BrowseKind(kind: EntryKind) -> impl IntoView {
             .iter()
             .map(|s| library.source(&s.source).map(|src| src.title.clone()))
             .collect();
-        view! { <AzList stubs=stubs.clone() source_titles show_source=multi_source /> }.into_any()
+        view! { <AzList kind stubs=stubs.clone() source_titles show_source=multi_source letter=letter /> }.into_any()
     };
 
     let search_href = Route::Search {
@@ -710,20 +744,6 @@ mod tests {
                 ('#', vec![0])
             ]
         );
-    }
-
-    #[test]
-    fn rows_are_built_in_whole_letter_groups_and_always_progress() {
-        let groups = vec![('A', vec![0; 300]), ('B', vec![0; 300]), ('C', vec![0; 10])];
-        // The first call builds at least the rows asked for, in whole groups.
-        assert_eq!(groups_for_rows(&groups, 0, 240), 1);
-        assert_eq!(groups_for_rows(&groups, 0, 301), 2);
-        // A step builds one group even when it alone is larger than the step.
-        assert_eq!(groups_for_rows(&groups, 1, 10), 2);
-        assert_eq!(groups_for_rows(&groups, 1, 1000), 3);
-        // Past the end it stays at the end.
-        assert_eq!(groups_for_rows(&groups, 3, 100), 3);
-        assert_eq!(groups_for_rows(&[], 0, 100), 0);
     }
 
     #[test]

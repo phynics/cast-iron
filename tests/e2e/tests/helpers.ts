@@ -1,5 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
+/** The browse A to Z group of a title: an ASCII letter, else `#` for digits and symbols. */
+export function groupLetter(title: string): string {
+  const first = [...title].find((char) => /[\p{L}\p{N}]/u.test(char))?.toUpperCase();
+  return first && /^[A-Z]$/.test(first) ? first : "#";
+}
+
 /** Open the app, accept the offer, and wait for the reader. */
 export async function installLibrary(page: Page) {
   await page.goto("./");

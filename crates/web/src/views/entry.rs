@@ -289,14 +289,14 @@ fn EntryView(
     let category_route = if kind == EntryKind::Rule {
         Route::Books
     } else {
-        Route::BrowseKind(kind)
+        Route::browse_kind(kind)
     };
     let disabled_book = !library.is_entry_active(&entry.id);
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
                 <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
-                {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::BrowseKind(kind).href()>{kind.label()}</a></li> })}
+                {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::browse_kind(kind).href()>{kind.label()}</a></li> })}
                 {crumbs_chain}
                 {crumbs_sections}
             </ol>

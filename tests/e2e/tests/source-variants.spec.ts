@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, goOffline } from "./fixtures";
-import { bookOwners, installLibrary, waitControlled, waitResults } from "./helpers";
+import { bookOwners, groupLetter, installLibrary, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const owners = bookOwners();
@@ -29,7 +29,7 @@ const kind = variants[0].kind;
 test("Source variants retain distinct entries in browse and search after book filtering", async ({ page, context, server }) => {
   expect(variants.length).toBeGreaterThan(1);
   await installLibrary(page); await waitControlled(page); await goOffline(context, server);
-  await page.goto(`#/browse/kind/${kind}`);
+  await page.goto(`#/browse/kind/${kind}?l=${encodeURIComponent(groupLetter(title))}`);
   const group = page.locator(".entry-list .source-variants").filter({ has: page.locator("summary", { hasText: new RegExp(`^${escape(title)} `) }) });
   await expect(group).toHaveCount(1);
   await group.locator("summary").press("Enter");

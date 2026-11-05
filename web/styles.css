@@ -953,27 +953,27 @@ mark {
   position: sticky;
   top: var(--header-h);
   z-index: 3;
-  height: var(--letter-h);
+  min-height: var(--letter-h);
   margin: 0 calc(-1 * var(--space-3));
-  padding: 0 var(--space-3);
+  padding: var(--space-1) var(--space-3);
   background: var(--bg);
   border-bottom: var(--border);
-  overflow-x: auto;
-  scrollbar-width: thin;
 }
 
 .letter-nav ul {
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
-  height: 100%;
   align-items: center;
   margin: 0;
   padding: 0;
-  width: max-content;
 }
 
 .letter-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: var(--touch);
   min-height: var(--touch);
   font: inherit;
@@ -982,6 +982,7 @@ mark {
   background: transparent;
   border: 0;
   border-radius: var(--radius);
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -989,16 +990,35 @@ mark {
   background: var(--surface-2);
 }
 
+.letter-btn[aria-current="true"] {
+  color: var(--bg);
+  background: var(--accent);
+}
+
 .letter-head {
-  position: sticky;
-  top: calc(var(--header-h) + var(--letter-h));
-  z-index: 2;
   margin: 0;
   padding: var(--space-1) var(--space-2);
   font-size: var(--step-1);
   color: var(--ink-muted);
   background: var(--surface-2);
   border-bottom: var(--border);
+}
+
+.letter-count {
+  margin-left: var(--space-2);
+  font-size: var(--step--1);
+  font-weight: 400;
+}
+
+.letter-more {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+}
+
+.show-letter {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
 }
 
 .letter-group {
