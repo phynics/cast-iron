@@ -146,9 +146,16 @@ pub fn facet_label(field: &str, value: &str) -> String {
     }
 }
 
+/// Connective words that stay lowercase inside a facet label, except as the first word.
+const SHORT_CONNECTIVES: [&str; 4] = ["or", "and", "of", "the"];
+
 fn capitalize_words(text: &str) -> String {
     text.split(' ')
-        .map(|word| {
+        .enumerate()
+        .map(|(i, word)| {
+            if i > 0 && SHORT_CONNECTIVES.contains(&word) {
+                return word.to_string();
+            }
             let mut chars = word.chars();
             match chars.next() {
                 Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
@@ -1076,6 +1083,15 @@ mod tests {
             facet_label("archetype_class", "arcane archer"),
             "Arcane Archer"
         );
+        assert_eq!(
+            facet_label("archetype_class", "knight of the road"),
+            "Knight of the Road"
+        );
+        assert_eq!(
+            facet_label("school", "creation or calling"),
+            "Creation or Calling"
+        );
+        assert_eq!(facet_label("school", "or"), "Or");
         // Fields that already read well are not touched.
         assert_eq!(facet_label("school", "evocation"), "Evocation");
         assert_eq!(facet_label("cr", "1/2"), "1/2");
