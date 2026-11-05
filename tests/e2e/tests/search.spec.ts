@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
+import { bodyText, corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -312,6 +312,17 @@ test("Equal relevance ranks the Rulebook entry before an Adventure entry", async
   expect(category(rulebook), "the Rulebook fixture must come from an RPG book").toBe("RPG");
   expect(category(adventure), "the lower-tier fixture must come from an Adventure Path").toBe("Adventure Path");
   expect(adventure.title < rulebook.title, "the fixtures must tie in the opposite of tier order").toBe(true);
+  // The tie holds only while the query word is in the titles and nowhere in the bodies. Search
+  // matches a document word that starts with the query word, so "distraction" in a body does not
+  // count, but "distracting" does: it adds body relevance, and then relevance decides instead of
+  // the tier.
+  // See also the native pin in crates/search/tests/canonical_ranking.rs.
+  for (const entry of [rulebook, adventure]) {
+    expect(
+      bodyText(entry).toLowerCase(),
+      `${entry.title} now has a word starting with "distracting" in its body, so the two no longer tie on relevance. Pick another fixture pair that scores exactly equal.`,
+    ).not.toMatch(/\bdistracting/);
+  }
 
   await installLibrary(page);
   await page.goto("#/search");

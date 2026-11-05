@@ -84,3 +84,37 @@ fn canonical_top50_ranking_matches_the_previous_engine() {
         assert_eq!(got, expected, "ranking changed for {query:?}");
     }
 }
+
+/// The e2e test `Equal relevance ranks the Rulebook entry before an Adventure entry` relies on
+/// two entries that tie exactly for "Distracting". The tie is a property of the corpus, so pin it
+/// here, where a failure is cheap to diagnose. When this fails after a content change, the e2e
+/// fixture pair needs replacing with another exact tie across tiers; relevance is not at fault.
+#[test]
+fn the_distracting_pair_ties_exactly_in_the_canonical_index() {
+    let Some((path, _)) = index_path() else {
+        eprintln!("skipping: no generated canonical search index");
+        return;
+    };
+    let bytes = std::fs::read(&path).expect("read search index");
+    let index = SearchIndex::from_bytes(&bytes).expect("decode search index");
+    let hits = index.search_summaries(&Query {
+        text: "Distracting".into(),
+        limit: usize::MAX,
+        ..Default::default()
+    });
+    let score_of = |id: &str| {
+        hits.iter()
+            .find(|hit| hit.id == id)
+            .unwrap_or_else(|| panic!("{id} is not a hit for \"Distracting\" any more"))
+            .score
+    };
+    let (rulebook, adventure) = (
+        score_of("ref/rule/rc-distracting-visitor"),
+        score_of("ref/feat/distracting-explosion"),
+    );
+    assert_eq!(
+        rulebook.total_cmp(&adventure),
+        std::cmp::Ordering::Equal,
+        "the scores differ ({rulebook} vs {adventure}); the e2e tie fixture is stale"
+    );
+}
