@@ -80,6 +80,8 @@ test("Keyboard reading traverses a complete subsystem offline and preserves book
   await next.press("Enter");
   await expect(page.locator("h1")).not.toHaveText(target.title);
   await expect(page.locator("h1")).toHaveText(nextTitle);
+  // Same focus move as below: wait for it, or the Enter on "previous" lands on <main>.
+  await expect(page.locator("main#main")).toBeFocused();
   await page.locator('.book-steps a[rel="prev"]').press("Enter");
   await expect(page.locator("h1")).toHaveText(target.title);
   // The route change moves focus to <main> on the next frame. Wait for it before the next key,
