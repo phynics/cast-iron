@@ -26,6 +26,14 @@ pub fn plain_text(input: &str) -> String {
     while let Some(start) = rest.find(OPEN) {
         out.push_str(&strip_stray_close(&rest[..start]));
         let after = &rest[start + OPEN.len_utf8()..];
+        // `‹‹label/#anchor››` and `‹‹label/https://...››` are in-page and outside links.
+        if let Some(nested) = after.strip_prefix(OPEN)
+            && let Some(end) = nested.find("››")
+        {
+            out.push_str(&double_tag_text(&nested[..end]));
+            rest = &nested[end + 2 * CLOSE.len_utf8()..];
+            continue;
+        }
         let Some(end) = after.find(CLOSE) else {
             // Unterminated tag: keep its words, lose the marker.
             rest = after;
@@ -40,6 +48,17 @@ pub fn plain_text(input: &str) -> String {
 
 fn strip_stray_close(text: &str) -> String {
     text.replace(CLOSE, "")
+}
+
+fn double_tag_text(inner: &str) -> String {
+    let label_end = inner
+        .find("/#")
+        .or_else(|| inner.find("/http"))
+        .or_else(|| inner.rfind('/'));
+    match label_end {
+        Some(i) => inner[..i].to_string(),
+        None => inner.to_string(),
+    }
 }
 
 fn tag_text(inner: &str) -> String {
@@ -147,7 +166,16 @@ fn protect_entities(line: &str) -> String {
     })
 }
 
+/// Restore entity placeholders, then reduce any inline tag the renderer left in the text
+/// (for example in a directive attribute) to its display text.
 fn restore_text(text: &mut String) {
+    restore_placeholders(text);
+    if text.contains([OPEN, CLOSE]) || text.contains("&#") {
+        *text = plain_text(text);
+    }
+}
+
+fn restore_placeholders(text: &mut String) {
     if text
         .chars()
         .any(|c| (PLACEHOLDER_BASE..=PLACEHOLDER_BASE + PLACEHOLDER_MAX).contains(&(c as u32)))
@@ -384,6 +412,18 @@ mod tests {
         let text = plain_text("‹rule/sanity« system›");
         assert_eq!(text, "sanity system");
         assert!(!text.contains(['‹', '›', '<', '>', '«', '»']));
+    }
+
+    #[test]
+    fn double_bracket_links_keep_their_label() {
+        assert_eq!(
+            plain_text("‹‹electricity resistance/#res›› power of the Air domain"),
+            "electricity resistance power of the Air domain"
+        );
+        assert_eq!(
+            plain_text("‹‹From the FAQ/https://paizo.com/paizo/faq/v5748nruor1fn#v5748eaic9raj››: The lack"),
+            "From the FAQ: The lack"
+        );
     }
 
     #[test]
