@@ -267,6 +267,30 @@ fn publication_page(
     }
 }
 
+/// The line above the publication chips. A pinned publication that the name box does not match
+/// is not counted, so the numbers never read like "1 of 0".
+fn publication_summary_line(page: &PublicationPage, filter: &str, show_all: bool) -> String {
+    let filter = filter.trim();
+    if !filter.is_empty() {
+        return match page.matches {
+            0 => format!("No publication matches “{filter}”."),
+            1 => "Showing the one matching publication with results.".to_string(),
+            n => format!("Showing all {n} matching publications with results."),
+        };
+    }
+    if show_all {
+        format!(
+            "Showing all {} publications with results.",
+            page.with_results
+        )
+    } else {
+        format!(
+            "Showing {} of {} publications with results.",
+            page.shown_with_results, page.with_results
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 struct SearchState {
     q: String,
@@ -550,7 +574,7 @@ pub fn Search() -> impl IntoView {
                     phase.set(Phase::Idle);
                     search_ms.set(None);
                     // Warm the index so the first keystroke does not wait for it.
-                    ensure_index(&library, index, index_ms, phase, false).await;
+                    ensure_index(&library, index, index_ms, phase, false, &alive).await;
                     if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
                         && alive()
                     {
@@ -558,7 +582,7 @@ pub fn Search() -> impl IntoView {
                     }
                     return;
                 }
-                let loaded = ensure_index(&library, index, index_ms, phase, true).await;
+                let loaded = ensure_index(&library, index, index_ms, phase, true, &alive).await;
                 if !alive() {
                     return;
                 }
@@ -606,6 +630,9 @@ pub fn Search() -> impl IntoView {
                         Some(values) => values,
                         None => match discovery.facet_values(field).await {
                             Ok(pairs) => {
+                                if !alive() {
+                                    return;
+                                }
                                 let mut values =
                                     pairs.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
                                 sort_facet_values(field, &mut values);
@@ -678,8 +705,13 @@ pub fn Search() -> impl IntoView {
         }
     };
     let flush = move || {
-        let mut next = state.get_untracked();
-        let typed = text.get_untracked();
+        // A debounce can outlive the screen: the column is gone after the reader leaves Search.
+        let Some(mut next) = state.try_get_untracked() else {
+            return;
+        };
+        let Some(typed) = text.try_get_untracked() else {
+            return;
+        };
         if next.q != typed {
             next.q = typed;
             write(next, false);
@@ -847,25 +879,8 @@ pub fn Search() -> impl IntoView {
     };
     let publication_summary = move || {
         let page = publication_view.get();
-        let filtered = publication_filter.with(|filter| !filter.trim().is_empty());
-        if filtered {
-            format!(
-                "{} of {} publications with results match “{}”.",
-                page.shown_with_results,
-                page.matches,
-                publication_filter.with(|filter| filter.trim().to_string())
-            )
-        } else if publications_open.get() {
-            format!(
-                "Showing all {} publications with results.",
-                page.with_results
-            )
-        } else {
-            format!(
-                "Showing {} of {} publications with results.",
-                page.shown_with_results, page.with_results
-            )
-        }
+        let filter = publication_filter.with(|filter| filter.clone());
+        publication_summary_line(&page, &filter, publications_open.get())
     };
     let publication_tools = view! {
         <label class="publication-filter">
@@ -1132,13 +1147,15 @@ pub fn Search() -> impl IntoView {
     }
 }
 
-/// Loads the index once. With `show`, flags the loading state while waiting.
+/// Loads the index once. With `show`, flags the loading state while waiting. `alive` is checked
+/// after each wait, so a task whose screen was disposed stops before it touches a signal.
 async fn ensure_index(
     library: &crate::library::Library,
     index: RwSignal<Option<Rc<SearchIndex>>, LocalStorage>,
     index_ms: RwSignal<Option<f64>>,
     phase: RwSignal<Phase>,
     show: bool,
+    alive: impl Fn() -> bool,
 ) -> Option<Rc<SearchIndex>> {
     if let Some(idx) = index.get_untracked() {
         return Some(idx);
@@ -1147,9 +1164,16 @@ async fn ensure_index(
         phase.set(Phase::LoadingIndex);
         // Let the browser paint the message before the index decodes on this thread.
         js::sleep(0).await;
+        if !alive() {
+            return None;
+        }
     }
     let started = now();
-    match library.search_index().await {
+    let loaded = library.search_index().await;
+    if !alive() {
+        return None;
+    }
+    match loaded {
         Ok(idx) => {
             if index_ms.get_untracked().is_none() {
                 index_ms.set(Some(now() - started));
@@ -1496,6 +1520,47 @@ mod tests {
         let page = page_of(&sources, &counts, &["z"], "", false);
         assert_eq!(page.ids, ["z", "a"]);
         assert_eq!(page.with_results, 2);
+    }
+
+    #[test]
+    fn a_pinned_publication_outside_the_name_box_is_not_counted() {
+        let sources = [source("a", "Alpha"), source("b", "Beta")];
+        let counts = [("a", 5), ("b", 0)];
+        let page = page_of(&sources, &counts, &["b"], "alpha", false);
+        // Beta stays visible so it can be cleared, but the name box has one match, not zero.
+        assert_eq!(page.ids, ["b", "a"]);
+        assert_eq!(page.matches, 1);
+        assert_eq!(
+            publication_summary_line(&page, "alpha", false),
+            "Showing the one matching publication with results."
+        );
+        let none = page_of(&sources, &counts, &["b"], "gamma", false);
+        assert_eq!(none.matches, 0);
+        assert_eq!(
+            publication_summary_line(&none, "gamma", false),
+            "No publication matches “gamma”."
+        );
+    }
+
+    #[test]
+    fn the_summary_counts_what_is_visible() {
+        let sources: Vec<SourceInfo> = (0..20)
+            .map(|n| source(&format!("s{n:02}"), &format!("Source {n:02}")))
+            .collect();
+        let counts: Vec<(&str, usize)> = sources
+            .iter()
+            .enumerate()
+            .map(|(n, source)| (source.id.as_str(), n + 1))
+            .collect();
+        let page = page_of(&sources, &counts, &[], "", false);
+        assert_eq!(
+            publication_summary_line(&page, "", false),
+            "Showing 12 of 20 publications with results."
+        );
+        assert_eq!(
+            publication_summary_line(&page, "", true),
+            "Showing all 20 publications with results."
+        );
     }
 
     #[test]

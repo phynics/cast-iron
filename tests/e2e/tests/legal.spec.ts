@@ -112,6 +112,10 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   const excludedTable = excluded.locator("table", { has: page.locator("caption", { hasText: "Excluded from this library" }) });
   await expect(excludedTable.locator("tbody tr")).toHaveCount(coverage.excluded.length);
   await expect(excludedTable).toContainText(coverage.excluded[0].path);
+  // The rows are built once: closing the disclosure hides them but keeps them mounted.
+  await excluded.locator("summary").click();
+  await expect(excluded).not.toHaveAttribute("open", "");
+  await expect(excludedTable.locator("tbody tr")).toHaveCount(coverage.excluded.length);
 
   if (coverage.rejected.length) {
     const rejectedGroups = new Set(coverage.rejected.map((row: any) => reasonGroup(row.reason)));

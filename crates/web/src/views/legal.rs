@@ -127,14 +127,19 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
 }
 
 /// A collapsed disclosure whose content is built only when it first opens. Coverage detail can
-/// run to thousands of rows, so a closed disclosure must not put any of them in the DOM.
+/// run to thousands of rows, so a closed disclosure must not put any of them in the DOM. After the
+/// first open the rows stay mounted, so closing and reopening does not rebuild them.
 fn lazy_details<F>(kind: &'static str, summary: String, detail: F) -> impl IntoView
 where
     F: Fn() -> AnyView + Send + Sync + 'static,
 {
     let opened = RwSignal::new(false);
+    let built = RwSignal::new(false);
     let on_toggle = move |event: leptos::ev::Event| {
         let open = event_target::<web_sys::HtmlDetailsElement>(&event).open();
+        if open && !built.get_untracked() {
+            built.set(true);
+        }
         // The signal sets the attribute too; only the reader's own toggle changes it here.
         if open != opened.get_untracked() {
             opened.set(open);
@@ -143,7 +148,7 @@ where
     view! {
         <details class="coverage-more" data-detail=kind prop:open=move || opened.get() on:toggle=on_toggle>
             <summary>{summary}</summary>
-            {move || opened.get().then(&detail)}
+            {move || built.get().then(&detail)}
         </details>
     }
 }

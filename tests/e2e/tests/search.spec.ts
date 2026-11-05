@@ -67,7 +67,7 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   }
 });
 
-test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page, browserName }) => {
+test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -84,16 +84,10 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   expect(firstPageCounts.every((count) => Number(count) > 0)).toBe(true);
 
   // The name box and every chip are keyboard reachable, and a chip announces its count.
-  // Safari on macOS keeps form controls out of the Tab order unless the reader changes that OS
-  // setting, so WebKit checks that the chip takes focus; Chromium checks the Tab order itself.
   const filterBox = group.getByRole("searchbox", { name: "Filter publications by name" });
   await filterBox.focus();
   expect(await filterBox.evaluate((el) => document.activeElement === el)).toBe(true);
-  if (browserName === "webkit") {
-    await group.getByRole("checkbox").first().focus();
-  } else {
-    await page.keyboard.press("Tab");
-  }
+  await page.keyboard.press("Tab");
   const focused = await page.evaluate(() => {
     const el = document.activeElement as HTMLInputElement | null;
     return { type: el?.type, label: el?.getAttribute("aria-label") };
@@ -170,6 +164,19 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   await expect(zero.locator(".chip-count")).toHaveText("0");
   await zero.locator("input").click();
   await expect.poll(() => chips.count()).toBe(0);
+});
+
+test("Leaving Search during a cold index load does not raise a page error", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("fireball");
+  // The query reaches the route after the typing pause, then the search starts reading and
+  // decoding search.bin. Leave while that read is in flight; the guard fixture fails the test
+  // if the abandoned task touches a disposed value.
+  await expect.poll(() => page.url()).toContain("q=fireball");
+  await page.goto("#/");
+  await expect(page.locator("#home-title")).toBeVisible();
+  await page.waitForTimeout(500);
 });
 
 installedTest("Chip counts keep their last value while a query is pending", async ({ page }) => {
