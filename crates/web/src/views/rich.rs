@@ -5,7 +5,7 @@
 use crate::route::{self, Route};
 use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
 use leptos::prelude::*;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -59,38 +59,65 @@ fn heading_base(anchor: Option<&str>, content: &[Inline]) -> Option<String> {
     }
 }
 
-/// Final URL anchor keys for every heading in `body`, in document order.
+/// The anchor that jumps to the Related panel of an entry page.
+pub const RELATED_ANCHOR: &str = "entry-related";
+
+/// Route anchors that target app elements on an entry page. `scroll_to_anchor` falls back to the
+/// raw id for them, so content must never take one of these keys: `heading_keys` treats each as
+/// already used and gives a colliding content heading the next free suffix.
+pub const RESERVED_ANCHOR_KEYS: &[&str] = &[RELATED_ANCHOR];
+
+/// Every heading block in `body`, in document order, descending into list items and quotes.
 ///
-/// The first heading with a base key keeps it. Later headings with the same base get `-2`,
-/// `-3`, ... skipping any key that another heading in this body already claims. An empty
-/// anchor falls back to a slug of the heading text; a heading with neither has no key.
-pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
-    fn collect(blocks: &[Block], out: &mut Vec<Option<String>>) {
+/// This is the single heading traversal. Key assignment, the article contents, and the renderer's
+/// id lookup all start from it, so a new `Block` variant that nests blocks needs one change here.
+pub fn headings_in_order(body: &[Block]) -> Vec<&Block> {
+    fn walk<'a>(blocks: &'a [Block], out: &mut Vec<&'a Block>) {
         for block in blocks {
             match block {
-                Block::Heading {
-                    anchor, content, ..
-                } => out.push(heading_base(anchor.as_deref(), content)),
+                Block::Heading { .. } => out.push(block),
                 Block::List { items, .. } => {
                     for item in items {
-                        collect(item, out);
+                        walk(item, out);
                     }
                 }
-                Block::Quote { content } => collect(content, out),
+                Block::Quote { content } => walk(content, out),
                 _ => {}
             }
         }
     }
+    let mut found = Vec::new();
+    walk(body, &mut found);
+    found
+}
 
-    let mut bases = Vec::new();
-    collect(body, &mut bases);
+/// Each heading block of `body` with its final URL anchor key, in document order.
+///
+/// The first heading with a base key keeps it. Later headings with the same base get `-2`,
+/// `-3`, ... skipping any key that another heading in this body already claims and any
+/// [`RESERVED_ANCHOR_KEYS`] entry. An empty anchor falls back to a slug of the heading text; a
+/// heading with neither has no key.
+pub fn keyed_headings(body: &[Block]) -> Vec<(&Block, Option<String>)> {
+    let headings = headings_in_order(body);
+    let bases: Vec<Option<String>> = headings
+        .iter()
+        .map(|block| match block {
+            Block::Heading {
+                anchor, content, ..
+            } => heading_base(anchor.as_deref(), content),
+            _ => None,
+        })
+        .collect();
     // Reserve every literal key first, so a generated suffix never steals one of them.
-    let reserved: BTreeSet<String> = bases.iter().flatten().cloned().collect();
-    let mut used: BTreeSet<String> = BTreeSet::new();
-    let mut keys = Vec::with_capacity(bases.len());
-    for base in bases {
+    let literal: BTreeSet<String> = bases.iter().flatten().cloned().collect();
+    let mut used: BTreeSet<String> = RESERVED_ANCHOR_KEYS
+        .iter()
+        .map(|key| (*key).to_string())
+        .collect();
+    let mut keyed = Vec::with_capacity(bases.len());
+    for (block, base) in headings.into_iter().zip(bases) {
         let Some(base) = base else {
-            keys.push(None);
+            keyed.push((block, None));
             continue;
         };
         let mut key = base.clone();
@@ -98,7 +125,7 @@ pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
             let mut suffix = 2u32;
             loop {
                 let candidate = format!("{base}-{suffix}");
-                if !reserved.contains(candidate.as_str()) && !used.contains(&candidate) {
+                if !literal.contains(candidate.as_str()) && !used.contains(&candidate) {
                     key = candidate;
                     break;
                 }
@@ -106,9 +133,17 @@ pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
             }
         }
         used.insert(key.clone());
-        keys.push(Some(key));
+        keyed.push((block, Some(key)));
     }
-    keys
+    keyed
+}
+
+/// Final URL anchor keys for every heading in `body`, in document order. See [`keyed_headings`].
+pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
+    keyed_headings(body)
+        .into_iter()
+        .map(|(_, key)| key)
+        .collect()
 }
 
 /// The DOM id for a heading key. The prefix keeps content ids away from app ids.
@@ -172,21 +207,26 @@ fn inline(item: &Inline) -> AnyView {
 
 /// Renders blocks in order. Consecutive entry links share one list.
 pub fn blocks(items: &[Block]) -> Vec<AnyView> {
-    let keys = heading_keys(items);
-    Renderer {
-        keys: &keys,
-        next: 0,
+    Renderer::new(items).blocks(items)
+}
+
+/// Renders a body. Each heading finds its key by identity in the table that [`keyed_headings`]
+/// built from the same slice, so the ids cannot drift from the keys whatever order it renders in.
+struct Renderer {
+    keys: BTreeMap<*const Block, Option<String>>,
+}
+
+impl Renderer {
+    fn new(body: &[Block]) -> Self {
+        let keys = keyed_headings(body)
+            .into_iter()
+            .map(|(block, key)| (std::ptr::from_ref(block), key))
+            .collect();
+        Self { keys }
     }
-    .blocks(items)
 }
 
-/// Renders a body and consumes its precomputed heading keys in document order.
-struct Renderer<'a> {
-    keys: &'a [Option<String>],
-    next: usize,
-}
-
-impl Renderer<'_> {
+impl Renderer {
     fn blocks(&mut self, items: &[Block]) -> Vec<AnyView> {
         let mut out = Vec::with_capacity(items.len());
         let mut run: Vec<AnyView> = Vec::new();
@@ -211,8 +251,11 @@ impl Renderer<'_> {
     fn block(&mut self, item: &Block) -> AnyView {
         match item {
             Block::Heading { level, content, .. } => {
-                let key = self.keys[self.next].clone();
-                self.next += 1;
+                let key = self.keys.get(&std::ptr::from_ref(item)).cloned().flatten();
+                debug_assert!(
+                    self.keys.contains_key(&std::ptr::from_ref(item)),
+                    "a rendered heading is missing from the heading traversal"
+                );
                 let id = key.as_deref().map(heading_dom_id);
                 heading(*level, id, inlines(content))
             }
@@ -353,12 +396,7 @@ fn table_rows(rows: &[TableRow], section: &'static str) -> Vec<AnyView> {
 /// renders at once. With an anchor, the view scrolls to it after the first frame.
 #[component]
 pub fn RichBody(body: Vec<Block>, anchor: Option<String>) -> impl IntoView {
-    let keys = heading_keys(&body);
-    let content = Renderer {
-        keys: &keys,
-        next: 0,
-    }
-    .blocks(&body);
+    let content = Renderer::new(&body).blocks(&body);
     if let Some(anchor) = anchor {
         request_animation_frame(move || {
             route::scroll_to_anchor(&anchor);
@@ -471,6 +509,79 @@ mod tests {
                 Some("sec-x-2".to_string()),
                 Some("q".to_string()),
             ]
+        );
+    }
+
+    #[test]
+    fn a_content_heading_never_takes_a_reserved_app_anchor() {
+        let body = vec![
+            h(Some(RELATED_ANCHOR), "Related"),
+            h(Some(RELATED_ANCHOR), "Related again"),
+            h(None, "Entry Related"),
+        ];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("entry-related-2".to_string()),
+                Some("entry-related-3".to_string()),
+                Some("sec-entry-related".to_string()),
+            ]
+        );
+        assert!(RESERVED_ANCHOR_KEYS.contains(&RELATED_ANCHOR));
+    }
+
+    #[test]
+    fn a_reserved_anchor_suffix_skips_a_literal_key_in_the_body() {
+        let body = vec![
+            h(Some(RELATED_ANCHOR), "A"),
+            h(Some("entry-related-2"), "B"),
+        ];
+        assert_eq!(
+            heading_keys(&body),
+            vec![
+                Some("entry-related-3".to_string()),
+                Some("entry-related-2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn the_traversal_visits_nested_headings_and_the_renderer_table_matches_it() {
+        let body = vec![
+            h(None, "A"),
+            Block::List {
+                ordered: true,
+                items: vec![
+                    vec![h(None, "B")],
+                    vec![Block::Quote {
+                        content: vec![h(None, "C")],
+                    }],
+                ],
+            },
+            Block::Quote {
+                content: vec![h(None, "D")],
+            },
+            h(None, "A"),
+        ];
+        let visited = headings_in_order(&body);
+        let titles: Vec<String> = visited
+            .iter()
+            .map(|block| match block {
+                Block::Heading { content, .. } => plain_text(content),
+                _ => unreachable!(),
+            })
+            .collect();
+        assert_eq!(titles, ["A", "B", "C", "D", "A"]);
+        // The renderer looks each heading up by identity in this table.
+        let renderer = Renderer::new(&body);
+        assert_eq!(renderer.keys.len(), 5);
+        for (block, key) in keyed_headings(&body) {
+            assert_eq!(renderer.keys.get(&std::ptr::from_ref(block)), Some(&key));
+        }
+        let last = visited[4];
+        assert_eq!(
+            renderer.keys[&std::ptr::from_ref(last)].as_deref(),
+            Some("sec-a-2")
         );
     }
 

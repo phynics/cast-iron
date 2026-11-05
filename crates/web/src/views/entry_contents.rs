@@ -1,7 +1,7 @@
 //! Rule article contents and heading-aware search matching.
 
 use crate::route::Route;
-use crate::views::rich::{heading_keys, plain_text};
+use crate::views::rich::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryId};
 use leptos::prelude::*;
 
@@ -13,31 +13,16 @@ struct Heading {
 }
 
 fn headings(body: &[Block]) -> Vec<Heading> {
-    fn collect(blocks: &[Block], out: &mut Vec<(u8, String)>) {
-        for block in blocks {
-            match block {
-                Block::Heading { level, content, .. } => {
-                    out.push((*level, plain_text(content)));
-                }
-                Block::List { items, .. } => {
-                    for item in items {
-                        collect(item, out);
-                    }
-                }
-                Block::Quote { content } => collect(content, out),
-                _ => {}
-            }
-        }
-    }
-    let mut found = Vec::new();
-    collect(body, &mut found);
-    found
+    keyed_headings(body)
         .into_iter()
-        .zip(heading_keys(body))
-        .filter_map(|((level, title), key)| {
+        .filter_map(|(block, key)| {
+            let Block::Heading { level, content, .. } = block else {
+                return None;
+            };
             let key = key?;
+            let title = plain_text(content);
             (!title.trim().is_empty()).then_some(Heading {
-                level,
+                level: *level,
                 title,
                 anchor: key,
             })
