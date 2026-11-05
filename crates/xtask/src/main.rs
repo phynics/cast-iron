@@ -18,8 +18,11 @@ cargo xtask <command>
   data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
   data-alias-propose [--apply]
                              Propose dispositions for every no_source alias row; --apply rewrites id-map.toml
+  data-publications [--check]
+                             Generate sources/canonical/publications.toml, or verify the committed copy
   data-test                  Test the importer and Pathfinder Data 1e source
-  content                    Compile content into generated/content and generated/reports
+  content [--canonical]      Compile content into generated/content, or the canonical library into
+                             generated/canonical; the default stays PSRD-Data
   build-site [--public-url P]  Compile content when missing, build the app, and write dist/
                              The default public URL is /cast-iron/, the GitHub Pages project path
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
@@ -40,8 +43,9 @@ fn main() -> ExitCode {
         Some("data-legal") => data_tool("legal"),
         Some("data-alias") => data_alias(),
         Some("data-alias-propose") => data_alias_propose(&args[1..]),
+        Some("data-publications") => data_publications(&args[1..]),
         Some("data-test") => data_test(),
-        Some("content") => content(),
+        Some("content") => content(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist")),
         Some("check") => check(),
@@ -353,28 +357,90 @@ fn data_alias_propose(args: &[String]) -> Result {
     run("cargo", &borrowed)
 }
 
-fn content() -> Result {
-    run(
-        "cargo",
-        &[
-            "run",
-            "--quiet",
-            "--release",
-            "--package",
-            "cast-iron-content-compiler",
-            "--bin",
-            "cast-iron-compile",
-            "--",
-            "--source-config",
-            "sources/psrd-data/source.toml",
-            "--dataset",
-            ".cache/sources/psrd-data",
-            "--out",
-            "generated/content",
-            "--reports",
-            "generated/reports",
-        ],
-    )
+/// Generates or checks the reviewed canonical publication registry.
+fn data_publications(args: &[String]) -> Result {
+    let check = match args {
+        [] => false,
+        [flag] if flag == "--check" => true,
+        _ => return Err("usage: data-publications [--check]".into()),
+    };
+    let mut arguments = vec![
+        "run".to_string(),
+        "--release".to_string(),
+        "-p".to_string(),
+        "cast-iron-content-compiler".to_string(),
+        "--bin".to_string(),
+        "cast-iron-data".to_string(),
+        "--".to_string(),
+        "publications".to_string(),
+        "--dataset".to_string(),
+        ".cache/sources/pathfinder-data-1-e".to_string(),
+        "--registry".to_string(),
+        "sources/pathfinder-data-1-e/source.json".to_string(),
+        "--out".to_string(),
+        "generated/migration".to_string(),
+        "--reports".to_string(),
+        "reports".to_string(),
+        "--psrd-config".to_string(),
+        "sources/psrd-data/source.toml".to_string(),
+        "--publications".to_string(),
+        "sources/canonical/publications.toml".to_string(),
+    ];
+    if check {
+        arguments.push("--check".to_string());
+    }
+    let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    run("cargo", &borrowed)
+}
+
+fn content(args: &[String]) -> Result {
+    let canonical = match args {
+        [] => false,
+        [flag] if flag == "--canonical" => true,
+        _ => return Err("usage: content [--canonical]".into()),
+    };
+    let mut arguments = vec![
+        "run".to_string(),
+        "--quiet".to_string(),
+        "--release".to_string(),
+        "--package".to_string(),
+        "cast-iron-content-compiler".to_string(),
+        "--bin".to_string(),
+        "cast-iron-compile".to_string(),
+        "--".to_string(),
+        "--source-config".to_string(),
+        "sources/psrd-data/source.toml".to_string(),
+        "--dataset".to_string(),
+        ".cache/sources/psrd-data".to_string(),
+        "--out".to_string(),
+        if canonical {
+            "generated/canonical".to_string()
+        } else {
+            "generated/content".to_string()
+        },
+        "--reports".to_string(),
+        if canonical {
+            "generated/reports/canonical".to_string()
+        } else {
+            "generated/reports".to_string()
+        },
+    ];
+    if canonical {
+        arguments.extend(
+            [
+                "--canonical",
+                "--pf-dataset",
+                ".cache/sources/pathfinder-data-1-e",
+                "--pf-registry",
+                "sources/pathfinder-data-1-e/source.json",
+                "--canonical-dir",
+                "sources/canonical",
+            ]
+            .map(String::from),
+        );
+    }
+    let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    run("cargo", &borrowed)
 }
 
 fn build_site(args: &[String]) -> Result {
@@ -388,7 +454,7 @@ fn build_site(args: &[String]) -> Result {
     }
     if !root().join("generated/content/manifest.json").exists() {
         fetch_sources()?;
-        content()?;
+        content(&[])?;
     }
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;

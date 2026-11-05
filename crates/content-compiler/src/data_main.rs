@@ -8,6 +8,7 @@ use cast_iron_content_compiler::pf_data::{
 use cast_iron_content_compiler::pf_legal;
 use cast_iron_content_compiler::pf_rules::RuleAllowlist;
 use cast_iron_content_compiler::pipeline::{self, publish_extra_file};
+use cast_iron_content_compiler::publications;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -15,7 +16,7 @@ fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .ok_or("expected audit, import, validate, report, legal, test, or alias")?;
+        .ok_or("expected audit, import, validate, report, legal, test, alias, or publications")?;
     let mut dataset = None;
     let mut registry = None;
     let mut out = None;
@@ -25,10 +26,16 @@ fn run() -> Result<(), String> {
     let mut content = None;
     let mut psrd_dataset = None;
     let mut psrd_config = None;
+    let mut publications_path = None;
     let mut apply = false;
+    let mut check = false;
     while let Some(flag) = args.next() {
         if flag == "--apply" {
             apply = true;
+            continue;
+        }
+        if flag == "--check" {
+            check = true;
             continue;
         }
         let value = PathBuf::from(args.next().ok_or_else(|| format!("{flag} needs a value"))?);
@@ -42,6 +49,7 @@ fn run() -> Result<(), String> {
             "--content" => content = Some(value),
             "--psrd-dataset" => psrd_dataset = Some(value),
             "--psrd-config" => psrd_config = Some(value),
+            "--publications" => publications_path = Some(value),
             _ => return Err(format!("unknown option {flag}")),
         }
     }
@@ -56,6 +64,7 @@ fn run() -> Result<(), String> {
         "test",
         "alias",
         "alias-propose",
+        "publications",
     ]
     .contains(&command.as_str())
     {
@@ -66,6 +75,16 @@ fn run() -> Result<(), String> {
     let out = out.ok_or("missing --out")?;
     let reports = reports.ok_or("missing --reports")?;
     let inv = inventory(&dataset, &registry)?;
+    if command == "publications" {
+        return write_publications(
+            &inv,
+            &psrd_config,
+            publications_path
+                .as_deref()
+                .unwrap_or(std::path::Path::new(publications::REGISTRY_PATH)),
+            check,
+        );
+    }
     let derived = derived_coverage(&inv);
     let allowlist = RuleAllowlist::load_optional(
         &registry
@@ -217,6 +236,48 @@ fn run() -> Result<(), String> {
             "migration acceptance blocked; see {report}. Production content is unchanged"
         ));
     }
+    Ok(())
+}
+
+/// Generates the reviewed Pf Data publication registry, or checks the committed
+/// copy when `--check` is set. Output is deterministic, so a check compares bytes.
+fn write_publications(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    psrd_config: &Path,
+    path: &Path,
+    check: bool,
+) -> Result<(), String> {
+    let registry = publications::generate(inv, psrd_config)
+        .map_err(|errors| problems("publication registry", errors))?;
+    let bytes = registry.to_bytes()?;
+    if check {
+        let committed =
+            std::fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        if committed != bytes {
+            return Err(format!(
+                "{} differs from the generated registry; run `cargo xtask data-publications`",
+                path.display()
+            ));
+        }
+        println!(
+            "{} is current: {} publication(s), {} canonical source id(s)",
+            path.display(),
+            registry.publication.len(),
+            registry.source_ids().len()
+        );
+        return Ok(());
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    }
+    std::fs::write(path, &bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    println!(
+        "wrote {}: {} publication(s), {} canonical source id(s)",
+        path.display(),
+        registry.publication.len(),
+        registry.source_ids().len()
+    );
     Ok(())
 }
 
