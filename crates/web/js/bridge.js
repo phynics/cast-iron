@@ -108,3 +108,47 @@ export function shellVersion() {
     worker.postMessage({ type: "GET_VERSION" }, [channel.port2]);
   });
 }
+
+// ---- Install prompt ------------------------------------------------------------------------
+// Chromium fires `beforeinstallprompt` once, possibly before the app has started. This module
+// loads first, so it holds the event and tells the app through a window event.
+
+/** Window event for "the install prompt appeared or went away". `js.rs` listens for the same name. */
+const INSTALL_CHANGE_EVENT = "cast-iron:install-change";
+
+let installPrompt = null;
+
+function installChanged() {
+  window.dispatchEvent(new Event(INSTALL_CHANGE_EVENT));
+}
+
+window.addEventListener("beforeinstallprompt", (event) => {
+  // Stop the browser's own mini-infobar; the app decides where to offer installing.
+  event.preventDefault();
+  installPrompt = event;
+  installChanged();
+});
+
+window.addEventListener("appinstalled", () => {
+  installPrompt = null;
+  installChanged();
+});
+
+/** True while a captured install prompt can still be opened. */
+export function installAvailable() {
+  return installPrompt !== null;
+}
+
+/**
+ * Opens the browser's install prompt. The event works once, so it is cleared at once.
+ * Resolves the user's choice, "accepted" or "dismissed", or null when no prompt is held.
+ */
+export async function promptInstall() {
+  const event = installPrompt;
+  if (!event) return null;
+  installPrompt = null;
+  installChanged();
+  await event.prompt();
+  const choice = await event.userChoice;
+  return choice?.outcome ?? null;
+}

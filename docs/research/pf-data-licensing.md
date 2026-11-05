@@ -125,9 +125,9 @@ publication referenced by an in-scope record against the pinned
 tool is evidence only: it does not change the production legal page until the
 canonical Pf Data library is built.
 
-The 2026-11-04 snapshot has 34,497 in-scope records referencing 453
-publications. 397 publications match a Section 15 entry; 56 do not. Matching
-uses, in order:
+The 2026-11-05 review of the pinned snapshot has 34,497 in-scope records
+referencing 453 publications. 400 publications match a Section 15 entry in the
+pinned `OPENGAMECONTENT.md`; 53 do not. Matching uses, in order:
 
 1. Exact normalized title (`PRPG` is not expanded here).
 2. A reviewed alias from `sources/pathfinder-data-1-e/notice-aliases.json`,
@@ -143,80 +143,121 @@ uses, in order:
    its 2009 and 2010 printing notices.
 
 Exact and normalized matching accounted for 387 publications (44 exact, 343
-normalized-prefix). Ten publications needed a reviewed alias: the three *Book of
-the Damned* volumes, *GameMastery Condition Cards*, both Osirion titles,
-*Pathfinder #91* (notice says "Hill", source says "Hills"), *Pathfinder #139*
-("Road" versus "Roads"), *Pathfinder Society S03-10* (a title typo), and *Rivers
-into Darkness* (notice says "River Into Darkness").
+normalized-prefix). Thirteen publications needed a reviewed alias: the three
+*Book of the Damned* volumes, *GameMastery Condition Cards*, both Osirion
+titles, *Pathfinder #91* (notice says "Hill", source says "Hills"),
+*Pathfinder #139* ("Road" versus "Roads"), *Pathfinder Society S03-10* (a title
+typo), *Rivers into Darkness* (notice says "River Into Darkness"), and on
+2026-11-05 *Heroes of the Streets* (notice says "Street"), *Pathfinder #119:
+Prisoners of the Blight* (notice says "Prisoner") and *Realm of the Fellnight
+Queen* (the notice prints "Fellknight").
 
-The 56 unmatched publications have in-scope records but no matching Section 15
-entry in the pin:
+*Advanced Race Guide* is not in the pinned OGL notice, but PSRD's own Section 15
+notice covers it as `Pathfinder Roleplaying Game Advanced Race Guide`.
+`notice-aliases.json` is an OGL-scoped list whose targets must exist in the
+pinned `OPENGAMECONTENT.md`, so it has no row for this title. The canonical legal
+screen already unions the PSRD and Pf Data lists (PR #67); with that union the
+effective count is 401 covered and 52 unmatched. The OGL-only report keeps it in
+the unmatched list so this file and the report stay one evidence set.
 
-| Publication | Records |
-|---|---|
-| Academy of Secrets | 1 |
-| Advanced Race Guide | 659 |
-| Armor Master's Handbook | 128 |
-| Bestiary 5 | 447 |
-| Bestiary 6 | 311 |
-| Carnival of Tears | 3 |
-| Carrion Crown Player's Guide | 6 |
-| Conquest of Bloodsworn Vale | 4 |
-| Crown of the Kobold King | 3 |
-| Cult of the Ebon Destroyers | 3 |
-| Curse of the Crimson Throne Player's Guide | 24 |
-| Dungeons of Golarion | 10 |
-| Faiths of Balance | 51 |
-| Faiths of Purity | 42 |
-| Goblins of Golarion | 61 |
-| Guide to Darkmoon Vale | 1 |
-| Halflings of Golarion | 49 |
-| Heart of the Jungle | 18 |
-| Heaven Unleashed | 10 |
-| Heroes of the Streets | 94 |
-| Hollow's Last Hope | 1 |
-| Horror Realms | 46 |
-| Humans of Golarion | 28 |
-| Inner Sea Magic | 75 |
-| Inner Sea Taverns | 16 |
-| Inner Sea World Guide | 118 |
-| Inner Sea world Guide | 1 |
-| Kingmaker Player's Guide | 7 |
-| Magic of Thassilon | 2 |
-| Occult Mysteries | 54 |
-| Pathfinder #119: Prisoners of the Blight | 23 |
-| Pathfinder #3: The Hook Mountain Massacre | 4 |
-| Pathfinder #63: The Asylum Stone | 11 |
-| Pathfinder #64: Beyond the Doomsday Door | 15 |
-| Pathfinder Campaign Setting | 84 |
-| Pathfinder Goblins #1 | 5 |
-| Pathfinder Goblins #5 | 1 |
-| Pathfinder Hollow Mountain #1 | 1 |
-| Pathfinder Hollow Mountain #4 | 1 |
-| Pathfinder Origins #6 Ezren | 1 |
-| Pathfinder Runescars #1 | 1 |
-| Pathfinder Runescars #4 | 1 |
-| Pathfinder Society Field Guide | 67 |
-| Pathfinder Worldscape #1 | 3 |
-| Pathfinder Worldscape #2 | 5 |
-| Pathfinder Worldscape #3 | 1 |
-| Pathfinder Worldscape #4 | 1 |
-| Realm of the Fellnight Queen | 2 |
-| Revenge of the Kobold King | 3 |
-| Rival Guide | 37 |
-| Serpent's Skull Player's Guide | 10 |
-| The Godsmouth Heresy | 1 |
-| Tomb of the Iron Medusa | 3 |
-| Tome of Horrors Complete (PF) | 3 |
-| Undead Revisited | 10 |
-| We Be Goblins! | 5 |
+PR #67 is now on `main`. The 2026-11-05 aliases raise the canonical build from
+29,388 to 29,486 entries and cut legal rejections from 1,324 to 1,226 records
+(98 rescued: 74 *Heroes of the Streets*, 23 *Pathfinder #119*, 1 *Realm of the
+Fellnight Queen*). The flattened-reference count stays 5,159, and two canonical
+builds are byte-identical (`content_version` `v2232ccd945bb8029`).
+
+The following table records the decision for all 56 publications that were
+unmatched before the 2026-11-05 alias review. The three alias rows now match;
+the others reflect the current OGL report. "Records" is the number of in-scope
+record references to that publication.
+
+| Publication | Records | Decision | Matched notice title or reason |
+|---|---|---|---|
+| Academy of Secrets | 1 | absent | Pathfinder Module; no notice in either list. |
+| Advanced Race Guide | 659 | alias (PSRD) | `Pathfinder Roleplaying Game Advanced Race Guide` |
+| Armor Master's Handbook | 128 | absent | Player Companion; the notice lists Weapon and Elemental Master's Handbook, not Armor. |
+| Bestiary 5 | 447 | absent | The pinned notices stop at Bestiary 4. |
+| Bestiary 6 | 311 | absent | The pinned notices stop at Bestiary 4. |
+| Carnival of Tears | 3 | absent | Pathfinder Module; no notice in either list. |
+| Carrion Crown Player's Guide | 6 | absent | Adventure Path player's guide; the notice lists other AP guides, not Carrion Crown. |
+| Conquest of Bloodsworn Vale | 4 | absent | GameMastery Module E1; the notice lists D2, D3, J1-J3, TC1, U1, U2 and W2, not E1. |
+| Crown of the Kobold King | 3 | absent | Pathfinder Module; no notice in either list. |
+| Cult of the Ebon Destroyers | 3 | absent | Pathfinder Module; no notice in either list. |
+| Curse of the Crimson Throne Player's Guide | 24 | absent | The notice has the AP hardcover `Pathfinder Adventure Path: Curse of the Crimson Throne`, not this separate player's guide. |
+| Dungeons of Golarion | 10 | absent | Campaign Setting; the notice lists Tombs of Golarion, not Dungeons. |
+| Faiths of Balance | 51 | absent | Player Companion; the notice lists Faiths & Philosophies and Faiths of Corruption, not Balance. |
+| Faiths of Purity | 42 | absent | Player Companion; the notice lists Faiths & Philosophies and Faiths of Corruption, not Purity. |
+| Goblins of Golarion | 61 | absent | Player Companion; the notice lists other * of Golarion volumes, not Goblins. |
+| Guide to Darkmoon Vale | 1 | absent | Pathfinder Chronicles; the notice lists Guide to Absalom and Guide to the River Kingdoms, not Darkmoon Vale. |
+| Halflings of Golarion | 49 | absent | Player Companion; no notice in either list. |
+| Heart of the Jungle | 18 | absent | Campaign Setting; no notice in either list. |
+| Heaven Unleashed | 10 | absent | Campaign Setting; the notice lists Hell Unleashed, not Heaven. |
+| Heroes of the Streets | 94 | alias | `Pathfinder Player Companion: Heroes of the Street` |
+| Hollow's Last Hope | 1 | absent | Pathfinder Module; no notice in either list. |
+| Horror Realms | 46 | absent | Campaign Setting; the notice lists Horror Adventures and Occult Realms, not Horror Realms. |
+| Humans of Golarion | 28 | absent | Player Companion; no notice in either list. |
+| Inner Sea Magic | 75 | absent | Campaign Setting; no notice in either list. |
+| Inner Sea Taverns | 16 | absent | Campaign Setting; no notice in either list. |
+| Inner Sea World Guide | 118 | absent | Campaign Setting; no notice in either list. |
+| Inner Sea world Guide | 1 | absent | Casing duplicate of the same registry label; no notice in either list. |
+| Kingmaker Player's Guide | 7 | absent | Adventure Path player's guide; the notice has no Kingmaker entry. |
+| Magic of Thassilon | 2 | absent | Registry points at a Paizo blog free download, not a book; no notice in either list. |
+| Occult Mysteries | 54 | absent | Campaign Setting; the notice lists Occult Bestiary, Occult Realms, Occult Origins and Occult Adventures, not Mysteries. |
+| Pathfinder #119: Prisoners of the Blight | 23 | alias | `Pathfinder Adventure Path #119: Prisoner of the Blight` |
+| Pathfinder #3: The Hook Mountain Massacre | 4 | absent | The notice lists #1, #2 and #4-#6, not #3. |
+| Pathfinder #63: The Asylum Stone | 11 | absent | The notice jumps from #62 to #65. |
+| Pathfinder #64: Beyond the Doomsday Door | 15 | absent | The notice jumps from #62 to #65. |
+| Pathfinder Campaign Setting | 84 | generic | Generic registry label; see the analysis below. |
+| Pathfinder Goblins #1 | 5 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Goblins #5 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Hollow Mountain #1 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Hollow Mountain #4 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Origins #6 Ezren | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Runescars #1 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Runescars #4 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Society Field Guide | 67 | absent | Campaign Setting; the notice has `Guide to Pathfinder Society Organized Play, Version 5.0`, a different publication. |
+| Pathfinder Worldscape #1 | 3 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Worldscape #2 | 5 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Worldscape #3 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Pathfinder Worldscape #4 | 1 | absent | Dynamite comic issue; no notice in either list. Comics are permanently out of scope. |
+| Realm of the Fellnight Queen | 2 | alias | `Pathfinder Module: Realm of the Fellknight Queen` |
+| Revenge of the Kobold King | 3 | absent | Pathfinder Module; no notice in either list. |
+| Rival Guide | 37 | absent | Campaign Setting; the notice lists Concordance of Rivals, not Rival Guide. |
+| Serpent's Skull Player's Guide | 10 | absent | Adventure Path player's guide; no notice in either list. |
+| The Godsmouth Heresy | 1 | absent | Pathfinder Module; no notice in either list. |
+| Tomb of the Iron Medusa | 3 | absent | Pathfinder Module; no notice in either list. |
+| Tome of Horrors Complete (PF) | 3 | absent | No umbrella notice; the notice has per-creature "from The Tome of Horrors Complete" entries only. All 3 references are shadow rats also credited to Pathfinder #91, so no record is blocked by this label alone. |
+| Undead Revisited | 10 | absent | Campaign Setting; the notice lists other * Revisited volumes and Undead Unleashed, not Undead Revisited. |
+| We Be Goblins! | 5 | absent | The notice lists the sequels We Be Goblins Too!, We Be Goblins Free! and We B4 Goblins!, not the 2011 original. |
 
 `Pathfinder Campaign Setting` is a generic registry label, not a book title, and
-has no Section 15 entry of its own. The comics and *Magic of Thassilon* are also
-outside the current policy's explicit exclusions, even though they are not
-eligible content. The report lists six additional publication labels excluded
+has no Section 15 entry of its own. 84 in-scope references carry it. Only four
+records name it as their sole publication (*Blacklight*, *The Tainted Plague*,
+*Hardening*, and *Profits of Kalistrade*); each description's `‹SOURCE …›`
+marker is also `Pathfinder Campaign Setting/<page>`, so replacing the label from
+the record text would rescue zero records. The other 80 references also name at
+least one book. Eighteen of those records name only other titles that are still
+unmatched (*Inner Sea World Guide*, *Guide to Darkmoon Vale*, or *Curse of the
+Crimson Throne Player's Guide*), so they remain excluded until one of those
+titles is resolved. The report lists six additional publication labels excluded
 by `out-of-scope.json` before matching; they are retained under
 `excluded_publications` rather than dropped.
+
+The 11 comic labels (*Pathfinder Goblins*, *Pathfinder Hollow Mountain*,
+*Pathfinder Origins*, *Pathfinder Runescars*, *Pathfinder Worldscape*) are
+Dynamite comic issues and are absent from both notice lists. Comics are
+permanently outside the current policy, but these labels are not in
+`out-of-scope.json`; the canonical legal screen therefore excludes their
+records by the missing-notice rule and reports them as legal exclusions.
+*Magic of Thassilon* is a Paizo blog free download, not a printed book, and is
+absent for the same reason.
+
+*Tome of Horrors Complete (PF)* has no umbrella Section 15 line; the pinned
+notice carries per-creature entries such as `Adherer from The Tome of Horrors
+Complete`. Its three references are shadow rats that are also credited to
+*Pathfinder #91*, so the label blocks no record on its own. Splitting the label
+into the exact creature notices would be a source re-attribution follow-up, not
+an alias.
 
 To resolve an unmatched publication, use one of these reviewed routes:
 
@@ -230,10 +271,10 @@ To resolve an unmatched publication, use one of these reviewed routes:
   to `notice-aliases.json`. Never add a fuzzy or title-similarity alias.
 
 `pf_legal::gate` blocks a production build while any in-scope publication lacks
-a notice. `reports/migration-legal.json` also lists the 136 notices that match
-no in-scope publication. That list is informational: it includes the OGL, the
-System Reference Document, *Pf Data 1e*, third-party material, and Paizo books
-not present in the registry.
+a notice. `reports/migration-legal.json` also lists the 133 OGL notices that
+match no in-scope publication. That list is informational: it includes the OGL,
+the System Reference Document, *Pf Data 1e*, third-party material, and Paizo
+books not present in the registry.
 
 ## Publication gate
 

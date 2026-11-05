@@ -591,3 +591,213 @@ fn prefix_rank_is_not_decided_by_rare_completions() {
     let r = ids(&idx, &q("fire"));
     assert_eq!(&r[..2], &["spell:fireball", "item:firewood"]);
 }
+
+// ---- filter counts ----------------------------------------------------------------------
+
+fn counts_corpus() -> SearchIndex {
+    build(vec![
+        doc(
+            "spell:a",
+            "Fire Bolt",
+            "spell",
+            "core",
+            "Flame.",
+            &[("school", "evocation"), ("spell_level", "1")],
+        ),
+        doc(
+            "spell:b",
+            "Fire Wall",
+            "spell",
+            "apg",
+            "Flame.",
+            &[("school", "evocation"), ("spell_level", "4")],
+        ),
+        doc(
+            "spell:c",
+            "Fire Shield",
+            "spell",
+            "core",
+            "Flame.",
+            &[("school", "abjuration"), ("spell_level", "4")],
+        ),
+        doc(
+            "spell:d",
+            "Frost Ray",
+            "spell",
+            "core",
+            "Cold.",
+            &[("school", "evocation"), ("spell_level", "1")],
+        ),
+        doc(
+            "feat:a",
+            "Fire Mastery",
+            "feat",
+            "core",
+            "Flame.",
+            &[("feat_type", "general")],
+        ),
+        doc(
+            "feat:b",
+            "Fire Mastery",
+            "feat",
+            "apg",
+            "Flame.",
+            &[("feat_type", "combat")],
+        ),
+        doc("rule:a", "Cold Weather", "rule", "core", "Cold.", &[]),
+    ])
+}
+
+fn mk_filters(kinds: &[&str], sources: &[&str], facets: &[(&str, &str)]) -> Filters {
+    Filters {
+        kinds: kinds.iter().map(|s| s.to_string()).collect(),
+        sources: sources.iter().map(|s| s.to_string()).collect(),
+        facets: facets
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect(),
+    }
+}
+
+fn all(_: &str) -> bool {
+    true
+}
+
+#[test]
+fn counts_for_an_empty_query_are_library_totals() {
+    let idx = counts_corpus();
+    let c = idx.filter_counts_eligible("", &Filters::default(), all);
+    assert_eq!(c.total, 7);
+    assert_eq!((c.kind("spell"), c.kind("feat"), c.kind("rule")), (4, 2, 1));
+    assert_eq!((c.source("core"), c.source("apg")), (5, 2));
+    assert_eq!(c.facet("school", "evocation"), 3);
+}
+
+#[test]
+fn counts_follow_the_query_text() {
+    let idx = counts_corpus();
+    let c = idx.filter_counts_eligible("fire", &Filters::default(), all);
+    assert_eq!(c.total, 5);
+    assert_eq!((c.kind("spell"), c.kind("feat"), c.kind("rule")), (3, 2, 0));
+    assert_eq!((c.source("core"), c.source("apg")), (3, 2));
+    assert_eq!(c.facet("school", "evocation"), 2);
+    assert_eq!(c.facet("school", "abjuration"), 1);
+    // A query that matches nothing, or an unknown term, counts nothing.
+    assert_eq!(
+        idx.filter_counts_eligible("zzzz", &Filters::default(), all),
+        FilterCounts::default()
+    );
+}
+
+#[test]
+fn a_kind_filter_narrows_the_others_but_not_its_own_kind_chips() {
+    let idx = counts_corpus();
+    let f = mk_filters(&["spell"], &[], &[]);
+    let c = idx.filter_counts_eligible("fire", &f, all);
+    assert_eq!(c.total, 3);
+    // Kind chips ignore the kind selection, so alternatives stay visible.
+    assert_eq!((c.kind("spell"), c.kind("feat")), (3, 2));
+    // Sources and facets apply it.
+    assert_eq!((c.source("core"), c.source("apg")), (2, 1));
+    assert_eq!(c.facet("spell_level", "4"), 2);
+    assert_eq!(c.facet("feat_type", "general"), 0);
+}
+
+#[test]
+fn a_source_filter_narrows_kinds_and_facets() {
+    let idx = counts_corpus();
+    let f = mk_filters(&[], &["apg"], &[]);
+    let c = idx.filter_counts_eligible("fire", &f, all);
+    assert_eq!(c.total, 2);
+    assert_eq!((c.kind("spell"), c.kind("feat")), (1, 1));
+    // Source chips ignore the source selection.
+    assert_eq!((c.source("core"), c.source("apg")), (3, 2));
+    assert_eq!(c.facet("school", "evocation"), 1);
+}
+
+#[test]
+fn a_facet_ignores_its_own_field_and_applies_the_rest() {
+    let idx = counts_corpus();
+    let f = mk_filters(
+        &["spell"],
+        &[],
+        &[("school", "evocation"), ("spell_level", "4")],
+    );
+    let c = idx.filter_counts_eligible("fire", &f, all);
+    assert_eq!(c.total, 1); // Fire Wall
+    // Other schools stay visible for the chosen level, and other levels for the chosen school.
+    assert_eq!(c.facet("school", "evocation"), 1);
+    assert_eq!(c.facet("school", "abjuration"), 1);
+    assert_eq!(c.facet("spell_level", "4"), 1);
+    assert_eq!(c.facet("spell_level", "1"), 1);
+}
+
+#[test]
+fn an_active_book_change_changes_every_count() {
+    let idx = counts_corpus();
+    let core_only = |id: &str| !matches!(id, "spell:b" | "feat:b");
+    let c = idx.filter_counts_eligible("fire", &Filters::default(), core_only);
+    assert_eq!(c.total, 3);
+    assert_eq!((c.kind("spell"), c.kind("feat")), (2, 1));
+    assert_eq!((c.source("core"), c.source("apg")), (3, 0));
+    assert_eq!(c.facet("school", "evocation"), 1);
+    assert_eq!(c.facet("feat_type", "combat"), 0);
+}
+
+#[test]
+fn every_count_equals_the_result_size_of_choosing_that_chip() {
+    let idx = counts_corpus();
+    let size = |text: &str, f: &Filters| {
+        let mut query = q(text);
+        query.filters = f.clone();
+        query.limit = usize::MAX;
+        idx.search(&query).len() as u32
+    };
+    for text in ["", "fire", "cold", "mastery"] {
+        for base in [
+            mk_filters(&[], &[], &[]),
+            mk_filters(&["spell"], &[], &[]),
+            mk_filters(&[], &["core"], &[]),
+            mk_filters(&["spell"], &[], &[("school", "evocation")]),
+        ] {
+            let c = idx.filter_counts_eligible(text, &base, all);
+            if !base.is_empty() || !text.is_empty() {
+                assert_eq!(c.total, size(text, &base), "{text:?} {base:?}");
+            }
+            for kind in ["spell", "feat", "rule"] {
+                let mut f = base.clone();
+                f.kinds = vec![kind.into()];
+                if !f.is_empty() {
+                    assert_eq!(
+                        c.kind(kind),
+                        size(text, &f),
+                        "kind {kind} {text:?} {base:?}"
+                    );
+                }
+            }
+            for source in ["core", "apg"] {
+                let mut f = base.clone();
+                f.sources = vec![source.into()];
+                assert_eq!(
+                    c.source(source),
+                    size(text, &f),
+                    "source {source} {text:?} {base:?}"
+                );
+            }
+            for (field, value) in [
+                ("school", "evocation"),
+                ("school", "abjuration"),
+                ("spell_level", "4"),
+            ] {
+                let mut f = base.clone();
+                f.facets.retain(|(k, _)| k != field);
+                f.facets.push((field.into(), value.into()));
+                assert_eq!(
+                    c.facet(field, value),
+                    size(text, &f),
+                    "{field}={value} {text:?} {base:?}"
+                );
+            }
+        }
+    }
+}

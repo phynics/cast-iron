@@ -3,6 +3,7 @@
 use crate::install;
 use crate::js;
 use crate::library::{Library, use_library};
+use crate::pwa::InstallCtx;
 use crate::route::{self, Route, provide_route, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
@@ -12,6 +13,7 @@ use crate::views::{
     browse::{Books, BrowseKind, BrowseSource},
     chains::FeatChains,
     entry::Entry,
+    header_action::{HeaderAction, InstallGuide},
     home::Home,
     installer::InstallerScreen,
     legal::Legal,
@@ -149,6 +151,7 @@ pub fn App() -> impl IntoView {
         online: RwSignal::new(online),
     };
     provide_context(app);
+    provide_context(InstallCtx::start());
 
     let online_handle = window_event_listener(leptos::ev::online, move |_| app.online.set(true));
     let offline_handle = window_event_listener(leptos::ev::offline, move |_| app.online.set(false));
@@ -310,10 +313,12 @@ fn Reader(library: Library) -> impl IntoView {
                     <NavLink label="Books" route=Route::Books />
                     <NavLink label="Settings" route=Route::Settings />
                 </nav>
+                <HeaderAction />
                 <Show when=move || !app.online.get()>
                     <span class="badge" title="No connection. Everything here still works.">"Offline"</span>
                 </Show>
             </header>
+            <InstallGuide />
             <Show when=move || app.shell_update_ready.get()>
                 <div class="banner" role="status">
                     <span>"Update ready."</span>
