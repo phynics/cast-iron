@@ -6,9 +6,26 @@
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, toc_id, use_route};
-use crate::views::util::{Shared, local_resource, set_title};
-use cast_iron_schema::EntryId;
+use crate::views::util::{Shared, book_count_line, local_resource, set_title};
+use cast_iron_schema::{BookNode, EntryId};
 use leptos::prelude::*;
+use std::collections::HashSet;
+
+/// Distinct entries that a book's contents tree reaches. Every placement counts once, whether
+/// or not the book is active and whether or not the entry's first placement is another book.
+pub fn book_entry_count(nodes: &[BookNode]) -> usize {
+    fn walk<'a>(nodes: &'a [BookNode], seen: &mut HashSet<&'a EntryId>) {
+        for node in nodes {
+            if let Some(entry) = &node.entry {
+                seen.insert(entry);
+            }
+            walk(&node.children, seen);
+        }
+    }
+    let mut seen = HashSet::new();
+    walk(nodes, &mut seen);
+    seen.len()
+}
 
 /// The chapter path that a route asks for.
 fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
@@ -65,8 +82,8 @@ pub fn BookView(source: String) -> impl IntoView {
         .as_ref()
         .map_or_else(|| source.clone(), |s| s.title.clone());
     let copyright = info.as_ref().and_then(|s| s.copyright.clone());
-    let count = info.as_ref().map(|s| s.entry_count);
     let disabled = !library.book_active(&source);
+    let header_source = source.clone();
     view! {
         <div class="wide book">
             <nav class="crumbs" aria-label="Breadcrumb">
@@ -76,7 +93,21 @@ pub fn BookView(source: String) -> impl IntoView {
             </nav>
             <h1>{title}</h1>
             {disabled.then(|| view! { <p class="notice">"This book is disabled for search and category browsing. You can still read its contents here. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it."</p> })}
-            {count.map(|n| view! { <p class="muted">{format!("{n} entries in this library")}</p> })}
+            {move || {
+                // The header waits for the same resource as the contents tree, so it counts
+                // exactly the entries the tree can show.
+                let source = header_source.clone();
+                lookup.with(|state| match state {
+                    Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
+                        Some(index) => {
+                            let n = books.book_at(index).map_or(0, |book| book_entry_count(&book.chapters));
+                            view! { <p class="muted" data-testid="source-count">{book_count_line(n)}</p> }.into_any()
+                        }
+                        None => ().into_any(),
+                    },
+                    _ => ().into_any(),
+                })
+            }}
             {copyright.map(|line| view! { <p class="copyright">{line}</p> })}
             {move || {
                 let source = source.clone();
@@ -367,6 +398,31 @@ pub fn same_book(previous: &Route, next: &Route) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn book_entry_count_uses_every_placement_once() {
+        let node = |title: &str, entry: Option<&str>, children: Vec<BookNode>| BookNode {
+            title: title.to_string(),
+            entry: entry.map(|s| EntryId::parse(s).unwrap()),
+            anchor: None,
+            review: None,
+            children,
+        };
+        let tree = vec![
+            node(
+                "Chapter",
+                None,
+                vec![
+                    node("Repeated", Some("a/one"), vec![]),
+                    node("Nested", None, vec![node("First", Some("a/two"), vec![])]),
+                    node("Repeated again", Some("a/one"), vec![]),
+                ],
+            ),
+            node("Second", Some("a/three"), vec![]),
+        ];
+        assert_eq!(book_entry_count(&tree), 3);
+        assert_eq!(book_entry_count(&[]), 0);
+    }
 
     #[test]
     fn a_node_is_open_when_the_target_is_inside_it() {

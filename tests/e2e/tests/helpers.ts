@@ -56,8 +56,7 @@ export async function activeLibrary(page: Page) {
 }
 
 /** Cache name -> request paths relative to the app base (document-relative `content/...` keys). */
-export async function cacheContents(page: Page): Promise<Record<string, string[]>> {
-  return page.evaluate(async () => {
+export async function cacheContents(page: Page): Promise<Record<string, string[]>> {  return page.evaluate(async () => {
     const out: Record<string, string[]> = {};
     const base = new URL("./", document.baseURI).pathname;
     for (const name of await caches.keys()) {
@@ -148,6 +147,24 @@ export function buildUpdatedLibrary(marker: string) {
   };
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
+ * A manifest overlay that leaves out `books.json`, so the client installs a library with no
+ * book order. The legacy `#/browse/source/<id>` route then renders its kind groups instead of
+ * the book doorway, which lets the acceptance test compare the header against those links.
+ * The content version stays the same, so the unchanged files keep coming from dist.
+ */
+export function buildLibraryWithoutBooks() {
+  const old = distManifest();
+  const books = old.files.filter((f) => f.path.endsWith("/books.json"));
+  const files = old.files.filter((f) => !f.path.endsWith("/books.json"));
+  const total_bytes = old.total_bytes - books.reduce((n, f) => n + f.bytes, 0);
+  const manifest = { ...old, total_bytes, files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-no-books-"));
+  fs.mkdirSync(path.join(dir, "content"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
+  return { dir, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 /** Follow the publication directory through its actual disclosure and contents link. */
