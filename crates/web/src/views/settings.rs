@@ -8,6 +8,7 @@ use crate::install::{
 };
 use crate::js::{self, StorageEstimate};
 use crate::library::use_library;
+use crate::pwa::use_install;
 use crate::route::Route;
 use crate::store::ActiveLibrary;
 use crate::theme::{self, Theme};
@@ -15,7 +16,7 @@ use crate::views::installer::{InstallMode, InstallPanel};
 use cast_iron_schema::ContentManifest;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use wasm_bindgen::JsValue;
+use wasm_bindgen::{JsCast, JsValue};
 
 #[derive(Clone)]
 enum UpdateState {
@@ -42,6 +43,7 @@ fn format_date(ms: f64) -> String {
 #[component]
 pub fn Settings() -> impl IntoView {
     let app = use_app();
+    let install_ctx = use_install();
     let library = use_library();
     let active = library.active().clone();
 
@@ -231,6 +233,34 @@ pub fn Settings() -> impl IntoView {
                     Some(None) => "Not available until the app has been reloaded once".to_string(),
                 }}</dd></div>
             </dl>
+            {move || if install_ctx.standalone() {
+                view! {
+                    <p data-testid="install-status">
+                        <span class="badge">"Installed"</span>
+                        " Cast Iron is running as an installed app."
+                    </p>
+                }.into_any()
+            } else if install_ctx.offer_in_settings() {
+                view! {
+                    <div class="settings-install" data-testid="install-status">
+                        <p>"Install Cast Iron as an app for full-screen reading and an icon on your device."</p>
+                        <p>
+                            <button class="btn" type="button" on:click=move |event| {
+                                let opener = event
+                                    .current_target()
+                                    .and_then(|target| target.dyn_into::<web_sys::HtmlElement>().ok());
+                                install_ctx.request(opener);
+                            }>"Install app"</button>
+                        </p>
+                    </div>
+                }.into_any()
+            } else {
+                view! {
+                    <p class="muted" data-testid="install-status">
+                        "Your browser's menu may offer Install or Add to Home Screen."
+                    </p>
+                }.into_any()
+            }}
         </section>
     }
 }

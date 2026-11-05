@@ -40,6 +40,10 @@ extern "C" {
     pub fn apply_shell_update();
     #[wasm_bindgen(js_name = shellVersion, catch)]
     async fn shell_version_js() -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_name = installAvailable)]
+    pub fn install_available() -> bool;
+    #[wasm_bindgen(js_name = promptInstall, catch)]
+    async fn prompt_install_js() -> Result<JsValue, JsValue>;
 }
 
 /// A readable message for anything that JavaScript can throw.
@@ -137,4 +141,13 @@ pub async fn check_shell_update() -> Result<(), String> {
 /// The shell version that the controlling service worker reports.
 pub async fn shell_version() -> Option<String> {
     shell_version_js().await.ok().and_then(|v| v.as_string())
+}
+
+/// The window event that fires when the install prompt appears or goes away.
+pub const INSTALL_CHANGE_EVENT: &str = "cast-iron:install-change";
+
+/// Opens the browser's install prompt. `Some("accepted" | "dismissed")` is the user's choice;
+/// `None` means that no prompt was held or it failed.
+pub async fn prompt_install() -> Option<String> {
+    prompt_install_js().await.ok().and_then(|v| v.as_string())
 }
