@@ -12,6 +12,8 @@ Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivatio
 
 Derived rules: 1 converted (1 sections, 0 rows; 1 expected in this scope, 0 skipped). The in-scope corpus exposes 178 derivable rules.
 
+Typed relations: 0 edges (0 part, 0 archetype, 0 prerequisite). 3 entries have no parent; 3 of 11 prerequisite requirements are unread.
+
 Canonical book index: 49 books, 42 entries, 37 placed by page, 5 unpaged, 9 in more than one book, 0 without publication attribution; 82 placements (47 paged, 35 unpaged).
 
 - Section 15 notice reconciliation for every imported publication is incomplete

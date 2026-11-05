@@ -81,6 +81,67 @@
   "derived_sections": 1,
   "derived_rows": 0,
   "derived_skipped": 0,
+  "relations": {
+    "edges": {},
+    "prerequisites": {
+      "feats": 6,
+      "feats_with_text": 5,
+      "feats_with_resolved_feat": 0,
+      "requirements": 11,
+      "by_reading": {
+        "ability_score": 1,
+        "base_attack_bonus": 1,
+        "class_feature": 2,
+        "level": 1,
+        "other": 3,
+        "race": 1,
+        "skill_ranks": 2
+      },
+      "ambiguous": 0,
+      "unread": [
+        {
+          "feat": "ref/feat/aberrant-tumor",
+          "text": "Aberrant bloodline"
+        },
+        {
+          "feat": "ref/feat/golems-conviction",
+          "text": "Improved Iron Will"
+        },
+        {
+          "feat": "ref/feat/golems-conviction",
+          "text": "Iron Will"
+        }
+      ]
+    },
+    "spell_lists": {
+      "spells": 0,
+      "classes": 0,
+      "pairs_upstream": 0,
+      "pairs_distinct": 0,
+      "classes_with_entry": [],
+      "unmapped": []
+    },
+    "unplaced_parts": [
+      {
+        "entry": "ref/arc-companion/aberrant-companion",
+        "reason": "archetype `ref/arc-companion/aberrant-companion` names class `ref/class/companion`, which is not in the entry set"
+      },
+      {
+        "entry": "ref/arc-companion/accursed-companion",
+        "reason": "archetype `ref/arc-companion/accursed-companion` names class `ref/class/companion`, which is not in the entry set"
+      },
+      {
+        "entry": "ref/arc-companion/ambusher",
+        "reason": "archetype `ref/arc-companion/ambusher` names class `ref/class/companion`, which is not in the entry set"
+      }
+    ],
+    "unpromoted": [],
+    "book_order": {
+      "placed": 0,
+      "unplaced": [],
+      "by_publication": []
+    }
+  },
   "books": {
     "books": 49,
     "entries": 42,
