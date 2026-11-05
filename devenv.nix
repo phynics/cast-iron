@@ -54,10 +54,23 @@ in
 
   assertions = [
     {
+      # The Trunk derivation repackages the x86_64 Linux release binary that CI uses.
+      assertion = pkgs.stdenv.hostPlatform.isLinux && pkgs.stdenv.hostPlatform.isx86_64;
+      message = "devenv.nix supports x86_64-linux only: Trunk is the x86_64-unknown-linux-gnu release binary. On other platforms, install Trunk with `cargo install trunk --locked` and use the README prerequisites.";
+    }
+    {
       assertion = pkgs.playwright-driver.version == playwrightVersion;
       message = "nixpkgs Playwright ${pkgs.playwright-driver.version} does not match @playwright/test ${playwrightVersion} in tests/e2e/package-lock.json. Update devenv.lock or the npm lock so they match.";
     }
   ];
+
+  # Runs on every `devenv shell` entry. Silent when the tools match; a warning otherwise.
+  enterShell = ''
+    want_rust="$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
+    rustc --version | grep -qF "$want_rust" || echo "devenv: rustc is not $want_rust from rust-toolchain.toml" >&2
+    trunk --version | grep -qF "${trunkVersion}" || echo "devenv: trunk is not ${trunkVersion}" >&2
+    node --version | grep -q '^v24\.' || echo "devenv: node is not v24" >&2
+  '';
 
   enterTest = ''
     rustc --version | grep -F "$(sed -n 's/^channel = "\(.*\)"/\1/p' rust-toolchain.toml)"
