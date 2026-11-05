@@ -39,12 +39,15 @@ No release-branch deployment or live migration verification is claimed. See
 [PR #49](https://github.com/phynics/cast-iron/pull/49) on `data/pf-derived-rules`
 added the Phase D alias map; the proposal pass below extends it.
 `sources/canonical/id-map.toml` gives every one of the 9,968 frozen legacy ids one
-disposition. The current map has 7,752 mapped (5,735 direct, 115 derived, 1,902
-shared) and 2,216 retired as `no_source`; the pre-proposal state was 94 mapped
+disposition. The current map has 9,968 mapped (5,735 direct, 115 derived, 2,216
+carried, 1,902 shared) and none retired; the pre-proposal state was 94 mapped
 (1 direct, 93 derived), none shared, and 9,874 retired. `cargo xtask data-alias`
-rebuilds the canonical catalog from the pinned Pf Data corpus, runs totality,
-injectivity, target, direction, hash, and semantic-fit gates, and writes
-`generated/content/<version>/aliases.json`.
+rebuilds the canonical catalog from the pinned Pf Data corpus and the PSRD
+snapshot, runs totality, injectivity, target, direction, hash, and semantic-fit
+gates, and writes `generated/content/<version>/aliases.json`. The carried rows
+come from the all-unmatched product decision: each re-emits the PSRD entry at
+`ref/carried/<legacy-id>`, and the gate adds only the carried entries the run
+actually produced.
 
 `cargo xtask data-alias-propose` proposes the dispositions through the same
 `title_fit` function the gate uses. It requires equal kind, a source book in the
@@ -55,18 +58,18 @@ parent race named in the legacy path, or a weapon/armor special-ability path; ot
 ties stay retired with an `ambiguous: <candidates>` note. The 94 already published
 rows are unchanged, and four proposals that would merge onto them stay retired.
 
-Remaining retired rows by kind: rules 512, items 418, creatures 327, racial traits
-275, afflictions 214, spells 179, feats 165, traps 58, races 36, skills 26,
-archetypes 4, traits 2. Every one is `no_source`; the dominant reason is that the
-pinned corpus has no record with the same kind, title, and source book.
+Carried rows by kind: rules 512, items 418, creatures 327, racial traits 275,
+afflictions 214, spells 179, feats 165, traps 58, races 36, skills 26, archetypes
+4, traits 2. The carry-over reports 434 possible duplicates with candidate ids
+for later review; none of them changes a mapping. It rewrites 7,238 references
+(6,201 body, 438 parent, 439 relation, 160 feat prerequisite) and flattens none.
 
-Local verification on 2026-11-04: `cargo xtask check` passes (188 content-compiler
-lib tests, 27 in the alias module and 4 in the proposal module), two
-`cargo xtask data-alias` runs produced byte-identical output
-(`c3b88568ecfb8e4a8f5ed3ed54820ac2ea69e1888c10dbd6c30bfaf5347fd473`), and a second
-`data-alias-propose` run proposed zero rows and rewrote the same map
-(`6dd396c59319fc2e8d1ee2cb3cda5b3341f37063183c10a56245c2f18fc0a0bf`). This is local
-evidence only; the PR's GitHub checks are separate and are not claimed here.
+Local verification on 2026-11-05: `cargo xtask check` passes, two
+`cargo xtask data-alias` runs produced a byte-identical alias file
+(`5dd41777f712bfd14fa4a084d8b6b77f7b65b38874c838cfb2a592322c4bfe9c`, content
+`va174cce225939e2e`), and two `cargo xtask data-report` runs produced the same
+`reports/migration-coverage.json`. This is local evidence only; the PR's GitHub
+checks are separate and are not claimed here.
 
 Phase 5 makes the map part of the library. `cargo xtask data-alias` adds
 `aliases.json` to `manifest.json` and recomputes the content version deterministically.
