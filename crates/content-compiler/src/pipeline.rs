@@ -2544,10 +2544,14 @@ mod canonical_tests {
         let facets = BTreeMap::new();
         let aliases = BTreeMap::new();
         assert!(check_no_markup_leaks(&[clean.clone()], &facets, &aliases, &coverage).is_ok());
-        let error = check_no_markup_leaks(&[clean, leaky], &facets, &aliases, &coverage).unwrap_err();
+        let error =
+            check_no_markup_leaks(&[clean, leaky], &facets, &aliases, &coverage).unwrap_err();
         let text = error.lines.join("\n");
         assert!(text.contains("ref/rule/leaky"), "{text}");
-        assert!(text.contains("2 occurrence") || text.contains("1 occurrence"), "{text}");
+        assert!(
+            text.contains("2 occurrence") || text.contains("1 occurrence"),
+            "{text}"
+        );
     }
 }
 

@@ -259,7 +259,11 @@ pub fn markup_leaks(text: &str) -> Vec<String> {
         .match_indices(['‹', '›'])
         .chain(text.match_indices("&#"))
     {
-        let from = text[..index].char_indices().rev().nth(30).map_or(0, |(i, _)| i);
+        let from = text[..index]
+            .char_indices()
+            .rev()
+            .nth(30)
+            .map_or(0, |(i, _)| i);
         let to = text[index..]
             .char_indices()
             .nth(40)
@@ -379,7 +383,10 @@ mod tests {
     fn a_tag_with_display_overrides_resolves_like_the_body() {
         // `«text»` is display-only text and `<slug>` is link-only text.
         assert_eq!(plain_text("‹rule/un»loved« foods›"), "unloved foods");
-        assert_eq!(plain_text("‹rule/starting<_a> business›"), "starting business");
+        assert_eq!(
+            plain_text("‹rule/starting<_a> business›"),
+            "starting business"
+        );
     }
 
     #[test]
@@ -421,7 +428,9 @@ mod tests {
             "electricity resistance power of the Air domain"
         );
         assert_eq!(
-            plain_text("‹‹From the FAQ/https://paizo.com/paizo/faq/v5748nruor1fn#v5748eaic9raj››: The lack"),
+            plain_text(
+                "‹‹From the FAQ/https://paizo.com/paizo/faq/v5748nruor1fn#v5748eaic9raj››: The lack"
+            ),
             "From the FAQ: The lack"
         );
     }
@@ -435,7 +444,10 @@ mod tests {
 
     #[test]
     fn source_tags_name_the_book_and_page() {
-        assert_eq!(plain_text("‹SOURCE Core Rulebook/12›"), "Core Rulebook pg 12");
+        assert_eq!(
+            plain_text("‹SOURCE Core Rulebook/12›"),
+            "Core Rulebook pg 12"
+        );
     }
 
     #[test]
@@ -485,7 +497,10 @@ mod tests {
         let TypedFields::Feat(f) = plain_fields(fields) else {
             unreachable!()
         };
-        assert_eq!(f.prerequisites.as_deref(), Some("Caster level 4th, gillman"));
+        assert_eq!(
+            f.prerequisites.as_deref(),
+            Some("Caster level 4th, gillman")
+        );
         assert_eq!(f.benefit.as_deref(), Some("+2 [bonus]"));
     }
 }
