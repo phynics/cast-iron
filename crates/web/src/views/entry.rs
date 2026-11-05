@@ -192,9 +192,19 @@ fn EntryView(
         .collect_view();
 
     let has_books = library.has_books();
-    let sources = entry
-        .source_ids
-        .iter()
+    // The first book shows in the metadata line; the rest open on demand, so a rule printed in
+    // many books does not wrap the header.
+    // The catalog's own book for the entry leads; the others keep their order.
+    let primary = library.stub(&entry.id).map(|stub| stub.source.clone());
+    let mut ordered: Vec<&String> = entry.source_ids.iter().collect();
+    if let Some(at) = primary
+        .as_ref()
+        .and_then(|primary| ordered.iter().position(|id| *id == primary))
+    {
+        ordered[..=at].rotate_right(1);
+    }
+    let mut source_links = ordered
+        .into_iter()
         .map(|id| {
             let title = library
                 .source(id)
@@ -208,9 +218,27 @@ fn EntryView(
             } else {
                 Route::BrowseSource(id.clone())
             };
-            view! { <a class="chip-link" href=route.href()>{title}</a> }
+            (route.href(), title)
         })
-        .collect_view();
+        .collect::<Vec<_>>()
+        .into_iter();
+    let first_source = source_links.next().map(|(href, title)| {
+        view! { <a class="meta-link" href=href>{title}</a> }
+    });
+    let more_sources: Vec<_> = source_links.collect();
+    let more_sources = (!more_sources.is_empty()).then(|| {
+        let n = more_sources.len();
+        let rows = more_sources
+            .into_iter()
+            .map(|(href, title)| view! { <li><a class="meta-link" href=href>{title}</a></li> })
+            .collect_view();
+        view! {
+            <details class="meta-more">
+                <summary>{format!("+{n} more")}</summary>
+                <ul>{rows}</ul>
+            </details>
+        }
+    });
 
     // Relationship panels already expose these targets. Avoid a second adjacent link list.
     let related_targets: std::collections::BTreeSet<EntryId> = indexes
@@ -275,17 +303,6 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
-    let has_related = indexes.relations.is_some()
-        || !entry.relations.is_empty()
-        || matches!(
-            kind,
-            EntryKind::Class | EntryKind::Spell | EntryKind::Trait | EntryKind::PrestigeClass
-        );
-    let related_href = Route::Entry {
-        id: entry.id.clone(),
-        anchor: Some(RELATED_ANCHOR.into()),
-    }
-    .href();
     let category_route = if kind == EntryKind::Rule {
         Route::Books
     } else {
@@ -302,15 +319,17 @@ fn EntryView(
             </ol>
         </nav>
         <header class="entry-head">
-            <h1 data-testid="entry-title">{entry.title.clone()}</h1>
-            <div class="entry-meta">
-                <a class="chip-link chip-kind" href=category_route.href()>{kind_name(kind)}</a>
-                {sources}
+            <div class="entry-title-row">
+                <h1 data-testid="entry-title">{entry.title.clone()}</h1>
+                <EntryStar id=entry.id.clone() title=plain_title kind />
             </div>
-            <EntryStar id=entry.id.clone() title=plain_title kind />
+            <div class="entry-meta">
+                <a class="meta-link" href=category_route.href()>{kind_name(kind)}</a>
+                {first_source}
+                {more_sources}
+            </div>
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
-        {has_related.then(|| view! { <p class="reader-jumps"><a href=related_href>"Related entries"</a></p> })}
         <ArticleContents body=entry.body.clone() id=entry.id.clone() />
         <RichBody body=entry.body.clone() anchor=anchor />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
@@ -394,12 +413,11 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
     let label = title.clone();
     view! {
         <div class="bookmark-control">
-            <button class="btn bookmark-toggle" type="button"
+            <button class="btn star-btn bookmark-toggle" type="button"
                 aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
                 aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
                 disabled=move || !loaded.get() || writing.get() on:click=toggle>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
-                {move || if bookmark.with(|b| b.is_some()) { "Starred" } else { "Star" }}
             </button>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
         </div>

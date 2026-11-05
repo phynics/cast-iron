@@ -763,7 +763,7 @@ pub fn Search() -> impl IntoView {
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {["fireball", "grapple", "cure light", "dragon"].into_iter().map(|q| {
-                            view! { <a class="pill" href=Route::search(q).href()>{q}</a> }
+                            view! { <a class="jump" href=Route::search(q).href()>{q}</a> }
                         }).collect_view()}
                     </p>
                 </div>

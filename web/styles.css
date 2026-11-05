@@ -692,40 +692,40 @@ mark {
   padding: 0 0.1em;
 }
 
+/* Chip roles (see DESIGN.md): labels, navigation, filters and metadata each keep one form. */
+
+/* Label: small, quiet, no border, never interactive. */
 .tag {
   display: inline-block;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-1);
   font-size: var(--step--1);
-  border: 1px solid var(--ink-muted);
-  border-radius: 999px;
   color: var(--ink-muted);
 }
 
 .tag-warn {
-  border-color: var(--error);
   color: var(--error);
+  font-weight: 600;
 }
 
-.pill,
-.chip-link {
+/* Navigation: a rectangle with the card radius. Never a pill. */
+.jump {
   display: inline-flex;
   align-items: center;
   min-height: var(--touch);
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
 }
 
-.pill:hover,
-.chip-link:hover {
+.jump:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.pill-list,
+.jump-list,
 .plain {
   list-style: none;
   padding: 0;
@@ -1180,6 +1180,25 @@ mark {
   color: inherit;
 }
 
+/* The selected state is filled and carries a check, so it does not rely on color alone. */
+.chip input:checked + span::before,
+.scope-choice[aria-pressed="true"]::before {
+  content: "";
+  flex: none;
+  display: inline-block;
+  width: 0.3em;
+  height: 0.6em;
+  margin-inline: 0.1em 0.2em;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-0.08em) rotate(45deg);
+}
+
+.scope-choice {
+  display: inline-flex;
+  align-items: center;
+}
+
 .chip input:focus-visible + span {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -1285,36 +1304,94 @@ mark {
 /* ---- Entry --------------------------------------------------------------------------------- */
 
 .entry-head {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.entry-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--space-2);
 }
 
 .entry-head h1 {
   font-size: var(--step-3);
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-1);
 }
 
+/* Metadata: one text line. Kind and book stay links; more books open on demand. */
 .entry-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.chip-link {
-  min-height: 2rem;
+  align-items: center;
+  gap: 0 var(--space-2);
+  margin-bottom: var(--space-2);
+  color: var(--ink-muted);
   font-size: var(--step--1);
+}
+
+.entry-meta > * + *::before {
+  content: "·";
+  margin-inline-end: var(--space-2);
+  color: var(--ink-muted);
+}
+
+.meta-link {
+  position: relative;
+  display: inline-block;
+  color: var(--ink-muted);
   font-weight: 600;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
 }
 
-.chip-kind {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+.meta-link:hover {
+  color: var(--accent);
 }
 
-.chip-kind:hover {
-  color: var(--accent-ink);
-  filter: brightness(1.1);
+/* The text line stays compact; the link keeps a 44px target through this larger hit area. */
+.meta-link::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
+}
+
+.meta-more > summary {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  list-style: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.meta-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.meta-more > summary::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
+}
+
+.meta-more[open] {
+  flex-basis: 100%;
+}
+
+.meta-more[open]::before {
+  content: none;
+}
+
+.meta-more ul {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+}
+
+.meta-more li {
+  padding-block: var(--space-1);
 }
 
 .bookmark-control {
@@ -1324,13 +1401,48 @@ mark {
   align-items: flex-start;
 }
 
-.bookmark-toggle {
-  gap: var(--space-2);
+/* The entry's star lives in the title row: its error line spans the row under the title. */
+.entry-title-row .bookmark-control {
+  display: contents;
 }
 
-.bookmark-toggle[aria-pressed="true"] {
+.entry-title-row .bookmark-control .error {
+  grid-column: 1 / -1;
+}
+
+/* Icon-only star toggle, 44 by 44. The accessible name comes from aria-label. */
+.star-btn {
+  width: var(--touch);
+  min-width: var(--touch);
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.star-btn svg {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+.star-btn:hover:not(:disabled) {
+  color: var(--accent);
   background: var(--surface-2);
-  border-color: var(--accent);
+}
+
+.star-btn[aria-pressed="true"],
+.star-btn.is-on {
+  color: var(--accent);
+}
+
+.star-btn[aria-pressed="true"] svg,
+.star-btn.is-on svg {
+  fill: currentColor;
+}
+
+.star-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .picker {
@@ -1698,6 +1810,7 @@ a.bm-title {
   .app-header,
   .app-footer,
   .bookmark-control,
+  .entry-title-row .bookmark-control,
   .letter-nav {
     display: none;
   }
@@ -1714,23 +1827,7 @@ main,
   min-width: 0;
 }
 
-/* Wide entries: title and bookmark share a row; references sit beside the body. */
-@media (min-width: 48rem) {
-  .entry-head {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    column-gap: var(--space-5);
-    align-items: start;
-  }
-
-  .entry-head > .bookmark-control {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    justify-content: flex-end;
-    max-width: 22rem;
-  }
-}
-
+/* Wide entries: references sit beside the body. */
 @media (min-width: 64rem) {
   .entry:has(> .rich) {
     display: grid;
@@ -1795,12 +1892,6 @@ main,
 .tree li > a,
 .ref-list a {
   min-width: var(--touch);
-}
-
-@media (pointer: coarse) {
-  .chip-link {
-    min-height: var(--touch);
-  }
 }
 
 /* ==== Browse paths, lenses, relationships, and the book view ================================= */
@@ -2024,8 +2115,29 @@ main,
   gap: var(--space-2);
 }
 
+/* Filter: the only pill shape. A browse facet is a link into search. */
 .lens-chip {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lens-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@media (pointer: fine) {
+  .lens-chip {
+    min-height: 2.25rem;
+  }
 }
 
 .lens-chip small {
@@ -2298,7 +2410,7 @@ main,
   gap: var(--space-2);
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius);
   background: var(--bg);
 }
 
@@ -2853,9 +2965,7 @@ input::placeholder {
 .home-bookmark-row { display: flex; align-items: center; gap: var(--space-3); border-bottom: var(--border); padding-block: var(--space-1); }
 .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex: 1; min-width: 0; border: 0; justify-content: flex-start; gap: var(--space-3); }
 .home-bookmark-row .btn { flex: none; }
-.bookmark-toggle svg, .home-bookmark-row button svg { width: 1.1rem; height: 1.1rem; flex: none; }
-.reader-jumps { margin-block: var(--space-2); font-size: var(--step--1); }
-.reader-jumps a { display: inline-flex; align-items: center; min-height: var(--touch); }
+.bookmark-toggle svg, .home-bookmark-row button svg { flex: none; }
 .article-contents { max-width: var(--measure); margin-block: var(--space-2) var(--space-4); }
 .article-contents > summary { min-height: var(--touch); cursor: pointer; padding-block: var(--space-2); font-weight: 600; }
 .article-contents ol { list-style: none; padding-inline-start: var(--space-3); }
@@ -2884,7 +2994,6 @@ input::placeholder {
       "foot foot";
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
-  .entry > .reader-jumps { grid-area: jumps; }
   .entry > .article-contents { grid-area: contents; }
   .entry > #entry-related { grid-area: rel; }
 }
@@ -2892,7 +3001,6 @@ input::placeholder {
 .article-contents .contents-level-4 { margin-inline-start: 1.5rem; }
 .article-contents .contents-level-5 { margin-inline-start: 2.25rem; }
 .article-contents .contents-level-6 { margin-inline-start: 3rem; }
-.home-bookmark-row .btn { gap: var(--space-2); }
 
 /* Publication choices preserve each rule's identity without repeated top-level rows. */
 .source-variants > summary { cursor: pointer; padding: .65rem 0; }

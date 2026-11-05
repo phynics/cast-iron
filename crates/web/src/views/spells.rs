@@ -199,7 +199,7 @@ pub fn SpellsHub() -> impl IntoView {
                             .href();
                             view! {
                                 <li>
-                                    <a class="chip-link lens-chip" href=href>
+                                    <a class="lens-chip" href=href>
                                         {facet_label("school", value)}<small>{*n}</small>
                                     </a>
                                 </li>
@@ -315,7 +315,7 @@ fn ListPage(
             .collect_view();
         view! {
             <nav class="level-nav" aria-label=format!("{name} spell levels")>
-                <a class="pill level-all" href=all_href aria-current=level.is_none().then_some("page")>
+                <a class="jump level-all" href=all_href aria-current=level.is_none().then_some("page")>
                     "All levels"
                 </a>
                 <ol class="lvls">{items}</ol>
