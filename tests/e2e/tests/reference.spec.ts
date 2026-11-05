@@ -261,10 +261,10 @@ test("Duplicate heading keys scroll to their own section and old anchor URLs sti
   // Find an article with repeated unanchored heading text, so the reader must give each
   // rendered heading its own suffixed key.
   const entry = entries.find((candidate) => {
-    const texts = bodyHeadings(candidate)
-      .filter((heading) => !heading.anchor && heading.text.trim())
-      .map((heading) => heading.text.trim());
-    return texts.length >= 2 && new Set(texts).size < texts.length;
+    const headings = bodyHeadings(candidate).filter((heading) => heading.text.trim());
+    const texts = headings.filter((heading) => !heading.anchor).map((heading) => heading.text.trim());
+    // Article contents starts at four headings; the repeated text needs a suffixed key.
+    return headings.length >= 4 && texts.length >= 2 && new Set(texts).size < texts.length;
   })!;
   expect(entry, "an article with repeated heading text").toBeTruthy();
   const texts = bodyHeadings(entry)
