@@ -19,7 +19,30 @@ const CLOSE: char = '›';
 /// - `&#91&` and `&#93&` become `[` and `]`; other numeric `&#N&`, `&#N;` and `&#N`
 ///   entities decode to their character.
 /// - An unterminated `‹` or a stray `›` is dropped, never left in the output.
+/// - A display label can itself carry a marker (`‹a/‹b/c››`), so the text is rescanned up to
+///   [`EXTRA_PASSES`] more times. Any marker still left is then deleted: the output never
+///   contains `‹`, `›` or `&#`.
 pub fn plain_text(input: &str) -> String {
+    let mut text = plain_pass(input);
+    for _ in 0..EXTRA_PASSES {
+        if !has_marker(&text) {
+            return text;
+        }
+        text = plain_pass(&text);
+    }
+    if has_marker(&text) {
+        text = text.replace([OPEN, CLOSE], "").replace("&#", "");
+    }
+    text
+}
+
+const EXTRA_PASSES: usize = 3;
+
+fn has_marker(text: &str) -> bool {
+    text.contains([OPEN, CLOSE]) || text.contains("&#")
+}
+
+fn plain_pass(input: &str) -> String {
     let decoded = decode_numeric_entities(input);
     let mut out = String::with_capacity(decoded.len());
     let mut rest = decoded.as_str();
@@ -117,7 +140,10 @@ fn map_numeric_entities(input: &str, map: impl Fn(char) -> char) -> String {
             .and_then(char::from_u32);
         match decoded {
             Some(c) => {
-                out.push(map(c));
+                // Control characters (`&#0&`) are not text: decode them to nothing.
+                if !c.is_control() {
+                    out.push(map(c));
+                }
                 let tail = &body[len..];
                 rest = tail
                     .strip_prefix('&')
@@ -360,10 +386,17 @@ pub fn plain_fields(fields: TypedFields) -> TypedFields {
 }
 
 /// The facet value for a spell school: the school word without a trailing bracketed note,
-/// so `transmutation [see text]` counts under `transmutation`.
+/// lowercased, so `Transmutation [see text]` counts under `transmutation`. Facet values are
+/// exact-match filter and route keys; the client capitalizes them for display.
+///
+/// Only the school field carries bracketed notes. Do not use this for other facets, where
+/// a bracket can be part of the value.
 pub fn school_facet(school: &str) -> String {
     let base = school.split('[').next().unwrap_or(school);
-    base.split_whitespace().collect::<Vec<_>>().join(" ")
+    base.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
 }
 
 #[cfg(test)]
@@ -436,6 +469,33 @@ mod tests {
     }
 
     #[test]
+    fn nested_markers_in_labels_never_survive() {
+        for input in [
+            "‹‹label›",
+            "‹a/‹b/c››",
+            "‹rule/‹spell/fog cloud››",
+            "‹a/‹b/‹c/‹d/‹e/f››››",
+            "&#38&#91&",
+            "‹x/&#8249&y›",
+            "‹›‹‹››",
+        ] {
+            let text = plain_text(input);
+            assert!(
+                !text.contains(['‹', '›']) && !text.contains("&#"),
+                "{input:?} -> {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn control_character_entities_are_dropped() {
+        assert_eq!(plain_text("a&#0&b"), "ab");
+        assert_eq!(plain_text("a&#0b"), "ab");
+        assert_eq!(plain_text("a&#7;b&#x1B;c&#10&d"), "abcd");
+        assert_eq!(plain_text("a&#91&b"), "a[b");
+    }
+
+    #[test]
     fn unterminated_and_stray_markers_never_survive() {
         assert_eq!(plain_text("see ‹spell/fly"), "see spell/fly");
         assert_eq!(plain_text("stray ◊ › end"), "stray ◊  end");
@@ -482,7 +542,7 @@ mod tests {
     #[test]
     fn school_facet_drops_the_bracketed_note() {
         assert_eq!(school_facet("transmutation [see text]"), "transmutation");
-        assert_eq!(school_facet("Transmutation [see text]"), "Transmutation");
+        assert_eq!(school_facet("Transmutation [see text]"), "transmutation");
         assert_eq!(school_facet("evocation"), "evocation");
         assert_eq!(school_facet("  conjuration   [healing]  "), "conjuration");
     }

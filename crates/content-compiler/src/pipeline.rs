@@ -802,6 +802,10 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         alias_retirements,
     );
     excluded.sort_by(|a, b| (&a.path, &a.reason).cmp(&(&b.path, &b.reason)));
+    // A parse error can quote upstream text, markers included.
+    for row in &mut rejected {
+        row.reason = crate::pf_plain::plain_text(&row.reason);
+    }
     rejected.sort_by(|a, b| (&a.path, &a.reason).cmp(&(&b.path, &b.reason)));
     rejected.dedup();
 
