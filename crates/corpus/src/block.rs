@@ -44,6 +44,8 @@ fn write_block(block: &Block) -> String {
             content,
         } => {
             let mut out = format!("{} ", "#".repeat(usize::from(*level)));
+            // Inline text escapes `{` and `}`, so a literal `{#...}` suffix in
+            // the heading text cannot be read back as an anchor.
             out.push_str(&write_inline_line(content));
             if let Some(anchor) = anchor {
                 out.push_str(" {#");
@@ -317,7 +319,9 @@ fn parse_lines(path: &Path, lines: &[Line]) -> Result<Vec<Block>> {
 }
 
 fn is_blank(text: &str) -> bool {
-    text.chars().all(char::is_whitespace)
+    // Only the ASCII blank characters separate blocks. Unicode spaces such as a
+    // non-breaking space are content and must survive as a paragraph.
+    text.chars().all(|ch| ch == ' ' || ch == '\t')
 }
 
 fn parse_heading(path: &Path, lines: &[Line], index: usize) -> Result<(Block, usize)> {
@@ -336,14 +340,19 @@ fn parse_heading(path: &Path, lines: &[Line], index: usize) -> Result<(Block, us
         && let Some(start) = rest.rfind(" {#")
     {
         let candidate = &rest[start + 3..rest.len() - 1];
-        if !candidate.is_empty()
-            && candidate
+        if candidate.is_empty()
+            || !candidate
                 .chars()
                 .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
         {
-            anchor = Some(candidate.to_string());
-            rest = rest[..start].trim_end();
+            return Err(Error::new(
+                path,
+                lines[index].number,
+                format!("invalid heading anchor `{{{candidate}}}`"),
+            ));
         }
+        anchor = Some(candidate.to_string());
+        rest = rest[..start].trim_end();
     }
     let content = parse_inlines(rest)
         .map_err(|e| Error::new(path, lines[index].number, format!("heading: {e}")))?;
@@ -763,12 +772,22 @@ fn inline_from_raw(path: &Path, raw: Option<&str>, line: usize) -> Result<Vec<In
 fn raw_row(path: &Path, row: &[RawCell], line: usize) -> Result<TableRow> {
     let mut cells = Vec::with_capacity(row.len());
     for cell in row {
+        if cell.colspan == 0 || cell.rowspan == 0 {
+            return Err(Error::new(
+                path,
+                line,
+                format!(
+                    "table cell spans must be at least 1; found colspan={} rowspan={}",
+                    cell.colspan, cell.rowspan
+                ),
+            ));
+        }
         let content = parse_inlines(&cell.text)
             .map_err(|e| Error::new(path, line, format!("table cell: {e}")))?;
         cells.push(TableCell {
             header: cell.header,
-            colspan: cell.colspan.max(1),
-            rowspan: cell.rowspan.max(1),
+            colspan: cell.colspan,
+            rowspan: cell.rowspan,
             content,
         });
     }
@@ -900,6 +919,20 @@ mod tests {
                 content: vec![Inline::text("indented")],
             },
         ]);
+    }
+
+    #[test]
+    fn a_heading_text_that_looks_like_an_anchor_stays_text() {
+        round_trip(vec![Block::Heading {
+            level: 2,
+            anchor: None,
+            content: vec![Inline::text("Effects {#not-an-anchor}")],
+        }]);
+    }
+
+    #[test]
+    fn a_non_breaking_space_paragraph_line_is_not_blank() {
+        round_trip(vec![paragraph("\u{a0}")]);
     }
 
     #[test]
@@ -1102,10 +1135,14 @@ mod tests {
         assert!(parse("## heading\n# bad").is_err());
         assert!(parse("::: unknown\nx\n:::").is_err());
         assert!(parse("::: table\ncaption = [\n:::").is_err());
+        assert!(parse("::: table\nbody = [[{ text = \"x\", colspan = 0 }]]\n:::").is_err());
         assert!(parse("|a|b|\n| --- |\n|c|d|").is_err());
         assert!(parse("::: statblock\nno colon\n:::").is_err());
         assert!(parse("::: entry-link\ntarget = \"bad id\"\ntitle = \"x\"\n:::").is_err());
         let error = parse("::: paragraph statline\n*open\n:::").unwrap_err();
         assert!(error.line >= 1);
+        let error = parse("## Effects {#bad anchor}").unwrap_err();
+        assert!(error.message.contains("invalid heading anchor"), "{error}");
+        assert_eq!(error.line, 1);
     }
 }

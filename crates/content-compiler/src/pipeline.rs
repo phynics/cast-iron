@@ -19,7 +19,7 @@ use crate::publication_metadata;
 use crate::publications::{self, Registry};
 use crate::select::{self, Role, Survey, hex, sha256_hex};
 use crate::slug::slug_segment;
-use crate::text::{blocks_text, inline_text};
+use crate::text::{blocks_text, collect_links, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
     BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
@@ -1382,6 +1382,10 @@ fn settle_references(entries: &mut [RuleEntry], ids: &BTreeSet<EntryId>) -> Sett
         }
         let body = std::mem::take(&mut entry.body);
         entry.body = settle_blocks(body, ids, &mut settlement);
+        // The stored link list is a projection of the body. Policy and settlement
+        // passes can remove body content, so recompute it from the final body
+        // instead of keeping references that no visible text carries.
+        entry.links = collect_links(&entry.body);
         entry.links.retain(|link| ids.contains(&link.target));
         entry.links.sort();
         entry.links.dedup();
@@ -1398,7 +1402,117 @@ fn settle_references(entries: &mut [RuleEntry], ids: &BTreeSet<EntryId>) -> Sett
             fields.prerequisite_feats.dedup();
         }
     }
+
+    // An upstream anchor can name a heading whose body has no compiler anchor but
+    // whose reader key is `sec-<slug>`. Rewrite that one step so a body link points
+    // at the key the reader actually renders. Unknown anchors are left for the
+    // corpus and library checks to report rather than silently flattened.
+    let anchors = entry_heading_anchors(entries);
+    for entry in entries.iter_mut() {
+        normalize_block_anchors(&mut entry.body, &anchors);
+        entry.links = collect_links(&entry.body);
+        entry.links.retain(|link| ids.contains(&link.target));
+        entry.links.sort();
+        entry.links.dedup();
+    }
     settlement
+}
+
+fn normalize_block_anchors(blocks: &mut [Block], anchors: &BTreeMap<EntryId, BTreeSet<String>>) {
+    for block in blocks {
+        match block {
+            Block::Heading { content, .. } | Block::Paragraph { content, .. } => {
+                normalize_inline_anchors(content, anchors);
+            }
+            Block::List { items, .. } => {
+                for item in items {
+                    normalize_block_anchors(item, anchors);
+                }
+            }
+            Block::Table(table) => {
+                normalize_inline_anchors(&mut table.caption, anchors);
+                for row in table
+                    .head
+                    .iter_mut()
+                    .chain(&mut table.body)
+                    .chain(&mut table.foot)
+                {
+                    for cell in &mut row.cells {
+                        normalize_inline_anchors(&mut cell.content, anchors);
+                    }
+                }
+            }
+            Block::Quote { content } => normalize_block_anchors(content, anchors),
+            Block::StatBlock { rows, .. } => {
+                for row in rows {
+                    normalize_inline_anchors(&mut row.value, anchors);
+                }
+            }
+            Block::EntryLink { .. } => {}
+        }
+    }
+}
+
+fn normalize_inline_anchors(inlines: &mut [Inline], anchors: &BTreeMap<EntryId, BTreeSet<String>>) {
+    for inline in inlines {
+        match inline {
+            Inline::Link {
+                target, anchor, c, ..
+            } => {
+                if let Some(current) = anchor
+                    && let Some(keys) = anchors.get(target)
+                    && !keys.contains(current)
+                {
+                    let fallback = format!("sec-{current}");
+                    if keys.contains(&fallback) {
+                        *current = fallback;
+                    }
+                }
+                normalize_inline_anchors(c, anchors);
+            }
+            Inline::Em { c } | Inline::Strong { c } | Inline::Sup { c } | Inline::Sub { c } => {
+                normalize_inline_anchors(c, anchors);
+            }
+            Inline::Text { .. } | Inline::Break => {}
+        }
+    }
+}
+
+fn entry_heading_anchors(entries: &[RuleEntry]) -> BTreeMap<EntryId, BTreeSet<String>> {
+    entries
+        .iter()
+        .map(|entry| {
+            let mut keys = BTreeSet::new();
+            collect_heading_anchors(&entry.body, &mut keys);
+            (entry.id.clone(), keys)
+        })
+        .collect()
+}
+
+fn collect_heading_anchors(blocks: &[Block], keys: &mut BTreeSet<String>) {
+    for block in blocks {
+        match block {
+            Block::Heading {
+                anchor, content, ..
+            } => {
+                if let Some(anchor) = anchor.as_deref().filter(|anchor| !anchor.is_empty()) {
+                    keys.insert(anchor.to_string());
+                } else {
+                    let slug = slug_segment(&inline_text(content));
+                    if !slug.is_empty() {
+                        keys.insert(format!("sec-{slug}"));
+                    }
+                }
+            }
+            Block::List { items, .. } => {
+                for item in items {
+                    collect_heading_anchors(item, keys);
+                }
+            }
+            Block::Quote { content } => collect_heading_anchors(content, keys),
+            _ => {}
+        }
+    }
 }
 
 fn settle_blocks(
@@ -2538,6 +2652,62 @@ mod canonical_tests {
         assert_eq!(excluded, BTreeSet::from(["ref/rule/only-bad".to_string()]));
         assert_eq!(rejected.len(), 1);
         assert!(rejected[0].reason.contains("Section 15"));
+    }
+
+    #[test]
+    fn settlement_recomputes_links_from_the_final_body_and_resolves_heading_fallbacks() {
+        let mut target = entry("ref/monster/ghoul", "noticed-book");
+        target.body = vec![Block::Heading {
+            level: 3,
+            anchor: None,
+            content: vec![Inline::text("Ghast")],
+        }];
+        let mut source = entry("ref/rule/table", "noticed-book");
+        source.body = vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Link {
+                    target: EntryId::parse("ref/monster/ghoul").unwrap(),
+                    anchor: Some("ghast".into()),
+                    c: vec![Inline::text("ghast")],
+                },
+                Inline::Link {
+                    target: EntryId::parse("ref/rule/removed").unwrap(),
+                    anchor: None,
+                    c: vec![Inline::text("removed")],
+                },
+            ],
+        }];
+        source.links = vec![
+            EntryReference {
+                target: EntryId::parse("ref/rule/stale").unwrap(),
+                anchor: None,
+            },
+            EntryReference {
+                target: EntryId::parse("ref/rule/removed").unwrap(),
+                anchor: None,
+            },
+        ];
+        let ids = BTreeSet::from([
+            EntryId::parse("ref/rule/table").unwrap(),
+            EntryId::parse("ref/monster/ghoul").unwrap(),
+        ]);
+        let mut entries = vec![source, target];
+        settle_references(&mut entries, &ids);
+        assert_eq!(
+            entries[0].links,
+            vec![EntryReference {
+                target: EntryId::parse("ref/monster/ghoul").unwrap(),
+                anchor: Some("sec-ghast".into()),
+            }]
+        );
+        let Block::Paragraph { content, .. } = &entries[0].body[0] else {
+            panic!("paragraph");
+        };
+        let Inline::Link { anchor, .. } = &content[0] else {
+            panic!("link");
+        };
+        assert_eq!(anchor.as_deref(), Some("sec-ghast"));
     }
 
     #[test]

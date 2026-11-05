@@ -1,11 +1,12 @@
 //! Repository automation. Run `cargo xtask help`.
 
 use cast_iron_corpus::{
-    entry_path, read_aliases, read_books, read_entry, read_legal, read_publications, write_aliases,
-    write_books, write_entry, write_legal, write_publications,
+    entry_path, read_aliases, read_books, read_coverage, read_entry, read_legal, read_publications,
+    write_aliases, write_books, write_coverage, write_entry, write_legal, write_publications,
 };
 use cast_iron_schema::{
-    AliasIndex, BookIndex, Catalog, ContentManifest, LegalNotices, RuleEntry, SourceInfo,
+    AliasIndex, Block, BookIndex, Catalog, ContentManifest, CoverageReport, EntryKind, Inline,
+    LegalNotices, RuleEntry, SourceInfo, TypedFields,
 };
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -739,6 +740,7 @@ struct Library {
     catalog: Catalog,
     books: BookIndex,
     legal: LegalNotices,
+    coverage: CoverageReport,
     aliases: Option<AliasIndex>,
 }
 
@@ -792,6 +794,8 @@ fn load_library(content: &Path) -> Result<Library> {
         serde_json::from_slice(&read("books.json")?).map_err(|e| format!("books.json: {e}"))?;
     let legal: LegalNotices =
         serde_json::from_slice(&read("legal.json")?).map_err(|e| format!("legal.json: {e}"))?;
+    let coverage: CoverageReport = serde_json::from_slice(&read("coverage.json")?)
+        .map_err(|e| format!("coverage.json: {e}"))?;
     let aliases_path = version.join("aliases.json");
     let aliases = if aliases_path.is_file() {
         Some(
@@ -806,6 +810,7 @@ fn load_library(content: &Path) -> Result<Library> {
         catalog,
         books,
         legal,
+        coverage,
         aliases,
     })
 }
@@ -871,6 +876,7 @@ fn corpus_export(args: &[String]) -> Result {
         ),
         ("books.toml", write_books(&library.books)),
         ("legal.toml", write_legal(&library.legal)),
+        ("coverage.toml", write_coverage(&library.coverage)),
     ];
     for (name, text) in stored {
         bytes += text.len() as u64;
@@ -913,6 +919,8 @@ fn corpus_check(args: &[String]) -> Result {
     let books = read_books(&dir.join("books.toml"), &read_stored("books.toml")?)
         .map_err(|e| e.to_string())?;
     let legal = read_legal(&dir.join("legal.toml"), &read_stored("legal.toml")?)
+        .map_err(|e| e.to_string())?;
+    let coverage = read_coverage(&dir.join("coverage.toml"), &read_stored("coverage.toml")?)
         .map_err(|e| e.to_string())?;
     let aliases = if dir.join("aliases.toml").is_file() {
         Some(
@@ -959,6 +967,15 @@ fn corpus_check(args: &[String]) -> Result {
         license_ids.insert("legal#community-use");
     }
     let ids: BTreeSet<&str> = entries.keys().map(String::as_str).collect();
+    let anchors: BTreeMap<String, BTreeSet<String>> = entries
+        .iter()
+        .map(|(id, entry)| {
+            let mut keys = BTreeSet::new();
+            let mut used = BTreeSet::new();
+            collect_heading_keys(&entry.body, &mut keys, &mut used);
+            (id.clone(), keys)
+        })
+        .collect();
     for (id, entry) in &entries {
         let text = &texts[id];
         let line = |needle: &str| {
@@ -967,6 +984,15 @@ fn corpus_check(args: &[String]) -> Result {
                 .map(|i| i + 1)
                 .unwrap_or(1)
         };
+        if !fields_match(entry.kind, &entry.fields) {
+            problems.push(format!(
+                "{}:{}: entry kind `{}` does not match `[fields]` kind `{}`",
+                entry_path(&entry.id).display(),
+                line("kind"),
+                entry.kind.slug(),
+                fields_kind(&entry.fields)
+            ));
+        }
         for source in &entry.source_ids {
             if !publication_ids.contains(source.as_str()) {
                 problems.push(format!(
@@ -1002,6 +1028,28 @@ fn corpus_check(args: &[String]) -> Result {
                     line(link.target.as_str()),
                     link.target
                 ));
+            } else if let Some(anchor) = &link.anchor
+                && !anchors
+                    .get(link.target.as_str())
+                    .is_some_and(|keys| keys.contains(anchor))
+            {
+                problems.push(format!(
+                    "{}:{}: link target `{}` has no heading anchor `{anchor}`",
+                    entry_path(&entry.id).display(),
+                    line(anchor),
+                    link.target
+                ));
+            }
+        }
+        if let TypedFields::Feat(fields) = &entry.fields {
+            for feat in &fields.prerequisite_feats {
+                if !ids.contains(feat.as_str()) {
+                    problems.push(format!(
+                        "{}:{}: unknown prerequisite feat `{feat}`",
+                        entry_path(&entry.id).display(),
+                        line(feat.as_str())
+                    ));
+                }
             }
         }
         for relation in &entry.relations {
@@ -1014,6 +1062,16 @@ fn corpus_check(args: &[String]) -> Result {
                 ));
             }
         }
+    }
+    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
+    for entry in entries.values() {
+        *by_kind.entry(entry.kind.slug().to_string()).or_default() += 1;
+    }
+    if by_kind != coverage.by_kind {
+        problems.push(format!(
+            "coverage.toml:1: by_kind {:?} does not match the entries {by_kind:?}",
+            coverage.by_kind
+        ));
     }
     for tree in &books.books {
         let mut placed = BTreeSet::new();
@@ -1072,6 +1130,111 @@ fn check_book_node(
     }
 }
 
+fn fields_kind(fields: &TypedFields) -> &'static str {
+    match fields {
+        TypedFields::Spell(_) => "spell",
+        TypedFields::Feat(_) => "feat",
+        TypedFields::Creature(_) => "creature",
+        TypedFields::Item(_) => "item",
+        TypedFields::Class(_) => "class",
+        TypedFields::Trait(_) => "trait",
+        TypedFields::RacialTrait(_) => "racial_trait",
+        TypedFields::None => "none",
+    }
+}
+
+fn fields_match(kind: EntryKind, fields: &TypedFields) -> bool {
+    match fields {
+        TypedFields::Spell(_) => kind == EntryKind::Spell,
+        TypedFields::Feat(_) => kind == EntryKind::Feat,
+        TypedFields::Creature(_) => kind == EntryKind::Creature,
+        TypedFields::Item(_) => kind == EntryKind::Item,
+        TypedFields::Class(_) => matches!(kind, EntryKind::Class | EntryKind::PrestigeClass),
+        TypedFields::Trait(_) => kind == EntryKind::Trait,
+        TypedFields::RacialTrait(_) => kind == EntryKind::RacialTrait,
+        TypedFields::None => matches!(
+            kind,
+            EntryKind::Rule
+                | EntryKind::Race
+                | EntryKind::Skill
+                | EntryKind::Affliction
+                | EntryKind::Trap
+                | EntryKind::Archetype
+        ),
+    }
+}
+
+fn collect_heading_keys(
+    blocks: &[Block],
+    keys: &mut BTreeSet<String>,
+    used: &mut BTreeSet<String>,
+) {
+    for block in blocks {
+        match block {
+            Block::Heading {
+                anchor, content, ..
+            } => {
+                let base = anchor
+                    .as_deref()
+                    .filter(|anchor| !anchor.is_empty())
+                    .map(str::to_string)
+                    .or_else(|| {
+                        let slug = heading_slug(content);
+                        (!slug.is_empty()).then(|| format!("sec-{slug}"))
+                    });
+                if let Some(base) = base {
+                    let mut key = base.clone();
+                    let mut suffix = 2;
+                    while !used.insert(key.clone()) {
+                        key = format!("{base}-{suffix}");
+                        suffix += 1;
+                    }
+                    keys.insert(key);
+                }
+            }
+            Block::List { items, .. } => {
+                for item in items {
+                    collect_heading_keys(item, keys, used);
+                }
+            }
+            Block::Quote { content } => collect_heading_keys(content, keys, used),
+            _ => {}
+        }
+    }
+}
+
+fn heading_slug(inlines: &[Inline]) -> String {
+    let mut text = String::new();
+    push_plain_text(inlines, &mut text);
+    let mut out = String::new();
+    let mut pending_dash = false;
+    for ch in text.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_dash && !out.is_empty() {
+                out.push('-');
+            }
+            pending_dash = false;
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            pending_dash = true;
+        }
+    }
+    out
+}
+
+fn push_plain_text(inlines: &[Inline], out: &mut String) {
+    for inline in inlines {
+        match inline {
+            Inline::Text { v } => out.push_str(v),
+            Inline::Break => out.push(' '),
+            Inline::Em { c } | Inline::Strong { c } | Inline::Sup { c } | Inline::Sub { c } => {
+                push_plain_text(c, out)
+            }
+            Inline::Link { c, .. } => push_plain_text(c, out),
+        }
+    }
+}
+
 fn corpus_roundtrip(args: &[String]) -> Result {
     let (dir, content) = corpus_args(args, "corpus-roundtrip")?;
     let library = load_library(&content)?;
@@ -1098,18 +1261,11 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         .entries
         .iter()
         .cloned()
-        .map(|mut entry| {
-            entry.links = cast_iron_corpus::derived_links(&entry.body);
-            (entry.id.to_string(), entry)
-        })
+        .map(|entry| (entry.id.to_string(), entry))
         .collect();
     let mut mismatches = 0usize;
-    let mut link_recomputed = 0usize;
     for entry in &library.entries {
         let id = entry.id.to_string();
-        if entry.links != expected[&id].links {
-            link_recomputed += 1;
-        }
         match read_entries.get(&id) {
             None => {
                 mismatches += 1;
@@ -1198,6 +1354,16 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         mismatches += 1;
         eprintln!("legal.toml does not match the compiled legal notices");
     }
+    let read_coverage = read_coverage(
+        &dir.join("coverage.toml"),
+        &fs::read_to_string(dir.join("coverage.toml"))
+            .map_err(|e| format!("cannot read coverage.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if read_coverage != library.coverage {
+        mismatches += 1;
+        eprintln!("coverage.toml does not match the compiled coverage report");
+    }
     match (&library.aliases, dir.join("aliases.toml").is_file()) {
         (Some(expected), true) => {
             let read = read_aliases(
@@ -1226,9 +1392,8 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         return Err(format!("round trip has {mismatches} mismatch(es)"));
     }
     println!(
-        "round trip ok: {} entries, 0 mismatches; {} entries had links recomputed from the body; {} publications, {} books",
+        "round trip ok: {} entries, 0 mismatches; {} publications, {} books",
         library.entries.len(),
-        link_recomputed,
         publications.len(),
         library.books.books.len()
     );
@@ -1328,6 +1493,43 @@ fn check() -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_fields_must_match_the_entry_kind() {
+        let none = TypedFields::None;
+        assert!(fields_match(EntryKind::Rule, &none));
+        assert!(fields_match(EntryKind::Archetype, &none));
+        assert!(!fields_match(EntryKind::Spell, &none));
+        let class = TypedFields::Class(cast_iron_schema::ClassFields::default());
+        assert!(fields_match(EntryKind::Class, &class));
+        assert!(fields_match(EntryKind::PrestigeClass, &class));
+        assert!(!fields_match(EntryKind::Feat, &class));
+        let spell = TypedFields::Spell(cast_iron_schema::SpellFields::default());
+        assert!(fields_match(EntryKind::Spell, &spell));
+        assert!(!fields_match(EntryKind::Item, &spell));
+        assert_eq!(fields_kind(&spell), "spell");
+    }
+
+    #[test]
+    fn heading_keys_cover_explicit_implicit_and_duplicate_anchors() {
+        let heading = |anchor: Option<&str>, text: &str| Block::Heading {
+            level: 2,
+            anchor: anchor.map(String::from),
+            content: vec![Inline::text(text)],
+        };
+        let body = vec![
+            heading(Some("explicit"), "One"),
+            heading(None, "Two Words"),
+            heading(None, "Two Words"),
+        ];
+        let mut keys = BTreeSet::new();
+        let mut used = BTreeSet::new();
+        collect_heading_keys(&body, &mut keys, &mut used);
+        assert!(keys.contains("explicit"));
+        assert!(keys.contains("sec-two-words"));
+        assert!(keys.contains("sec-two-words-2"));
+        assert_eq!(heading_slug(&[Inline::text("Élan 5")]), "lan-5");
+    }
 
     #[test]
     fn reads_toml_strings() {

@@ -16,6 +16,7 @@ entries/<id without ref/>.md    one entry per file
 publications.toml               publication metadata used by the catalogue
 books.toml                      curated chapter order (BookIndex)
 legal.toml                      licences, Product Identity, Section 15, dataset pins
+coverage.toml                   frozen coverage report, including freeze-time exclusions
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
 ```
 
@@ -126,36 +127,56 @@ reviewed source material that an entry cannot express.
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
 | `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
-| `coverage.json` | **Derived** | It reports what happened during a compile, not source data. |
+| `coverage.json` | **Stored** as `coverage.toml` | An exclusion decided when the corpus was cut cannot be recomputed from the entries. Freezing the report keeps every excluded and rejected record accounted for. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
 | `search.bin` | **Derived** | Built from titles, aliases, sections, and body text. |
 | `manifest.json` | **Derived** | Hashes and byte counts describe build output. |
 | `publications` registry | **Stored** as `publications.toml` | Titles, categories, dates, and Section 15 lines are reviewed metadata; counts are not. |
 
 The rule of thumb: if two people could disagree about it, store it; if a
-deterministic pass over the entries can produce it, derive it.
+deterministic pass over the entries can produce it, derive it. Coverage is the
+one report that mixes both: derived counts are stored next to freeze-time
+exclusions so a corpus compile can reproduce the complete report instead of
+silently losing the rows that describe what is absent.
 
 `RuleEntry::links` is the set of body links. It is derived, never stored:
 
 - an `Inline::Link` adds its target and anchor;
 - an `EntryLink` block adds its target with no anchor;
-- links inside emphasis, headings, tables, lists, quotes, and stat rows count;
+- links inside emphasis, headings, tables, lists, quotes, captions, and stat rows count;
 - the result is sorted and deduplicated.
 
-The current compiled library has five entries whose stored `links` contains a
-reference that the legal screen removed from the body. The corpus cannot store
-that invisible reference without inventing body content, so the round-trip
-checker recomputes links on both sides and reports those five separately. Every
-stored field is still compared exactly.
+The content compiler recomputes this list from the final body after the legal
+screen and settlement steps. The corpus reader performs the same projection, so
+the compiled value and the read-back value are identical.
+
+### Coverage
+
+`coverage.toml` is the compiled `coverage.json`, frozen as TOML. It keeps:
+
+- the input digest;
+- counts by publication and kind;
+- excluded upstream paths;
+- rejected records and reasons;
+- link, relation, book-order, and backlink coverage;
+- stripped-content counts.
+
+The reader validates the report's digest and kind names. `corpus-check` also
+requires `by_kind` to equal the counts of the entry files. A corpus compile uses
+the frozen rows as the exclusion and rejection input; derived counts can be
+checked against the rebuilt library. Nothing that was deliberately left out
+disappears just because the entries cannot express it.
 
 ## Body
 
 The body is a strict Markdown subset. It maps one-to-one to `Block` and `Inline`.
 There is no raw HTML: `<` and `>` are escaped text, never markup.
 
-Blocks are separated by one blank line. The writer emits exactly one blank line
-between blocks and never trails a file with a blank line. A paragraph's source
-line breaks are soft and read back as a space; use `\n` for `Inline::Break`.
+Blocks are separated by one blank line. Only an ASCII space or tab is blank;
+Unicode spaces such as a non-breaking space are paragraph content. The writer
+emits exactly one blank line between blocks and never trails a file with a blank
+line. A paragraph's source line breaks are soft and read back as a space; use
+`\n` for `Inline::Break`.
 
 ### Headings
 
@@ -165,8 +186,9 @@ line breaks are soft and read back as a space; use `\n` for `Inline::Break`.
 
 Two to six `#`, one space, the heading text, and an optional ` {#anchor}`.
 Level 1 is reserved for the entry title, which is not a block. A heading with no
-anchor omits the braces. The anchor is `[A-Za-z0-9_.-]+`. This example is from
-Special Abilities (Core Rulebook).
+anchor omits the braces. The anchor is `[A-Za-z0-9_.-]+`; any other suffix in
+braces is an error, not heading text. This example is from Special Abilities
+(Core Rulebook).
 
 ### Paragraphs
 
@@ -264,8 +286,9 @@ foot = [
 
 The fenced body is TOML. `caption` is inline text. `head`, `body`, and `foot`
 are arrays of rows; a row is an array of cells. A cell has `text` (inline text),
-optional `header`, `colspan`, and `rowspan`. This example is from Special
-Abilities (Core Rulebook).
+optional `header`, `colspan`, and `rowspan`. Spans must be at least 1; an
+explicit 0 is an error. This example is from Special Abilities (Core
+Rulebook).
 
 ### Stat blocks
 
@@ -346,6 +369,7 @@ is also an error.
 - rejects a file that does not start with `+++` or does not close it;
 - rejects an unknown or missing front-matter key;
 - rejects an unknown typed-fields key for the declared `kind`;
+- rejects an entry kind that disagrees with the typed-fields kind;
 - rejects an id whose path does not match `entries/<id without ref/>.md`;
 - rejects invalid ids, kinds, challenge ratings, and link targets;
 - reports the file path and a 1-based line for every error.
@@ -354,15 +378,19 @@ is also an error.
 naming the file and line, when:
 
 - an id is duplicated or a path does not match its id;
+- an entry `kind` does not match its `[fields]` kind;
 - a `source_id` is not in `publications.toml`;
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
-- a parent, body link, relation target, book node, or alias target names an
-  unknown entry.
+- a parent, body link, prerequisite feat, relation target, book node, or alias
+  target names an unknown entry;
+- a body link anchor is not a heading anchor or a derived `sec-` heading key in
+  the target entry;
+- `coverage.toml` by-kind counts do not equal the entry files.
 
 ## Determinism
 
 The writer is deterministic: the same `RuleEntry` gives byte-identical text, and
 the same library gives byte-identical corpus files. It uses a fixed key order,
 fixed block separation, no timestamps, and no hash-map iteration. The export
-command clears its output directory first, so a stale file cannot survive a
-second export.
+command clears a previous corpus directory (or an empty one) first, so a stale
+file cannot survive a second export.

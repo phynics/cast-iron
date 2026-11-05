@@ -9,19 +9,21 @@ Updated 2026-11-06.
 `corpus-check` validates it; `corpus-roundtrip` compares it with the compiled
 library. The build is not switched, so this adds tooling and no library change.
 
-Local verification on 2026-11-06 against the pinned corpus (`v7037c9c1397b8e8f`,
+Local verification on 2026-11-06 against the pinned corpus (`v17192bfbdba50086`,
 31,106 entries):
 
 | Check | Result |
 |---|---|
-| Export | 31,110 files, 79.88 MB of text |
-| Two exports, tree hash | Byte-identical: `980fb88dc9c36c1bbe11e6833544cccca8756576f2772e0b186ce29e932de99b` |
-| `cargo xtask corpus-check` | Passed: 31,106 entries, 439 publications, 449 books |
-| `cargo xtask corpus-roundtrip` | 0 mismatches; 5 entries had `links` recomputed from the body |
+| Export | 31,111 files, 83.78 MB of text |
+| Two exports, tree hash | Byte-identical: `e59c0a3828630288b8450b4e4467960f305c08d38b42f42d7d88a49a08c05f35` |
+| `cargo xtask corpus-check` | Passed: 31,106 entries, 439 publications, 449 books, 1 licence |
+| `cargo xtask corpus-roundtrip` | 0 mismatches, no link special case |
+| `cargo xtask content` twice | Byte-identical: `v17192bfbdba50086`, content tree hash `4e3d15b6323377ba2b3815ae74e7f7aea58cd83402e7454dfea191d77bc5aff6` |
+| PSRD `--psrd` | Unchanged: `vcdd730994d863e50`, 9,990 entries, tree hash `efa8188cc3d36f3f27be9734438e41777353fef86e3e63c721a7b0b3d82a107c` |
+| `check-publication.py generated/content` | Exit 0, 0 issues |
+| `check-library-upgrade.py generated/psrd generated/content` | Exit 0, no missing, unresolvable, or dangling ids |
+| `cargo xtask data-report` | Exit 0; tracked `reports/` files unchanged |
 | `cargo xtask check` | Passed (format, Python tests, native and WASM clippy, workspace tests, WASM build) |
-
-The five recomputed links are a pre-existing compiler/library difference, not a
-corpus loss; they are described in `docs/corpus-format.md`.
 
 Earlier status, 2026-11-05. The repository is public. The latest observed successful
 [main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and

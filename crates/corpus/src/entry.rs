@@ -1102,7 +1102,8 @@ mod tests {
         let text = write_entry(&entry).replace("## Effects {#effects}", "## Effects");
         assert!(read_entry(&entry_path(&entry.id), &text).is_ok());
         let text = write_entry(&entry).replace("## Effects {#effects}", "## Effects {#bad anchor}");
-        assert!(read_entry(&entry_path(&entry.id), &text).is_ok());
+        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        assert!(error.message.contains("invalid heading anchor"), "{error}");
         let text = write_entry(&entry).replace("A pipe \\| and a star \\*.", "*open");
         let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
         assert!(error.line >= 1, "{error}");

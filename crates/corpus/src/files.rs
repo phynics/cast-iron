@@ -1,11 +1,15 @@
 //! Stored non-entry source files.
 //!
-//! `publication`, `books`, `legal`, and `aliases` are source data. Catalog
-//! stubs, `entry_count`, relations, spell lists, coverage, backlinks, search,
-//! and the manifest are compiler output and are never stored here.
+//! `publication`, `books`, `legal`, `coverage`, and `aliases` are stored source
+//! data. Catalog stubs, `entry_count`, relations, spell lists, backlinks,
+//! search, and the manifest are compiler output and are never stored here.
+//! Coverage is stored because its exclusions were decided when the corpus was
+//! cut and cannot be recomputed from the entries.
 
 use crate::error::{Error, Result};
-use cast_iron_schema::{AliasIndex, BookIndex, LegalNotices, SourceInfo};
+use cast_iron_schema::{
+    AliasIndex, BookIndex, CoverageReport, EntryKind, LegalNotices, SourceInfo,
+};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -115,6 +119,37 @@ pub fn read_legal(path: &Path, text: &str) -> Result<LegalNotices> {
         .map_err(|error| Error::new(path, toml_line(&error, text), format!("legal: {error}")))
 }
 
+/// The frozen coverage report. It preserves exclusions and rejections that were
+/// decided when the corpus was cut, so a corpus compile can emit the same report.
+pub fn write_coverage(coverage: &CoverageReport) -> String {
+    toml::to_string(coverage).expect("coverage serializes")
+}
+
+pub fn read_coverage(path: &Path, text: &str) -> Result<CoverageReport> {
+    let coverage: CoverageReport = toml::from_str(text)
+        .map_err(|error| Error::new(path, toml_line(&error, text), format!("coverage: {error}")))?;
+    validate_coverage(&coverage)
+        .map_err(|problem| Error::new(path, 1, format!("coverage: {problem}")))?;
+    Ok(coverage)
+}
+
+fn validate_coverage(coverage: &CoverageReport) -> std::result::Result<(), String> {
+    if coverage.input_digest.len() != 64
+        || !coverage
+            .input_digest
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("input_digest must be 64 hexadecimal characters".into());
+    }
+    for kind in coverage.by_kind.keys() {
+        if EntryKind::from_slug(kind).is_none() {
+            return Err(format!("unknown kind {kind:?} in by_kind"));
+        }
+    }
+    Ok(())
+}
+
 fn toml_line(error: &toml::de::Error, text: &str) -> usize {
     let Some(span) = error.span() else {
         return 1;
@@ -218,6 +253,24 @@ mod tests {
         let text = write_legal(&legal);
         assert!(text.contains("line one"), "{text}");
         assert_eq!(read_legal(Path::new("legal.toml"), &text).unwrap(), legal);
+    }
+
+    #[test]
+    fn coverage_round_trips_and_validates_its_digest_and_kinds() {
+        let coverage = cast_iron_schema::CoverageReport {
+            input_digest: "a".repeat(64),
+            by_kind: [("spell".to_string(), 2)].into_iter().collect(),
+            ..Default::default()
+        };
+        let text = write_coverage(&coverage);
+        assert_eq!(
+            read_coverage(Path::new("coverage.toml"), &text).unwrap(),
+            coverage
+        );
+        let bad_digest = text.replace(&"a".repeat(64), "not-a-digest");
+        assert!(read_coverage(Path::new("coverage.toml"), &bad_digest).is_err());
+        let bad_kind = text.replace("spell = 2", "not_a_kind = 2");
+        assert!(read_coverage(Path::new("coverage.toml"), &bad_kind).is_err());
     }
 
     #[test]
