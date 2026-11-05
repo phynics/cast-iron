@@ -8,7 +8,8 @@ use std::process::{Command, ExitCode};
 const HELP: &str = "\
 cargo xtask <command>
 
-  fetch-sources              Download the pinned PSRD-Data commit into .cache/sources/psrd-data
+  fetch-sources              Download the pinned PSRD-Data and Pathfinder Data 1e commits into
+                             .cache/sources
   data-fetch                 Download the pinned Pathfinder Data 1e archive into .cache/sources/pathfinder-data-1-e
   data-audit                 Audit the Pathfinder Data 1e source
   data-import                Import the Pathfinder Data 1e source
@@ -21,12 +22,12 @@ cargo xtask <command>
   data-publications [--check]
                              Generate sources/canonical/publications.toml, or verify the committed copy
   data-test                  Test the importer and Pathfinder Data 1e source
-  content [--canonical]      Compile content into generated/content, or the canonical library into
-                             generated/canonical; the default stays PSRD-Data
-  build-site [--canonical] [--public-url P]
-                             Build dist/ from generated/content, or the canonical library from
-                             generated/canonical with --canonical; the default stays PSRD-Data.
-                             The default public URL is /cast-iron/, the GitHub Pages project path
+  content [--psrd]           Compile the canonical library into generated/content (default), or
+                             the PSRD-Data library into generated/psrd with --psrd
+  build-site [--psrd] [--public-url P]
+                             Build dist/ from generated/content (canonical by default), or from
+                             generated/psrd with --psrd. The default public URL is /cast-iron/,
+                             the GitHub Pages project path
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
   check                      Run fmt, clippy, tests, and the WASM build
 ";
@@ -395,12 +396,38 @@ fn data_publications(args: &[String]) -> Result {
     run("cargo", &borrowed)
 }
 
+/// The library a build command selects. The canonical library is the default;
+/// `--psrd` keeps the carry-over input buildable for inspection and comparison.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum LibrarySource {
+    Canonical,
+    Psrd,
+}
+
+fn library_source(command: &str, args: &[String]) -> Result<LibrarySource> {
+    let mut selected = None;
+    for arg in args {
+        let source = match arg.as_str() {
+            "--psrd" => LibrarySource::Psrd,
+            // Kept as an explicit spelling of the default for existing callers.
+            "--canonical" => LibrarySource::Canonical,
+            other => {
+                return Err(format!(
+                    "unknown argument {other:?} for {command}\nusage: {command} [--psrd]"
+                ));
+            }
+        };
+        if selected.replace(source).is_some() {
+            return Err(format!(
+                "{command} accepts only one of --canonical and --psrd"
+            ));
+        }
+    }
+    Ok(selected.unwrap_or(LibrarySource::Canonical))
+}
+
 fn content(args: &[String]) -> Result {
-    let canonical = match args {
-        [] => false,
-        [flag] if flag == "--canonical" => true,
-        _ => return Err("usage: content [--canonical]".into()),
-    };
+    let canonical = library_source("content", args)? == LibrarySource::Canonical;
     let mut arguments = vec![
         "run".to_string(),
         "--quiet".to_string(),
@@ -416,15 +443,15 @@ fn content(args: &[String]) -> Result {
         ".cache/sources/psrd-data".to_string(),
         "--out".to_string(),
         if canonical {
-            "generated/canonical".to_string()
-        } else {
             "generated/content".to_string()
+        } else {
+            "generated/psrd".to_string()
         },
         "--reports".to_string(),
         if canonical {
-            "generated/reports/canonical".to_string()
-        } else {
             "generated/reports".to_string()
+        } else {
+            "generated/reports/psrd".to_string()
         },
     ];
     if canonical {
@@ -447,31 +474,41 @@ fn content(args: &[String]) -> Result {
 
 fn build_site(args: &[String]) -> Result {
     let mut public_url = "/cast-iron/".to_string();
-    let mut canonical = false;
+    let mut source = None;
     let mut rest = args.iter();
     while let Some(flag) = rest.next() {
-        match flag.as_str() {
-            "--canonical" => canonical = true,
+        let selected = match flag.as_str() {
+            "--canonical" => Some(LibrarySource::Canonical),
+            "--psrd" => Some(LibrarySource::Psrd),
             "--public-url" => {
                 public_url = rest.next().ok_or("--public-url needs a value")?.clone();
+                None
             }
-            _ => return Err("usage: build-site [--canonical] [--public-url /path/]".into()),
+            _ => {
+                return Err("usage: build-site [--psrd] [--public-url /path/]".into());
+            }
+        };
+        if let Some(selected) = selected
+            && source.replace(selected).is_some()
+        {
+            return Err("build-site accepts only one of --canonical and --psrd".into());
         }
     }
     if !public_url.starts_with('/') || !public_url.ends_with('/') {
         return Err("--public-url must start and end with /".into());
     }
-    // The default build stays PSRD-Data. --canonical packages the canonical library that
-    // `cargo xtask content --canonical` writes, without changing the production default.
+    // The canonical library is the default. --psrd packages generated/psrd, the
+    // carry-over input build, into the same dist/.
+    let canonical = source.unwrap_or(LibrarySource::Canonical) == LibrarySource::Canonical;
     let generated = if canonical {
-        "generated/canonical"
-    } else {
         "generated/content"
+    } else {
+        "generated/psrd"
     };
     if !root().join(generated).join("manifest.json").exists() {
         fetch_sources()?;
-        let canonical_args = ["--canonical".to_string()];
-        content(if canonical { &canonical_args } else { &[] })?;
+        let psrd_args = ["--psrd".to_string()];
+        content(if canonical { &[] } else { &psrd_args })?;
     }
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
@@ -621,6 +658,27 @@ mod tests {
         let text = "[dataset]\ncommit = \"abc\"\nother = \"x\"";
         assert_eq!(toml_string(text, "commit").as_deref(), Some("abc"));
         assert_eq!(toml_string(text, "missing"), None);
+    }
+
+    #[test]
+    fn content_source_defaults_to_canonical() {
+        let none: Vec<String> = vec![];
+        assert_eq!(
+            library_source("content", &none).unwrap(),
+            LibrarySource::Canonical
+        );
+        let psrd = ["--psrd".to_string()];
+        assert_eq!(
+            library_source("content", &psrd).unwrap(),
+            LibrarySource::Psrd
+        );
+        let explicit = ["--canonical".to_string()];
+        assert_eq!(
+            library_source("content", &explicit).unwrap(),
+            LibrarySource::Canonical
+        );
+        let both = ["--psrd".to_string(), "--canonical".to_string()];
+        assert!(library_source("content", &both).is_err());
     }
 
     #[test]

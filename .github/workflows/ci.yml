@@ -50,20 +50,40 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
       - uses: Swatinem/rust-cache@v2
       - run: cargo xtask fetch-sources
+      # The canonical library is the default build (generated/content).
       - run: cargo xtask content
-      - name: Hash the first compile
+      - name: Hash the first canonical compile
         id: first
         run: echo "hash=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Compile again from scratch
+      - name: Compile the canonical default again from scratch
         run: |
           rm -rf generated
           cargo xtask content
-      - name: Compiler output must be byte-identical (NFR-05)
+      - name: Canonical output must be byte-identical (NFR-05)
         run: |
           second=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           echo "first : ${{ steps.first.outputs.hash }}"
           echo "second: $second"
           test "$second" = "${{ steps.first.outputs.hash }}"
+      # PSRD-Data is no longer the default, but it remains the carry-over input
+      # and the previous published library. Its build must stay deterministic.
+      - name: Compile the PSRD carry-over library
+        run: cargo xtask content --psrd
+      - name: Hash the first PSRD compile
+        id: psrd-first
+        run: echo "hash=$(find generated/psrd generated/reports/psrd -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - name: Compile the PSRD carry-over library again from scratch
+        run: |
+          rm -rf generated/psrd generated/reports/psrd
+          cargo xtask content --psrd
+      - name: PSRD output must be byte-identical
+        run: |
+          second=$(find generated/psrd generated/reports/psrd -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+          echo "first : ${{ steps.psrd-first.outputs.hash }}"
+          echo "second: $second"
+          test "$second" = "${{ steps.psrd-first.outputs.hash }}"
+      - name: The default library resolves every previous PSRD id
+        run: python3 scripts/check-library-upgrade.py generated/psrd generated/content
       - name: Audit the complete pinned primary input and representative conversion
         run: |
           cargo xtask data-report

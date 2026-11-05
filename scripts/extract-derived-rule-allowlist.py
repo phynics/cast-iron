@@ -19,13 +19,13 @@ numeric suffix.
 
 Inputs are build artifacts, not committed research data:
 
-    cargo xtask content
+    cargo xtask content --psrd
     cargo xtask data-report
 
 Usage:
 
     python3 scripts/extract-derived-rule-allowlist.py \
-        --psrd-content generated/content/v<version> \
+        --psrd-content generated/psrd/v<version> \
         --inventory generated/migration/inventory.json \
         --out sources/pathfinder-data-1-e/derived-rules.json
 """

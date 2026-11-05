@@ -9,9 +9,10 @@ export type { BrowserContext, Page };
 export const ROOT = path.resolve(__dirname, "../../..");
 export const DIST = path.join(ROOT, "dist");
 /**
- * Compiled corpus the test expectations come from. The default is the PSRD build that
- * `cargo xtask build-site` packages. Set CAST_IRON_CONTENT=generated/canonical to check the
- * same suite against `cargo xtask content --canonical` and `cargo xtask build-site --canonical`.
+ * Compiled corpus the test expectations come from. The default is the canonical library
+ * that `cargo xtask build-site` packages from `generated/content`. Set
+ * CAST_IRON_CONTENT=generated/psrd to check the same suite against the PSRD carry-over
+ * build (`cargo xtask content --psrd` and `cargo xtask build-site --psrd`).
  */
 export const GENERATED = path.resolve(ROOT, process.env.CAST_IRON_CONTENT ?? "generated/content");
 
@@ -68,9 +69,9 @@ export function loadCorpus(): Corpus {
       `The built site has content ${built.content_version}, but the expectations read ` +
         `${manifest.content_version} from ${path.relative(ROOT, GENERATED)}.\n` +
         `Build both from the same library, or point CAST_IRON_CONTENT at the corpus that was built.\n` +
-        `  PSRD:      cargo xtask build-site\n` +
-        `  canonical: cargo xtask content --canonical && cargo xtask build-site --canonical\n` +
-        `Then run the suite with CAST_IRON_CONTENT=generated/canonical.`,
+        `  canonical (default): cargo xtask content && cargo xtask build-site\n` +
+        `  PSRD:                cargo xtask content --psrd && cargo xtask build-site --psrd\n` +
+        `Then run the suite with CAST_IRON_CONTENT=generated/psrd for the PSRD build.`,
     );
   }
   const dir = path.join(GENERATED, manifest.content_version, "entries");

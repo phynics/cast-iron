@@ -2,9 +2,13 @@
 
 Tracking issue: [#18](https://github.com/phynics/cast-iron/issues/18).
 This document records the migration design and observed limitations. Acceptance
-and outstanding work remain in the issue. PSRD-Data remains the primary production
-source. One explicitly reviewed primary-source record is now imported through the
-bounded adapter; the rest stays in coverage.
+and outstanding work remain in the issue.
+
+`main` now builds the canonical Pf Data library by default into `generated/content/`.
+The published `release` branch remains the PSRD-Data library until the owner promotes
+the switch through `docs/releasing.md`. PSRD-Data remains the carry-over input and the
+previous published library; `cargo xtask content --psrd` builds it into
+`generated/psrd/` for comparison and upgrade checks.
 
 The migration branch was rebased onto `0111ea7` after PR #7 and the subsequent
 removal of star transfer in PR #28. PR #7's runs `41732375845` and `41732382340`
@@ -14,13 +18,16 @@ bound to the old corpus by hashes and must be regenerated after content changes.
 
 ## Current architecture
 
-`cargo xtask fetch-sources` retrieves PSRD-Data commit
-`76ea4784604145ba3dea40eb56f83bb904759467`. The native compiler selects reviewed
-JSON files, applies `content-policy.toml`, converts HTML into typed nodes, assigns
-permanent URL-derived IDs, resolves links, and builds schema-3 content shards.
+`cargo xtask fetch-sources` retrieves both pinned datasets: PSRD-Data commit
+`76ea4784604145ba3dea40eb56f83bb904759467` and Pf Data 1e commit
+`08ea71f24375908d0190c822fd1fd080797667a9`. The canonical default converts the
+screened Pf Data inventory into typed nodes, resolves links, carries over the PSRD
+entries named by `sources/canonical/id-map.toml`, and builds schema-3 content shards.
 It generates the catalog, legal notices, relationships, spell lists, book index,
-and format-1 native/WASM search index. The last recorded production baseline is
-9,967 entries from 16 publications. See `docs/status.md` for its verification scope.
+alias map, and format-1 native/WASM search index. `cargo xtask content --psrd` still
+builds the legacy adapter: reviewed JSON selection, `content-policy.toml`, permanent
+URL-derived IDs, and 9,968 entries from 16 publications. See `docs/status.md` for
+verification scope.
 
 `crates/web/src/library.rs` reads these files from the active Cache API library.
 The installer verifies every manifest hash before activation. IndexedDB stores
@@ -35,10 +42,11 @@ and the original source records stay in build artifacts outside the distribution
 The existing shard, catalog, search, and installation paths remain the integration
 contract. A second browser renderer or runtime database would duplicate those paths.
 
-The planned command interface is `cargo xtask data-fetch`, `data-audit`,
-`data-import`, `data-validate`, `data-report`, and `data-test`. Publication requires
-a separate successful production build and upgrade acceptance. An audit succeeding
-does not mean an import, licensing review, or cutover passed.
+The command interface is `cargo xtask data-fetch`, `data-audit`, `data-import`,
+`data-validate`, `data-report`, `data-test`, and `data-alias`. `cargo xtask content`
+builds the canonical default; `--psrd` builds the carry-over library. Publication
+requires a separate successful release build and upgrade acceptance. An audit
+succeeding does not mean an import, licensing review, or cutover passed.
 
 The adapter separates source validation, record expansion, typed Markdown and
 directive conversion, mechanical extraction, identity resolution, and emission.
@@ -93,7 +101,9 @@ with imported records.
 ## Reviewed supplemental records
 
 `sources/pathfinder-data-1-e/approved.json` is the only path from the primary
-source into production. Each record names an exact file and key, an expected name
+source into the PSRD library. The canonical default instead converts the screened
+inventory and admits a publication only through the reviewed
+`sources/canonical/publications.toml` registry. Each approved PSRD record names an exact file and key, an expected name
 and publication, a permanent native-protocol ID, an optional parent, a review
 reason, a required `rights` basis, and the reviewed topic targets. The adapter
 rejects a mismatched identity, an unapproved field, an unknown link target, a
@@ -115,11 +125,12 @@ An omitted or unknown `rights` value fails the selection, as does an `orc`
 record. A `cup` record is always emitted with the reviewed legal-page notice path.
 
 `sources/psrd-data/source.toml` points at this selection in its `[supplement]`
-table. The compile therefore appends the reviewed entry after the ordinary build,
-adds its links and nested placement, appends the dataset pin and Section 15
-notices, and folds the full inventory exclusions into coverage. The PSRD selection
-digest still gates its own inputs; the coverage report's `input_digest` also covers
-the primary inventory digest.
+table. The PSRD build (`--psrd`, or the in-memory build used for carry-over)
+therefore appends the reviewed entry after the ordinary build, adds its links and
+nested placement, appends the dataset pin and Section 15 notices, and folds the
+full inventory exclusions into coverage. The PSRD selection digest still gates its
+own inputs; the coverage report's `input_digest` also covers the primary inventory
+digest.
 
 `sources/pathfinder-data-1-e/out-of-scope.json` names publications and records
 that are outside the PF1e OGL scope. The inventory still counts them, the migration
@@ -134,7 +145,7 @@ before activation. The migration commands remain isolated: `data-report` writes
 `reports/migration-coverage.json` and the representative test files, while full
 corpus diagnostics stay under ignored `reports/migration-full.*`. A blocked gate
 still exits nonzero for `import`, `validate`, and `test`; it cannot alter
-`generated/content`.
+`generated/content` or `generated/psrd`.
 
 ## Legacy alias map
 
@@ -184,23 +195,26 @@ and search format 1 remain unchanged. See the Phase 5 decision in
 7. Expand to all eligible records and compare counts against the reviewed baseline.
 8. Build the production library twice and compare every byte.
 9. Verify old IDs, browser update behavior, offline search, navigation, and persistence.
-10. Make the new pipeline default only after these gates pass.
+10. Make the canonical pipeline the default build only after these gates pass, then
+    publish the alias-capable shell on the PSRD release before promoting the switch.
 
 ## Validation and cutover requirements
 
 `cargo xtask check` is mandatory. A changed corpus also requires explicit
-`cargo xtask content` before `cargo xtask build-site`, the affected real-distribution
-e2e tests, `scripts/check-publication.py`, and `scripts/check-library-upgrade.py`.
-Save the previous library outside `generated/` and `dist/`. Install it in a browser,
+`cargo xtask content` (canonical default) and `cargo xtask content --psrd` before
+`cargo xtask build-site`, the affected real-distribution e2e tests,
+`scripts/check-publication.py`, and `scripts/check-library-upgrade.py`.
+Save the previous published PSRD library outside `generated/` and `dist/`. Install it in a browser,
 save an affected bookmark, activate the replacement, and reload offline. Check
 interrupted updates against the active library. Record local, CI, and Pages evidence
 separately. Do not automatically promote `main` to `release`.
 
 ## Rollback and recovery
 
-Until acceptance passes, retain the current production pipeline and its IDs.
-Keep experimental artifacts under `generated/migration`, outside site packaging.
-A failed experiment must not alter `generated/content` or the active browser cache.
-After eventual cutover, rebuild a reviewed prior source/compiler revision for a new
-content version if recovery is needed. Follow `docs/releasing.md` for publication.
+The published release remains the PSRD pipeline and its IDs until the default switch
+is promoted. Keep experimental artifacts under `generated/migration`, outside site
+packaging. A failed experiment must not alter `generated/content`, `generated/psrd`,
+or the active browser cache. After the switch, rebuild a reviewed prior
+source/compiler revision for a new content version if recovery is needed. Follow
+`docs/releasing.md` for publication.
 Do not reset release history or delete user storage to recover content.
