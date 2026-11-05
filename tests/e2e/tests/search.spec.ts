@@ -143,10 +143,10 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await page.locator("#search-input").fill("");
   await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
   const schoolChip = page.locator(".filters .chip", { hasText: new RegExp(`^${escape(chosen.school)}\\d*$`, "i") });
-  await expect(schoolChip.first()).toBeVisible({ timeout: 60_000 });
+  await expect(schoolChip.first()).toBeVisible();
   await schoolChip.first().click();
   const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${chosen.level}\\d*$`) });
-  await expect(levelChip.first()).toBeVisible({ timeout: 60_000 });
+  await expect(levelChip.first()).toBeVisible();
   await levelChip.first().click();
   await expect.poll(() => page.url()).toContain(`spell_level:${chosen.level}`);
   await showAllResults(page);

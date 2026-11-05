@@ -273,14 +273,19 @@ impl Library {
         let Some(stub) = self.stub(id) else {
             return false;
         };
-        !is_book_disabled(
-            &self.0.disabled_books.borrow(),
-            canonical_book_source(
-                self.0.books.borrow().as_ref().and_then(Option::as_deref),
-                id,
-                &stub.source,
-            ),
-        )
+        self.is_stub_active(stub)
+    }
+
+    /// The active-book test for a catalog stub, without a second id lookup. Discovery asks this
+    /// for every entry in the catalog.
+    pub(crate) fn is_stub_active(&self, stub: &EntryStub) -> bool {
+        let books = self.0.books.borrow();
+        let source = canonical_book_source(
+            books.as_ref().and_then(Option::as_deref),
+            &stub.id,
+            &stub.source,
+        );
+        !is_book_disabled(&self.0.disabled_books.borrow(), source)
     }
 
     pub fn canonical_source_for_entry(&self, id: &EntryId) -> Option<String> {

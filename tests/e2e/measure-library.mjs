@@ -82,6 +82,45 @@ async function measure(browserName, browserType) {
   await page.locator(".entry > .rich").waitFor({ state: "visible", timeout: 120_000 });
   const firstEntryMs = Date.now() - entryStart;
 
+  // Facet chips: the time from opening Search until every rendered chip has a count, the
+  // time from choosing a kind until its School and Spell level chips appear, and the time
+  // from toggling one facet value until the chip counts reflect that selection. These are
+  // the user-visible costs of facet counting on the full canonical library.
+  const openStart = Date.now();
+  await page.goto("#/search");
+  await page.locator(".filters .chip-count").first().waitFor({ state: "visible", timeout: 180_000 });
+  const openFirstChipMs = Date.now() - openStart;
+  await page.waitForFunction(
+    () => {
+      const counts = [...document.querySelectorAll(".filters .chip-count")];
+      return counts.length > 0 && counts.every((el) => /^\d+$/.test(el.textContent ?? ""));
+    },
+    undefined,
+    { timeout: 180_000 },
+  );
+  const openCountsMs = Date.now() - openStart;
+
+  const kindStart = Date.now();
+  await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
+  const school = page.locator('.filter-group:has(legend:text-is("School"))');
+  await school.locator(".chip-count").first().waitFor({ state: "visible", timeout: 180_000 });
+  const kindsFacetMs = Date.now() - kindStart;
+
+  const toggleStart = Date.now();
+  const countsBefore = await page.evaluate(() =>
+    [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent),
+  );
+  await school.locator(".chip", { hasText: /^evocation\d*$/i }).first().click();
+  await page.waitForFunction(
+    (before) => {
+      const now = [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent);
+      return now.length > 0 && JSON.stringify(now) !== JSON.stringify(before);
+    },
+    countsBefore,
+    { timeout: 180_000 },
+  );
+  const facetToggleMs = Date.now() - toggleStart;
+
   // Warm the index once so the first query does not carry the index load.
   await page.goto("#/search");
   await page.locator("#search-input").fill("warm up");
@@ -122,6 +161,12 @@ async function measure(browserName, browserType) {
     storageQuotaBytes: storage.quota,
     firstEntryId: entry.id,
     firstEntryMs,
+    facets: {
+      openFirstChipMs,
+      openCountsMs,
+      kindsFacetMs,
+      facetToggleMs,
+    },
     search: {
       queries: QUERIES.length,
       engineP50: pct(times, 0.5),
@@ -159,6 +204,10 @@ console.table(results.map((result) => ({
   "install s": (result.installMs / 1000).toFixed(1),
   "storage MB": (result.storageUsageBytes / 1e6).toFixed(1),
   "first entry ms": result.firstEntryMs,
+  "open chips ms": result.facets.openFirstChipMs,
+  "open counts ms": result.facets.openCountsMs,
+  "kind facets ms": result.facets.kindsFacetMs,
+  "facet toggle ms": result.facets.facetToggleMs,
   "engine p50": result.search.engineP50,
   "engine p95": result.search.engineP95,
   "wall p50": result.search.wallP50,
