@@ -288,6 +288,10 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                 "list",
                 "spellAb",
                 "cantrips",
+                "spelllist",
+                "room",
+                "team",
+                "lesserOrders",
             ];
             if allowed_headers.contains(&name) {
                 let title = bracket(rest).unwrap_or_default();
@@ -382,6 +386,14 @@ pub fn render(lines: &[String], env: &mut dyn crate::html::Env) -> Result<Vec<Bl
                 match optional_attributes(trimmed) {
                     Ok(attrs) if attrs.is_empty() => env.stripped("group_container"),
                     Ok(_) => errors.push("unsupported attribute on :::group".into()),
+                    Err(error) => errors.push(error),
+                }
+            } else if name == "blockquote" {
+                match optional_attributes(trimmed) {
+                    Ok(attrs) if attrs.keys().all(|key| key == "className") => {
+                        env.stripped("blockquote_container")
+                    }
+                    Ok(_) => errors.push("unsupported attribute on :::blockquote".into()),
                     Err(error) => errors.push(error),
                 }
             } else if name == "stamina" {
@@ -1279,7 +1291,7 @@ fn render_semantic_directive(
     {
         BTreeMap::new()
     } else {
-        attributes(&format!("::{name}{rest}"))?
+        optional_attributes(&format!("::{name}{rest}"))?
     };
     let allowed: &[&str] = match name {
         "ab" => &[
@@ -1405,6 +1417,12 @@ fn render_semantic_directive(
             "s18",
             "s19",
             "s20",
+            "xPenalty",
+            "xDescription",
+            "xOrder",
+            "xGift",
+            "xReckoning",
+            "xAvailable_Patron_Themes",
         ],
         "aff" => &[
             "clear",
@@ -1512,8 +1530,67 @@ fn render_semantic_directive(
             "indent",
             "singleBreaks",
         ],
-        "cskill" => &["gain", "lose"],
-        "mh" => &["cr", "mr", "clear"],
+        "cskill" => &[
+            "gain",
+            "lose",
+            "pre",
+            "preTitle",
+            "post",
+            "postTitle",
+            "preHL",
+            "noAlter",
+            "icon",
+        ],
+        "spelllist" => &[
+            "all", "from", "save", "clear", "l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8", "l9",
+        ],
+        "room" | "team" => &[
+            "benefit",
+            "c",
+            "cGoods",
+            "cInfluence",
+            "cLabor",
+            "cMagic",
+            "create",
+            "e",
+            "eGp",
+            "eGoods",
+            "eInfluence",
+            "eLabor",
+            "eMagic",
+            "earnings",
+            "from",
+            "s",
+            "s1",
+            "s2",
+            "size",
+            "t",
+            "time",
+            "to",
+            "clear",
+        ],
+        "trap" => &[
+            "start",
+            "magic",
+            "mechanical",
+            "cr",
+            "terrain",
+            "pdc",
+            "dddc",
+            "trigger",
+            "automatic",
+            "manual",
+            "repair",
+            "eff",
+            "clear",
+        ],
+        "haunt" => &["start", "notice", "hp", "weak", "trigger", "reset", "clear"],
+        "drug" => &[
+            "start", "minor", "moderate", "severe", "addict", "dc", "price", "type", "eff1",
+            "eff2", "dmg", "dmgStr", "dmgDex", "dmgCon", "dmgInt", "dmgWis", "dmgCha", "clear",
+        ],
+        "lesserOrders" => &["clear"],
+        "mh" => &["cr", "mr", "jl", "clear"],
         "minfo" => &[
             "source",
             "xp",
@@ -1750,17 +1827,50 @@ fn render_semantic_directive(
         }
     }
     if name == "cskill" {
-        let mut out = Vec::new();
+        let mut out = if title.is_empty() {
+            String::new()
+        } else {
+            format!("**{}**", convert_encoded_links(&title))
+        };
+        if let Some(value) = attrs.get("pre").filter(|value| !value.is_empty()) {
+            push_labeled(
+                &mut out,
+                attrs
+                    .get("preTitle")
+                    .map(String::as_str)
+                    .unwrap_or("Additional"),
+                &convert_encoded_links(value),
+            );
+        }
         for key in ["gain", "lose"] {
             if let Some(value) = attrs.get(key) {
-                out.push(format!(
-                    "**{} class skills:** {}",
-                    if key == "gain" { "Gained" } else { "Lost" },
-                    convert_encoded_links(value)
-                ));
+                push_labeled(
+                    &mut out,
+                    if key == "gain" {
+                        "Gained class skills"
+                    } else {
+                        "Lost class skills"
+                    },
+                    &value
+                        .split('~')
+                        .filter(|item| !item.is_empty())
+                        .map(convert_encoded_links)
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                );
             }
         }
-        return Ok(out.join("\n\n"));
+        if let Some(value) = attrs.get("post").filter(|value| !value.is_empty()) {
+            push_labeled(
+                &mut out,
+                attrs
+                    .get("postTitle")
+                    .map(String::as_str)
+                    .unwrap_or("Additional"),
+                &convert_encoded_links(value),
+            );
+        }
+        return Ok(out);
     }
     if name == "mfn" {
         let (mark, note) = title.split_once('~').unwrap_or(("", title.as_str()));
@@ -1771,9 +1881,6 @@ fn render_semantic_directive(
         ));
     }
     if name == "trait" {
-        if attrs.values().any(|value| value.contains(['~', '|'])) {
-            return Err("unsupported encoded or footnote metadata in ::trait; source metadata structure cannot be reconstructed".into());
-        }
         let mut out = String::new();
         for key in [
             "type", "req", "region", "religion", "campaign", "subs", "surs", "flavor", "benefit",
@@ -1782,20 +1889,18 @@ fn render_semantic_directive(
                 if value.is_empty() {
                     continue;
                 }
-                if !out.is_empty() {
-                    out.push_str("\n\n");
-                }
-                let label = match key {
-                    "req" => "Prerequisite",
-                    "subs" => "Subtypes",
-                    "surs" => "Sources",
-                    value => value,
+                let (label, text) = match key {
+                    // `subs` and `surs` encode a label and body; `flavor` and
+                    // `benefit` encode paragraphs and tables with `~` runs.
+                    "subs" | "surs" => match value.split_once('~') {
+                        Some((label, body)) => (label.to_string(), decode_encoded_text(body)),
+                        None => (field_label(key), decode_encoded_text(value)),
+                    },
+                    "flavor" | "benefit" => (field_label(key), decode_encoded_text(value)),
+                    "req" => ("Prerequisite".to_string(), convert_encoded_links(value)),
+                    _ => (field_label(key), convert_encoded_links(value)),
                 };
-                out.push_str(&format!(
-                    "**{}:** {}",
-                    field_label(label),
-                    convert_encoded_links(value)
-                ));
+                push_labeled(&mut out, &label, &text);
             }
         }
         return Ok(out);
@@ -1839,6 +1944,24 @@ fn render_semantic_directive(
     {
         return Err("unsupported hit point encoding on ::mdefense".into());
     }
+    if name == "spelllist" {
+        return Ok(render_spelllist(&title, &attrs));
+    }
+    if name == "room" || name == "team" {
+        return Ok(render_unit(name, &title, &attrs));
+    }
+    if name == "trap" {
+        return Ok(render_trap(&title, &attrs));
+    }
+    if name == "haunt" {
+        return Ok(render_haunt(&title, &attrs));
+    }
+    if name == "drug" {
+        return Ok(render_drug(&title, &attrs));
+    }
+    if name == "lesserOrders" {
+        return Ok("**Lesser Orders**".into());
+    }
     for (key, value) in &attrs {
         let list_field = name == "mdefense" && matches!(key.as_str(), "hp" | "def" | "weak");
         if value.contains(['~', '|']) && !list_field {
@@ -1859,6 +1982,10 @@ fn render_semantic_directive(
         format!("**{}**", convert_encoded_links(&title))
     };
     for (key, value) in attrs {
+        if name == "mh" && key == "jl" {
+            env.stripped("heading_jump_list");
+            continue;
+        }
         if ["icon", "head", "next", "order", "hl", "clear"].contains(&key.as_str()) {
             continue;
         }
@@ -2233,6 +2360,335 @@ fn pretty_value(value: &str) -> String {
     value.replace("~~~", "\n\n").replace('~', ", ")
 }
 
+/// Decode the `~` runs used by `::trait`. Six tildes start a paragraph or table,
+/// three tildes separate paragraphs except between table rows, and one tilde
+/// joins inline text.
+fn decode_encoded_text(value: &str) -> String {
+    let mut out = String::new();
+    let mut rest = value;
+    while let Some(position) = rest.find('~') {
+        out.push_str(&rest[..position]);
+        let run = rest[position..]
+            .chars()
+            .take_while(|character| *character == '~')
+            .count();
+        let after = &rest[position + run..];
+        if run >= 6 {
+            out.push_str("\n\n");
+        } else if run == 3 {
+            // A table row begins with `|`; prose paragraphs and list items do not.
+            if after.trim_start().starts_with('|') {
+                out.push('\n');
+            } else {
+                out.push_str("\n\n");
+            }
+        } else {
+            out.push(' ');
+        }
+        rest = after;
+    }
+    out.push_str(rest);
+    convert_encoded_links(&out)
+}
+
+fn join_or(values: &[String]) -> String {
+    match values.len() {
+        0 => String::new(),
+        1 => values[0].clone(),
+        2 => format!("{} or {}", values[0], values[1]),
+        _ => format!(
+            "{}, or {}",
+            values[..values.len() - 1].join(", "),
+            values[values.len() - 1]
+        ),
+    }
+}
+
+fn render_spelllist(title: &str, attrs: &BTreeMap<String, String>) -> String {
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(title))
+    };
+    if let Some(all) = attr(attrs, "all") {
+        let mut list = String::new();
+        for (index, item) in all.split('~').filter(|item| !item.is_empty()).enumerate() {
+            let (name, note) = item
+                .split_once('|')
+                .map_or((item, ""), |(name, note)| (name, note));
+            list.push_str(&format!(
+                "\n{}. {}{}",
+                index + 1,
+                convert_encoded_links(name.trim()),
+                if note.is_empty() {
+                    String::new()
+                } else {
+                    format!(" ({})", convert_encoded_links(note.trim()))
+                }
+            ));
+        }
+        if !list.is_empty() {
+            out.push_str(&list);
+        }
+    }
+    for level in 1..=9 {
+        if let Some(value) = attr(attrs, &format!("l{level}")) {
+            let text = value
+                .split_once('|')
+                .map_or(value.to_string(), |(name, note)| {
+                    format!("{} ({note})", name.trim())
+                });
+            push_labeled(
+                &mut out,
+                &ordinal(level).to_string(),
+                &convert_encoded_links(text.trim()),
+            );
+        }
+    }
+    if let Some(from) = attr(attrs, "from") {
+        push_labeled(&mut out, "From", from);
+    }
+    if let Some(save) = attr(attrs, "save") {
+        push_labeled(&mut out, "Save", save);
+    }
+    out
+}
+
+fn render_unit(directive: &str, title: &str, attrs: &BTreeMap<String, String>) -> String {
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(title))
+    };
+    let earnings = if let Some(earnings) = attr(attrs, "earnings") {
+        Some(convert_encoded_links(earnings))
+    } else {
+        let kinds = [
+            ("eGp", "gp"),
+            ("eGoods", "Goods"),
+            ("eInfluence", "Influence"),
+            ("eLabor", "Labor"),
+            ("eMagic", "Magic"),
+        ]
+        .into_iter()
+        .filter(|(key, _)| attrs.contains_key(*key))
+        .map(|(_, label)| label.to_string())
+        .collect::<Vec<_>>();
+        attr(attrs, "e").map(|bonus| {
+            if kinds.is_empty() {
+                format!("+{bonus}")
+            } else {
+                format!("{} +{bonus}", join_or(&kinds))
+            }
+        })
+    };
+    if let Some(earnings) = earnings {
+        push_labeled(&mut out, "Earnings", &earnings);
+    }
+    if let Some(benefit) = attr(attrs, "benefit") {
+        push_labeled(&mut out, "Benefit", &convert_encoded_links(benefit));
+    }
+    let create = if let Some(create) = attr(attrs, "create") {
+        Some(convert_encoded_links(create))
+    } else {
+        let parts = [
+            ("cGoods", "Goods"),
+            ("cInfluence", "Influence"),
+            ("cLabor", "Labor"),
+            ("cMagic", "Magic"),
+        ]
+        .into_iter()
+        .filter_map(|(key, label)| attr(attrs, key).map(|value| format!("{value} {label}")))
+        .collect::<Vec<_>>();
+        let gp = attr(attrs, "c").map(|gp| format!("{gp} gp"));
+        match (parts.is_empty(), gp) {
+            (true, None) => None,
+            (true, Some(gp)) => Some(gp),
+            (false, None) => Some(parts.join(", ")),
+            (false, Some(gp)) => Some(format!("{} ({gp})", parts.join(", "))),
+        }
+    };
+    if let Some(create) = create {
+        push_labeled(&mut out, "Create", &create);
+    }
+    if let Some(time) = attr(attrs, "time") {
+        push_labeled(&mut out, "Time", &convert_encoded_links(time));
+    } else if let Some(days) = attr(attrs, "t") {
+        push_labeled(&mut out, "Time", &format!("{days} days"));
+    }
+    if let Some(size) = attr(attrs, "size") {
+        push_labeled(&mut out, "Size", &convert_encoded_links(size));
+    } else if directive == "team" {
+        if let Some(size) = attr(attrs, "s") {
+            push_labeled(
+                &mut out,
+                "Size",
+                &if size == "1" {
+                    "1 person".to_string()
+                } else {
+                    format!("{size} people")
+                },
+            );
+        }
+    } else if let Some(first) = attr(attrs, "s1") {
+        let text = attr(attrs, "s2")
+            .map(|second| format!("{first}-{second} squares"))
+            .unwrap_or_else(|| format!("{first} squares"));
+        push_labeled(&mut out, "Size", &text);
+    }
+    match (attr(attrs, "from"), attr(attrs, "to")) {
+        (Some(from), Some(to)) => push_labeled(
+            &mut out,
+            "Upgrade",
+            &format!(
+                "from {} to {}",
+                convert_encoded_links(&joined(from, ", ")),
+                convert_encoded_links(&joined(to, ", "))
+            ),
+        ),
+        (Some(from), None) => push_labeled(
+            &mut out,
+            "Upgrade from",
+            &convert_encoded_links(&joined(from, ", ")),
+        ),
+        (None, Some(to)) => push_labeled(
+            &mut out,
+            "Upgrade to",
+            &convert_encoded_links(&joined(to, ", ")),
+        ),
+        (None, None) => {}
+    }
+    out
+}
+
+fn render_trap(title: &str, attrs: &BTreeMap<String, String>) -> String {
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(title))
+    };
+    let kind = if attrs.contains_key("magic") {
+        Some("Magic")
+    } else if attrs.contains_key("mechanical") {
+        Some("Mechanical")
+    } else {
+        None
+    };
+    if let Some(kind) = kind {
+        push_labeled(&mut out, "Type", kind);
+    }
+    if let Some(cr) = attr(attrs, "cr") {
+        push_labeled(&mut out, "Challenge rating", cr);
+    }
+    if let Some(terrain) = attr(attrs, "terrain") {
+        push_labeled(&mut out, "Terrain", &convert_encoded_links(terrain));
+    }
+    for (key, label) in [
+        ("pdc", "Perception DC"),
+        ("dddc", "Disable Device DC"),
+        ("trigger", "Trigger"),
+        ("eff", "Effect"),
+    ] {
+        if let Some(value) = attr(attrs, key) {
+            push_labeled(
+                &mut out,
+                label,
+                &convert_encoded_links(&pretty_value(value)),
+            );
+        }
+    }
+    let reset = ["automatic", "manual", "repair"]
+        .into_iter()
+        .find_map(|key| attrs.get(key).map(|value| (key, value)));
+    if let Some((key, value)) = reset {
+        let label = if value.is_empty() {
+            key.to_string()
+        } else {
+            convert_encoded_links(value)
+        };
+        push_labeled(&mut out, "Reset", &label);
+    }
+    out
+}
+
+fn render_haunt(title: &str, attrs: &BTreeMap<String, String>) -> String {
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(title))
+    };
+    for (key, label) in [
+        ("notice", "Notice"),
+        ("hp", "Hit points"),
+        ("weak", "Weakness"),
+        ("trigger", "Trigger"),
+        ("reset", "Reset"),
+    ] {
+        if let Some(value) = attr(attrs, key) {
+            push_labeled(
+                &mut out,
+                label,
+                &convert_encoded_links(&pretty_value(value)),
+            );
+        }
+    }
+    out
+}
+
+fn render_drug(title: &str, attrs: &BTreeMap<String, String>) -> String {
+    let mut out = if title.is_empty() {
+        String::new()
+    } else {
+        format!("**{}**", convert_encoded_links(title))
+    };
+    if let Some(kind) = attr(attrs, "type") {
+        push_labeled(&mut out, "Type", &convert_encoded_links(kind));
+    }
+    let addiction = ["minor", "moderate", "severe"]
+        .into_iter()
+        .find(|key| attrs.contains_key(*key))
+        .map(str::to_string)
+        .or_else(|| attr(attrs, "addict").map(|value| format!("special ({value})")));
+    if let Some(addiction) = addiction {
+        push_labeled(&mut out, "Addiction", &addiction);
+    }
+    if let Some(dc) = attr(attrs, "dc") {
+        push_labeled(&mut out, "Fortitude DC", dc);
+    }
+    if let Some(price) = attr(attrs, "price") {
+        push_labeled(&mut out, "Price", &format!("{price} gp"));
+    }
+    for (key, label) in [("eff1", "Effect"), ("eff2", "Secondary effect")] {
+        if let Some(value) = attr(attrs, key) {
+            push_labeled(
+                &mut out,
+                label,
+                &convert_encoded_links(&pretty_value(value)),
+            );
+        }
+    }
+    let mut damage = Vec::new();
+    for (key, label) in [
+        ("dmgStr", "Strength"),
+        ("dmgDex", "Dexterity"),
+        ("dmgCon", "Constitution"),
+        ("dmgInt", "Intelligence"),
+        ("dmgWis", "Wisdom"),
+        ("dmgCha", "Charisma"),
+    ] {
+        if let Some(value) = attr(attrs, key) {
+            damage.push(format!("{label} {value}"));
+        }
+    }
+    if let Some(value) = attr(attrs, "dmg") {
+        damage.push(convert_encoded_links(value));
+    }
+    if !damage.is_empty() {
+        push_labeled(&mut out, "Damage", &damage.join(", "));
+    }
+    out
+}
+
 fn render_ability(
     title: &str,
     attrs: &BTreeMap<String, String>,
@@ -2264,6 +2720,36 @@ fn render_ability(
             }
             "replace" => push_labeled(&mut out, "Replaces", &joined(value, ", ")),
             "alter" => push_labeled(&mut out, "Alters", &joined(value, ", ")),
+            "xPenalty" => push_labeled(
+                &mut out,
+                "Penalty",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
+            "xDescription" => push_labeled(
+                &mut out,
+                "Description",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
+            "xOrder" => push_labeled(
+                &mut out,
+                "Order",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
+            "xGift" => push_labeled(
+                &mut out,
+                "Gift",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
+            "xReckoning" => push_labeled(
+                &mut out,
+                "Reckoning",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
+            "xAvailable_Patron_Themes" => push_labeled(
+                &mut out,
+                "Available patron themes",
+                &convert_encoded_links(&pretty_value(value)),
+            ),
             "provokes" => push_labeled(
                 &mut out,
                 "Provokes attack of opportunity",
@@ -4088,6 +4574,68 @@ mod tests {
     }
 
     #[test]
+    fn pf_data_migration_directives_keep_their_facts() {
+        let mut env = NullEnv;
+        let lines = [
+            "::prereq{r=Goblin other=\"Follower of a deity\"}".into(),
+            "::trait{title=\"&L&Ancient Explorer&FN&\" type=Campaign flavor=\"First paragraph.~~~Second paragraph.\" subs=\"Associated Gods~‹faith/Brigh›\" benefit=\"You gain a +1 bonus.~~~~~~| d% | Result |~~~| --- | --- |~~~| 01-02 | One. |\"}".into(),
+            "::drug[Flayleaf]{start type=\"Inhaled or ingested\" minor dc=12 price=10 eff1=\"1 hour; +2 alchemical bonus\" dmgWis=1}".into(),
+            "::trap[Arrow Trap]{start cr=1 mechanical pdc=20 dddc=20 trigger=touch eff=\"Atk +15 ranged\" manual}".into(),
+            "::haunt[Bloody Handprints]{start notice=\"Perception DC 5\" hp=1 trigger=touch reset=\"1 day\"}".into(),
+            "::room[Alchemy Lab]{eGp eGoods eMagic e=10 benefit=\"Counts as an alchemist's lab\" cGoods=8 cInfluence=1 cMagic=1 cLabor=5 c=390 t=16 s1=8 s2=16 to=Habitat}".into(),
+            "::team[Acolyte]{eGp eInfluence eMagic e=4 cGoods=2 cInfluence=2 cLabor=2 cMagic=3 c=440 t=3 s=1 to=\"Priest~Sage\"}".into(),
+            "::spelllist[Domain Spells]{all=\"hydraulic push~slipstream|aquatic creatures only\"}".into(),
+            "::list[The following talents]{hl link=slayertalent all=\"rogue talent|‹talent/fast stealth›~slowing strike\"}".into(),
+            "::spellAb{caster=magus stat=Intelligence type=arcane learn prepare ritualArcane}".into(),
+            "::cantrips{c=orisons p}".into(),
+            "::lesserOrders".into(),
+            ":::elephant".into(),
+            "Variant text.".into(),
+            ":::".into(),
+            ":::blockquote{className=hanging}".into(),
+            "Quoted text.".into(),
+            ":::".into(),
+        ];
+        let blocks = render(&lines, &mut env).unwrap();
+        let rendered = format!("{blocks:?}");
+        for value in [
+            "Prerequisites",
+            "Goblin",
+            "Follower of a deity",
+            "Associated Gods",
+            "First paragraph.",
+            "Second paragraph.",
+            "d%",
+            "01-02",
+            "Inhaled or ingested",
+            "Addiction",
+            "Fortitude DC",
+            "Challenge rating",
+            "Perception DC",
+            "Disable Device DC",
+            "Hit points",
+            "Earnings",
+            "gp, Goods, or Magic +10",
+            "8 Goods, 1 Influence, 5 Labor, 1 Magic (390 gp)",
+            "16 days",
+            "8-16 squares",
+            "Upgrade to",
+            "Habitat",
+            "Spell list",
+            "magus",
+            "Key ability",
+            "Arcane",
+            "Orisons",
+            "0-level divine spells",
+            "Lesser Orders",
+            "Variant text.",
+            "Quoted text.",
+        ] {
+            assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+    }
+
+    #[test]
     fn triple_colon_archetype_attribute_container_and_generated_macros() {
         let mut env = NullEnv;
         let blocks = render(
@@ -4115,14 +4663,19 @@ mod tests {
             assert!(rendered.contains(value), "missing {value}: {rendered}");
         }
         assert!(
-            render(
+            !render(
                 &["::trait{benefit=\"Effect.~~~Footnote.\"}".into()],
                 &mut env
             )
-            .unwrap_err()
-            .iter()
-            .any(|error| error.contains("footnote metadata"))
+            .unwrap()
+            .is_empty()
         );
+        let encoded = render(
+            &["::trait{benefit=\"Effect.~~~Footnote.\"}".into()],
+            &mut env,
+        )
+        .unwrap();
+        assert!(format!("{encoded:?}").contains("Footnote"));
     }
 
     #[test]

@@ -152,8 +152,13 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await showAllResults(page);
   await expect(page.locator(".results > .hit")).toHaveCount(expectedGroups.length);
   expect((await page.locator(".results > .hit > .hit-link > .hit-title, .results > .hit > details > summary .hit-title").allInnerTexts()).sort()).toEqual(expectedGroups);
-  const metas = await page.locator(".results .hit-meta").allInnerTexts();
-  expect(metas.every((m) => /^Spell/.test(m))).toBe(true);
+  // One line per result, as for titles above: a grouped title's per-publication rows sit
+  // inside a closed <details>, and hidden elements report an empty innerText.
+  const metas = await page
+    .locator(".results > .hit > .hit-link > .hit-meta, .results > .hit > details > summary .hit-meta")
+    .allInnerTexts();
+  expect(metas).toHaveLength(expectedGroups.length);
+  expect(metas.every((m) => /^Spell/.test(m)), metas.join(" | ")).toBe(true);
 
   // Speed: the engine's own timing over 20 queries is recorded as an annotation. A shared
   // CI runner is not a latency gate, so only a loose smoke bound is asserted; a p95 near it

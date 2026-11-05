@@ -93,11 +93,13 @@ impl CoverageLog {
 
 pub(crate) const OUTSIDE_SAMPLE_REASON: &str = "The target exists in the pinned Pf Data inventory but is outside this bounded selection. The visible link text is kept; a full import resolves the link.";
 
-pub(crate) const FAILED_TARGET_REASON: &str = "The target is selected in this run but its own conversion failed; the target's conversion finding is the root cause. The visible link text is kept rather than reported again as a dangling reference.";
+pub(crate) const FAILED_TARGET_REASON: &str = "The target is selected in this run but was not emitted; its own conversion finding or exclusion reason is the root cause. The visible link text is kept rather than reported again as a dangling reference.";
 
 pub(crate) const EXTERNAL_LINK_REASON: &str = "The target is an external web page, not an entry in the pinned inventory. The visible link text is kept; schema 3 has no external-link node.";
 
 pub(crate) const NON_ENTRY_LINK_REASON: &str = "The target is an app route or a source-local shorthand, not an entry in the pinned inventory. The visible link text is kept.";
+
+pub(crate) const UNATTRIBUTED_RECORD_REASON: &str = "The upstream record is an aggregate, index, or disambiguation page with no publication of its own, and its subtopics do not supply one. Without a publication there is no Section 15 notice to attribute, so the page is not emitted; the individual records it points to are covered separately.";
 
 /// Classify an HTML construct that the converter strips as presentation-only.
 /// `None` means the key is an actual missing renderer and must stay a finding.
@@ -138,6 +140,10 @@ pub(crate) fn presentation_exception(key: &str) -> Option<(&'static str, String,
         "group_container" => (
             "layout-container",
             "An upstream `:::group` only groups following paragraphs for presentation. Its contents are converted as ordinary blocks and are not dropped.",
+        ),
+        "blockquote_container" => (
+            "layout-container",
+            "An upstream `:::blockquote` only applies a display class to its contents. The wrapper is not body content, and the quotations are rendered as ordinary blocks.",
         ),
         "fake_footnotes_container" => (
             "layout-container",
@@ -296,6 +302,23 @@ fn convert(
                             "The upstream record carries no publication of its own; its subtopic records supply the attribution.",
                             &format!("{}#{}", record.path, record.key),
                         );
+                    } else {
+                        let identity = format!("{}#{}", record.path, record.key);
+                        coverage.record(
+                            "unattributed-aggregate-record",
+                            &identity,
+                            UNATTRIBUTED_RECORD_REASON,
+                            &identity,
+                        );
+                        result.excluded.push(ExcludedRecord {
+                            identity,
+                            id: pf_derived::native_id(record).map(|id| id.to_string()),
+                            category: "native".into(),
+                            reason:
+                                "no publication metadata; aggregate, index, or disambiguation page"
+                                    .into(),
+                        });
+                        continue;
                     }
                 }
                 expanded_inputs.push(expanded);
@@ -1659,7 +1682,40 @@ mod tests {
             .iter()
             .find(|entry| entry.id.as_str() == "ref/rule/rule-host/test-rule")
             .expect("derived rule entry");
-        assert!(blocks_text(&entry.body).contains("Definition kept after the section"));
+        assert!(
+            blocks_text(&entry.body).contains("Definition kept after the section"),
+            "{:?}",
+            entry.body
+        );
+    }
+
+    #[test]
+    fn unattributed_aggregate_record_is_coverage_not_a_finding() {
+        let mut aggregate = record(
+            "main",
+            "json/main.json",
+            "feats",
+            "Feats",
+            vec!["::main[General Feats]{to=main/feats_general}".into()],
+        );
+        aggregate.publications.clear();
+        aggregate.raw =
+            json!({"title": "Feats", "description": aggregate.raw["description"].clone()});
+        let converted = convert_corpus(&inventory(vec![aggregate]), &rule_allowlist()).unwrap();
+        assert!(converted.entries.is_empty());
+        assert!(converted.findings.is_empty(), "{:?}", converted.findings);
+        assert!(
+            converted
+                .coverage
+                .iter()
+                .any(|row| row.category == "unattributed-aggregate-record")
+        );
+        assert_eq!(converted.excluded.len(), 1);
+        assert!(
+            converted.excluded[0]
+                .reason
+                .contains("no publication metadata")
+        );
     }
 
     #[test]
