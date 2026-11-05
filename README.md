@@ -31,6 +31,8 @@ Prerequisites:
 - Python 3.11 or newer for source selection, publication checks, and mapping tests in `cargo xtask check`.
 - `curl`, `tar`, and `perl` (used by `cargo xtask fetch-sources` and the Trunk post-build hook).
 
+With [devenv](https://devenv.sh/) (Nix), `devenv shell` provides all of these at the CI versions: the pinned Rust toolchain, Trunk 0.22.1, `wasm-opt`, Node 24, Python, Perl, and Playwright browsers built by Nix. With direnv, `direnv allow` loads the shell on entry. In that shell, skip `playwright install`. If you update `@playwright/test`, also update `devenv.lock` (`devenv update`) so the Nix browser version matches; the shell refuses to start otherwise.
+
 Run these commands from the repository root:
 
 | Task | Command |

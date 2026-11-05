@@ -10,3 +10,7 @@ __pycache__/
 # Full migration diagnostics are reproducible local artifacts, not source data.
 /reports/migration-full.json
 /reports/migration-full.md
+# devenv
+/.devenv*
+/.direnv
+devenv.local.nix

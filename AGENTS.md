@@ -13,6 +13,8 @@ Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rul
 
 Run all commands from the repository root. `rust-toolchain.toml` pins the toolchain. `~/.cargo/bin` can be missing from `PATH`; `cargo xtask` handles that case.
 
+On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`. It provides the pinned toolchain, Trunk, Node, and Playwright browsers. Do not run `playwright install` there.
+
 | Task | Command |
 |---|---|
 | Install Trunk (once) | `cargo install trunk --locked` |
