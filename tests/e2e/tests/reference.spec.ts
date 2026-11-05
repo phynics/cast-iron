@@ -432,6 +432,9 @@ test("Entry reading puts rules first and exposes requirement links", async ({ pa
   for (const kind of ["class", "race", "feat"]) {
     const entry = firstEntry(`a ${kind}`, (candidate) => candidate.kind === kind);
     await page.goto(`#/entry/${entry.id}`);
+    // A hash route keeps the previous entry on screen until the new one renders. Wait for the
+    // new title, or the measurement can run while the body is being replaced.
+    await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
     await expect(page.locator(".entry > .rich")).toBeVisible();
     const positions = await page.evaluate(() => ({
       primary: document.querySelector('.entry > .rich')!.getBoundingClientRect().top,
