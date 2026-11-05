@@ -213,6 +213,7 @@ test("Publication filter groups publications by product line with Adventures col
   await expect(adventures.locator(".chip").first()).toBeHidden();
   expect((await adventureTitle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await adventureTitle.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe("999px");
+  expect(await adventureTitle.evaluate((el) => getComputedStyle(el).userSelect)).toBe("none");
 
   // The summary is keyboard operable. Opening it shows the chips, and choosing one filters the
   // results and keeps the group open after the counts refresh.
@@ -242,12 +243,62 @@ test("Publication filter groups publications by product line with Adventures col
   const reloaded = group.locator('details.publication-group[data-tier="Adventures"]');
   await expect(reloaded).toHaveAttribute("open", "");
   await expect(reloaded.getByRole("checkbox", { name: label, exact: true })).toBeChecked();
+  // Count the toggle events, so the wait ends when the close has been seen and answered.
+  await reloaded.evaluate((el) => {
+    (window as any).__toggles = 0;
+    el.addEventListener("toggle", () => (window as any).__toggles++);
+  });
   await reloaded.locator("summary").click();
-  // The toggle event reopens the group; give it a moment to run before asserting.
-  await page.waitForTimeout(200);
+  await expect.poll(() => page.evaluate(() => (window as any).__toggles)).toBeGreaterThan(0);
   await expect(reloaded).toHaveAttribute("open", "");
   const hash = new URL(page.url()).hash;
   expect(new URLSearchParams(hash.split("?")[1] ?? "").getAll("source")).toContain(source.id);
+});
+
+test("The Publication name box opens Adventures for its matches, then returns to the reader's choice", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("fire");
+  await waitResults(page, "fire");
+
+  const group = page.locator('.filters .filter-group:has(legend:text-is("Publication"))');
+  const box = group.getByRole("searchbox", { name: "Filter publications by name" });
+  const adventures = group.locator('details.publication-group[data-tier="Adventures"]');
+
+  // Keep every group in the list, so clearing the box does not drop Adventures from the page.
+  await group.locator("button.publication-more").click();
+  await expect(adventures).toHaveCount(1);
+  await expect(adventures).not.toHaveAttribute("open", "");
+  const label = (await adventures.locator(".chip input").first().getAttribute("aria-label"))!;
+  const title = label.replace(/, \d+ entr(y|ies)$/, "");
+  const partial = title.slice(0, Math.min(title.length, 18));
+  const match = adventures.getByRole("checkbox", { name: label, exact: true });
+
+  // Typing a partial title opens Adventures so that the match is visible without a click.
+  await box.click();
+  await page.keyboard.type(partial);
+  await expect(adventures).toHaveAttribute("open", "");
+  await expect(match).toBeVisible();
+
+  // Clearing the box returns to the stored choice. There was none, so Adventures closes.
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  await expect(box).toHaveValue("");
+  await expect(adventures).not.toHaveAttribute("open", "");
+  await expect(match).toBeHidden();
+
+  // An Adventures group that the reader opened before typing stays open after the box clears.
+  await adventures.locator("summary").click();
+  await expect(adventures).toHaveAttribute("open", "");
+  await box.click();
+  await page.keyboard.type(partial);
+  await expect(adventures).toHaveAttribute("open", "");
+  await expect(match).toBeVisible();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  await expect(box).toHaveValue("");
+  await expect(adventures).toHaveAttribute("open", "");
+  await expect(match).toBeVisible();
 });
 
 test("Leaving Search during a cold index load does not raise a page error", async ({ page }) => {

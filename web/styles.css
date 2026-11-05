@@ -1221,6 +1221,9 @@ mark {
   min-height: var(--touch);
   cursor: pointer;
   list-style: none;
+  /* A double click opens and closes the group; it must not select the title. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .publication-group-summary::-webkit-details-marker {
