@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from "./fixtures";
-import { installLibrary, waitControlled, waitReady } from "./helpers";
+import { installLibrary, waitControlled, waitReady, afterRouteFrame } from "./helpers";
 
 // The header Install button and the Settings install option. Real browsers fire
 // `beforeinstallprompt` on their own terms, so these tests dispatch a fake one that has the same
@@ -212,7 +212,11 @@ test.describe("iOS Safari", () => {
     await page.goto("#/settings");
     const install = page.getByRole("button", { name: "Install app" });
     await expect(install).toBeVisible();
+    // The route change moves focus to <main> one frame later. Let it land first, or it can take
+    // focus back from the button and the Enter opens nothing.
+    await afterRouteFrame(page);
     await install.focus();
+    await expect(install).toBeFocused();
     await page.keyboard.press("Enter");
     const dialog = page.getByRole("dialog", { name: "Add Cast Iron to your Home Screen" });
     await expect(dialog).toBeVisible();
