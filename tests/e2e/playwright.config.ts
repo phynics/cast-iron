@@ -3,7 +3,6 @@ import fs from "node:fs";
 import path from "node:path";
 
 const dist = path.resolve(__dirname, "../../dist");
-const port = Number(process.env.E2E_PORT ?? 4318);
 
 // The suite tests the real build. It never builds, and it fails early and clearly without one.
 if (!fs.existsSync(path.join(dist, "index.html")) || !fs.existsSync(path.join(dist, "content/manifest.json"))) {
@@ -16,8 +15,10 @@ if (!fs.existsSync(path.join(dist, "index.html")) || !fs.existsSync(path.join(di
 
 export default defineConfig({
   testDir: "./tests",
-  // Tests share one server and reset its hooks, so they run one at a time.
-  workers: 1,
+  // Each worker starts its own test server on a free port (see `fixtures.ts`), so workers do not
+  // share hooks and parallel runs on one machine do not collide. CI keeps one worker per shard
+  // runner; set E2E_WORKERS to change the local default.
+  workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 1 : 4)),
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -25,19 +26,10 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: `http://127.0.0.1:${port}/cast-iron/`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     // A service worker is the thing under test; the default "allow" must not change.
     serviceWorkers: "allow",
-  },
-  webServer: {
-    command: "node server.mjs",
-    cwd: __dirname,
-    url: `http://127.0.0.1:${port}/cast-iron/`,
-    reuseExistingServer: false,
-    env: { E2E_PORT: String(port), E2E_DIST: dist },
-    timeout: 30_000,
   },
   projects: [
     { name: "chromium", testIgnore: /mobile\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },

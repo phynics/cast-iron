@@ -50,6 +50,10 @@ test("Keyboard reading traverses a complete subsystem offline and preserves book
   const start = page.url();
   const contents = page.locator(".article-contents");
   await contents.locator("summary").press("Enter");
+  // The disclosure opens on the key event; read its links only once they are exposed. WebKit can
+  // run the next evaluation before the toggle, which returns no links at all.
+  await expect(contents).toHaveJSProperty("open", true);
+  await expect(contents.getByRole("link").first()).toBeVisible();
   // The reader derives a heading id even when the compiler stored no explicit anchor.
   const ids = await page.locator(".rich :is(h2,h3,h4,h5,h6)[id]").evaluateAll((els) => els.map((el) => el.id));
   const links = await contents.getByRole("link").evaluateAll((els) => els.map((a) => ({ href: a.getAttribute("href")!, text: a.textContent! })));
@@ -76,6 +80,8 @@ test("Keyboard reading traverses a complete subsystem offline and preserves book
   await next.press("Enter");
   await expect(page.locator("h1")).not.toHaveText(target.title);
   await expect(page.locator("h1")).toHaveText(nextTitle);
+  // Same focus move as below: wait for it, or the Enter on "previous" lands on <main>.
+  await expect(page.locator("main#main")).toBeFocused();
   await page.locator('.book-steps a[rel="prev"]').press("Enter");
   await expect(page.locator("h1")).toHaveText(target.title);
   // The route change moves focus to <main> on the next frame. Wait for it before the next key,

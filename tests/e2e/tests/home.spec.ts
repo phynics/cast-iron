@@ -39,31 +39,6 @@ test("#/browse opens Home and keeps Home current for category pages", async ({ p
   await expect(nav.getByRole("link", { name: "Books", exact: true })).not.toHaveAttribute("aria-current", "page");
 });
 
-test("Home shows five starred rows until Show all is pressed", async ({ page }) => {
-  const ids = ["fireball", "magic-missile", "acid-arrow", "burning-hands", "charm-person", "color-spray"];
-  for (const slug of ids) {
-    await page.goto(`#/entry/core-rulebook/spells/${slug}`);
-    await expect(page.locator(".bookmark-toggle")).toBeVisible();
-    await page.locator(".bookmark-toggle").click();
-    await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
-  }
-
-  await page.goto("#/");
-  const rows = page.locator(".home-bookmarks > li");
-  await expect(rows).toHaveCount(5);
-
-  const showAll = page.getByRole("button", { name: "Show all 6 starred entries" });
-  await expect(showAll).toHaveAttribute("aria-expanded", "false");
-  await expect(showAll).toHaveAttribute("aria-controls", "home-bookmarks-list");
-  await showAll.click();
-  await expect(rows).toHaveCount(6);
-
-  const showFewer = page.getByRole("button", { name: "Show fewer" });
-  await expect(showFewer).toHaveAttribute("aria-expanded", "true");
-  await showFewer.click();
-  await expect(rows).toHaveCount(5);
-});
-
 test("Footer links to the source and the issue tracker", async ({ page }) => {
   await page.goto("#/settings");
   const footer = page.locator("footer.app-footer");

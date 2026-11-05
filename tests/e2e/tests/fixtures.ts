@@ -205,7 +205,25 @@ export interface Fixtures {
   openProfile: (options?: { offline?: boolean }) => Promise<BrowserContext>;
 }
 
-export const test = base.extend<Fixtures & { _auto: void }>({
+/**
+ * One test server per worker, on a port the OS picks. Hooks, overlays and the request log
+ * belong to one worker, so workers can run in parallel, and two runs on one machine never
+ * fight over a port.
+ */
+export const test = base.extend<Fixtures & { _auto: void }, { serverOrigin: string }>({
+  serverOrigin: [
+    async ({}, use) => {
+      const { startServer } = await import("../server.mjs");
+      const { server, port } = await startServer({ dist: DIST, port: 0 });
+      await use(`http://127.0.0.1:${port}`);
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    },
+    { scope: "worker" },
+  ],
+  baseURL: async ({ serverOrigin }, use) => {
+    await use(`${serverOrigin}/cast-iron/`);
+  },
   server: async ({ baseURL }, use) => {
     const server = new ServerControl(new URL(baseURL!).origin);
     await server.reset();

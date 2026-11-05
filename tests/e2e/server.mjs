@@ -160,7 +160,8 @@ export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.
 
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(port, host, () => resolve({ server, port, reset }));
+    // Port 0 asks the OS for a free port; the caller reads the one it got.
+    server.listen(port, host, () => resolve({ server, port: server.address().port, reset }));
   });
 }
 

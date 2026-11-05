@@ -167,9 +167,13 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   await page.getByRole("link", { name: `Open ${book.title} contents`, exact: true }).click();
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
 
-  // Legacy source routes still reach the book contents when directly bookmarked.
-  test.setTimeout(600_000);
-  for (const source of corpus.catalog.sources) {
+  // Legacy source routes still reach the book contents when directly bookmarked. One route
+  // renders every source the same way, so a spread sample (first, last, and evenly spaced)
+  // checks the route without opening all of the library's publications.
+  const sources = corpus.catalog.sources;
+  const step = Math.max(1, Math.floor(sources.length / 8));
+  const sample = [...new Set([...sources.filter((_, i) => i % step === 0), sources[sources.length - 1]])];
+  for (const source of sample) {
     await page.goto(`#/browse/source/${encodeURIComponent(source.id)}`);
     await expect(page.getByRole("heading", { level: 1, name: source.title })).toBeVisible();
     await expect(page.locator(".toc")).toBeVisible();
@@ -428,6 +432,9 @@ test("Entry reading puts rules first and exposes requirement links", async ({ pa
   for (const kind of ["class", "race", "feat"]) {
     const entry = firstEntry(`a ${kind}`, (candidate) => candidate.kind === kind);
     await page.goto(`#/entry/${entry.id}`);
+    // A hash route keeps the previous entry on screen until the new one renders. Wait for the
+    // new title, or the measurement can run while the body is being replaced.
+    await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
     await expect(page.locator(".entry > .rich")).toBeVisible();
     const positions = await page.evaluate(() => ({
       primary: document.querySelector('.entry > .rich')!.getBoundingClientRect().top,
