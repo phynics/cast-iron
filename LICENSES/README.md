@@ -34,9 +34,13 @@ ship artwork or other Product Identity (`AGENTS.md`, rule 10). See
 
 OGL 1.0a Section 6 and Section 15 require reproducing the copyright notices of
 the sources that contributed Open Game Content. PSRD-Data notices are kept in
-`sources/psrd-data/legal-notices.json`. The compiler appends the complete
-Section 15 list from the pinned Pf Data source's `OPENGAMECONTENT.md` for the
-imported record. The app shows the combined notices on its Legal and
+`sources/psrd-data/legal-notices.json`. The compiler also unions the complete
+Section 15 list from the pinned Pf Data source's `OPENGAMECONTENT.md` and the
+reviewed d20pfsrd.com Section 15 statements export at
+`sources/pathfinder-data-1-e/section15/d20pfsrd-section15.csv`. That export was
+supplied by the project owner on 2026-11-05; its provenance file pins the
+SHA-256 and 1,244-row count, and d20pfsrd.com distributes its PF1e Open Game
+Content under OGL 1.0a. The app shows the combined notices on its Legal and
 attribution page.
 
 ## PSRD-Data (dataset)

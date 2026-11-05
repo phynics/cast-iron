@@ -3853,8 +3853,8 @@
   },
   "legal": {
     "publications": 453,
-    "matched_publications": 400,
-    "unmatched_publications": 53,
+    "matched_publications": 431,
+    "unmatched_publications": 22,
     "report": "reports/migration-legal.json"
   },
   "production_default": "psrd-data",
