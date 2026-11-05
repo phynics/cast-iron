@@ -322,6 +322,11 @@ fn parse_search(query: Option<&str>) -> Route {
             && let Some((field, value)) = raw.split_once(':')
             && let (Some(field), Some(value)) = (percent_decode(field), percent_decode(value))
         {
+            let value = if field == "school" {
+                legacy_school(&value)
+            } else {
+                value
+            };
             facets.push((field, value));
         }
     }
@@ -330,6 +335,21 @@ fn parse_search(query: Option<&str>) -> Route {
         kinds,
         sources,
         facets,
+    }
+}
+
+/// A `school` facet value as the index holds it: the school word alone. Links shared before
+/// the facet dropped subschools, such as `school:conjuration (calling)`, land on `conjuration`.
+fn legacy_school(value: &str) -> String {
+    let end = value.find(['(', '[']).unwrap_or(value.len());
+    let school = value[..end]
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    if school.is_empty() {
+        value.to_string()
+    } else {
+        school.to_lowercase()
     }
 }
 
@@ -705,6 +725,36 @@ mod tests {
             ],
         });
         round_trip(Route::search(""));
+    }
+
+    #[test]
+    fn an_old_school_facet_link_lands_on_the_school() {
+        for (hash, school) in [
+            (
+                "#/search?kind=spell&facet=school:conjuration%20(calling)",
+                "conjuration",
+            ),
+            (
+                "#/search?facet=school:enchantment%20(compulsion)",
+                "enchantment",
+            ),
+            ("#/search?facet=school:multiple%20(see%20text)", "multiple"),
+            ("#/search?facet=school:evocation", "evocation"),
+        ] {
+            let Route::Search { facets, .. } = Route::parse(hash) else {
+                panic!("{hash} is not a search route");
+            };
+            assert_eq!(
+                facets,
+                [("school".to_string(), school.to_string())],
+                "{hash}"
+            );
+        }
+        // Other fields keep their values.
+        let Route::Search { facets, .. } = Route::parse("#/search?facet=descriptor:a%20(b)") else {
+            panic!()
+        };
+        assert_eq!(facets, [("descriptor".to_string(), "a (b)".to_string())]);
     }
 
     #[test]

@@ -153,8 +153,11 @@ fn capitalize_words(text: &str) -> String {
     text.split(' ')
         .enumerate()
         .map(|(i, word)| {
-            if i > 0 && SHORT_CONNECTIVES.contains(&word) {
-                return word.to_string();
+            if i > 0 {
+                let lower = word.to_lowercase();
+                if SHORT_CONNECTIVES.contains(&lower.as_str()) {
+                    return lower;
+                }
             }
             let mut chars = word.chars();
             match chars.next() {
@@ -1088,10 +1091,10 @@ mod tests {
             "Knight of the Road"
         );
         assert_eq!(
-            facet_label("school", "creation or calling"),
-            "Creation or Calling"
+            facet_label("archetype_class", "Knight Of The Road"),
+            "Knight of the Road"
         );
-        assert_eq!(facet_label("school", "or"), "Or");
+        assert_eq!(facet_label("archetype_class", "the road"), "The Road");
         // Fields that already read well are not touched.
         assert_eq!(facet_label("school", "evocation"), "Evocation");
         assert_eq!(facet_label("cr", "1/2"), "1/2");

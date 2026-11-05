@@ -386,39 +386,75 @@ pub fn plain_fields(fields: TypedFields) -> TypedFields {
     fields
 }
 
-/// Move a parenthetical subschool out of a spell school string.
+/// Move parenthetical subschools out of a spell school string.
 ///
-/// Pf Data writes `conjuration (summoning) [see text]`. Each subschool word in the parentheses
-/// (split on commas, `or` and `and`) is appended to `subschools` in lowercase, skipping words
-/// already present (compared without case). The returned school keeps the bracketed note and
-/// loses the parenthetical, so the statistics panel shows the subschool once, on its own row.
+/// Pf Data writes `conjuration (summoning) [see text]`. Each subschool word in every top-level
+/// parenthetical (split on commas, `or` and `and`) is appended to `subschools` in Title Case,
+/// the form the directive subschools use, skipping words already present (compared without
+/// case; existing values stay as they are). The returned school keeps the bracketed note and
+/// loses the parentheticals, so the statistics panel shows the subschool once, on its own row.
 ///
-/// A parenthetical that is only a pointer to the text (`multiple (see text)`) is not a
-/// subschool and stays in place.
+/// A parenthetical that is only a pointer to the text (`multiple (see text)`,
+/// `conjuration (see text)`) is not a subschool and stays in place. A string with nested or
+/// unbalanced parentheses is not understood, so it is returned untouched.
 pub fn split_subschools(school: &str, subschools: &mut Vec<String>) -> String {
-    let (Some(open), Some(close)) = (school.find('('), school.find(')')) else {
-        return school.to_string();
-    };
-    if close < open {
-        return school.to_string();
-    }
-    let inner = school[open + 1..close].to_lowercase();
-    if inner.split_whitespace().collect::<Vec<_>>().join(" ") == "see text" {
-        return school.to_string();
-    }
-    for word in inner
-        .replace(" and ", ",")
-        .replace(" or ", ",")
-        .split(',')
-        .map(str::trim)
-        .filter(|w| !w.is_empty())
-    {
-        if !subschools.iter().any(|s| s.eq_ignore_ascii_case(word)) {
-            subschools.push(word.to_string());
+    let mut groups: Vec<(usize, usize)> = Vec::new();
+    let mut open = None;
+    for (i, c) in school.char_indices() {
+        match (c, open) {
+            ('(', None) => open = Some(i),
+            ('(', Some(_)) => return school.to_string(),
+            (')', Some(start)) => {
+                groups.push((start, i));
+                open = None;
+            }
+            (')', None) => return school.to_string(),
+            _ => {}
         }
     }
-    format!("{} {}", &school[..open], &school[close + 1..])
-        .split_whitespace()
+    if open.is_some() {
+        return school.to_string();
+    }
+    let mut kept = String::new();
+    let mut last = 0;
+    let mut found = Vec::new();
+    for (start, end) in groups {
+        let inner = school[start + 1..end].to_lowercase();
+        if inner.split_whitespace().collect::<Vec<_>>().join(" ") == "see text" {
+            continue;
+        }
+        kept.push_str(&school[last..start]);
+        last = end + 1;
+        found.extend(
+            inner
+                .replace(" and ", ",")
+                .replace(" or ", ",")
+                .split(',')
+                .map(|w| title_case(w.trim()))
+                .filter(|w| !w.is_empty()),
+        );
+    }
+    if last == 0 {
+        return school.to_string();
+    }
+    kept.push_str(&school[last..]);
+    for word in found {
+        if !subschools.iter().any(|s| s.eq_ignore_ascii_case(&word)) {
+            subschools.push(word);
+        }
+    }
+    kept.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn title_case(text: &str) -> String {
+    text.split_whitespace()
+        .map(|word| {
+            let mut chars = word.chars();
+            chars
+                .next()
+                .map(|first| first.to_uppercase().chain(chars).collect::<String>())
+                .unwrap_or_default()
+        })
         .collect::<Vec<_>>()
         .join(" ")
 }
@@ -617,7 +653,7 @@ mod tests {
     fn split_subschools_moves_the_parenthetical_into_the_list() {
         assert_eq!(
             split("conjuration (summoning) [see text]", &[]),
-            ("conjuration [see text]".into(), vec!["summoning".into()])
+            ("conjuration [see text]".into(), vec!["Summoning".into()])
         );
         assert_eq!(
             split(
@@ -626,21 +662,21 @@ mod tests {
             ),
             (
                 "conjuration [see text for lesser planar binding]".into(),
-                vec!["calling".into()]
+                vec!["Calling".into()]
             )
         );
         assert_eq!(
             split("enchantment (compulsion) [mind-affecting, see text]", &[]),
             (
                 "enchantment [mind-affecting, see text]".into(),
-                vec!["compulsion".into()]
+                vec!["Compulsion".into()]
             )
         );
         assert_eq!(
             split("conjuration (creation or calling)", &[]),
             (
                 "conjuration".into(),
-                vec!["creation".into(), "calling".into()]
+                vec!["Creation".into(), "Calling".into()]
             )
         );
     }
@@ -654,7 +690,7 @@ mod tests {
             ),
             (
                 "conjuration".into(),
-                vec!["Calling".into(), "creation".into(), "summoning".into()]
+                vec!["Calling".into(), "Creation".into(), "Summoning".into()]
             )
         );
     }
@@ -671,6 +707,50 @@ mod tests {
     }
 
     #[test]
+    fn split_subschools_handles_every_top_level_group() {
+        assert_eq!(
+            split("conjuration (summoning) (calling) [see text]", &[]),
+            (
+                "conjuration [see text]".into(),
+                vec!["Summoning".into(), "Calling".into()]
+            )
+        );
+    }
+
+    #[test]
+    fn split_subschools_leaves_nested_or_unbalanced_parentheses_untouched() {
+        for school in [
+            "conjuration (summoning (greater))",
+            "conjuration (summoning",
+            "conjuration summoning)",
+            "conjuration )summoning(",
+        ] {
+            assert_eq!(
+                split(school, &["Calling"]),
+                (school.into(), vec!["Calling".into()]),
+                "{school}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_see_text_pointer_is_neither_a_subschool_nor_a_dangling_paren() {
+        // The pointer stays in the stored school, whole, and the facet is the school word.
+        for (school, facet) in [
+            ("multiple (see text)", "multiple"),
+            ("conjuration (see text)", "conjuration"),
+        ] {
+            assert_eq!(split(school, &[]), (school.into(), vec![]), "{school}");
+            assert_eq!(school_facet(school), facet, "{school}");
+        }
+        // Next to a real subschool only the subschool moves.
+        assert_eq!(
+            split("conjuration (summoning) (see text)", &[]),
+            ("conjuration (see text)".into(), vec!["Summoning".into()])
+        );
+    }
+
+    #[test]
     fn plain_fields_splits_the_school_subschool() {
         let fields = TypedFields::Spell(cast_iron_schema::SpellFields {
             school: "conjuration (summoning) [see text]".into(),
@@ -680,7 +760,7 @@ mod tests {
             unreachable!()
         };
         assert_eq!(f.school, "conjuration [see text]");
-        assert_eq!(f.subschools, ["summoning"]);
+        assert_eq!(f.subschools, ["Summoning"]);
     }
 
     #[test]

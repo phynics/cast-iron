@@ -180,7 +180,7 @@ fn spell(node: &Node) -> Result<Extracted, String> {
     };
     let mut out = Extracted::new(TypedFields::Spell(fields));
     out.tag(&school);
-    out.facet("school", &school);
+    out.facet("school", &crate::pf_plain::school_facet(&school));
     for s in &subschools {
         out.tag(s);
     }
