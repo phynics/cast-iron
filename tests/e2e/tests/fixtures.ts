@@ -307,9 +307,12 @@ export const installedTest = test.extend<{}, { preinstalledProfile: string }>({
         await installLibrary(page);
         await waitControlled(page);
         if (!(await activeLibrary(page))) throw new Error("the pre-installed profile has no active library");
-      } finally {
+      } catch (error) {
         await context.close().catch(() => {});
+        fs.rmSync(dir, { recursive: true, force: true });
+        throw error;
       }
+      await context.close().catch(() => {});
       await use(dir);
       try {
         fs.rmSync(dir, { recursive: true, force: true });
@@ -351,7 +354,13 @@ export const installedTest = test.extend<{}, { preinstalledProfile: string }>({
       ...(screen ? { screen } : {}),
     });
     guard.watch(context);
-    await use(context);
+    const { expectPreinstalled } = await import("./helpers");
+    expectPreinstalled(browserName !== "firefox");
+    try {
+      await use(context);
+    } finally {
+      expectPreinstalled(false);
+    }
     await context.close().catch(() => {});
     try {
       fs.rmSync(root, { recursive: true, force: true });

@@ -16,12 +16,27 @@ export function letterId(letter: string): string {
  * active library. Tests that must observe the installation offer use a clean profile and click
  * Download themselves; this helper is safe from an already-installed profile.
  */
+let preinstalled = false;
+/**
+ * Set by the `installedTest` context fixture while its test runs. A copied profile that shows the
+ * Download offer has lost its library; the test would silently reinstall and only get slower, so
+ * that case fails instead.
+ */
+export function expectPreinstalled(on: boolean) {
+  preinstalled = on;
+}
+
 export async function installLibrary(page: Page) {
   await page.goto("./");
   const reader = page.getByRole("navigation", { name: "Primary" });
   const download = page.getByRole("button", { name: "Download", exact: true });
   await reader.or(download).waitFor({ state: "visible", timeout: 90_000 });
-  if (await download.isVisible()) await download.click();
+  if (await download.isVisible()) {
+    if (preinstalled) {
+      throw new Error("The pre-installed profile copy has no library: the profile copy did not carry the browser's site data.");
+    }
+    await download.click();
+  }
   await reader.waitFor({ state: "visible", timeout: 90_000 });
 }
 
