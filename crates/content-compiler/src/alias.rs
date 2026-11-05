@@ -400,6 +400,10 @@ pub fn canonical_native_id(protocol: &str, key: &str) -> Result<String, String> 
 /// joined word. These are the only reviewed spelling differences. Every other
 /// publication keeps its slug, so an unknown book fails the fit gate instead of
 /// being folded onto a legacy id by guesswork.
+pub fn canonical_source_id(publication: &str) -> String {
+    legacy_book_id(publication)
+}
+
 fn legacy_book_id(publication: &str) -> String {
     let slug = slug_segment(publication.trim());
     let mapped = match slug.as_str() {
