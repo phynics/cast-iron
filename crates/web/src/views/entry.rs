@@ -193,18 +193,10 @@ fn EntryView(
 
     let has_books = library.has_books();
     // The first book shows in the metadata line; the rest open on demand, so a rule printed in
-    // many books does not wrap the header.
-    // The catalog's own book for the entry leads; the others keep their order.
-    let primary = library.stub(&entry.id).map(|stub| stub.source.clone());
-    let mut ordered: Vec<&String> = entry.source_ids.iter().collect();
-    if let Some(at) = primary
-        .as_ref()
-        .and_then(|primary| ordered.iter().position(|id| *id == primary))
-    {
-        ordered[..=at].rotate_right(1);
-    }
-    let mut source_links = ordered
-        .into_iter()
+    // many books does not wrap the header. `source_ids` order is the compiler's primary order.
+    let mut source_links = entry
+        .source_ids
+        .iter()
         .map(|id| {
             let title = library
                 .source(id)
@@ -222,8 +214,13 @@ fn EntryView(
         })
         .collect::<Vec<_>>()
         .into_iter();
+    // The separators are real, hidden text: generated content would become part of each link's
+    // accessible name.
     let first_source = source_links.next().map(|(href, title)| {
-        view! { <a class="meta-link" href=href>{title}</a> }
+        view! {
+            <span class="meta-sep" aria-hidden="true">"·"</span>
+            <a class="meta-link" href=href>{title}</a>
+        }
     });
     let more_sources: Vec<_> = source_links.collect();
     let more_sources = (!more_sources.is_empty()).then(|| {
@@ -233,6 +230,7 @@ fn EntryView(
             .map(|(href, title)| view! { <li><a class="meta-link" href=href>{title}</a></li> })
             .collect_view();
         view! {
+            <span class="meta-sep" aria-hidden="true">"·"</span>
             <details class="meta-more">
                 <summary>{format!("+{n} more")}</summary>
                 <ul>{rows}</ul>

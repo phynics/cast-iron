@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import { test, expect, loadCorpus } from "./fixtures";
 import { firstEntry, installLibrary, waitResults } from "./helpers";
 
@@ -11,13 +12,18 @@ test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
+/** One line of text: shorter than 1.6 line heights, whatever the corpus titles are. */
+async function expectOneLine(meta: Locator) {
+  const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 1.6);
+}
+
 test("The metadata line is one line of links, and extra books open on demand", async ({ page }) => {
   await page.goto(`#/entry/${single.id}`);
   const meta = page.locator(".entry-meta");
   await expect(meta.getByRole("link")).toHaveCount(2);
   await expect(meta.locator(".meta-more")).toHaveCount(0);
-  const oneBook = await meta.boundingBox();
-  expect(oneBook!.height).toBeLessThan(32);
+  await expectOneLine(meta);
   await expect(page.getByRole("link", { name: "Related entries" })).toHaveCount(0);
 
   await page.goto(`#/entry/${multi.id}`);
@@ -25,11 +31,16 @@ test("The metadata line is one line of links, and extra books open on demand", a
   const more = meta.locator(".meta-more");
   await expect(more.locator("summary")).toHaveText(`+${extra} more`);
   // Kind, first book, and the disclosure share one line.
-  expect((await meta.boundingBox())!.height).toBeLessThan(32);
-  await expect(more.getByRole("link")).toHaveCount(extra);
-  await expect(more.getByRole("link").first()).toBeHidden();
+  await expectOneLine(meta);
+  // Closed, the extra books are out of the accessibility tree, so count anchors, not roles.
+  await expect(more.locator("a")).toHaveCount(extra);
+  await expect(more.locator("a").first()).toBeHidden();
+  const summaryTop = (await more.locator("summary").boundingBox())!.y;
   await more.locator("summary").click();
   await expect(more.getByRole("link").first()).toBeVisible();
+  // Opening the list keeps the summary on the first line; only the extra books expand below.
+  expect(Math.abs((await more.locator("summary").boundingBox())!.y - summaryTop)).toBeLessThan(1);
+  expect((await more.getByRole("link").first().boundingBox())!.y).toBeGreaterThan(summaryTop);
 });
 
 test("The star is an icon-only 44 by 44 toggle in the title row", async ({ page }) => {

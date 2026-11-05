@@ -440,7 +440,10 @@ test("Entry reading puts rules first and exposes requirement links", async ({ pa
   // Books beyond the first open from the "+N more" disclosure.
   const meta = page.locator(".entry-meta");
   const bookLink = meta.getByRole("link", { name: source.title, exact: true });
-  if (!(await bookLink.isVisible())) await meta.locator(".meta-more > summary").click();
+  await expect(meta.getByRole("link").first()).toBeVisible();
+  const more = meta.locator(".meta-more");
+  if ((await more.count()) > 0) await more.locator("summary").click();
+  await expect(bookLink).toBeVisible();
   await bookLink.click();
   await expect(page.getByRole("heading", { name: source.title, level: 1 })).toBeVisible();
 });

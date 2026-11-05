@@ -182,7 +182,6 @@ code {
 :focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
 main:focus {
@@ -1199,6 +1198,11 @@ mark {
   align-items: center;
 }
 
+/* Only the visible pill shows the ring; the hidden input would draw a second, square one. */
+.chip input:focus-visible {
+  outline: none;
+}
+
 .chip input:focus-visible + span {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -1319,20 +1323,32 @@ mark {
   margin-bottom: var(--space-1);
 }
 
+.entry-title-row {
+  margin-top: var(--space-3);
+}
+
+.entry-title-row h1 {
+  margin-top: 0;
+}
+
+/* Center the 44px star on the title's first line. */
+.entry-title-row .star-btn {
+  margin-top: calc((var(--step-3) * var(--leading-tight) - var(--touch)) / 2);
+}
+
 /* Metadata: one text line. Kind and book stay links; more books open on demand. */
 .entry-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 0 var(--space-2);
   margin-bottom: var(--space-2);
   color: var(--ink-muted);
   font-size: var(--step--1);
 }
 
-.entry-meta > * + *::before {
-  content: "·";
-  margin-inline-end: var(--space-2);
+/* The dot between items is a hidden span, so it stays out of every link's accessible name. */
+.meta-sep {
   color: var(--ink-muted);
 }
 
@@ -1376,14 +1392,6 @@ mark {
   inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
 }
 
-.meta-more[open] {
-  flex-basis: 100%;
-}
-
-.meta-more[open]::before {
-  content: none;
-}
-
 .meta-more ul {
   list-style: none;
   margin: var(--space-1) 0 0;
@@ -1417,12 +1425,13 @@ mark {
   padding: 0;
   border-color: transparent;
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--ink);
 }
 
 .star-btn svg {
   width: 1.4rem;
   height: 1.4rem;
+  stroke-width: 2.2;
 }
 
 .star-btn:hover:not(:disabled) {
@@ -2986,7 +2995,6 @@ input::placeholder {
       "crumbs crumbs"
       "head head"
       "disabled disabled"
-      "jumps refs"
       "contents refs"
       "body refs"
       "rel refs"

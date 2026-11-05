@@ -10,14 +10,14 @@ A small control can mean four different things. Each role has one form, so a rea
 |---|---|---|---|---|
 | Metadata | What the entry is: kind, book | One muted text line. Links are underlined text, separated by `·`. More than one extra book opens from a `+N more` disclosure. | `.entry-meta`, `.meta-link`, `.meta-more` | Pills, borders, a row of boxes |
 | Filter | A choice that narrows a list: search kinds, books and facets; browse facets | The only pill: `border-radius: 999px`. A selected filter is filled with `--accent` and shows a check mark. The count stays. | `.chip` (checkbox in `search.rs`), `.lens-chip` (link), `.scope-choice` | A pill for anything else |
-| Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions | A rectangle with the card radius (`--radius`, 6 px) or a plain link row | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill, a filled selected state |
+| Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions | A rectangle with the card radius (`--radius`, 6 px) or a plain link row. It may show `aria-current` wayfinding (the current spell level). | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill; a check mark or other filter state |
 | Label | A short fact about the item next to it: "or", "repeats", "not in this library" | Small muted text with no border, no background and no pointer cursor. Use `.tag-warn` for a warning (error color, heavier weight). | `.tag`, `.tag-warn` | A border, a link, anything that looks clickable |
 
 Rules that apply to every role:
 
 - Interactive parts keep a 44 px target (`--touch`). A text line that stays compact reaches 44 px through a larger hit area (`.meta-link::after`), not through padding.
 - Keyboard focus uses the global `:focus-visible` ring (3 px `--focus`). Do not remove it.
-- Selected state never relies on color alone: filters add a check mark. Navigation has no selected state.
+- Selected state never relies on color alone: filters add a check mark. Navigation may mark the current page with `aria-current`; it never shows filter state.
 - Use `aria-pressed` for a toggle that keeps its place (the star), and `aria-current` for a link to the current page.
 
 ## Icon toggles

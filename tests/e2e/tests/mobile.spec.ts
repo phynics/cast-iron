@@ -81,11 +81,14 @@ test("Mobile entry header is compact: one metadata line and an icon star", async
   await expect(page.locator(".stat-block").first()).toBeVisible();
   const top = await page.locator(".stat-block").first().evaluate((el) => el.getBoundingClientRect().top);
   // Title, a short metadata line and the stat block fit in the first 300 px of an 844 px screen.
-  // (The old header, with pills and a full-row Star button, put the block near 380 px.)
+  // (The old header, with pills and a full-row Star button, put the block near 380 px.) The bound
+  // leaves room for a two-line title and a wrapped metadata line.
   expect(top).toBeLessThan(300);
   const star = (await page.locator(".bookmark-toggle").boundingBox())!;
   expect(Math.round(star.width)).toBe(44);
   expect(Math.round(star.height)).toBe(44);
   // A long book title may wrap once; wrapped pills used to take three rows.
-  expect((await page.locator(".entry-meta").boundingBox())!.height).toBeLessThan(50);
+  const meta = page.locator(".entry-meta");
+  const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 2.6);
 });
