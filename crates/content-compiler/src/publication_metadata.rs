@@ -42,11 +42,25 @@ pub struct PublicationMetadata {
     pub publication_date: Option<String>,
 }
 
+impl Default for Metadata {
+    /// The empty file: every publication keeps an unknown category and date.
+    fn default() -> Self {
+        Self {
+            version: METADATA_FORMAT,
+            publication: BTreeMap::new(),
+        }
+    }
+}
+
 impl Metadata {
     pub fn load(path: &Path) -> Result<Self, String> {
-        let text = std::fs::read_to_string(path)
-            .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
-        Self::parse(&text).map_err(|e| format!("invalid {}: {e}", path.display()))
+        match std::fs::read_to_string(path) {
+            Ok(text) => Self::parse(&text).map_err(|e| format!("invalid {}: {e}", path.display())),
+            // A build without the reviewed file (the fixture corpus, for example) still
+            // compiles; the Books page then groups every publication under `Unknown`.
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(error) => Err(format!("cannot read {}: {error}", path.display())),
+        }
     }
 
     pub fn parse(text: &str) -> Result<Self, String> {
@@ -134,8 +148,8 @@ pub fn valid_iso_date(date: &str) -> bool {
 }
 
 /// Loads the reviewed file from the canonical configuration directory, failing the build when
-/// it is malformed. A missing file is a configuration error: the Books page would silently lose
-/// both sort modes.
+/// it is malformed. A missing file is not an error: the fixture corpus has none, and every
+/// publication then sorts under `Unknown`. Production still ships the reviewed file.
 pub fn load_from_canonical_dir(canonical_dir: &Path) -> Result<Metadata, Failure> {
     Metadata::load(&canonical_dir.join(METADATA_FILE)).map_err(|e| Failure { lines: vec![e] })
 }
@@ -189,6 +203,18 @@ category = "Module"
         ] {
             assert!(Metadata::parse(text).is_err(), "{text:?}");
         }
+    }
+
+    #[test]
+    fn a_missing_file_means_unknown_rather_than_a_failure() {
+        let path = std::env::temp_dir().join("cast-iron-publication-metadata-absent.toml");
+        let _ = std::fs::remove_file(&path);
+        let metadata = Metadata::load(&path).unwrap();
+        assert!(metadata.publication.is_empty());
+        let mut sources = vec![source("core-rulebook")];
+        metadata.apply(&mut sources);
+        assert_eq!(sources[0].category, None);
+        assert_eq!(sources[0].publication_date, None);
     }
 
     #[test]
