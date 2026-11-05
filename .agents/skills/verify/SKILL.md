@@ -17,6 +17,16 @@ cargo xtask build-site --public-url /cast-iron/
 
 This compiles the content when `generated/content/manifest.json` is missing, builds the WebAssembly app with Trunk, and writes `dist/`. Run `cargo xtask check` as well before you finish.
 
+To build the canonical library into the same `dist/`, compile it first and pass the flag:
+
+```sh
+cargo xtask content --canonical
+cargo xtask build-site --canonical --public-url /cast-iron/
+CAST_IRON_CONTENT=generated/canonical npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium
+```
+
+`CAST_IRON_CONTENT` selects the compiled corpus the tests read their expectations from; its default is `generated/content`, so the PSRD commands are unchanged. The suite fails early when the built site and the expectations are different libraries.
+
 If compiler code, schema types, or source configuration changed, run `cargo xtask content` first. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
 
 ## 2. Run the acceptance suite

@@ -8,7 +8,9 @@ const port = Number(process.env.E2E_PORT ?? 4318);
 // The suite tests the real build. It never builds, and it fails early and clearly without one.
 if (!fs.existsSync(path.join(dist, "index.html")) || !fs.existsSync(path.join(dist, "content/manifest.json"))) {
   throw new Error(
-    `No built site at ${dist}.\nBuild it first from the repository root:\n  cargo xtask build-site --public-url /cast-iron/`,
+    `No built site at ${dist}.\nBuild it first from the repository root:\n  cargo xtask build-site --public-url /cast-iron/\n` +
+      `For the canonical library:\n  cargo xtask content --canonical && cargo xtask build-site --canonical --public-url /cast-iron/\n` +
+      `and set CAST_IRON_CONTENT=generated/canonical for the test run.`,
   );
 }
 

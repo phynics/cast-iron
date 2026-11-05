@@ -8,7 +8,12 @@ export type { BrowserContext, Page };
 
 export const ROOT = path.resolve(__dirname, "../../..");
 export const DIST = path.join(ROOT, "dist");
-export const GENERATED = path.join(ROOT, "generated/content");
+/**
+ * Compiled corpus the test expectations come from. The default is the PSRD build that
+ * `cargo xtask build-site` packages. Set CAST_IRON_CONTENT=generated/canonical to check the
+ * same suite against `cargo xtask content --canonical` and `cargo xtask build-site --canonical`.
+ */
+export const GENERATED = path.resolve(ROOT, process.env.CAST_IRON_CONTENT ?? "generated/content");
 
 export interface ManifestFile {
   path: string;
@@ -28,7 +33,7 @@ export function distManifest(): Manifest {
   return JSON.parse(fs.readFileSync(path.join(DIST, "content/manifest.json"), "utf8"));
 }
 
-/** Compiled entries from `generated/content`, keyed by id. The expectations come from here. */
+/** Compiled entries from GENERATED, keyed by id. The expectations come from here. */
 export interface Entry {
   id: string;
   kind: string;
@@ -44,15 +49,38 @@ export interface Stub {
   source: string;
   shard: string;
 }
-export function loadCorpus(): { version: string; entries: Map<string, Entry>; catalog: { entries: Stub[]; sources: any[] } } {
+export interface Corpus {
+  version: string;
+  entries: Map<string, Entry>;
+  catalog: { entries: Stub[]; sources: any[] };
+}
+let cachedCorpus: Corpus | undefined;
+/**
+ * The compiled corpus, parsed once per worker. The canonical library is about 29,000
+ * entries, so a second parse per spec file would dominate the run's memory and startup.
+ */
+export function loadCorpus(): Corpus {
+  if (cachedCorpus) return cachedCorpus;
   const manifest: Manifest = JSON.parse(fs.readFileSync(path.join(GENERATED, "manifest.json"), "utf8"));
+  const built: Manifest = JSON.parse(fs.readFileSync(path.join(DIST, "content/manifest.json"), "utf8"));
+  if (built.content_version !== manifest.content_version) {
+    throw new Error(
+      `The built site has content ${built.content_version}, but the expectations read ` +
+        `${manifest.content_version} from ${path.relative(ROOT, GENERATED)}.\n` +
+        `Build both from the same library, or point CAST_IRON_CONTENT at the corpus that was built.\n` +
+        `  PSRD:      cargo xtask build-site\n` +
+        `  canonical: cargo xtask content --canonical && cargo xtask build-site --canonical\n` +
+        `Then run the suite with CAST_IRON_CONTENT=generated/canonical.`,
+    );
+  }
   const dir = path.join(GENERATED, manifest.content_version, "entries");
   const entries = new Map<string, Entry>();
   for (const file of fs.readdirSync(dir).sort()) {
     for (const entry of JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"))) entries.set(entry.id, entry);
   }
   const catalog = JSON.parse(fs.readFileSync(path.join(GENERATED, manifest.content_version, "catalog.json"), "utf8"));
-  return { version: manifest.content_version, entries, catalog };
+  cachedCorpus = { version: manifest.content_version, entries, catalog };
+  return cachedCorpus;
 }
 
 /** Test-only controls of `server.mjs`. */

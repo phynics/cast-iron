@@ -21,6 +21,8 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Get the pinned dataset | `cargo xtask fetch-sources` |
 | Compile content | `cargo xtask content` |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
+| Build `dist/` from the canonical library | `cargo xtask content --canonical`, then `cargo xtask build-site --canonical` |
+| Test the canonical build | `CAST_IRON_CONTENT=generated/canonical npm --prefix tests/e2e test -- ...` |
 | Check before you finish | `cargo xtask check` |
 | Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 
