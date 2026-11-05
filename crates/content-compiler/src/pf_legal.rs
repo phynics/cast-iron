@@ -640,9 +640,32 @@ mod tests {
         )
         .expect("legal report");
         assert_eq!(report.publication_count, 453);
-        assert_eq!(report.matched_publication_count, 397);
-        assert_eq!(report.unmatched_publication_count, 56);
-        assert_eq!(report.blocking_publications().len(), 56);
+        assert_eq!(report.matched_publication_count, 400);
+        assert_eq!(report.unmatched_publication_count, 53);
+        assert_eq!(report.blocking_publications().len(), 53);
+        for (publication, title) in [
+            (
+                "Heroes of the Streets",
+                "Pathfinder Player Companion: Heroes of the Street",
+            ),
+            (
+                "Pathfinder #119: Prisoners of the Blight",
+                "Pathfinder Adventure Path #119: Prisoner of the Blight",
+            ),
+            (
+                "Realm of the Fellnight Queen",
+                "Pathfinder Module: Realm of the Fellknight Queen",
+            ),
+        ] {
+            let row = report
+                .publications
+                .iter()
+                .find(|row| row.publication == publication)
+                .expect("reviewed alias publication");
+            assert_eq!(row.match_method.as_deref(), Some("alias"));
+            assert_eq!(row.notices.len(), 1);
+            assert_eq!(row.notices[0].title, title);
+        }
         let again = build(
             &inventory,
             &dataset.join("OPENGAMECONTENT.md"),
