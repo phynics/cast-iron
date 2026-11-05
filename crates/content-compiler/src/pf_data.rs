@@ -4,7 +4,7 @@
 //! No output from this module is placed in the production library.
 
 use crate::{pf_derived, select::sha256_hex, slug::slug_segment, text::blocks_text};
-use cast_iron_schema::{Catalog, EntryKind, RuleEntry, SourceInfo};
+use cast_iron_schema::{BookIndex, Catalog, EntryKind, RuleEntry, SourceInfo, SpellLists};
 use cast_iron_search::{DocInput, IndexBuilder, Query, SearchIndex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -516,6 +516,9 @@ pub struct MigrationReport {
     pub derived_sections: usize,
     pub derived_rows: usize,
     pub derived_skipped: usize,
+    /// Typed relations built over the converted entries, including what could not
+    /// be placed or read.
+    pub relations: cast_iron_schema::RelationCoverage,
     pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
@@ -569,6 +572,8 @@ fn run_import(
     } else {
         crate::canonical::convert_representative(inv, allowlist)?
     };
+    let mut entries = converted.entries;
+    let relations = crate::relations::apply_canonical(&mut entries, &converted.links);
     let derived_ids = converted.derived_entry_ids.clone();
     let mut report = MigrationReport {
         scope: if full { "full-input" } else { "representative" }.into(),
@@ -589,6 +594,7 @@ fn run_import(
         derived_sections: converted.derived_sections,
         derived_rows: converted.derived_rows,
         derived_skipped: converted.derived_skipped,
+        relations: relations.coverage.clone(),
         out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: converted.findings,
@@ -606,7 +612,6 @@ fn run_import(
         ],
         browser_verification: "not run; isolated compiler experiment".into(),
     };
-    let entries = converted.entries;
     let mut sources = BTreeMap::new();
     for entry in &entries {
         for source in &entry.source_ids {
@@ -632,7 +637,15 @@ fn run_import(
             })
             .collect(),
     };
-    let errors = cast_iron_schema::validate::validate_library(&entries, &catalog);
+    let mut errors = cast_iron_schema::validate::validate_library(&entries, &catalog);
+    // The relation index is a report artifact here; the library validator still
+    // proves it matches the per-entry relations exactly.
+    errors.extend(cast_iron_schema::validate::validate_derived(
+        &entries,
+        &relations.index,
+        &BookIndex::default(),
+        &SpellLists::default(),
+    ));
     report.schema_errors = errors.len();
     for error in errors {
         report.findings.push(Finding {
@@ -953,6 +966,16 @@ pub fn markdown_report(r: &MigrationReport) -> String {
         r.derived_expected,
         r.derived_skipped,
         r.derived_available
+    ));
+    text.push_str(&format!(
+        "Typed relations: {} edges ({} part, {} archetype, {} prerequisite). {} entries have no parent; {} of {} prerequisite requirements are unread.\n\n",
+        r.relations.edges.values().sum::<u32>(),
+        r.relations.edges.get("part").copied().unwrap_or(0),
+        r.relations.edges.get("archetype").copied().unwrap_or(0),
+        r.relations.edges.get("prerequisite").copied().unwrap_or(0),
+        r.relations.unplaced_parts.len(),
+        r.relations.prerequisites.unread.len(),
+        r.relations.prerequisites.requirements,
     ));
     for blocker in &r.cutover_blockers {
         text.push_str(&format!("- {blocker}\n"));
