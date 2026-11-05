@@ -1196,6 +1196,59 @@ mark {
   margin-top: var(--space-2);
 }
 
+/* Publication groups follow the Books tiers. A group heading is a plain label, not a chip:
+   filters are the only pills. Adventures is a native disclosure with a full-size summary. */
+.publication-groups {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.publication-group {
+  min-width: 0;
+}
+
+.publication-group-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.publication-group-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  list-style: none;
+}
+
+.publication-group-summary::-webkit-details-marker {
+  display: none;
+}
+
+.publication-group-summary::before {
+  content: "›";
+  flex: none;
+  width: 1rem;
+  font-size: var(--step-1);
+  line-height: 1;
+  color: var(--accent);
+  transition: transform 0.12s ease;
+}
+
+.publication-details[open] > .publication-group-summary::before {
+  transform: rotate(90deg);
+}
+
+.publication-group-summary .publication-group-title {
+  margin: 0;
+}
+
+.publication-details > .chips {
+  padding-bottom: var(--space-1);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;
