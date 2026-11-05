@@ -38,6 +38,10 @@ export async function installLibrary(page: Page) {
     await download.click();
   }
   await reader.waitFor({ state: "visible", timeout: 90_000 });
+  // Home reads the catalog from the library cache after the reader appears. Let that finish:
+  // a reload or navigation that interrupts an in-flight Cache read is a page error in WebKit
+  // ("Context is stopped"), and a pre-installed profile reaches this point almost at once.
+  await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
 }
 
 export async function waitReady(page: Page) {
