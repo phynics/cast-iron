@@ -1,7 +1,7 @@
 {
   "dataset": "pathfinder-data-1-e",
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
-  "input_digest": "e25c1b6d576228b184c9b3d5aaeadb1be35659d7890f4f8aeb3636308d7a5bc5",
+  "input_digest": "45a5bf5e8d39c49ca5705b59cee82e7618fdb5eb26c632f3835ab0f4d56716da",
   "json_files": 401,
   "input_records": 34530,
   "registered_publications": 469,
@@ -3845,11 +3845,10 @@
     ]
   },
   "pi_screen": {
-    "omissions": 1301,
-    "records": 836,
+    "omissions": 484,
+    "records": 482,
     "by_category": {
-      "external-link": 484,
-      "product-identity-section": 817
+      "external-link": 484
     }
   },
   "legal": {
@@ -6505,7 +6504,7 @@
     ],
     "links": {
       "body_rewritten": 5319,
-      "body_flattened": 0,
+      "body_flattened": 20,
       "parent_rewritten": 437,
       "parent_flattened": 0,
       "relation_rewritten": 439,
@@ -6513,7 +6512,7 @@
       "field_rewritten": 160,
       "field_flattened": 0,
       "rewritten": 6355,
-      "flattened": 0
+      "flattened": 20
     }
   },
   "derived_rules": {

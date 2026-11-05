@@ -447,3 +447,10 @@ This replaces the earlier rule that heading ids were the compiler's anchors, unp
 - **WebKit stays informational by job-level `continue-on-error: true`.** A failed job with `continue-on-error` does not fail the workflow run, so the `ci.yml` push run on `main` that `scripts/promote-release.py` reads still concludes `success`. Chromium and mobile Chromium remain required.
 - **Report artifacts are split.** `e2e-report-chromium` (with `dist-size.txt`) and `e2e-report-webkit` replace the single `e2e-report`; both keep 14-day retention.
 - **Not cached: the Rust toolchain install.** It takes about 13 seconds, and restoring `~/.rustup` would cost nearly as much.
+
+## Paizo Product Identity kept under the Community Use Policy, 2026-11-05
+
+- **The owner keeps Paizo Product Identity.** Deity descriptions, unique character biographies, named NPC stories, suggested race names, deity-named items, religion traits, and setting commentary now ship. This replaces the omission rules of the Pf Data PI screen (2026-11-04) and the PI entries of `sources/psrd-data/content-policy.toml`. Rules text still rests on the OGL. Names and setting material rest on Paizo's Community Use Policy, which is free, non-commercial, unofficial, and carries the required notice.
+- **Every entry carries the Community Use notice path.** Pf Data entries already did. PSRD-derived entries, including carried ones, now carry `ogl-1.0a` and `legal#community-use`. `scripts/check-publication.py` keeps rejecting named material on an entry without that path, and keeps rejecting outbound addresses.
+- **Accepted risk.** The licensing audit reads the CUP as permitting descriptive reference to Product Identity, with informal FAQ guidance against republishing significant descriptive text. The owner accepts that risk for this free, non-commercial reference; Paizo can revoke CUP permission at any time. Artwork, logos, trade dress, and any claim of official status stay excluded (AGENTS.md rules 10 and 11).
+- **The screen machinery stays.** `pi-screen.json` keeps removing outbound links (rule 1) and can hold a reviewed omission rule if one is needed later. Omissions remain coverage rows.

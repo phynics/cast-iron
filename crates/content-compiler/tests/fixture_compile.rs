@@ -312,7 +312,8 @@ fn compiles_the_fixture_into_valid_content() {
     assert!(
         lib.entries
             .iter()
-            .all(|e| e.license_refs == ["ogl-1.0a"] && !e.provenance.is_empty())
+            .all(|e| e.license_refs == ["ogl-1.0a", "legal#community-use"]
+                && !e.provenance.is_empty())
     );
 
     // Coverage lists the unselected directory and the database file, and never reads it.
