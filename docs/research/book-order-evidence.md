@@ -36,6 +36,12 @@ Paizo's [first-edition Advanced Player's Guide product page](https://store.paizo
 
 No complete publisher contents listing was located in this review for Advanced Race Guide, Bestiary, Bestiary 2, Bestiary 3, Bestiary 4, Game Mastery Guide, Monster Codex, Mythic Adventures, NPC Codex, Technology Guide, Ultimate Campaign, Ultimate Combat, Ultimate Equipment, or Ultimate Magic. These sequences must remain explicitly provisional until a publisher contents page or legitimate publisher-hosted preview is checked. Paizo blog previews and product pages exist for some books, but listings of included subjects or a monster alphabetical index do not by themselves establish chapter sequence.
 
+## Page attribution in Pf Data
+
+Pf Data records carry attribution in their description lines, such as `‹SOURCE Inner Sea Gods/12›`, or as a `source="Inner Sea Gods/12"` attribute on a stat directive. The page is publisher evidence for that record in that publication: it is where the record starts in print. It is stronger than a website menu or dataset order, and it is the evidence the canonical book index uses.
+
+It is not chapter evidence. A page number does not name a chapter, prove that two records are in the same chapter, or order records that share a page. A record may name several publications, each with its own page. A range or list such as `12-14` or `12, 14` keeps its first page. A SOURCE line with no page, or a record with no SOURCE line, gives no page evidence; the canonical index puts that entry in an explicit Unpaged section and reports it. A derived child inherits its host's attribution unless its own extracted lines carry a SOURCE line. These limits are why the canonical index starts page-ordered rather than claiming printed chapters.
+
 ## Curation rule
 
 Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The current `book-order.toml` is thus a provisional browsing outline pending source-by-source verification; it must not be described as complete printed chapter fidelity.

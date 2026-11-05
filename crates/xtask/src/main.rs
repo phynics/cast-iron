@@ -274,6 +274,10 @@ fn run_data_binary(command: &str) -> Result {
             "generated/migration",
             "--reports",
             "reports",
+            "--psrd-dataset",
+            ".cache/sources/psrd-data",
+            "--psrd-config",
+            "sources/psrd-data/source.toml",
         ],
     )
 }
@@ -311,6 +315,10 @@ fn data_alias() -> Result {
             "sources/canonical/legacy-ids.json",
             "--content",
             "generated/content",
+            "--psrd-dataset",
+            ".cache/sources/psrd-data",
+            "--psrd-config",
+            "sources/psrd-data/source.toml",
         ],
     )
 }
