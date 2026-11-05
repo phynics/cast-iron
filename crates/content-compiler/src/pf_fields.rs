@@ -45,7 +45,13 @@ fn reject_unknown(
     Ok(())
 }
 
+/// Extract the typed fields of a record. Field strings carry display text only: inline
+/// `‹kind/name›` tags and `&#91&`-style entities are resolved by [`crate::pf_plain`].
 pub fn extract(kind: EntryKind, lines: &[String]) -> Result<TypedFields, String> {
+    extract_raw(kind, lines).map(crate::pf_plain::plain_fields)
+}
+
+fn extract_raw(kind: EntryKind, lines: &[String]) -> Result<TypedFields, String> {
     match kind {
         EntryKind::Spell => spell(lines),
         EntryKind::Feat => feat(lines),
@@ -925,6 +931,30 @@ fn creature(lines: &[String]) -> Result<TypedFields, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spell_school_and_feat_text_carry_display_text_only() {
+        let spell = vec![r#"::spell{id=1 source="Core/1" school="‹spelldef/transmutation› &#91&see text&#93&" wiz=2 ctSt cV target=you durML=10 saveNo srN}"#.into()];
+        let TypedFields::Spell(f) = extract(EntryKind::Spell, &spell).unwrap() else {
+            panic!()
+        };
+        assert_eq!(f.school, "transmutation [see text]");
+        let feat = vec![
+            "**Prerequisites:** Caster level 4th, ‹race/gillman›, ‹ability/favored enemy›".into(),
+            "**Benefit:** Gain a +2 bonus &#91&on ‹rule/new>Unchained» Skill<s› checks&#93&".into(),
+        ];
+        let TypedFields::Feat(f) = extract(EntryKind::Feat, &feat).unwrap() else {
+            panic!()
+        };
+        assert_eq!(
+            f.prerequisites.as_deref(),
+            Some("Caster level 4th, gillman, favored enemy")
+        );
+        assert_eq!(
+            f.benefit.as_deref(),
+            Some("Gain a +2 bonus [on Unchained Skill checks]")
+        );
+    }
 
     #[test]
     fn reads_real_spell_directive_and_rejects_missing_levels() {

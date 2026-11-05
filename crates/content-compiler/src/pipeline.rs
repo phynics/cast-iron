@@ -868,6 +868,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         })
         .collect();
     let facets = canonical_facets(&entries);
+    check_no_markup_leaks(&entries, &facets, &aliases, &coverage)?;
     Ok(Library {
         entries,
         relations: relations.index,
@@ -907,7 +908,11 @@ fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, Str
         let mut facets = Vec::new();
         match &entry.fields {
             TypedFields::Spell(fields) => {
-                push(&mut facets, "school", &fields.school);
+                push(
+                    &mut facets,
+                    "school",
+                    &crate::pf_plain::school_facet(&fields.school),
+                );
                 for descriptor in &fields.descriptors {
                     push(&mut facets, "descriptor", descriptor);
                 }
@@ -966,6 +971,50 @@ fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, Str
         }
     }
     out
+}
+
+/// Fails the canonical build when Pathfinder Data inline markup (`‹`, `›`, `&#`) is left in
+/// any compiled text: entry titles, fields, body text, facets, aliases, or the coverage
+/// report. Field and body text must carry display text only (see `pf_plain`).
+fn check_no_markup_leaks(
+    entries: &[RuleEntry],
+    facets: &BTreeMap<EntryId, Vec<(String, String)>>,
+    aliases: &BTreeMap<EntryId, Vec<String>>,
+    coverage: &CoverageReport,
+) -> Result<(), Failure> {
+    let mut lines = Vec::new();
+    let mut total = 0usize;
+    let mut check = |owner: &str, what: &str, json: Result<String, serde_json::Error>| {
+        let json = json.unwrap_or_default();
+        let leaks = crate::pf_plain::markup_leaks(&json);
+        total += leaks.len();
+        if let Some(first) = leaks.first()
+            && lines.len() < 25
+        {
+            lines.push(format!(
+                "  {owner} ({what}): {} leak(s), first near `{first}`",
+                leaks.len()
+            ));
+        }
+    };
+    for entry in entries {
+        check(entry.id.as_str(), "entry", serde_json::to_string(entry));
+        if let Some(values) = facets.get(&entry.id) {
+            check(entry.id.as_str(), "facets", serde_json::to_string(values));
+        }
+        if let Some(values) = aliases.get(&entry.id) {
+            check(entry.id.as_str(), "aliases", serde_json::to_string(values));
+        }
+    }
+    check("coverage", "report", serde_json::to_string(coverage));
+    if total == 0 {
+        return Ok(());
+    }
+    let mut all = vec![format!(
+        "pathfinder data inline markup left in compiled output: {total} occurrence(s) of `‹`, `›` or `&#`"
+    )];
+    all.append(&mut lines);
+    Err(Failure { lines: all })
 }
 
 fn failure(message: impl Into<String>) -> Failure {
@@ -1656,10 +1705,10 @@ fn canonical_coverage_rows(
         rows.push(Exclusion {
             path: row.record.clone(),
             records: row.occurrences as u32,
-            reason: format!(
+            reason: crate::pf_plain::plain_text(&format!(
                 "converter coverage [{}] {}: {}",
                 row.category, row.detail, row.reason
-            ),
+            )),
         });
     }
     let mut findings: BTreeMap<&str, usize> = BTreeMap::new();
@@ -2468,6 +2517,37 @@ mod canonical_tests {
             facets[&EntryId::parse("ref/arc-bard/buccaneer").unwrap()],
             vec![("archetype_class".into(), "bard".into())]
         );
+    }
+
+    #[test]
+    fn school_facet_counts_a_noted_school_under_the_school() {
+        let mut spell = entry("ref/spell/align-weapon", "s");
+        spell.kind = EntryKind::Spell;
+        spell.fields = TypedFields::Spell(cast_iron_schema::SpellFields {
+            school: "transmutation [see text]".into(),
+            ..Default::default()
+        });
+        let facets = canonical_facets(&[spell]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/spell/align-weapon").unwrap()],
+            vec![("school".into(), "transmutation".into())]
+        );
+    }
+
+    #[test]
+    fn markup_gate_fails_on_a_leaked_tag_and_names_the_entry() {
+        let mut clean = entry("ref/rule/clean", "s");
+        clean.title = "Clean".into();
+        let mut leaky = entry("ref/rule/leaky", "s");
+        leaky.title = "Leaky ‹rule/x›".into();
+        let coverage = CoverageReport::default();
+        let facets = BTreeMap::new();
+        let aliases = BTreeMap::new();
+        assert!(check_no_markup_leaks(&[clean.clone()], &facets, &aliases, &coverage).is_ok());
+        let error = check_no_markup_leaks(&[clean, leaky], &facets, &aliases, &coverage).unwrap_err();
+        let text = error.lines.join("\n");
+        assert!(text.contains("ref/rule/leaky"), "{text}");
+        assert!(text.contains("2 occurrence") || text.contains("1 occurrence"), "{text}");
     }
 }
 

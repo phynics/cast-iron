@@ -316,7 +316,7 @@ fn claim(
 
 /// Render a derivation's body through the ordinary Pf Markdown path.
 pub fn body(derivation: &Derivation, env: &mut dyn crate::html::Env) -> Result<Vec<Block>, String> {
-    crate::pf_markdown::render(&derivation.body_lines, env).map_err(|errors| errors.join("; "))
+    crate::pf_plain::render_body(&derivation.body_lines, env).map_err(|errors| errors.join("; "))
 }
 
 /// A record whose children this layer can derive.

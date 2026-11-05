@@ -13,7 +13,7 @@
 
 use crate::pf_data::{InputRecord, Inventory, description, expanded_input, pf_license_refs};
 use crate::{
-    pf_derived, pf_directives, pf_fields, pf_markdown, select::sha256_hex, slug::slug_segment,
+    pf_derived, pf_directives, pf_fields, pf_markdown, pf_plain, select::sha256_hex, slug::slug_segment,
     text::blocks_text,
 };
 use cast_iron_schema::{EntryId, EntryKind, Provenance, RuleEntry};
@@ -1239,7 +1239,7 @@ pub(crate) fn convert_record(
         &mut *env.findings,
     );
     let mut body =
-        pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
+        pf_plain::render_body(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
     if let cast_iron_schema::TypedFields::Spell(spell) = &fields {
         use cast_iron_schema::{Block, Inline, StatRow};
         let mut rows = vec![
@@ -1471,7 +1471,7 @@ fn derive_rule_entry(
     // resolve inside the entry instead of becoming dangling `#N` references.
     append_referenced_footnotes(&mut render_lines, &description(&input.raw)?);
     env.anchors = pf_markdown::anchors(&render_lines);
-    let body = pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
+    let body = pf_plain::render_body(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
     if blocks_text(&body).trim().is_empty() {
         return Err("empty derived description".into());
     }
