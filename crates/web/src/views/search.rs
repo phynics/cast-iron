@@ -348,6 +348,24 @@ pub fn marked(text: &str, ranges: &[(usize, usize)]) -> Vec<AnyView> {
         .collect()
 }
 
+/// The discovery snapshot for one selection revision. Search asks for it from the search
+/// effect, both chip-total memos, and the idle panel; rebuilding it each time rescanned the
+/// whole catalog once per caller.
+fn discovery_for(
+    library: &crate::library::Library,
+    cache: StoredValue<Option<(u64, Rc<crate::discovery::Discovery>)>, LocalStorage>,
+    revision: u64,
+) -> Rc<crate::discovery::Discovery> {
+    if let Some((cached, discovery)) = cache.get_value()
+        && cached == revision
+    {
+        return discovery;
+    }
+    let discovery = Rc::new(library.discovery());
+    cache.set_value(Some((revision, discovery.clone())));
+    discovery
+}
+
 #[component]
 pub fn Search() -> impl IntoView {
     let library = use_library();
@@ -366,6 +384,11 @@ pub fn Search() -> impl IntoView {
     let index_ms = RwSignal::new(None::<f64>);
     let index = RwSignal::new_local(None::<Rc<SearchIndex>>);
     let eligible_facets = RwSignal::new(Vec::<(String, Vec<String>)>::new());
+    // Facet values do not depend on the query or the active filters: only on the library and
+    // the active-book selection. Cache them per revision so typing and toggling chips do not
+    // rescan every indexed document for every field on every search.
+    let facet_values_cache = StoredValue::new(None::<(u64, BTreeMap<String, Vec<String>>)>);
+    let discovery_cache = StoredValue::new_local(None::<(u64, Rc<crate::discovery::Discovery>)>);
     // Counts for the chips. They change only when a result arrives, so a debounced or running
     // search keeps showing the previous numbers. `None` until the first result: chips then show
     // the totals for the active books, which is what an empty search counts anyway.
@@ -395,7 +418,7 @@ pub fn Search() -> impl IntoView {
         let library = library.clone();
         Effect::new(move |previous: Option<SearchState>| {
             let revision = library.selection_revision().get();
-            let discovery = library.discovery();
+            let discovery = discovery_for(&library, discovery_cache, revision);
             let current = state.get();
             let previous_value = current.clone();
             if previous.as_ref() != Some(&current) {
@@ -453,11 +476,34 @@ pub fn Search() -> impl IntoView {
                 let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
                 let mut facet_data = Vec::new();
                 for (field, _) in facet_fields_for(&current.kinds) {
-                    if let Ok(values) = discovery.facet_values(field).await {
-                        let mut values = values.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
-                        sort_facet_values(field, &mut values);
-                        facet_data.push((field.to_owned(), values));
-                    }
+                    let cached = facet_values_cache.with_value(|slot| match slot {
+                        Some((cached, values)) if *cached == revision => values.get(field).cloned(),
+                        _ => None,
+                    });
+                    let values = match cached {
+                        Some(values) => values,
+                        None => match discovery.facet_values(field).await {
+                            Ok(pairs) => {
+                                let mut values =
+                                    pairs.into_iter().map(|(v, _)| v).collect::<Vec<_>>();
+                                sort_facet_values(field, &mut values);
+                                let for_cache = values.clone();
+                                facet_values_cache.update_value(|slot| {
+                                    let fresh =
+                                        !matches!(slot, Some((cached, _)) if *cached == revision);
+                                    if fresh {
+                                        *slot = Some((revision, BTreeMap::new()));
+                                    }
+                                    if let Some((_, values)) = slot {
+                                        values.insert(field.to_owned(), for_cache);
+                                    }
+                                });
+                                values
+                            }
+                            Err(_) => continue,
+                        },
+                    };
+                    facet_data.push((field.to_owned(), values));
                 }
                 // Rule headings come from typed, cached rule entries only. Non-rule results
                 // never cause shard reads.
@@ -564,8 +610,8 @@ pub fn Search() -> impl IntoView {
 
     let count_library = library.clone();
     let kind_counts = Memo::new(move |_: Option<&Vec<(EntryKind, usize)>>| {
-        let _revision = count_library.selection_revision().get();
-        count_library.discovery().kind_counts()
+        let revision = count_library.selection_revision().get();
+        discovery_for(&count_library, discovery_cache, revision).kind_counts()
     });
     let kind_counts = kind_counts.get();
     // One pass over the eligible entries for every publication chip. Computing this inside
@@ -573,9 +619,9 @@ pub fn Search() -> impl IntoView {
     // seconds of work on a library with hundreds of publications.
     let source_totals_library = library.clone();
     let source_totals = Memo::new(move |_| {
-        let _revision = source_totals_library.selection_revision().get();
+        let revision = source_totals_library.selection_revision().get();
         let mut totals: BTreeMap<String, usize> = BTreeMap::new();
-        for stub in source_totals_library.discovery().entries() {
+        for stub in discovery_for(&source_totals_library, discovery_cache, revision).entries() {
             *totals.entry(stub.source.clone()).or_default() += 1;
         }
         totals
@@ -707,8 +753,10 @@ pub fn Search() -> impl IntoView {
     let lib_for_hits = library.clone();
     let results = move || match phase.get() {
         Phase::Idle => {
-            let _revision = lib_for_hits.selection_revision().get();
-            let total = lib_for_hits.discovery().entries().count();
+            let revision = lib_for_hits.selection_revision().get();
+            let total = discovery_for(&lib_for_hits, discovery_cache, revision)
+                .entries()
+                .count();
             view! {
                 <div class="empty">
                     <p>{format!("Search {total} entries by name or by any word in the text.")}</p>
