@@ -123,13 +123,15 @@ links. Each omission is a coverage row. See
 ## Section 15 notice coverage
 
 `cargo xtask data-legal` (also run by `cargo xtask data-report`) checks every
-publication referenced by an in-scope record against three pinned notice
+publication referenced by an in-scope record against four pinned notice
 sources, in order:
 
 1. The Pf Data pin's `OPENGAMECONTENT.md` Section 15 list.
 2. PSRD-Data's Section 15 list in `sources/psrd-data/legal-notices.json`.
 3. d20pfsrd.com's Section 15 statements export in
    `sources/pathfinder-data-1-e/section15/d20pfsrd-section15.csv`.
+4. Section 15 lines supplied by the project owner from the owner's copies of the
+   books, in `sources/pathfinder-data-1-e/section15/owner-copies.json`.
 
 The d20pfsrd export was supplied verbatim by the project owner on 2026-11-05.
 Its provenance file records the source, SHA-256, and 1,244 rows; the compiler
@@ -137,11 +139,18 @@ fails the report if the CSV hash or row count changes. d20pfsrd.com distributes
 its Pathfinder First Edition Open Game Content under the OGL 1.0a. The export is
 evidence for notice text only; it does not authorize new content.
 
+The owner-copy list was supplied on 2026-11-05 from the owner's copies of the
+books. Its provenance file records the source, supply date, SHA-256, and three
+rows; the compiler fails the report if the list hash or row count changes. Every
+notice is verbatim Section 15 text from the named book. The provenance cites the
+book only.
+
 The 2026-11-05 review of the pinned snapshot has 34,497 in-scope records
-referencing 453 publications. 431 publications match a notice in at least one
-source; 22 do not. The report records the first source that matched (`exact`,
-`normalized-prefix`, or `alias` for Pf Data; `psrd`; `d20pfsrd`) and every source
-that contributed (`notice_sources`). Sources add rather than replace: an already
+referencing 453 publications. 434 publications match a notice in at least one
+source; 8 are reviewed as notice-pending; 11 have no notice and are comics. The
+report records the first source that matched (`exact`, `normalized-prefix`, or
+`alias` for Pf Data; `psrd`; `d20pfsrd`; `owner-copy`) and every source that
+contributed (`notice_sources`). Sources add rather than replace: an already
 matched publication keeps any additional distinct notices from a later list.
 
 Within each source, matching uses:
@@ -159,17 +168,20 @@ Within each source, matching uses:
    d20pfsrd export, the title is the text before its first `©` or `Copyright`
    marker, with trailing sentence punctuation removed. Every distinct notice
    under one title key applies, so the Core Rulebook keeps both its 2009 and
-   2010 printing notices.
+   2010 printing notices. The owner-copy entries are keyed by the publication
+   they name and keep their notice text verbatim.
 
-The three sources contribute overlapping coverage. Pf Data matches 400
-publications; PSRD matches 17; the d20pfsrd export matches 279. The export also
-keeps both distinct *Rival Guide* author lists and both 2008 *Pathfinder
-Chronicles Campaign Setting* statements instead of choosing one.
+The four sources contribute overlapping coverage. Pf Data matches 400
+publications; PSRD matches 17; the d20pfsrd export matches 279; the owner-copy
+list matches 3. The export also keeps both distinct *Rival Guide* author lists
+and both 2008 *Pathfinder Chronicles Campaign Setting* statements instead of
+choosing one.
 
 The following table records the decision for all 56 publications that were
-unmatched before the 2026-11-05 review. Thirty-one now match for the first time;
-three rows were already reviewed aliases. "Records" is the number of in-scope
-record references to that publication.
+unmatched before the 2026-11-05 review. Thirty-one now match a pinned source for
+the first time, three rows were already reviewed aliases, and three are owner
+copies. "Records" is the number of in-scope record references to that
+publication.
 
 | Publication | Records | Method | Sources | Matched notice title(s) or reason |
 |---|---|---|---|---|
@@ -177,7 +189,7 @@ record references to that publication.
 | Advanced Race Guide | 659 | psrd | psrd, d20pfsrd | `Pathfinder Roleplaying Game Advanced Race Guide` |
 | Armor Master's Handbook | 128 | d20pfsrd | d20pfsrd | `Pathfinder Player Companion: Armor Master’s Handbook` |
 | Bestiary 5 | 447 | d20pfsrd | d20pfsrd | `Pathfinder Roleplaying Game Bestiary 5` |
-| Bestiary 6 | 311 | absent | - | No notice in any pinned list. |
+| Bestiary 6 | 311 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
 | Carnival of Tears | 3 | d20pfsrd | d20pfsrd | `GameMastery Module E1: Carnival of Tears` |
 | Carrion Crown Player's Guide | 6 | d20pfsrd | d20pfsrd | `Carrion Crown Player’s Guide` |
 | Conquest of Bloodsworn Vale | 4 | d20pfsrd | d20pfsrd | `GameMastery Module W1: Conquest Of Bloodsworn Vale` |
@@ -186,27 +198,27 @@ record references to that publication.
 | Curse of the Crimson Throne Player's Guide | 24 | d20pfsrd | d20pfsrd | `Curse of the Crimson Throne Player’s Guide` |
 | Dungeons of Golarion | 10 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Dungeons of Golarion` |
 | Faiths of Balance | 51 | d20pfsrd | d20pfsrd | `Pathfinder Player Companion: Faiths of Balance` |
-| Faiths of Purity | 42 | absent | - | No notice in any pinned list. |
-| Goblins of Golarion | 61 | absent | - | No notice in any pinned list. |
-| Guide to Darkmoon Vale | 1 | absent | - | No notice in any pinned list. |
+| Faiths of Purity | 42 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
+| Goblins of Golarion | 61 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
+| Guide to Darkmoon Vale | 1 | owner-copy | owner-copy | `Guide to Darkmoon Vale` |
 | Halflings of Golarion | 49 | d20pfsrd | d20pfsrd | `Pathfinder Player Companion: Halflings of Golarion` |
 | Heart of the Jungle | 18 | d20pfsrd | d20pfsrd | `Pathfinder Chronicles: Heart of the Jungle` |
 | Heaven Unleashed | 10 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Heaven Unleashed` |
 | Heroes of the Streets | 94 | alias | pf-data | `Pathfinder Player Companion: Heroes of the Street` |
 | Hollow's Last Hope | 1 | d20pfsrd | d20pfsrd | `GameMastery Module D0: Hollow’s Last Hope` |
-| Horror Realms | 46 | absent | - | No notice in any pinned list. |
+| Horror Realms | 46 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
 | Humans of Golarion | 28 | d20pfsrd | d20pfsrd | `Pathfinder Player Companion: Humans of Golarion` |
 | Inner Sea Magic | 75 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Inner Sea Magic` |
-| Inner Sea Taverns | 16 | absent | - | No notice in any pinned list. |
+| Inner Sea Taverns | 16 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
 | Inner Sea World Guide | 118 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: The Inner Sea World Guide` |
 | Inner Sea world Guide | 1 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: The Inner Sea World Guide` |
-| Kingmaker Player's Guide | 7 | absent | - | No notice in any pinned list. |
-| Magic of Thassilon | 2 | absent | - | No notice in any pinned list. |
+| Kingmaker Player's Guide | 7 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
+| Magic of Thassilon | 2 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
 | Occult Mysteries | 54 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Occult Mysteries` |
 | Pathfinder #119: Prisoners of the Blight | 23 | alias | pf-data | `Pathfinder Adventure Path #119: Prisoner of the Blight` |
 | Pathfinder #3: The Hook Mountain Massacre | 4 | d20pfsrd | d20pfsrd | `Pathfinder 3: The Hook Mountain Massacre` |
 | Pathfinder #63: The Asylum Stone | 11 | d20pfsrd | d20pfsrd | `Pathfinder Adventure Path #63: The Asylum Stone` |
-| Pathfinder #64: Beyond the Doomsday Door | 15 | absent | - | No notice in any pinned list. |
+| Pathfinder #64: Beyond the Doomsday Door | 15 | owner-copy | owner-copy | `Pathfinder #64: Beyond the Doomsday Door` |
 | Pathfinder Campaign Setting | 84 | d20pfsrd | d20pfsrd | `Pathfinder Chronicles Campaign Setting` |
 | Pathfinder Goblins #1 | 5 | absent | - | Dynamite comic issue; comics are permanently out of scope. |
 | Pathfinder Goblins #5 | 1 | absent | - | Dynamite comic issue; comics are permanently out of scope. |
@@ -223,12 +235,12 @@ record references to that publication.
 | Realm of the Fellnight Queen | 2 | alias | pf-data, d20pfsrd | `Pathfinder Module: Realm of the Fellknight Queen` |
 | Revenge of the Kobold King | 3 | d20pfsrd | d20pfsrd | `Pathfinder Module D1.5: Revenge of the Kobold King` |
 | Rival Guide | 37 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Rival Guide` (two distinct author lists) |
-| Serpent's Skull Player's Guide | 10 | absent | - | No notice in any pinned list. |
+| Serpent's Skull Player's Guide | 10 | pending | - | No notice in any pinned list; reviewed as notice-pending. |
 | The Godsmouth Heresy | 1 | d20pfsrd | d20pfsrd | `Pathfinder Module: The Godsmouth Heresy` |
 | Tomb of the Iron Medusa | 3 | d20pfsrd | d20pfsrd | `Pathfinder Module: Tomb of the Iron Medusa` |
 | Tome of Horrors Complete (PF) | 3 | d20pfsrd | d20pfsrd | `Tome of Horrors Complete` |
 | Undead Revisited | 10 | d20pfsrd | d20pfsrd | `Pathfinder Campaign Setting: Undead Revisited` |
-| We Be Goblins! | 5 | absent | - | No notice in any pinned list. |
+| We Be Goblins! | 5 | owner-copy | owner-copy | `We Be Goblins!` |
 
 *Pathfinder Campaign Setting* is the 2008 *Pathfinder Chronicles Campaign
 Setting* (Paizo product `v5748btpy84eo`), not a generic registry label. The
@@ -241,19 +253,21 @@ which may add its own notice.
 
 The 11 comic labels (*Pathfinder Goblins*, *Pathfinder Hollow Mountain*,
 *Pathfinder Origins*, *Pathfinder Runescars*, *Pathfinder Worldscape*) are
-Dynamite comic issues and are absent from all three lists. Comics are
+Dynamite comic issues and are absent from all four lists. Comics are
 permanently outside the current policy, but these labels are not in
 `out-of-scope.json`; the canonical legal screen excludes their records by the
-missing-notice rule and reports them as legal exclusions. *Magic of Thassilon*
-is a Paizo blog free download, not a printed book, and is absent for the same
-reason.
+missing-notice rule and reports them as legal exclusions.
 
-The remaining 22 labels are *Bestiary 6*, *Faiths of Purity*, *Goblins of
-Golarion*, *Guide to Darkmoon Vale*, *Horror Realms*, *Inner Sea Taverns*,
-*Kingmaker Player's Guide*, *Magic of Thassilon*, *Pathfinder #64: Beyond the
-Doomsday Door*, *Serpent's Skull Player's Guide*, *We Be Goblins!*, and the 11
-comic issues. The eligible books need a complete Section 15 line from a primary
-source before their records can ship.
+Eight publications have no Section 15 notice in any source: *Bestiary 6*,
+*Faiths of Purity*, *Goblins of Golarion*, *Horror Realms*, *Inner Sea Taverns*,
+*Kingmaker Player's Guide*, *Magic of Thassilon*, and *Serpent's Skull Player's
+Guide*. The project owner decided on 2026-11-05 to ship their records as assumed
+Open Game Content and keep notice coverage open in issue #34. They are listed in
+`sources/pathfinder-data-1-e/section15/notice-pending.json`. The canonical
+library keeps their records with the usual OGL and Community Use references, the
+legal page lists them under **Section 15 notice pending**, and the coverage
+report carries them under `notice-pending`. A publication may not be both
+matched and notice-pending; the build fails when the lists overlap.
 
 The d20pfsrd export has 17 rows with no separable title, such as misspelled
 copyright markers (`Copynght`, `Copuright`) and a blog index. They match no
@@ -267,6 +281,9 @@ To resolve an unmatched publication, use one of these reviewed routes:
 - Add a complete notice to the pinned d20pfsrd export with the same provenance
   review, and update its SHA-256 and row count. Never paraphrase or repair a
   notice by hand.
+- Add the complete Section 15 line from the owner's copy of the book to
+  `owner-copies.json`, then update its provenance SHA-256 and row count. Cite
+  the book only in the provenance note.
 - Record a different permission route with the project owner and extend the
   legal page model before claiming the publication is covered.
 - Move the publication to `out-of-scope.json` with a reason, so its records are
@@ -274,13 +291,14 @@ To resolve an unmatched publication, use one of these reviewed routes:
 - If the notice already exists under a different title, add a reviewed mapping
   to `notice-aliases.json`. Never add a fuzzy or title-similarity alias.
 
-`pf_legal::gate` blocks a production build while any in-scope publication lacks
-a notice. `reports/migration-legal.json` also lists the 133 Pf Data notices
-that match no in-scope publication. That list is informational: it includes the
-OGL, the System Reference Document, *Pf Data 1e*, third-party material, and
-Paizo books not present in the registry. The canonical legal screen now rejects
-359 records, down from 1,226 before the d20pfsrd source; every rejected record
-remains in the coverage report.
+`pf_legal::gate` blocks a production build while any in-scope publication has
+neither a notice nor a reviewed notice-pending decision.
+`reports/migration-legal.json` also lists the 133 Pf Data notices that match no
+in-scope publication. That list is informational: it includes the OGL, the
+System Reference Document, *Pf Data 1e*, third-party material, and Paizo books
+not present in the registry. The canonical legal screen now rejects only records
+whose publications are all comics; every rejected record remains in the coverage
+report.
 
 ## Publication gate
 

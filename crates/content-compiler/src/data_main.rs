@@ -173,6 +173,9 @@ fn run() -> Result<(), String> {
             out_of_scope: &config_dir.join("out-of-scope.json"),
             d20pfsrd_csv: &section15.join("d20pfsrd-section15.csv"),
             d20pfsrd_provenance: &section15.join("d20pfsrd-section15.provenance.json"),
+            owner_copies: &section15.join("owner-copies.json"),
+            owner_provenance: &section15.join("owner-copies.provenance.json"),
+            notice_pending: &section15.join("notice-pending.json"),
         },
     )?;
     write(

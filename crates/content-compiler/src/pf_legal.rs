@@ -24,11 +24,11 @@ pub struct PublicationLegal {
     pub publication: String,
     pub records: usize,
     /// `exact`, `normalized-prefix`, or `alias` for the Pf Data notice list;
-    /// `psrd` or `d20pfsrd` when another pinned source supplied the first match.
-    /// Absent when no notice matched.
+    /// `psrd`, `d20pfsrd`, or `owner-copy` when another pinned source supplied
+    /// the first match. Absent when no notice matched.
     pub match_method: Option<String>,
     /// Every notice source that covered this publication, in source order:
-    /// `pf-data`, `psrd`, then `d20pfsrd`.
+    /// `pf-data`, `psrd`, `d20pfsrd`, then `owner-copy`.
     pub notice_sources: Vec<String>,
     /// Every applicable notice; empty when no notice matched.
     pub notices: Vec<Notice>,
@@ -52,6 +52,15 @@ pub struct ExcludedPublication {
     pub records: usize,
 }
 
+/// A publication with no Section 15 notice in any pinned source that the owner
+/// chose to ship as assumed Open Game Content while coverage stays open.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct PendingPublication {
+    pub publication: String,
+    pub records: usize,
+    pub reason: String,
+}
+
 /// Deterministic evidence written to `reports/migration-legal.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct LegalReport {
@@ -60,8 +69,12 @@ pub struct LegalReport {
     pub in_scope_records: usize,
     pub publication_count: usize,
     pub matched_publication_count: usize,
+    pub pending_publication_count: usize,
+    /// Publications with no notice that are not notice-pending. These still
+    /// block a production build.
     pub unmatched_publication_count: usize,
     pub publications: Vec<PublicationLegal>,
+    pub pending_publications: Vec<PendingPublication>,
     pub excluded_publications: Vec<ExcludedPublication>,
     /// Counts for every pinned notice source, in match order.
     pub notice_sources: Vec<NoticeSourceSummary>,
@@ -73,7 +86,7 @@ pub struct LegalReport {
     pub unmatched_notices: Vec<Notice>,
 }
 
-/// Paths for the three pinned notice sources and the reviewed matching inputs.
+/// Paths for the pinned notice sources and the reviewed matching inputs.
 pub struct Inputs<'a> {
     pub opengamecontent: &'a Path,
     pub psrd_notices: Option<&'a Path>,
@@ -81,14 +94,26 @@ pub struct Inputs<'a> {
     pub out_of_scope: &'a Path,
     pub d20pfsrd_csv: &'a Path,
     pub d20pfsrd_provenance: &'a Path,
+    pub owner_copies: &'a Path,
+    pub owner_provenance: &'a Path,
+    pub notice_pending: &'a Path,
 }
 
 impl LegalReport {
-    /// Publications that still need a Section 15 entry before a production build.
+    /// Publications that still need a Section 15 entry, or a reviewed
+    /// notice-pending decision, before a production build.
     pub fn blocking_publications(&self) -> Vec<&PublicationLegal> {
+        let pending: BTreeSet<&str> = self
+            .pending_publications
+            .iter()
+            .map(|publication| publication.publication.as_str())
+            .collect();
         self.publications
             .iter()
-            .filter(|publication| publication.notices.is_empty())
+            .filter(|publication| {
+                publication.notices.is_empty()
+                    && !pending.contains(publication.publication.as_str())
+            })
             .collect()
     }
 
@@ -97,13 +122,16 @@ impl LegalReport {
         serde_json::json!({
             "publications": self.publication_count,
             "matched_publications": self.matched_publication_count,
+            "pending_publications": self.pending_publication_count,
             "unmatched_publications": self.unmatched_publication_count,
+            "notice-pending": self.pending_publications,
             "report": "reports/migration-legal.json",
         })
     }
 }
 
-/// Refuse a production build while any in-scope publication has no notice.
+/// Refuse a production build while any in-scope publication has no notice and
+/// no reviewed notice-pending decision.
 pub fn gate(report: &LegalReport) -> Result<(), String> {
     let missing = report.blocking_publications();
     if missing.is_empty() {
@@ -114,7 +142,7 @@ pub fn gate(report: &LegalReport) -> Result<(), String> {
         .map(|publication| publication.publication.as_str())
         .collect();
     Err(format!(
-        "{} publication(s) with in-scope records have no matched Section 15 notice: {}",
+        "{} publication(s) with in-scope records have no matched Section 15 notice and no notice-pending decision: {}",
         titles.len(),
         titles.join(", ")
     ))
@@ -168,9 +196,10 @@ struct ScopePolicy {
     publications: BTreeMap<String, String>,
 }
 
-/// Build the legal evidence from the inventory and the three pinned notice sources.
+/// Build the legal evidence from the inventory and the pinned notice sources.
 pub fn build(inventory: &Inventory, inputs: &Inputs<'_>) -> Result<LegalReport, String> {
-    // Source order is part of the evidence: Pf Data, PSRD, then d20pfsrd.
+    // Source order is part of the evidence: Pf Data, PSRD, d20pfsrd, then the
+    // owner's copies of the books.
     let opengamecontent = fs::read_to_string(inputs.opengamecontent)
         .map_err(|e| format!("{}: {e}", inputs.opengamecontent.display()))?;
     let mut sources = vec![NoticeSource {
@@ -189,6 +218,11 @@ pub fn build(inventory: &Inventory, inputs: &Inputs<'_>) -> Result<LegalReport, 
         id: "d20pfsrd",
         notices: d20_notices,
     });
+    sources.push(NoticeSource {
+        id: "owner-copy",
+        notices: load_owner_copies(inputs.owner_copies, inputs.owner_provenance)?,
+    });
+    let pending_policy = load_notice_pending(inputs.notice_pending)?;
 
     let aliases = load_aliases(inputs.aliases)?;
     let scope = load_scope(inputs.out_of_scope)?;
@@ -214,11 +248,14 @@ pub fn build(inventory: &Inventory, inputs: &Inputs<'_>) -> Result<LegalReport, 
         }
     }
     let (publications, used) = match_publications(&counts, &sources, &aliases)?;
+    let pending_publications = pending_publications(&counts, &publications, &pending_policy)?;
     let matched_publication_count = publications
         .iter()
         .filter(|publication| !publication.notices.is_empty())
         .count();
-    let unmatched_publication_count = publications.len() - matched_publication_count;
+    let pending_publication_count = pending_publications.len();
+    let unmatched_publication_count =
+        publications.len() - matched_publication_count - pending_publication_count;
     let notice_sources = sources
         .iter()
         .enumerate()
@@ -267,8 +304,10 @@ pub fn build(inventory: &Inventory, inputs: &Inputs<'_>) -> Result<LegalReport, 
         in_scope_records,
         publication_count: publications.len(),
         matched_publication_count,
+        pending_publication_count,
         unmatched_publication_count,
         publications,
+        pending_publications,
         excluded_publications: excluded_counts
             .into_iter()
             .map(|(publication, records)| ExcludedPublication {
@@ -308,6 +347,190 @@ fn load_section_15(path: &Path) -> Result<Vec<Notice>, String> {
         return Err(format!("{}: Section 15 list is empty", path.display()));
     }
     Ok(file.section_15)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OwnerCopyFile {
+    source: String,
+    supplied: String,
+    note: String,
+    section_15: Vec<OwnerCopy>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OwnerCopy {
+    publication: String,
+    notice: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OwnerProvenance {
+    id: String,
+    source: String,
+    supplied: String,
+    list: String,
+    sha256: String,
+    rows: usize,
+    note: String,
+}
+
+/// Read the reviewed owner-copy notices and verify them against their pin.
+///
+/// The list holds the publications and the Section 15 text verbatim. The
+/// provenance sidecar records only the book-derived evidence: the owner's copies
+/// of the books and the supply date. It never records a file name, path, library,
+/// or page number.
+fn load_owner_copies(list_path: &Path, provenance_path: &Path) -> Result<Vec<Notice>, String> {
+    let text = fs::read_to_string(provenance_path)
+        .map_err(|e| format!("{}: {e}", provenance_path.display()))?;
+    let provenance: OwnerProvenance =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", provenance_path.display()))?;
+    if provenance.id != "owner-copies-section15" {
+        return Err(format!(
+            "{}: unexpected notice source id {:?}",
+            provenance_path.display(),
+            provenance.id
+        ));
+    }
+    if provenance.source.trim().is_empty()
+        || provenance.supplied.trim().is_empty()
+        || provenance.note.trim().is_empty()
+    {
+        return Err(format!(
+            "{}: source, supplied, and note must describe the notice list",
+            provenance_path.display()
+        ));
+    }
+    let file_name = list_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("{}: invalid file name", list_path.display()))?;
+    if provenance.list != file_name {
+        return Err(format!(
+            "{}: provenance names {} but the source file is {file_name}",
+            provenance_path.display(),
+            provenance.list
+        ));
+    }
+    let expected = provenance.sha256.to_ascii_lowercase();
+    if expected.len() != 64 || !expected.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!(
+            "{}: sha256 must be 64 hexadecimal characters",
+            provenance_path.display()
+        ));
+    }
+    let bytes = fs::read(list_path).map_err(|e| format!("{}: {e}", list_path.display()))?;
+    let actual = hex(&Sha256::digest(&bytes));
+    if actual != expected {
+        return Err(format!(
+            "{}: SHA256 mismatch: expected {expected}, got {actual}",
+            list_path.display()
+        ));
+    }
+    let text = String::from_utf8(bytes).map_err(|e| format!("{}: {e}", list_path.display()))?;
+    let file: OwnerCopyFile =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", list_path.display()))?;
+    if file.note.trim().is_empty() {
+        return Err(format!(
+            "{}: the reviewed notice list needs a provenance note",
+            list_path.display()
+        ));
+    }
+    if file.source != provenance.source || file.supplied != provenance.supplied {
+        return Err(format!(
+            "{}: source and supplied date do not match the provenance",
+            list_path.display()
+        ));
+    }
+    if file.section_15.len() != provenance.rows {
+        return Err(format!(
+            "{}: provenance says {} rows, parsed {}",
+            list_path.display(),
+            provenance.rows,
+            file.section_15.len()
+        ));
+    }
+    let mut seen = BTreeSet::new();
+    let mut notices = Vec::with_capacity(file.section_15.len());
+    for row in file.section_15 {
+        if row.publication.trim().is_empty() || row.notice.trim().is_empty() {
+            return Err(format!(
+                "{}: every owner-copy row needs a publication and a notice",
+                list_path.display()
+            ));
+        }
+        if !seen.insert(row.publication.clone()) {
+            return Err(format!(
+                "{}: duplicate owner-copy publication {:?}",
+                list_path.display(),
+                row.publication
+            ));
+        }
+        notices.push(Notice {
+            title: row.publication,
+            notice: row.notice,
+        });
+    }
+    notices.sort_by(|a, b| (&a.title, &a.notice).cmp(&(&b.title, &b.notice)));
+    Ok(notices)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NoticePendingFile {
+    publications: BTreeMap<String, String>,
+}
+
+fn load_notice_pending(path: &Path) -> Result<BTreeMap<String, String>, String> {
+    let text = fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let file: NoticePendingFile =
+        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    for (publication, reason) in &file.publications {
+        if publication.trim().is_empty() || reason.trim().is_empty() {
+            return Err(format!(
+                "{}: every notice-pending row needs a publication and a reason",
+                path.display()
+            ));
+        }
+    }
+    Ok(file.publications)
+}
+
+/// Turn the reviewed notice-pending list into report rows. Every name must be
+/// an in-scope publication with no matching notice: a matched publication may
+/// not also claim pending status.
+fn pending_publications(
+    counts: &BTreeMap<String, usize>,
+    publications: &[PublicationLegal],
+    pending: &BTreeMap<String, String>,
+) -> Result<Vec<PendingPublication>, String> {
+    let matched: BTreeSet<&str> = publications
+        .iter()
+        .filter(|publication| !publication.notices.is_empty())
+        .map(|publication| publication.publication.as_str())
+        .collect();
+    let mut rows = Vec::with_capacity(pending.len());
+    for (publication, reason) in pending {
+        let Some(records) = counts.get(publication) else {
+            return Err(format!(
+                "notice-pending names no in-scope publication: {publication}"
+            ));
+        };
+        if matched.contains(publication.as_str()) {
+            return Err(format!(
+                "publication {publication:?} matches a Section 15 notice and is also listed as notice-pending"
+            ));
+        }
+        rows.push(PendingPublication {
+            publication: publication.clone(),
+            records: *records,
+            reason: reason.clone(),
+        });
+    }
+    Ok(rows)
 }
 
 #[derive(Debug, Deserialize)]
@@ -1023,6 +1246,75 @@ mod tests {
     }
 
     #[test]
+    fn owner_copy_source_is_verified_against_its_provenance() {
+        let root = std::env::temp_dir().join(format!("pf-legal-owner-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let list = root.join("owner-copies.json");
+        fs::write(
+            &list,
+            serde_json::to_vec(&serde_json::json!({
+                "source": "The project owner's copies of the books",
+                "supplied": "2026-11-05",
+                "note": "test",
+                "section_15": [{
+                    "publication": "Book",
+                    "notice": "Book. © 2020, Holder."
+                }]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let digest = hex(&Sha256::digest(fs::read(&list).unwrap()));
+        let provenance = root.join("owner-copies.provenance.json");
+        fs::write(
+            &provenance,
+            serde_json::to_vec(&serde_json::json!({
+                "id": "owner-copies-section15",
+                "source": "The project owner's copies of the books",
+                "supplied": "2026-11-05",
+                "list": "owner-copies.json",
+                "sha256": digest,
+                "rows": 1,
+                "note": "test"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let notices = load_owner_copies(&list, &provenance).unwrap();
+        assert_eq!(notices, vec![notice("Book", "Book. © 2020, Holder.")]);
+
+        fs::write(&list, "{}").unwrap();
+        let error = load_owner_copies(&list, &provenance).unwrap_err();
+        assert!(error.contains("SHA256 mismatch"), "{error}");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_publication_cannot_be_matched_and_notice_pending() {
+        let counts = BTreeMap::from([("Book".to_owned(), 2), ("Other".to_owned(), 1)]);
+        let publications = vec![PublicationLegal {
+            publication: "Book".into(),
+            records: 2,
+            match_method: Some("exact".into()),
+            notice_sources: vec!["pf-data".into()],
+            notices: vec![notice("Book", "© 2020.")],
+        }];
+        let pending = BTreeMap::from([("Book".to_owned(), "pending".to_owned())]);
+        let error = pending_publications(&counts, &publications, &pending).unwrap_err();
+        assert!(error.contains("also listed as notice-pending"), "{error}");
+
+        let pending = BTreeMap::from([("Missing".to_owned(), "pending".to_owned())]);
+        let error = pending_publications(&counts, &publications, &pending).unwrap_err();
+        assert!(error.contains("no in-scope publication"), "{error}");
+
+        let pending = BTreeMap::from([("Other".to_owned(), "pending".to_owned())]);
+        let rows = pending_publications(&counts, &publications, &pending).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].records, 1);
+    }
+
+    #[test]
     fn gate_blocks_only_when_an_in_scope_publication_is_missing() {
         let matched = PublicationLegal {
             publication: "Core Rulebook".into(),
@@ -1044,8 +1336,10 @@ mod tests {
             in_scope_records: 4,
             publication_count: 2,
             matched_publication_count: 1,
+            pending_publication_count: 0,
             unmatched_publication_count: 1,
             publications: vec![matched.clone(), missing],
+            pending_publications: Vec::new(),
             excluded_publications: Vec::new(),
             notice_sources: Vec::new(),
             unparsed_notices: Vec::new(),
@@ -1058,11 +1352,44 @@ mod tests {
         let complete = LegalReport {
             publication_count: 1,
             matched_publication_count: 1,
+            pending_publication_count: 0,
             unmatched_publication_count: 0,
             publications: vec![matched],
             ..report
         };
         assert!(gate(&complete).is_ok());
+    }
+
+    #[test]
+    fn notice_pending_publications_do_not_block_the_gate() {
+        let pending_row = PublicationLegal {
+            publication: "Pending Book".into(),
+            records: 2,
+            match_method: None,
+            notice_sources: Vec::new(),
+            notices: Vec::new(),
+        };
+        let report = LegalReport {
+            dataset: "pathfinder-data-1-e".into(),
+            commit: "a".repeat(40),
+            in_scope_records: 2,
+            publication_count: 1,
+            matched_publication_count: 0,
+            pending_publication_count: 1,
+            unmatched_publication_count: 0,
+            publications: vec![pending_row],
+            pending_publications: vec![PendingPublication {
+                publication: "Pending Book".into(),
+                records: 2,
+                reason: "reviewed".into(),
+            }],
+            excluded_publications: Vec::new(),
+            notice_sources: Vec::new(),
+            unparsed_notices: Vec::new(),
+            unmatched_notices: Vec::new(),
+        };
+        assert!(report.blocking_publications().is_empty());
+        assert!(gate(&report).is_ok());
     }
 
     #[test]
@@ -1088,12 +1415,16 @@ mod tests {
             out_of_scope: &config.join("out-of-scope.json"),
             d20pfsrd_csv: &section15.join("d20pfsrd-section15.csv"),
             d20pfsrd_provenance: &section15.join("d20pfsrd-section15.provenance.json"),
+            owner_copies: &section15.join("owner-copies.json"),
+            owner_provenance: &section15.join("owner-copies.provenance.json"),
+            notice_pending: &section15.join("notice-pending.json"),
         };
         let report = build(&inventory, &inputs).expect("legal report");
         assert_eq!(report.publication_count, 453);
-        assert_eq!(report.matched_publication_count, 431);
-        assert_eq!(report.unmatched_publication_count, 22);
-        assert_eq!(report.blocking_publications().len(), 22);
+        assert_eq!(report.matched_publication_count, 434);
+        assert_eq!(report.pending_publication_count, 8);
+        assert_eq!(report.unmatched_publication_count, 11);
+        assert_eq!(report.blocking_publications().len(), 11);
         for (publication, source, title) in [
             (
                 "Heroes of the Streets",
@@ -1130,6 +1461,17 @@ mod tests {
                 "psrd",
                 "Pathfinder Roleplaying Game Advanced Race Guide",
             ),
+            (
+                "Pathfinder #64: Beyond the Doomsday Door",
+                "owner-copy",
+                "Pathfinder #64: Beyond the Doomsday Door",
+            ),
+            ("We Be Goblins!", "owner-copy", "We Be Goblins!"),
+            (
+                "Guide to Darkmoon Vale",
+                "owner-copy",
+                "Guide to Darkmoon Vale",
+            ),
         ] {
             let row = report
                 .publications
@@ -1154,6 +1496,34 @@ mod tests {
                 "{publication} must keep every distinct statement"
             );
         }
+        let pending: BTreeSet<&str> = report
+            .pending_publications
+            .iter()
+            .map(|row| row.publication.as_str())
+            .collect();
+        assert_eq!(
+            pending,
+            BTreeSet::from([
+                "Bestiary 6",
+                "Faiths of Purity",
+                "Goblins of Golarion",
+                "Horror Realms",
+                "Inner Sea Taverns",
+                "Kingmaker Player's Guide",
+                "Magic of Thassilon",
+                "Serpent's Skull Player's Guide",
+            ])
+        );
+        assert!(
+            report.blocking_publications().iter().all(|row| row
+                .publication
+                .starts_with("Pathfinder Goblins")
+                || row.publication.starts_with("Pathfinder Hollow Mountain")
+                || row.publication.starts_with("Pathfinder Origins")
+                || row.publication.starts_with("Pathfinder Runescars")
+                || row.publication.starts_with("Pathfinder Worldscape")),
+            "only comic labels may still block"
+        );
         let again = build(&inventory, &inputs).unwrap();
         assert_eq!(report, again);
     }

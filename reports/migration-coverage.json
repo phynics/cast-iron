@@ -3853,8 +3853,51 @@
   },
   "legal": {
     "publications": 453,
-    "matched_publications": 431,
-    "unmatched_publications": 22,
+    "matched_publications": 434,
+    "pending_publications": 8,
+    "unmatched_publications": 11,
+    "notice-pending": [
+      {
+        "publication": "Bestiary 6",
+        "records": 311,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Faiths of Purity",
+        "records": 42,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Goblins of Golarion",
+        "records": 61,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Horror Realms",
+        "records": 46,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Inner Sea Taverns",
+        "records": 16,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Kingmaker Player's Guide",
+        "records": 7,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Magic of Thassilon",
+        "records": 2,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      },
+      {
+        "publication": "Serpent's Skull Player's Guide",
+        "records": 10,
+        "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+      }
+    ],
     "report": "reports/migration-legal.json"
   },
   "production_default": "psrd-data",

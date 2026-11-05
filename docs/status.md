@@ -37,8 +37,23 @@ Local verification on 2026-11-05 against the pinned PSRD-Data and Pf Data commit
 | `cargo xtask data-report` | Passed; no change to the tracked `reports/` files |
 
 Schema version 3 and search format 1 are unchanged. The default library's legal page
-lists both dataset pins and all 660 Section 15 notices. This is local evidence only;
+lists both dataset pins and all 951 Section 15 notices plus the reviewed
+notice-pending list. This is local evidence only;
 no CI, deployment, or live verification is claimed here.
+
+### Notice coverage, 2026-11-05
+
+Three Section 15 lines from the owner's copies of the books and eight reviewed
+notice-pending publications are now pinned. The 453 in-scope publications split
+into 434 matched, 8 notice-pending, and 11 comic labels without a notice. The
+canonical library has 31,106 entries at `vf32215920f3724aa`; the legal screen
+rejects 21 records, every one naming only a comic. Local verification:
+`cargo xtask check` passes, two canonical compilations are byte-identical,
+`cargo xtask data-report` reproduces the committed reports,
+`check-publication.py generated/content` and
+`check-library-upgrade.py generated/psrd generated/content` both exit 0, and the
+`Licensing` browser test passes on chromium and webkit. No CI, deployment, or
+live check is claimed.
 
 ### Search facet-chip latency, 2026-11-05
 

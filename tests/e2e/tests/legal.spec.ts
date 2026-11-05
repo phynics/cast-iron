@@ -40,6 +40,18 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(lines.first()).toContainText(legal.section_15[0].title);
   await expect(lines.last()).toContainText(legal.section_15.at(-1).title);
 
+  // Publications shipped with a reviewed notice-pending decision are disclosed
+  // separately, never as a fabricated Section 15 line.
+  if (legal.notice_pending?.length) {
+    await expect(page.getByRole("heading", { name: "Section 15 notice pending" })).toBeVisible();
+    const pending = page.locator("#notice-pending ~ .legal-list > li");
+    await expect(pending).toHaveCount(legal.notice_pending.length);
+    for (const title of legal.notice_pending) {
+      await expect(pending.filter({ hasText: title })).toHaveCount(1);
+    }
+    expect(legal.section_15.map((line: any) => line.title)).not.toContain(legal.notice_pending[0]);
+  }
+
   // Coverage tables: by publication, by category, excluded, links.
   const byPublication = page.locator("table", { has: page.locator("caption", { hasText: "By publication" }) });
   await expect(byPublication.locator("tbody tr")).toHaveCount(coverage.by_publication.length);
