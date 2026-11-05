@@ -108,15 +108,19 @@ pub fn sort_key(title: &str) -> String {
     title.to_lowercase()
 }
 
-/// The line under a book's title. An active book counts the entries the kind groups below it
-/// show; a disabled book has none there, so it states its full publication size instead.
-pub fn source_count_line(active: bool, eligible: usize, total: usize) -> String {
-    let noun = |n: usize| if n == 1 { "entry" } else { "entries" };
-    if active {
-        format!("{} {} in your active books", eligible, noun(eligible))
-    } else {
-        format!("{} {} in this book", total, noun(total))
-    }
+fn count_noun(n: usize) -> &'static str {
+    if n == 1 { "entry" } else { "entries" }
+}
+
+/// The line under a book page's title. It counts the entries the contents tree shows, so it
+/// stays the same when the book is disabled.
+pub fn book_count_line(n: usize) -> String {
+    format!("{} {} in this book", n, count_noun(n))
+}
+
+/// The line above a source page's kind groups. It counts the active entries those groups list.
+pub fn active_count_line(n: usize) -> String {
+    format!("{} {} in your active books", n, count_noun(n))
 }
 
 #[cfg(test)]
@@ -124,21 +128,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn source_count_line_says_which_set_it_counts() {
-        assert_eq!(
-            source_count_line(true, 12, 40),
-            "12 entries in your active books"
-        );
-        assert_eq!(
-            source_count_line(true, 1, 40),
-            "1 entry in your active books"
-        );
-        assert_eq!(source_count_line(false, 0, 40), "40 entries in this book");
-        assert_eq!(source_count_line(false, 0, 1), "1 entry in this book");
-        assert_eq!(
-            source_count_line(true, 0, 40),
-            "0 entries in your active books"
-        );
+    fn count_lines_say_which_set_they_count() {
+        assert_eq!(book_count_line(12), "12 entries in this book");
+        assert_eq!(book_count_line(1), "1 entry in this book");
+        assert_eq!(book_count_line(0), "0 entries in this book");
+        assert_eq!(active_count_line(12), "12 entries in your active books");
+        assert_eq!(active_count_line(1), "1 entry in your active books");
+        assert_eq!(active_count_line(0), "0 entries in your active books");
     }
 
     #[test]

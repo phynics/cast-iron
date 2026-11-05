@@ -8,8 +8,8 @@ use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
-    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, group_letter, local_resource, set_title,
-    sort_key, source_count_line,
+    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, local_resource,
+    set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
@@ -673,11 +673,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
         return view! { <div class="kind-groups">{groups}</div> }.into_any();
     }
     let copyright = source.copyright.clone();
-    let count = source_count_line(
-        library.book_active(&id),
-        library.discovery().entries_of_source(&id).count(),
-        source.entry_count as usize,
-    );
+    let count = active_count_line(library.discovery().entries_of_source(&id).count());
     view! {
         <div class="wide">
         <nav class="crumbs" aria-label="Breadcrumb">
