@@ -1,8 +1,14 @@
 name: CI
 
+# Pull requests run only the Rust checks. The full pipeline (content determinism,
+# site build, browser shards) runs on main once a day and on demand; see
+# docs/decisions.md. Release promotion needs a successful full run for the exact
+# main commit, so start one with `gh workflow run ci.yml --ref main` if needed.
 on:
-  push:
   pull_request:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,6 +36,9 @@ jobs:
 
   content:
     name: Content compiler and determinism
+    # The full pipeline runs on main only (daily or on demand). Every later job
+    # needs this one, so they are skipped on pull requests as well.
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
