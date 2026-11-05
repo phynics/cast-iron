@@ -1,13 +1,17 @@
-//! Home: saved entries, recent reading, and paths into the library.
+//! Home: saved entries, recent reading, and the category directory.
 
 use crate::library::use_library;
 use crate::route::Route;
 use crate::store::{self, Bookmark};
+use crate::views::browse::CategoryDirectory;
 use crate::views::recent;
 use crate::views::util::set_title;
 use cast_iron_schema::EntryId;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+
+/// Starred rows shown before the reader asks for the rest.
+const STARRED_PREVIEW: usize = 5;
 
 #[component]
 pub fn Home() -> impl IntoView {
@@ -30,24 +34,14 @@ pub fn Home() -> impl IntoView {
     }
     let star_error = RwSignal::new(None::<String>);
     let unstarring = RwSignal::new(false);
-    let (primary, _) = crate::views::categories::arrange(&library.discovery().kind_counts());
-    let kinds = primary
-        .into_iter()
-        .filter(|(kind, _)| *kind != cast_iron_schema::EntryKind::Rule)
-        .take(6)
-        .map(|(kind, n)| {
-            view! {
-                <li><a class="tile" href=Route::BrowseKind(kind).href()>
-                    <span class="tile-name">{kind.label()}</span><span class="tile-count">{n}</span>
-                </a></li>
-            }
-        })
-        .collect_view();
-    let has_books = library.has_books();
+    let expanded = RwSignal::new(false);
 
     view! {
         <div class="wide home-page">
             <h1 id="home-title">"Your rules reference"</h1>
+            <Show when=move || use_library().discovery().entries().next().is_none()>
+                <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>
+            </Show>
             <section aria-labelledby="home-bookmarks">
                 <div class="home-section-heading"><h2 id="home-bookmarks">"Starred"</h2></div>
                 {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
@@ -63,47 +57,68 @@ pub fn Home() -> impl IntoView {
                         let shown = crate::views::bookmarks::shown_items(&items, |id| {
                             library.canonical_target(id)
                         });
-                        view! {
-                        <ul class="home-bookmarks">
-                            {shown.into_iter().map(|item| {
-                                let stub = library.stub(&item.entry_id);
-                                let title = stub.map_or_else(|| item.title_snapshot.clone(), |s| s.title.clone());
-                                let kind = stub.map_or(item.kind, |s| s.kind);
-                                let id = item.entry_id.clone();
-                                let title_for_error = title.clone();
-                                let library = library.clone();
-                                view! { <li class="home-bookmark-row">
-                                    {if stub.is_some() {
-                                        view! { <a aria-label=title.clone() href=Route::entry(id.clone()).href()><span>{title.clone()}</span><span class="muted">{kind.label()}</span></a> }.into_any()
-                                    } else {
-                                        view! { <span class="home-bookmark-missing"><span>{title}</span><span class="muted">"Not in this library"</span></span> }.into_any()
-                                    }}
-                                    <button class="btn" type="button" aria-label=format!("Unstar {title_for_error}") disabled=move || unstarring.get() on:click=move |_| {
-                                        if unstarring.get_untracked() { return; }
-                                        unstarring.set(true);
-                                        let id = id.clone();
-                                        let library = library.clone();
-                                        spawn_local(async move {
-                                            // Every row that resolves to this item goes, so a
-                                            // legacy row cannot resurrect after unstar.
-                                            let matches = |stored: &EntryId| library.resolves_to(stored, &id);
-                                            match store::delete_bookmarks_matching(matches).await {
-                                                Ok(_) => {
-                                                    star_error.set(None);
-                                                    bookmarks.set(Some(store::list_bookmarks().await.map_err(|e| e.to_string())));
-                                                }
-                                                Err(error) => star_error.set(Some(format!("Could not unstar this entry: {error}"))),
+                        let total = shown.len();
+                        let visible: Vec<Bookmark> = if expanded.get() {
+                            shown
+                        } else {
+                            shown.into_iter().take(STARRED_PREVIEW).collect()
+                        };
+                        let rows = visible.into_iter().map(|item| {
+                            let stub = library.stub(&item.entry_id);
+                            let title = stub.map_or_else(|| item.title_snapshot.clone(), |s| s.title.clone());
+                            let kind = stub.map_or(item.kind, |s| s.kind);
+                            let id = item.entry_id.clone();
+                            let title_for_error = title.clone();
+                            let library = library.clone();
+                            view! { <li class="home-bookmark-row">
+                                {if stub.is_some() {
+                                    view! { <a aria-label=title.clone() href=Route::entry(id.clone()).href()><span>{title.clone()}</span><span class="muted">{kind.label()}</span></a> }.into_any()
+                                } else {
+                                    view! { <span class="home-bookmark-missing"><span>{title}</span><span class="muted">"Not in this library"</span></span> }.into_any()
+                                }}
+                                <button class="btn" type="button" aria-label=format!("Unstar {title_for_error}") disabled=move || unstarring.get() on:click=move |_| {
+                                    if unstarring.get_untracked() { return; }
+                                    unstarring.set(true);
+                                    let id = id.clone();
+                                    let library = library.clone();
+                                    spawn_local(async move {
+                                        // Every row that resolves to this item goes, so a
+                                        // legacy row cannot resurrect after unstar.
+                                        let matches = |stored: &EntryId| library.resolves_to(stored, &id);
+                                        match store::delete_bookmarks_matching(matches).await {
+                                            Ok(_) => {
+                                                star_error.set(None);
+                                                bookmarks.set(Some(store::list_bookmarks().await.map_err(|e| e.to_string())));
                                             }
-                                            unstarring.set(false);
-                                        });
-                                    }>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
-                                        "Unstar"
-                                    </button>
-                                </li> }.into_any()
-                            }).collect_view()}
-                        </ul>
-                    }.into_any()
+                                            Err(error) => star_error.set(Some(format!("Could not unstar this entry: {error}"))),
+                                        }
+                                        unstarring.set(false);
+                                    });
+                                }>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
+                                    "Unstar"
+                                </button>
+                            </li> }.into_any()
+                        }).collect_view();
+                        let more = (total > STARRED_PREVIEW).then(|| view! {
+                            <button
+                                class="btn home-bookmarks-more"
+                                type="button"
+                                aria-controls="home-bookmarks-list"
+                                aria-expanded=move || if expanded.get() { "true" } else { "false" }
+                                on:click=move |_| expanded.update(|open| *open = !*open)
+                            >
+                                {move || if expanded.get() {
+                                    "Show fewer".to_string()
+                                } else {
+                                    format!("Show all {total} starred entries")
+                                }}
+                            </button>
+                        });
+                        view! {
+                            <ul class="home-bookmarks" id="home-bookmarks-list">{rows}</ul>
+                            {more}
+                        }.into_any()
                     }
                 }}
             </section>
@@ -117,18 +132,7 @@ pub fn Home() -> impl IntoView {
                     </ul>
                 </section>
             </Show>
-            <section aria-labelledby="home-kinds">
-                <Show when=move || use_library().discovery().entries().next().is_none()>
-                    <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>
-                </Show>
-                <div class="home-section-heading"><h2 id="home-kinds">"Browse by category"</h2><a href=Route::Browse.href()>"All categories"</a></div>
-                <ul class="tiles">{kinds}</ul>
-            </section>
-            <section class="home-books" aria-labelledby="home-sources">
-                <h2 id="home-sources">{if has_books { "Read by book" } else { "Publications" }}</h2>
-                <p class="muted">{if has_books { "Explore rules in book and chapter order." } else { "Explore rules by publication." }}</p>
-                <a href=Route::Books.href()>"Browse books"</a>
-            </section>
+            <CategoryDirectory note=true />
         </div>
     }
 }

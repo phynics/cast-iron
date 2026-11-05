@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { openBookContents, installLibrary, waitControlled, waitResults, revealSourceChoice } from "./helpers";
+import { afterRouteFrame, openBookContents, installLibrary, waitControlled, waitResults, revealSourceChoice } from "./helpers";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -18,11 +18,12 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(page.locator("#home-title")).toBeVisible();
 
   const primary = page.getByRole("navigation", { name: "Primary" });
-  await expect(primary.getByRole("link")).toHaveText(["Home", "Browse", "Books", "Settings"]);
+  await expect(primary.getByRole("link")).toHaveText(["Home", "Books", "Settings"]);
   await expect(primary.getByRole("link", { name: /Search|Bookmark/i })).toHaveCount(0);
 
   // A quick lookup from a non-search page uses the persistent header search.
-  await primary.getByRole("link", { name: "Browse" }).click();
+  await primary.getByRole("link", { name: "Home", exact: true }).click();
+  await afterRouteFrame(page);
   await page.locator(".header-search #search-input").fill("grapple");
   await page.locator(".header-search #search-input").press("Enter");
   await waitResults(page, "grapple");
@@ -40,7 +41,8 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await page.locator(".results .hit-link").first().click();
   await expect(page.locator(".rich")).toContainText(/grappl/i);
   await expect(page).toHaveURL(/special-attacks\?a=/);
-  await primary.getByRole("link", { name: "Browse" }).click();
+  await primary.getByRole("link", { name: "Home", exact: true }).click();
+  await afterRouteFrame(page);
   await page.locator(".header-search #search-input").fill("fireball");
   await page.locator(".header-search #search-input").press("Enter");
   await waitResults(page, "fireball");
@@ -62,7 +64,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(preview.getByRole("link", { name: /Fireball/ })).toHaveCount(0);
 });
 
-test("Browse connects races, class options, spell levels, and reference categories", async ({ page }) => {
+test("Home categories connect races, class options, spell levels, and reference categories", async ({ page }) => {
   const byKind = page.locator("section[aria-labelledby=by-kind]");
   const category = (name: string) => byKind.locator("a.cat").filter({
     has: page.locator(".cat-name", { hasText: new RegExp(`^${name}$`) }),
@@ -71,7 +73,7 @@ test("Browse connects races, class options, spell levels, and reference categori
   // Follow a race's own relationship to one of its racial traits.
   const raceTrait = entries.find((entry) => entry.kind === "racial_trait" && related(entry, "part").length > 0)!;
   const race = corpus.entries.get(related(raceTrait, "part")[0].target)!;
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Browse" }).click();
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await category("Races").click();
   const raceChoice = page.locator(`.entry-list a[href="#/entry/${race.id}"]`);
   await revealSourceChoice(raceChoice);
@@ -98,7 +100,7 @@ test("Browse connects races, class options, spell levels, and reference categori
   )!;
   const archetype = entries.find((candidate) => candidate.kind === "archetype" &&
     related(candidate, "archetype").some((edge: any) => edge.target === classEntry.id))!;
-  await primary.getByRole("link", { name: "Browse" }).click();
+  await primary.getByRole("link", { name: "Home", exact: true }).click();
   await category("Classes").click();
   await page.locator(".entry-list").getByRole("link", { name: classEntry.title, exact: true }).click();
   await page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ }).waitFor();
@@ -110,7 +112,7 @@ test("Browse connects races, class options, spell levels, and reference categori
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /An archetype of/ })).toBeVisible();
 
   // Use the class and level links in the spell-list hub to reach a spell entry.
-  await primary.getByRole("link", { name: "Browse" }).click();
+  await primary.getByRole("link", { name: "Home", exact: true }).click();
   await page.getByRole("link", { name: "Spell lists by class and level" }).click();
   await page.locator(".spell-class h3").getByRole("link", { name: "Wizard", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Wizard spells" })).toBeVisible();
@@ -121,7 +123,7 @@ test("Browse connects races, class options, spell levels, and reference categori
   await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
 
   // The other reference categories lead to readable entries through their displayed links.
-  await primary.getByRole("link", { name: "Browse" }).click();
+  await primary.getByRole("link", { name: "Home", exact: true }).click();
   for (const [name, title] of [["Traits", "Traits"], ["Items", "Items"]]) {
     await category(name).click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
@@ -132,7 +134,7 @@ test("Browse connects races, class options, spell levels, and reference categori
     const entryTitle = corpus.entries.get(entryId)!.title;
     await first.click();
     await expect(page.getByRole("heading", { level: 1, name: entryTitle })).toBeVisible();
-    await primary.getByRole("link", { name: "Browse" }).click();
+    await primary.getByRole("link", { name: "Home", exact: true }).click();
   }
   await expect(category("Rules")).toHaveCount(0);
 });

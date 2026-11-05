@@ -96,7 +96,6 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                 <p class="muted">"Reason: " {retirement_reason_label(reason)}"."</p>
                 <p class="muted"><code>{id.to_string()}</code></p>
                 <p>
-                    <a class="btn" href=Route::Bookmarks.href()>"Open Bookmarks"</a>" "
                     <a class="btn" href=Route::Home.href()>"Go to Home"</a>
                 </p>
             </article>
@@ -296,7 +295,7 @@ fn EntryView(
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
-                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Browse.href() }>{if kind == EntryKind::Rule { "Books" } else { "Browse" }}</a></li>
+                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
                 {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::BrowseKind(kind).href()>{kind.label()}</a></li> })}
                 {crumbs_chain}
                 {crumbs_sections}

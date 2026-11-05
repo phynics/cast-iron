@@ -163,6 +163,15 @@ export async function openBookContents(page: Page, title: string) {
   await expect(page.locator("main#main")).toBeFocused();
 }
 
+/**
+ * Let a pending route change finish its focus move. The app moves focus to <main> one animation
+ * frame after a route change; typing before that frame can lose keys to <main>. Two frames
+ * guarantee the move has run, without depending on whether the route actually changed.
+ */
+export async function afterRouteFrame(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+}
+
 /** Open a publication choice before following its permanent entry link. */
 export async function revealSourceChoice(link: import("@playwright/test").Locator) {
   await expect(link).toBeAttached();
