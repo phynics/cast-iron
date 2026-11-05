@@ -154,9 +154,24 @@ fn strings_skipping(
         Value::Array(items) => items
             .iter()
             .for_each(|v| strings_skipping(v, key, skip, out)),
-        Value::Object(map) => map
-            .iter()
-            .for_each(|(k, v)| strings_skipping(v, k, skip, out)),
+        Value::Object(map) => {
+            // `level_text` is the upstream one-line spelling of the `levels`
+            // array. A record with typed levels renders one line per spell
+            // level instead (#42), so that sentence is intentionally not
+            // carried over; its class names still are, through `levels`.
+            // A record without typed levels still emits `level_text`, so it
+            // stays checked.
+            let typed_levels = map
+                .get("levels")
+                .and_then(Value::as_array)
+                .is_some_and(|levels| !levels.is_empty());
+            for (k, v) in map {
+                if typed_levels && k == "level_text" {
+                    continue;
+                }
+                strings_skipping(v, k, skip, out);
+            }
+        }
         _ => {}
     }
 }

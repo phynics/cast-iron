@@ -222,6 +222,43 @@ test("Rule entries preserve complex formatting: stat block", async ({ page }) =>
   await expect(page.locator(".rich")).toContainText(expected);
 });
 
+test("Rule entries preserve complex formatting: spell levels keep their groups", async ({ page }) => {
+  const spell = firstEntry("a spell with several class levels", (entry) =>
+    entry.kind === "spell" &&
+    (entry.fields?.levels?.length ?? 0) >= 3 &&
+    new Set(entry.fields.levels.map((level: any) => level.level)).size >= 2);
+  const levels = [...new Set(spell.fields.levels.map((level: any) => level.level))] as number[];
+  const classNames = spell.fields.levels.map((level: any) => level.class);
+  await page.goto(`#/entry/${spell.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
+  const row = page.locator(".stat-block .stat-row").filter({ has: page.locator("dt", { hasText: /^Level$/ }) });
+  await expect(row).toHaveCount(1);
+  const value = row.locator("dd");
+  await expect(value.locator("br")).toHaveCount(levels.length - 1);
+  const text = await value.innerText();
+  for (const level of levels) expect(text).toContain(`${level}: `);
+  for (const name of classNames) expect(text).toContain(name);
+});
+
+test("Rule entries preserve complex formatting: creature spell lists use readable level labels", async ({ page }) => {
+  const creature = firstEntry("a creature with a class/level spell list", (entry) =>
+    entry.kind === "creature" && entry.body.some((block: any) => {
+      if (block.t !== "paragraph" || block.content?.[0]?.t !== "strong") return false;
+      const label = inlineText(block.content[0].c ?? []).replace(/:$/, "");
+      return /^\d+(st|nd|rd|th)-level spells$/.test(label);
+    }));
+  const labelBlock = creature.body.find((block: any) => {
+    if (block.t !== "paragraph" || block.content?.[0]?.t !== "strong") return false;
+    const label = inlineText(block.content[0].c ?? []).replace(/:$/, "");
+    return /^\d+(st|nd|rd|th)-level spells$/.test(label);
+  });
+  const label = inlineText(labelBlock.content[0].c).replace(/:$/, "");
+  await page.goto(`#/entry/${creature.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: creature.title })).toBeVisible();
+  await expect(page.locator(".rich")).toContainText(label);
+  await expect(page.locator(".rich")).not.toContainText(/\bl[0-9]:/);
+});
+
 test("Rule entries preserve complex formatting: the largest table keeps its cells and spans", async ({ page }) => {
   let best: { id: string; index: number; table: any; cells: number } | null = null;
   for (const entry of corpus.entries.values()) {

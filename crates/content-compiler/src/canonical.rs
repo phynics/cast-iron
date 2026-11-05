@@ -1285,14 +1285,7 @@ pub(crate) fn convert_record(
             },
             StatRow {
                 label: "Level".into(),
-                value: vec![Inline::text(
-                    spell
-                        .levels
-                        .iter()
-                        .map(|l| format!("{} {}", l.class, l.level))
-                        .collect::<Vec<_>>()
-                        .join(", "),
-                )],
+                value: crate::build::spell_level_value(&spell.levels),
             },
         ];
         for (label, value) in [
@@ -1755,6 +1748,42 @@ mod tests {
             converted.excluded[0]
                 .reason
                 .contains("no publication metadata")
+        );
+    }
+
+    #[test]
+    fn spell_levels_are_grouped_by_level_with_line_breaks() {
+        use cast_iron_schema::{Block, Inline};
+        let inv = inventory(vec![record(
+            "spell",
+            "json/spells01.json",
+            "multi",
+            "Multi",
+            vec![
+                "::spell{source=\"Test Book/1\" transmutation clr=4 sor=3 wiz=3 ctSt cV rTouch target=you durRL=1 saveNo srN}".into(),
+                "A spell body.".into(),
+            ],
+        )]);
+        let converted = convert_corpus(&inv, &RuleAllowlist::default()).unwrap();
+        let entry = converted
+            .entries
+            .iter()
+            .find(|entry| entry.title == "Multi")
+            .expect("the spell converted");
+        let Block::StatBlock { rows, .. } = &entry.body[0] else {
+            panic!("a spell starts with its statistics block");
+        };
+        let level = rows
+            .iter()
+            .find(|row| row.label == "Level")
+            .expect("the level row");
+        assert_eq!(
+            level.value,
+            vec![
+                Inline::text("3: Sorcerer, Wizard"),
+                Inline::Break,
+                Inline::text("4: Cleric"),
+            ]
         );
     }
 
