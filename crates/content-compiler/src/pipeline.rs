@@ -671,25 +671,27 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     let registry = Registry::load(&opts.canonical_dir.join("publications.toml"))?;
     check_publication_registry(&registry, &inv)?;
 
+    let psrd_config_dir = opts
+        .psrd
+        .source_config
+        .parent()
+        .ok_or_else(|| failure("the PSRD source config has no parent directory"))?;
+    let section15 = pf_config_dir.join("section15");
     let legal_report = pf_legal::build(
         &inv,
-        &opts.pf_dataset.join("OPENGAMECONTENT.md"),
-        &pf_config_dir.join("notice-aliases.json"),
-        &pf_config_dir.join("out-of-scope.json"),
+        &pf_legal::Inputs {
+            opengamecontent: &opts.pf_dataset.join("OPENGAMECONTENT.md"),
+            psrd_notices: Some(&psrd_config_dir.join("legal-notices.json")),
+            aliases: &pf_config_dir.join("notice-aliases.json"),
+            out_of_scope: &pf_config_dir.join("out-of-scope.json"),
+            d20pfsrd_csv: &section15.join("d20pfsrd-section15.csv"),
+            d20pfsrd_provenance: &section15.join("d20pfsrd-section15.provenance.json"),
+        },
     )
     .map_err(|error| failure(format!("cannot build the Pf Data legal report: {error}")))?;
     let pf_pin: pf_data::SourcePin = pf_data::read_json(&opts.pf_registry)
         .map_err(|error| failure(format!("cannot read the Pf Data pin: {error}")))?;
-    let psrd_notices: Vec<pf_legal::Notice> = psrd
-        .legal
-        .section_15
-        .iter()
-        .map(|notice| pf_legal::Notice {
-            title: notice.title.clone(),
-            notice: notice.notice.clone(),
-        })
-        .collect();
-    let states = publication_states(&registry, &legal_report, &psrd_notices)?;
+    let states = publication_states(&registry, &legal_report)?;
 
     let mut converted = canonical::convert_corpus(&inv, &allowlist)
         .map_err(|error| failure(format!("canonical conversion failed: {error}")))?;
@@ -990,32 +992,25 @@ fn check_publication_registry(registry: &Registry, inv: &Inventory) -> Result<()
     Err(Failure { lines })
 }
 
-/// Matches every registry publication against the union of PSRD and Pf Data
-/// notices. A record is kept only when at least one of its publications has a
-/// notice, so an absent notice excludes the record rather than shipping it
-/// without a redistribution basis.
+/// Uses the union of Pf Data, PSRD, and d20pfsrd notices from the legal report.
+/// A record is kept only when at least one of its publications has a notice, so
+/// an absent notice excludes the record rather than shipping it without a
+/// redistribution basis.
 fn publication_states(
     registry: &Registry,
     report: &pf_legal::LegalReport,
-    psrd_notices: &[pf_legal::Notice],
 ) -> Result<BTreeMap<String, PublicationState>, Failure> {
     let by_publication: BTreeMap<&str, &pf_legal::PublicationLegal> = report
         .publications
         .iter()
         .map(|publication| (publication.publication.as_str(), publication))
         .collect();
-    let empty_aliases = BTreeMap::new();
-    let mut errors = Vec::new();
     let mut states = BTreeMap::new();
     for (title, row) in &registry.publication {
         let mut notices = by_publication
             .get(title.as_str())
             .map(|publication| publication.notices.clone())
             .unwrap_or_default();
-        match pf_legal::match_publication(title, psrd_notices, &empty_aliases) {
-            Ok(psrd_matches) => notices.extend(psrd_matches),
-            Err(error) => errors.push(error),
-        }
         notices.sort_by(|a, b| (&a.title, &a.notice).cmp(&(&b.title, &b.notice)));
         notices.dedup();
         states.insert(
@@ -1026,9 +1021,6 @@ fn publication_states(
                 notices,
             },
         );
-    }
-    if !errors.is_empty() {
-        return Err(problems("publication notice matching", errors));
     }
     Ok(states)
 }
@@ -2367,6 +2359,8 @@ mod canonical_tests {
             unmatched_publication_count: 0,
             publications: vec![],
             excluded_publications: vec![],
+            notice_sources: vec![],
+            unparsed_notices: vec![],
             unmatched_notices: vec![],
         };
         let pin = pf_data::SourcePin {
