@@ -142,6 +142,17 @@
       "by_publication": []
     }
   },
+  "books": {
+    "books": 49,
+    "entries": 42,
+    "placed_by_page": 37,
+    "unpaged": 5,
+    "multiple_books": 9,
+    "no_publication": 0,
+    "placements": 82,
+    "paged_placements": 47,
+    "unpaged_placements": 35
+  },
   "out_of_scope": [
     {
       "path": "json/archetypes_magus.json",
