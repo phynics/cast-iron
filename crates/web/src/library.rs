@@ -6,6 +6,7 @@ use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
 use crate::store::{self, ActiveLibrary};
+use crate::views::book_tier::source_ranks;
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
@@ -435,10 +436,13 @@ impl Library {
             return Ok(index);
         }
         let bytes = read_file(&self.0.cache, self.version(), "search.bin").await?;
-        let index = SearchIndex::from_bytes(&bytes).map_err(|e| LibraryError::Corrupt {
+        let mut index = SearchIndex::from_bytes(&bytes).map_err(|e| LibraryError::Corrupt {
             path: format!("{}/search.bin", self.version()),
             message: format!("{e:?}"),
         })?;
+        // Equal relevance orders by product line. The ranks come from the catalog, so a library
+        // installed before this ranking, or one without categories, still loads and searches.
+        index.set_source_ranks(source_ranks(&self.0.catalog.sources));
         let index = Rc::new(index);
         *self.0.index.borrow_mut() = Some(index.clone());
         Ok(index)
