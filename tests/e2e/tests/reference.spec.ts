@@ -21,6 +21,7 @@ import {
   tableRows,
   tablesOf,
   installLibrary,
+  openBookGroups,
   waitControlled,
   waitResults,
 } from "./helpers";
@@ -162,6 +163,7 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   // Each installed publication has an expandable row and a direct contents link.
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   await page.goto("#/books");
+  await openBookGroups(page);
   const row = page.locator(".book-directory-row").filter({ has: page.locator("summary", { hasText: book.title }) });
   await row.locator("summary").click();
   await expect(row.locator(".book-tree-root")).toHaveText(`Read ${book.title}`);

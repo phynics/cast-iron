@@ -4,6 +4,7 @@
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
+use crate::views::book_tier::Tier;
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
@@ -165,36 +166,12 @@ pub struct BookListEntry {
     pub count: usize,
 }
 
-/// One displayed group of publications. `label` is `None` for library order, which is not
-/// grouped. A missing category or date becomes the explicit `Unknown` group.
+/// One displayed group of publications. `tier` is `None` for library order, which is one
+/// ungrouped list. Every other order groups by priority tier and omits empty tiers.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BookGroup {
-    pub label: Option<String>,
+    pub tier: Option<Tier>,
     pub books: Vec<usize>,
-}
-
-const CATEGORY_ORDER: [&str; 6] = [
-    "Adventure Path",
-    "Campaign Setting",
-    "Module",
-    "Player Companion",
-    "RPG",
-    "Miscellaneous",
-];
-const UNKNOWN_CATEGORY: &str = "Unknown category";
-const UNKNOWN_DATE: &str = "Unknown date";
-
-fn category_rank(label: &str) -> usize {
-    CATEGORY_ORDER
-        .iter()
-        .position(|category| *category == label)
-        .unwrap_or_else(|| {
-            if label == UNKNOWN_CATEGORY {
-                usize::MAX
-            } else {
-                CATEGORY_ORDER.len()
-            }
-        })
 }
 
 fn year_of(date: Option<&str>) -> Option<&str> {
@@ -208,82 +185,50 @@ fn title_order(books: &[BookListEntry], a: usize, b: usize) -> std::cmp::Orderin
         .then_with(|| books[a].id.cmp(&books[b].id))
 }
 
-/// Groups publications for the selected order. Library order is one unlabeled group in
-/// catalog order. Category groups use the catalogue product lines in their published order,
-/// then any other category alphabetically, with `Unknown category` last. Date groups are
-/// publication years newest first, with `Unknown date` last. Ties stay alphabetical.
+/// Groups publications for the selected order. Library order is one ungrouped list in catalog
+/// order. Every other order groups by [`Tier`] in priority order and omits empty tiers. Inside
+/// a tier the default sorts by title, `Category` by reviewed product line and then title, and
+/// `Date` by publication date newest first with unknown dates last. Ties stay alphabetical.
 pub fn book_groups(books: &[BookListEntry], sort: Option<BookSort>) -> Vec<BookGroup> {
-    match sort {
-        None => vec![BookGroup {
-            label: None,
+    if sort == Some(BookSort::Library) {
+        return vec![BookGroup {
+            tier: None,
             books: (0..books.len()).collect(),
-        }],
-        Some(BookSort::Category) => {
-            let mut grouped: std::collections::BTreeMap<String, Vec<usize>> =
-                std::collections::BTreeMap::new();
-            for (index, book) in books.iter().enumerate() {
-                let label = book
-                    .category
-                    .clone()
-                    .unwrap_or_else(|| UNKNOWN_CATEGORY.to_string());
-                grouped.entry(label).or_default().push(index);
-            }
-            let mut groups: Vec<BookGroup> = grouped
-                .into_iter()
-                .map(|(label, mut indices)| {
-                    indices.sort_by(|&a, &b| title_order(books, a, b));
-                    BookGroup {
-                        label: Some(label),
-                        books: indices,
-                    }
-                })
-                .collect();
-            groups.sort_by(|a, b| {
-                let left = a.label.as_deref().unwrap_or_default();
-                let right = b.label.as_deref().unwrap_or_default();
-                category_rank(left)
-                    .cmp(&category_rank(right))
-                    .then_with(|| left.cmp(right))
-            });
-            groups
-        }
-        Some(BookSort::Date) => {
-            let mut grouped: std::collections::BTreeMap<String, Vec<usize>> =
-                std::collections::BTreeMap::new();
-            for (index, book) in books.iter().enumerate() {
-                let label = year_of(book.publication_date.as_deref())
-                    .unwrap_or(UNKNOWN_DATE)
-                    .to_string();
-                grouped.entry(label).or_default().push(index);
-            }
-            let mut groups: Vec<BookGroup> = grouped
-                .into_iter()
-                .map(|(label, mut indices)| {
-                    indices.sort_by(|&a, &b| {
-                        let left = books[a].publication_date.as_deref().unwrap_or_default();
-                        let right = books[b].publication_date.as_deref().unwrap_or_default();
-                        right.cmp(left).then_with(|| title_order(books, a, b))
-                    });
-                    BookGroup {
-                        label: Some(label),
-                        books: indices,
-                    }
-                })
-                .collect();
-            groups.sort_by(|a, b| {
-                let left = a.label.as_deref().unwrap_or_default();
-                let right = b.label.as_deref().unwrap_or_default();
-                // Unknown last; otherwise newest year first.
-                match (left == UNKNOWN_DATE, right == UNKNOWN_DATE) {
-                    (true, true) => std::cmp::Ordering::Equal,
-                    (true, false) => std::cmp::Ordering::Greater,
-                    (false, true) => std::cmp::Ordering::Less,
-                    (false, false) => right.cmp(left),
-                }
-            });
-            groups
-        }
+        }];
     }
+    Tier::ALL
+        .into_iter()
+        .filter_map(|tier| {
+            let mut indices: Vec<usize> = (0..books.len())
+                .filter(|&index| Tier::from_category(books[index].category.as_deref()) == tier)
+                .collect();
+            if indices.is_empty() {
+                return None;
+            }
+            indices.sort_by(|&a, &b| match sort {
+                Some(BookSort::Category) => Tier::category_rank(books[a].category.as_deref())
+                    .cmp(&Tier::category_rank(books[b].category.as_deref()))
+                    .then_with(|| title_order(books, a, b)),
+                Some(BookSort::Date) => {
+                    let left = year_of(books[a].publication_date.as_deref())
+                        .and(books[a].publication_date.as_deref());
+                    let right = year_of(books[b].publication_date.as_deref())
+                        .and(books[b].publication_date.as_deref());
+                    // Newest first; a missing or malformed date sorts last.
+                    right
+                        .is_some()
+                        .cmp(&left.is_some())
+                        .then_with(|| right.cmp(&left))
+                        .then_with(|| title_order(books, a, b))
+                }
+                _ => title_order(books, a, b),
+            });
+            Some(BookGroup {
+                tier: Some(tier),
+                books: indices,
+            })
+        })
+        .collect()
 }
 
 fn book_meta(row: &BookListEntry) -> Option<String> {
@@ -306,6 +251,7 @@ fn book_row(
     lookup: BookLookupSignal,
     saving: RwSignal<bool>,
     save_error: RwSignal<Option<String>>,
+    status: RwSignal<Option<String>>,
 ) -> AnyView {
     let meta = book_meta(&row);
     let id = row.id;
@@ -357,12 +303,21 @@ fn book_row(
             <label class="book-activation">
                 <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
                     on:change=move |event| {
-                        if saving.get_untracked() { return; }
                         let input = event_target::<web_sys::HtmlInputElement>(&event);
+                        if saving.get_untracked() {
+                            // Defensive guard: the checkbox is disabled during a save, so this
+                            // runs only for a programmatic event. Undo the change and say so.
+                            input.set_checked(save_library.book_active(&save_id));
+                            status.set(None);
+                            save_error.set(Some(SAVE_BUSY.to_string()));
+                            return;
+                        }
                         let active = input.checked();
                         // Discovery remains at the saved value while this control is busy.
                         saving.set(true);
                         save_error.set(None);
+                        // The bulk message no longer describes the selection.
+                        status.set(None);
                         let library = save_library.clone();
                         let id = save_id.clone();
                         spawn_local(async move {
@@ -481,8 +436,10 @@ fn DirectoryNode(lookup: Shared<BookLookup>, book: usize, path: Vec<usize>) -> i
     .into_any()
 }
 
-/// The publication directory. The same `books.json` tree as the book page, built lazily, with
-/// library order, category grouping, and publication-date grouping kept in the URL.
+/// The publication directory. The same `books.json` tree as the book page, built lazily.
+/// Books are grouped by priority tier; the sort in the URL orders books inside each tier, and
+/// library order shows one ungrouped list. Group and preset controls write the stored active
+/// set once through [`Library::update_active_books`].
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
@@ -493,6 +450,7 @@ pub fn Books() -> impl IntoView {
     };
     let saving = RwSignal::new(false);
     let save_error = RwSignal::new(None::<String>);
+    let status = RwSignal::new(None::<String>);
     let current = use_route();
     let sort = move || match current.get() {
         Route::BooksSorted(sort) => Some(sort),
@@ -520,6 +478,36 @@ pub fn Books() -> impl IntoView {
             }
         })
         .collect();
+    let apply = BulkApply {
+        library: library.clone(),
+        saving,
+        save_error,
+        status,
+    };
+    let tier_ids = |tier: Tier| -> Vec<String> {
+        rows.iter()
+            .filter(|row| Tier::from_category(row.category.as_deref()) == tier)
+            .map(|row| row.id.clone())
+            .collect()
+    };
+    let rulebook_ids = tier_ids(Tier::Rulebooks);
+    let other_ids: Vec<String> = rows
+        .iter()
+        .filter(|row| Tier::from_category(row.category.as_deref()) != Tier::Rulebooks)
+        .map(|row| row.id.clone())
+        .collect();
+    let no_rulebooks = rulebook_ids.is_empty();
+    let only_rulebooks = {
+        let apply = apply.clone();
+        move |_| {
+            apply.run(
+                rulebook_ids.clone(),
+                other_ids.clone(),
+                "Only Rulebooks are active. Other books keep their downloads and your stars."
+                    .to_string(),
+            )
+        }
+    };
     let sort_link = move |value: Option<BookSort>, label: &'static str| {
         let href = value.map_or_else(
             || Route::Books.href(),
@@ -540,35 +528,45 @@ pub fn Books() -> impl IntoView {
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
+                <div class="books-preset">
+                    <button type="button" class="btn" disabled=move || saving.get() || no_rulebooks
+                        on:click=only_rulebooks>"Only Rulebooks"</button>
+                    <span class="hint">
+                        {if no_rulebooks {
+                            "This library has no books that are marked as Rulebooks."
+                        } else {
+                            "Keep Rulebooks active and deactivate every other book."
+                        }}
+                    </span>
+                </div>
                 <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
                 <nav class="book-sort" aria-label="Sort books">
                     <span class="sort-label">"Sort"</span>
                     <ul class="sort-options">
-                        {sort_link(None, "Library order")}
+                        {sort_link(None, "Title")}
                         {sort_link(Some(BookSort::Category), BookSort::Category.label())}
                         {sort_link(Some(BookSort::Date), BookSort::Date.label())}
+                        {sort_link(Some(BookSort::Library), BookSort::Library.label())}
                     </ul>
                 </nav>
                 {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
+                <p class="hint books-status" role="status">{move || status.get()}</p>
                 {move || {
                     book_groups(&rows, sort())
                         .into_iter()
-                        .enumerate()
-                        .map(|(group_index, group)| {
-                            let heading_id = format!("book-group-{group_index}");
-                            let count = group.books.len();
+                        .map(|group| {
+                            let ids: Vec<String> = group
+                                .books
+                                .iter()
+                                .map(|&index| rows[index].id.clone())
+                                .collect();
                             let items = group
                                 .books
                                 .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error))
+                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error, status))
                                 .collect_view();
-                            match group.label {
-                                Some(label) => view! {
-                                    <section class="book-group" aria-labelledby=heading_id.clone()>
-                                        <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>
-                                        <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
-                                    </section>
-                                }.into_any(),
+                            match group.tier {
+                                Some(tier) => tier_section(tier, ids, items, library.clone(), apply.clone(), saving),
                                 None => view! {
                                     <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
                                 }.into_any(),
@@ -579,6 +577,110 @@ pub fn Books() -> impl IntoView {
             </section>
         </div>
     }
+}
+
+/// Shown when a click arrives while an earlier selection write is still being saved.
+const SAVE_BUSY: &str = "A book selection update is already being saved. Try again shortly.";
+
+/// The write path for the group and preset controls. It reuses the busy flag and the error line
+/// of the per-book checkboxes, so only one selection write runs at a time.
+#[derive(Clone)]
+struct BulkApply {
+    library: Library,
+    saving: RwSignal<bool>,
+    save_error: RwSignal<Option<String>>,
+    status: RwSignal<Option<String>>,
+}
+
+impl BulkApply {
+    fn run(&self, activate: Vec<String>, deactivate: Vec<String>, message: String) {
+        // Defensive guard: every control that calls this is disabled during a save, so this
+        // runs only for a programmatic event.
+        if self.saving.get_untracked() {
+            self.status.set(None);
+            self.save_error.set(Some(SAVE_BUSY.to_string()));
+            return;
+        }
+        self.saving.set(true);
+        self.save_error.set(None);
+        self.status.set(None);
+        let this = self.clone();
+        spawn_local(async move {
+            match this
+                .library
+                .update_active_books(&activate, &deactivate)
+                .await
+            {
+                Ok(()) => this.status.set(Some(message)),
+                Err(error) => this
+                    .save_error
+                    .set(Some(format!("Could not save the book selection: {error}"))),
+            }
+            this.saving.set(false);
+        });
+    }
+}
+
+/// One tier: a heading inside a native disclosure, and the group's two bulk controls. The
+/// controls sit outside the disclosure, so a collapsed group still deactivates in one click.
+/// Their names carry the group, such as `Deactivate all Adventures`.
+fn tier_section(
+    tier: Tier,
+    ids: Vec<String>,
+    items: impl IntoView + 'static,
+    library: Library,
+    apply: BulkApply,
+    saving: RwSignal<bool>,
+) -> AnyView {
+    let label = tier.label();
+    let count = ids.len();
+    let heading_id = format!("book-tier-{}", label.to_ascii_lowercase().replace(' ', "-"));
+    let labelled_by = heading_id.clone();
+    let revision = library.selection_revision();
+    let active_ids = ids.clone();
+    let active_count = move || {
+        revision.get();
+        active_ids
+            .iter()
+            .filter(|id| library.book_active(id))
+            .count()
+    };
+    let activate = {
+        let apply = apply.clone();
+        let ids = ids.clone();
+        move |_| {
+            apply.run(
+                ids.clone(),
+                Vec::new(),
+                format!("{label}: all {count} books are active."),
+            )
+        }
+    };
+    let deactivate = move |_| {
+        apply.run(
+            Vec::new(),
+            ids.clone(),
+            format!("{label}: all {count} books are inactive. Downloads and your stars are kept."),
+        )
+    };
+    view! {
+        <section class="book-tier" aria-labelledby=labelled_by data-tier=label>
+            <div class="tier-actions" role="group" aria-label=format!("{label} activation")>
+                <button type="button" class="btn" aria-label=format!("Activate all {label}")
+                    disabled=move || saving.get() on:click=activate>"Activate all"</button>
+                <button type="button" class="btn" aria-label=format!("Deactivate all {label}")
+                    disabled=move || saving.get() on:click=deactivate>"Deactivate all"</button>
+            </div>
+            <details class="tier-details" open=!tier.collapsed_by_default()>
+                <summary class="tier-summary">
+                    <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>
+                    <span class="tier-active">{move || format!("{} of {count} active", active_count())}</span>
+                </summary>
+                <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
+            </details>
+        </section>
+    }
+    .into_any()
 }
 
 /// One group of lens chips, with the first few shown and the rest behind a disclosure.
@@ -1146,65 +1248,96 @@ mod tests {
         }
     }
 
+    fn tiers_of(groups: &[BookGroup]) -> Vec<Tier> {
+        groups.iter().map(|group| group.tier.unwrap()).collect()
+    }
+
     #[test]
-    fn library_order_is_one_unlabeled_group_in_catalog_order() {
+    fn library_order_is_one_ungrouped_list_in_catalog_order() {
         let books = vec![
             book("b", "Beta", Some("RPG"), Some("2010-01-01")),
             book("a", "Alpha", Some("Module"), None),
         ];
-        let groups = book_groups(&books, None);
+        let groups = book_groups(&books, Some(BookSort::Library));
         assert_eq!(
             groups,
             vec![BookGroup {
-                label: None,
+                tier: None,
                 books: vec![0, 1]
             }]
         );
     }
 
     #[test]
-    fn category_groups_use_the_catalog_order_unknown_last_and_title_inside() {
+    fn default_groups_follow_the_priority_tiers_and_omit_empty_ones() {
         let books = vec![
-            book("z", "Zeta", Some("RPG"), None),
-            book("a", "Alpha", Some("RPG"), None),
             book("m", "Mid", Some("Module"), None),
+            book("z", "Zeta", Some("RPG"), None),
             book("u", "Unknown", None, None),
-            book("o", "Other", Some("Other line"), None),
+            book("a", "Alpha", Some("RPG"), None),
+            book("c", "Companion", Some("Player Companion"), None),
+            book("s", "Society", Some("Society"), None),
+            book("o", "Other line", Some("Something new"), None),
+            book("x", "Misc", Some("Miscellaneous"), None),
         ];
-        let groups = book_groups(&books, Some(BookSort::Category));
-        let labels: Vec<&str> = groups.iter().map(|g| g.label.as_deref().unwrap()).collect();
+        let groups = book_groups(&books, None);
         assert_eq!(
-            labels,
-            ["Module", "RPG", "Other line", UNKNOWN_CATEGORY],
-            "published product lines first, other categories alphabetically, Unknown last"
+            tiers_of(&groups),
+            [
+                Tier::Rulebooks,
+                Tier::PlayerCompanions,
+                Tier::Adventures,
+                Tier::Other
+            ],
+            "no Campaign Setting book, so no Campaign Setting group"
+        );
+        assert_eq!(groups[0].books, vec![3, 1], "alphabetical inside a tier");
+        assert_eq!(
+            groups[2].books,
+            vec![0, 5],
+            "Module and Society in one tier"
         );
         assert_eq!(
-            groups[1].books,
-            vec![1, 0],
-            "alphabetical inside a category"
+            groups[3].books,
+            vec![7, 6, 2],
+            "Miscellaneous, an unrecognized value and Unknown share Other"
         );
-        assert_eq!(groups[3].books, vec![3]);
+        let all: usize = groups.iter().map(|group| group.books.len()).sum();
+        assert_eq!(all, books.len(), "no book is dropped");
     }
 
     #[test]
-    fn date_groups_are_newest_first_unknown_last_and_ties_are_alphabetical() {
+    fn category_order_orders_product_lines_inside_a_tier() {
+        let books = vec![
+            book("a", "Alpha Module", Some("Module"), None),
+            book("b", "Beta Path", Some("Adventure Path"), None),
+            book("c", "Cast Path", Some("Adventure Path"), None),
+            book("d", "Dawn Society", Some("Society"), None),
+        ];
+        let groups = book_groups(&books, Some(BookSort::Category));
+        assert_eq!(tiers_of(&groups), [Tier::Adventures]);
+        assert_eq!(groups[0].books, vec![1, 2, 0, 3]);
+    }
+
+    #[test]
+    fn date_order_is_newest_first_unknown_last_and_ties_are_alphabetical() {
         let books = vec![
             book("a", "Alpha", Some("RPG"), Some("2009-08-01")),
             book("b", "Beta", Some("RPG"), Some("2014-08-14")),
             book("c", "Aardvark", Some("RPG"), Some("2014-08-14")),
             book("d", "Dated", Some("RPG"), Some("2014-07-01")),
-            book("u", "Unknown", None, None),
-            book("bad", "Bad", None, Some("not-a-date")),
+            book("u", "Unknown", Some("RPG"), None),
+            book("bad", "Bad", Some("RPG"), Some("not-a-date")),
+            book("m", "Module", Some("Module"), Some("2020-01-01")),
         ];
         let groups = book_groups(&books, Some(BookSort::Date));
-        let labels: Vec<&str> = groups.iter().map(|g| g.label.as_deref().unwrap()).collect();
-        assert_eq!(labels, ["2014", "2009", UNKNOWN_DATE]);
+        assert_eq!(tiers_of(&groups), [Tier::Rulebooks, Tier::Adventures]);
         assert_eq!(
             groups[0].books,
-            vec![2, 1, 3],
-            "newest date, then title for the shared date"
+            vec![2, 1, 3, 0, 5, 4],
+            "newest date, then title for the shared date, then undated by title"
         );
-        assert_eq!(groups[2].books, vec![5, 4], "Unknown group is alphabetical");
+        assert_eq!(groups[1].books, vec![6]);
     }
 
     #[test]

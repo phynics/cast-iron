@@ -203,9 +203,21 @@ export function buildLibraryWithoutBooks() {
   return { dir, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
+/**
+ * Open every priority-tier group on the Books page. Adventures start collapsed, so a test that
+ * reaches a book by title opens the groups first. Waits for the groups to be in the document.
+ */
+export async function openBookGroups(page: Page) {
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  await page.locator("details.tier-details").evaluateAll((groups) => {
+    for (const group of groups) (group as HTMLDetailsElement).open = true;
+  });
+}
+
 /** Follow the publication directory through its actual disclosure and contents link. */
 export async function openBookContents(page: Page, title: string) {
   await page.goto("#/books");
+  await openBookGroups(page);
   const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
   await row.locator("summary").click();
   await row.locator(".book-tree-root").click();

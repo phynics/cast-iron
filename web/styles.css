@@ -3073,8 +3073,30 @@ input::placeholder {
 .sort-options a { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); text-decoration: none; }
 .sort-options a:hover { border-color: var(--accent); color: var(--accent); }
 .sort-options a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.book-group { margin-top: var(--space-5); }
-.book-group .book-group-head { scroll-margin-top: var(--header-h); }
+.books-preset { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-3) 0; }
+.books-preset .hint { margin: 0; }
+.books-status { min-height: 1.5em; margin: var(--space-1) 0; }
+/* A tier is a native disclosure. Its two controls sit outside the disclosure, so a collapsed
+   group still deactivates in one click. On a narrow screen they are an ordinary row in flow,
+   directly above the group's heading. From 40 rem up they share the summary's grid cell and
+   sit on its right, on the same edge as the book rows. */
+.book-tier { --tier-button: 9.5rem; max-width: 52rem; margin-top: var(--space-5); }
+.tier-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.tier-actions .btn { min-width: var(--tier-button); padding-inline: var(--space-2); white-space: nowrap; }
+.tier-details { min-width: 0; }
+.tier-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); min-height: var(--touch); cursor: pointer; list-style: none; }
+.tier-summary::-webkit-details-marker { display: none; }
+.tier-summary::before { content: "›"; flex: none; width: 1rem; font-size: var(--step-2, var(--step-1)); line-height: 1; color: var(--accent); transition: transform 0.12s ease; }
+.tier-details[open] > .tier-summary::before { transform: rotate(90deg); }
+.tier-summary .book-group-head { flex: none; margin: 0; scroll-margin-top: var(--header-h); font: 600 var(--step-1)/var(--leading-tight) var(--font-display); letter-spacing: 0; text-transform: none; color: var(--ink); }
+.tier-summary .book-group-head::after { display: none; }
+.tier-active { color: var(--ink-muted); font-size: var(--step--1); }
+@media (min-width: 40.0625rem) {
+  .book-tier { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .book-tier > * { grid-area: 1 / 1; }
+  .tier-actions { align-self: start; justify-self: end; flex-wrap: nowrap; z-index: 1; }
+  .tier-summary { flex-wrap: nowrap; padding-inline-end: calc(2 * var(--tier-button) + var(--space-2)); }
+}
 .book-meta { color: var(--ink-muted); }
 .book-tree { margin-top: var(--space-2); }
 .book-tree-root { display: inline-flex; align-items: center; min-height: var(--touch); font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; }

@@ -1,107 +1,118 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookTrees, installLibrary } from "./helpers";
+import { bookTrees, installLibrary, openBookGroups } from "./helpers";
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const categoryOf = (source: any) => source.category ?? "Unknown category";
-const yearOf = (source: any) =>
-  /^\d{4}-\d{2}-\d{2}$/.test(source.publication_date ?? "")
-    ? source.publication_date.slice(0, 4)
-    : "Unknown date";
-
-const knownCategories = [
-  "Adventure Path",
-  "Campaign Setting",
-  "Module",
-  "Player Companion",
-  "RPG",
-  "Miscellaneous",
+/** The tier table, restated independently of the Rust code: this is what the page promises. */
+const tiers: { label: string; categories: string[]; open: boolean }[] = [
+  { label: "Rulebooks", categories: ["RPG"], open: true },
+  { label: "Player Companions", categories: ["Player Companion"], open: true },
+  { label: "Campaign Setting", categories: ["Campaign Setting"], open: true },
+  { label: "Adventures", categories: ["Adventure Path", "Module", "Society"], open: false },
+  { label: "Other", categories: [], open: true },
 ];
-
-/** The product-line order the view promises, then other categories, then Unknown. */
-function expectedCategories() {
-  const present = new Set(sources.map(categoryOf));
-  return [
-    ...knownCategories.filter((category) => present.has(category)),
-    ...[...present]
-      .filter((category) => !knownCategories.includes(category) && category !== "Unknown category")
-      .sort(),
-    ...(present.has("Unknown category") ? ["Unknown category"] : []),
-  ];
-}
-
-/** Newest year first, with the explicit Unknown group last. */
-function expectedYears() {
-  const present = new Set(sources.map(yearOf));
-  return [
-    ...[...present].filter((year) => year !== "Unknown date").sort().reverse(),
-    ...(present.has("Unknown date") ? ["Unknown date"] : []),
-  ];
-}
+const tierOf = (source: any) =>
+  tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
+const inTier = (label: string) => sources.filter((source) => tierOf(source) === label);
 
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
-test("Books sort by category and publication date, and the URL keeps the choice", async ({ page }) => {
+test("Books group by priority tier: Rulebooks first, Adventures collapsed with a count", async ({ page }) => {
   await page.goto("#/books");
-  const rows = page.locator(".book-directory-item");
-  await expect(rows).toHaveCount(sources.length);
-  expect(
-    await rows.evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id"))),
-  ).toEqual(sources.map((source) => source.id));
-
-  const sortNav = page.getByRole("navigation", { name: "Sort books" });
-  await sortNav.getByRole("link", { name: "Category", exact: true }).click();
-  await expect(page).toHaveURL(/#\/books\?sort=category$/);
-
-  const categoryGroups = page.locator(".book-group");
-  await expect(categoryGroups).toHaveCount(expectedCategories().length);
-  for (const [index, category] of expectedCategories().entries()) {
-    const group = categoryGroups.nth(index);
-    await expect(group.locator(".book-group-head")).toContainText(category);
+  const present = tiers.filter((tier) => inTier(tier.label).length > 0);
+  const groups = page.locator(".book-tier");
+  await expect(groups).toHaveCount(present.length);
+  await expect(page.locator(".book-directory-item")).toHaveCount(sources.length);
+  for (const [index, tier] of present.entries()) {
+    const group = groups.nth(index);
+    const members = inTier(tier.label);
+    await expect(group.getByRole("heading", { level: 2, name: `${tier.label} (${members.length})`, exact: true })).toBeVisible();
     const ids = await group
       .locator(".book-directory-item")
       .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
-    expect(ids.length).toBeGreaterThan(0);
-    for (const id of ids) {
-      expect(categoryOf(sources.find((source) => source.id === id))).toBe(category);
-    }
+    expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
+    // Every book starts active, in every tier.
+    await expect(group.locator(".tier-active")).toHaveText(`${members.length} of ${members.length} active`);
+    expect(await group.locator("details.tier-details").evaluate((el) => (el as HTMLDetailsElement).open)).toBe(tier.open);
   }
+  expect(present[0].label).toBe("Rulebooks");
 
-  // Back and Forward navigate between the two sort states, not just the links.
+  // The group controls are never inside the summary (no interactive content in a summary), and
+  // on a wide screen they end on the same right edge as the book rows.
+  await expect(page.locator(".tier-summary button, .tier-summary a, .tier-summary input")).toHaveCount(0);
+  await expect(page.locator(".tier-summary > h2")).toHaveCount(present.length);
+  const rulebooks = page.locator('.book-tier[data-tier="Rulebooks"]');
+  const buttonsBox = (await rulebooks.locator(".tier-actions").boundingBox())!;
+  const rowBox = (await rulebooks.locator(".book-directory-item").first().boundingBox())!;
+  expect(Math.abs(buttonsBox.x + buttonsBox.width - (rowBox.x + rowBox.width))).toBeLessThanOrEqual(1);
+  const summaryBox = (await rulebooks.locator(".tier-summary").boundingBox())!;
+  const headingBox = (await rulebooks.locator(".tier-summary > .tier-active").boundingBox())!;
+  expect(headingBox.x + headingBox.width).toBeLessThanOrEqual(buttonsBox.x);
+  expect(summaryBox.height).toBeGreaterThanOrEqual(44);
+
+  // A collapsed group hides its rows but keeps both controls one click away.
+  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
+  if (await adventures.count()) {
+    await expect(adventures.locator(".book-directory-item").first()).toBeHidden();
+    await expect(adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true })).toBeVisible();
+    await expect(adventures.getByRole("button", { name: "Activate all Adventures", exact: true })).toBeVisible();
+    await adventures.locator(".tier-summary").click();
+    await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
+  }
+});
+
+test("Books sort inside each tier, and the URL keeps the choice", async ({ page }) => {
+  await page.goto("#/books");
+  const sortNav = page.getByRole("navigation", { name: "Sort books" });
+  await expect(sortNav.getByRole("link", { name: "Title", exact: true })).toHaveAttribute("aria-current", "true");
+
+  await sortNav.getByRole("link", { name: "Category", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books\?sort=category$/);
+  const adventureRanks = ["Adventure Path", "Module", "Society"];
+  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
+  const ids: string[] = await adventures
+    .locator(".book-directory-item")
+    .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id") as string));
+  const ranks = ids.map((id) => adventureRanks.indexOf(sources.find((source) => source.id === id)?.category));
+  expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+
+  // Back and Forward restore the sort state.
   await page.goBack();
   await expect(page).toHaveURL(/#\/books$/);
-  await expect(page.locator(".book-group")).toHaveCount(0);
   await page.goForward();
   await expect(page).toHaveURL(/#\/books\?sort=category$/);
 
   await sortNav.getByRole("link", { name: "Publication date", exact: true }).click();
   await expect(page).toHaveURL(/#\/books\?sort=date$/);
-  const dateGroups = page.locator(".book-group");
-  await expect(dateGroups).toHaveCount(expectedYears().length);
-  for (const [index, year] of expectedYears().entries()) {
-    const group = dateGroups.nth(index);
-    await expect(group.locator(".book-group-head")).toContainText(year);
-    const ids = await group
-      .locator(".book-directory-item")
-      .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
-    expect(ids.length).toBeGreaterThan(0);
-    for (const id of ids) expect(yearOf(sources.find((source) => source.id === id))).toBe(year);
-    if (year !== "Unknown date") {
-      const dates = ids.map(
-        (id) => sources.find((source) => source.id === id)?.publication_date as string,
-      );
-      expect(dates.every((date) => date.startsWith(year))).toBe(true);
-      expect([...dates].sort().reverse()).toEqual(dates);
-    }
+  for (const tier of tiers) {
+    const group = page.locator(`.book-tier[data-tier="${tier.label}"]`);
+    if (!(await group.count())) continue;
+    const dates: string[] = (
+      await group
+        .locator(".book-directory-item")
+        .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id") as string))
+    )
+      .map((id) => sources.find((source) => source.id === id)?.publication_date)
+      .filter((date): date is string => /^\d{4}-\d{2}-\d{2}$/.test(date ?? ""));
+    expect([...dates].sort().reverse(), tier.label).toEqual(dates);
   }
 
   await sortNav.getByRole("link", { name: "Library order", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books\?sort=library$/);
+  await expect(page.locator(".book-tier")).toHaveCount(0);
+  expect(
+    await page
+      .locator(".book-directory-item")
+      .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id"))),
+  ).toEqual(sources.map((source) => source.id));
+
+  await sortNav.getByRole("link", { name: "Title", exact: true }).click();
   await expect(page).toHaveURL(/#\/books$/);
-  await expect(page.locator(".book-group")).toHaveCount(0);
+  await expect(page.locator(".book-tier").first()).toBeVisible();
 });
 
 test("Expanded books show a hierarchical contents tree and build closed branches lazily", async ({ page }) => {
@@ -114,6 +125,7 @@ test("Expanded books show a hierarchical contents tree and build closed branches
   if (!book) throw new Error("The compiled corpus has no book with nested contents.");
 
   await page.goto("#/books");
+  await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await row.locator(".book-directory-row > summary").click();
   const tree = row.getByTestId("book-tree");

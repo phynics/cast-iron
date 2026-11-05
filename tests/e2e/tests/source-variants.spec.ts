@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
-import { bookOwners, groupLetter, installLibrary, waitControlled, waitResults } from "./helpers";
+import { bookOwners, groupLetter, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const owners = bookOwners();
@@ -46,6 +46,7 @@ test("Source variants retain distinct entries in browse and search after book fi
   const disabled = owners.get(variants[0].id) ?? variants[0].source;
   const source = corpus.catalog.sources.find((candidate) => candidate.id === disabled)!;
   await page.goto("#/books");
+  await openBookGroups(page);
   await page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true }).uncheck();
   await expect(page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeDisabled();
   await page.goto(`#/search?q=${encodeURIComponent(title)}&kind=${kind}`);

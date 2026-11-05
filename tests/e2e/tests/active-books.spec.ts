@@ -1,6 +1,8 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import {
   bookEntryOrder,
+  cacheContents,
+  contentCaches,
   bookOwners,
   bookTrees,
   buildLibraryWithoutBooks,
@@ -8,8 +10,10 @@ import {
   firstBookPlacement,
   groupLetter,
   installLibrary,
+  openBookGroups,
   waitControlled,
   waitReady,
+  waitResults,
 } from "./helpers";
 
 const corpus = loadCorpus();
@@ -36,6 +40,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await waitControlled(page);
   await page.goto("#/books");
   await waitReady(page);
+  await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
   await expect(toggle).toBeChecked();
@@ -44,6 +49,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 
   await page.goto("#/books");
+  await openBookGroups(page);
   await row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true }).uncheck();
   await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeEnabled();
@@ -53,6 +59,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   page = await context.newPage();
   await page.goto("#/books");
   await waitReady(page);
+  await openBookGroups(page);
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(entry.title))}`);
@@ -77,6 +84,81 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
   await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled for search and browsing.");
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+});
+
+const adventureCategories = ["Adventure Path", "Module", "Society"];
+
+/** An entry that an Adventures-tier book places first, so deactivating Adventures hides it. */
+function adventureEntry() {
+  for (const source of corpus.catalog.sources) {
+    if (!adventureCategories.includes(source.category as string)) continue;
+    const id = [...owners].find(([, bookId]) => bookId === source.id)?.[0];
+    if (id) return { id, source, entry: corpus.entries.get(id)! };
+  }
+  throw new Error("The compiled corpus has no entry in an Adventures-tier book.");
+}
+
+const resultCount = (page: any) => page.locator(".result-count > span").first().innerText();
+
+test("Only Rulebooks and the group controls change search counts, and keep downloads and stars", async ({ page }) => {
+  const { id, source, entry } = adventureEntry();
+  const adventureBooks = corpus.catalog.sources.filter((row) => adventureCategories.includes(row.category as string));
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto(`#/entry/${id}`);
+  await page.locator(".bookmark-toggle").click();
+  await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+  const downloads = await cacheContents(page);
+  expect(contentCaches(downloads).length).toBeGreaterThan(0);
+
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const everything = await resultCount(page);
+
+  // Every book starts active. The preset is one click, and nothing reloads.
+  await page.goto("#/books");
+  await expect(page.getByRole("checkbox", { name: /^Active / }).first()).toBeChecked();
+  await page.getByRole("button", { name: "Only Rulebooks", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Only Rulebooks are active." })).toBeVisible();
+  await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-active')).toHaveText(
+    `0 of ${adventureBooks.length} active`,
+  );
+  const rulebooks = page.locator('.book-tier[data-tier="Rulebooks"] .tier-active');
+  await expect(rulebooks).toHaveText(/^(\d+) of \1 active$/);
+
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const rulebooksOnly = await resultCount(page);
+  expect(rulebooksOnly).not.toBe(everything);
+
+  // The starred entry and the download survive the deactivation.
+  await page.goto(`#/entry/${id}`);
+  await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
+  await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".disabled-book-notice")).toBeVisible();
+  expect(await cacheContents(page)).toEqual(downloads);
+  await page.goto("#/");
+  await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
+
+  // A group's own control brings its books back in one click, with no reload.
+  await page.goto("#/books");
+  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
+  await expect(adventures.locator("details.tier-details")).not.toHaveAttribute("open", "");
+  await adventures.getByRole("button", { name: "Activate all Adventures", exact: true }).click();
+  await expect(adventures.locator(".tier-active")).toHaveText(`${adventureBooks.length} of ${adventureBooks.length} active`);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  expect(await resultCount(page)).not.toBe(rulebooksOnly);
+  await page.goto("#/books");
+  await adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true }).click();
+  await expect(adventures.locator(".tier-active")).toHaveText(`0 of ${adventureBooks.length} active`);
+  await expect(page.getByRole("status").filter({ hasText: "Adventures: all" })).toBeVisible();
+  // A per-book toggle replaces the bulk message instead of leaving it on screen.
+  await page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("checkbox", { name: /^Active / }).first().uncheck();
+  await expect(page.locator(".books-status")).toHaveText("");
+  await adventures.locator(".tier-summary").click();
+  await expect(adventures.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
+  expect(await cacheContents(page)).toEqual(downloads);
 });
 
 // Clean profile on purpose: from a pre-installed profile the reload below can interrupt a
@@ -134,6 +216,7 @@ installedTest("Invalid book choices recover without removing the library or star
   await page.goto("#/");
   await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
   await page.goto("#/books");
+  await openBookGroups(page);
   await expect(page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();
 });
 
@@ -210,6 +293,7 @@ installedTest("Book page count follows its contents and survives deactivation", 
 
   await page.goto("#/books");
   await waitReady(page);
+  await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
   await toggle.uncheck();

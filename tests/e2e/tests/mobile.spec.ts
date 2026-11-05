@@ -1,5 +1,5 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
-import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, waitResults } from "./helpers";
+import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
 // Every screen names a target the compiled corpus actually holds; the two libraries differ
@@ -55,6 +55,7 @@ installedTest("Mobile viewport shows no horizontal page scroll on key screens", 
 test("Expanded books, their contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
+  await openBookGroups(page);
   const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0));
   if (!book) throw new Error("The compiled corpus has no book with contents.");
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
@@ -68,11 +69,70 @@ test("Expanded books, their contents tree, and the sort control fit the mobile v
   expect(treeOverflow).toBeLessThanOrEqual(0);
 
   await page.getByRole("navigation", { name: "Sort books" }).getByRole("link", { name: "Publication date", exact: true }).click();
-  await expect(page.locator(".book-group").first()).toBeVisible();
+  await expect(page.locator(".book-tier").first()).toBeVisible();
   const sortOverflow = await page.evaluate(
     () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
   );
   expect(sortOverflow).toBeLessThanOrEqual(0);
+});
+
+test("Books tiers and their bulk controls fit 390 px with full-size touch targets", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  const groups = page.locator(".book-tier");
+  await expect(groups.first()).toBeVisible();
+  await expect(groups.first().getByRole("heading", { level: 2 })).toContainText("Rulebooks");
+  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
+  await expect(adventures.locator("details.tier-details")).not.toHaveAttribute("open", "");
+
+  for (const label of ["Rulebooks", "Adventures"]) {
+    const group = page.locator(`.book-tier[data-tier="${label}"]`);
+    const heading = group.locator(".tier-summary").boundingBox();
+    const buttons = [
+      group.getByRole("button", { name: `Activate all ${label}`, exact: true }),
+      group.getByRole("button", { name: `Deactivate all ${label}`, exact: true }),
+    ];
+    for (const button of buttons) {
+      await expect(button).toBeVisible();
+      const box = (await button.boundingBox())!;
+      expect(box.height, `${label} control height`).toBeGreaterThanOrEqual(44);
+      expect(box.width, `${label} control width`).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+    }
+    await heading;
+  }
+  // The controls are an ordinary row in flow: for every tier they never intersect the heading,
+  // the count text or the summary, so nothing can be covered at 390 px.
+  const intersects = (a: any, b: any) =>
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  const tierCount = await groups.count();
+  expect(tierCount).toBeGreaterThan(1);
+  for (let index = 0; index < tierCount; index++) {
+    const group = groups.nth(index);
+    const label = (await group.getAttribute("data-tier"))!;
+    const actions = (await group.locator(".tier-actions").boundingBox())!;
+    for (const part of [".tier-summary", ".tier-summary > h2", ".tier-summary > .tier-active"]) {
+      const box = (await group.locator(part).boundingBox())!;
+      expect(intersects(actions, box), `${label}: .tier-actions overlaps ${part}`).toBe(false);
+    }
+    for (const button of await group.locator(".tier-actions .btn").all()) {
+      expect((await button.evaluate((el) => el.getClientRects().length))).toBe(1);
+      expect((await button.boundingBox())!.height, `${label} button stays one line`).toBeLessThan(60);
+    }
+  }
+  const preset = page.getByRole("button", { name: "Only Rulebooks", exact: true });
+  expect((await preset.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  const overflow = async () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await adventures.locator(".tier-summary").click();
+  await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // One tap deactivates the whole group on a phone as well.
+  await adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true }).click();
+  await expect(adventures.locator(".tier-active")).toContainText(/^0 of \d+ active$/);
 });
 
 test("Mobile header Install button is icon-only, a full touch target, and crowds nothing", async ({ page, context }) => {
