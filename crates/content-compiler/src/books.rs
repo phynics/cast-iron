@@ -39,10 +39,36 @@ pub struct CanonicalBookStats {
     pub placements: usize,
     pub paged_placements: usize,
     pub unpaged_placements: usize,
+    /// Per-book accounting for the PSRD books whose curated chapters were
+    /// re-addressed through the legacy alias map. Empty for the page-only build.
+    pub curated: Vec<CuratedBookStats>,
+}
+
+/// Coverage for one PSRD book whose curated chapters now hold canonical entries.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct CuratedBookStats {
+    pub source: String,
+    pub title: String,
+    /// Final chapter count, including an appended page-ordered chapter.
+    pub chapters: usize,
+    /// Distinct canonical entries placed by the reviewed PSRD tree.
+    pub placed: usize,
+    /// Canonical entries of this publication that the PSRD tree does not place.
+    pub appended: usize,
+    /// Legacy entries dropped because no installed canonical entry carries their id.
+    pub dropped: usize,
+    /// Repeated canonical placements skipped after the first in this book.
+    pub duplicates: usize,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dropped_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub duplicate_ids: Vec<String>,
 }
 
 const PAGE_CHAPTER: &str = "Page order";
 const UNPAGED_CHAPTER: &str = "Unpaged";
+/// Final chapter for canonical entries that the curated PSRD tree does not place.
+const APPENDED_CHAPTER: &str = "New entries (page order)";
 
 /// The upstream url of an entry, without the fragment that unnamed sections carry.
 pub fn home_url(entry: &RuleEntry) -> &str {
@@ -339,6 +365,236 @@ pub fn build_canonical(
     nested: &[NestedLink],
     pages: &BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
 ) -> Report {
+    let base = canonical_base(entries, nested, pages);
+    let mut books: Vec<BookTree> = Vec::new();
+    let mut by_publication: Vec<BookPlacement> = Vec::new();
+    for (source, book_members) in &base.members {
+        let book = page_book(source, &base);
+        let paged_count = book_members.values().filter(|page| page.is_some()).count();
+        by_publication.push(BookPlacement {
+            source_id: source.clone(),
+            placed: paged_count as u32,
+            unplaced: (book_members.len() - paged_count) as u32,
+        });
+        books.push(book);
+    }
+    books.sort_by(|a, b| {
+        title_key(&a.title)
+            .cmp(&title_key(&b.title))
+            .then_with(|| a.source.cmp(&b.source))
+    });
+    by_publication.sort_by(|a, b| a.source_id.cmp(&b.source_id));
+    let mut unplaced = base.unplaced.clone();
+    unplaced.sort_by(|a, b| a.entry.cmp(&b.entry));
+
+    Report {
+        index: BookIndex { books },
+        coverage: BookOrderCoverage {
+            placed: base.stats.placed_by_page as u32,
+            unplaced,
+            by_publication,
+        },
+        stats: base.stats,
+    }
+}
+
+/// Build the canonical book index, but keep the reviewed PSRD chapter structure
+/// for the sixteen publications PSRD already curates.
+///
+/// The PSRD tree's entry ids are legacy ids. Each one is rewritten through the
+/// alias map: a mapped legacy id becomes its canonical target, a shared target is
+/// kept once (the first placement in that book), and a legacy id with no installed
+/// target is dropped and reported. Canonical entries of a PSRD book that its
+/// rewritten tree does not place (new Pf Data content for that book) go into one
+/// final page-ordered chapter. Every other publication keeps [`build_canonical`]'s
+/// page-ordered list.
+pub fn build_canonical_with_psrd(
+    entries: &[RuleEntry],
+    nested: &[NestedLink],
+    pages: &BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
+    psrd: &BookIndex,
+    targets: &BTreeMap<String, String>,
+    dropped: &BTreeMap<String, String>,
+) -> Report {
+    let base = canonical_base(entries, nested, pages);
+    let psrd_sources: BTreeSet<&str> = psrd.books.iter().map(|book| book.source.as_str()).collect();
+    let mut books: Vec<BookTree> = Vec::new();
+    let mut curated: Vec<CuratedBookStats> = Vec::new();
+    let mut curated_placement_ids: BTreeSet<String> = BTreeSet::new();
+
+    for tree in &psrd.books {
+        let members = base.members.get(&tree.source).cloned().unwrap_or_default();
+        let children = base.children.get(&tree.source).cloned().unwrap_or_default();
+        let mut rewriter = CuratedRewriter {
+            targets,
+            dropped,
+            placed: BTreeSet::new(),
+            dropped_ids: Vec::new(),
+            duplicate_ids: Vec::new(),
+        };
+        let mut chapters = Vec::new();
+        for chapter in &tree.chapters {
+            chapters.extend(rewriter.node(chapter, true));
+        }
+
+        let mut appended_ids: BTreeSet<EntryId> = members
+            .keys()
+            .filter(|id| !rewriter.placed.contains(*id))
+            .cloned()
+            .collect();
+        let mut appended_nodes = Vec::new();
+        if !appended_ids.is_empty() {
+            let subset: BTreeMap<EntryId, Option<u32>> = appended_ids
+                .iter()
+                .filter_map(|id| members.get(id).map(|page| (id.clone(), *page)))
+                .collect();
+            appended_nodes = ordered_nodes(&appended_ids, &subset, &children, &base.by_id);
+            appended_ids = subset.keys().cloned().collect();
+        }
+        if !appended_nodes.is_empty() {
+            chapters.push(BookNode {
+                title: APPENDED_CHAPTER.into(),
+                entry: None,
+                anchor: None,
+                review: Some(
+                    "Canonical entries of this publication that the curated PSRD tree does not place. They follow their page number; this is a page-ordered list, not a chapter position."
+                        .into(),
+                ),
+                children: appended_nodes,
+            });
+        }
+
+        let mut placed_ids: Vec<String> = rewriter.placed.iter().map(ToString::to_string).collect();
+        placed_ids.sort();
+        curated_placement_ids.extend(placed_ids.iter().cloned());
+        for id in &appended_ids {
+            curated_placement_ids.insert(id.to_string());
+        }
+        let mut dropped_ids = rewriter.dropped_ids;
+        dropped_ids.sort();
+        dropped_ids.dedup();
+        let mut duplicate_ids = rewriter.duplicate_ids;
+        duplicate_ids.sort();
+        duplicate_ids.dedup();
+        curated.push(CuratedBookStats {
+            source: tree.source.clone(),
+            title: tree.title.clone(),
+            chapters: chapters.len(),
+            placed: rewriter.placed.len(),
+            appended: appended_ids.len(),
+            dropped: dropped_ids.len(),
+            duplicates: duplicate_ids.len(),
+            dropped_ids,
+            duplicate_ids,
+        });
+
+        let basis = if tree.basis.is_empty() {
+            "Chapters and order come from the curated PSRD book order. Canonical ids were substituted through the reviewed alias map; chapters and order are unchanged.".into()
+        } else {
+            format!(
+                "{} Canonical ids were substituted through the reviewed alias map; chapters and order are unchanged.",
+                tree.basis
+            )
+        };
+        let mut review = tree.review.clone();
+        review.push(
+            "Canonical ids were substituted through sources/canonical/id-map.toml. A legacy entry with no installed target is omitted and listed in coverage."
+                .into(),
+        );
+        books.push(BookTree {
+            source: tree.source.clone(),
+            title: tree.title.clone(),
+            basis,
+            review,
+            chapters,
+        });
+    }
+
+    // Every publication PSRD does not curate keeps the page-ordered list.
+    let mut others: Vec<BookTree> = Vec::new();
+    for source in base.members.keys() {
+        if psrd_sources.contains(source.as_str()) {
+            continue;
+        }
+        let book = page_book(source, &base);
+        others.push(book);
+    }
+    others.sort_by(|a, b| {
+        title_key(&a.title)
+            .cmp(&title_key(&b.title))
+            .then_with(|| a.source.cmp(&b.source))
+    });
+    books.extend(others);
+
+    let mut by_publication: Vec<BookPlacement> = Vec::new();
+    for (source, book_members) in &base.members {
+        if psrd_sources.contains(source.as_str()) {
+            // Every canonical member is shown: the rewritten tree places it, or
+            // the appended chapter does.
+            by_publication.push(BookPlacement {
+                source_id: source.clone(),
+                placed: book_members.len() as u32,
+                unplaced: 0,
+            });
+        } else {
+            let paged_count = book_members.values().filter(|page| page.is_some()).count();
+            by_publication.push(BookPlacement {
+                source_id: source.clone(),
+                placed: paged_count as u32,
+                unplaced: (book_members.len() - paged_count) as u32,
+            });
+        }
+    }
+    by_publication.sort_by(|a, b| a.source_id.cmp(&b.source_id));
+
+    // Entries that the curated trees now place were reported as unpaged by the
+    // page-only pass; remove them from that list. Unpaged entries outside the
+    // curated books keep the page-only report.
+    let mut unplaced = base.unplaced.clone();
+    unplaced.retain(|row| !curated_placement_ids.contains(&row.entry));
+    unplaced.sort_by(|a, b| a.entry.cmp(&b.entry));
+
+    let newly_placed = curated_placement_ids
+        .iter()
+        .filter(|id| {
+            EntryId::parse((*id).clone())
+                .map(|id| !base.paged_ids.contains(&id))
+                .unwrap_or(false)
+        })
+        .count();
+    let placed = base.stats.placed_by_page + newly_placed;
+
+    let mut stats = base.stats;
+    stats.curated = curated;
+
+    Report {
+        index: BookIndex { books },
+        coverage: BookOrderCoverage {
+            placed: placed as u32,
+            unplaced,
+            by_publication,
+        },
+        stats,
+    }
+}
+
+/// The page-attribution index before any book node is built.
+struct CanonicalBase<'a> {
+    by_id: BTreeMap<&'a EntryId, &'a RuleEntry>,
+    titles: BTreeMap<String, String>,
+    members: BTreeMap<String, BTreeMap<EntryId, Option<u32>>>,
+    children: BTreeMap<String, BTreeMap<EntryId, Vec<EntryId>>>,
+    /// Entries with at least one page number anywhere.
+    paged_ids: BTreeSet<EntryId>,
+    unplaced: Vec<Unplaced>,
+    stats: CanonicalBookStats,
+}
+
+fn canonical_base<'a>(
+    entries: &'a [RuleEntry],
+    nested: &[NestedLink],
+    pages: &BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
+) -> CanonicalBase<'a> {
     let by_id: BTreeMap<&EntryId, &RuleEntry> = entries.iter().map(|e| (&e.id, e)).collect();
 
     // Display titles come from the SOURCE lines themselves. The same publication
@@ -364,6 +620,7 @@ pub fn build_canonical(
 
     let mut members: BTreeMap<String, BTreeMap<EntryId, Option<u32>>> = BTreeMap::new();
     let mut unplaced: Vec<Unplaced> = Vec::new();
+    let mut paged_ids: BTreeSet<EntryId> = BTreeSet::new();
     let mut placed_by_page = 0usize;
     let mut unpaged = 0usize;
     let mut multiple_books = 0usize;
@@ -401,6 +658,7 @@ pub fn build_canonical(
         }
         if attribution.values().any(Option::is_some) {
             placed_by_page += 1;
+            paged_ids.insert(entry.id.clone());
         } else {
             unpaged += 1;
             let books = attribution
@@ -429,18 +687,11 @@ pub fn build_canonical(
         }
     }
 
-    let mut books: Vec<BookTree> = Vec::new();
-    let mut by_publication: Vec<BookPlacement> = Vec::new();
+    let mut children: BTreeMap<String, BTreeMap<EntryId, Vec<EntryId>>> = BTreeMap::new();
     for (source, book_members) in &members {
-        let title = titles
-            .get(source)
-            .cloned()
-            .unwrap_or_else(|| source.clone());
-
         // Nest only when both ends belong to this book. A cross-book link stays a
         // root in the other book instead of hiding the child from its own book.
-        let mut children: BTreeMap<EntryId, Vec<EntryId>> = BTreeMap::new();
-        let mut targets: BTreeSet<EntryId> = BTreeSet::new();
+        let mut map: BTreeMap<EntryId, Vec<EntryId>> = BTreeMap::new();
         let mut seen: BTreeSet<(&EntryId, &EntryId)> = BTreeSet::new();
         for link in nested {
             if link.host == link.target
@@ -450,115 +701,23 @@ pub fn build_canonical(
             {
                 continue;
             }
-            children
-                .entry(link.host.clone())
+            map.entry(link.host.clone())
                 .or_default()
                 .push(link.target.clone());
-            targets.insert(link.target.clone());
         }
-
-        let mut roots: Vec<EntryId> = book_members
-            .keys()
-            .filter(|id| !targets.contains(*id))
-            .cloned()
-            .collect();
-        sort_canonical(&mut roots, book_members, &by_id);
-        let mut placed: BTreeSet<EntryId> = BTreeSet::new();
-        let mut paged_nodes = Vec::new();
-        let mut unpaged_nodes = Vec::new();
-        for id in roots {
-            let node = canonical_node(&id, book_members, &children, &by_id, &mut placed);
-            if book_members[&id].is_some() {
-                paged_nodes.push(node);
-            } else {
-                unpaged_nodes.push(node);
-            }
-        }
-        // A cycle in the links must not hide its entries. The guard in
-        // `canonical_node` stops the walk; anything unreached becomes a root.
-        let mut leftovers: Vec<EntryId> = book_members
-            .keys()
-            .filter(|id| !placed.contains(*id))
-            .cloned()
-            .collect();
-        sort_canonical(&mut leftovers, book_members, &by_id);
-        for id in leftovers {
-            let node = canonical_node(&id, book_members, &children, &by_id, &mut placed);
-            unpaged_nodes.push(node);
-        }
-
-        let paged_count = book_members.values().filter(|page| page.is_some()).count();
-        let unpaged_count = book_members.len() - paged_count;
-        let mut chapters = Vec::new();
-        if !paged_nodes.is_empty() {
-            chapters.push(BookNode {
-                title: PAGE_CHAPTER.into(),
-                entry: None,
-                anchor: None,
-                review: Some(
-                    "Entries follow their page number. Entries on the same page, and a child nested under its host, are not printed-order evidence."
-                        .into(),
-                ),
-                children: paged_nodes,
-            });
-        }
-        if !unpaged_nodes.is_empty() {
-            chapters.push(BookNode {
-                title: UNPAGED_CHAPTER.into(),
-                entry: None,
-                anchor: None,
-                review: Some(
-                    "These entries name this publication but their source line gives no page number, so their position is unknown."
-                        .into(),
-                ),
-                children: unpaged_nodes,
-            });
-        }
-        let basis = match (paged_count, unpaged_count) {
-            (0, _) => {
-                "No page number appears in this publication's Pf Data source lines, so the contents is one Unpaged list. Page order is evidence for entry order, not for chapter boundaries."
-            }
-            (_, 0) => {
-                "Entries are ordered by the page each Pf Data record attributes to this publication. No printed chapter boundaries are known for this publication; this is a page-ordered list, not a chapter structure."
-            }
-            _ => {
-                "Entries with a page are ordered by that page; entries without one follow in an Unpaged section. No printed chapter boundaries are known for this publication; this is a page-ordered list, not a chapter structure."
-            }
-        };
-        books.push(BookTree {
-            source: source.clone(),
-            title,
-            basis: basis.into(),
-            review: vec![
-                "Page attribution orders entries; it does not establish chapter boundaries or titles."
-                    .into(),
-                "Entries on the same page are not in printed order.".into(),
-            ],
-            chapters,
-        });
-        by_publication.push(BookPlacement {
-            source_id: source.clone(),
-            placed: paged_count as u32,
-            unplaced: unpaged_count as u32,
-        });
+        children.insert(source.clone(), map);
     }
-    books.sort_by(|a, b| {
-        title_key(&a.title)
-            .cmp(&title_key(&b.title))
-            .then_with(|| a.source.cmp(&b.source))
-    });
-    by_publication.sort_by(|a, b| a.source_id.cmp(&b.source_id));
-    unplaced.sort_by(|a, b| a.entry.cmp(&b.entry));
 
-    Report {
-        index: BookIndex { books },
-        coverage: BookOrderCoverage {
-            placed: placed_by_page as u32,
-            unplaced,
-            by_publication,
-        },
+    let book_count = members.len();
+    CanonicalBase {
+        by_id,
+        titles,
+        members,
+        children,
+        paged_ids,
+        unplaced,
         stats: CanonicalBookStats {
-            books: members.len(),
+            books: book_count,
             entries: entries.len(),
             placed_by_page,
             unpaged,
@@ -567,7 +726,210 @@ pub fn build_canonical(
             placements,
             paged_placements,
             unpaged_placements,
+            curated: Vec::new(),
         },
+    }
+}
+
+/// One publication's page-ordered book.
+fn page_book(source: &str, base: &CanonicalBase<'_>) -> BookTree {
+    let book_members = &base.members[source];
+    let empty = BTreeMap::new();
+    let children = base.children.get(source).unwrap_or(&empty);
+    let title = base
+        .titles
+        .get(source)
+        .cloned()
+        .unwrap_or_else(|| source.to_string());
+
+    let mut targets: BTreeSet<EntryId> = BTreeSet::new();
+    for kids in children.values() {
+        for kid in kids {
+            if book_members.contains_key(kid) {
+                targets.insert(kid.clone());
+            }
+        }
+    }
+    let mut roots: Vec<EntryId> = book_members
+        .keys()
+        .filter(|id| !targets.contains(*id))
+        .cloned()
+        .collect();
+    sort_canonical(&mut roots, book_members, &base.by_id);
+    let mut placed: BTreeSet<EntryId> = BTreeSet::new();
+    let mut paged_nodes = Vec::new();
+    let mut unpaged_nodes = Vec::new();
+    for id in roots {
+        let node = canonical_node(&id, book_members, children, &base.by_id, &mut placed);
+        if book_members[&id].is_some() {
+            paged_nodes.push(node);
+        } else {
+            unpaged_nodes.push(node);
+        }
+    }
+    // A cycle in the links must not hide its entries. The guard in
+    // `canonical_node` stops the walk; anything unreached becomes a root.
+    let mut leftovers: Vec<EntryId> = book_members
+        .keys()
+        .filter(|id| !placed.contains(*id))
+        .cloned()
+        .collect();
+    sort_canonical(&mut leftovers, book_members, &base.by_id);
+    for id in leftovers {
+        let node = canonical_node(&id, book_members, children, &base.by_id, &mut placed);
+        unpaged_nodes.push(node);
+    }
+
+    let paged_count = book_members.values().filter(|page| page.is_some()).count();
+    let unpaged_count = book_members.len() - paged_count;
+    let mut chapters = Vec::new();
+    if !paged_nodes.is_empty() {
+        chapters.push(BookNode {
+            title: PAGE_CHAPTER.into(),
+            entry: None,
+            anchor: None,
+            review: Some(
+                "Entries follow their page number. Entries on the same page, and a child nested under its host, are not printed-order evidence."
+                    .into(),
+            ),
+            children: paged_nodes,
+        });
+    }
+    if !unpaged_nodes.is_empty() {
+        chapters.push(BookNode {
+            title: UNPAGED_CHAPTER.into(),
+            entry: None,
+            anchor: None,
+            review: Some(
+                "These entries name this publication but their source line gives no page number, so their position is unknown."
+                    .into(),
+            ),
+            children: unpaged_nodes,
+        });
+    }
+    let basis = match (paged_count, unpaged_count) {
+        (0, _) => {
+            "No page number appears in this publication's Pf Data source lines, so the contents is one Unpaged list. Page order is evidence for entry order, not for chapter boundaries."
+        }
+        (_, 0) => {
+            "Entries are ordered by the page each Pf Data record attributes to this publication. No printed chapter boundaries are known for this publication; this is a page-ordered list, not a chapter structure."
+        }
+        _ => {
+            "Entries with a page are ordered by that page; entries without one follow in an Unpaged section. No printed chapter boundaries are known for this publication; this is a page-ordered list, not a chapter structure."
+        }
+    };
+    BookTree {
+        source: source.to_string(),
+        title,
+        basis: basis.into(),
+        review: vec![
+            "Page attribution orders entries; it does not establish chapter boundaries or titles."
+                .into(),
+            "Entries on the same page are not in printed order.".into(),
+        ],
+        chapters,
+    }
+}
+
+/// Page-ordered nodes for one set of entry ids, nested only inside that set.
+fn ordered_nodes(
+    ids: &BTreeSet<EntryId>,
+    members: &BTreeMap<EntryId, Option<u32>>,
+    children: &BTreeMap<EntryId, Vec<EntryId>>,
+    by_id: &BTreeMap<&EntryId, &RuleEntry>,
+) -> Vec<BookNode> {
+    let mut targets: BTreeSet<EntryId> = BTreeSet::new();
+    for id in ids {
+        if let Some(kids) = children.get(id) {
+            for kid in kids {
+                if ids.contains(kid) {
+                    targets.insert(kid.clone());
+                }
+            }
+        }
+    }
+    let mut roots: Vec<EntryId> = ids
+        .iter()
+        .filter(|id| !targets.contains(*id))
+        .cloned()
+        .collect();
+    sort_canonical(&mut roots, members, by_id);
+    let mut placed = BTreeSet::new();
+    let mut out = Vec::new();
+    for id in roots {
+        out.push(canonical_node(&id, members, children, by_id, &mut placed));
+    }
+    let mut leftovers: Vec<EntryId> = ids
+        .iter()
+        .filter(|id| !placed.contains(*id))
+        .cloned()
+        .collect();
+    sort_canonical(&mut leftovers, members, by_id);
+    for id in leftovers {
+        out.push(canonical_node(&id, members, children, by_id, &mut placed));
+    }
+    out
+}
+
+/// Rewrites the legacy ids in one PSRD tree and records what happened to them.
+struct CuratedRewriter<'a> {
+    targets: &'a BTreeMap<String, String>,
+    dropped: &'a BTreeMap<String, String>,
+    placed: BTreeSet<EntryId>,
+    dropped_ids: Vec<String>,
+    duplicate_ids: Vec<String>,
+}
+
+impl CuratedRewriter<'_> {
+    fn node(&mut self, node: &BookNode, is_chapter: bool) -> Vec<BookNode> {
+        let mut out = BookNode {
+            title: node.title.clone(),
+            entry: None,
+            anchor: node.anchor.clone(),
+            review: node.review.clone(),
+            children: Vec::new(),
+        };
+        for child in &node.children {
+            out.children.extend(self.node(child, false));
+        }
+
+        let mut keep = true;
+        if let Some(legacy) = &node.entry {
+            match self.targets.get(legacy.as_str()) {
+                Some(target) => {
+                    let id = EntryId::parse(target.clone())
+                        .expect("the alias gate validated every target id");
+                    if self.placed.insert(id.clone()) {
+                        out.entry = Some(id);
+                    } else {
+                        self.duplicate_ids.push(id.to_string());
+                        keep = false;
+                    }
+                }
+                None => {
+                    let reason = self
+                        .dropped
+                        .get(legacy.as_str())
+                        .map(String::as_str)
+                        .unwrap_or("no canonical target");
+                    self.dropped_ids.push(format!("{legacy} ({reason})"));
+                    keep = false;
+                }
+            }
+        }
+
+        if is_chapter {
+            return vec![out];
+        }
+        if !keep {
+            // The node's own entry has no place. Keep any rewritten descendants
+            // at this level instead of losing them with the parent.
+            return out.children;
+        }
+        if out.entry.is_none() && out.children.is_empty() {
+            return Vec::new();
+        }
+        vec![out]
     }
 }
 
@@ -849,6 +1211,16 @@ match = [{ url = "pfsrd://B/Classes", kinds = ["prestige_class"] }]
         nodes.iter().map(|node| node.title.as_str()).collect()
     }
 
+    fn node(entry: Option<&str>, title: &str, children: Vec<BookNode>) -> BookNode {
+        BookNode {
+            title: title.into(),
+            entry: entry.map(|id| EntryId::parse(id).unwrap()),
+            anchor: None,
+            review: None,
+            children,
+        }
+    }
+
     fn flatten_titles(node: &BookNode, out: &mut Vec<String>) {
         if let Some(entry) = &node.entry {
             out.push(entry.to_string());
@@ -1012,6 +1384,145 @@ match = [{ url = "pfsrd://B/Classes", kinds = ["prestige_class"] }]
         assert_eq!(first.index, second.index);
         assert_eq!(first.coverage, second.coverage);
         assert_eq!(first.stats, second.stats);
+    }
+
+    #[test]
+    fn curated_psrd_chapters_keep_order_and_drop_or_append_entries() {
+        let entries = vec![
+            canonical_entry(
+                "ref/rule/combat",
+                "Combat",
+                EntryKind::Rule,
+                &["core-rulebook"],
+            ),
+            canonical_entry(
+                "ref/rule/magic",
+                "Magic",
+                EntryKind::Rule,
+                &["core-rulebook"],
+            ),
+            canonical_entry(
+                "ref/feat/new",
+                "New Feat",
+                EntryKind::Feat,
+                &["core-rulebook"],
+            ),
+            canonical_entry("ref/rule/other", "Other", EntryKind::Rule, &["other-book"]),
+        ];
+        let pages = page_map(&[
+            ("ref/rule/combat", "Core Rulebook", Some(176)),
+            ("ref/rule/magic", "Core Rulebook", Some(206)),
+            ("ref/feat/new", "Core Rulebook", Some(300)),
+            ("ref/rule/other", "Other Book", Some(10)),
+        ]);
+        let psrd = BookIndex {
+            books: vec![BookTree {
+                source: "core-rulebook".into(),
+                title: "Core Rulebook".into(),
+                basis: "Publisher contents PDF.".into(),
+                review: vec![],
+                chapters: vec![
+                    node(
+                        None,
+                        "Combat",
+                        vec![
+                            node(Some("core-rulebook/rules/combat"), "Combat", vec![]),
+                            node(Some("core-rulebook/rules/actions"), "Actions", vec![]),
+                            node(Some("core-rulebook/rules/old"), "Old", vec![]),
+                        ],
+                    ),
+                    node(
+                        None,
+                        "Magic",
+                        vec![node(Some("core-rulebook/rules/magic"), "Magic", vec![])],
+                    ),
+                ],
+            }],
+        };
+        let targets = BTreeMap::from([
+            (
+                "core-rulebook/rules/combat".to_string(),
+                "ref/rule/combat".to_string(),
+            ),
+            (
+                "core-rulebook/rules/actions".to_string(),
+                "ref/rule/combat".to_string(),
+            ),
+            (
+                "core-rulebook/rules/magic".to_string(),
+                "ref/rule/magic".to_string(),
+            ),
+        ]);
+        let dropped = BTreeMap::from([(
+            "core-rulebook/rules/old".to_string(),
+            "unrepresentable".to_string(),
+        )]);
+
+        let report = build_canonical_with_psrd(&entries, &[], &pages, &psrd, &targets, &dropped);
+        let core = report
+            .index
+            .books
+            .iter()
+            .find(|book| book.title == "Core Rulebook")
+            .unwrap();
+        assert_eq!(
+            titles_of(&core.chapters),
+            ["Combat", "Magic", APPENDED_CHAPTER],
+            "curated chapters stay in PSRD order; new content comes last"
+        );
+        assert_eq!(
+            core.chapters[0]
+                .children
+                .iter()
+                .filter_map(|node| node.entry.as_ref().map(EntryId::as_str))
+                .collect::<Vec<_>>(),
+            ["ref/rule/combat"],
+            "a shared target appears once, at its first placement"
+        );
+        assert_eq!(
+            core.chapters[1].children[0]
+                .entry
+                .as_ref()
+                .unwrap()
+                .as_str(),
+            "ref/rule/magic"
+        );
+        assert_eq!(titles_of(&core.chapters[2].children), ["New Feat"]);
+
+        let curated = &report.stats.curated[0];
+        assert_eq!(
+            (
+                curated.chapters,
+                curated.placed,
+                curated.appended,
+                curated.dropped,
+                curated.duplicates
+            ),
+            (3, 2, 1, 1, 1)
+        );
+        assert!(curated.dropped_ids[0].contains("core-rulebook/rules/old"));
+        assert!(curated.dropped_ids[0].contains("unrepresentable"));
+        assert!(
+            report
+                .index
+                .books
+                .iter()
+                .any(|book| book.title == "Other Book"),
+            "publications PSRD does not curate keep their page-ordered book"
+        );
+        assert!(
+            report
+                .coverage
+                .unplaced
+                .iter()
+                .all(|row| row.entry != "ref/feat/new"),
+            "an appended entry has a place in the book"
+        );
+
+        let again = build_canonical_with_psrd(&entries, &[], &pages, &psrd, &targets, &dropped);
+        assert_eq!(report.index, again.index);
+        assert_eq!(report.coverage, again.coverage);
+        assert_eq!(report.stats, again.stats);
     }
 
     #[test]
