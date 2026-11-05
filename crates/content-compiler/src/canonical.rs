@@ -127,6 +127,10 @@ pub(crate) fn presentation_exception(key: &str) -> Option<(&'static str, String,
             "layout-container",
             "An `::aside` is a layout wrapper. Its contents are converted as ordinary blocks and are not dropped.",
         ),
+        "elephant_container" => (
+            "optional-rules-container",
+            "A `:::elephant` wrapper marks optional Elephant in the Room rules. Its contents and source marker are converted; only the upstream note icon and link are presentation.",
+        ),
         "block_container" => (
             "layout-container",
             "An upstream `:::block` applies a size or style to its following content. The wrapper is not body content; its text, and any title, are rendered.",
@@ -1365,6 +1369,42 @@ fn derive_entry(
 
 /// Build one derived rule entry from a nested section or table row. The body is
 /// rendered through the shared typed converter so no content is dropped.
+/// Add the Markdown footnote definitions a section references when the source
+/// keeps them after the section body. Existing lines win, and each mark is added
+/// at most once.
+fn append_referenced_footnotes(body: &mut Vec<String>, source: &[String]) {
+    let mut marks = BTreeSet::new();
+    for line in body.iter() {
+        let mut rest = line.as_str();
+        while let Some(start) = rest.find("[^") {
+            let after = &rest[start + 2..];
+            let Some(end) = after.find(']') else {
+                break;
+            };
+            let mark = &after[..end];
+            if !mark.is_empty() {
+                marks.insert(mark.to_string());
+            }
+            rest = &after[end + 1..];
+        }
+    }
+    for mark in marks {
+        let definition = format!("[^{mark}]:");
+        if body
+            .iter()
+            .any(|line| line.trim_start().starts_with(&definition))
+        {
+            continue;
+        }
+        if let Some(line) = source
+            .iter()
+            .find(|line| line.trim_start().starts_with(&definition))
+        {
+            body.push(line.clone());
+        }
+    }
+}
+
 fn derive_rule_entry(
     input: &InputRecord,
     derived: &crate::pf_rules::ExtractedRule,
@@ -1403,6 +1443,11 @@ fn derive_rule_entry(
                 .unwrap_or_default();
         }
     }
+    // A footnote definition usually sits after the extracted section. Bring the
+    // definitions the section references into the derived body so `[^N]` links
+    // resolve inside the entry instead of becoming dangling `#N` references.
+    append_referenced_footnotes(&mut render_lines, &description(&input.raw)?);
+    env.anchors = pf_markdown::anchors(&render_lines);
     let body = pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
     if blocks_text(&body).trim().is_empty() {
         return Err("empty derived description".into());
@@ -1529,7 +1574,12 @@ mod tests {
                 "json/rules_test.json",
                 "host",
                 "Host",
-                vec!["## Test Rule".into(), "Rules-bearing text.".into()],
+                vec![
+                    "## Test Rule".into(),
+                    "Rules-bearing text with a note[^N].".into(),
+                    "## Another Section".into(),
+                    "[^N]: Definition kept after the section.".into(),
+                ],
             ),
         ])
     }
@@ -1591,6 +1641,25 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn derived_section_keeps_the_footnote_definitions_it_references() {
+        let converted = convert_corpus(&sample_inventory(), &rule_allowlist()).unwrap();
+        assert!(
+            !converted
+                .findings
+                .iter()
+                .any(|finding| finding.problem.contains("unresolved reference: #N")),
+            "{:?}",
+            converted.findings
+        );
+        let entry = converted
+            .entries
+            .iter()
+            .find(|entry| entry.id.as_str() == "ref/rule/rule-host/test-rule")
+            .expect("derived rule entry");
+        assert!(blocks_text(&entry.body).contains("Definition kept after the section"));
     }
 
     #[test]
