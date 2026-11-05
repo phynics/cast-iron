@@ -74,9 +74,7 @@ pub fn rows(library: &Library, sources: &[BacklinkSource]) -> Vec<BacklinkRow> {
             anchor,
         });
     }
-    out.sort_by(|a, b| {
-        (sort_key(&a.title), &a.source).cmp(&(sort_key(&b.title), &b.source))
-    });
+    out.sort_by(|a, b| (sort_key(&a.title), &a.source).cmp(&(sort_key(&b.title), &b.source)));
     out
 }
 
@@ -95,7 +93,7 @@ pub fn group(rows: Vec<BacklinkRow>) -> Vec<BacklinkGroup> {
             BacklinkGroup { heading, rows }
         })
         .collect();
-    out.sort_by(|a, b| sort_key(&a.heading).cmp(&sort_key(&b.heading)));
+    out.sort_by_cached_key(|a| sort_key(&a.heading));
     out
 }
 
@@ -153,13 +151,13 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
             }.into_any(),
             Some(Err(error)) => {
                 leptos::logging::warn!("backlinks are off: {error}");
-                view! { <></> }.into_any()
+                ().into_any()
             }
-            Some(Ok(None)) => view! { <></> }.into_any(),
+            Some(Ok(None)) => ().into_any(),
             Some(Ok(Some(sources))) => {
                 let rows = rows(&library, sources);
                 if rows.is_empty() {
-                    return view! { <></> }.into_any();
+                    return ().into_any();
                 }
                 let groups = group(rows);
                 let total: usize = groups.iter().map(|group| group.rows.len()).sum();

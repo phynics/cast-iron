@@ -518,10 +518,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
     for (shard, targets) in backlinks.shards.iter().enumerate() {
         let bytes = json_bytes(targets)?;
         backlink_shard_bytes += bytes.len() as u64;
-        backlink_files.push((
-            cast_iron_schema::backlink_shard_path(shard as u32),
-            bytes,
-        ));
+        backlink_files.push((cast_iron_schema::backlink_shard_path(shard as u32), bytes));
     }
     let backlink_descriptor = json_bytes(&backlinks.index)?;
     let backlink_descriptor_bytes = backlink_descriptor.len() as u64;

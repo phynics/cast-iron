@@ -518,7 +518,8 @@ impl Library {
         }
         let loaded = if manifest_has_file(&self.0.manifest, BACKLINKS_FILE) {
             let path = format!("{}/{BACKLINKS_FILE}", self.version());
-            let index: BacklinkIndex = read_json(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
+            let index: BacklinkIndex =
+                read_json(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
             index
                 .validate()
                 .map_err(|message| LibraryError::Corrupt { path, message })?;

@@ -1400,7 +1400,10 @@ mod tests {
             r#"["ref/rule/a","heading"]"#
         );
         let without = BacklinkSource(EntryId::parse("ref/rule/a").unwrap(), None);
-        assert_eq!(serde_json::to_string(&without).unwrap(), r#"["ref/rule/a"]"#);
+        assert_eq!(
+            serde_json::to_string(&without).unwrap(),
+            r#"["ref/rule/a"]"#
+        );
         for json in [r#"["ref/rule/a"]"#, r#"["ref/rule/a",null]"#] {
             assert_eq!(
                 serde_json::from_str::<BacklinkSource>(json).unwrap(),
@@ -1411,7 +1414,10 @@ mod tests {
 
     #[test]
     fn backlink_shards_are_stable_and_cover_every_bucket() {
-        assert_eq!(backlink_shard("ref/rule/a", 16), backlink_shard("ref/rule/a", 16));
+        assert_eq!(
+            backlink_shard("ref/rule/a", 16),
+            backlink_shard("ref/rule/a", 16)
+        );
         let mut buckets: BTreeMap<u32, usize> = BTreeMap::new();
         for i in 0..512 {
             let bucket = backlink_shard(&format!("ref/rule/{i}"), BACKLINK_SHARDS);

@@ -36,8 +36,11 @@ pub fn build(entries: &[RuleEntry]) -> Built {
     let mut excluded_relation = 0u32;
 
     for entry in entries {
-        let relations: BTreeSet<&EntryId> =
-            entry.relations.iter().map(|relation| &relation.target).collect();
+        let relations: BTreeSet<&EntryId> = entry
+            .relations
+            .iter()
+            .map(|relation| &relation.target)
+            .collect();
         for link in &entry.links {
             if link.target == entry.id {
                 excluded_self += 1;
@@ -56,8 +59,7 @@ pub fn build(entries: &[RuleEntry]) -> Built {
         }
     }
 
-    let mut shards: Vec<Vec<BacklinkTarget>> =
-        (0..BACKLINK_SHARDS).map(|_| Vec::new()).collect();
+    let mut shards: Vec<Vec<BacklinkTarget>> = (0..BACKLINK_SHARDS).map(|_| Vec::new()).collect();
     let mut links = 0u32;
     let mut targets = 0u32;
     for (target, sources) in by_target {
@@ -223,7 +225,11 @@ mod tests {
             .shards
             .iter()
             .enumerate()
-            .filter(|(_, shard)| shard.iter().any(|target| target.0.as_str() == "ref/rule/target"))
+            .filter(|(_, shard)| {
+                shard
+                    .iter()
+                    .any(|target| target.0.as_str() == "ref/rule/target")
+            })
             .map(|(index, _)| index)
             .collect();
         assert_eq!(holders, vec![expected]);
