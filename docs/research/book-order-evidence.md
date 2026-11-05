@@ -45,3 +45,10 @@ It is not chapter evidence. A page number does not name a chapter, prove that tw
 ## Curation rule
 
 Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The current `book-order.toml` is thus a provisional browsing outline pending source-by-source verification; it must not be described as complete printed chapter fidelity.
+
+## Canonical library
+
+The canonical library (`cargo xtask content --canonical`) keeps this curated chapter list and order for the same sixteen publications. It does not add, remove, reorder, or rename a PSRD chapter. Instead it re-addresses each placed entry through the reviewed legacy alias map, so the reviewed tree decides the chapter and the canonical id decides the entry. A shared canonical target appears once in a book, at the first placement; a legacy id whose canonical target is not installed is dropped and listed in coverage.
+
+Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the Core Rulebook remains the only publisher-verified order recorded above, and the other fifteen remain provisional.
+

@@ -33,3 +33,25 @@ test("Mobile viewport shows no horizontal page scroll on key screens", async ({ 
   }
   expect(wide).toEqual([]);
 });
+
+test("Mobile header Install button is icon-only, a full touch target, and crowds nothing", async ({ page, context }) => {
+  await context.addInitScript({
+    content: `document.addEventListener("DOMContentLoaded", () => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      event.prompt = async () => {};
+      event.userChoice = Promise.resolve({ outcome: "dismissed" });
+      window.dispatchEvent(event);
+    });`,
+  });
+  await installLibrary(page);
+  const button = page.locator("header.app-header").getByRole("button", { name: "Install Cast Iron as an app" });
+  await expect(button).toBeVisible();
+  await expect(button.locator(".header-action-label")).toBeHidden();
+  const box = (await button.boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  const search = (await page.locator("header.app-header .header-search").boundingBox())!;
+  expect(search.x + search.width).toBeLessThanOrEqual(box.x);
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

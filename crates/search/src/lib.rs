@@ -85,6 +85,32 @@ pub struct Hit {
     pub snippet: Snippet,
 }
 
+/// Counts behind the filter chips; see [`SearchIndex::filter_counts_eligible`]. Facet keys are
+/// `(lowercase field, value as indexed)`; kinds and sources are keyed as indexed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct FilterCounts {
+    /// Documents that match the query text and every active filter: the full result count.
+    pub total: u32,
+    pub kinds: std::collections::BTreeMap<String, u32>,
+    pub sources: std::collections::BTreeMap<String, u32>,
+    pub facets: std::collections::BTreeMap<(String, String), u32>,
+}
+
+impl FilterCounts {
+    pub fn kind(&self, kind: &str) -> u32 {
+        self.kinds.get(kind).copied().unwrap_or(0)
+    }
+    pub fn source(&self, source: &str) -> u32 {
+        self.sources.get(source).copied().unwrap_or(0)
+    }
+    pub fn facet(&self, field: &str, value: &str) -> u32 {
+        self.facets
+            .get(&(field.to_lowercase(), value.to_string()))
+            .copied()
+            .unwrap_or(0)
+    }
+}
+
 /// An immutable, queryable index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchIndex {

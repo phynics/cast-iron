@@ -3845,17 +3845,17 @@
     ]
   },
   "pi_screen": {
-    "omissions": 1300,
-    "records": 835,
+    "omissions": 1301,
+    "records": 836,
     "by_category": {
-      "external-link": 483,
+      "external-link": 484,
       "product-identity-section": 817
     }
   },
   "legal": {
     "publications": 453,
-    "matched_publications": 397,
-    "unmatched_publications": 56,
+    "matched_publications": 400,
+    "unmatched_publications": 53,
     "report": "reports/migration-legal.json"
   },
   "production_default": "psrd-data",

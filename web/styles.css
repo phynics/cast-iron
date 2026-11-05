@@ -1149,6 +1149,16 @@ mark {
   font-variant-numeric: tabular-nums;
 }
 
+/* Counts change with the search. A minimum width keeps one- and two-digit counts from jumping. */
+.chip .chip-count {
+  min-width: 2ch;
+  text-align: end;
+}
+
+.chip.chip-empty span {
+  color: var(--ink-muted);
+}
+
 .chip input:checked + span {
   background: var(--accent);
   border-color: var(--accent);
@@ -1895,6 +1905,12 @@ main,
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.count-scope {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
 }
 
 .cat-count {
@@ -2870,3 +2886,160 @@ input::placeholder {
 .hit-group > .source-variants > summary .hit-meta { display: block; margin-top: .25rem; }
 .hit-group > .source-variants > ul { padding-inline: 1rem; }
 .rel-chips .source-variants { min-width: 14rem; }
+
+/* ==== Header action (Install) ============================================================= */
+
+.header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: none;
+  min-height: 1.875rem;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  border: var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  animation: header-action-in 180ms ease-out;
+}
+
+.header-action-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink-muted);
+}
+
+.header-action-btn:active {
+  filter: brightness(0.95);
+}
+
+.header-action-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.header-action-btn svg {
+  flex: none;
+}
+
+@keyframes header-action-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Touch screens get a real 44px button, not a small one with a larger hit area. */
+@media (pointer: coarse) {
+  .header-action-btn {
+    min-width: var(--touch);
+    min-height: var(--touch);
+  }
+}
+
+/* Next to the action, the Offline badge keeps its place right after it. */
+.app-header .header-action-btn + .badge {
+  margin-left: 0;
+}
+
+@media (max-width: 47.99rem) {
+  /* Icon only; the accessible name stays on the button. */
+  .header-action-btn {
+    width: 1.875rem;
+    padding: 0;
+  }
+
+  .header-action-label {
+    display: none;
+  }
+}
+
+@media (max-width: 47.99rem) and (pointer: coarse) {
+  .header-action-btn {
+    width: var(--touch);
+  }
+}
+
+/* ---- Install guidance (iOS Safari) ------------------------------------------------------- */
+
+.install-sheet {
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--space-4));
+  max-width: 22rem;
+  padding: var(--space-4);
+  color: var(--ink);
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.install-sheet::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.install-sheet h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--step-1);
+}
+
+.install-steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+  counter-reset: install-step;
+}
+
+.install-steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  counter-increment: install-step;
+}
+
+.install-steps li::before {
+  content: counter(install-step) ".";
+  min-width: 1.25rem;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.install-steps svg {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.install-sheet-done {
+  width: 100%;
+}
+
+@media (max-width: 47.99rem) {
+  .install-sheet {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-bottom: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  }
+}
+
+.settings-install p {
+  margin: 0 0 var(--space-3);
+}
+
+/* The brand keeps one line; the search box gives way instead. */
+.app-header .brand {
+  flex: none;
+  white-space: nowrap;
+}
