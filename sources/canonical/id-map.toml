@@ -25231,12 +25231,11 @@ target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adven
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/buoy/superior"]
-target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/buoy/superior"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc.json#buoy_superior"
 
-[map."advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/chest"]
-target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/chest"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/chest"]
+target = "ref/eq-misc/chest"
+note = "one canonical record shared by legacy books advanced-players-guide; migration merges these rows"
 
 [map."advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/poison-pill-ring"]
 target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/poison-pill-ring"
@@ -25262,9 +25261,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/cauldron"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/fortune-tellers-deck"]
-target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/fortune-tellers-deck"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/fortune-tellers-deck"]
+target = "ref/eq-misc/fortune-telling-deck"
+note = "one canonical record shared by legacy books advanced-players-guide; migration merges these rows"
 
 [map."advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/map-makers-kit"]
 target = "ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/map-makers-kit"
@@ -25719,8 +25718,7 @@ target = "ref/carried/advanced-players-guide/rules/spell-lists/order-of-presenta
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/acid-pit"]
-target = "ref/carried/advanced-players-guide/spells/acid-pit"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#acid_pit"
 
 [map."advanced-players-guide/spells/brand/greater"]
 target = "ref/carried/advanced-players-guide/spells/brand/greater"
@@ -25735,12 +25733,10 @@ target = "ref/carried/advanced-players-guide/spells/castigate/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/detect-aberration"]
-target = "ref/carried/advanced-players-guide/spells/detect-aberration"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#detect_aberration"
 
 [map."advanced-players-guide/spells/evolution-surge"]
-target = "ref/carried/advanced-players-guide/spells/evolution-surge"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells4.json#evolution_surge"
 
 [map."advanced-players-guide/spells/evolution-surge/greater"]
 target = "ref/carried/advanced-players-guide/spells/evolution-surge/greater"
@@ -25755,8 +25751,7 @@ target = "ref/carried/advanced-players-guide/spells/fester/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/flare-burst"]
-target = "ref/carried/advanced-players-guide/spells/flare-burst"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells4.json#flare_burst"
 
 [map."advanced-players-guide/spells/fly/mass"]
 target = "ref/carried/advanced-players-guide/spells/fly/mass"
@@ -25767,8 +25762,7 @@ target = "ref/carried/advanced-players-guide/spells/ghostbane-dirge/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/hungry-pit"]
-target = "ref/carried/advanced-players-guide/spells/hungry-pit"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#hungry_pit"
 
 [map."advanced-players-guide/spells/invigorate/mass"]
 target = "ref/carried/advanced-players-guide/spells/invigorate/mass"
@@ -25783,8 +25777,7 @@ target = "ref/carried/advanced-players-guide/spells/planar-adaptation/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/rejuvenate-eidolon"]
-target = "ref/carried/advanced-players-guide/spells/rejuvenate-eidolon"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells8.json#rejuvenate_eidolon"
 
 [map."advanced-players-guide/spells/rejuvenate-eidolon/greater"]
 target = "ref/carried/advanced-players-guide/spells/rejuvenate-eidolon/greater"
@@ -25795,8 +25788,7 @@ target = "ref/carried/advanced-players-guide/spells/shared-wrath"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."advanced-players-guide/spells/spiked-pit"]
-target = "ref/carried/advanced-players-guide/spells/spiked-pit"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#spiked_pit"
 
 [map."advanced-players-guide/spells/suffocation/mass"]
 target = "ref/carried/advanced-players-guide/spells/suffocation/mass"
@@ -29170,25 +29162,25 @@ note = "ambiguous: ref/main/equipment-armor, ref/rule/armor"
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/backpack"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/backpack"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/backpack"]
+target = "ref/eq-misc/backpack"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/chest"]
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/chest"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/grappling-hook"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/grappling-hook"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/grappling-hook"]
+target = "ref/eq-misc/grappling-hook"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/hourglass"]
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/hourglass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/ink"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/ink"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/ink"]
+target = "ref/eq-misc/ink"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/equipment/goods-and-services/adventuring-gear/jug/clay"]
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/adventuring-gear/jug/clay"
@@ -29255,16 +29247,13 @@ target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-an
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/military"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/military"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc3.json#military_saddle"
 
 [map."core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/pack"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/pack"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc3.json#saddle_pack"
 
 [map."core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/riding"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-gear/saddle/riding"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc3.json#saddle_riding"
 
 [map."core-rulebook/rules/equipment/goods-and-services/spellcasting-and-services/coach-cab"]
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/spellcasting-and-services/coach-cab"
@@ -29298,13 +29287,12 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/spellbook/wizards"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools"]
+target = "ref/eq-misc/thieves-tools"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools/masterwork"]
-target = "ref/carried/core-rulebook/rules/equipment/goods-and-services/tools-and-skill-kits/thieves-tools/masterwork"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc3.json#thieves_tools_masterwork"
 
 [map."core-rulebook/rules/equipment/special-materials"]
 target = "ref/carried/core-rulebook/rules/equipment/special-materials"
@@ -29662,25 +29650,25 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/bag-of-tricks"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/magic-items/wondrous-items/bracers-of-archery/lesser"]
-target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/bracers-of-archery/lesser"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/magic-items/wondrous-items/bracers-of-archery/lesser"]
+target = "ref/magic-wondrous/bracers-of-archery-lesser"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
-[map."core-rulebook/rules/magic-items/wondrous-items/cloak-of-displacement/major"]
-target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/cloak-of-displacement/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/magic-items/wondrous-items/cloak-of-displacement/major"]
+target = "ref/magic-wondrous/cloak-of-displacement-major"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
-[map."core-rulebook/rules/magic-items/wondrous-items/crown-of-blasting/major"]
-target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/crown-of-blasting/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/magic-items/wondrous-items/crown-of-blasting/major"]
+target = "ref/magic-wondrous/crown-of-blasting-major"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/magic-items/wondrous-items/golem-manual"]
 target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/golem-manual"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."core-rulebook/rules/magic-items/wondrous-items/horn-of-blasting/greater"]
-target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/horn-of-blasting/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."core-rulebook/rules/magic-items/wondrous-items/horn-of-blasting/greater"]
+target = "ref/magic-wondrous/horn-of-blasting-greater"
+note = "one canonical record shared by legacy books core-rulebook; migration merges these rows"
 
 [map."core-rulebook/rules/magic-items/wondrous-items/stone-of-good-luck"]
 target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/stone-of-good-luck"
@@ -29691,8 +29679,7 @@ target = "ref/carried/core-rulebook/rules/magic-items/wondrous-items/strand-of-p
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/rules/magic/special-abilities"]
-target = "ref/carried/core-rulebook/rules/magic/special-abilities"
-note = "ambiguous: ref/rule/special-abilities, ref/rule/special-abilities-2"
+record = "json/rules_basics04.json#special_abilities"
 
 [map."core-rulebook/rules/spells"]
 target = "ref/carried/core-rulebook/rules/spells"
@@ -29819,8 +29806,7 @@ target = "ref/carried/core-rulebook/skills/use-magic-device"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/animal-shapes"]
-target = "ref/carried/core-rulebook/spells/animal-shapes"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#animal_shapes"
 
 [map."core-rulebook/spells/arcane-sight/greater"]
 target = "ref/carried/core-rulebook/spells/arcane-sight/greater"
@@ -29831,28 +29817,23 @@ target = "ref/carried/core-rulebook/spells/bears-endurance/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/beast-shape-i"]
-target = "ref/carried/core-rulebook/spells/beast-shape-i"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#beast_shape_1"
 
 [map."core-rulebook/spells/beast-shape-ii"]
-target = "ref/carried/core-rulebook/spells/beast-shape-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#beast_shape_2"
 
 [map."core-rulebook/spells/beast-shape-iii"]
-target = "ref/carried/core-rulebook/spells/beast-shape-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#beast_shape_3"
 
 [map."core-rulebook/spells/beast-shape-iv"]
-target = "ref/carried/core-rulebook/spells/beast-shape-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#beast_shape_4"
 
 [map."core-rulebook/spells/bulls-strength/mass"]
 target = "ref/carried/core-rulebook/spells/bulls-strength/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/call-lightning-storm"]
-target = "ref/carried/core-rulebook/spells/call-lightning-storm"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells2.json#call_lightning_storm"
 
 [map."core-rulebook/spells/cats-grace/mass"]
 target = "ref/carried/core-rulebook/spells/cats-grace/mass"
@@ -29871,56 +29852,46 @@ target = "ref/carried/core-rulebook/spells/confusion/lesser"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/detect-chaos"]
-target = "ref/carried/core-rulebook/spells/detect-chaos"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#detect_chaos"
 
 [map."core-rulebook/spells/detect-good"]
-target = "ref/carried/core-rulebook/spells/detect-good"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#detect_good"
 
 [map."core-rulebook/spells/detect-law"]
-target = "ref/carried/core-rulebook/spells/detect-law"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#detect_law"
 
 [map."core-rulebook/spells/dispel-magic/greater"]
 target = "ref/carried/core-rulebook/spells/dispel-magic/greater"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/elemental-body-ii"]
-target = "ref/carried/core-rulebook/spells/elemental-body-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells4.json#elemental_body_2"
 
 [map."core-rulebook/spells/elemental-body-iii"]
-target = "ref/carried/core-rulebook/spells/elemental-body-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells4.json#elemental_body_3"
 
 [map."core-rulebook/spells/elemental-body-iv"]
-target = "ref/carried/core-rulebook/spells/elemental-body-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells4.json#elemental_body_4"
 
 [map."core-rulebook/spells/enlarge-person/mass"]
 target = "ref/carried/core-rulebook/spells/enlarge-person/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/form-of-the-dragon-ii"]
-target = "ref/carried/core-rulebook/spells/form-of-the-dragon-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells13.json#form_of_the_dragon_2"
 
 [map."core-rulebook/spells/form-of-the-dragon-iii"]
-target = "ref/carried/core-rulebook/spells/form-of-the-dragon-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells13.json#form_of_the_dragon_3"
 
 [map."core-rulebook/spells/foxs-cunning/mass"]
 target = "ref/carried/core-rulebook/spells/foxs-cunning/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/geas-quest"]
-target = "ref/carried/core-rulebook/spells/geas-quest"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells13.json#geas_quest"
 
 [map."core-rulebook/spells/giant-form-ii"]
-target = "ref/carried/core-rulebook/spells/giant-form-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells13.json#giant_form_2"
 
 [map."core-rulebook/spells/globe-of-invulnerability/lesser"]
 target = "ref/carried/core-rulebook/spells/globe-of-invulnerability/lesser"
@@ -29971,16 +29942,13 @@ target = "ref/carried/core-rulebook/spells/invisibility/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/magic-circle-against-chaos"]
-target = "ref/carried/core-rulebook/spells/magic-circle-against-chaos"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells6.json#magic_circle_against_chaos"
 
 [map."core-rulebook/spells/magic-circle-against-good"]
-target = "ref/carried/core-rulebook/spells/magic-circle-against-good"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells6.json#magic_circle_against_good"
 
 [map."core-rulebook/spells/magic-circle-against-law"]
-target = "ref/carried/core-rulebook/spells/magic-circle-against-law"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells6.json#magic_circle_against_law"
 
 [map."core-rulebook/spells/magic-fang/greater"]
 target = "ref/carried/core-rulebook/spells/magic-fang/greater"
@@ -29991,12 +29959,10 @@ target = "ref/carried/core-rulebook/spells/magic-weapon/greater"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/major-creation"]
-target = "ref/carried/core-rulebook/spells/major-creation"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells14.json#major_creation"
 
 [map."core-rulebook/spells/major-image"]
-target = "ref/carried/core-rulebook/spells/major-image"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells14.json#major_image"
 
 [map."core-rulebook/spells/owls-wisdom/mass"]
 target = "ref/carried/core-rulebook/spells/owls-wisdom/mass"
@@ -30019,24 +29985,19 @@ target = "ref/carried/core-rulebook/spells/planar-binding/lesser"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/plant-shape-ii"]
-target = "ref/carried/core-rulebook/spells/plant-shape-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells7.json#plant_shape_2"
 
 [map."core-rulebook/spells/plant-shape-iii"]
-target = "ref/carried/core-rulebook/spells/plant-shape-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells7.json#plant_shape_3"
 
 [map."core-rulebook/spells/protection-from-chaos"]
-target = "ref/carried/core-rulebook/spells/protection-from-chaos"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells15.json#protection_from_chaos"
 
 [map."core-rulebook/spells/protection-from-good"]
-target = "ref/carried/core-rulebook/spells/protection-from-good"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells15.json#protection_from_good"
 
 [map."core-rulebook/spells/protection-from-law"]
-target = "ref/carried/core-rulebook/spells/protection-from-law"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells15.json#protection_from_law"
 
 [map."core-rulebook/spells/reduce-person/mass"]
 target = "ref/carried/core-rulebook/spells/reduce-person/mass"
@@ -30075,76 +30036,58 @@ target = "ref/carried/core-rulebook/spells/suggestion/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."core-rulebook/spells/summon-monster-i"]
-target = "ref/carried/core-rulebook/spells/summon-monster-i"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_1"
 
 [map."core-rulebook/spells/summon-monster-ii"]
-target = "ref/carried/core-rulebook/spells/summon-monster-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_2"
 
 [map."core-rulebook/spells/summon-monster-iii"]
-target = "ref/carried/core-rulebook/spells/summon-monster-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_3"
 
 [map."core-rulebook/spells/summon-monster-iv"]
-target = "ref/carried/core-rulebook/spells/summon-monster-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_4"
 
 [map."core-rulebook/spells/summon-monster-ix"]
-target = "ref/carried/core-rulebook/spells/summon-monster-ix"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_9"
 
 [map."core-rulebook/spells/summon-monster-v"]
-target = "ref/carried/core-rulebook/spells/summon-monster-v"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_5"
 
 [map."core-rulebook/spells/summon-monster-vi"]
-target = "ref/carried/core-rulebook/spells/summon-monster-vi"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_6"
 
 [map."core-rulebook/spells/summon-monster-vii"]
-target = "ref/carried/core-rulebook/spells/summon-monster-vii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_7"
 
 [map."core-rulebook/spells/summon-monster-viii"]
-target = "ref/carried/core-rulebook/spells/summon-monster-viii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_monster_8"
 
 [map."core-rulebook/spells/summon-natures-ally-i"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-i"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_1"
 
 [map."core-rulebook/spells/summon-natures-ally-ii"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_2"
 
 [map."core-rulebook/spells/summon-natures-ally-iii"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_3"
 
 [map."core-rulebook/spells/summon-natures-ally-iv"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_4"
 
 [map."core-rulebook/spells/summon-natures-ally-ix"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-ix"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_9"
 
 [map."core-rulebook/spells/summon-natures-ally-v"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-v"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_5"
 
 [map."core-rulebook/spells/summon-natures-ally-vi"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-vi"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_6"
 
 [map."core-rulebook/spells/summon-natures-ally-vii"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-vii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_7"
 
 [map."core-rulebook/spells/summon-natures-ally-viii"]
-target = "ref/carried/core-rulebook/spells/summon-natures-ally-viii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#summon_natures_ally_8"
 
 [map."core-rulebook/spells/teleport/greater"]
 target = "ref/carried/core-rulebook/spells/teleport/greater"
@@ -31995,8 +31938,7 @@ target = "ref/carried/mythic-adventures/rules/mythic-items/magic-items/other-mag
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."mythic-adventures/rules/mythic-items/magic-items/other-magic-items/figurine-of-wondrous-power/basalt-dragon"]
-target = "ref/carried/mythic-adventures/rules/mythic-items/magic-items/other-magic-items/figurine-of-wondrous-power/basalt-dragon"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_slotless03.json#figurine_of_wondrous_power_basalt_dragon"
 
 [map."mythic-adventures/rules/mythic-items/magic-items/other-magic-items/pauldrons-of-unflinching-fortitude"]
 target = "ref/carried/mythic-adventures/rules/mythic-items/magic-items/other-magic-items/pauldrons-of-unflinching-fortitude"
@@ -32187,8 +32129,7 @@ target = "ref/carried/technology-guide/rules/equipment/armor/scatterlight-suit"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."technology-guide/rules/equipment/armor/smart-armor-expanded-form"]
-target = "ref/carried/technology-guide/rules/equipment/armor/smart-armor-expanded-form"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_tech_armor.json#smart_armor_expanded_form"
 
 [map."technology-guide/rules/equipment/cybertech/cyberfiber-muscles"]
 target = "ref/carried/technology-guide/rules/equipment/cybertech/cyberfiber-muscles"
@@ -32223,8 +32164,7 @@ target = "ref/carried/technology-guide/rules/equipment/gear/technological-gear/o
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."technology-guide/rules/equipment/gear/technological-gear/on-signals/e-pick"]
-target = "ref/carried/technology-guide/rules/equipment/gear/technological-gear/on-signals/e-pick"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_tech_misc.json#e_pick"
 
 [map."technology-guide/rules/equipment/gear/technological-gear/on-signals/hologram-generator"]
 target = "ref/carried/technology-guide/rules/equipment/gear/technological-gear/on-signals/hologram-generator"
@@ -32967,8 +32907,7 @@ target = "ref/carried/ultimate-equipment/rules/artifacts-and-other-items/intelli
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/artifacts-and-other-items/intelligent-items/specific-intelligent-items/rod-that-should-not-be-greater"]
-target = "ref/carried/ultimate-equipment/rules/artifacts-and-other-items/intelligent-items/specific-intelligent-items/rod-that-should-not-be-greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_rod.json#rod_that_should_not_be_greater"
 
 [map."ultimate-equipment/rules/gear"]
 target = "ref/carried/ultimate-equipment/rules/gear"
@@ -32978,21 +32917,19 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/gear/adventuring-gear/backpack"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/backpack"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/adventuring-gear/backpack"]
+target = "ref/eq-misc/backpack"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/buoy"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/buoy"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc.json#buoy"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/cauldron"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/cauldron"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc.json#cauldron"
 
-[map."ultimate-equipment/rules/gear/adventuring-gear/chest"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/chest"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/adventuring-gear/chest"]
+target = "ref/eq-misc/chest"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/coffin"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/coffin"
@@ -33003,24 +32940,21 @@ target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/dungeoneeri
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/ear-trumpet"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/ear-trumpet"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc4.json#ear_trumpet"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/gamblers-kit"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/gamblers-kit"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc2.json#gamblers_kit"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/grappling-arrow"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/grappling-arrow"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/gear/adventuring-gear/grappling-hook"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/grappling-hook"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/adventuring-gear/grappling-hook"]
+target = "ref/eq-misc/grappling-hook"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/holy-symbol"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/holy-symbol"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc2.json#holy_symbol"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/holy-symbol/compartment"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/holy-symbol/compartment"
@@ -33030,9 +32964,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/holy-symbol/flask"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/gear/adventuring-gear/ink"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/ink"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/adventuring-gear/ink"]
+target = "ref/eq-misc/ink"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/lock"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/lock"
@@ -33043,8 +32977,7 @@ target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/manacles"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/perfume-cologne"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/perfume-cologne"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc4.json#perfume_cologne"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/poison-pill-ring"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/poison-pill-ring"
@@ -33079,8 +33012,7 @@ target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/silent-whis
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/skillet"]
-target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/skillet"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc3.json#skillet"
 
 [map."ultimate-equipment/rules/gear/adventuring-gear/snorkel"]
 target = "ref/carried/ultimate-equipment/rules/gear/adventuring-gear/snorkel"
@@ -33187,8 +33119,7 @@ target = "ref/carried/ultimate-equipment/rules/gear/animals/mounts/and-related-g
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/horse"]
-target = "ref/carried/ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/horse"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc2.json#horse"
 
 [map."ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/lizard"]
 target = "ref/carried/ultimate-equipment/rules/gear/animals/mounts/and-related-gear/animals/mounts/and-related-gear/lizard"
@@ -33271,12 +33202,10 @@ target = "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/inn-sta
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/gear/lodging-and-services/laundry"]
-target = "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/laundry"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc2.json#laundry"
 
 [map."ultimate-equipment/rules/gear/lodging-and-services/lawyer"]
-target = "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/lawyer"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/equipment_misc2.json#lawyer"
 
 [map."ultimate-equipment/rules/gear/lodging-and-services/scribe"]
 target = "ref/carried/ultimate-equipment/rules/gear/lodging-and-services/scribe"
@@ -33298,9 +33227,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/bear-trap/bear-trap"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/gear/tools-and-skill-kits/fortune-tellers-deck"]
-target = "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/fortune-tellers-deck"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/tools-and-skill-kits/fortune-tellers-deck"]
+target = "ref/eq-misc/fortune-telling-deck"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/gear/tools-and-skill-kits/musical-instrument"]
 target = "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/musical-instrument"
@@ -33310,9 +33239,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/parasol"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/gear/tools-and-skill-kits/thieves-tools"]
-target = "ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/thieves-tools"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/gear/tools-and-skill-kits/thieves-tools"]
+target = "ref/eq-misc/thieves-tools"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/magic-arms-and-armor"]
 target = "ref/carried/ultimate-equipment/rules/magic-arms-and-armor"
@@ -33355,16 +33284,13 @@ target = "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-speci
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/axiomatic"]
-target = "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/axiomatic"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_enhancements2.json#axiomatic"
 
 [map."ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/holy"]
-target = "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/holy"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_enhancements2.json#holy"
 
 [map."ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/unholy"]
-target = "ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities/magic-weapon-special-ability-descriptions/unholy"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_enhancements2.json#unholy"
 
 [map."ultimate-equipment/rules/rings/rods-and-staves"]
 target = "ref/carried/ultimate-equipment/rules/rings/rods-and-staves"
@@ -33527,28 +33453,23 @@ target = "ref/carried/ultimate-equipment/rules/wondrous-items/belt"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/belt-of-mighty-hurling/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/belt-of-mighty-hurling/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_belt_body_chest.json#belt_of_mighty_hurling_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/monkey-belt/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/monkey-belt/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_belt_body_chest.json#monkey_belt_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/plague-rat-belt/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/plague-rat-belt/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_belt_body_chest.json#plague_rat_belt_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/serpent-belt/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/belt/belt-slot-wondrous-items/serpent-belt/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_belt_body_chest.json#serpent_belt_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/body"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/body"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/wondrous-items/chest/chest-slot-wondrous-items/poisoners-jacket/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/chest/chest-slot-wondrous-items/poisoners-jacket/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_belt_body_chest.json#poisoners_jacket_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/extradimensional-spaces"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/extradimensional-spaces"
@@ -33559,40 +33480,35 @@ target = "ref/carried/ultimate-equipment/rules/wondrous-items/eyes"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/wondrous-items/eyes/eyes-slot-wondrous-items/sniper-goggles/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/eyes/eyes-slot-wondrous-items/sniper-goggles/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_eyes_feet_hands.json#sniper_goggles_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/feet"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/feet"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/wondrous-items/feet/feet-slot-wondrous-items/burglar-boots/major"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/feet/feet-slot-wondrous-items/burglar-boots/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_eyes_feet_hands.json#burglar_boots_major"
 
 [map."ultimate-equipment/rules/wondrous-items/hands"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/hands"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-equipment/rules/wondrous-items/hands/hands-slot-wondrous-items/gauntlet-of-rust/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/hands/hands-slot-wondrous-items/gauntlet-of-rust/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_eyes_feet_hands.json#gauntlet_of_rust_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/head"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/head"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/crown-of-blasting/major"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/crown-of-blasting/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/crown-of-blasting/major"]
+target = "ref/magic-wondrous/crown-of-blasting-major"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/helm-of-brilliance/lesser"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/helm-of-brilliance/lesser"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_head_headband.json#helm_of_brilliance_lesser"
 
 [map."ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/mask-of-giants/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/head/head-slot-wondrous-items/mask-of-giants/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_head_headband.json#mask_of_giants_greater"
 
 [map."ultimate-equipment/rules/wondrous-items/headbands"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/headbands"
@@ -33610,13 +33526,12 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/shoulders"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/cloak-of-displacement/major"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/cloak-of-displacement/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/cloak-of-displacement/major"]
+target = "ref/magic-wondrous/cloak-of-displacement-major"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/stone-cloak/major"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/shoulders/shoulders-slot-wondrous-items/stone-cloak/major"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/magic_wondrous_shoulders_wrists.json#stone_cloak_major"
 
 [map."ultimate-equipment/rules/wondrous-items/slotless"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/slotless"
@@ -33642,9 +33557,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/golem-manual"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/horn-of-blasting/greater"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/horn-of-blasting/greater"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/horn-of-blasting/greater"]
+target = "ref/magic-wondrous/horn-of-blasting-greater"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/ioun-stone"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/ioun-stone"
@@ -33694,9 +33609,9 @@ note = "carried over under the all-unmatched product decision; possible duplicat
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bonebreaker-gauntlets"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
-[map."ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bracers-of-archery/lesser"]
-target = "ref/carried/ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bracers-of-archery/lesser"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+[shared."ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/bracers-of-archery/lesser"]
+target = "ref/magic-wondrous/bracers-of-archery-lesser"
+note = "one canonical record shared by legacy books ultimate-equipment; migration merges these rows"
 
 [map."ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/gauntlets-of-skill-at-arms"]
 target = "ref/carried/ultimate-equipment/rules/wondrous-items/wrists/wrists-slot-wondrous-items/gauntlets-of-skill-at-arms"
@@ -33919,8 +33834,7 @@ target = "ref/carried/ultimate-magic/rules/words-of-power/words-of-power-in-the-
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/age-resistance"]
-target = "ref/carried/ultimate-magic/spells/age-resistance"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells.json#age_resistance"
 
 [map."ultimate-magic/spells/age-resistance/greater"]
 target = "ref/carried/ultimate-magic/spells/age-resistance/greater"
@@ -33943,8 +33857,7 @@ target = "ref/carried/ultimate-magic/spells/contagion/greater"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/create-demiplane"]
-target = "ref/carried/ultimate-magic/spells/create-demiplane"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells12.json#create_demiplane"
 
 [map."ultimate-magic/spells/create-demiplane/greater"]
 target = "ref/carried/ultimate-magic/spells/create-demiplane/greater"
@@ -33955,8 +33868,7 @@ target = "ref/carried/ultimate-magic/spells/curse/major"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/dance-of-a-thousand-cuts"]
-target = "ref/carried/ultimate-magic/spells/dance-of-a-thousand-cuts"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells3.json#dance_of_a_thousand_cuts"
 
 [map."ultimate-magic/spells/darkvision/greater"]
 target = "ref/carried/ultimate-magic/spells/darkvision/greater"
@@ -33967,8 +33879,7 @@ target = "ref/carried/ultimate-magic/spells/daze/mass"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/disguise-other"]
-target = "ref/carried/ultimate-magic/spells/disguise-other"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells13.json#disguise_other"
 
 [map."ultimate-magic/spells/false-life/greater"]
 target = "ref/carried/ultimate-magic/spells/false-life/greater"
@@ -33991,32 +33902,25 @@ target = "ref/carried/ultimate-magic/spells/lend-judgment/greater"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/monstrous-physique-ii"]
-target = "ref/carried/ultimate-magic/spells/monstrous-physique-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells7.json#monstrous_physique_2"
 
 [map."ultimate-magic/spells/monstrous-physique-iii"]
-target = "ref/carried/ultimate-magic/spells/monstrous-physique-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells7.json#monstrous_physique_3"
 
 [map."ultimate-magic/spells/monstrous-physique-iv"]
-target = "ref/carried/ultimate-magic/spells/monstrous-physique-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells7.json#monstrous_physique_4"
 
 [map."ultimate-magic/spells/possess-object"]
-target = "ref/carried/ultimate-magic/spells/possess-object"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells6.json#possess_object"
 
 [map."ultimate-magic/spells/rain-of-frogs"]
-target = "ref/carried/ultimate-magic/spells/rain-of-frogs"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells16.json#rain_of_frogs"
 
 [map."ultimate-magic/spells/raise-animal-companion"]
-target = "ref/carried/ultimate-magic/spells/raise-animal-companion"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells8.json#raise_animal_companion"
 
 [map."ultimate-magic/spells/ray-of-sickening"]
-target = "ref/carried/ultimate-magic/spells/ray-of-sickening"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells8.json#ray_of_sickening"
 
 [map."ultimate-magic/spells/restore-eidolon"]
 target = "ref/carried/ultimate-magic/spells/restore-eidolon"
@@ -34027,18 +33931,13 @@ target = "ref/carried/ultimate-magic/spells/simulacrum/lesser"
 note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
 
 [map."ultimate-magic/spells/undead-anatomy-ii"]
-target = "ref/carried/ultimate-magic/spells/undead-anatomy-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells11.json#undead_anatomy_2"
 
 [map."ultimate-magic/spells/undead-anatomy-iii"]
-target = "ref/carried/ultimate-magic/spells/undead-anatomy-iii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells11.json#undead_anatomy_3"
 
 [map."ultimate-magic/spells/undead-anatomy-iv"]
-target = "ref/carried/ultimate-magic/spells/undead-anatomy-iv"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
+record = "json/spells11.json#undead_anatomy_4"
 
 [map."ultimate-magic/spells/vermin-shape-ii"]
-target = "ref/carried/ultimate-magic/spells/vermin-shape-ii"
-note = "carried over under the all-unmatched product decision; possible duplicate candidates are reported for review"
-
+record = "json/spells11.json#vermin_shape_2"

@@ -2,12 +2,13 @@
 use cast_iron_content_compiler::alias::{self, IdMap, LegacySnapshot};
 use cast_iron_content_compiler::alias_propose;
 use cast_iron_content_compiler::carry;
+use cast_iron_content_compiler::carry_review;
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
 use cast_iron_content_compiler::pf_legal;
 use cast_iron_content_compiler::pf_rules::RuleAllowlist;
-use cast_iron_content_compiler::pipeline::{self, publish_extra_file};
+use cast_iron_content_compiler::pipeline::{self, CanonicalOptions, Options, publish_extra_file};
 use cast_iron_content_compiler::publications;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -27,6 +28,8 @@ fn run() -> Result<(), String> {
     let mut psrd_dataset = None;
     let mut psrd_config = None;
     let mut publications_path = None;
+    let mut canonical_dir = None;
+    let mut threshold = None;
     let mut apply = false;
     let mut check = false;
     while let Some(flag) = args.next() {
@@ -50,6 +53,15 @@ fn run() -> Result<(), String> {
             "--psrd-dataset" => psrd_dataset = Some(value),
             "--psrd-config" => psrd_config = Some(value),
             "--publications" => publications_path = Some(value),
+            "--canonical-dir" => canonical_dir = Some(value),
+            "--threshold" => {
+                let value = value.to_string_lossy();
+                threshold = Some(
+                    value
+                        .parse::<f64>()
+                        .map_err(|e| format!("--threshold {value:?}: {e}"))?,
+                );
+            }
             _ => return Err(format!("unknown option {flag}")),
         }
     }
@@ -64,6 +76,7 @@ fn run() -> Result<(), String> {
         "test",
         "alias",
         "alias-propose",
+        "carry-review",
         "publications",
     ]
     .contains(&command.as_str())
@@ -119,6 +132,30 @@ fn run() -> Result<(), String> {
                 .unwrap_or(std::path::Path::new("generated/content")),
             &psrd_dataset,
             &psrd_config,
+        );
+    }
+    if command == "carry-review" {
+        return write_carry_review(
+            &inv,
+            &allowlist,
+            CarryReviewArgs {
+                dataset: &dataset,
+                registry: &registry,
+                map_path: map
+                    .as_deref()
+                    .unwrap_or(std::path::Path::new("sources/canonical/id-map.toml")),
+                legacy_path: legacy
+                    .as_deref()
+                    .unwrap_or(std::path::Path::new("sources/canonical/legacy-ids.json")),
+                output_dir: &out,
+                canonical_dir: canonical_dir
+                    .as_deref()
+                    .unwrap_or(std::path::Path::new("sources/canonical")),
+                psrd_dataset: &psrd_dataset,
+                psrd_config: &psrd_config,
+                threshold: threshold.unwrap_or(carry_review::SIMILARITY_THRESHOLD),
+                apply,
+            },
         );
     }
     let config_dir = registry.parent().ok_or("registry has no parent")?;
@@ -325,6 +362,87 @@ fn write_aliases(
             .join(alias::ALIASES_FILE)
             .display()
     );
+    Ok(())
+}
+
+/// Inputs for [`write_carry_review`].
+struct CarryReviewArgs<'a> {
+    dataset: &'a Path,
+    registry: &'a Path,
+    map_path: &'a Path,
+    legacy_path: &'a Path,
+    output_dir: &'a Path,
+    canonical_dir: &'a Path,
+    psrd_dataset: &'a Path,
+    psrd_config: &'a Path,
+    threshold: f64,
+    apply: bool,
+}
+
+/// Reviews carried entries against same-kind, same-title canonical entries and
+/// optionally merges the pairs whose bodies agree. Writes the JSON report and a
+/// proposed map under `--out`; `--apply` rewrites the committed map.
+fn write_carry_review(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    allowlist: &RuleAllowlist,
+    args: CarryReviewArgs<'_>,
+) -> Result<(), String> {
+    let CarryReviewArgs {
+        dataset,
+        registry,
+        map_path,
+        legacy_path,
+        output_dir,
+        canonical_dir,
+        psrd_dataset,
+        psrd_config,
+        threshold,
+        apply,
+    } = args;
+    let options = CanonicalOptions {
+        psrd: Options {
+            source_config: psrd_config.to_path_buf(),
+            dataset: psrd_dataset.to_path_buf(),
+            out: PathBuf::from("generated/carry-review"),
+            reports: PathBuf::from("generated/carry-review"),
+            write_digest: false,
+            strict: false,
+            overrides: None,
+        },
+        pf_dataset: dataset.to_path_buf(),
+        pf_registry: registry.to_path_buf(),
+        canonical_dir: canonical_dir.to_path_buf(),
+    };
+    let library = pipeline::build_canonical(&options).map_err(|failure| {
+        let mut message = format!("canonical build failed: {} problem(s)", failure.lines.len());
+        for line in failure.lines {
+            message.push_str("\n  ");
+            message.push_str(&line);
+        }
+        message
+    })?;
+    let snapshot_bytes = std::fs::read(legacy_path)
+        .map_err(|e| format!("cannot read {}: {e}", legacy_path.display()))?;
+    let snapshot = LegacySnapshot::parse(&snapshot_bytes)
+        .map_err(|e| format!("invalid {}: {e}", legacy_path.display()))?;
+    let original = std::fs::read_to_string(map_path)
+        .map_err(|e| format!("cannot read {}: {e}", map_path.display()))?;
+    let map =
+        IdMap::parse(&original).map_err(|e| format!("invalid {}: {e}", map_path.display()))?;
+    let catalog = alias::catalog_from_inventory(inv, allowlist)?;
+    let review = carry_review::review(&library, &map, &snapshot, &catalog, threshold)?;
+    carry_review::write(&review, &original, map_path, output_dir, apply)?;
+    println!("{}", review.report());
+    println!(
+        "wrote {} and {}",
+        output_dir.join("id-map.reviewed.toml").display(),
+        output_dir.join("carry-review.json").display()
+    );
+    if apply {
+        println!("applied body-evidence merges to {}", map_path.display());
+    } else {
+        println!("dry run; pass --apply to rewrite {}", map_path.display());
+    }
     Ok(())
 }
 
