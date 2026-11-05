@@ -70,6 +70,16 @@ test("Books sort inside each tier, and the URL keeps the choice", async ({ page 
   const sortNav = page.getByRole("navigation", { name: "Sort books" });
   await expect(sortNav.getByRole("link", { name: "Title", exact: true })).toHaveAttribute("aria-current", "true");
 
+  // Sort options are navigation: a 6 px rectangle, never a pill.
+  const sortLinks = page.locator(".sort-options a");
+  await expect(page.locator('.sort-options a[aria-current="true"]')).toHaveCount(1);
+  for (const link of await sortLinks.all()) {
+    const radius = await link.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
+    expect(radius).not.toBe("999px");
+    expect(parseFloat(radius)).toBeLessThan(10);
+    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+
   await sortNav.getByRole("link", { name: "Category", exact: true }).click();
   await expect(page).toHaveURL(/#\/books\?sort=category$/);
   const adventureRanks = ["Adventure Path", "Module", "Society"];
