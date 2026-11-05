@@ -305,8 +305,10 @@ fn book_row(
                     on:change=move |event| {
                         let input = event_target::<web_sys::HtmlInputElement>(&event);
                         if saving.get_untracked() {
-                            // Another write is in flight: undo the click and say so.
+                            // Defensive guard: the checkbox is disabled during a save, so this
+                            // runs only for a programmatic event. Undo the change and say so.
                             input.set_checked(save_library.book_active(&save_id));
+                            status.set(None);
                             save_error.set(Some(SAVE_BUSY.to_string()));
                             return;
                         }
@@ -592,6 +594,8 @@ struct BulkApply {
 
 impl BulkApply {
     fn run(&self, activate: Vec<String>, deactivate: Vec<String>, message: String) {
+        // Defensive guard: every control that calls this is disabled during a save, so this
+        // runs only for a programmatic event.
         if self.saving.get_untracked() {
             self.status.set(None);
             self.save_error.set(Some(SAVE_BUSY.to_string()));

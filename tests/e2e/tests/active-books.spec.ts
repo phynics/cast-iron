@@ -39,8 +39,8 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/books");
-  await openBookGroups(page);
   await waitReady(page);
+  await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
   await expect(toggle).toBeChecked();
@@ -58,8 +58,8 @@ test("Book visibility persists offline and filters discovery while keeping stars
   context = await openProfile({ offline: true });
   page = await context.newPage();
   await page.goto("#/books");
-  await openBookGroups(page);
   await waitReady(page);
+  await openBookGroups(page);
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(entry.title))}`);
@@ -292,8 +292,8 @@ installedTest("Book page count follows its contents and survives deactivation", 
   await expect(page.locator(".toc-top")).toBeVisible();
 
   await page.goto("#/books");
-  await openBookGroups(page);
   await waitReady(page);
+  await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
   await toggle.uncheck();

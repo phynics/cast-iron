@@ -99,10 +99,26 @@ test("Books tiers and their bulk controls fit 390 px with full-size touch target
       expect(box.width, `${label} control width`).toBeGreaterThanOrEqual(44);
       expect(box.x + box.width).toBeLessThanOrEqual(390);
     }
-    // The controls sit below the heading row and never cover the disclosure's own target.
-    const summary = (await heading)!;
-    const first = (await buttons[0].boundingBox())!;
-    expect(first.y).toBeGreaterThanOrEqual(summary.y + 44 - 1);
+    await heading;
+  }
+  // The controls are an ordinary row in flow: for every tier they never intersect the heading,
+  // the count text or the summary, so nothing can be covered at 390 px.
+  const intersects = (a: any, b: any) =>
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  const tierCount = await groups.count();
+  expect(tierCount).toBeGreaterThan(1);
+  for (let index = 0; index < tierCount; index++) {
+    const group = groups.nth(index);
+    const label = (await group.getAttribute("data-tier"))!;
+    const actions = (await group.locator(".tier-actions").boundingBox())!;
+    for (const part of [".tier-summary", ".tier-summary > h2", ".tier-summary > .tier-active"]) {
+      const box = (await group.locator(part).boundingBox())!;
+      expect(intersects(actions, box), `${label}: .tier-actions overlaps ${part}`).toBe(false);
+    }
+    for (const button of await group.locator(".tier-actions .btn").all()) {
+      expect((await button.evaluate((el) => el.getClientRects().length))).toBe(1);
+      expect((await button.boundingBox())!.height, `${label} button stays one line`).toBeLessThan(60);
+    }
   }
   const preset = page.getByRole("button", { name: "Only Rulebooks", exact: true });
   expect((await preset.boundingBox())!.height).toBeGreaterThanOrEqual(44);

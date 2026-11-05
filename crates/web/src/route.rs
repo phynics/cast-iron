@@ -10,7 +10,7 @@
 //! #/books                            the books in priority tiers, titles in order (the default)
 //! #/books?sort=category|date         the same tiers, ordered inside each by product line or date
 //! #/books?sort=library               one ungrouped list, in catalog order
-//! #/browse/books                     the same as #/books
+//! #/browse/books                     the same as #/books, and `#/browse/books?sort=..` too
 //! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
