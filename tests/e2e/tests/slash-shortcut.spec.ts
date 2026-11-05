@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { installedTest as test, expect } from "./fixtures";
 import { installLibrary } from "./helpers";
 
 test("slash focuses the search box from the page and types inside it", async ({ page }) => {

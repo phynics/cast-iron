@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { test, expect, GENERATED, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, GENERATED, loadCorpus } from "./fixtures";
 import { corpusEntry, installLibrary } from "./helpers";
 
 const { version, catalog } = loadCorpus();

@@ -11,12 +11,37 @@ export function letterId(letter: string): string {
   return letter === "#" ? "letter-other" : `letter-${letter}`;
 }
 
-/** Open the app, accept the offer, and wait for the reader. */
+/**
+ * Open the app and wait for the reader, downloading the library only when this profile has no
+ * active library. Tests that must observe the installation offer use a clean profile and click
+ * Download themselves; this helper is safe from an already-installed profile.
+ */
+let preinstalled = false;
+/**
+ * Set by the `installedTest` context fixture while its test runs. A copied profile that shows the
+ * Download offer has lost its library; the test would silently reinstall and only get slower, so
+ * that case fails instead.
+ */
+export function expectPreinstalled(on: boolean) {
+  preinstalled = on;
+}
+
 export async function installLibrary(page: Page) {
   await page.goto("./");
-  await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();
-  await page.getByRole("button", { name: "Download" }).click();
-  await waitReady(page);
+  const reader = page.getByRole("navigation", { name: "Primary" });
+  const download = page.getByRole("button", { name: "Download", exact: true });
+  await reader.or(download).waitFor({ state: "visible", timeout: 90_000 });
+  if (await download.isVisible()) {
+    if (preinstalled) {
+      throw new Error("The pre-installed profile copy has no library: the profile copy did not carry the browser's site data.");
+    }
+    await download.click();
+  }
+  await reader.waitFor({ state: "visible", timeout: 90_000 });
+  // Home reads the catalog from the library cache after the reader appears. Let that finish:
+  // a reload or navigation that interrupts an in-flight Cache read is a page error in WebKit
+  // ("Context is stopped"), and a pre-installed profile reaches this point almost at once.
+  await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
 }
 
 export async function waitReady(page: Page) {

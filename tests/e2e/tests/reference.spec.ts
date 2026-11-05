@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import {
   bodyHeadings,
   bodyLinks,

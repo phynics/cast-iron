@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus, goOffline } from "./fixtures";
+import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
 import { bookOwners, groupLetter, installLibrary, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
