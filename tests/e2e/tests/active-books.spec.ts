@@ -1,5 +1,6 @@
 import { test, expect, loadCorpus } from "./fixtures";
 import {
+  bookEntryOrder,
   bookOwners,
   bookTrees,
   buildLibraryWithoutBooks,
@@ -15,10 +16,6 @@ const owners = bookOwners();
 
 /** "1 entry" or "N entries", matching the view's wording. */
 const noun = (n: number) => (n === 1 ? "entry" : "entries");
-
-/** Entries whose first book placement is `source`, which is the set the kind groups show. */
-const activeEntriesOf = (source: string) =>
-  corpus.catalog.entries.filter((stub) => (owners.get(stub.id) ?? stub.source) === source).length;
 
 /** A spell every library has, and the book the reader places it in first. */
 function target() {
@@ -161,23 +158,46 @@ test("A source page count matches the entries its kind groups render", async ({ 
       await expect(group.locator(".entry-list")).toBeVisible();
     }
     await expect(page.locator('.kind-groups a[href^="#/entry/"]')).toHaveCount(expected);
+
+    // Deactivate through the same stored choice the Books screen writes. The page is a
+    // legacy source page here, so it has no checkbox of its own.
+    await page.evaluate((disabled) => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("cast-iron", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("meta", "readwrite");
+        tx.objectStore("meta").put(disabled, "disabled_books");
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => reject(tx.error);
+      };
+    }), [book.source]);
+    await page.reload();
+    await waitReady(page);
+    await expect(page.getByTestId("source-count")).toHaveText("0 entries in your active books");
+    await expect(page.locator('.kind-groups a[href^="#/entry/"]')).toHaveCount(0);
   } finally {
     variant.cleanup();
   }
 });
 
-test("Book page count follows active books and names the full total when disabled", async ({ page }) => {
+test("Book page count follows its contents and survives deactivation", async ({ page }) => {
+  // Fireball's first placement is the Core Rulebook. On this corpus its contents tree holds
+  // 3001 distinct ids while SourceInfo.entry_count says 2277, so a header that used the
+  // publication total or the active-book set would disagree with the page.
   const { book, source } = target();
+  const distinct = new Set(bookEntryOrder(book)).size;
+  expect(distinct, "the test needs a book whose contents differ from its publication total")
+    .not.toBe(source.entry_count);
+
   await installLibrary(page);
   await waitControlled(page);
-
-  const eligible = activeEntriesOf(book.source);
-  expect(eligible).toBeGreaterThan(0);
   await page.goto(`#/browse/source/${encodeURIComponent(book.source)}`);
   await waitReady(page);
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
-  await expect(page.getByTestId("source-count")).toHaveText(`${eligible} ${noun(eligible)} in your active books`);
+  await expect(page.getByTestId("source-count")).toHaveText(`${distinct} ${noun(distinct)} in this book`);
   await expect(page.locator(".book > .notice")).toHaveCount(0);
+  await expect(page.locator(".toc-top")).toBeVisible();
 
   await page.goto("#/books");
   await waitReady(page);
@@ -188,6 +208,8 @@ test("Book page count follows active books and names the full total when disable
 
   await page.goto(`#/browse/source/${encodeURIComponent(book.source)}`);
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
-  await expect(page.getByTestId("source-count")).toHaveText(`${source.entry_count} ${noun(source.entry_count)} in this book`);
+  // The contents stay readable, so the count must not change when the book is disabled.
+  await expect(page.getByTestId("source-count")).toHaveText(`${distinct} ${noun(distinct)} in this book`);
   await expect(page.locator(".book > .notice")).toContainText("This book is disabled for search and category browsing.");
+  await expect(page.locator(".toc-top")).toBeVisible();
 });
