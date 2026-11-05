@@ -463,10 +463,10 @@ checked against the same full suite, one `dist/` at a time.
 
 | Project | Canonical | PSRD |
 |---|---:|---:|
-| chromium | 38/38 | 38/38 |
-| webkit | 38/38 | 38/38 |
-| mobile-chromium | 1/1 | 1/1 |
-| Total | 77/77 | 77/77 |
+| chromium | 53/53 | 53/53 |
+| webkit | 53/53 | 53/53 |
+| mobile-chromium | 2/2 | 2/2 |
+| Total | 108/108 | 108/108 |
 
 Commands, run from the repository root:
 
@@ -481,24 +481,23 @@ cargo xtask build-site --public-url /cast-iron/
 npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium
 ```
 
-The canonical library in these runs is content `v523b94bd49b15699`: 29,388 entries,
-206,572,544 bytes, 65,463,786 bytes of search index. The PSRD build is
+The canonical library in these runs is content `vd7596846128e349b`: 29,515 entries,
+206,972,160 bytes, 65,725,435 bytes of search index. The PSRD build is
 `vdb43853600b8ed8b`: 9,968 entries and 62,123,015 bytes. Two consecutive
 `cargo xtask content --canonical` runs produced the same tree hash
-`04e55897c20e80aa3e07848b46197f6ec3f32e56d3cae3d7b1b9edbcb8620dce`.
-`cargo xtask check` passes.
+5ac59bee1dcec9f72596ba1233446d952dbff8f73b2ae1be73ee3bb26ab830cb. `cargo xtask check` passes.
 
 Measurements on that build, from `tests/e2e/measure-library.mjs` with a fresh profile and
 the distribution server on localhost:
 
 | Measure | Chromium | WebKit |
 |---|---:|---:|
-| Install, Download click to reader (s) | 1.5 | 1.8 |
-| Storage usage / quota | 208.6 MB / 10.9 GB | 208.5 MB / 20.6 GB |
-| First entry render (ms) | 37 | 36 |
-| Search engine p50 / p95 (ms) | 52.5 / 193.7 | 47.0 / 192.0 |
-| Search input to results p50 / p95 (ms) | 171 / 314 | 162 / 302 |
-| JS heap after search | 3 MB | not available |
+| Install, Download click to reader (s) | 1.3 | 1.8 |
+| Storage usage / quota | 209.1 MB / 10.9 GB | 208.9 MB / 20.6 GB |
+| First entry render (ms) | 29 | 27 |
+| Search engine p50 / p95 (ms) | 50.5 / 192.5 | 47.0 / 195.0 |
+| Search input to results p50 / p95 (ms) | 173 / 320 | 169 / 316 |
+| JS heap after search | 4 MB | not available |
 | Console errors | 0 | 0 |
 
 The storage figures are `navigator.storage.estimate().usage`: the library plus the app
@@ -506,7 +505,7 @@ shell, about 1.0–1.9 % of the reported quota. No quota error occurred. The hea
 the Chromium JS heap only; WebAssembly linear memory is a separate allocation, so it is a
 floor rather than the whole process. WebKit exposes no equivalent counter.
 
-Acceptance surfaced two canonical-only gaps and one app defect:
+Acceptance surfaced two canonical-only gaps and two app defects:
 
 - Search facets were empty in the canonical index, so the school, level, CR, and similar
   filters never appeared. `pipeline::build_canonical` now derives them from `TypedFields`
@@ -516,6 +515,11 @@ Acceptance surfaced two canonical-only gaps and one app defect:
   prestige pages have no named requirement links there. The requirement-link acceptance
   uses a feat, whose canonical records do carry typed prerequisite edges. Prestige
   category and publication navigation are still asserted.
+- Search blocked for about 48 seconds before showing results offline. Every one of the 397
+  publication chips rebuilt the whole discovery set for its own active-book total. A memo
+  now computes all source totals in one pass per selection revision, and the chip counts
+  read the search's `FilterCounts`; the first offline search now reaches results in about
+  one second.
 - Publication titles longer than a phone screen widened `.entry-list` rows and the page
   itself. `.row-source` and the row link now shrink and wrap, so `#/browse/kind/spell` has
   no horizontal page scroll at 390 px. Light and dark 390 px screenshots of that screen
@@ -526,11 +530,15 @@ Acceptance surfaced two canonical-only gaps and one app defect:
   acceptance; it is recorded here rather than hidden, and the entries stay readable and
   searchable.
 
-The canonical library still publishes both `core-rulebook` and a duplicate
-`prpg-core-rulebook` book, and its books are page-ordered with no curated chapters. Tests
-derive the book tree from `books.json` and attribute an entry to its first placement, which
-is what the reader does. Curated chapters and folding the duplicate publication remain
-later work.
+The sixteen PSRD books carry their curated chapters in this build; every other publication
+is page-ordered. The canonical library also publishes both `core-rulebook` and a duplicate
+`prpg-core-rulebook` book. Tests derive the book tree from `books.json` and attribute an
+entry to its first placement, which is what the reader does. Folding the duplicate
+publication remains later work.
+
+Two harness flakes on a library this size were fixed while making the suite pass: WebKit's
+header-button tab walk uses Option-Tab as the other keyboard tests do, and the mobile
+install-button size check rounds device-pixel layout values before comparing with 44 px.
 
 This is local verification. Nothing here is deployed, and PSRD remains the production
 default.
