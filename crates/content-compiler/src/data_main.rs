@@ -1,20 +1,22 @@
 //! Isolated migration commands. A blocked gate exits nonzero after writing evidence.
 use cast_iron_content_compiler::alias::{self, IdMap, LegacySnapshot};
 use cast_iron_content_compiler::alias_propose;
+use cast_iron_content_compiler::carry;
 use cast_iron_content_compiler::pf_data::{
     derived_coverage, experiment, import_all, inventory, write,
 };
 use cast_iron_content_compiler::pf_legal;
 use cast_iron_content_compiler::pf_rules::RuleAllowlist;
-use cast_iron_content_compiler::pipeline::publish_extra_file;
-use std::path::PathBuf;
+use cast_iron_content_compiler::pipeline::{self, publish_extra_file};
+use cast_iron_content_compiler::publications;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 fn run() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
     let command = args
         .next()
-        .ok_or("expected audit, import, validate, report, legal, test, or alias")?;
+        .ok_or("expected audit, import, validate, report, legal, test, alias, or publications")?;
     let mut dataset = None;
     let mut registry = None;
     let mut out = None;
@@ -22,10 +24,18 @@ fn run() -> Result<(), String> {
     let mut map = None;
     let mut legacy = None;
     let mut content = None;
+    let mut psrd_dataset = None;
+    let mut psrd_config = None;
+    let mut publications_path = None;
     let mut apply = false;
+    let mut check = false;
     while let Some(flag) = args.next() {
         if flag == "--apply" {
             apply = true;
+            continue;
+        }
+        if flag == "--check" {
+            check = true;
             continue;
         }
         let value = PathBuf::from(args.next().ok_or_else(|| format!("{flag} needs a value"))?);
@@ -37,9 +47,14 @@ fn run() -> Result<(), String> {
             "--map" => map = Some(value),
             "--legacy" => legacy = Some(value),
             "--content" => content = Some(value),
+            "--psrd-dataset" => psrd_dataset = Some(value),
+            "--psrd-config" => psrd_config = Some(value),
+            "--publications" => publications_path = Some(value),
             _ => return Err(format!("unknown option {flag}")),
         }
     }
+    let psrd_dataset = psrd_dataset.unwrap_or_else(|| PathBuf::from(".cache/sources/psrd-data"));
+    let psrd_config = psrd_config.unwrap_or_else(|| PathBuf::from("sources/psrd-data/source.toml"));
     if ![
         "audit",
         "import",
@@ -49,6 +64,7 @@ fn run() -> Result<(), String> {
         "test",
         "alias",
         "alias-propose",
+        "publications",
     ]
     .contains(&command.as_str())
     {
@@ -59,6 +75,16 @@ fn run() -> Result<(), String> {
     let out = out.ok_or("missing --out")?;
     let reports = reports.ok_or("missing --reports")?;
     let inv = inventory(&dataset, &registry)?;
+    if command == "publications" {
+        return write_publications(
+            &inv,
+            &psrd_config,
+            publications_path
+                .as_deref()
+                .unwrap_or(std::path::Path::new(publications::REGISTRY_PATH)),
+            check,
+        );
+    }
     let derived = derived_coverage(&inv);
     let allowlist = RuleAllowlist::load_optional(
         &registry
@@ -91,6 +117,8 @@ fn run() -> Result<(), String> {
             content
                 .as_deref()
                 .unwrap_or(std::path::Path::new("generated/content")),
+            &psrd_dataset,
+            &psrd_config,
         );
     }
     let config_dir = registry.parent().ok_or("registry has no parent")?;
@@ -116,14 +144,28 @@ fn run() -> Result<(), String> {
         "legal":legal.summary(),
         "production_default":"psrd-data","cutover_verified":false
     });
-    // Preserve an existing `derived_rules` block so `data-audit` does not strip
-    // the committed counts when it rewrites the coverage summary.
     let coverage_path = reports.join("migration-coverage.json");
+    if command == "report" {
+        let map_path = map
+            .as_deref()
+            .unwrap_or(Path::new("sources/canonical/id-map.toml"));
+        let carried = carry_report(&inv, &allowlist, map_path, &psrd_dataset, &psrd_config)?;
+        summary["carry_over"] = serde_json::to_value(&carried).map_err(|e| e.to_string())?;
+    }
+    // Preserve an existing `derived_rules` block so `data-audit` does not strip
+    // the committed counts when it rewrites the coverage summary. The `carry_over`
+    // block is only recomputed by `report`, so other commands preserve it too.
     if let Ok(bytes) = std::fs::read(&coverage_path)
         && let Ok(existing) = serde_json::from_slice::<serde_json::Value>(&bytes)
-        && existing.get("derived_rules").is_some()
     {
-        summary["derived_rules"] = existing["derived_rules"].clone();
+        if existing.get("derived_rules").is_some() {
+            summary["derived_rules"] = existing["derived_rules"].clone();
+        }
+        if command != "report"
+            && let Some(carry_over) = existing.get("carry_over")
+        {
+            summary["carry_over"] = carry_over.clone();
+        }
     }
     write(
         &coverage_path,
@@ -197,6 +239,48 @@ fn run() -> Result<(), String> {
     Ok(())
 }
 
+/// Generates the reviewed Pf Data publication registry, or checks the committed
+/// copy when `--check` is set. Output is deterministic, so a check compares bytes.
+fn write_publications(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    psrd_config: &Path,
+    path: &Path,
+    check: bool,
+) -> Result<(), String> {
+    let registry = publications::generate(inv, psrd_config)
+        .map_err(|errors| problems("publication registry", errors))?;
+    let bytes = registry.to_bytes()?;
+    if check {
+        let committed =
+            std::fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        if committed != bytes {
+            return Err(format!(
+                "{} differs from the generated registry; run `cargo xtask data-publications`",
+                path.display()
+            ));
+        }
+        println!(
+            "{} is current: {} publication(s), {} canonical source id(s)",
+            path.display(),
+            registry.publication.len(),
+            registry.source_ids().len()
+        );
+        return Ok(());
+    }
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    }
+    std::fs::write(path, &bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    println!(
+        "wrote {}: {} publication(s), {} canonical source id(s)",
+        path.display(),
+        registry.publication.len(),
+        registry.source_ids().len()
+    );
+    Ok(())
+}
+
 /// Generates `generated/content/<version>/aliases.json` and runs every alias gate.
 fn write_aliases(
     inv: &cast_iron_content_compiler::pf_data::Inventory,
@@ -204,6 +288,8 @@ fn write_aliases(
     map_path: &std::path::Path,
     legacy_path: &std::path::Path,
     content_dir: &std::path::Path,
+    psrd_dataset: &Path,
+    psrd_config: &Path,
 ) -> Result<(), String> {
     let snapshot_bytes = std::fs::read(legacy_path)
         .map_err(|e| format!("cannot read {}: {e}", legacy_path.display()))?;
@@ -211,19 +297,26 @@ fn write_aliases(
         .map_err(|e| format!("invalid {}: {e}", legacy_path.display()))?;
     let map = IdMap::load(map_path)?;
     let catalog = alias::catalog_from_inventory(inv, allowlist)?;
-    let (file, stats) =
-        alias::generate(&map, &snapshot, &snapshot_bytes, &catalog).map_err(|errors| {
-            let mut message = format!("{} alias gate(s) failed:", errors.len());
-            for error in errors {
-                message.push_str("\n  ");
-                message.push_str(&error);
-            }
-            message
-        })?;
+    let library = psrd_library(psrd_dataset, psrd_config)?;
+    let carried = carry::carry_over(&library, &map, &catalog)
+        .map_err(|errors| problems("carry-over", errors))?;
+    let mut catalog = catalog;
+    carried
+        .extend_catalog(&mut catalog)
+        .map_err(|errors| problems("carried catalog", errors))?;
+    let (file, stats) = alias::generate(&map, &snapshot, &snapshot_bytes, &catalog)
+        .map_err(|errors| problems("alias gate(s)", errors))?;
     let bytes = alias::to_bytes(&file)?;
     let version = publish_extra_file(content_dir, alias::ALIASES_FILE, bytes).map_err(|e| {
         format!("{e}; run `cargo xtask content` first, then `cargo xtask data-alias`")
     })?;
+    println!(
+        "{} carried entries ({} possible duplicates, {} links rewritten, {} flattened)",
+        carried.report.carried,
+        carried.report.possible_duplicate_count,
+        carried.report.links.rewritten,
+        carried.report.links.flattened
+    );
     println!("{} canonical records; {}", catalog.len(), stats.report());
     println!(
         "wrote {}",
@@ -233,6 +326,52 @@ fn write_aliases(
             .display()
     );
     Ok(())
+}
+
+/// Builds the PSRD library in memory. Carry-over and the alias gate are the only
+/// consumers; the production package remains untouched.
+fn psrd_library(dataset: &Path, config: &Path) -> Result<pipeline::Library, String> {
+    let opts = pipeline::Options {
+        source_config: config.to_path_buf(),
+        dataset: dataset.to_path_buf(),
+        out: PathBuf::from("generated/carry-over"),
+        reports: PathBuf::from("generated/carry-over"),
+        write_digest: false,
+        strict: false,
+        overrides: None,
+    };
+    pipeline::build_psrd(&opts).map_err(|failure| {
+        let mut message = format!("PSRD build failed: {} problem(s)", failure.lines.len());
+        for line in failure.lines {
+            message.push_str("\n  ");
+            message.push_str(&line);
+        }
+        message
+    })
+}
+
+fn carry_report(
+    inv: &cast_iron_content_compiler::pf_data::Inventory,
+    allowlist: &RuleAllowlist,
+    map_path: &Path,
+    psrd_dataset: &Path,
+    psrd_config: &Path,
+) -> Result<carry::CarryReport, String> {
+    let map = IdMap::load(map_path)?;
+    let catalog = alias::catalog_from_inventory(inv, allowlist)?;
+    let library = psrd_library(psrd_dataset, psrd_config)?;
+    let carried = carry::carry_over(&library, &map, &catalog)
+        .map_err(|errors| problems("carry-over", errors))?;
+    Ok(carried.report)
+}
+
+fn problems(context: &str, errors: Vec<String>) -> String {
+    let mut message = format!("{context} failed: {} problem(s):", errors.len());
+    for error in errors {
+        message.push_str("\n  ");
+        message.push_str(&error);
+    }
+    message
 }
 
 /// Counts of the PI screen's omissions over the whole in-scope inventory.
