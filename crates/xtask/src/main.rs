@@ -19,6 +19,9 @@ cargo xtask <command>
   data-alias                 Generate generated/content/<version>/aliases.json and run the alias gates
   data-alias-propose [--apply]
                              Propose dispositions for every no_source alias row; --apply rewrites id-map.toml
+  data-carry-review [--apply] [--threshold N]
+                             Compare carried PSRD entries with same-title Pf Data entries by
+                             body similarity; --apply merges the accepted pairs into id-map.toml
   data-publications [--check]
                              Generate sources/canonical/publications.toml, or verify the committed copy
   data-test                  Test the importer and Pathfinder Data 1e source
@@ -46,6 +49,7 @@ fn main() -> ExitCode {
         Some("data-legal") => data_tool("legal"),
         Some("data-alias") => data_alias(),
         Some("data-alias-propose") => data_alias_propose(&args[1..]),
+        Some("data-carry-review") => data_carry_review(&args[1..]),
         Some("data-publications") => data_publications(&args[1..]),
         Some("data-test") => data_test(),
         Some("content") => content(&args[1..]),
@@ -360,6 +364,38 @@ fn data_alias_propose(args: &[String]) -> Result {
     run("cargo", &borrowed)
 }
 
+/// Reviews carried entries against same-title canonical entries using body text.
+/// The extra arguments are forwarded, so `--apply` and `--threshold` pass through.
+fn data_carry_review(args: &[String]) -> Result {
+    let mut arguments = vec![
+        "run".to_string(),
+        "--release".to_string(),
+        "-p".to_string(),
+        "cast-iron-content-compiler".to_string(),
+        "--bin".to_string(),
+        "cast-iron-data".to_string(),
+        "--".to_string(),
+        "carry-review".to_string(),
+        "--dataset".to_string(),
+        ".cache/sources/pathfinder-data-1-e".to_string(),
+        "--registry".to_string(),
+        "sources/pathfinder-data-1-e/source.json".to_string(),
+        "--out".to_string(),
+        "generated/migration".to_string(),
+        "--reports".to_string(),
+        "reports".to_string(),
+        "--map".to_string(),
+        "sources/canonical/id-map.toml".to_string(),
+        "--legacy".to_string(),
+        "sources/canonical/legacy-ids.json".to_string(),
+        "--canonical-dir".to_string(),
+        "sources/canonical".to_string(),
+    ];
+    arguments.extend(args.iter().cloned());
+    let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
+    run("cargo", &borrowed)
+}
+
 /// Generates or checks the reviewed canonical publication registry.
 fn data_publications(args: &[String]) -> Result {
     let check = match args {
@@ -515,7 +551,91 @@ fn build_site(args: &[String]) -> Result {
     let dist = root().join("dist");
     copy_dir(&root().join(generated), &dist.join("content"))?;
     fs::write(dist.join(".nojekyll"), "").map_err(|e| e.to_string())?;
+    content_address_snippets(&dist)?;
     stamp_shell(&dist)
+}
+
+/// Gives every wasm-bindgen snippet directory a content-derived name.
+///
+/// Trunk names `snippets/<crate>-<hash>/` from the crate, not from the snippet bytes,
+/// so `bridge.js` keeps one URL across builds while the hashed glue file that imports
+/// it changes. Any URL-keyed cache (the browser HTTP cache, Pages' `max-age`, a shell
+/// cache from an earlier build on the same origin) can then pair new glue with an old
+/// bridge and fail with "Importing binding name ... is not found". Renaming the
+/// directory after its contents makes the import URL change exactly when the bridge
+/// does. Only the glue `import` and the `modulepreload` link in `index.html` name the
+/// path; the inline boot script does not, so its CSP hash is unaffected.
+fn content_address_snippets(dist: &Path) -> Result {
+    let snippets = dist.join("snippets");
+    if !snippets.is_dir() {
+        return Ok(());
+    }
+    let mut renames: Vec<(String, String)> = Vec::new();
+    let mut dirs: Vec<PathBuf> = fs::read_dir(&snippets)
+        .map_err(|e| format!("{}: {e}", snippets.display()))?
+        .map(|item| item.map(|item| item.path()).map_err(|e| e.to_string()))
+        .collect::<std::result::Result<_, _>>()?;
+    dirs.sort();
+    for dir in dirs.into_iter().filter(|dir| dir.is_dir()) {
+        let mut files = Vec::new();
+        list_files(&dir, &mut files)?;
+        files.sort();
+        let mut digest = Sha256::new();
+        for file in &files {
+            let relative = file.strip_prefix(&dir).map_err(|e| e.to_string())?;
+            digest.update(relative.to_string_lossy().replace('\\', "/").as_bytes());
+            digest.update(b"\0");
+            digest.update(fs::read(file).map_err(|e| e.to_string())?);
+            digest.update(b"\0");
+        }
+        let old = dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or("non-UTF-8 snippet directory")?
+            .to_string();
+        let new = format!("{old}-{}", &hex(&digest.finalize())[..12]);
+        fs::rename(&dir, snippets.join(&new)).map_err(|e| e.to_string())?;
+        renames.push((format!("snippets/{old}/"), format!("snippets/{new}/")));
+    }
+    let mut rewritten = 0;
+    for item in fs::read_dir(dist).map_err(|e| e.to_string())? {
+        let path = item.map_err(|e| e.to_string())?.path();
+        let text_file = path
+            .extension()
+            .is_some_and(|ext| ext == "js" || ext == "html");
+        if !path.is_file() || !text_file || path.file_name().is_some_and(|n| n == "sw.js") {
+            continue;
+        }
+        let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let html = path.extension().is_some_and(|ext| ext == "html");
+        let mut updated = text.clone();
+        for (old, new) in &renames {
+            if html {
+                // index.html names the bridge only in its modulepreload href.
+                updated = updated.replace(old.as_str(), new.as_str());
+            } else {
+                // Rewrite module specifiers only. The glue also keys the wasm imports
+                // object by the original path (`imports['./snippets/<old>/...']`), and
+                // that key must keep matching the module name compiled into the wasm.
+                for quote in ['\'', '"'] {
+                    for lead in ["from ", "import("] {
+                        updated = updated.replace(
+                            &format!("{lead}{quote}./{old}"),
+                            &format!("{lead}{quote}./{new}"),
+                        );
+                    }
+                }
+            }
+        }
+        if updated != text {
+            fs::write(&path, updated).map_err(|e| e.to_string())?;
+            rewritten += 1;
+        }
+    }
+    if !renames.is_empty() && rewritten == 0 {
+        return Err("snippet directories were renamed but no file referenced them".into());
+    }
+    Ok(())
 }
 
 fn copy_dir(from: &Path, to: &Path) -> Result {
@@ -679,6 +799,59 @@ mod tests {
         );
         let both = ["--psrd".to_string(), "--canonical".to_string()];
         assert!(library_source("content", &both).is_err());
+    }
+
+    #[test]
+    fn snippet_directories_take_a_content_hash_and_references_follow() {
+        let build = |bridge: &str| {
+            let dir = std::env::temp_dir().join(format!(
+                "xtask-snip-{}-{}",
+                std::process::id(),
+                bridge.len()
+            ));
+            let _ = fs::remove_dir_all(&dir);
+            fs::create_dir_all(dir.join("snippets/web-1/js")).unwrap();
+            fs::write(dir.join("snippets/web-1/js/bridge.js"), bridge).unwrap();
+            fs::write(
+                dir.join("web-abc.js"),
+                "import * as b from './snippets/web-1/js/bridge.js';\nimports['./snippets/web-1/js/bridge.js'] = b;",
+            )
+            .unwrap();
+            fs::write(
+                dir.join("index.html"),
+                "<link rel=\"modulepreload\" href=\"/x/snippets/web-1/js/bridge.js\">",
+            )
+            .unwrap();
+            fs::write(dir.join("sw.js"), "snippets/web-1/").unwrap();
+            content_address_snippets(&dir).unwrap();
+            let names: Vec<String> = fs::read_dir(dir.join("snippets"))
+                .unwrap()
+                .map(|e| e.unwrap().file_name().into_string().unwrap())
+                .collect();
+            assert_eq!(names.len(), 1);
+            let name = names[0].clone();
+            assert!(name.starts_with("web-1-") && name.len() == "web-1-".len() + 12);
+            let glue = fs::read_to_string(dir.join("web-abc.js")).unwrap();
+            assert!(
+                glue.contains(&format!("./snippets/{name}/js/bridge.js")),
+                "{glue}"
+            );
+            let index = fs::read_to_string(dir.join("index.html")).unwrap();
+            assert!(index.contains(&format!("/x/snippets/{name}/js/bridge.js")));
+            // sw.js is stamped afterwards from the directory listing, not rewritten here.
+            assert_eq!(
+                fs::read_to_string(dir.join("sw.js")).unwrap(),
+                "snippets/web-1/"
+            );
+            fs::remove_dir_all(&dir).unwrap();
+            name
+        };
+        let first = build("export function a() {}");
+        assert_eq!(first, build("export function a() {}"), "deterministic");
+        assert_ne!(
+            first,
+            build("export function a() {} export function b() {}")
+        );
     }
 
     #[test]

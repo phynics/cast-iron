@@ -143,17 +143,22 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await page.locator("#search-input").fill("");
   await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
   const schoolChip = page.locator(".filters .chip", { hasText: new RegExp(`^${escape(chosen.school)}\\d*$`, "i") });
-  await expect(schoolChip.first()).toBeVisible({ timeout: 60_000 });
+  await expect(schoolChip.first()).toBeVisible();
   await schoolChip.first().click();
   const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${chosen.level}\\d*$`) });
-  await expect(levelChip.first()).toBeVisible({ timeout: 60_000 });
+  await expect(levelChip.first()).toBeVisible();
   await levelChip.first().click();
   await expect.poll(() => page.url()).toContain(`spell_level:${chosen.level}`);
   await showAllResults(page);
   await expect(page.locator(".results > .hit")).toHaveCount(expectedGroups.length);
   expect((await page.locator(".results > .hit > .hit-link > .hit-title, .results > .hit > details > summary .hit-title").allInnerTexts()).sort()).toEqual(expectedGroups);
-  const metas = await page.locator(".results .hit-meta").allInnerTexts();
-  expect(metas.every((m) => /^Spell/.test(m))).toBe(true);
+  // One line per result, as for titles above: a grouped title's per-publication rows sit
+  // inside a closed <details>, and hidden elements report an empty innerText.
+  const metas = await page
+    .locator(".results > .hit > .hit-link > .hit-meta, .results > .hit > details > summary .hit-meta")
+    .allInnerTexts();
+  expect(metas).toHaveLength(expectedGroups.length);
+  expect(metas.every((m) => /^Spell/.test(m)), metas.join(" | ")).toBe(true);
 
   // Speed: the engine's own timing over 20 queries is recorded as an annotation. A shared
   // CI runner is not a latency gate, so only a loose smoke bound is asserted; a p95 near it

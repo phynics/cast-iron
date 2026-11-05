@@ -111,12 +111,74 @@ impl FilterCounts {
     }
 }
 
+/// Document lists for every filter value, built once from the metadata. Counting a chip then
+/// reads a membership list instead of scanning every document once per filter.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub(crate) struct DocLists {
+    pub kinds: std::collections::BTreeMap<String, Vec<u32>>,
+    pub sources: std::collections::BTreeMap<String, Vec<u32>>,
+    /// Lowercase field -> value as indexed -> document ordinals, ascending.
+    pub facets: std::collections::BTreeMap<String, std::collections::BTreeMap<String, Vec<u32>>>,
+    /// Counts over every document, with no query and no filters.
+    pub totals: FilterCounts,
+}
+
+impl DocLists {
+    fn build(docs: &[store::DocMeta]) -> Self {
+        let mut lists = Self::default();
+        let mut seen: Vec<(&str, &str)> = Vec::new();
+        for (ord, doc) in docs.iter().enumerate() {
+            let ord = ord as u32;
+            lists.kinds.entry(doc.kind.clone()).or_default().push(ord);
+            lists
+                .sources
+                .entry(doc.source.clone())
+                .or_default()
+                .push(ord);
+            seen.clear();
+            for (field, value) in &doc.facets {
+                if seen.contains(&(field.as_str(), value.as_str())) {
+                    continue;
+                }
+                seen.push((field, value));
+                lists
+                    .facets
+                    .entry(field.to_lowercase())
+                    .or_default()
+                    .entry(value.clone())
+                    .or_default()
+                    .push(ord);
+            }
+        }
+        lists.totals.total = docs.len() as u32;
+        for (kind, ords) in &lists.kinds {
+            lists.totals.kinds.insert(kind.clone(), ords.len() as u32);
+        }
+        for (source, ords) in &lists.sources {
+            lists
+                .totals
+                .sources
+                .insert(source.clone(), ords.len() as u32);
+        }
+        for (field, values) in &lists.facets {
+            for (value, ords) in values {
+                lists
+                    .totals
+                    .facets
+                    .insert((field.clone(), value.clone()), ords.len() as u32);
+            }
+        }
+        lists
+    }
+}
+
 /// An immutable, queryable index.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchIndex {
     pub(crate) meta: MetaSection,
     pub(crate) postings: PostingsSection,
     pub(crate) texts: TextSection,
+    pub(crate) doc_lists: DocLists,
 }
 
 impl SearchIndex {
@@ -125,10 +187,12 @@ impl SearchIndex {
         postings: PostingsSection,
         texts: TextSection,
     ) -> Self {
+        let doc_lists = DocLists::build(&meta.docs);
         Self {
             meta,
             postings,
             texts,
+            doc_lists,
         }
     }
 
@@ -165,7 +229,16 @@ impl SearchIndex {
 
     /// Values of a facet field with the number of docs having each, sorted by value.
     pub fn facet_values(&self, field: &str) -> Vec<(String, u32)> {
-        self.facet_values_eligible(field, |_| true)
+        self.doc_lists
+            .facets
+            .get(&field.to_lowercase())
+            .map(|values| {
+                values
+                    .iter()
+                    .map(|(value, ords)| (value.clone(), ords.len() as u32))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn facet_values_eligible(
@@ -173,17 +246,24 @@ impl SearchIndex {
         field: &str,
         eligible: impl Fn(&str) -> bool,
     ) -> Vec<(String, u32)> {
-        let mut map: std::collections::BTreeMap<&str, u32> = Default::default();
-        for d in self.meta.docs.iter().filter(|d| eligible(&d.id)) {
-            let mut seen: Vec<&str> = Vec::new();
-            for (f, v) in &d.facets {
-                if f.eq_ignore_ascii_case(field) && !seen.contains(&v.as_str()) {
-                    seen.push(v);
-                    *map.entry(v).or_default() += 1;
-                }
-            }
-        }
-        map.into_iter().map(|(v, c)| (v.to_string(), c)).collect()
+        let Some(values) = self.doc_lists.facets.get(&field.to_lowercase()) else {
+            return Vec::new();
+        };
+        values
+            .iter()
+            .filter_map(|(value, ords)| {
+                let count = ords
+                    .iter()
+                    .filter(|&&ord| {
+                        self.meta
+                            .docs
+                            .get(ord as usize)
+                            .is_some_and(|doc| eligible(&doc.id))
+                    })
+                    .count() as u32;
+                (count > 0).then(|| (value.clone(), count))
+            })
+            .collect()
     }
 
     pub fn facet_fields(&self) -> Vec<String> {

@@ -88,9 +88,10 @@ and the measured migration reports.
 
 `sources/pathfinder-data-1-e/pi-screen.json` is the Product Identity screen. The
 inventory applies it after hash verification, so every later step reads screened text.
-It omits descriptive PI prose by reviewed section rules and removes outbound links;
-proper names inside mechanics stay under the Community Use Policy, and every Pf Data
-entry carries `legal#community-use`. Omissions are coverage rows, and
+Since 2026-11-05 it has no omission rules: Paizo Product Identity is kept under the
+Community Use Policy, and every entry, Pf Data and PSRD-derived, carries
+`legal#community-use`. The screen still removes outbound links, and any future reviewed
+omission rule belongs there. Omissions are coverage rows, and
 `reports/migration-coverage.json` records their totals under `pi_screen`.
 
 Supplementary sources require independent pins and rights decisions. They are not

@@ -1,0 +1,75 @@
+name: Set up the build environment
+description: >-
+  Pinned Rust toolchain, Rust build cache, and (optionally) the pinned Trunk
+  binary with its downloaded wasm-bindgen and wasm-opt tools, all restored from
+  the Actions cache.
+
+inputs:
+  cache-key:
+    description: >-
+      Rust build cache key shared by jobs that compile the same targets.
+    required: true
+  trunk:
+    description: Install Trunk and restore its tools ("true" or "false").
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Install the pinned toolchain
+      shell: bash
+      run: rustup show active-toolchain || rustup toolchain install
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ inputs.cache-key }}
+    - name: Read the Trunk pin and the wasm-bindgen version
+      if: ${{ inputs.trunk == 'true' }}
+      id: pin
+      shell: bash
+      env:
+        # Single source of truth for the Trunk pin. The SHA-256 is that of
+        # trunk-x86_64-unknown-linux-gnu.tar.gz in the v0.22.1 release (the
+        # release publishes it as trunk-x86_64-unknown-linux-gnu.tar.gz.sha256).
+        TRUNK_VERSION: "0.22.1"
+        TRUNK_SHA256: 2ab8d548fd5ed9cda50906f61fd8654204e7893bd52ebbfd90533862b7d71ee1
+      run: |
+        wbg=$(awk '/^name = "wasm-bindgen"$/ { getline; gsub(/[^0-9.]/, "", $0); print; exit }' Cargo.lock)
+        test -n "$wbg"
+        {
+          echo "trunk_version=$TRUNK_VERSION"
+          echo "trunk_sha256=$TRUNK_SHA256"
+          echo "wasm_bindgen=$wbg"
+        } >> "$GITHUB_OUTPUT"
+    # The key carries the version and the SHA, so a changed pin never reuses an old binary.
+    - name: Restore the Trunk binary
+      if: ${{ inputs.trunk == 'true' }}
+      id: trunk-bin
+      uses: actions/cache@v6
+      with:
+        path: ~/.local/bin/trunk
+        key: trunk-bin-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.trunk_version }}-${{ steps.pin.outputs.trunk_sha256 }}
+    - name: Download and verify Trunk ${{ steps.pin.outputs.trunk_version }}
+      if: ${{ inputs.trunk == 'true' && steps.trunk-bin.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        TRUNK_VERSION: ${{ steps.pin.outputs.trunk_version }}
+        TRUNK_SHA256: ${{ steps.pin.outputs.trunk_sha256 }}
+      run: |
+        asset="trunk-x86_64-unknown-linux-gnu.tar.gz"
+        curl -fsSL --retry 5 --retry-all-errors -o "$RUNNER_TEMP/$asset" \
+          "https://github.com/trunk-rs/trunk/releases/download/v${TRUNK_VERSION}/${asset}"
+        echo "${TRUNK_SHA256}  $RUNNER_TEMP/$asset" | sha256sum -c -
+        mkdir -p "$HOME/.local/bin"
+        tar xzf "$RUNNER_TEMP/$asset" -C "$HOME/.local/bin" trunk
+    - name: Put Trunk on the path
+      if: ${{ inputs.trunk == 'true' }}
+      shell: bash
+      run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+    # Trunk downloads wasm-bindgen and wasm-opt from GitHub at build time and
+    # keeps them in its cache directory (~/.cache/trunk on Linux).
+    - name: Restore Trunk's downloaded tools
+      if: ${{ inputs.trunk == 'true' }}
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/trunk
+        key: trunk-tools-${{ runner.os }}-${{ runner.arch }}-${{ steps.pin.outputs.trunk_version }}-wbg-${{ steps.pin.outputs.wasm_bindgen }}

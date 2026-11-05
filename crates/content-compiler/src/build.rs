@@ -852,7 +852,12 @@ impl<'p> Ctx<'p> {
                 record,
                 path,
             }],
-            license_refs: vec![LICENSE_OGL.to_string()],
+            // Paizo Product Identity is kept under the Community Use Policy, so every
+            // entry carries that notice path next to the OGL.
+            license_refs: vec![
+                LICENSE_OGL.to_string(),
+                crate::legal::COMMUNITY_USE_NOTICE_PATH.to_string(),
+            ],
             relations: Vec::new(),
         }
     }

@@ -41,25 +41,42 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await page.getByRole("button", { name: "Check for updates", exact: true }).click();
     await expect(page.getByTestId("update-status")).toContainText("up to date");
 
-    // The server now offers v2. One of its files is slow, so the update is in flight for a while.
-    const slow = next.manifest.files.find((file) =>
-      file.path.includes("/entries/") && file.path.endsWith(".json"))!.path;
-    await server.overlay(next.dir);
-    await server.hook(`content/${slow}`, "slow", { ms: 150 });
-    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
-    await expect(page.getByText("Newer library available")).toBeVisible();
-    await expect(page.locator(".install-panel .facts")).toContainText(next.version);
-    await page.getByRole("button", { name: "Download update" }).click();
-    await expect(page.getByTestId("install-status")).toContainText(/Downloading/);
-
-    // While v2 downloads, a second page still reads v1 and shows the user's bookmark.
-    await expect.poll(async () => contentCaches(await cacheContents(page)).sort()).toEqual([`cast-iron-content-${v1}`, `cast-iron-content-${next.version}`].sort());
+    // A second page opened under v1. It stays on the old library while a replacement downloads;
+    // opening it first keeps the check independent of page-load time on a warm local server.
     const reader = await context.newPage();
     await reader.goto(`#/entry/${entry.id}`);
     await expect(reader.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
     await reader.goto("#/legal");
     await expect(reader.locator("#community-use + .legal-text")).not.toContainText(marker);
     expect((await activeLibrary(reader)).content_version).toBe(v1);
+
+    // The server now offers v2. One of its files is slow, so the update is in flight while the
+    // open second page is checked below.
+    const slow = next.manifest.files.find((file) =>
+      file.path.includes("/entries/") && file.path.endsWith(".json"))!.path;
+    await server.overlay(next.dir);
+    await server.hook(`content/${slow}`, "slow", { ms: 500 });
+    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+    await expect(page.getByText("Newer library available")).toBeVisible();
+    await expect(page.locator(".install-panel .facts")).toContainText(next.version);
+    await page.getByRole("button", { name: "Download update" }).click();
+    await expect(page.getByTestId("install-status")).toContainText(/Downloading/);
+
+    // While v2 downloads, the open page still reads v1 and shows the old legal text.
+    expect((await activeLibrary(reader)).content_version).toBe(v1);
+    await expect(reader.locator("#community-use + .legal-text")).not.toContainText(marker);
+    await expect.poll(async () => contentCaches(await cacheContents(page)).sort()).toEqual([`cast-iron-content-${v1}`, `cast-iron-content-${next.version}`].sort());
+    // A page opened now, with v2 still downloading, must also start on v1 (AGENTS.md rule 7:
+    // a partly installed library never becomes active). The slow file keeps v2 in flight.
+    const fresh = await context.newPage();
+    await fresh.goto(`#/entry/${entry.id}`);
+    await expect(fresh.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
+    expect((await activeLibrary(fresh)).content_version).toBe(v1);
+    await fresh.goto("#/legal");
+    await expect(fresh.locator("#community-use + .legal-text")).not.toContainText(marker);
+    // Still in flight: activation would have deleted the v1 cache.
+    expect(contentCaches(await cacheContents(page))).toContain(`cast-iron-content-${v1}`);
+    await fresh.close();
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.

@@ -40,6 +40,34 @@ Schema version 3 and search format 1 are unchanged. The default library's legal 
 lists both dataset pins and all 660 Section 15 notices. This is local evidence only;
 no CI, deployment, or live verification is claimed here.
 
+### Search facet-chip latency, 2026-11-05
+
+The canonical search view renders 479 chips: one per publication, kind, and facet value.
+Chips waited on three repeated full-index passes. Every search rebuilt the discovery
+snapshot, scanned all 29,515 documents once per facet field for the value lists, and
+counted each chip with a cloned `Filters` plus lowercase allocation for every document
+and facet pair. `SearchIndex` now builds per-value document lists once when it decodes the
+index. `filter_counts_eligible` evaluates each query-matched document against the active
+filter groups once and answers every chip from its failure mask, and Search caches facet
+values and the discovery snapshot per selection revision. The lists use metadata that
+search format 1 already carries, so nothing changes in `search.bin`.
+
+`tests/e2e/measure-library.mjs` now records these times. Local run, fresh browser profile,
+distribution server on localhost, canonical content `vd7596846128e349b`:
+
+| Measure (ms) | Chromium before | Chromium after | WebKit before | WebKit after |
+|---|---:|---:|---:|---:|
+| Open Search: first chip visible | 225 | 153 | 236 | 174 |
+| Open Search: every chip count settled | 235 | 164 | 249 | 188 |
+| Select Spells: School and Spell level chips | 178 | 145 | 201 | 146 |
+| Toggle one school: counts settled | 146 | 97 | 135 | 88 |
+| Search engine p50 / p95 | 53.9 / 207.3 | 51.5 / 195.6 | 51.0 / 211.0 | 47.0 / 188.0 |
+
+The "before" numbers already fit under a second on this machine, so the 60-second waits
+were a cutover safety margin, not a reproduced local stall. They are gone from
+`search.spec.ts`, which now uses the suite's normal 15-second expectation timeout; no
+assertion was weakened. The remaining cost is DOM work for the 479 chips, not counting.
+
 ## Development and release migration
 
 [GitHub Issues](https://github.com/phynics/cast-iron/issues) is the tracking
@@ -269,7 +297,7 @@ Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The 
 - [#14](https://github.com/phynics/cast-iron/issues/14): Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
 - [#14](https://github.com/phynics/cast-iron/issues/14): Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
 - [#15](https://github.com/phynics/cast-iron/issues/15): No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
-- [#15](https://github.com/phynics/cast-iron/issues/15): Category lens counts and source counts are global. Search field facets omit counts; the UI does not calculate counts conditional on every active filter.
+- [#15](https://github.com/phynics/cast-iron/issues/15): Category lens counts and source counts are global. Search facet chips carry counts conditional on the other active filters; those counts are not used by the category lenses.
 - [#15](https://github.com/phynics/cast-iron/issues/15): In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
 - [#15](https://github.com/phynics/cast-iron/issues/15): Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
 - Firefox, and a single flaky run of `Back/forward navigation works` on Chromium, which could not be reproduced (see `docs/decisions.md`).
@@ -644,4 +672,36 @@ covers the alias and legacy paths.
 This is a local build, not a deployment. PSRD was still the production default at
 that time, and P8 acceptance (install size, quota, latency, offline navigation,
 bookmark migration, browsers) had not been run for that library.
+## Full Pf Data corpus second pass, 2026-11-05
+
+A second local pass over pin `08ea71f24375908d0190c822fd1fd080797667a9` removed
+the largest remaining conversion causes on the canonical main:
+
+| Measure | Before | After |
+|---|---:|---:|
+| Selected records | 29,253 | 29,253 |
+| Converted records | 28,496 | 29,024 |
+| Findings | 1,579 | 858 |
+| High findings | 1,244 | 523 |
+| Medium findings | 335 | 335 |
+| Excluded records | 1,489 | 961 |
+| Mandatory fixtures | 6/6 | 6/6 |
+
+The deliberate `::aff block has no name` rejection remains 332 medium findings.
+The remaining high findings are smaller families, led by the inline `@list`
+token, unresolved ability anchors such as `#/fetch`, and a few unsupported
+containers. Two full `cargo xtask data-import` runs produced byte-identical
+`full.json`, `full-search.bin`, `inventory.json`, `books.json`,
+`book-coverage.json`, `migration-full.json`, and `migration-full.md`.
+`cargo xtask data-report` reports 0 findings and 6/6 fixtures. Two canonical
+`cargo xtask content` runs produced a byte-identical `generated/content` tree,
+and `python3 scripts/check-library-upgrade.py generated/psrd generated/content`
+exited 0 with an empty alias-problem and dangling-reference set.
+
+The default canonical library moves from 29,515 entries at
+`vd7596846128e349b` to 30,000 entries at `v46b91fe4b0c71e28`, a net gain of 485
+entries. The PSRD carry-over library built with `cargo xtask content --psrd`
+remains 9,968 entries at `vdb43853600b8ed8b`. Schema 3 and search format 1 are
+unchanged. This is local evidence; the full migration is still blocked and not
+shipped. See [decisions](decisions.md#full-pf-data-corpus-second-root-cause-pass-2026-11-05).
 

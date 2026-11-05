@@ -801,3 +801,106 @@ fn every_count_equals_the_result_size_of_choosing_that_chip() {
         }
     }
 }
+
+#[test]
+fn every_count_equals_the_result_size_with_several_active_facets() {
+    let idx = counts_corpus();
+    let size = |text: &str, f: &Filters| {
+        let mut query = q(text);
+        query.filters = f.clone();
+        query.limit = usize::MAX;
+        idx.search(&query).len() as u32
+    };
+    let base = mk_filters(
+        &["spell"],
+        &["core"],
+        &[("school", "evocation"), ("spell_level", "4")],
+    );
+    let c = idx.filter_counts_eligible("fire", &base, all);
+    assert_eq!(c.total, size("fire", &base));
+    // Each chip ignores only its own group.
+    for (field, value) in [
+        ("school", "evocation"),
+        ("school", "abjuration"),
+        ("spell_level", "1"),
+        ("spell_level", "4"),
+    ] {
+        let mut f = base.clone();
+        f.facets.retain(|(k, _)| k != field);
+        f.facets.push((field.into(), value.into()));
+        assert_eq!(c.facet(field, value), size("fire", &f), "{field}={value}");
+    }
+    let mut f = base.clone();
+    f.kinds = vec!["feat".into()];
+    assert_eq!(c.kind("feat"), size("fire", &f));
+    let mut f = base.clone();
+    f.sources = vec!["apg".into()];
+    assert_eq!(c.source("apg"), size("fire", &f));
+}
+
+#[test]
+fn duplicate_facet_pairs_count_once() {
+    let idx = build(vec![doc(
+        "spell:a",
+        "Fire Bolt",
+        "spell",
+        "core",
+        "Flame.",
+        &[
+            ("school", "evocation"),
+            ("school", "evocation"),
+            ("spell_level", "1"),
+        ],
+    )]);
+    let c = idx.filter_counts_eligible("", &Filters::default(), all);
+    assert_eq!(c.facet("school", "evocation"), 1);
+    assert_eq!(c.facet("spell_level", "1"), 1);
+    assert_eq!(
+        idx.facet_values("school"),
+        vec![("evocation".to_string(), 1)]
+    );
+}
+
+#[test]
+fn filter_comparisons_stay_case_insensitive() {
+    let idx = counts_corpus();
+    let mixed = mk_filters(&["SPELL"], &["CORE"], &[("SCHOOL", "EVOCATION")]);
+    let lower = mk_filters(&["spell"], &["core"], &[("school", "evocation")]);
+    assert_eq!(
+        idx.filter_counts_eligible("fire", &mixed, all),
+        idx.filter_counts_eligible("fire", &lower, all)
+    );
+    assert_eq!(
+        idx.search(&{
+            let mut query = q("fire");
+            query.filters = mixed;
+            query.limit = usize::MAX;
+            query
+        })
+        .len(),
+        idx.search(&{
+            let mut query = q("fire");
+            query.filters = lower;
+            query.limit = usize::MAX;
+            query
+        })
+        .len()
+    );
+}
+
+#[test]
+fn facet_lists_match_the_documents_after_a_round_trip() {
+    let idx = counts_corpus();
+    let decoded = SearchIndex::from_bytes(&idx.to_bytes()).expect("round trip");
+    for field in ["school", "spell_level", "feat_type"] {
+        assert_eq!(decoded.facet_values(field), idx.facet_values(field));
+        assert_eq!(
+            decoded.facet_values_eligible(field, |id| id.starts_with("spell:")),
+            idx.facet_values_eligible(field, |id| id.starts_with("spell:"))
+        );
+    }
+    assert_eq!(
+        decoded.filter_counts_eligible("fire", &Filters::default(), all),
+        idx.filter_counts_eligible("fire", &Filters::default(), all)
+    );
+}

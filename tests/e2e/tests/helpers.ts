@@ -56,8 +56,7 @@ export async function activeLibrary(page: Page) {
 }
 
 /** Cache name -> request paths relative to the app base (document-relative `content/...` keys). */
-export async function cacheContents(page: Page): Promise<Record<string, string[]>> {
-  return page.evaluate(async () => {
+export async function cacheContents(page: Page): Promise<Record<string, string[]>> {  return page.evaluate(async () => {
     const out: Record<string, string[]> = {};
     const base = new URL("./", document.baseURI).pathname;
     for (const name of await caches.keys()) {
@@ -148,6 +147,24 @@ export function buildUpdatedLibrary(marker: string) {
   };
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
+ * A manifest overlay that leaves out `books.json`, so the client installs a library with no
+ * book order. The legacy `#/browse/source/<id>` route then renders its kind groups instead of
+ * the book doorway, which lets the acceptance test compare the header against those links.
+ * The content version stays the same, so the unchanged files keep coming from dist.
+ */
+export function buildLibraryWithoutBooks() {
+  const old = distManifest();
+  const books = old.files.filter((f) => f.path.endsWith("/books.json"));
+  const files = old.files.filter((f) => !f.path.endsWith("/books.json"));
+  const total_bytes = old.total_bytes - books.reduce((n, f) => n + f.bytes, 0);
+  const manifest = { ...old, total_bytes, files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-no-books-"));
+  fs.mkdirSync(path.join(dir, "content"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
+  return { dir, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 /** Follow the publication directory through its actual disclosure and contents link. */
@@ -262,13 +279,19 @@ export function hasBlock(entry: Entry, type: string): boolean {
 }
 
 /** Every heading block of an entry body, in document order, with or without an anchor. */
-export function bodyHeadings(entry: Entry): { anchor?: string; text: string; level: number }[] {
-  const found: { anchor?: string; text: string; level: number }[] = [];
+export function bodyHeadings(entry: Entry): { anchor?: string; text: string; level: number; content: any[] }[] {
+  const found: { anchor?: string; text: string; level: number; content: any[] }[] = [];
   const walk = (value: any) => {
     if (Array.isArray(value)) return value.forEach(walk);
     if (!value || typeof value !== "object") return;
     if (value.t === "heading") {
-      found.push({ anchor: value.anchor, text: inlineText(value.content ?? []), level: value.level });
+      found.push({
+        anchor: value.anchor,
+        // Same text as Rust `plain_text`: a line break counts as a space.
+        text: headingPlainText(value.content ?? []),
+        level: value.level,
+        content: value.content ?? [],
+      });
     }
     Object.values(value).forEach(walk);
   };
@@ -281,6 +304,60 @@ export function headingAnchors(entry: Entry): { anchor: string; text: string; le
   return bodyHeadings(entry).filter(
     (heading): heading is { anchor: string; text: string; level: number } => typeof heading.anchor === "string",
   );
+}
+
+/** Plain text as the reader derives a heading slug: a line break counts as a space. */
+function headingPlainText(nodes: any[]): string {
+  return nodes
+    .map((node) =>
+      node.t === "break" ? " " : typeof node.v === "string" ? node.v : headingPlainText(node.c ?? []),
+    )
+    .join("");
+}
+
+/** Lowercase `a-z0-9` words joined by `-`, as `rich::slugify` does. */
+function slugify(text: string): string {
+  let out = "";
+  let pendingDash = false;
+  for (const ch of text) {
+    if (/^[A-Za-z0-9]$/.test(ch)) {
+      if (pendingDash && out) out += "-";
+      pendingDash = false;
+      out += ch.toLowerCase();
+    } else {
+      pendingDash = true;
+    }
+  }
+  return out;
+}
+
+/** Route anchors that target app elements on an entry page; content headings never take them. */
+export const RESERVED_ANCHOR_KEYS = ["entry-related"];
+
+/**
+ * The URL anchor key of every heading of an entry body, in document order, or null for a heading
+ * with no key. Mirrors `rich::keyed_headings`: the compiler anchor, else `sec-<slug>`; a repeated
+ * key gets `-2`, `-3`, ..., skipping any literal key in the body and the reserved app keys.
+ * The DOM id is `h-<key>`.
+ */
+export function headingKeys(entry: Entry): { key: string | null; text: string; level: number }[] {
+  const headings = bodyHeadings(entry).map((heading) => {
+    const slug = slugify(headingPlainText(heading.content));
+    const base = heading.anchor ? heading.anchor : slug ? `sec-${slug}` : null;
+    return { base, text: heading.text, level: heading.level };
+  });
+  const literal = new Set(headings.map((heading) => heading.base).filter((base): base is string => base !== null));
+  const used = new Set(RESERVED_ANCHOR_KEYS);
+  return headings.map(({ base, text, level }) => {
+    if (base === null) return { key: null, text, level };
+    let key = base;
+    for (let suffix = 2; used.has(key); suffix++) {
+      const candidate = `${base}-${suffix}`;
+      if (!literal.has(candidate) && !used.has(candidate)) key = candidate;
+    }
+    used.add(key);
+    return { key, text, level };
+  });
 }
 
 export interface TocNode {

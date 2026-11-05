@@ -174,6 +174,30 @@ class UpgradeCheckTests(unittest.TestCase):
         self.assertTrue(any("unresolvable" in failure for failure in failures))
         self.assertTrue(any("missing" in failure for failure in failures))
 
+    def test_ids_that_were_never_published_are_reported_not_failed(self):
+        write_library(
+            self.old,
+            [entry("legacy/b", "B"), entry("legacy/never-shipped", "Never Shipped")],
+        )
+        write_library(
+            self.new,
+            [entry("ref/rule/b", "B")],
+            aliases=aliases(
+                entries=[{"old": "legacy/b", "target": "ref/rule/b", "basis": "direct"}]
+            ),
+            unplaced=[],
+        )
+
+        report, failures = upgrade.check(self.old, self.new, published={"legacy/b"})
+
+        self.assertEqual(report["missing_ids"], [])
+        self.assertEqual(report["unpublished_old_ids"], ["legacy/never-shipped"])
+        self.assertFalse(any("missing" in failure for failure in failures), failures)
+        # Without the published set the same id is a missing, failing id.
+        report, failures = self.run_check()
+        self.assertEqual(report["missing_ids"], ["legacy/never-shipped"])
+        self.assertTrue(any("missing" in failure for failure in failures))
+
     def test_a_chain_and_a_double_disposition_fail(self):
         write_library(self.old, [entry("legacy/a", "A"), entry("legacy/b", "B")])
         write_library(
