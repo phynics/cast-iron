@@ -24,7 +24,7 @@ test("Keyboard reading traverses a complete Armor subsystem offline and preserve
     await disclosure.locator(`a[href="${link.href}"]`).press("Enter");
     const anchor = new URLSearchParams(link.href.split("?")[1]).get("a")!;
     await expect.poll(() => page.evaluate(id => {
-      const el = document.getElementById(id);
+      const el = document.getElementById(`h-${id}`);
       if (!el) return false;
       const top = el.getBoundingClientRect().top;
       return top >= 0 && top < innerHeight;
@@ -37,6 +37,9 @@ test("Keyboard reading traverses a complete Armor subsystem offline and preserve
   await expect(page.locator("h1")).not.toHaveText("Armor");
   await page.locator('.book-steps a[rel="prev"]').press("Enter");
   await expect(page.locator("h1")).toHaveText("Armor");
+  // The route change moves focus to <main> on the next frame. Wait for it before the next key,
+  // or the Enter can land on <main> instead of the cross-reference link.
+  await expect(page.locator("main#main")).toBeFocused();
   // Follow an actual typed cross-reference if this subsystem supplies one.
   const cross = page.locator('.entry > .rich a[href^="#/entry/"]').first();
   await expect(cross).toBeAttached();

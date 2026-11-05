@@ -380,3 +380,13 @@ Settles #41 (split from #15). Search and Browse used to show the same active-boo
 - **Starred entries show five rows first.** When more than five are saved, a button with `aria-expanded` reveals the rest and collapses them again; the stored order and the open and unstar actions do not change.
 - **Links that named Browse now name Home.** Breadcrumbs, the entry crumb, and the empty-bookmarks action point at `Route::Home`. `BrowseKind`, `BrowseSource`, `Spells`, `SpellList`, and `FeatChains` mark Home as the current section.
 - **The footer links to the project and its issue tracker.** The existing disclaimer is unchanged and always visible; the new links are marked as needing a connection, and coarse-pointer targets keep the standard touch height.
+
+## Heading DOM ids and URL anchor keys, 2026-11-05
+
+This replaces the earlier rule that heading ids were the compiler's anchors, unprefixed. That rule let a content anchor such as `main` or `references-heading` collide with an app element, and let two headings with the same text share one id.
+
+- **A heading's KEY is its URL anchor.** It is the compiler anchor when that is non-empty, otherwise `sec-` plus the slug of the heading's plain text. If neither produces text, the heading has no KEY and no id. Existing `?a=` URLs therefore keep working.
+- **Duplicate KEYs in one entry are suffixed deterministically.** The first heading in document order keeps the base KEY. Later headings with that KEY get `KEY-2`, `KEY-3`, and so on. A suffix that matches any literal KEY elsewhere in the same body is skipped, so `sec-x`, `sec-x`, and a real anchor `sec-x-2` become `sec-x`, `sec-x-3`, `sec-x-2`.
+- **The DOM id is `h-` plus the final KEY.** The prefix keeps content ids away from app ids such as `main` and `references-heading`.
+- **`scroll_to_anchor` tries `h-<anchor>` first, then the raw id.** The fallback keeps routes that target app elements working, including `entry-related` and the browse letter groups.
+- **The renderer and article contents share one assignment.** `rich::heading_keys` walks the same document order as the renderer, and `ArticleContents` links to the final KEY. Headings with a KEY are no longer dropped from the contents just because another heading shares their text.

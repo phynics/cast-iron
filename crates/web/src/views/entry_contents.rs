@@ -1,7 +1,7 @@
 //! Rule article contents and heading-aware search matching.
 
 use crate::route::Route;
-use crate::views::rich::{heading_id, plain_text};
+use crate::views::rich::{heading_keys, plain_text};
 use cast_iron_schema::{Block, EntryId};
 use leptos::prelude::*;
 
@@ -13,21 +13,11 @@ struct Heading {
 }
 
 fn headings(body: &[Block]) -> Vec<Heading> {
-    fn collect(blocks: &[Block], out: &mut Vec<Heading>) {
+    fn collect(blocks: &[Block], out: &mut Vec<(u8, String)>) {
         for block in blocks {
             match block {
-                Block::Heading {
-                    level,
-                    anchor,
-                    content,
-                } => {
-                    if let Some(id) = heading_id(anchor.as_deref(), content) {
-                        out.push(Heading {
-                            level: *level,
-                            title: plain_text(content),
-                            anchor: id,
-                        });
-                    }
+                Block::Heading { level, content, .. } => {
+                    out.push((*level, plain_text(content)));
                 }
                 Block::List { items, .. } => {
                     for item in items {
@@ -41,28 +31,18 @@ fn headings(body: &[Block]) -> Vec<Heading> {
     }
     let mut found = Vec::new();
     collect(body, &mut found);
-    // RichBody emits these IDs verbatim. Skip collisions so links never point ambiguously.
-    found.retain(|heading| {
-        headings_count(body, &heading.anchor) == 1 && !heading.title.trim().is_empty()
-    });
     found
-}
-
-fn headings_count(body: &[Block], id: &str) -> usize {
-    fn count(blocks: &[Block], id: &str) -> usize {
-        blocks
-            .iter()
-            .map(|block| match block {
-                Block::Heading {
-                    anchor, content, ..
-                } => usize::from(heading_id(anchor.as_deref(), content).as_deref() == Some(id)),
-                Block::List { items, .. } => items.iter().map(|item| count(item, id)).sum(),
-                Block::Quote { content } => count(content, id),
-                _ => 0,
+        .into_iter()
+        .zip(heading_keys(body))
+        .filter_map(|((level, title), key)| {
+            let key = key?;
+            (!title.trim().is_empty()).then_some(Heading {
+                level,
+                title,
+                anchor: key,
             })
-            .sum()
-    }
-    count(body, id)
+        })
+        .collect()
 }
 
 fn words(text: &str) -> Vec<String> {
@@ -72,7 +52,7 @@ fn words(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// Find the best matching, uniquely anchored heading in a typed rule body.
+/// Find the best matching heading key in a typed rule body.
 /// Exact heading matches win, then whole-word matches, then headings containing every query token.
 pub fn matching_heading(body: &[Block], query: &str) -> Option<String> {
     let query = query.trim();
@@ -172,7 +152,7 @@ mod tests {
     }
 
     #[test]
-    fn fallback_uses_the_renderer_heading_id_and_rejects_duplicate_ids() {
+    fn fallback_uses_the_renderer_heading_key_and_deduplicates_anchors() {
         let body = vec![
             Block::Heading {
                 level: 2,
@@ -186,6 +166,31 @@ mod tests {
             matching_heading(&body, "grapple").as_deref(),
             Some("sec-grapple")
         );
-        assert_eq!(matching_heading(&body, "duplicate"), None);
+        assert_eq!(
+            matching_heading(&body, "duplicate").as_deref(),
+            Some("other-2")
+        );
+    }
+
+    #[test]
+    fn duplicate_headings_both_appear_in_the_contents_with_distinct_keys() {
+        let body = vec![
+            Block::Heading {
+                level: 2,
+                anchor: None,
+                content: vec![Inline::text("Grapple")],
+            },
+            h(2, "Other", "other"),
+            Block::Heading {
+                level: 3,
+                anchor: None,
+                content: vec![Inline::text("Grapple")],
+            },
+        ];
+        let found = headings(&body);
+        assert_eq!(found.len(), 3);
+        assert_eq!(found[0].anchor, "sec-grapple");
+        assert_eq!(found[2].anchor, "sec-grapple-2");
+        assert_eq!(found[2].title, "Grapple");
     }
 }
