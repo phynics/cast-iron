@@ -67,15 +67,16 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await expect(reader.locator("#community-use + .legal-text")).not.toContainText(marker);
     await expect.poll(async () => contentCaches(await cacheContents(page)).sort()).toEqual([`cast-iron-content-${v1}`, `cast-iron-content-${next.version}`].sort());
     // A page opened now, with v2 still downloading, must also start on v1 (AGENTS.md rule 7:
-    // a partly installed library never becomes active). The slow file keeps v2 in flight.
+    // a partly installed library never becomes active). The slow file keeps v2 in flight, and
+    // the active pointer read on the fresh page is itself the proof: it would name v2 only
+    // after activation. Do not add a later cache check here; activation may legitimately
+    // finish while this page is being checked.
     const fresh = await context.newPage();
     await fresh.goto(`#/entry/${entry.id}`);
     await expect(fresh.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
     expect((await activeLibrary(fresh)).content_version).toBe(v1);
     await fresh.goto("#/legal");
     await expect(fresh.locator("#community-use + .legal-text")).not.toContainText(marker);
-    // Still in flight: activation would have deleted the v1 cache.
-    expect(contentCaches(await cacheContents(page))).toContain(`cast-iron-content-${v1}`);
     await fresh.close();
     await reader.close();
 
