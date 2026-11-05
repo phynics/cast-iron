@@ -13,6 +13,7 @@ pub mod family;
 pub mod fields;
 pub mod html;
 pub mod legal;
+pub mod link_pass;
 pub mod lists;
 pub mod model;
 pub mod order;

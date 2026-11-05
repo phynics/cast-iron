@@ -122,6 +122,8 @@ pub struct Library {
     /// [`package`] adds it to the version directory and the manifest so the
     /// content version covers its bytes; it is never appended after publication.
     pub aliases_file: Option<Vec<u8>>,
+    /// What the canonical body-link pass did. `None` for builders that do not run it.
+    pub link_pass: Option<crate::link_pass::Report>,
 }
 
 /// Builds the PSRD-Data library: select, parse, plan, build, and derive.
@@ -447,6 +449,7 @@ pub fn build_psrd(opts: &Options) -> Result<Library, Failure> {
         survey,
         supplement_prefix,
         aliases_file: None,
+        link_pass: None,
     })
 }
 
@@ -493,6 +496,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         survey,
         supplement_prefix,
         aliases_file,
+        link_pass,
     } = library;
 
     // Shards and catalog.
@@ -540,6 +544,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         &survey,
         &catalog,
         supplement_prefix.as_deref(),
+        link_pass.as_ref(),
     )?;
     if !errors.is_empty() {
         let mut lines = vec![format!("validation failed with {} error(s):", errors.len())];
@@ -791,6 +796,17 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     let ids: BTreeSet<EntryId> = entries.iter().map(|entry| entry.id.clone()).collect();
     let settlement = settle_references(&mut entries, &ids);
 
+    // The body-link pass runs on final ids and the reviewed publication dates, which order
+    // entries that share a title.
+    let ranks: BTreeMap<String, String> =
+        publication_metadata::load_from_canonical_dir(&opts.canonical_dir)?
+            .publication
+            .into_iter()
+            .filter_map(|(source, row)| row.publication_date.map(|date| (source, date)))
+            .collect();
+    let linked = crate::link_pass::link_entries(entries, &ranks);
+    let (entries, link_pass) = (linked.entries, linked.report);
+
     // Carried entries have a PSRD source but no page attribution. Giving their
     // book a display title keeps the canonical book view from showing a slug.
     let mut pages = converted.pages.clone();
@@ -930,6 +946,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         survey: psrd.survey,
         supplement_prefix: None,
         aliases_file: Some(aliases_file),
+        link_pass: Some(link_pass),
     })
 }
 
@@ -2212,6 +2229,7 @@ fn write_reports(
     survey: &select::Survey,
     catalog: &Catalog,
     supplement_prefix: Option<&str>,
+    link_pass: Option<&crate::link_pass::Report>,
 ) -> Result<(), String> {
     let validation = serde_json::json!({
         "ok": errors.is_empty(),
@@ -2235,10 +2253,19 @@ fn write_reports(
         &dir.join("validation.json"),
         format!("{pretty}\n").as_bytes(),
     )?;
-    write_file(
-        &dir.join("coverage.md"),
-        coverage_markdown(coverage, notes, dedupe, survey, supplement_prefix).as_bytes(),
-    )
+    if let Some(report) = link_pass {
+        let pretty = serde_json::to_string_pretty(report).map_err(|e| e.to_string())?;
+        write_file(
+            &dir.join("link-pass.json"),
+            format!("{pretty}\n").as_bytes(),
+        )?;
+    }
+    let mut markdown = coverage_markdown(coverage, notes, dedupe, survey, supplement_prefix);
+    if let Some(report) = link_pass {
+        markdown.push('\n');
+        markdown.push_str(&crate::link_pass::markdown(report));
+    }
+    write_file(&dir.join("coverage.md"), markdown.as_bytes())
 }
 
 fn coverage_markdown(
