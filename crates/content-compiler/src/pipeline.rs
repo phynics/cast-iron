@@ -748,13 +748,9 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     // book a display title keeps the canonical book view from showing a slug.
     let mut pages = converted.pages.clone();
     add_carried_pages(&mut pages, &carried.records, &psrd.sources);
-    let books = crate::books::build_canonical(&entries, &converted.links, &pages);
-    let spell_lists = crate::lists::build(&entries);
-    let relations = crate::relations::index_over(&entries, pf_relations.coverage);
-    let relation_coverage = relations.coverage.clone();
-
-    let legal = canonical_legal(&psrd.legal, &legal_report, &pf_pin);
-    let (aliases_file, alias_retirements) = canonical_aliases(
+    // Resolve the alias map first: the PSRD books' legacy ids are rewritten
+    // through the same final targets that ship in aliases.json.
+    let aliases = canonical_aliases(
         &entries,
         &legally_excluded,
         &map,
@@ -763,6 +759,20 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         &catalog,
         &carried.fallbacks,
     )?;
+    let books = crate::books::build_canonical_with_psrd(
+        &entries,
+        &converted.links,
+        &pages,
+        &psrd.books,
+        &aliases.targets,
+        &aliases.dropped,
+    );
+    let spell_lists = crate::lists::build(&entries);
+    let relations = crate::relations::index_over(&entries, pf_relations.coverage);
+    let relation_coverage = relations.coverage.clone();
+
+    let legal = canonical_legal(&psrd.legal, &legal_report, &pf_pin);
+    let (aliases_file, alias_retirements) = (aliases.bytes, aliases.retirements);
 
     let sources = canonical_sources(&entries, &psrd.sources, &states);
     let by_publication =
@@ -802,6 +812,29 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     };
 
     let mut notes = psrd.notes.clone();
+    for row in &books.stats.curated {
+        notes.push(format!(
+            "canonical book order {}: {} chapters, {} placed via the PSRD tree, {} appended by page, {} dropped, {} duplicate placements skipped",
+            row.source,
+            row.chapters,
+            row.placed,
+            row.appended,
+            row.dropped,
+            row.duplicates,
+        ));
+        for id in &row.dropped_ids {
+            notes.push(format!(
+                "canonical book order {}: dropped legacy id {id}",
+                row.source
+            ));
+        }
+        for id in &row.duplicate_ids {
+            notes.push(format!(
+                "canonical book order {}: duplicate canonical placement {id}",
+                row.source
+            ));
+        }
+    }
     notes.push(format!(
         "canonical build: {} entries ({} Pf Data, {} carried, {} fallback carried), {} rejected records, {} alias retirements ({} rights, {} unrepresentable)",
         entries.len(),
@@ -1243,6 +1276,15 @@ struct AliasRetirements {
     fallbacks: usize,
 }
 
+struct CanonicalAliases {
+    bytes: Vec<u8>,
+    retirements: AliasRetirements,
+    /// Legacy id to the canonical target that is present in the installed library.
+    targets: BTreeMap<String, String>,
+    /// Legacy id to the reason it has no installed target.
+    dropped: BTreeMap<String, String>,
+}
+
 /// Generates the alias map in process and retires every row whose canonical
 /// target is not in the installed library. A row whose target the converter did
 /// not emit falls back to its carried entry when one was produced, so no legacy
@@ -1258,7 +1300,7 @@ fn canonical_aliases(
     snapshot_bytes: &[u8],
     catalog: &alias::CanonicalCatalog,
     fallbacks: &BTreeMap<String, String>,
-) -> Result<(Vec<u8>, AliasRetirements), Failure> {
+) -> Result<CanonicalAliases, Failure> {
     let (mut file, _stats) = alias::generate(map, snapshot, snapshot_bytes, catalog)
         .map_err(|errors| problems("alias gate(s)", errors))?;
     let final_ids: BTreeSet<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
@@ -1267,8 +1309,15 @@ fn canonical_aliases(
         fallbacks: fallbacks.len(),
         ..AliasRetirements::default()
     };
+    let mut targets = BTreeMap::new();
+    let mut dropped: BTreeMap<String, String> = file
+        .retired
+        .iter()
+        .map(|row| (row.old.clone(), row.reason.slug().to_string()))
+        .collect();
     for mut entry in file.entries.drain(..) {
         if final_ids.contains(entry.target.as_str()) {
+            targets.insert(entry.old.clone(), entry.target.clone());
             kept.push(entry);
             continue;
         }
@@ -1277,35 +1326,39 @@ fn canonical_aliases(
         {
             entry.target = target.clone();
             entry.basis = alias::AliasBasis::Carried;
+            targets.insert(entry.old.clone(), entry.target.clone());
             kept.push(entry);
             continue;
         }
-        if legally_excluded.contains(entry.target.as_str()) {
+        let (reason, note) = if legally_excluded.contains(entry.target.as_str()) {
             retirements.rights += 1;
-            file.retired.push(alias::RetiredEntry {
-                old: entry.old,
-                reason: alias::RetirementReason::Rights,
-                note: Some(
-                    "canonical target excluded: no Section 15 notice covers its publications"
-                        .into(),
-                ),
-            });
+            (
+                alias::RetirementReason::Rights,
+                "canonical target excluded: no Section 15 notice covers its publications",
+            )
         } else {
             retirements.unrepresentable += 1;
-            file.retired.push(alias::RetiredEntry {
-                old: entry.old,
-                reason: alias::RetirementReason::Unrepresentable,
-                note: Some(
-                    "canonical target was planned from the pin but the converter did not emit it"
-                        .into(),
-                ),
-            });
-        }
+            (
+                alias::RetirementReason::Unrepresentable,
+                "canonical target was planned from the pin but the converter did not emit it",
+            )
+        };
+        dropped.insert(entry.old.clone(), reason.slug().to_string());
+        file.retired.push(alias::RetiredEntry {
+            old: entry.old,
+            reason,
+            note: Some(note.into()),
+        });
     }
     file.entries = kept;
     file.retired.sort_by(|a, b| a.old.cmp(&b.old));
     let bytes = alias::to_bytes(&file)?;
-    Ok((bytes, retirements))
+    Ok(CanonicalAliases {
+        bytes,
+        retirements,
+        targets,
+        dropped,
+    })
 }
 
 fn search_aliases(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<String>> {

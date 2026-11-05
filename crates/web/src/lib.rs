@@ -19,6 +19,7 @@ pub mod install;
 pub mod js;
 pub mod library;
 pub mod lru;
+pub mod pwa;
 pub mod route;
 pub mod store;
 pub mod theme;
