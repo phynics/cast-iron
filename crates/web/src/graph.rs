@@ -346,8 +346,9 @@ pub fn filter_list<'a>(
 // ---- prestige class requirements ---------------------------------------------------------
 
 /// The blocks under the `Requirements` heading of a class, as stated, up to the next heading of
-/// the same or a higher level. Headings inside the section become bold lines, so that the copy
-/// has no anchors and no second `id` on the page. Empty when the entry has no such heading.
+/// the same or a higher level. Headings inside the section, including those nested in lists and
+/// quotes, become bold lines, so that the copy has no anchors and no second `id` on the page.
+/// Empty when the entry has no such heading.
 pub fn requirements_blocks(body: &[Block]) -> Vec<Block> {
     let heading_text = |content: &[Inline]| -> String {
         crate::views::rich::plain_text(content)
@@ -367,14 +368,29 @@ pub fn requirements_blocks(body: &[Block]) -> Vec<Block> {
     body[start + 1..]
         .iter()
         .take_while(|block| !matches!(block, Block::Heading { level: l, .. } if *l <= level))
-        .map(|block| match block {
-            Block::Heading { content, .. } => Block::Paragraph {
-                style: cast_iron_schema::ParagraphStyle::Normal,
-                content: vec![Inline::Strong { c: content.clone() }],
-            },
-            other => other.clone(),
-        })
+        .map(demote_headings)
         .collect()
+}
+
+/// A copy of `block` in which every heading, at any depth, is a bold paragraph.
+fn demote_headings(block: &Block) -> Block {
+    match block {
+        Block::Heading { content, .. } => Block::Paragraph {
+            style: cast_iron_schema::ParagraphStyle::Normal,
+            content: vec![Inline::Strong { c: content.clone() }],
+        },
+        Block::List { ordered, items } => Block::List {
+            ordered: *ordered,
+            items: items
+                .iter()
+                .map(|item| item.iter().map(demote_headings).collect())
+                .collect(),
+        },
+        Block::Quote { content } => Block::Quote {
+            content: content.iter().map(demote_headings).collect(),
+        },
+        other => other.clone(),
+    }
 }
 
 // ---- book order -------------------------------------------------------------------------
@@ -991,5 +1007,42 @@ mod tests {
         assert!(matches!(&out[1], Block::Paragraph { content, .. }
             if matches!(content.as_slice(), [Inline::Strong { .. }])));
         assert!(requirements_blocks(&[para("x")]).is_empty());
+    }
+
+    #[test]
+    fn requirements_demote_headings_nested_in_lists_and_quotes() {
+        let heading = |text: &str| Block::Heading {
+            level: 3,
+            anchor: Some(text.to_lowercase()),
+            content: vec![Inline::text(text)],
+        };
+        let body = vec![
+            heading("Requirements"),
+            Block::List {
+                ordered: false,
+                items: vec![vec![Block::Quote {
+                    content: vec![heading("Deep")],
+                }]],
+            },
+            Block::Quote {
+                content: vec![heading("Quoted")],
+            },
+        ];
+        let out = requirements_blocks(&body);
+        assert_eq!(out.len(), 2);
+        fn has_heading(blocks: &[Block]) -> bool {
+            blocks.iter().any(|b| match b {
+                Block::Heading { .. } => true,
+                Block::List { items, .. } => items.iter().any(|i| has_heading(i)),
+                Block::Quote { content } => has_heading(content),
+                _ => false,
+            })
+        }
+        assert!(!has_heading(&out));
+        let Block::Quote { content } = &out[1] else {
+            panic!("quote kept");
+        };
+        assert!(matches!(&content[0], Block::Paragraph { content, .. }
+            if matches!(content.as_slice(), [Inline::Strong { .. }])));
     }
 }
