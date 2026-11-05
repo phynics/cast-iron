@@ -10,6 +10,7 @@ use cast_iron_schema::{ChallengeRating, EntryId, EntryKind};
 use cast_iron_search::{FilterCounts, Filters, Hit, Query, SearchIndex};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
@@ -567,6 +568,18 @@ pub fn Search() -> impl IntoView {
         count_library.discovery().kind_counts()
     });
     let kind_counts = kind_counts.get();
+    // One pass over the eligible entries for every publication chip. Computing this inside
+    // each chip's count closure rebuilt the whole discovery set once per source, which is
+    // seconds of work on a library with hundreds of publications.
+    let source_totals_library = library.clone();
+    let source_totals = Memo::new(move |_| {
+        let _revision = source_totals_library.selection_revision().get();
+        let mut totals: BTreeMap<String, usize> = BTreeMap::new();
+        for stub in source_totals_library.discovery().entries() {
+            *totals.entry(stub.source.clone()).or_default() += 1;
+        }
+        totals
+    });
     let kind_chips = kind_counts
         .into_iter()
         .map(|(kind, total)| {
@@ -615,25 +628,19 @@ pub fn Search() -> impl IntoView {
             let id = source.id.clone();
             let id2 = id.clone();
             let id3 = id.clone();
-            let source_library = library.clone();
             let count_id = id.clone();
             // The active-book total: the chip count before any search, and the rule for hiding
-            // a book that has nothing active.
-            let total = move || {
-                let _revision = source_library.selection_revision().get();
-                source_library
-                    .discovery()
-                    .entries()
-                    .filter(|stub| stub.source == count_id)
-                    .count()
-            };
-            let hidden_total = total.clone();
-            let n = Signal::derive(move || chip_count(counts, total(), |c| c.source(&id3)));
+            // a book that has nothing active. Read from the single per-revision scan.
+            let total = Signal::derive(move || {
+                source_totals.with(|totals| totals.get(&count_id).copied().unwrap_or(0))
+            });
+            let hidden_total = total;
+            let n = Signal::derive(move || chip_count(counts, total.get(), |c| c.source(&id3)));
             let title = source.title.clone();
             let name_title = title.clone();
             let checked = Signal::derive(move || state.with(|s| s.sources.contains(&id)));
             view! {
-                <label class="chip" hidden=move || hidden_total() == 0
+                <label class="chip" hidden=move || hidden_total.get() == 0
                     class:chip-empty=move || n.get() == 0 && !checked.get()>
                     <input
                         type="checkbox"
