@@ -38,7 +38,9 @@ jobs:
         run: |
           echo "commit=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/psrd-data/source.toml)" >> "$GITHUB_OUTPUT"
           echo "primary=$(python3 -c 'import json; print(json.load(open("sources/pathfinder-data-1-e/source.json"))["commit"])')" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+      - name: Restore the pinned datasets
+        id: sources
+        uses: actions/cache/restore@v6
         with:
           path: .cache/sources
           key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
@@ -46,6 +48,13 @@ jobs:
         with:
           cache-key: content
       - run: cargo xtask fetch-sources
+      # Save before the compile and determinism checks, which a failure would skip.
+      - name: Save the pinned datasets
+        if: ${{ steps.sources.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/sources
+          key: ${{ steps.sources.outputs.cache-primary-key }}
       # The canonical library is the default build (generated/content).
       - run: cargo xtask content
       - name: Hash the first canonical compile
@@ -109,6 +118,7 @@ jobs:
           name: generated
           path: generated
       - uses: ./.github/actions/setup-build
+        id: setup
         with:
           cache-key: site
           trunk: "true"
@@ -122,6 +132,14 @@ jobs:
             sleep 10
           done
           exit 1
+      # Directly after the build, which downloads the tools. The later checks
+      # cannot skip this save.
+      - name: Save Trunk's downloaded tools
+        if: ${{ steps.setup.outputs.trunk-tools-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/trunk
+          key: ${{ steps.setup.outputs.trunk-tools-key }}
       - name: Screen the publication scope and attribution
         run: python3 scripts/check-publication.py
       - name: Dist size summary
@@ -144,11 +162,28 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
+      # The dist artifact only bridges jobs; the size record keeps the old 14-day retention.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-size
+          path: dist-size.txt
+          if-no-files-found: error
+          retention-days: 14
 
+  # Each browser runs as a matrix of shards. A shard has its own runner, test
+  # server and browser state, so the suite's single worker assumption holds inside
+  # it (`workers: 1` in playwright.config.ts). Playwright splits whole spec files
+  # across shards by test count. The shard count is chosen so that every shard's
+  # test step takes about 4-5 minutes; the sizing is in docs/decisions.md.
   e2e-chromium:
-    name: Browser acceptance tests (Chromium, required)
+    name: Chromium shard ${{ matrix.shard }}/3 (required)
     needs: [site]
     runs-on: ubuntu-latest
+    strategy:
+      # Let every shard finish, so the merged report shows all failures.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -162,31 +197,38 @@ jobs:
       - uses: ./.github/actions/setup-e2e
         with:
           browser: chromium
+      # Chromium and the 390 px mobile project gate CI. Every shard is required.
       - name: Tests on Chromium (required)
         env:
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/chromium
-        run: npm --prefix tests/e2e test -- --project=chromium --project=mobile-chromium --output=test-results/chromium
-      - name: Upload the report, traces and dist size
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+        run: >-
+          npm --prefix tests/e2e test --
+          --project=chromium --project=mobile-chromium
+          --shard=${{ matrix.shard }}/3
+          --reporter=list,github,blob
+          --output=test-results/chromium-${{ matrix.shard }}
+      - name: Upload the blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-report-chromium
-          path: |
-            tests/e2e/playwright-report
-            tests/e2e/test-results
-            dist-size.txt
+          name: blob-report-chromium-${{ matrix.shard }}
+          path: tests/e2e/blob-report
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 3
 
   e2e-webkit:
-    name: Browser acceptance tests (WebKit, informational)
+    name: WebKit shard ${{ matrix.shard }}/3 (informational)
     needs: [site]
     runs-on: ubuntu-latest
     # WebKit remains informational until its service worker behavior is stable on
-    # Linux. A job-level continue-on-error keeps a failure here from failing the
-    # workflow run, which scripts/promote-release.py reads. Firefox is disabled in
-    # CI after repeated installer timeouts; see docs/decisions.md.
+    # Linux. A job-level continue-on-error keeps a failure in any shard from
+    # failing the workflow run, which scripts/promote-release.py reads. Firefox is
+    # disabled in CI after repeated installer timeouts; see docs/decisions.md.
     continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -202,15 +244,46 @@ jobs:
           browser: webkit
       - name: Tests on WebKit (informational)
         env:
-          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/webkit
-        run: npm --prefix tests/e2e test -- --project=webkit --output=test-results/webkit
-      - name: Upload the report and traces
+          PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+        run: >-
+          npm --prefix tests/e2e test --
+          --project=webkit
+          --shard=${{ matrix.shard }}/3
+          --reporter=list,github,blob
+          --output=test-results/webkit-${{ matrix.shard }}
+      - name: Upload the blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-report-webkit
-          path: |
-            tests/e2e/playwright-report
-            tests/e2e/test-results
+          name: blob-report-webkit-${{ matrix.shard }}
+          path: tests/e2e/blob-report
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 3
+
+  # One HTML report per browser, merged from the shard blobs. The blobs carry the
+  # traces and screenshots of failed tests. These jobs only publish; they must not
+  # decide the run result, so they are informational and a failing shard does not
+  # stop them.
+  report-chromium:
+    name: Chromium report
+    needs: [e2e-chromium]
+    if: ${{ !cancelled() && needs.e2e-chromium.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/merge-e2e-reports
+        with:
+          browser: chromium
+
+  report-webkit:
+    name: WebKit report
+    needs: [e2e-webkit]
+    if: ${{ !cancelled() && needs.e2e-webkit.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/merge-e2e-reports
+        with:
+          browser: webkit

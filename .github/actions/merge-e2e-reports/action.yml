@@ -1,0 +1,52 @@
+name: Merge the Playwright shard reports
+description: >-
+  Download the blob reports of one browser's shards, merge them into one HTML
+  report, list the failed tests in the run summary, and upload the report.
+
+inputs:
+  browser:
+    description: Browser whose shards to merge ("chromium" or "webkit").
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: tests/e2e/package-lock.json
+    - run: npm --prefix tests/e2e ci
+      shell: bash
+    - uses: actions/download-artifact@v8
+      with:
+        pattern: blob-report-${{ inputs.browser }}-*
+        path: tests/e2e/blob-reports
+        merge-multiple: true
+    # Run from the repository root: with no Playwright config in the working
+    # directory, the merge does not need a built site.
+    - name: Merge the reports
+      shell: bash
+      env:
+        PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ inputs.browser }}
+        PLAYWRIGHT_HTML_OPEN: never
+        PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report/${{ inputs.browser }}.json
+      run: >-
+        npx --prefix tests/e2e playwright merge-reports
+        --reporter=html,json tests/e2e/blob-reports
+    - name: Summarize ${{ inputs.browser }} in the run summary
+      shell: bash
+      run: |
+        {
+          echo "### ${{ inputs.browser }}: all shards"
+          jq -r '"\(.stats.expected) passed, \(.stats.unexpected) failed, \(.stats.flaky) flaky, \(.stats.skipped) skipped in \(.stats.duration / 1000 | floor) s of test time."' \
+            "playwright-report/${{ inputs.browser }}.json"
+          jq -r '[.. | objects | select(has("specs")) | .specs[] | select(.ok == false) | "- `\(.file)`: \(.title)"] | .[]' \
+            "playwright-report/${{ inputs.browser }}.json"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - uses: actions/upload-artifact@v7
+      with:
+        name: e2e-report-${{ inputs.browser }}
+        path: playwright-report/${{ inputs.browser }}
+        if-no-files-found: error
+        retention-days: 14
