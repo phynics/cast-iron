@@ -11,12 +11,18 @@ export function letterId(letter: string): string {
   return letter === "#" ? "letter-other" : `letter-${letter}`;
 }
 
-/** Open the app, accept the offer, and wait for the reader. */
+/**
+ * Open the app and wait for the reader, downloading the library only when this profile has no
+ * active library. Tests that must observe the installation offer use a clean profile and click
+ * Download themselves; this helper is safe from an already-installed profile.
+ */
 export async function installLibrary(page: Page) {
   await page.goto("./");
-  await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();
-  await page.getByRole("button", { name: "Download" }).click();
-  await waitReady(page);
+  const reader = page.getByRole("navigation", { name: "Primary" });
+  const download = page.getByRole("button", { name: "Download", exact: true });
+  await reader.or(download).waitFor({ state: "visible", timeout: 90_000 });
+  if (await download.isVisible()) await download.click();
+  await reader.waitFor({ state: "visible", timeout: 90_000 });
 }
 
 export async function waitReady(page: Page) {

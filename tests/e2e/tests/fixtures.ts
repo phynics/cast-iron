@@ -1,4 +1,5 @@
 import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -257,6 +258,106 @@ export const test = base.extend<Fixtures & { _auto: void }, { serverOrigin: stri
     });
     for (const context of opened) await context.close().catch(() => {});
     fs.rmSync(dir, { recursive: true, force: true });
+  },
+});
+
+/**
+ * Copies a closed browser profile for one test. A profile is large, and every test starts from
+ * its own copy so no test can inherit another test's storage. APFS clones (macOS) and reflinks
+ * (Linux) make the copy cost almost nothing; a plain recursive copy is the fallback.
+ */
+function copyProfile(source: string, target: string) {
+  const attempt = (program: string, args: string[]) => {
+    fs.rmSync(target, { recursive: true, force: true });
+    execFileSync(program, args, { stdio: "ignore" });
+  };
+  try {
+    if (process.platform === "darwin") return attempt("cp", ["-c", "-R", source, target]);
+    if (process.platform === "linux") return attempt("cp", ["-a", "--reflink=auto", source, target]);
+  } catch {
+    // Fall through to the portable copy below.
+  }
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.cpSync(source, target, { recursive: true, verbatimSymlinks: true });
+}
+
+/**
+ * Tests that do not exercise installation itself use this test object instead of `test`. A
+ * worker-scoped fixture installs the library once into a persistent profile; each test copies
+ * that profile and opens it on the worker's own origin. Installation-dependent specs keep the
+ * default `test`, whose context is a clean profile.
+ */
+export const installedTest = test.extend<{}, { preinstalledProfile: string }>({
+  preinstalledProfile: [
+    async ({ browserName, playwright, serverOrigin }, use) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-install-"));
+      if (browserName === "firefox") {
+        // Firefox is not in CI. It falls back to the clean profile and installs per test.
+        await use(dir);
+        fs.rmSync(dir, { recursive: true, force: true });
+        return;
+      }
+      const context = await playwright[browserName].launchPersistentContext(dir, {
+        baseURL: `${serverOrigin}/cast-iron/`,
+        serviceWorkers: "allow",
+      });
+      try {
+        const page = context.pages()[0] ?? (await context.newPage());
+        const { activeLibrary, installLibrary, waitControlled } = await import("./helpers");
+        await installLibrary(page);
+        await waitControlled(page);
+        if (!(await activeLibrary(page))) throw new Error("the pre-installed profile has no active library");
+      } finally {
+        await context.close().catch(() => {});
+      }
+      await use(dir);
+      try {
+        fs.rmSync(dir, { recursive: true, force: true });
+      } catch {
+        // Leave a locked profile for the OS to clean rather than failing every test in the worker.
+      }
+    },
+    { scope: "worker" },
+  ],
+  // The copy is private to one test, so a failure in another test can never leave state here.
+  // Nothing is shared after the worker fixture closes its own context above.
+  context: async (
+    {
+      preinstalledProfile,
+      guard,
+      baseURL,
+      viewport,
+      userAgent,
+      browserName,
+      playwright,
+      deviceScaleFactor,
+      isMobile,
+      hasTouch,
+      screen,
+    },
+    use,
+  ) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-profile-"));
+    const dir = path.join(root, "profile");
+    copyProfile(preinstalledProfile, dir);
+    const context = await playwright[browserName].launchPersistentContext(dir, {
+      baseURL,
+      viewport,
+      userAgent,
+      serviceWorkers: "allow",
+      ...(deviceScaleFactor === undefined ? {} : { deviceScaleFactor }),
+      ...(isMobile ? { isMobile } : {}),
+      ...(hasTouch ? { hasTouch } : {}),
+      ...(screen ? { screen } : {}),
+    });
+    guard.watch(context);
+    await use(context);
+    await context.close().catch(() => {});
+    try {
+      fs.rmSync(root, { recursive: true, force: true });
+    } catch {
+      // A browser that still holds a file must not fail an otherwise finished test.
+    }
   },
 });
 
