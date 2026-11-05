@@ -33,6 +33,7 @@ def write_library(
     spells=None,
     books=None,
     unplaced=None,
+    backlinks=None,
 ):
     root = Path(root)
     directory = root / version
@@ -66,6 +67,21 @@ def write_library(
                 }
             )
         )
+    if backlinks is not None:
+        shards = backlinks["shards"]
+        (directory / "backlinks.json").write_text(
+            json.dumps(
+                {
+                    "format": 1,
+                    "shards": len(shards),
+                    "links": sum(len(sources) for rows in shards for _target, sources in rows),
+                    "targets": sum(len(rows) for rows in shards),
+                }
+            )
+        )
+        (directory / "backlinks").mkdir()
+        for index, rows in enumerate(shards):
+            (directory / "backlinks" / f"{index:02}.json").write_text(json.dumps(rows))
     return root
 
 
@@ -364,6 +380,68 @@ class UpgradeCheckTests(unittest.TestCase):
         self.assertIn("relations.json: ref/gone", joined)
         self.assertIn("lists.json: ref/spell/missing", joined)
         self.assertIn("books.json: ref/missing", joined)
+        self.assertTrue(any("dangling reference" in failure for failure in failures))
+
+    def test_absent_backlinks_are_optional_and_a_consistent_index_passes(self):
+        write_library(self.old, [entry("legacy/a", "A"), entry("legacy/b", "B")])
+        write_library(
+            self.new,
+            [entry("ref/a", "A"), entry("ref/b", "B")],
+            aliases=aliases(
+                entries=[
+                    {"old": "legacy/a", "target": "ref/a", "basis": "direct"},
+                    {"old": "legacy/b", "target": "ref/b", "basis": "direct"},
+                ]
+            ),
+            unplaced=[
+                {"entry": "ref/a", "reason": "test"},
+                {"entry": "ref/b", "reason": "test"},
+            ],
+        )
+        report, failures = self.run_check()
+        self.assertEqual(failures, [])
+
+        self.new = self.root / "new-with-backlinks"
+        write_library(
+            self.new,
+            [entry("ref/a", "A"), entry("ref/b", "B")],
+            aliases=aliases(
+                entries=[
+                    {"old": "legacy/a", "target": "ref/a", "basis": "direct"},
+                    {"old": "legacy/b", "target": "ref/b", "basis": "direct"},
+                ]
+            ),
+            unplaced=[
+                {"entry": "ref/a", "reason": "test"},
+                {"entry": "ref/b", "reason": "test"},
+            ],
+            backlinks={"shards": [[["ref/b", [["ref/a"]]]], []]},
+        )
+        report, failures = self.run_check()
+        self.assertEqual(failures, [])
+
+    def test_backlink_self_and_typed_relation_rows_fail(self):
+        source = entry("ref/a", "A")
+        source["relations"] = [{"kind": "part", "target": "ref/b"}]
+        write_library(self.old, [entry("legacy/a", "A")])
+        write_library(
+            self.new,
+            [source, entry("ref/b", "B")],
+            aliases=aliases(
+                entries=[{"old": "legacy/a", "target": "ref/a", "basis": "direct"}]
+            ),
+            unplaced=[
+                {"entry": "ref/a", "reason": "test"},
+                {"entry": "ref/b", "reason": "test"},
+            ],
+            backlinks={"shards": [[["ref/a", [["ref/a"]]], ["ref/b", [["ref/a"]]]], []]},
+        )
+
+        report, failures = self.run_check()
+
+        joined = "\n".join(report["dangling_references"])
+        self.assertIn("backlinks: self-link ref/a", joined)
+        self.assertIn("backlinks: ref/a already relates to ref/b", joined)
         self.assertTrue(any("dangling reference" in failure for failure in failures))
 
     def test_repeated_runs_produce_the_same_report(self):

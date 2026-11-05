@@ -7,9 +7,10 @@ use crate::install;
 use crate::lru::Lru;
 use crate::store::{self, ActiveLibrary};
 use cast_iron_schema::{
-    ALIASES_FILE, AliasIndex, BOOKS_FILE, BookIndex, Catalog, ContentManifest, CoverageReport,
-    EntryId, EntryKind, EntryStub, LegalNotices, RELATIONS_FILE, RelationIndex, RetirementReason,
-    RuleEntry, SPELL_LISTS_FILE, SourceInfo, SpellLists,
+    ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
+    BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
+    EntryStub, LegalNotices, RELATIONS_FILE, RelationIndex, RetirementReason, RuleEntry,
+    SPELL_LISTS_FILE, SourceInfo, SpellLists, backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -23,6 +24,8 @@ use web_sys::Cache;
 
 /// Parsed shards to keep in memory.
 const SHARD_CACHE: usize = 8;
+/// Parsed reverse-link shards to keep in memory.
+const BACKLINK_SHARD_CACHE: usize = 4;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LibraryError {
@@ -95,6 +98,10 @@ struct Inner {
     relations: RefCell<Option<Option<Rc<Relations>>>>,
     spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
     books: RefCell<Option<Option<Rc<BookLookup>>>>,
+    /// The optional reverse body-link descriptor. The outer `Option` is "not loaded yet";
+    /// the inner one is "this library has no such file".
+    backlinks: RefCell<Option<Option<Rc<BacklinkIndex>>>>,
+    backlink_shards: RefCell<Lru<u32, Rc<Vec<BacklinkTarget>>>>,
     disabled_books: RefCell<BTreeSet<String>>,
     selection_revision: RwSignal<u64>,
     selection_write_in_flight: RefCell<bool>,
@@ -183,6 +190,8 @@ impl Library {
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
             books: RefCell::new(Some(books)),
+            backlinks: RefCell::new(None),
+            backlink_shards: RefCell::new(Lru::new(BACKLINK_SHARD_CACHE)),
             disabled_books: RefCell::new(disabled_books),
             selection_revision: RwSignal::new(0),
             selection_write_in_flight: RefCell::new(false),
@@ -480,6 +489,61 @@ impl Library {
         .await
     }
 
+    /// Whether this library has the reverse body-link index. False for a library built
+    /// before the index existed, or with it removed.
+    pub fn has_backlinks(&self) -> bool {
+        manifest_has_file(&self.0.manifest, BACKLINKS_FILE)
+    }
+
+    /// The entries whose bodies link to `target`, or `Ok(None)` when the library has no
+    /// reverse index or no row for the target. Only the target's shard is read.
+    pub async fn backlinks(
+        &self,
+        target: &EntryId,
+    ) -> Result<Option<Vec<BacklinkSource>>, LibraryError> {
+        let Some(index) = self.backlink_index().await? else {
+            return Ok(None);
+        };
+        let shard = backlink_shard(target.as_str(), index.shards);
+        let rows = self.backlink_shard(shard).await?;
+        Ok(rows
+            .iter()
+            .find(|row| &row.0 == target)
+            .map(|row| row.1.clone()))
+    }
+
+    async fn backlink_index(&self) -> Result<Option<Rc<BacklinkIndex>>, LibraryError> {
+        if let Some(loaded) = self.0.backlinks.borrow().clone() {
+            return Ok(loaded);
+        }
+        let loaded = if manifest_has_file(&self.0.manifest, BACKLINKS_FILE) {
+            let path = format!("{}/{BACKLINKS_FILE}", self.version());
+            let index: BacklinkIndex = read_json(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
+            index
+                .validate()
+                .map_err(|message| LibraryError::Corrupt { path, message })?;
+            Some(Rc::new(index))
+        } else {
+            None
+        };
+        *self.0.backlinks.borrow_mut() = Some(loaded.clone());
+        Ok(loaded)
+    }
+
+    async fn backlink_shard(&self, shard: u32) -> Result<Rc<Vec<BacklinkTarget>>, LibraryError> {
+        if let Some(hit) = self.0.backlink_shards.borrow_mut().get(&shard) {
+            return Ok(hit);
+        }
+        let path = backlink_shard_path(shard);
+        let parsed: Vec<BacklinkTarget> = read_json(&self.0.cache, self.version(), &path).await?;
+        let parsed = Rc::new(parsed);
+        self.0
+            .backlink_shards
+            .borrow_mut()
+            .insert(shard, parsed.clone());
+        Ok(parsed)
+    }
+
     async fn lazy<T: DeserializeOwned, U>(
         &self,
         slot: &RefCell<Option<Option<Rc<U>>>>,
@@ -632,7 +696,13 @@ mod tests {
     #[test]
     fn a_schema_two_library_has_none_of_the_schema_three_files() {
         let old = manifest(&["catalog.json", "legal.json", "entries/spell-000.json"]);
-        for name in [RELATIONS_FILE, SPELL_LISTS_FILE, BOOKS_FILE, ALIASES_FILE] {
+        for name in [
+            RELATIONS_FILE,
+            SPELL_LISTS_FILE,
+            BOOKS_FILE,
+            ALIASES_FILE,
+            BACKLINKS_FILE,
+        ] {
             assert!(!manifest_has_file(&old, name), "{name}");
         }
         let new = manifest(&[

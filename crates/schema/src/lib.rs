@@ -16,6 +16,8 @@
 //! <content_version>/lists.json     SpellLists (schema 3)
 //! <content_version>/books.json     BookIndex (schema 3)
 //! <content_version>/aliases.json   AliasIndex (optional, after the canonical cutover)
+//! <content_version>/backlinks.json BacklinkIndex descriptor (optional)
+//! <content_version>/backlinks/<NN>.json   Vec<BacklinkTarget> shards (optional)
 //! ```
 //!
 //! Schema 3 adds the relation, spell-list, and book-order files. They are listed in the
@@ -23,6 +25,11 @@
 //! a reader that accepts those versions must treat the files as optional. `aliases.json`
 //! is a separate optional file with its own format version, so its presence does not change
 //! the schema version.
+//!
+//! The reverse body-link index (`backlinks.json` plus its shards) is optional and additive.
+//! Its descriptor carries its own [`BACKLINK_FORMAT`], so adding or removing it does not
+//! change [`SCHEMA_VERSION`]. An older library has no descriptor and the reader treats the
+//! index as empty; an older client ignores the extra manifest files.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -43,6 +50,16 @@ pub const RELATIONS_FILE: &str = "relations.json";
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
 pub const BOOKS_FILE: &str = "books.json";
+/// Name of the reverse body-link descriptor, relative to the version directory. Optional:
+/// a library built before this index has no such file.
+pub const BACKLINKS_FILE: &str = "backlinks.json";
+/// Directory of the reverse body-link shards, relative to the version directory.
+pub const BACKLINKS_DIR: &str = "backlinks";
+/// Version of the reverse body-link format. Independent of [`SCHEMA_VERSION`].
+pub const BACKLINK_FORMAT: u32 = 1;
+/// Number of shards in the reverse body-link index. Sixteen keeps one entry view to
+/// roughly 1/16 of the index while staying small enough to name each shard by two digits.
+pub const BACKLINK_SHARDS: u32 = 16;
 /// Name of the legacy-to-canonical alias map, relative to the version directory.
 /// Optional: a library built before the canonical cutover has no such file.
 pub const ALIASES_FILE: &str = "aliases.json";
@@ -625,6 +642,71 @@ pub struct RelationIndex {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct RelationEdge(pub EntryId, pub RelationKind, pub EntryId);
 
+/// `backlinks.json` (optional): the descriptor of the reverse body-link index.
+///
+/// The index answers "which entries link here" without scanning every shard. It holds one
+/// row per source and target: self-links and links that duplicate a typed relation are
+/// excluded, and a source that reaches one target through several anchors keeps no anchor.
+/// The target rows are split across [`BacklinkIndex::shards`] files, named by
+/// [`backlink_shard_path`], so one entry view loads only its bucket.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct BacklinkIndex {
+    pub format: u32,
+    pub shards: u32,
+    /// Number of source-to-target rows across all shards.
+    pub links: u32,
+    /// Number of target entries that have at least one backlink.
+    pub targets: u32,
+}
+
+impl BacklinkIndex {
+    /// Rejects a format this client does not read and a shard count it cannot address.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.format != BACKLINK_FORMAT {
+            return Err(format!(
+                "backlinks.json has format {}; this client reads {BACKLINK_FORMAT}",
+                self.format
+            ));
+        }
+        if self.shards == 0 || self.shards > 100 {
+            return Err(format!(
+                "backlinks.json names {} shards; expected 1 to 100",
+                self.shards
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// One target and the entries whose bodies link to it, in a shard file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BacklinkTarget(pub EntryId, pub Vec<BacklinkSource>);
+
+/// `[source]` or `[source, anchor]` in JSON. The anchor is a heading in the target entry.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct BacklinkSource(
+    pub EntryId,
+    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<String>,
+);
+
+/// The shard that holds `target`. FNV-1a keeps the assignment stable across builds and
+/// runtimes. Ids share long prefixes such as `ref/`, so a literal prefix would put nearly
+/// every target in one shard.
+pub fn backlink_shard(target: &str, shards: u32) -> u32 {
+    let shards = shards.max(1);
+    let mut hash: u32 = 0x811c_9dc5;
+    for byte in target.as_bytes() {
+        hash ^= u32::from(*byte);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    hash % shards
+}
+
+/// The manifest path of one shard, relative to the version directory.
+pub fn backlink_shard_path(shard: u32) -> String {
+    format!("{BACKLINKS_DIR}/{shard:02}.json")
+}
+
 /// `lists.json` (schema 3): spell lists per class and level, without loading any shard.
 ///
 /// Spells repeat across lists, so each is stored once in `spells` and the lists hold
@@ -1003,6 +1085,25 @@ pub struct CoverageReport {
     /// Relations, spell lists, and book order (schema 3). Absent in older reports.
     #[serde(default)]
     pub relations: RelationCoverage,
+    /// Reverse body-link index (optional). Absent in older reports and libraries.
+    #[serde(default)]
+    pub backlinks: BacklinkCoverage,
+}
+
+/// What the reverse body-link pass did, including the links it deliberately left out.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct BacklinkCoverage {
+    /// Source-to-target rows in the index.
+    pub links: u32,
+    /// Targets with at least one row.
+    pub targets: u32,
+    /// Links from an entry to itself. They add nothing to "Referenced by".
+    pub excluded_self: u32,
+    /// Links whose source already states a typed relation to the same target. The relation
+    /// panels show those, so a second body-link row would duplicate them.
+    pub excluded_relation: u32,
+    /// Bytes of the descriptor plus every shard.
+    pub bytes: u64,
 }
 
 /// What the relation, spell-list, and book-order passes did, including what they could not do.
@@ -1286,5 +1387,63 @@ mod tests {
         };
         let json = serde_json::to_string(&block).unwrap();
         assert_eq!(serde_json::from_str::<Block>(&json).unwrap(), block);
+    }
+
+    #[test]
+    fn backlink_rows_are_compact_and_accept_a_missing_anchor() {
+        let with_anchor = BacklinkSource(
+            EntryId::parse("ref/rule/a").unwrap(),
+            Some("heading".into()),
+        );
+        assert_eq!(
+            serde_json::to_string(&with_anchor).unwrap(),
+            r#"["ref/rule/a","heading"]"#
+        );
+        let without = BacklinkSource(EntryId::parse("ref/rule/a").unwrap(), None);
+        assert_eq!(serde_json::to_string(&without).unwrap(), r#"["ref/rule/a"]"#);
+        for json in [r#"["ref/rule/a"]"#, r#"["ref/rule/a",null]"#] {
+            assert_eq!(
+                serde_json::from_str::<BacklinkSource>(json).unwrap(),
+                without
+            );
+        }
+    }
+
+    #[test]
+    fn backlink_shards_are_stable_and_cover_every_bucket() {
+        assert_eq!(backlink_shard("ref/rule/a", 16), backlink_shard("ref/rule/a", 16));
+        let mut buckets: BTreeMap<u32, usize> = BTreeMap::new();
+        for i in 0..512 {
+            let bucket = backlink_shard(&format!("ref/rule/{i}"), BACKLINK_SHARDS);
+            *buckets.entry(bucket).or_default() += 1;
+        }
+        assert_eq!(buckets.len(), BACKLINK_SHARDS as usize);
+        assert_eq!(backlink_shard_path(3), "backlinks/03.json");
+    }
+
+    #[test]
+    fn backlink_descriptor_rejects_a_foreign_format_or_shard_count() {
+        let good = BacklinkIndex {
+            format: BACKLINK_FORMAT,
+            shards: BACKLINK_SHARDS,
+            links: 1,
+            targets: 1,
+        };
+        assert!(good.validate().is_ok());
+        assert!(
+            BacklinkIndex {
+                format: BACKLINK_FORMAT + 1,
+                ..good.clone()
+            }
+            .validate()
+            .unwrap_err()
+            .contains("format")
+        );
+        assert!(
+            BacklinkIndex { shards: 0, ..good }
+                .validate()
+                .unwrap_err()
+                .contains("shards")
+        );
     }
 }

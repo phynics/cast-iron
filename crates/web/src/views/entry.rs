@@ -4,6 +4,7 @@ use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
+use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::entry_contents::ArticleContents;
 use crate::views::recent;
@@ -332,12 +333,15 @@ fn EntryView(
         <RichBody body=entry.body.clone() anchor=anchor />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />
-        {has_references.then(|| view! {
-            <section class="entry-refs" aria-labelledby="references-heading">
-                <h2 id="references-heading">"References"</h2>
-                <ul class="ref-list">{reference_items}</ul>
-            </section>
-        })}
+        <aside class="entry-refs" aria-label="Entry links">
+            {has_references.then(|| view! {
+                <section class="ref-block" aria-labelledby="references-heading">
+                    <h2 id="references-heading">"References"</h2>
+                    <ul class="ref-list">{reference_items}</ul>
+                </section>
+            })}
+            <Backlinks library=library.clone() entry=entry.clone() />
+        </aside>
         <footer class="entry-foot">
             {copyrights}
             <p class="muted">
