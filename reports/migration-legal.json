@@ -5939,6 +5939,10 @@
         {
           "title": "Pathfinder Chronicles Campaign Setting",
           "notice": "Pathfinder Chronicles Campaign Setting. Copyright 2008, Paizo Publishing, LLC; Authors: Mike McArtor, Keith Baker, Wolfgang Baur, Clinton J. Boomer, Jason Bulmahn, Joshua J. Frost, Ed Greenwood, Stephen S. Greer, Jeff Grubb, James Jacobs, Michael Kortes, Tito Leati, Mike McArtor, Rob McCreary, Erik Mona, Jason Eric Nelson, Jeff Quick, Sean K Reynolds, F. Wesley Schneider, Leandra Christine Schneider, David Schwartz, Amber E. Scott, Stan!, Owen K.C. Stephens, Todd Stewart, James L. Sutter, Greg A. Vaughan, Jeremy Walker, JD Wiker."
+        },
+        {
+          "title": "The Pathfinder Chronicles Campaign Setting",
+          "notice": "The Pathfinder Chronicles Campaign Setting Copyright 2008, Paizo Publishing; Author: Stan!, Keith Baker, Wolfgang Baur, Clinton J. Boomer, Jason Bulmahn, Joshua J. Frost, Ed Greenwood, Stephen S. Greer, Jeff Grubb, James Jacobs, Michael Kortes, Tito Leati, Mike McArtor, Rob McCreary, Erik Mona, Jason Eric Nelson, Jeff Quick, Sean K Reynolds, David Schwartz, Leandra Christine Schneider, F. Wesley Schneider, Amber E. Scott, Owen K.C. Stephens, Todd Stewart, James L. Sutter, Greg A. Vaughan, Jeremy Walker, JD Wiker."
         }
       ]
     },
@@ -7577,7 +7581,7 @@
       "id": "d20pfsrd",
       "rows": 1244,
       "matched_publications": 279,
-      "unused_rows": 957,
+      "unused_rows": 956,
       "unparsed_rows": 17
     }
   ],

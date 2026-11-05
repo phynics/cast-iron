@@ -549,14 +549,23 @@ impl<'a> NoticeIndex<'a> {
             .and_then(|matches| same_publication(matches, self.notices))
     }
 
+    /// Every notice under the target title, including variants the normalizer
+    /// folds together. An alias to `Pathfinder Chronicles Campaign Setting`
+    /// must also reach `The Pathfinder Chronicles Campaign Setting`, because
+    /// the export carries both 2008 statements.
     fn lookup_target(&self, target: &str) -> Option<Vec<usize>> {
-        self.lookup(&self.exact, &normalize(target, false))
-            .or_else(|| {
-                let key = normalize(target, true);
-                (!key.is_empty())
-                    .then(|| self.lookup(&self.normalized, &key))
-                    .flatten()
-            })
+        let mut indices: BTreeSet<usize> = self
+            .lookup(&self.exact, &normalize(target, false))
+            .unwrap_or_default()
+            .into_iter()
+            .collect();
+        let key = normalize(target, true);
+        if !key.is_empty()
+            && let Some(folded) = self.lookup(&self.normalized, &key)
+        {
+            indices.extend(folded);
+        }
+        (!indices.is_empty()).then(|| indices.into_iter().collect())
     }
 
     /// Exact title, reviewed alias, then the deterministic normalizer.
@@ -1131,6 +1140,18 @@ mod tests {
             assert!(
                 row.notices.iter().any(|notice| notice.title == title),
                 "{publication} has no notice titled {title:?}"
+            );
+        }
+        for (publication, expected) in [("Pathfinder Campaign Setting", 2), ("Rival Guide", 2)] {
+            let row = report
+                .publications
+                .iter()
+                .find(|row| row.publication == publication)
+                .expect("multi-notice publication");
+            assert_eq!(
+                row.notices.len(),
+                expected,
+                "{publication} must keep every distinct statement"
             );
         }
         let again = build(&inventory, &inputs).unwrap();
