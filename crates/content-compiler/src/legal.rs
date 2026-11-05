@@ -60,6 +60,7 @@ pub fn build(dataset: &DatasetConfig, notices: &ExtractedNotices) -> Result<Lega
                 notice: n.notice.clone(),
             })
             .collect(),
+        notice_pending: Vec::new(),
         datasets: vec![DatasetNotice {
             id: dataset.id.clone(),
             repository: dataset.repository.clone(),

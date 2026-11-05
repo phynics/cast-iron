@@ -60,6 +60,28 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             }
         })
         .collect_view();
+    let notice_pending = legal
+        .notice_pending
+        .iter()
+        .map(|title| {
+            view! {
+                <li>
+                    <strong>{title.clone()}</strong>
+                </li>
+            }
+        })
+        .collect_view();
+    let notice_pending_section = (!legal.notice_pending.is_empty()).then(|| {
+        view! {
+            <section aria-labelledby="notice-pending">
+                <h2 id="notice-pending">"Section 15 notice pending"</h2>
+                <p>
+                    "These publications have no Section 15 notice in any pinned source. Their records ship as assumed Open Game Content under the Open Game License; the project tracks their notice coverage as open work."
+                </p>
+                <ul class="legal-list">{notice_pending}</ul>
+            </section>
+        }
+    });
     let datasets = legal
         .datasets
         .iter()
@@ -89,6 +111,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             <h2 id="section-15">"Section 15: copyright notices"</h2>
             <ul class="legal-list">{section_15}</ul>
         </section>
+        {notice_pending_section}
         <section aria-labelledby="dataset">
             <h2 id="dataset">"Dataset"</h2>
             <ul class="legal-list">{datasets}</ul>

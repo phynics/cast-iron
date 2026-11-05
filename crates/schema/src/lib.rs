@@ -956,6 +956,11 @@ pub struct LegalNotices {
     /// The Paizo Community Use Policy notice, verbatim, with the product name filled in.
     pub community_use_notice: String,
     pub section_15: Vec<CopyrightNotice>,
+    /// Publication titles shipped as assumed Open Game Content while their
+    /// Section 15 notice is pending. Additive and optional: older libraries
+    /// have no field, and older readers ignore it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub notice_pending: Vec<String>,
     pub datasets: Vec<DatasetNotice>,
 }
 

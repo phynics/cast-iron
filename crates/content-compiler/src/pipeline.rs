@@ -638,14 +638,20 @@ struct PublicationState {
     source: String,
     /// Display title used by the catalog and the book view.
     title: String,
-    /// Every notice that matches this publication in the union of PSRD and
-    /// Pf Data Section 15 lists, with duplicates removed.
+    /// Every notice that matches this publication in the union of the pinned
+    /// Section 15 lists, with duplicates removed.
     notices: Vec<pf_legal::Notice>,
+    /// The owner reviewed the absence of a notice and chose to ship this
+    /// publication as assumed Open Game Content. Coverage stays open in #34.
+    pending: bool,
 }
 
 impl PublicationState {
-    fn noticed(&self) -> bool {
-        !self.notices.is_empty()
+    /// A publication may ship when a notice covers it or the reviewed
+    /// notice-pending list names it. Its records then keep the usual license
+    /// references.
+    fn shippable(&self) -> bool {
+        !self.notices.is_empty() || self.pending
     }
 }
 
@@ -686,6 +692,9 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             out_of_scope: &pf_config_dir.join("out-of-scope.json"),
             d20pfsrd_csv: &section15.join("d20pfsrd-section15.csv"),
             d20pfsrd_provenance: &section15.join("d20pfsrd-section15.provenance.json"),
+            owner_copies: &section15.join("owner-copies.json"),
+            owner_provenance: &section15.join("owner-copies.provenance.json"),
+            notice_pending: &section15.join("notice-pending.json"),
         },
     )
     .map_err(|error| failure(format!("cannot build the Pf Data legal report: {error}")))?;
@@ -992,10 +1001,10 @@ fn check_publication_registry(registry: &Registry, inv: &Inventory) -> Result<()
     Err(Failure { lines })
 }
 
-/// Uses the union of Pf Data, PSRD, and d20pfsrd notices from the legal report.
-/// A record is kept only when at least one of its publications has a notice, so
-/// an absent notice excludes the record rather than shipping it without a
-/// redistribution basis.
+/// Uses the union of the pinned notice sources from the legal report. A record
+/// is kept when at least one of its publications has a notice or a reviewed
+/// notice-pending decision, so an absent notice excludes the record rather than
+/// shipping it without a redistribution basis.
 fn publication_states(
     registry: &Registry,
     report: &pf_legal::LegalReport,
@@ -1004,6 +1013,11 @@ fn publication_states(
         .publications
         .iter()
         .map(|publication| (publication.publication.as_str(), publication))
+        .collect();
+    let pending: BTreeSet<&str> = report
+        .pending_publications
+        .iter()
+        .map(|publication| publication.publication.as_str())
         .collect();
     let mut states = BTreeMap::new();
     for (title, row) in &registry.publication {
@@ -1019,6 +1033,7 @@ fn publication_states(
                 source: row.source.clone(),
                 title: row.title.clone(),
                 notices,
+                pending: pending.contains(title.as_str()),
             },
         );
     }
@@ -1026,23 +1041,24 @@ fn publication_states(
 }
 
 /// Rewrites each converted entry's source ids through the registry and drops the
-/// publications with no notice. Returns the ids that were excluded.
+/// publications that have neither a notice nor a notice-pending decision. Returns
+/// the ids that were excluded.
 fn apply_legal_screen(
     entries: &mut Vec<RuleEntry>,
     states: &BTreeMap<String, PublicationState>,
     rejected: &mut Vec<Rejection>,
 ) -> Result<BTreeSet<String>, Failure> {
     let mut by_slug: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-    let mut noticed: BTreeMap<String, bool> = BTreeMap::new();
+    let mut shippable: BTreeMap<String, bool> = BTreeMap::new();
     for (title, state) in states {
         by_slug
             .entry(slug_segment(title))
             .or_default()
             .insert(state.source.clone());
-        noticed
+        shippable
             .entry(state.source.clone())
-            .and_modify(|value| *value |= state.noticed())
-            .or_insert_with(|| state.noticed());
+            .and_modify(|value| *value |= state.shippable())
+            .or_insert_with(|| state.shippable());
     }
     let mut errors = Vec::new();
     let mut excluded = BTreeSet::new();
@@ -1058,7 +1074,7 @@ fn apply_legal_screen(
                 continue;
             };
             for source in sources {
-                if noticed.get(source).copied().unwrap_or(false) && seen.insert(source.clone()) {
+                if shippable.get(source).copied().unwrap_or(false) && seen.insert(source.clone()) {
                     kept.push(source.clone());
                 }
             }
@@ -1068,7 +1084,7 @@ fn apply_legal_screen(
             rejected.push(Rejection {
                 path: entry.id.to_string(),
                 reason: format!(
-                    "no publication with a Section 15 notice ({}); redistribution cannot be established",
+                    "no publication with a Section 15 notice or a notice-pending decision ({}); redistribution cannot be established",
                     if entry.source_ids.is_empty() {
                         "no publication attribution".to_string()
                     } else {
@@ -1106,7 +1122,9 @@ fn check_unique_ids(entries: &[RuleEntry]) -> Result<(), Failure> {
 }
 
 /// The canonical legal page: PSRD's notices plus every matched Pf Data notice,
-/// with both dataset pins. Deduplicates by title and notice text.
+/// with both dataset pins. Deduplicates by title and notice text. Publications
+/// shipped under a reviewed notice-pending decision are listed separately; they
+/// are not given a fabricated Section 15 line.
 fn canonical_legal(
     psrd: &LegalNotices,
     report: &pf_legal::LegalReport,
@@ -1128,6 +1146,13 @@ fn canonical_legal(
             }
         }
     }
+    legal.notice_pending = report
+        .pending_publications
+        .iter()
+        .map(|publication| publication.publication.clone())
+        .collect();
+    legal.notice_pending.sort();
+    legal.notice_pending.dedup();
     // The PSRD build may already add the Pf Data pin when the reviewed
     // supplement is configured. Keep exactly one notice per dataset id and use
     // the canonical note, which describes the whole corpus rather than one row.
@@ -1466,6 +1491,7 @@ fn canonical_sources(
         .collect();
     let mut titles: BTreeMap<String, String> = BTreeMap::new();
     let mut notices: BTreeMap<String, BTreeSet<(String, String)>> = BTreeMap::new();
+    let mut pending: BTreeMap<String, String> = BTreeMap::new();
     for state in states.values() {
         titles
             .entry(state.source.clone())
@@ -1475,6 +1501,11 @@ fn canonical_sources(
             for notice in &state.notices {
                 slot.insert((notice.title.clone(), notice.notice.clone()));
             }
+        }
+        if state.pending {
+            pending
+                .entry(state.source.clone())
+                .or_insert_with(|| state.title.clone());
         }
     }
     let mut used: BTreeSet<&str> = BTreeSet::new();
@@ -1498,11 +1529,19 @@ fn canonical_sources(
                     .join(" ")
             })
         });
-        let copyright = copyright.or_else(|| {
-            psrd_by_id
-                .get(source)
-                .and_then(|info| info.copyright.clone())
-        });
+        let copyright = copyright
+            .or_else(|| {
+                pending.get(source).map(|title| {
+                    format!(
+                        "{title}: Section 15 notice pending; Open Game Content used under the OGL."
+                    )
+                })
+            })
+            .or_else(|| {
+                psrd_by_id
+                    .get(source)
+                    .and_then(|info| info.copyright.clone())
+            });
         sources.push(SourceInfo {
             id: source.to_string(),
             title,
@@ -2272,6 +2311,7 @@ mod canonical_tests {
                 })
                 .into_iter()
                 .collect(),
+            pending: false,
         }
     }
 
@@ -2298,6 +2338,21 @@ mod canonical_tests {
         assert_eq!(excluded, BTreeSet::from(["ref/rule/only-bad".to_string()]));
         assert_eq!(rejected.len(), 1);
         assert!(rejected[0].reason.contains("Section 15"));
+    }
+
+    #[test]
+    fn legal_screen_keeps_a_reviewed_notice_pending_publication() {
+        let mut states = BTreeMap::new();
+        let mut pending = state("pending-book", "Pending Book", false);
+        pending.pending = true;
+        states.insert("Pending Book".into(), pending);
+        let mut entries = vec![entry("ref/rule/pending", "pending-book")];
+        let mut rejected = Vec::new();
+        let excluded = apply_legal_screen(&mut entries, &states, &mut rejected).unwrap();
+        assert!(excluded.is_empty());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].source_ids, ["pending-book"]);
+        assert!(rejected.is_empty());
     }
 
     #[test]
@@ -2343,6 +2398,7 @@ mod canonical_tests {
                 title: "A".into(),
                 notice: "one".into(),
             }],
+            notice_pending: vec![],
             datasets: vec![DatasetNotice {
                 id: "pathfinder-data-1-e".into(),
                 repository: "r".into(),
@@ -2356,8 +2412,10 @@ mod canonical_tests {
             in_scope_records: 0,
             publication_count: 0,
             matched_publication_count: 0,
+            pending_publication_count: 0,
             unmatched_publication_count: 0,
             publications: vec![],
+            pending_publications: vec![],
             excluded_publications: vec![],
             notice_sources: vec![],
             unparsed_notices: vec![],

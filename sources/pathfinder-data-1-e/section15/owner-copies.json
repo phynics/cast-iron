@@ -1,0 +1,19 @@
+{
+  "source": "The project owner's copies of the books",
+  "supplied": "2026-11-05",
+  "note": "Supplied by the project owner from the owner's copies of the books, 2026-11-05. Each line is verbatim Section 15 text from the named book.",
+  "section_15": [
+    {
+      "publication": "Pathfinder #64: Beyond the Doomsday Door",
+      "notice": "Pathfinder Adventure Path #64: Beyond the Doomsday Door © 2012, Paizo Publishing, LLC; Author: Tito Leati."
+    },
+    {
+      "publication": "We Be Goblins!",
+      "notice": "Pathfinder Module: We Be Goblins! © 2011, Paizo Publishing, LLC; Author: Richard Pett."
+    },
+    {
+      "publication": "Guide to Darkmoon Vale",
+      "notice": "Guide to Darkmoon Vale. Copyright 2008, Paizo Publishing, LLC; Author: Mike McArtor."
+    }
+  ]
+}

@@ -3,8 +3,9 @@
   "commit": "08ea71f24375908d0190c822fd1fd080797667a9",
   "in_scope_records": 34497,
   "publication_count": 453,
-  "matched_publication_count": 431,
-  "unmatched_publication_count": 22,
+  "matched_publication_count": 434,
+  "pending_publication_count": 8,
+  "unmatched_publication_count": 11,
   "publications": [
     {
       "publication": "Academy of Secrets",
@@ -2061,9 +2062,16 @@
     {
       "publication": "Guide to Darkmoon Vale",
       "records": 1,
-      "match_method": null,
-      "notice_sources": [],
-      "notices": []
+      "match_method": "owner-copy",
+      "notice_sources": [
+        "owner-copy"
+      ],
+      "notices": [
+        {
+          "title": "Guide to Darkmoon Vale",
+          "notice": "Guide to Darkmoon Vale. Copyright 2008, Paizo Publishing, LLC; Author: Mike McArtor."
+        }
+      ]
     },
     {
       "publication": "Guide to the River Kingdoms",
@@ -5273,9 +5281,16 @@
     {
       "publication": "Pathfinder #64: Beyond the Doomsday Door",
       "records": 15,
-      "match_method": null,
-      "notice_sources": [],
-      "notices": []
+      "match_method": "owner-copy",
+      "notice_sources": [
+        "owner-copy"
+      ],
+      "notices": [
+        {
+          "title": "Pathfinder #64: Beyond the Doomsday Door",
+          "notice": "Pathfinder Adventure Path #64: Beyond the Doomsday Door © 2012, Paizo Publishing, LLC; Author: Tito Leati."
+        }
+      ]
     },
     {
       "publication": "Pathfinder #65: Into the Nightmare Rift",
@@ -7479,9 +7494,16 @@
     {
       "publication": "We Be Goblins!",
       "records": 5,
-      "match_method": null,
-      "notice_sources": [],
-      "notices": []
+      "match_method": "owner-copy",
+      "notice_sources": [
+        "owner-copy"
+      ],
+      "notices": [
+        {
+          "title": "We Be Goblins!",
+          "notice": "Pathfinder Module: We Be Goblins! © 2011, Paizo Publishing, LLC; Author: Richard Pett."
+        }
+      ]
     },
     {
       "publication": "Weapon Master's Handbook",
@@ -7536,6 +7558,48 @@
       ]
     }
   ],
+  "pending_publications": [
+    {
+      "publication": "Bestiary 6",
+      "records": 311,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Faiths of Purity",
+      "records": 42,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Goblins of Golarion",
+      "records": 61,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Horror Realms",
+      "records": 46,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Inner Sea Taverns",
+      "records": 16,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Kingmaker Player's Guide",
+      "records": 7,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Magic of Thassilon",
+      "records": 2,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    },
+    {
+      "publication": "Serpent's Skull Player's Guide",
+      "records": 10,
+      "reason": "No Section 15 notice in any pinned source; shipped as assumed Open Game Content and tracked in #34."
+    }
+  ],
   "excluded_publications": [
     {
       "publication": "Paizo Blog - Golarion Day Subdomains",
@@ -7583,6 +7647,13 @@
       "matched_publications": 279,
       "unused_rows": 956,
       "unparsed_rows": 17
+    },
+    {
+      "id": "owner-copy",
+      "rows": 3,
+      "matched_publications": 3,
+      "unused_rows": 0,
+      "unparsed_rows": 0
     }
   ],
   "unparsed_notices": [
