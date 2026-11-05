@@ -79,7 +79,9 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });
 
-installedTest("No active books offers a direct recovery path from Home", async ({ page }) => {
+// Clean profile on purpose: from a pre-installed profile the reload below can interrupt a
+// startup cache read, which Linux WebKit reports as "Context is stopped" (see #121).
+test("No active books offers a direct recovery path from Home", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   // Every compiled book disabled is the state the Books screen reaches by unchecking
