@@ -7,7 +7,7 @@ use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind};
-use cast_iron_search::{Filters, Hit, Query, SearchIndex};
+use cast_iron_search::{FilterCounts, Filters, Hit, Query, SearchIndex};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::rc::Rc;
@@ -156,6 +156,23 @@ fn capitalize_words(text: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// The count a chip shows: the latest result's, or `total` until the first result arrives.
+fn chip_count(
+    counts: RwSignal<Option<FilterCounts>>,
+    total: usize,
+    pick: impl Fn(&FilterCounts) -> u32,
+) -> usize {
+    counts.with(|c| c.as_ref().map_or(total, |c| pick(c) as usize))
+}
+
+/// The accessible name of a chip with its count.
+fn chip_name(label: &str, count: usize) -> String {
+    match count {
+        1 => format!("{label}, 1 entry"),
+        n => format!("{label}, {n} entries"),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -348,6 +365,10 @@ pub fn Search() -> impl IntoView {
     let index_ms = RwSignal::new(None::<f64>);
     let index = RwSignal::new_local(None::<Rc<SearchIndex>>);
     let eligible_facets = RwSignal::new(Vec::<(String, Vec<String>)>::new());
+    // Counts for the chips. They change only when a result arrives, so a debounced or running
+    // search keeps showing the previous numbers. `None` until the first result: chips then show
+    // the totals for the active books, which is what an empty search counts anyway.
+    let counts = RwSignal::new(None::<FilterCounts>);
     let seq = StoredValue::new(0u64);
     let filters_open = RwSignal::new(false);
     let input_ref = NodeRef::<leptos::html::Input>::new();
@@ -393,6 +414,12 @@ pub fn Search() -> impl IntoView {
                     search_ms.set(None);
                     // Warm the index so the first keystroke does not wait for it.
                     ensure_index(&library, index, index_ms, phase, false).await;
+                    if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
+                        && seq.get_value() == id
+                        && library.selection_revision().get_untracked() == revision
+                    {
+                        counts.set(Some(fresh));
+                    }
                     return;
                 }
                 let loaded = ensure_index(&library, index, index_ms, phase, true).await;
@@ -416,6 +443,10 @@ pub fn Search() -> impl IntoView {
                 }
                 let engine_ms = now() - started;
                 let total = all_hits.len();
+                let fresh_counts = discovery
+                    .filter_counts(&current.q, &query.filters)
+                    .await
+                    .ok();
                 let grouped = grouped_hits(all_hits);
                 let groups = grouped.len();
                 let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
@@ -455,6 +486,9 @@ pub fn Search() -> impl IntoView {
                     return;
                 }
                 eligible_facets.set(facet_data);
+                if let Some(fresh) = fresh_counts {
+                    counts.set(Some(fresh));
+                }
                 search_ms.set(Some(engine_ms));
                 phase.set(Phase::Done {
                     hits,
@@ -535,16 +569,19 @@ pub fn Search() -> impl IntoView {
     let kind_counts = kind_counts.get();
     let kind_chips = kind_counts
         .into_iter()
-        .map(|(kind, n)| {
+        .map(|(kind, total)| {
             let checked = move || state.with(|s| s.kinds.contains(&kind));
+            let slug = kind.slug();
+            let n = move || chip_count(counts, total, |c| c.kind(slug));
             view! {
-                <label class="chip">
+                <label class="chip" class:chip-empty=move || n() == 0 && !checked()>
                     <input
                         type="checkbox"
                         prop:checked=checked
+                        aria-label=move || chip_name(kind.label(), n())
                         on:change=move |_| change_filters(&|s| s.kinds = toggled(&s.kinds, &kind))
                     />
-                    <span>{kind.label()}<small>{n}</small></span>
+                    <span>{kind.label()}<small class="chip-count">{n}</small></span>
                 </label>
             }
         })
@@ -577,9 +614,12 @@ pub fn Search() -> impl IntoView {
         .map(|source| {
             let id = source.id.clone();
             let id2 = id.clone();
+            let id3 = id.clone();
             let source_library = library.clone();
             let count_id = id.clone();
-            let count = move || {
+            // The active-book total: the chip count before any search, and the rule for hiding
+            // a book that has nothing active.
+            let total = move || {
                 let _revision = source_library.selection_revision().get();
                 source_library
                     .discovery()
@@ -587,16 +627,21 @@ pub fn Search() -> impl IntoView {
                     .filter(|stub| stub.source == count_id)
                     .count()
             };
-            let display_count = count.clone();
-            let checked = move || state.with(|s| s.sources.contains(&id));
+            let hidden_total = total.clone();
+            let n = Signal::derive(move || chip_count(counts, total(), |c| c.source(&id3)));
+            let title = source.title.clone();
+            let name_title = title.clone();
+            let checked = Signal::derive(move || state.with(|s| s.sources.contains(&id)));
             view! {
-                <label class="chip" hidden=move || count() == 0>
+                <label class="chip" hidden=move || hidden_total() == 0
+                    class:chip-empty=move || n.get() == 0 && !checked.get()>
                     <input
                         type="checkbox"
                         prop:checked=checked
+                        aria-label=move || chip_name(&name_title, n.get())
                         on:change=move |_| change_filters(&|s| s.sources = toggled(&s.sources, &id2))
                     />
-                    <span>{source.title.clone()}<small>{display_count}</small></span>
+                    <span>{title}<small class="chip-count">{n}</small></span>
                 </label>
             }
         })
@@ -624,15 +669,23 @@ pub fn Search() -> impl IntoView {
                                 let label = facet_label(field, &value);
                                 let pair = (field.to_string(), value.clone());
                                 let pair2 = pair.clone();
-                                let checked = move || state.with(|s| s.facets.contains(&pair));
+                                let checked = Signal::derive(move || state.with(|s| s.facets.contains(&pair)));
+                                let name_label = label.clone();
+                                let value_for_count = value.clone();
+                                // Without a result yet there is no count to show.
+                                let n = Signal::derive(move || counts.with(|c| c.as_ref().map(|c| c.facet(field, &value_for_count))));
                                 view! {
-                                    <label class="chip">
+                                    <label class="chip" class:chip-empty=move || n.get() == Some(0) && !checked.get()>
                                         <input
                                             type="checkbox"
                                             prop:checked=checked
+                                            aria-label=move || match n.get() {
+                                                Some(n) => chip_name(&name_label, n as usize),
+                                                None => name_label.clone(),
+                                            }
                                             on:change=move |_| change_filters(&|s| s.facets = toggled(&s.facets, &pair2))
                                         />
-                                        <span>{label}</span>
+                                        <span>{label}<small class="chip-count">{n}</small></span>
                                     </label>
                                 }
                             }).collect_view()}
@@ -960,6 +1013,91 @@ mod tests {
         sort_facet_pairs("cr", &mut pairs);
         assert_eq!(pairs[0], ("1/2".to_string(), 7));
         assert_eq!(pairs[2], ("10".to_string(), 1));
+    }
+
+    /// Counts for a search state over a small index, as the Search view asks for them.
+    fn counts_for(state: &SearchState, active: &[&str]) -> FilterCounts {
+        use cast_iron_search::{DocInput, IndexBuilder};
+        let doc = |id: &str, title: &str, kind: &str, source: &str, school: &str| DocInput {
+            id: id.into(),
+            title: title.into(),
+            kind: kind.into(),
+            source: source.into(),
+            section: "S".into(),
+            facets: vec![("school".into(), school.into())],
+            text: "flame".into(),
+            ..DocInput::default()
+        };
+        let mut builder = IndexBuilder::new();
+        for d in [
+            doc("spell:a", "Fire Bolt", "spell", "core", "evocation"),
+            doc("spell:b", "Fire Wall", "spell", "apg", "evocation"),
+            doc("spell:c", "Fire Shield", "spell", "core", "abjuration"),
+            doc("feat:a", "Fire Mastery", "feat", "core", "none"),
+        ] {
+            builder.add(d);
+        }
+        let index = builder.build();
+        index.filter_counts_eligible(&state.q, &state.query(0).filters, |id| active.contains(&id))
+    }
+
+    #[test]
+    fn counts_of_an_empty_search_are_the_active_book_totals() {
+        let all = ["spell:a", "spell:b", "spell:c", "feat:a"];
+        let c = counts_for(&SearchState::default(), &all);
+        assert_eq!((c.kind("spell"), c.kind("feat")), (3, 1));
+        assert_eq!((c.source("core"), c.source("apg")), (3, 1));
+        assert_eq!(c.facet("school", "evocation"), 2);
+    }
+
+    #[test]
+    fn a_kind_filter_leaves_kind_counts_and_narrows_source_and_facet_counts() {
+        let all = ["spell:a", "spell:b", "spell:c", "feat:a"];
+        let state = SearchState {
+            q: "fire".into(),
+            kinds: vec![EntryKind::Spell],
+            ..SearchState::default()
+        };
+        let c = counts_for(&state, &all);
+        assert_eq!((c.kind("spell"), c.kind("feat")), (3, 1));
+        assert_eq!((c.source("core"), c.source("apg")), (2, 1));
+        assert_eq!(c.facet("school", "none"), 0);
+        assert_eq!(c.total, 3);
+    }
+
+    #[test]
+    fn a_source_filter_narrows_kind_and_facet_counts() {
+        let all = ["spell:a", "spell:b", "spell:c", "feat:a"];
+        let state = SearchState {
+            q: "fire".into(),
+            sources: vec!["apg".into()],
+            ..SearchState::default()
+        };
+        let c = counts_for(&state, &all);
+        assert_eq!((c.kind("spell"), c.kind("feat")), (1, 0));
+        assert_eq!((c.source("core"), c.source("apg")), (3, 1));
+        assert_eq!(c.facet("school", "evocation"), 1);
+        assert_eq!(c.facet("school", "abjuration"), 0);
+    }
+
+    #[test]
+    fn an_active_book_change_changes_the_counts() {
+        let state = SearchState {
+            q: "fire".into(),
+            ..SearchState::default()
+        };
+        let both = counts_for(&state, &["spell:a", "spell:b", "spell:c", "feat:a"]);
+        let core = counts_for(&state, &["spell:a", "spell:c", "feat:a"]);
+        assert_eq!((both.kind("spell"), core.kind("spell")), (3, 2));
+        assert_eq!((both.source("apg"), core.source("apg")), (1, 0));
+        assert_eq!((both.total, core.total), (4, 3));
+    }
+
+    #[test]
+    fn chip_names_carry_their_counts() {
+        assert_eq!(chip_name("Spells", 12), "Spells, 12 entries");
+        assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
+        assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
     }
 
     #[test]

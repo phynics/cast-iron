@@ -8,6 +8,13 @@ use std::future::Future;
 use std::ops::Deref;
 use std::rc::Rc;
 
+/// What the counts on Browse and category pages are. They are totals for the active books and do
+/// not change with a search query or filter; Search shows filter-conditional counts instead.
+pub const ACTIVE_BOOKS_SCOPE: &str = "Entries in your active books";
+
+/// What the per-book counts on Books are: the size of each book, active or not.
+pub const BOOK_TOTALS_SCOPE: &str = "Entries in each book, whether or not it is active";
+
 /// An `Rc` that reactive closures may capture. Leptos asks closures in views to be `Send + Sync`;
 /// the browser runs this app on one thread, so the wrapper never panics. `Library` does the same.
 pub struct Shared<T>(SendWrapper<Rc<T>>);

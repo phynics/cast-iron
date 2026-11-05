@@ -1149,6 +1149,16 @@ mark {
   font-variant-numeric: tabular-nums;
 }
 
+/* Counts change with the search; a fixed minimum width keeps the chip from jumping. */
+.chip .chip-count {
+  min-width: 3ch;
+  text-align: end;
+}
+
+.chip.chip-empty span {
+  color: var(--ink-muted);
+}
+
 .chip input:checked + span {
   background: var(--accent);
   border-color: var(--accent);
@@ -1895,6 +1905,12 @@ main,
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.count-scope {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
 }
 
 .cat-count {

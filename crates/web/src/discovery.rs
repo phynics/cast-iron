@@ -4,7 +4,7 @@ use crate::graph::{Relations, filtered_spell_lists};
 use crate::library::{Library, LibraryError};
 use cast_iron_schema::SpellLists;
 use cast_iron_schema::{EntryKind, EntryStub};
-use cast_iron_search::{Hit, Query};
+use cast_iron_search::{FilterCounts, Filters, Hit, Query};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
@@ -69,6 +69,16 @@ impl Discovery {
     pub async fn search(&self, query: &Query) -> Result<Vec<Hit>, LibraryError> {
         let index = self.library.search_index().await?;
         Ok(index.search_eligible(query, |id| self.is_eligible(id)))
+    }
+    /// Counts for the search filter chips: kinds, sources and facet values over the eligible
+    /// entries that match `text`, each applying every active filter except its own group.
+    pub async fn filter_counts(
+        &self,
+        text: &str,
+        filters: &Filters,
+    ) -> Result<FilterCounts, LibraryError> {
+        let index = self.library.search_index().await?;
+        Ok(index.filter_counts_eligible(text, filters, |id| self.is_eligible(id)))
     }
     pub async fn facet_fields(&self) -> Result<Vec<String>, LibraryError> {
         let index = self.library.search_index().await?;
