@@ -74,3 +74,18 @@ test("Mobile header Install button is icon-only, a full touch target, and crowds
   const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("Mobile entry header is compact: one metadata line and an icon star", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto(`#/entry/${statSpell.id}`);
+  await expect(page.locator(".stat-block").first()).toBeVisible();
+  const top = await page.locator(".stat-block").first().evaluate((el) => el.getBoundingClientRect().top);
+  // Title, a short metadata line and the stat block fit in the first 300 px of an 844 px screen.
+  // (The old header, with pills and a full-row Star button, put the block near 380 px.)
+  expect(top).toBeLessThan(300);
+  const star = (await page.locator(".bookmark-toggle").boundingBox())!;
+  expect(Math.round(star.width)).toBe(44);
+  expect(Math.round(star.height)).toBe(44);
+  // A long book title may wrap once; wrapped pills used to take three rows.
+  expect((await page.locator(".entry-meta").boundingBox())!.height).toBeLessThan(50);
+});
