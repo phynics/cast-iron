@@ -175,3 +175,41 @@ installedTest("Mobile entry header is compact: one metadata line and an icon sta
   const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 2.6);
 });
+
+test("Publication groups fit 390 px with full-size targets", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("fire");
+  await waitResults(page, "fire");
+  await page.getByRole("button", { name: /^Filters/ }).click();
+  const group = page.locator('.filters .filter-group:has(legend:text-is("Publication"))');
+  await expect(group.locator(".publication-group").first()).toBeVisible();
+  await expect(group.locator(".publication-group").first()).toHaveAttribute("data-tier", "Rulebooks");
+  await group.locator("button.publication-more").click();
+  const adventures = group.locator('details.publication-group[data-tier="Adventures"]');
+  await expect(adventures).toHaveCount(1);
+  await expect(adventures).not.toHaveAttribute("open", "");
+  const summary = adventures.locator("summary");
+  const summaryBox = (await summary.boundingBox())!;
+  expect(summaryBox.height).toBeGreaterThanOrEqual(44);
+  expect(summaryBox.x + summaryBox.width).toBeLessThanOrEqual(390);
+  // Group headings and summaries are plain labels, never pills.
+  const radii = await group.locator(".publication-group-title").evaluateAll((els) =>
+    els.map((el) => getComputedStyle(el).borderRadius),
+  );
+  expect(radii.length).toBeGreaterThan(1);
+  expect(radii.every((radius) => radius !== "999px")).toBe(true);
+  await summary.click();
+  await expect(adventures).toHaveAttribute("open", "");
+  const chips = adventures.locator(".chip");
+  expect(await chips.count()).toBeGreaterThan(0);
+  for (const chip of await chips.all()) {
+    const box = (await chip.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
+  const overflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

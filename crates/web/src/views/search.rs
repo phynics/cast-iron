@@ -1713,7 +1713,7 @@ mod tests {
         }
     }
 
-    fn group_ids<'a>(page: &'a PublicationPage, tier: Tier) -> Vec<&'a str> {
+    fn group_ids(page: &PublicationPage, tier: Tier) -> Vec<&str> {
         page.group(tier)
             .map(|group| group.ids.iter().map(String::as_str).collect())
             .unwrap_or_default()
