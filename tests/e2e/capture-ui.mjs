@@ -65,8 +65,8 @@ try {
     await capture('books', '#/books', '.book-directory-row');
     const core = page.locator('[data-book-id="core-rulebook"]');
     await core.locator('summary').click();
-    await capture('books-expanded', null, '.book-directory-chapters a');
-    await core.getByRole('link', { name:'Open Core Rulebook contents' }).click();
+    await capture('books-expanded', null, '.book-tree .toc-list a');
+    await core.locator('.book-tree-root').click();
     await capture('book-contents', null, '.toc');
     await capture('class', '#/entry/core-rulebook/classes/fighter', '.entry > .rich');
     await capture('race', '#/entry/core-rulebook/races/dwarves', '.entry > .rich');

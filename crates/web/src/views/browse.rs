@@ -1,18 +1,20 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
-use crate::library::{Library, use_library};
-use crate::route::{Route, replace};
+use crate::graph::{BookLookup, entries_under, node_at};
+use crate::library::{Library, LibraryError, use_library};
+use crate::route::{BookSort, Route, replace, use_route};
 use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, local_resource,
-    set_title, sort_key,
+    section_label, set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -152,8 +154,335 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
     }
 }
 
-/// The publication directory. Chapter rows reuse `books.json` and link into the existing
-/// lazy contents tree, preserving its draft notes and original order.
+/// One publication row. Grouping is a pure function over these so the order can be tested
+/// without a browser.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookListEntry {
+    pub id: String,
+    pub title: String,
+    pub category: Option<String>,
+    pub publication_date: Option<String>,
+    pub count: usize,
+}
+
+/// One displayed group of publications. `label` is `None` for library order, which is not
+/// grouped. A missing category or date becomes the explicit `Unknown` group.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BookGroup {
+    pub label: Option<String>,
+    pub books: Vec<usize>,
+}
+
+const CATEGORY_ORDER: [&str; 6] = [
+    "Adventure Path",
+    "Campaign Setting",
+    "Module",
+    "Player Companion",
+    "RPG",
+    "Miscellaneous",
+];
+const UNKNOWN_CATEGORY: &str = "Unknown category";
+const UNKNOWN_DATE: &str = "Unknown date";
+
+fn category_rank(label: &str) -> usize {
+    CATEGORY_ORDER
+        .iter()
+        .position(|category| *category == label)
+        .unwrap_or_else(|| {
+            if label == UNKNOWN_CATEGORY {
+                usize::MAX
+            } else {
+                CATEGORY_ORDER.len()
+            }
+        })
+}
+
+fn year_of(date: Option<&str>) -> Option<&str> {
+    let date = date?;
+    (date.len() >= 4 && date.as_bytes()[..4].iter().all(u8::is_ascii_digit)).then(|| &date[..4])
+}
+
+fn title_order(books: &[BookListEntry], a: usize, b: usize) -> std::cmp::Ordering {
+    sort_key(&books[a].title)
+        .cmp(&sort_key(&books[b].title))
+        .then_with(|| books[a].id.cmp(&books[b].id))
+}
+
+/// Groups publications for the selected order. Library order is one unlabeled group in
+/// catalog order. Category groups use the catalogue product lines in their published order,
+/// then any other category alphabetically, with `Unknown category` last. Date groups are
+/// publication years newest first, with `Unknown date` last. Ties stay alphabetical.
+pub fn book_groups(books: &[BookListEntry], sort: Option<BookSort>) -> Vec<BookGroup> {
+    match sort {
+        None => vec![BookGroup {
+            label: None,
+            books: (0..books.len()).collect(),
+        }],
+        Some(BookSort::Category) => {
+            let mut grouped: std::collections::BTreeMap<String, Vec<usize>> =
+                std::collections::BTreeMap::new();
+            for (index, book) in books.iter().enumerate() {
+                let label = book
+                    .category
+                    .clone()
+                    .unwrap_or_else(|| UNKNOWN_CATEGORY.to_string());
+                grouped.entry(label).or_default().push(index);
+            }
+            let mut groups: Vec<BookGroup> = grouped
+                .into_iter()
+                .map(|(label, mut indices)| {
+                    indices.sort_by(|&a, &b| title_order(books, a, b));
+                    BookGroup {
+                        label: Some(label),
+                        books: indices,
+                    }
+                })
+                .collect();
+            groups.sort_by(|a, b| {
+                let left = a.label.as_deref().unwrap_or_default();
+                let right = b.label.as_deref().unwrap_or_default();
+                category_rank(left)
+                    .cmp(&category_rank(right))
+                    .then_with(|| left.cmp(right))
+            });
+            groups
+        }
+        Some(BookSort::Date) => {
+            let mut grouped: std::collections::BTreeMap<String, Vec<usize>> =
+                std::collections::BTreeMap::new();
+            for (index, book) in books.iter().enumerate() {
+                let label = year_of(book.publication_date.as_deref())
+                    .unwrap_or(UNKNOWN_DATE)
+                    .to_string();
+                grouped.entry(label).or_default().push(index);
+            }
+            let mut groups: Vec<BookGroup> = grouped
+                .into_iter()
+                .map(|(label, mut indices)| {
+                    indices.sort_by(|&a, &b| {
+                        let left = books[a].publication_date.as_deref().unwrap_or_default();
+                        let right = books[b].publication_date.as_deref().unwrap_or_default();
+                        right.cmp(left).then_with(|| title_order(books, a, b))
+                    });
+                    BookGroup {
+                        label: Some(label),
+                        books: indices,
+                    }
+                })
+                .collect();
+            groups.sort_by(|a, b| {
+                let left = a.label.as_deref().unwrap_or_default();
+                let right = b.label.as_deref().unwrap_or_default();
+                // Unknown last; otherwise newest year first.
+                match (left == UNKNOWN_DATE, right == UNKNOWN_DATE) {
+                    (true, true) => std::cmp::Ordering::Equal,
+                    (true, false) => std::cmp::Ordering::Greater,
+                    (false, true) => std::cmp::Ordering::Less,
+                    (false, false) => right.cmp(left),
+                }
+            });
+            groups
+        }
+    }
+}
+
+fn book_meta(row: &BookListEntry) -> Option<String> {
+    let mut parts = Vec::new();
+    if let Some(category) = &row.category {
+        parts.push(category.clone());
+    }
+    if let Some(date) = &row.publication_date {
+        parts.push(date.clone());
+    }
+    (!parts.is_empty()).then(|| parts.join(" · "))
+}
+
+type BookLookupSignal =
+    ReadSignal<Option<Result<Option<Rc<BookLookup>>, LibraryError>>, LocalStorage>;
+
+fn book_row(
+    row: BookListEntry,
+    library: Library,
+    lookup: BookLookupSignal,
+    saving: RwSignal<bool>,
+    save_error: RwSignal<Option<String>>,
+) -> AnyView {
+    let meta = book_meta(&row);
+    let id = row.id;
+    let title = row.title;
+    let count = row.count;
+    let count_label = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
+    let revision = library.selection_revision();
+    let state_library = library.clone();
+    let save_library = library.clone();
+    let state_id = id.clone();
+    let save_id = id.clone();
+    let label = format!("Active {title}");
+    let is_active = move || {
+        revision.get();
+        state_library.book_active(&state_id)
+    };
+    let badge_active = is_active.clone();
+    let id_for_tree = id.clone();
+    let title_for_tree = title.clone();
+    let expanded = RwSignal::new(false);
+    let on_toggle = move |event: leptos::ev::Event| {
+        expanded.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
+    };
+    view! {
+        <li class="book-directory-item" data-book-id=id>
+            <details class="book-directory-row" on:toggle=on_toggle>
+                <summary class="book-card">
+                    <span class="cat-name">{title.clone()}</span>
+                    <span class="cat-count">{count}</span>
+                    <span class="cat-blurb">
+                        {count_label}
+                        {meta.map(|line| view! { <span class="book-meta">" · "{line}</span> })}
+                        {move || (!badge_active()).then_some(" · Disabled")}
+                    </span>
+                </summary>
+                <div class="book-directory-contents">
+                    {move || expanded.get().then(|| lookup.with(|state| match state {
+                        Some(Ok(Some(books))) => match books.books().iter().position(|book| book.source == id_for_tree) {
+                            Some(index) => view! {
+                                <BookTree lookup=Shared::from_rc(books.clone()) book=index title=title_for_tree.clone() />
+                            }.into_any(),
+                            None => view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any(),
+                        },
+                        Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
+                        _ => view! { <p class="muted" role="status">"Loading chapter list…"</p> }.into_any(),
+                    }))}
+                </div>
+            </details>
+            <label class="book-activation">
+                <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
+                    on:change=move |event| {
+                        if saving.get_untracked() { return; }
+                        let input = event_target::<web_sys::HtmlInputElement>(&event);
+                        let active = input.checked();
+                        // Discovery remains at the saved value while this control is busy.
+                        saving.set(true);
+                        save_error.set(None);
+                        let library = save_library.clone();
+                        let id = save_id.clone();
+                        spawn_local(async move {
+                            if let Err(error) = library.set_book_active(&id, active).await {
+                                input.set_checked(library.book_active(&id));
+                                save_error.set(Some(format!("Could not save the book selection: {error}")));
+                            }
+                            saving.set(false);
+                        });
+                    } />
+                <span>"Active"</span>
+            </label>
+        </li>
+    }
+    .into_any()
+}
+
+/// The expanded book, rooted at the same `Read {book}` label as the full contents page.
+/// Chapters and sections are native disclosures; children are built only when a branch opens,
+/// so a two-thousand-entry book costs a few rows until the reader asks for more.
+#[component]
+fn BookTree(lookup: Shared<BookLookup>, book: usize, title: String) -> impl IntoView {
+    let Some(tree) = lookup.book_at(book) else {
+        return ().into_any();
+    };
+    let href = Route::Book {
+        source: tree.source.clone(),
+        chapter: None,
+    }
+    .href();
+    let nav_label = format!("Contents of {title}");
+    let read_label = format!("Read {title}");
+    let chapters = (0..tree.chapters.len())
+        .map(|index| {
+            view! {
+                <DirectoryNode lookup=lookup.clone() book path=vec![index] />
+            }
+        })
+        .collect_view();
+    view! {
+        <nav class="toc book-tree" aria-label=nav_label data-testid="book-tree">
+            <a class="book-tree-root" href=href>{read_label}</a>
+            <ul class="toc-list toc-top">{chapters}</ul>
+        </nav>
+    }
+    .into_any()
+}
+
+#[component]
+fn DirectoryNode(lookup: Shared<BookLookup>, book: usize, path: Vec<usize>) -> impl IntoView {
+    let Some(tree) = lookup.book_at(book) else {
+        return ().into_any();
+    };
+    let Some(node) = node_at(tree, &path) else {
+        return ().into_any();
+    };
+    let title = section_label(&node.title);
+    let under = entries_under(node);
+    let child_count = node.children.len();
+    let own_link = node.entry.as_ref().map(|entry| {
+        Route::Entry {
+            id: entry.clone(),
+            anchor: node.anchor.clone(),
+        }
+        .href()
+    });
+
+    if child_count == 0 {
+        return match own_link {
+            Some(href) => view! { <li class="toc-leaf"><a href=href>{title}</a></li> }.into_any(),
+            None => view! { <li class="toc-leaf"><span>{title}</span></li> }.into_any(),
+        };
+    }
+
+    let opened = RwSignal::new(false);
+    let on_toggle = move |event: leptos::ev::Event| {
+        opened.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
+    };
+    let child_title = title.clone();
+    let children = {
+        let lookup = lookup.clone();
+        let path = path.clone();
+        move || {
+            opened.get().then(|| {
+                let items = (0..child_count)
+                    .map(|index| {
+                        let mut child = path.clone();
+                        child.push(index);
+                        view! {
+                            <DirectoryNode lookup=lookup.clone() book path=child />
+                        }
+                    })
+                    .collect_view();
+                let own = own_link.clone().map(|href| {
+                    view! {
+                        <li class="toc-leaf toc-self">
+                            <a href=href>{format!("Read {child_title}")}</a>
+                        </li>
+                    }
+                });
+                view! { <ul class="toc-list">{own}{items}</ul> }
+            })
+        }
+    };
+    view! {
+        <li class="toc-branch">
+            <details class="toc-details" on:toggle=on_toggle>
+                <summary>
+                    <span class="toc-title">{title}</span>
+                    <span class="toc-count" aria-label=format!("{under} entries")>{under}</span>
+                </summary>
+                {children}
+            </details>
+        </li>
+    }
+    .into_any()
+}
+
+/// The publication directory. The same `books.json` tree as the book page, built lazily, with
+/// library order, category grouping, and publication-date grouping kept in the URL.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
@@ -164,82 +493,44 @@ pub fn Books() -> impl IntoView {
     };
     let saving = RwSignal::new(false);
     let save_error = RwSignal::new(None::<String>);
-    let revision = library.selection_revision();
-    let rows = library
+    let current = use_route();
+    let sort = move || match current.get() {
+        Route::BooksSorted(sort) => Some(sort),
+        _ => None,
+    };
+    let rows: Vec<BookListEntry> = library
         .sources()
         .iter()
         .map(|source| {
             let id = source.id.clone();
-            let title = source.title.clone();
-            let count = library.catalog().entries.iter().filter(|stub| {
-                library.canonical_source_for_entry(&stub.id).as_deref() == Some(id.as_str())
-            }).count();
-            let state_library = library.clone();
-            let save_library = library.clone();
-            let state_id = id.clone();
-            let save_id = id.clone();
-            let label = format!("Active {title}");
-            let is_active = move || { revision.get(); state_library.book_active(&state_id) };
-            let badge_active = is_active.clone();
-            let href = Route::Book {
-                source: id.clone(),
-                chapter: None,
-            }
-            .href();
-            let id_for_rows = id.clone();
-            let title_for_summary = title.clone();
-            let expanded = RwSignal::new(false);
-            let on_toggle = move |event: leptos::ev::Event| {
-                expanded.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
-            };
-            view! {
-                <li class="book-directory-item" data-book-id=id>
-                    <details class="book-directory-row" on:toggle=on_toggle>
-                        <summary class="book-card">
-                            <span class="cat-name">{title_for_summary}</span>
-                            <span class="cat-count">{count}</span>
-                            <span class="cat-blurb">{format!("{count} entries")}{move || (!badge_active()).then_some(" · Disabled")}</span>
-                        </summary>
-                        <div class="book-directory-contents">
-                            <a href=href>{format!("Open {title} contents")}</a>
-                            {move || expanded.get().then(|| lookup.with(|state| match state {
-                                Some(Ok(Some(books))) => books.book(&id_for_rows).map(|book| {
-                                    let chapters = book.chapters.iter().enumerate().map(|(i, chapter)| {
-                                        let href = Route::Book { source: id_for_rows.clone(), chapter: Some(vec![i]) }.href();
-                                        view! { <li><a href=href>{crate::views::util::section_label(&chapter.title)}</a></li> }
-                                    }).collect_view();
-                                    view! { <ul class="book-directory-chapters">{chapters}</ul> }.into_any()
-                                }).unwrap_or_else(|| view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any()),
-                                Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
-                                _ => view! { <p class="muted" role="status">"Loading chapter list…"</p> }.into_any(),
-                            }))}
-                        </div>
-                    </details>
-                    <label class="book-activation">
-                        <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
-                            on:change=move |event| {
-                                if saving.get_untracked() { return; }
-                                let input = event_target::<web_sys::HtmlInputElement>(&event);
-                                let active = input.checked();
-                                // Discovery remains at the saved value while this control is busy.
-                                saving.set(true);
-                                save_error.set(None);
-                                let library = save_library.clone();
-                                let id = save_id.clone();
-                                spawn_local(async move {
-                                    if let Err(error) = library.set_book_active(&id, active).await {
-                                        input.set_checked(library.book_active(&id));
-                                        save_error.set(Some(format!("Could not save the book selection: {error}")));
-                                    }
-                                    saving.set(false);
-                                });
-                            } />
-                        <span>"Active"</span>
-                    </label>
-                </li>
+            let count = library
+                .catalog()
+                .entries
+                .iter()
+                .filter(|stub| {
+                    library.canonical_source_for_entry(&stub.id).as_deref() == Some(id.as_str())
+                })
+                .count();
+            BookListEntry {
+                id,
+                title: source.title.clone(),
+                category: source.category.clone(),
+                publication_date: source.publication_date.clone(),
+                count,
             }
         })
-        .collect_view();
+        .collect();
+    let sort_link = move |value: Option<BookSort>, label: &'static str| {
+        let href = value.map_or_else(
+            || Route::Books.href(),
+            |sort| Route::BooksSorted(sort).href(),
+        );
+        view! {
+            <li>
+                <a href=href aria-current=move || (sort() == value).then_some("true")>{label}</a>
+            </li>
+        }
+    };
     view! {
         <div class="wide">
             <h1>"Books"</h1>
@@ -250,8 +541,41 @@ pub fn Books() -> impl IntoView {
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
                 <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
+                <nav class="book-sort" aria-label="Sort books">
+                    <span class="sort-label">"Sort"</span>
+                    <ul class="sort-options">
+                        {sort_link(None, "Library order")}
+                        {sort_link(Some(BookSort::Category), BookSort::Category.label())}
+                        {sort_link(Some(BookSort::Date), BookSort::Date.label())}
+                    </ul>
+                </nav>
                 {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-                <ul class="book-directory" aria-describedby="books-scope">{rows}</ul>
+                {move || {
+                    book_groups(&rows, sort())
+                        .into_iter()
+                        .enumerate()
+                        .map(|(group_index, group)| {
+                            let heading_id = format!("book-group-{group_index}");
+                            let count = group.books.len();
+                            let items = group
+                                .books
+                                .into_iter()
+                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error))
+                                .collect_view();
+                            match group.label {
+                                Some(label) => view! {
+                                    <section class="book-group" aria-labelledby=heading_id.clone()>
+                                        <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>
+                                        <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
+                                    </section>
+                                }.into_any(),
+                                None => view! {
+                                    <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
+                                }.into_any(),
+                            }
+                        })
+                        .collect_view()
+                }}
             </section>
         </div>
     }
@@ -810,6 +1134,77 @@ mod tests {
                 ('#', vec![0])
             ]
         );
+    }
+
+    fn book(id: &str, title: &str, category: Option<&str>, date: Option<&str>) -> BookListEntry {
+        BookListEntry {
+            id: id.into(),
+            title: title.into(),
+            category: category.map(str::to_string),
+            publication_date: date.map(str::to_string),
+            count: 0,
+        }
+    }
+
+    #[test]
+    fn library_order_is_one_unlabeled_group_in_catalog_order() {
+        let books = vec![
+            book("b", "Beta", Some("RPG"), Some("2010-01-01")),
+            book("a", "Alpha", Some("Module"), None),
+        ];
+        let groups = book_groups(&books, None);
+        assert_eq!(
+            groups,
+            vec![BookGroup {
+                label: None,
+                books: vec![0, 1]
+            }]
+        );
+    }
+
+    #[test]
+    fn category_groups_use_the_catalog_order_unknown_last_and_title_inside() {
+        let books = vec![
+            book("z", "Zeta", Some("RPG"), None),
+            book("a", "Alpha", Some("RPG"), None),
+            book("m", "Mid", Some("Module"), None),
+            book("u", "Unknown", None, None),
+            book("o", "Other", Some("Other line"), None),
+        ];
+        let groups = book_groups(&books, Some(BookSort::Category));
+        let labels: Vec<&str> = groups.iter().map(|g| g.label.as_deref().unwrap()).collect();
+        assert_eq!(
+            labels,
+            ["Module", "RPG", "Other line", UNKNOWN_CATEGORY],
+            "published product lines first, other categories alphabetically, Unknown last"
+        );
+        assert_eq!(
+            groups[1].books,
+            vec![1, 0],
+            "alphabetical inside a category"
+        );
+        assert_eq!(groups[3].books, vec![3]);
+    }
+
+    #[test]
+    fn date_groups_are_newest_first_unknown_last_and_ties_are_alphabetical() {
+        let books = vec![
+            book("a", "Alpha", Some("RPG"), Some("2009-08-01")),
+            book("b", "Beta", Some("RPG"), Some("2014-08-14")),
+            book("c", "Aardvark", Some("RPG"), Some("2014-08-14")),
+            book("d", "Dated", Some("RPG"), Some("2014-07-01")),
+            book("u", "Unknown", None, None),
+            book("bad", "Bad", None, Some("not-a-date")),
+        ];
+        let groups = book_groups(&books, Some(BookSort::Date));
+        let labels: Vec<&str> = groups.iter().map(|g| g.label.as_deref().unwrap()).collect();
+        assert_eq!(labels, ["2014", "2009", UNKNOWN_DATE]);
+        assert_eq!(
+            groups[0].books,
+            vec![2, 1, 3],
+            "newest date, then title for the shared date"
+        );
+        assert_eq!(groups[2].books, vec![5, 4], "Unknown group is alphabetical");
     }
 
     #[test]

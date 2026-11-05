@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Write the reviewed publication category and date file from saved AoN source pages.
+
+The pinned Pf Data registry (`json/sources.json`) has a title and a product URL, but no
+product line and no release date. The Archives of Nethys source catalogue provides both:
+each product-line page groups rows under a category and shows an Estimated Release Date.
+This script turns one saved copy of those pages into the small committed file that the
+compiler reads. It never fetches anything; pass the directory that holds the saved pages.
+
+Usage:
+    python3 scripts/extract-publication-metadata.py AON_DIR \
+        --publications sources/canonical/publications.toml \
+        --output sources/canonical/publication-metadata.toml [--check]
+
+AON_DIR must contain `AdventurePath.html`, `CampaignSetting.html`, `Module.html`,
+`PlayerCompanion.html`, `RPG.html`, and `Miscellaneous.html`, saved from
+https://aonprd.com/Sources.aspx?ProductLine=<name>. The output is sorted by canonical source
+id, so two runs over the same pages are byte-identical. A row with no confident match is
+omitted; the Books page groups that publication under "Unknown".
+"""
+
+from __future__ import annotations
+
+import argparse
+import html
+import re
+import sys
+import tomllib
+from html.parser import HTMLParser
+from pathlib import Path
+
+PRODUCT_LINES = {
+    "AdventurePath": "Adventure Path",
+    "CampaignSetting": "Campaign Setting",
+    "Module": "Module",
+    "PlayerCompanion": "Player Companion",
+    "RPG": "RPG",
+    "Miscellaneous": "Miscellaneous",
+}
+
+# Pf Data and AoN spell a few titles differently. These are reviewed equivalences, not
+# fuzzy matches: each target title exists in the saved catalogue.
+TITLE_ALIASES = {
+    "Artifacts and Legends": "Artifacts & Legends",
+    "Curse of the Crimson Throne": "Curse of the Crimson Throne (PFRPG)",
+    "Gods and Magic": "Gods & Magic",
+    "Pathfinder #139: The Dead Road": "Pathfinder #139: The Dead Roads",
+    "Plunder and Peril": "Plunder & Peril",
+    "Quests and Campaigns": "Quests & Campaigns",
+    "Rivers into Darkness": "River into Darkness",
+    "Skull and Shackles Player's Guide": "Skull & Shackles Player's Guide",
+}
+
+
+class SourceTable(HTMLParser):
+    """Read title/date pairs from the catalogue table."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[tuple[str, str]] = []
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "tr":
+            self._row = []
+        elif tag == "td":
+            self._cell = []
+
+    def handle_data(self, data: str) -> None:
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "td" and self._cell is not None and self._row is not None:
+            self._row.append("".join(self._cell).strip())
+            self._cell = None
+        elif tag == "tr" and self._row is not None:
+            if len(self._row) >= 2 and re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", self._row[1]):
+                self.rows.append((self._row[0], self._row[1]))
+            self._row = None
+
+
+def normalize(title: str) -> str:
+    """Case, apostrophe, ampersand, and punctuation-insensitive title key."""
+    title = html.unescape(title).lower()
+    title = title.replace("\u2019", "'").replace("\u2014", "-").replace("\u2013", "-")
+    title = re.sub(r"^pathfinder\s+(roleplaying game|rpg)\s+", "", title)
+    title = re.sub(r"^pathfinder\s+", "", title)
+    return re.sub(r"[^a-z0-9]+", "", title)
+
+
+def iso_date(value: str) -> str:
+    month, day, year = (int(part) for part in value.split("/"))
+    if not 1 <= month <= 12 or not 1 <= day <= 31:
+        raise ValueError(f"invalid date {value!r}")
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def read_rows(aon_dir: Path) -> dict[str, tuple[str, str]]:
+    by_title: dict[str, tuple[str, str]] = {}
+    for page_name, label in PRODUCT_LINES.items():
+        page = aon_dir / f"{page_name}.html"
+        parser = SourceTable()
+        parser.feed(page.read_text(encoding="utf-8"))
+        for title, date in parser.rows:
+            by_title.setdefault(normalize(title), (label, iso_date(date)))
+    return by_title
+
+
+def read_registry(path: Path) -> dict[str, dict[str, str]]:
+    with path.open("rb") as handle:
+        return tomllib.load(handle)["publication"]
+
+
+def build(aon_dir: Path, registry_path: Path) -> str:
+    catalogue = read_rows(aon_dir)
+    registry = read_registry(registry_path)
+    rows: dict[str, tuple[str, str]] = {}
+    for title, publication in registry.items():
+        target = TITLE_ALIASES.get(title, title)
+        match = catalogue.get(normalize(target))
+        if match is not None:
+            rows[publication["source"]] = match
+
+    lines = [
+        "# Reviewed publication category and first release date.",
+        "# Generated by scripts/extract-publication-metadata.py from saved Archives of Nethys",
+        "# source-catalogue pages (https://aonprd.com/Sources.aspx). Category is the site's",
+        "# product line; publication_date is its Estimated Release Date as YYYY-MM-DD.",
+        "# A publication missing here has an unknown field and the Books page groups it under",
+        "# Unknown. Do not hand-edit: regenerate and review the diff.",
+        "",
+        "version = 1",
+        "",
+    ]
+    for source in sorted(rows):
+        product_line, date = rows[source]
+        lines.append(f"[publication.{source}]")
+        lines.append(f'category = "{product_line}"')
+        lines.append(f'publication_date = "{date}"')
+        lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("aon_dir", type=Path)
+    parser.add_argument(
+        "--publications",
+        type=Path,
+        default=Path("sources/canonical/publications.toml"),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("sources/canonical/publication-metadata.toml"),
+    )
+    parser.add_argument("--check", action="store_true", help="fail when the output differs")
+    args = parser.parse_args()
+
+    text = build(args.aon_dir, args.publications)
+    if args.check:
+        if not args.output.exists() or args.output.read_text(encoding="utf-8") != text:
+            print(f"{args.output} is stale; regenerate it", file=sys.stderr)
+            return 1
+        print(f"{args.output} is current")
+        return 0
+    args.output.write_text(text, encoding="utf-8")
+    print(f"wrote {args.output}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

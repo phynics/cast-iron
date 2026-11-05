@@ -15,6 +15,7 @@ use crate::model::Node;
 use crate::order::{BookOrderFile, UpstreamOrder};
 use crate::pf_data::{self, Inventory};
 use crate::pf_legal;
+use crate::publication_metadata;
 use crate::publications::{self, Registry};
 use crate::select::{self, Role, Survey, hex, sha256_hex};
 use crate::slug::slug_segment;
@@ -352,7 +353,10 @@ pub fn build_psrd(opts: &Options) -> Result<Library, Failure> {
             }
         }
     }
-    let sources = build_sources(&built, &notices);
+    let mut sources = build_sources(&built, &notices);
+    // The PSRD build keeps the same reviewed category and date rows as the canonical build.
+    publication_metadata::load_from_canonical_dir(&config_dir.join("../canonical"))?
+        .apply(&mut sources);
     let by_publication = publications(&survey.source_counts, &sources);
     let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
     for e in &built.entries {
@@ -456,6 +460,8 @@ fn build_sources(built: &build::Built, notices: &ExtractedNotices) -> Vec<Source
                 .count() as u32,
             copyright: legal::copyright_for(&title, &notices.section_15),
             title,
+            category: None,
+            publication_date: None,
         });
     }
     sources.sort_by(|a, b| a.id.cmp(&b.id));
@@ -785,7 +791,8 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     let legal = canonical_legal(&psrd.legal, &legal_report, &pf_pin);
     let (aliases_file, alias_retirements) = (aliases.bytes, aliases.retirements);
 
-    let sources = canonical_sources(&entries, &psrd.sources, &states);
+    let mut sources = canonical_sources(&entries, &psrd.sources, &states);
+    publication_metadata::load_from_canonical_dir(&opts.canonical_dir)?.apply(&mut sources);
     let by_publication =
         canonical_publications(&entries, &inv, &states, &carried.report, &sources)?;
     let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
@@ -1603,6 +1610,8 @@ fn canonical_sources(
                 .filter(|entry| entry.source_ids.first().is_some_and(|id| id == source))
                 .count() as u32,
             copyright,
+            category: None,
+            publication_date: None,
         });
     }
     sources.sort_by(|a, b| a.id.cmp(&b.id));

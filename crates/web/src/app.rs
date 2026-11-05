@@ -350,8 +350,10 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::Spells
                 | Route::SpellList { .. }
                 | Route::FeatChains,
-        ) | (Route::Books, Route::Books | Route::Book { .. })
-            | (Route::Settings, Route::Settings | Route::Legal)
+        ) | (
+            Route::Books,
+            Route::Books | Route::BooksSorted(_) | Route::Book { .. },
+        ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
 
@@ -402,6 +404,8 @@ fn RouteView() -> impl IntoView {
                 source,
                 chapter: None,
             },
+            // Sorting keeps the directory mounted, like a chapter toggle keeps a book mounted.
+            Route::BooksSorted(_) => Route::Books,
             other => other,
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
@@ -424,7 +428,7 @@ fn RouteView() -> impl IntoView {
             view! { <BookView source=id /> }.into_any()
         }
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
-        Route::Books => view! { <Books /> }.into_any(),
+        Route::Books | Route::BooksSorted(_) => view! { <Books /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),

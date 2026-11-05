@@ -52,6 +52,29 @@ test("Mobile viewport shows no horizontal page scroll on key screens", async ({ 
   expect(wide).toEqual([]);
 });
 
+test("Expanded books, their contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0));
+  if (!book) throw new Error("The compiled corpus has no book with contents.");
+  const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
+  await row.locator(".book-directory-row > summary").click();
+  const tree = row.getByTestId("book-tree");
+  await expect(tree).toBeVisible();
+  await tree.locator(".toc-top > li > .toc-details > summary").first().click();
+  const treeOverflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(treeOverflow).toBeLessThanOrEqual(0);
+
+  await page.getByRole("navigation", { name: "Sort books" }).getByRole("link", { name: "Publication date", exact: true }).click();
+  await expect(page.locator(".book-group").first()).toBeVisible();
+  const sortOverflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(sortOverflow).toBeLessThanOrEqual(0);
+});
+
 test("Mobile header Install button is icon-only, a full touch target, and crowds nothing", async ({ page, context }) => {
   await context.addInitScript({
     content: `document.addEventListener("DOMContentLoaded", () => {

@@ -78,10 +78,11 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
 | Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
+| Books sorting and contents tree | `Books sort by category\|Expanded books show a hierarchical\|Expanded books, their contents tree` (`books.spec.ts`, `mobile.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs`, `sources/canonical/publication-metadata.toml` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
-| Book contents and reading order | `book contents\|Expanded books` | `crates/web/src/views/book.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
+| Book contents and reading order | `book contents\|Expanded books\|hierarchical` | `crates/web/src/views/book.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
 | Publication choices | `Source variants` (`source-variants.spec.ts`) | `crates/web/src/views/source_variants.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/related.rs` |
 | Keyboard and subsystem reading | `Keyboard` (`accessibility-reading.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/book.rs`, `web/styles.css` |
 | Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
@@ -91,7 +92,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | App-shell update and offline bookmarks | `App update waits` (`shell-update.spec.ts`) | `web/sw.js`, `crates/web/js/bridge.js`, `tests/e2e/server.mjs` |
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
-| Mobile layout | `Mobile viewport` (`mobile.spec.ts`) | `web/styles.css` |
+| Mobile layout | `Mobile viewport\|Expanded books, their contents tree` (`mobile.spec.ts`) | `web/styles.css`, `crates/web/src/views/browse.rs` |
 | Legal and attribution | `Licensing` | `crates/web/src/views/legal.rs`, `sources/psrd-data/legal-notices.json`, `sources/pathfinder-data-1-e/` |
 | Publication scope | none: `python3 scripts/check-publication.py` after building the default | `scripts/check-publication.py`, `docs/research/licensing-audit.md` |
 | Content compiler and default library | none: `cargo test -p cast-iron-content-compiler`, CI canonical and PSRD determinism job, `python3 scripts/check-library-upgrade.py generated/psrd generated/content` | `crates/content-compiler`, `crates/xtask`, `sources/canonical/` |

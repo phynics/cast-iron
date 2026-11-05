@@ -183,7 +183,7 @@ export async function openBookContents(page: Page, title: string) {
   await page.goto("#/books");
   const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
   await row.locator("summary").click();
-  await row.getByRole("link", { name: `Open ${title} contents`, exact: true }).click();
+  await row.locator(".book-tree-root").click();
   // A route change moves focus to <main> on the next animation frame so screen readers announce the
   // page. A key pressed on a contents control before that move lands on <main> instead, and the
   // control never reacts. Wait for the move rather than racing it.

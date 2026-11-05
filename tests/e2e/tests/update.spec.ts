@@ -20,6 +20,9 @@ const otherSource = corpus.catalog.sources.find((source) =>
   source.entry_count > 0 && source.id !== placedIn);
 
 test("Content update keeps user records", async ({ page, context, server }) => {
+  // The canonical library is about 220 MB; building the replacement copy and verifying it
+  // take longer than the default test budget on a local disk.
+  test.setTimeout(300_000);
   expect(otherSource, "a second publication in the compiled library").toBeTruthy();
   const marker = "UPDATED-LIBRARY-MARKER";
   const next = buildUpdatedLibrary(marker);
@@ -55,7 +58,10 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     const slow = next.manifest.files.find((file) =>
       file.path.includes("/entries/") && file.path.endsWith(".json"))!.path;
     await server.overlay(next.dir);
-    await server.hook(`content/${slow}`, "slow", { ms: 500 });
+    // Keep v2 visibly in flight long enough that every page agrees on v1. The canonical
+    // library's first entries shard is about 400 KB, so 1500 ms per 16 KB chunk holds
+    // activation for roughly 40 s.
+    await server.hook(`content/${slow}`, "slow", { ms: 1500 });
     await page.getByRole("button", { name: "Check for updates", exact: true }).click();
     await expect(page.getByText("Newer library available")).toBeVisible();
     await expect(page.locator(".install-panel .facts")).toContainText(next.version);
@@ -81,7 +87,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.
-    await expect(page.getByTestId("library-version")).toHaveText(next.version, { timeout: 60_000 });
+    await expect(page.getByTestId("library-version")).toHaveText(next.version, { timeout: 120_000 });
     expect((await activeLibrary(page)).content_version).toBe(next.version);
     await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${next.version}`]);
     const cached = new Set((await cacheContents(page))[`cast-iron-content-${next.version}`]);

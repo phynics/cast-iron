@@ -29,6 +29,7 @@ pub mod pf_screen;
 pub mod pipeline;
 pub mod policy;
 pub mod prereq;
+pub mod publication_metadata;
 pub mod publications;
 pub mod relations;
 pub mod select;
