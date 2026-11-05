@@ -33,12 +33,12 @@ def main():
     ancestor(args.commit, 'origin/main')
     ancestor('origin/release', args.commit)
     runs = json.loads(run('gh', 'run', 'list', '--repo', 'phynics/cast-iron',
-                         '--workflow', 'ci.yml', '--branch', 'main', '--event', 'push',
+                         '--workflow', 'ci.yml', '--branch', 'main',
                          '--commit', args.commit, '--limit', '100',
                          '--json', 'headSha,conclusion,url'))
     passed = [r for r in runs if r['headSha'] == args.commit and r['conclusion'] == 'success']
     if not passed:
-        parser.error('no successful main push CI run for this exact commit')
+        parser.error('no successful main CI run for this exact commit; start one with: gh workflow run ci.yml --ref main')
     print('CI:', passed[0]['url'], flush=True)
     print('Current release:', run('git', 'rev-parse', 'origin/release'), flush=True)
     print('Candidate:', args.commit, flush=True)

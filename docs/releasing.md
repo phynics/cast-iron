@@ -19,8 +19,10 @@ and [environment rules](https://docs.github.com/en/actions/how-tos/deploy/config
 Use Git, Python 3, and an authenticated GitHub CLI with Actions read access and
 permission to push `release`. Run the commands from the repository root.
 
-1. Choose a full commit SHA on `main` with successful **CI** for that exact
-   main push. Review all commits and changes since `release`, including changes
+1. Choose a full commit SHA on `main` with a successful full **CI** run for
+   that exact commit. The full run happens once a day and on demand; if the
+   chosen commit has none, start one while `main` still points at it with
+   `gh workflow run ci.yml --ref main`. Review all commits and changes since `release`, including changes
    from other issues. A green feature-branch run is not the main integration run.
    If the range includes the canonical default switch, confirm the alias-capable
    shell from the previous PSRD release is already live and verified. An old shell
