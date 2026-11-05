@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import { corpusEntry, installLibrary, letterId, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
