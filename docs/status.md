@@ -1,12 +1,44 @@
 # Status
 
-Updated 2026-11-04. The repository is public. The latest observed successful
+Updated 2026-11-05. The repository is public. The latest observed successful
 [main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and
 [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41691686716)
 are for `d48eaa3c8dce901b80a777600ae09238647c41cd`. The release migration has
 not replaced that deployment or repeated its live browser acceptance.
 Earlier published iPhone Simulator observations remain in
 [the journey report](research/iphone-journeys.md).
+
+## Canonical library is the default build, 2026-11-05
+
+`main` now builds the canonical Pf Data library by default. `cargo xtask content`
+writes `generated/content/`, and `cargo xtask build-site` packages that directory
+into `dist/`. PSRD-Data remains the carry-over input and the previous published
+library: `cargo xtask content --psrd` writes `generated/psrd/`, and
+`cargo xtask build-site --psrd` packages it. `--canonical` is still accepted as the
+explicit spelling of the default.
+
+**This is a default switch on `main`, not a release.** The `release` branch and the
+live GitHub Pages site still publish the PSRD library (`vdb43853600b8ed8b`, 9,968
+entries). Promotion needs the owner's approval and follows `docs/releasing.md`:
+publish and verify the alias-capable shell on the PSRD release first, then promote
+the commit that makes canonical the default (design section 6.5). Merging this
+switch publishes nothing.
+
+Local verification on 2026-11-05 against the pinned PSRD-Data and Pf Data commits:
+
+| Check | Result |
+|---|---|
+| Canonical default, two runs | Byte-identical: `vd7596846128e349b`, 29,515 entries, 206,972,160 bytes; content tree hash `eb8d2e60a947ca9b70c14b0e3bff9f251705a38f5026c0b4d0dc8b6a10d6846c` |
+| PSRD `--psrd`, two runs | Byte-identical: `vdb43853600b8ed8b`, 9,968 entries; content tree hash `4425ab68f1a668e926be7017457be6d4397cb597f41e7be68b82aaf5ddd46b07` |
+| `check-library-upgrade.py generated/psrd generated/content` | Exit 0: 9,968 old ids, 0 missing, 0 unresolvable, 0 alias problems, 0 unexpected title changes, 0 wrong class categories, 0 dangling references; 5,710 direct, 1,898 shared, 115 derived, and 2,245 carried |
+| `check-publication.py` on `dist/content` | Exit 0: 29,515 entries, 397 publications, 0 issues |
+| Full browser suite | 110/110 passed: chromium 54, webkit 54, mobile-chromium 2; the `Licensing` case passed in both desktop projects |
+| `cargo xtask check` | Passed (format, Python tests, native and WASM clippy, workspace tests, WASM build) |
+| `cargo xtask data-report` | Passed; no change to the tracked `reports/` files |
+
+Schema version 3 and search format 1 are unchanged. The default library's legal page
+lists both dataset pins and all 660 Section 15 notices. This is local evidence only;
+no CI, deployment, or live verification is claimed here.
 
 ## Development and release migration
 
@@ -357,10 +389,11 @@ The Core Rulebook is ordered by page: `Casting Spells` at page 206 follows
 over one full conversion are byte-identical, and `cargo xtask data-report`
 reproduces the tracked representative reports. The canonical index has no curated
 chapters yet; `book-order.toml` matches PSRD urls, so its chapter list remains a
-later refinement. `cargo xtask content` still produces `vdb43853600b8ed8b` with
-9,968 entries, byte-identical to the baseline production build. Schema 3 and
-search format 1 are unchanged. This is local evidence; the full migration remains
-blocked and is not shipped.
+later refinement. At that time the default `cargo xtask content` produced
+`vdb43853600b8ed8b` with 9,968 entries, byte-identical to the baseline production
+build; that library is now `cargo xtask content --psrd`. Schema 3 and search format
+1 are unchanged. This is local evidence; the full migration remained blocked and
+was not shipped at that time.
 
 ## Full Pf Data corpus root-cause findings, 2026-11-04
 
@@ -449,17 +482,21 @@ in several books, and an entry without a page is both listed under Unpaged and
 recorded in `book_order.unplaced`. Schema validation reports no dangling link,
 parent, relation, or book target. The script was not weakened.
 
-This is a local build, not a deployment. PSRD remains the production default.
-P8 acceptance on the later facet-carrying build (`v523b94bd49b15699`) is recorded
+This is a local build, not a deployment. PSRD was still the production default at
+that time; the later default switch is recorded at the top of this page. P8
+acceptance on the later facet-carrying build (`v523b94bd49b15699`) is recorded
 under [Canonical library acceptance (P8)](#canonical-library-acceptance-p8-2026-11-05).
 
 ## Canonical library acceptance (P8), 2026-11-05
 
-`cargo xtask build-site --canonical` packages `generated/canonical/` into `dist/` through
-the same Trunk build as the default; the default still packages PSRD-Data from
-`generated/content/`. The Playwright suite reads its expectations from the compiled corpus
+At the time of P8, `cargo xtask build-site --canonical` packaged `generated/canonical/`
+into `dist/` through the same Trunk build, and the default still packaged PSRD-Data
+from `generated/content/`. The default now packages the canonical library from
+`generated/content/`, and the PSRD build is `--psrd` into `generated/psrd/` (top
+section). The Playwright suite reads its expectations from the compiled corpus
 selected by `CAST_IRON_CONTENT` (`generated/content` by default). Both libraries were
-checked against the same full suite, one `dist/` at a time.
+checked against the same full suite, one `dist/` at a time. The command block below
+records the P8 commands; the paths moved with the default switch.
 
 | Project | Canonical | PSRD |
 |---|---:|---:|
@@ -540,8 +577,8 @@ Two harness flakes on a library this size were fixed while making the suite pass
 header-button tab walk uses Option-Tab as the other keyboard tests do, and the mobile
 install-button size check rounds device-pixel layout values before comparing with 44 px.
 
-This is local verification. Nothing here is deployed, and PSRD remains the production
-default.
+This is local verification. Nothing here is deployed by that build, and PSRD was still
+the production default at that time.
 
 ## Pf Data class conversion, 2026-11-05
 
@@ -604,7 +641,7 @@ placements are the canonical multi-publication rule and are reported as a count.
 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/scripts -v`
 covers the alias and legacy paths.
 
-This is a local build, not a deployment. PSRD remains the production default,
-and P8 acceptance (install size, quota, latency, offline navigation, bookmark
-migration, browsers) has not been run for this library.
+This is a local build, not a deployment. PSRD was still the production default at
+that time, and P8 acceptance (install size, quota, latency, offline navigation,
+bookmark migration, browsers) had not been run for that library.
 

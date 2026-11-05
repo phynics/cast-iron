@@ -18,11 +18,11 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Task | Command |
 |---|---|
 | Install Trunk (once) | `cargo install trunk --locked` |
-| Get the pinned dataset | `cargo xtask fetch-sources` |
-| Compile content | `cargo xtask content` |
-| Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
-| Build `dist/` from the canonical library | `cargo xtask content --canonical`, then `cargo xtask build-site --canonical` |
-| Test the canonical build | `CAST_IRON_CONTENT=generated/canonical npm --prefix tests/e2e test -- ...` |
+| Get the pinned datasets | `cargo xtask fetch-sources` |
+| Compile the canonical library (default) | `cargo xtask content` (writes `generated/content/`) |
+| Compile the PSRD carry-over library | `cargo xtask content --psrd` (writes `generated/psrd/`) |
+| Build the site into `dist/` | `cargo xtask build-site` (canonical default; `--psrd` for the PSRD library; `--public-url /` for a root path) |
+| Test the PSRD build | `CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- ...` |
 | Check before you finish | `cargo xtask check` |
 | Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 
@@ -49,16 +49,16 @@ To prove a change in the real app, use the `verify` skill in `.agents/skills/ver
 
 1. Offline is the product. Nothing at runtime may contact a third-party host: no CDN, no remote font, no telemetry. After installation, ordinary use makes no network request at all.
 2. Client rendering uses typed nodes only. Never add `inner_html` or raw upstream HTML. This is the XSS defense.
-3. `EntryId` values are public, permanent identifiers, because bookmarks store them. If an upstream change alters an id, add a mapping in `sources/psrd-data/id-overrides.toml`.
+3. `EntryId` values are public, permanent identifiers, because bookmarks store them. If an upstream change alters a PSRD id, add a mapping in `sources/psrd-data/id-overrides.toml`. Published canonical ids are `ref/` ids; a legacy id resolves through `sources/canonical/id-map.toml` and never gets a second meaning.
 4. A breaking change to serialized content must increase `SCHEMA_VERSION`. A breaking change to the search format must increase `INDEX_FORMAT_VERSION`.
 5. Compiler output must stay byte-identical between runs: no timestamps, no hash-map iteration order.
 6. Excluded or rejected material must appear in the coverage report. Never drop it silently.
 7. A partly installed library must never show as ready. Verify hashes before activation. The active library stays usable until a replacement is verified.
 8. JavaScript stays limited to `web/sw.js` and the small bridge in `crates/web/js/`. Put logic that can be tested natively in Rust.
 9. All asset URLs are relative to the document base, because the app runs under a project path (`/cast-iron/`).
-10. Do not ship artwork or other Product Identity. Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the supplemental dataset. Keep the legal page data complete and `LICENSES/README.md` accurate.
+10. Do not ship artwork or other Product Identity. Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the canonical Pf Data corpus. Keep the legal page data complete for both dataset pins and `LICENSES/README.md` accurate.
 11. The app must not use the Pathfinder logo, and must not claim official status or compatibility.
-12. Supplemental records enter production only through `sources/pathfinder-data-1-e/approved.json`. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope via `out-of-scope.json`.
+12. PSRD supplemental records enter its library only through `sources/pathfinder-data-1-e/approved.json`. Canonical Pf Data records enter through the screened inventory and the reviewed `sources/canonical/publications.toml` registry. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope via `out-of-scope.json`.
 
 ## Working pattern
 
@@ -70,4 +70,4 @@ Work in small commits, each with a verifiable state. A task is finished only aft
 
 Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
 
-After changing compiler code, schema types, or source configuration, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill and retain a previous library outside build-output directories.
+After changing compiler code, schema types, or source configuration, run `cargo xtask content` (canonical default) before `cargo xtask build-site`. Run `cargo xtask content --psrd` as well when the PSRD carry-over input or the previous published library is affected. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill and retain the last published PSRD library outside build-output directories.

@@ -22,6 +22,10 @@ permission to push `release`. Run the commands from the repository root.
 1. Choose a full commit SHA on `main` with successful **CI** for that exact
    main push. Review all commits and changes since `release`, including changes
    from other issues. A green feature-branch run is not the main integration run.
+   If the range includes the canonical default switch, confirm the alias-capable
+   shell from the previous PSRD release is already live and verified. An old shell
+   cannot resolve canonical bookmarks; publish and verify it before this promotion
+   (design section 6.5).
 2. Preview the promotion from the repository root:
 
    ```sh
