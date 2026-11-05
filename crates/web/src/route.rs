@@ -28,7 +28,11 @@ pub enum Route {
         sources: Vec<String>,
         facets: Vec<(String, String)>,
     },
-    BrowseKind(EntryKind),
+    /// A kind's A to Z list. `letter` selects one letter group; `None` shows the first group.
+    BrowseKind {
+        kind: EntryKind,
+        letter: Option<char>,
+    },
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
     /// The 16 books, each a doorway into its contents.
@@ -76,6 +80,19 @@ impl Route {
         Route::Entry { id, anchor: None }
     }
 
+    /// A kind's A to Z list, opening its first letter group.
+    pub fn browse_kind(kind: EntryKind) -> Self {
+        Route::BrowseKind { kind, letter: None }
+    }
+
+    /// A kind's A to Z list with one letter group open.
+    pub fn browse_kind_letter(kind: EntryKind, letter: char) -> Self {
+        Route::BrowseKind {
+            kind,
+            letter: Some(letter),
+        }
+    }
+
     /// Parses `location.hash`, with or without the leading `#`.
     pub fn parse(hash: &str) -> Route {
         let raw = hash.strip_prefix('#').unwrap_or(hash);
@@ -102,7 +119,12 @@ impl Route {
                     if kind == EntryKind::Rule {
                         Route::Books
                     } else {
-                        Route::BrowseKind(kind)
+                        Route::BrowseKind {
+                            kind,
+                            letter: query
+                                .and_then(|q| query_pairs(q).find(|(key, _)| key == "l"))
+                                .and_then(|(_, value)| parse_letter(&value)),
+                        }
                     }
                 }),
             ["browse", "source", id] => match percent_decode(id) {
@@ -189,7 +211,14 @@ impl Route {
                     format!("#/search?{}", pairs.join("&"))
                 }
             }
-            Route::BrowseKind(kind) => format!("#/browse/kind/{}", kind.slug()),
+            Route::BrowseKind { kind, letter } => match letter {
+                Some(letter) => format!(
+                    "#/browse/kind/{}?l={}",
+                    kind.slug(),
+                    percent_encode(&letter.to_string())
+                ),
+                None => format!("#/browse/kind/{}", kind.slug()),
+            },
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::Book { source, chapter } => match chapter {
@@ -253,6 +282,16 @@ pub fn parse_chapter_path(text: &str) -> Option<Vec<usize>> {
         })
         .collect();
     path.filter(|p| !p.is_empty())
+}
+
+/// A letter group selector: one ASCII letter in either case, or `#` for digits and symbols.
+fn parse_letter(value: &str) -> Option<char> {
+    let mut chars = value.chars();
+    let letter = chars.next()?.to_ascii_uppercase();
+    if chars.next().is_some() {
+        return None;
+    }
+    (letter.is_ascii_uppercase() || letter == '#').then_some(letter)
 }
 
 /// The DOM id of a contents node, so that a chapter link can scroll to it.
@@ -458,13 +497,38 @@ mod tests {
             Route::Home,
             Route::Settings,
             Route::Legal,
-            Route::BrowseKind(EntryKind::Spell),
+            Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
             Route::Spells,
             Route::FeatChains,
         ] {
             round_trip(route);
+        }
+    }
+
+    #[test]
+    fn kind_routes_carry_the_selected_letter() {
+        let plain = Route::browse_kind(EntryKind::Spell);
+        assert_eq!(plain.href(), "#/browse/kind/spell");
+        round_trip(plain.clone());
+        let letter = Route::browse_kind_letter(EntryKind::Spell, 'F');
+        assert_eq!(letter.href(), "#/browse/kind/spell?l=F");
+        round_trip(letter);
+        let other = Route::browse_kind_letter(EntryKind::Feat, '#');
+        assert_eq!(other.href(), "#/browse/kind/feat?l=%23");
+        round_trip(other);
+        // A lower-case selector and unknown parameters are accepted; a bad selector is ignored.
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?l=f&zz=1"),
+            Route::browse_kind_letter(EntryKind::Spell, 'F')
+        );
+        for bad in ["", "ff", "1", "-"] {
+            assert_eq!(
+                Route::parse(&format!("#/browse/kind/spell?l={bad}")),
+                plain,
+                "{bad:?}"
+            );
         }
     }
 

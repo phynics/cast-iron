@@ -62,7 +62,7 @@ fn spell_crumbs(last: Option<(&'static str, Route)>) -> impl IntoView {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
                 <li><a href=Route::Home.href()>"Home"</a></li>
-                <li><a href=Route::BrowseKind(EntryKind::Spell).href()>"Spells"</a></li>
+                <li><a href=Route::browse_kind(EntryKind::Spell).href()>"Spells"</a></li>
                 {last.map(|(label, route)| view! { <li><a href=route.href()>{label}</a></li> })}
             </ol>
         </nav>
@@ -210,7 +210,7 @@ pub fn SpellsHub() -> impl IntoView {
                     Some(Err(_)) => ().into_any(),
                     None => view! { <p class="hint lens-wait" role="status">"Loading schools…"</p> }.into_any(),
                 })}
-                <p><a href=Route::BrowseKind(EntryKind::Spell).href()>"All spells, A to Z"</a></p>
+                <p><a href=Route::browse_kind(EntryKind::Spell).href()>"All spells, A to Z"</a></p>
             </section>
         </div>
     }

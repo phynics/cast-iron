@@ -345,7 +345,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
         (
             Route::Home,
             Route::Home
-                | Route::BrowseKind(_)
+                | Route::BrowseKind { .. }
                 | Route::BrowseSource(_)
                 | Route::Spells
                 | Route::SpellList { .. }
@@ -416,7 +416,9 @@ fn RouteView() -> impl IntoView {
     move || match page.get().0 {
         Route::Home => view! { <Home /> }.into_any(),
         Route::Search { .. } => view! { <Search /> }.into_any(),
-        Route::BrowseKind(kind) => view! { <BrowseKind kind /> }.into_any(),
+        Route::BrowseKind { kind, letter } => {
+            view! { <BrowseKind kind letter=letter /> }.into_any()
+        }
         // Old links to a publication land on its book when the library has book order.
         Route::BrowseSource(id) if use_library().has_books() => {
             view! { <BookView source=id /> }.into_any()
@@ -446,7 +448,7 @@ mod tests {
     fn nav_highlights_the_containing_section() {
         assert!(in_section(
             &Route::Home,
-            &Route::BrowseKind(cast_iron_schema::EntryKind::Spell)
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
         ));
         assert!(in_section(
             &Route::Home,
