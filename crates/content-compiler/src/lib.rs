@@ -5,6 +5,7 @@ pub mod alias_propose;
 pub mod books;
 pub mod build;
 pub mod canonical;
+pub mod carry;
 pub mod config;
 pub mod family;
 pub mod fields;
