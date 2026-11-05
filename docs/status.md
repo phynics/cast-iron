@@ -610,12 +610,15 @@ the production default at that time.
 
 ## Search scaling on the canonical library, 2026-11-05
 
-Refs [#84](https://github.com/phynics/cast-iron/issues/84). The canonical build is
-content `vd7596846128e349b`: 29,515 entries and `search.bin` 65,725,435 bytes, format 1
-(unchanged). The search view asks for every match because it groups duplicate titles and
-reports the true total, so the engine materialized a highlighted title and a snippet for
-each match. Each snippet tokenized up to 6 KB of body text, which made query time scale
-with matches rather than with the rendered page.
+Refs [#84](https://github.com/phynics/cast-iron/issues/84). The measurements below were
+taken on content `vd7596846128e349b`: 29,515 entries and `search.bin` 65,725,435 bytes,
+format 1 (unchanged). Merging current main first moved the canonical build to
+`vbf0523074eb3de80` (29,880 entries, `search.bin` 67,372,004 bytes); the same engine path
+measures p50 3.55 ms and p95 9.52 ms natively there, and the browser numbers below were
+repeated on that build. The search view asks for every match because it groups duplicate
+titles and reports the true total, so the engine materialized a highlighted title and a
+snippet for each match. Each snippet tokenized up to 6 KB of body text, which made query
+time scale with matches rather than with the rendered page.
 
 Native measurement uses `cargo run --release -p cast-iron-search --example
 bench_library --features profile -- generated/content/vd7596846128e349b/search.bin web`.
@@ -642,22 +645,19 @@ Browser acceptance on the same `dist/`, run locally:
 
 | Measure | Chromium | WebKit |
 |---|---:|---:|
-| `Search operates entirely offline` p95 (20 queries) | 8.8 ms (max 9.4) | 9 ms (max 11) |
-| `measure-library.mjs` engine p50 / p95 (50 queries) | 3.8 / 11.4 ms | 3.0 / 12.0 ms |
-| `measure-library.mjs` input-to-results p50 / p95 | 126 / 152 ms | 119 / 140 ms |
+| `Search operates entirely offline` p95 (20 queries) | 6.4 ms (max 9.8) | 13 ms (max 13) |
+| `measure-library.mjs` engine p50 / p95 (50 queries) | 4.0 / 10.0 ms | 4.0 / 11.0 ms |
+| `measure-library.mjs` input-to-results p50 / p95 | 131 / 185 ms | 127 / 162 ms |
 
 Ranking is unchanged. `crates/search/tests/canonical_ranking.rs` compares the top 50 ids
 for all 50 queries against a golden captured from the `origin/main` engine at `404c530`
-on this content version, and passes. A synthetic test compares bounded limits with the
-full ranking and checks that summary materialization matches full hits. `INDEX_FORMAT_VERSION`
-and the serialized layout are unchanged.
+on content `vbf0523074eb3de80`, and passes. A synthetic test compares bounded limits with
+the full ranking and checks that summary materialization matches full hits.
+`INDEX_FORMAT_VERSION` and the serialized layout are unchanged.
 
 Local verification: `cargo xtask check` passes, and the full Playwright suite passes
-110/110 (chromium 54, webkit 54, mobile-chromium 2) against the canonical `dist/` in
-19.7 minutes. The content-update harness needed a longer slow hook (150 ms to 1500 ms)
-because the local download finished before its second page opened; that is a test-timing
-fix, not a product change. Nothing here is deployed, and the 250 ms smoke bound is
-unchanged.
+114/114 (chromium 56, webkit 56, mobile-chromium 2) against the canonical `dist/` in
+14.0 minutes. Nothing here is deployed, and the 250 ms smoke bound is unchanged.
 
 ## Pf Data class conversion, 2026-11-05
 
