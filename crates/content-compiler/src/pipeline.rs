@@ -724,8 +724,14 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     let snapshot = LegacySnapshot::parse(&snapshot_bytes)
         .map_err(|e| format!("invalid {}: {e}", snapshot_path.display()))?;
     let mut catalog = alias::catalog_from_inventory(&inv, &allowlist)?;
-    let carried = carry::carry_over(&psrd, &map, &catalog)
-        .map_err(|errors| problems("carry-over", errors))?;
+    let emitted: BTreeSet<String> = converted
+        .entries
+        .iter()
+        .map(|entry| entry.id.to_string())
+        .collect();
+    let carried =
+        carry::carry_over_with_fallback(&psrd, &map, &catalog, &emitted, &legally_excluded)
+            .map_err(|errors| problems("carry-over", errors))?;
     carried
         .extend_catalog(&mut catalog)
         .map_err(|errors| problems("carried catalog", errors))?;
@@ -755,6 +761,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         &snapshot,
         &snapshot_bytes,
         &catalog,
+        &carried.fallbacks,
     )?;
 
     let sources = canonical_sources(&entries, &psrd.sources, &states);
@@ -796,10 +803,11 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
 
     let mut notes = psrd.notes.clone();
     notes.push(format!(
-        "canonical build: {} entries ({} Pf Data, {} carried), {} rejected records, {} alias retirements ({} rights, {} unrepresentable)",
+        "canonical build: {} entries ({} Pf Data, {} carried, {} fallback carried), {} rejected records, {} alias retirements ({} rights, {} unrepresentable)",
         entries.len(),
         entries.len() - carried.report.carried,
         carried.report.carried,
+        carried.fallbacks.len(),
         coverage.rejected.len(),
         alias_retirements.rights + alias_retirements.unrepresentable,
         alias_retirements.rights,
@@ -1232,13 +1240,16 @@ fn settle_rows(
 struct AliasRetirements {
     rights: usize,
     unrepresentable: usize,
+    fallbacks: usize,
 }
 
 /// Generates the alias map in process and retires every row whose canonical
-/// target is not in the installed library. A retired row names the reason
-/// instead of pointing outside the library. The alias gate still runs against
-/// the full planned catalog, so a map row that names something the pin cannot
-/// produce fails here rather than being silently retired.
+/// target is not in the installed library. A row whose target the converter did
+/// not emit falls back to its carried entry when one was produced, so no legacy
+/// bookmark points outside the library and no OGC is lost. A retired row names
+/// the reason instead of pointing outside the library. The alias gate still runs
+/// against the full planned catalog, so a map row that names something the pin
+/// cannot produce fails here rather than being silently retired.
 fn canonical_aliases(
     entries: &[RuleEntry],
     legally_excluded: &BTreeSet<String>,
@@ -1246,14 +1257,26 @@ fn canonical_aliases(
     snapshot: &LegacySnapshot,
     snapshot_bytes: &[u8],
     catalog: &alias::CanonicalCatalog,
+    fallbacks: &BTreeMap<String, String>,
 ) -> Result<(Vec<u8>, AliasRetirements), Failure> {
     let (mut file, _stats) = alias::generate(map, snapshot, snapshot_bytes, catalog)
         .map_err(|errors| problems("alias gate(s)", errors))?;
     let final_ids: BTreeSet<&str> = entries.iter().map(|entry| entry.id.as_str()).collect();
     let mut kept = Vec::new();
-    let mut retirements = AliasRetirements::default();
-    for entry in file.entries.drain(..) {
+    let mut retirements = AliasRetirements {
+        fallbacks: fallbacks.len(),
+        ..AliasRetirements::default()
+    };
+    for mut entry in file.entries.drain(..) {
         if final_ids.contains(entry.target.as_str()) {
+            kept.push(entry);
+            continue;
+        }
+        if let Some(target) = fallbacks.get(&entry.old)
+            && final_ids.contains(target.as_str())
+        {
+            entry.target = target.clone();
+            entry.basis = alias::AliasBasis::Carried;
             kept.push(entry);
             continue;
         }
@@ -1531,11 +1554,20 @@ fn canonical_coverage_rows(
             reason: "legacy aliases whose canonical target has no Section 15 notice now resolve as retired for rights".into(),
         });
     }
+    if alias_retirements.fallbacks > 0 {
+        rows.push(Exclusion {
+            path: "alias-fallback-carry-over".into(),
+            records: alias_retirements.fallbacks as u32,
+            reason:
+                "legacy alias targets were planned from the pin but the converter did not emit them; the PSRD entries are carried under ref/carried/ so no OGC is lost"
+                    .into(),
+        });
+    }
     if alias_retirements.unrepresentable > 0 {
         rows.push(Exclusion {
             path: "alias-unrepresentable-retirements".into(),
             records: alias_retirements.unrepresentable as u32,
-            reason: "legacy aliases whose planned canonical target was not emitted by the converter now resolve as retired".into(),
+            reason: "legacy aliases with no emitted target and no PSRD entry to carry now resolve as retired".into(),
         });
     }
     for record in &inv.out_of_scope {
