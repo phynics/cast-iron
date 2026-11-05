@@ -318,7 +318,8 @@ fn is_text_entry(target: &web_sys::EventTarget) -> bool {
 /// `/` focuses the search box from anywhere outside a text field, or opens Search.
 pub fn install_slash_shortcut() {
     let handle = window_event_listener(leptos::ev::keydown, move |ev| {
-        if ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() || ev.shift_key() {
+        // Match the produced character, not Shift: some layouts (German, French) need Shift for `/`.
+        if ev.is_composing() || ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
             return;
         }
         if ev.target().is_some_and(|target| is_text_entry(&target)) {
