@@ -127,6 +127,10 @@ pub(crate) fn presentation_exception(key: &str) -> Option<(&'static str, String,
             "layout-container",
             "An `::aside` is a layout wrapper. Its contents are converted as ordinary blocks and are not dropped.",
         ),
+        "elephant_container" => (
+            "optional-rules-container",
+            "A `:::elephant` wrapper marks optional Elephant in the Room rules. Its contents and source marker are converted; only the upstream note icon and link are presentation.",
+        ),
         "block_container" => (
             "layout-container",
             "An upstream `:::block` applies a size or style to its following content. The wrapper is not body content; its text, and any title, are rendered.",
@@ -166,6 +170,11 @@ pub(crate) fn presentation_exception(key: &str) -> Option<(&'static str, String,
 pub struct Converted {
     pub entries: Vec<RuleEntry>,
     pub links: Vec<crate::build::NestedLink>,
+    /// Page attribution from each entry's screened `‹SOURCE book/page›` lines.
+    /// One row per publication, in first-appearance order. `None` means the
+    /// source line named the publication but gave no page number. An entry with
+    /// no source line is absent.
+    pub pages: BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
     pub findings: Vec<Finding>,
     pub coverage: Vec<CoverageException>,
     pub excluded: Vec<ExcludedRecord>,
@@ -374,6 +383,17 @@ fn convert(
         }
     }
 
+    // Page attribution is read from the screened lines before rendering, so a
+    // record's SOURCE markers survive even when the body rewrites them.
+    let identity_pages: BTreeMap<String, Vec<(String, Option<u32>)>> = converted_inputs
+        .iter()
+        .filter_map(|record| {
+            let lines = description(&record.raw).ok()?;
+            let pages = source_attribution(&lines);
+            (!pages.is_empty()).then(|| (format!("{}#{}", record.path, record.key), pages))
+        })
+        .collect();
+
     // Redirects are aliases of a canonical record, never duplicated rules pages.
     for alias in inv
         .records
@@ -406,16 +426,18 @@ fn convert(
     let mut entry_order: Vec<RuleEntry> = Vec::new();
     let mut index_by_identity: BTreeMap<String, usize> = BTreeMap::new();
     for record in &converted_inputs {
+        let identity = format!("{}#{}", record.path, record.key);
         match convert_record(record, &context, &mut result.findings, &mut coverage) {
             Ok(entry) => {
-                index_by_identity
-                    .insert(format!("{}#{}", record.path, record.key), entry_order.len());
+                if let Some(pages) = identity_pages.get(&identity) {
+                    result.pages.insert(entry.id.clone(), pages.clone());
+                }
+                index_by_identity.insert(identity, entry_order.len());
                 entry_order.push(entry);
             }
             Err(problem) => {
                 // The first pass succeeded; a second-pass failure is still a
                 // per-record exclusion, not a failed build.
-                let identity = format!("{}#{}", record.path, record.key);
                 result.findings.push(Finding {
                     severity: "high".into(),
                     record: identity.clone(),
@@ -455,6 +477,18 @@ fn convert(
             &mut coverage,
         ) {
             Ok(entry) => {
+                let pages = source_attribution(&derivation.body_lines);
+                let pages = if pages.is_empty() {
+                    identity_pages
+                        .get(&derivation.parent_identity)
+                        .cloned()
+                        .unwrap_or_default()
+                } else {
+                    pages
+                };
+                if !pages.is_empty() {
+                    result.pages.insert(entry.id.clone(), pages);
+                }
                 if let Some(parent) = parent {
                     links.push(crate::build::NestedLink {
                         host: parent.id.clone(),
@@ -640,6 +674,15 @@ fn convert(
                         crate::pf_rules::RuleShape::Section => result.derived_sections += 1,
                         crate::pf_rules::RuleShape::Row => result.derived_rows += 1,
                     }
+                    let pages = source_attribution(&extracted.body_lines);
+                    let pages = if pages.is_empty() {
+                        identity_pages.get(&identity).cloned().unwrap_or_default()
+                    } else {
+                        pages
+                    };
+                    if !pages.is_empty() {
+                        result.pages.insert(entry.id.clone(), pages);
+                    }
                     links.push(crate::build::NestedLink {
                         host: parent.clone(),
                         target: entry.id.clone(),
@@ -775,6 +818,114 @@ pub(crate) fn derive_publications(raw: &Value, records: &[InputRecord]) -> Vec<S
         }
     }
     publications.into_iter().collect()
+}
+
+/// Page attribution from a record's screened source markers.
+///
+/// Pf Data writes attribution as `‹SOURCE Book/12;Other Book/7-9›`, or as a
+/// `source="Book/12"` attribute on a directive. Each part names one publication
+/// and, when present, the page where the record starts. A range or list keeps
+/// its first page. A publication repeated in one record keeps its earliest page,
+/// because that is where the record first appears in print. The order follows
+/// the record's first mention, so two runs over the same input agree.
+pub(crate) fn source_attribution(lines: &[String]) -> Vec<(String, Option<u32>)> {
+    let mut order: Vec<String> = Vec::new();
+    let mut pages: BTreeMap<String, Option<u32>> = BTreeMap::new();
+    let mut add = |text: &str| {
+        for part in text.split([';', '~']) {
+            let Some((publication, page)) = split_source_part(part) else {
+                continue;
+            };
+            if !pages.contains_key(&publication) {
+                order.push(publication.clone());
+            }
+            let slot = pages.entry(publication).or_insert(page);
+            if let Some(page) = page {
+                *slot = Some(slot.map_or(page, |earlier| earlier.min(page)));
+            }
+        }
+    };
+    for line in lines {
+        for marker in source_markers(line) {
+            add(marker);
+        }
+        for value in source_attributes(line) {
+            add(value);
+        }
+    }
+    order
+        .into_iter()
+        .map(|publication| {
+            let page = pages[&publication];
+            (publication, page)
+        })
+        .collect()
+}
+
+/// The inside of every `‹SOURCE …›` marker on a line.
+fn source_markers(line: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = line;
+    while let Some(start) = rest.find('‹') {
+        let after = &rest[start + '‹'.len_utf8()..];
+        let Some(end) = after.find('›') else { break };
+        let inner = &after[..end];
+        if let Some(text) = inner.strip_prefix("SOURCE ") {
+            out.push(text);
+        }
+        rest = &after[end + '›'.len_utf8()..];
+    }
+    out
+}
+
+/// Every `source="…"` attribute value on a line.
+fn source_attributes(line: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut rest = line;
+    while let Some(start) = rest.find("source=\"") {
+        let after = &rest[start + "source=\"".len()..];
+        let Some(end) = after.find('"') else { break };
+        let value = after[..end].trim();
+        let value = value.strip_prefix("‹SOURCE ").unwrap_or(value);
+        out.push(value.strip_suffix('›').unwrap_or(value));
+        rest = &after[end + 1..];
+    }
+    out
+}
+
+/// Split one source part into its publication and its first page.
+///
+/// The page separator is a slash whose suffix starts with a digit. A slash in a
+/// publication title, or a suffix that is not a page, stays part of the title.
+fn split_source_part(part: &str) -> Option<(String, Option<u32>)> {
+    let part = part.trim().trim_end_matches('~').trim();
+    if part.is_empty() {
+        return None;
+    }
+    if let Some((publication, pages)) = part.rsplit_once('/') {
+        let publication = publication.trim();
+        let pages = pages.trim();
+        if !publication.is_empty()
+            && pages.starts_with(|c: char| c.is_ascii_digit())
+            && let Some(page) = leading_page(pages)
+        {
+            return Some((publication.to_string(), Some(page)));
+        }
+    }
+    Some((part.to_string(), None))
+}
+
+fn leading_page(value: &str) -> Option<u32> {
+    let digits: String = value
+        .trim()
+        .chars()
+        .take_while(char::is_ascii_digit)
+        .collect();
+    if digits.is_empty() {
+        None
+    } else {
+        digits.parse().ok()
+    }
 }
 
 #[derive(Default)]
@@ -1218,6 +1369,42 @@ fn derive_entry(
 
 /// Build one derived rule entry from a nested section or table row. The body is
 /// rendered through the shared typed converter so no content is dropped.
+/// Add the Markdown footnote definitions a section references when the source
+/// keeps them after the section body. Existing lines win, and each mark is added
+/// at most once.
+fn append_referenced_footnotes(body: &mut Vec<String>, source: &[String]) {
+    let mut marks = BTreeSet::new();
+    for line in body.iter() {
+        let mut rest = line.as_str();
+        while let Some(start) = rest.find("[^") {
+            let after = &rest[start + 2..];
+            let Some(end) = after.find(']') else {
+                break;
+            };
+            let mark = &after[..end];
+            if !mark.is_empty() {
+                marks.insert(mark.to_string());
+            }
+            rest = &after[end + 1..];
+        }
+    }
+    for mark in marks {
+        let definition = format!("[^{mark}]:");
+        if body
+            .iter()
+            .any(|line| line.trim_start().starts_with(&definition))
+        {
+            continue;
+        }
+        if let Some(line) = source
+            .iter()
+            .find(|line| line.trim_start().starts_with(&definition))
+        {
+            body.push(line.clone());
+        }
+    }
+}
+
 fn derive_rule_entry(
     input: &InputRecord,
     derived: &crate::pf_rules::ExtractedRule,
@@ -1256,6 +1443,11 @@ fn derive_rule_entry(
                 .unwrap_or_default();
         }
     }
+    // A footnote definition usually sits after the extracted section. Bring the
+    // definitions the section references into the derived body so `[^N]` links
+    // resolve inside the entry instead of becoming dangling `#N` references.
+    append_referenced_footnotes(&mut render_lines, &description(&input.raw)?);
+    env.anchors = pf_markdown::anchors(&render_lines);
     let body = pf_markdown::render(&render_lines, &mut env).map_err(|errors| errors.join("; "))?;
     if blocks_text(&body).trim().is_empty() {
         return Err("empty derived description".into());
@@ -1382,7 +1574,12 @@ mod tests {
                 "json/rules_test.json",
                 "host",
                 "Host",
-                vec!["## Test Rule".into(), "Rules-bearing text.".into()],
+                vec![
+                    "## Test Rule".into(),
+                    "Rules-bearing text with a note[^N].".into(),
+                    "## Another Section".into(),
+                    "[^N]: Definition kept after the section.".into(),
+                ],
             ),
         ])
     }
@@ -1447,6 +1644,25 @@ mod tests {
     }
 
     #[test]
+    fn derived_section_keeps_the_footnote_definitions_it_references() {
+        let converted = convert_corpus(&sample_inventory(), &rule_allowlist()).unwrap();
+        assert!(
+            !converted
+                .findings
+                .iter()
+                .any(|finding| finding.problem.contains("unresolved reference: #N")),
+            "{:?}",
+            converted.findings
+        );
+        let entry = converted
+            .entries
+            .iter()
+            .find(|entry| entry.id.as_str() == "ref/rule/rule-host/test-rule")
+            .expect("derived rule entry");
+        assert!(blocks_text(&entry.body).contains("Definition kept after the section"));
+    }
+
+    #[test]
     fn repeated_conversion_is_byte_identical() {
         let inv = sample_inventory();
         let allowlist = rule_allowlist();
@@ -1461,7 +1677,55 @@ mod tests {
             entries_digest(&second.entries)
         );
         assert_eq!(first.links, second.links);
+        assert_eq!(first.pages, second.pages);
         assert_eq!(first.excluded, second.excluded);
+    }
+
+    #[test]
+    fn page_attribution_reads_markers_and_source_attributes() {
+        let lines = vec![
+            ">‹SOURCE Book/12;Other Book/7-9›".into(),
+            "::spell{source=\"Third Book/4\"}".into(),
+            "‹SOURCE Book/10›".into(),
+            "‹SOURCE No Page›".into(),
+            "‹SOURCE A/58~B/8›".into(),
+        ];
+        assert_eq!(
+            source_attribution(&lines),
+            vec![
+                ("Book".into(), Some(10)),
+                ("Other Book".into(), Some(7)),
+                ("Third Book".into(), Some(4)),
+                ("No Page".into(), None),
+                ("A".into(), Some(58)),
+                ("B".into(), Some(8)),
+            ]
+        );
+    }
+
+    #[test]
+    fn derived_children_inherit_the_host_page_attribution() {
+        let inv = inventory(vec![record(
+            "race",
+            "json/races.json",
+            "dwarf",
+            "Dwarf",
+            vec![
+                "‹SOURCE PRPG Core Rulebook/20›".into(),
+                "Dwarves are a sturdy people.".into(),
+                "::rtraits{plural=Dwarves main=\"+2 Constitution|Dwarves are tough.~MEDIUM~Stonecunning|Dwarves notice stonework.\"}".into(),
+            ],
+        )]);
+        let converted = convert_corpus(&inv, &RuleAllowlist::default()).unwrap();
+        let pages = vec![("PRPG Core Rulebook".to_string(), Some(20))];
+        for id in ["ref/race/dwarf", "ref/racial-trait/dwarf/stonecunning"] {
+            let entry = converted
+                .entries
+                .iter()
+                .find(|entry| entry.id.as_str() == id)
+                .unwrap_or_else(|| panic!("{id} was not converted"));
+            assert_eq!(converted.pages.get(&entry.id), Some(&pages), "{id}");
+        }
     }
 
     /// The production contract: conversion and the alias catalog share one id

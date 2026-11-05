@@ -12,9 +12,24 @@ export async function waitReady(page: Page) {
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible({ timeout: 90_000 });
 }
 
-/** The service worker controls this page (needed before any offline claim). */
+/**
+ * The service worker controls this page (needed before any offline claim).
+ *
+ * `clients.claim()` can run before this page is ready to observe it, which leaves
+ * `controller` null until a navigation. Wait for an active registration, give the
+ * claim a short window, and otherwise reload once so the active worker controls
+ * the new document.
+ */
 export async function waitControlled(page: Page) {
-  await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const claimed = await page
+    .waitForFunction(() => !!navigator.serviceWorker.controller, undefined, { timeout: 10_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!claimed) {
+    await page.reload();
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+  }
 }
 
 export async function activeLibrary(page: Page) {

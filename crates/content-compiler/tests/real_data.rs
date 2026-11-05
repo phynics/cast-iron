@@ -535,3 +535,96 @@ fn relationships_and_book_order_hold_on_the_real_library() {
     }
     assert_eq!(books.books.len(), 16);
 }
+
+#[test]
+fn every_declared_carried_id_has_a_deterministic_entry() {
+    use cast_iron_content_compiler::alias::{self, IdMap};
+    use cast_iron_content_compiler::carry;
+    use cast_iron_content_compiler::pf_data;
+    use cast_iron_content_compiler::pf_rules::RuleAllowlist;
+    use cast_iron_content_compiler::pipeline;
+
+    let dataset = workspace().join(".cache/sources/psrd-data");
+    if !dataset.join("core_rulebook/spell/fireball.json").exists() {
+        eprintln!("skipping: {} is not present", dataset.display());
+        return;
+    }
+    let primary = workspace().join(".cache/sources/pathfinder-data-1-e");
+    if !primary.join("json").is_dir() {
+        eprintln!("skipping: {} is not present", primary.display());
+        return;
+    }
+    let scratch = scratch("real-carry");
+    let config = production_config(&scratch);
+    let opts = options(
+        &config,
+        &dataset,
+        &scratch.join("out"),
+        &scratch.join("reports"),
+    );
+    let library = pipeline::build_psrd(&opts)
+        .unwrap_or_else(|f| panic!("PSRD build failed:\n{}", f.lines.join("\n")));
+    let registry = workspace().join("sources/pathfinder-data-1-e/source.json");
+    let inv = pf_data::inventory(&primary, &registry).unwrap();
+    let allowlist =
+        RuleAllowlist::load_optional(&registry.parent().unwrap().join("derived-rules.json"))
+            .unwrap();
+    let catalog = alias::catalog_from_inventory(&inv, &allowlist).unwrap();
+    let map = IdMap::load(&workspace().join("sources/canonical/id-map.toml")).unwrap();
+
+    let first = carry::carry_entries(&library.entries, &map, &catalog).unwrap();
+    let second = carry::carry_entries(&library.entries, &map, &catalog).unwrap();
+    assert_eq!(first, second, "two carry-over runs must be identical");
+
+    let declared = map
+        .map
+        .values()
+        .filter(|row| {
+            row.target
+                .as_deref()
+                .is_some_and(|target| target.starts_with(carry::CARRIED_PREFIX))
+        })
+        .count();
+    assert_eq!(first.report.carried, declared);
+    assert!(first.report.carried > 0, "no carried entries were produced");
+    assert_eq!(
+        first.report.possible_duplicate_count,
+        first.report.possible_duplicates.len()
+    );
+
+    let mut extended = catalog.clone();
+    first.extend_catalog(&mut extended).unwrap();
+    let known: std::collections::BTreeSet<&str> =
+        extended.iter().map(|record| record.id.as_str()).collect();
+    for carried in &first.records {
+        assert!(extended.contains(carried.entry.id.as_str()));
+        assert_eq!(
+            carried.entry.id.as_str(),
+            carry::carried_target(&carried.legacy).unwrap()
+        );
+        for link in &carried.entry.links {
+            assert!(
+                known.contains(link.target.as_str()),
+                "{} links to unknown {}",
+                carried.entry.id,
+                link.target
+            );
+        }
+        if let Some(parent) = &carried.entry.parent {
+            assert!(known.contains(parent.as_str()), "unknown parent {parent}");
+        }
+        for relation in &carried.entry.relations {
+            assert!(
+                known.contains(relation.target.as_str()),
+                "{} relates to unknown {}",
+                carried.entry.id,
+                relation.target
+            );
+        }
+        if let cast_iron_schema::TypedFields::Feat(fields) = &carried.entry.fields {
+            for feat in &fields.prerequisite_feats {
+                assert!(known.contains(feat.as_str()), "unknown prerequisite {feat}");
+            }
+        }
+    }
+}

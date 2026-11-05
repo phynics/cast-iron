@@ -6,9 +6,10 @@
 use crate::build::{NestedLink, Plan, TypedInput};
 use crate::prereq::{self, Reading};
 use crate::slug::slug_segment;
+use crate::text::inline_text;
 use cast_iron_schema::{
-    EntryId, EntryKind, PrerequisiteCoverage, Relation, RelationCoverage, RelationEdge,
-    RelationIndex, RelationKind, RuleEntry, TypedFields, Unplaced, UnreadRequirement,
+    Block, EntryId, EntryKind, Inline, PrerequisiteCoverage, Relation, RelationCoverage,
+    RelationEdge, RelationIndex, RelationKind, RuleEntry, TypedFields, Unplaced, UnreadRequirement,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -100,15 +101,139 @@ pub fn apply(entries: &mut [RuleEntry], plan: &Plan, nested: &[NestedLink]) -> R
         }
     }
 
-    // Feat prerequisites.
+    // Feat prerequisites. The PSRD prerequisite text is plain; the canonical text can
+    // carry upstream encoded links, which its own caller makes visible first.
     let resolved = feat_prerequisites(entries, &mut found, &mut coverage.prerequisites);
 
-    // Write the relations back, sorted.
+    finish(entries, found, resolved, coverage)
+}
+
+/// Builds the same typed relations over the canonical Pf Data entries.
+///
+/// The inputs are only [`RuleEntry`] values and the parent-to-child links the
+/// converter synthesized, so nothing here depends on the PSRD build plan or its urls.
+/// Every parent comes from structure the conversion already recorded:
+///
+/// * a racial trait's `parent` (or the race that nests it),
+/// * an archetype's `ref/arc-<class>/...` family, or the class its own body names in
+///   the `This is an archetype of ...` statement,
+/// * a feat's prerequisite wording, read with [`crate::prereq`] after encoded links
+///   are reduced to their visible text.
+///
+/// What cannot be tied to an entry is reported in coverage, not guessed.
+pub fn apply_canonical(entries: &mut [RuleEntry], nested: &[NestedLink]) -> Report {
+    let race_ids: BTreeSet<EntryId> = entries
+        .iter()
+        .filter(|e| e.kind == EntryKind::Race)
+        .map(|e| e.id.clone())
+        .collect();
+    let class_ids: BTreeSet<EntryId> = entries
+        .iter()
+        .filter(|e| matches!(e.kind, EntryKind::Class | EntryKind::PrestigeClass))
+        .map(|e| e.id.clone())
+        .collect();
+    let race_hosts: BTreeMap<&EntryId, &EntryId> = nested
+        .iter()
+        .rev()
+        .filter(|link| race_ids.contains(&link.host))
+        .map(|link| (&link.target, &link.host))
+        .collect();
+    let mut found: BTreeMap<EntryId, Vec<Relation>> = BTreeMap::new();
+    let mut coverage = RelationCoverage::default();
+
+    for entry in entries.iter() {
+        match entry.kind {
+            EntryKind::RacialTrait => {
+                let parent = entry
+                    .parent
+                    .as_ref()
+                    .filter(|parent| race_ids.contains(*parent))
+                    .cloned()
+                    .or_else(|| race_hosts.get(&entry.id).map(|id| (*id).clone()));
+                match parent {
+                    Some(parent) => {
+                        let alternate =
+                            matches!(
+                                &entry.fields,
+                                TypedFields::RacialTrait(f) if f.alternate
+                            ) || entry.id.as_str().contains("/alternate-racial-traits/");
+                        found.entry(entry.id.clone()).or_default().push(Relation {
+                            kind: RelationKind::Part,
+                            target: parent,
+                            label: alternate.then(|| "alternate".to_string()),
+                        });
+                    }
+                    None => coverage.unplaced_parts.push(Unplaced {
+                        entry: entry.id.to_string(),
+                        reason: format!(
+                            "racial trait `{}` has no race parent and no race nests it",
+                            entry.id
+                        ),
+                    }),
+                }
+            }
+            EntryKind::Archetype => match canonical_archetype_parent(entry, &class_ids) {
+                Some(parent) => found.entry(entry.id.clone()).or_default().push(Relation {
+                    kind: RelationKind::Archetype,
+                    target: parent,
+                    label: None,
+                }),
+                None => coverage.unplaced_parts.push(Unplaced {
+                    entry: entry.id.to_string(),
+                    reason: canonical_unplaced_reason(entry),
+                }),
+            },
+            _ => {}
+        }
+    }
+
+    let resolved = feat_prerequisites_with(
+        entries,
+        &mut found,
+        &mut coverage.prerequisites,
+        visible_encoded_links,
+    );
+
+    finish(entries, found, resolved, coverage)
+}
+
+/// Writes the found relations and the prerequisite-feat lists back, then builds the
+/// sorted index. Both source paths share this step so their output shape cannot drift.
+fn finish(
+    entries: &mut [RuleEntry],
+    found: BTreeMap<EntryId, Vec<Relation>>,
+    resolved: BTreeMap<EntryId, Vec<EntryId>>,
+    mut coverage: RelationCoverage,
+) -> Report {
+    let position: BTreeMap<EntryId, usize> = entries
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (e.id.clone(), i))
+        .collect();
+    // Rebuild the kinds this pass owns; leave any other relation on the entry alone.
+    for entry in entries.iter_mut() {
+        let own = match entry.kind {
+            EntryKind::RacialTrait => Some(RelationKind::Part),
+            EntryKind::Archetype => Some(RelationKind::Archetype),
+            EntryKind::Feat => Some(RelationKind::Prerequisite),
+            _ => None,
+        };
+        if let Some(kind) = own {
+            entry.relations.retain(|relation| relation.kind != kind);
+        }
+    }
     for (id, mut relations) in found {
+        // The schema forbids two relations of one kind to one target. A target that is
+        // both required and named again as an alternative keeps the unlabelled edge
+        // (sorting puts `None` before `Some`).
         relations.sort();
-        relations.dedup();
+        relations.dedup_by(|a, b| a.kind == b.kind && a.target == b.target);
         if let Some(&i) = position.get(&id) {
-            entries[i].relations = relations;
+            entries[i].relations.extend(relations);
+            entries[i].relations.sort();
+            entries[i]
+                .relations
+                .dedup_by(|a, b| a.kind == b.kind && a.target == b.target);
         }
     }
     for (id, feats) in resolved {
@@ -144,6 +269,83 @@ pub fn apply(entries: &mut [RuleEntry], plan: &Plan, nested: &[NestedLink]) -> R
         },
         coverage,
     }
+}
+
+/// The class an archetype belongs to, from evidence the converter preserved.
+fn canonical_archetype_parent(entry: &RuleEntry, classes: &BTreeSet<EntryId>) -> Option<EntryId> {
+    // The route family is the exact protocol: `arc-fighter` names `ref/class/fighter`.
+    if let Some(family) = entry.id.as_str().split('/').nth(1)
+        && let Some(key) = family.strip_prefix("arc-")
+        && let Ok(target) = EntryId::parse(format!("ref/class/{key}"))
+        && classes.contains(&target)
+    {
+        return Some(target);
+    }
+    // A prestige-class archetype states its parent in its own body and links it.
+    if body_states_archetype_of(&entry.body) {
+        for link in &entry.links {
+            if classes.contains(&link.target) {
+                return Some(link.target.clone());
+            }
+        }
+    }
+    None
+}
+
+fn canonical_unplaced_reason(entry: &RuleEntry) -> String {
+    if let Some(family) = entry.id.as_str().split('/').nth(1)
+        && let Some(key) = family.strip_prefix("arc-")
+    {
+        return format!(
+            "archetype `{}` names class `ref/class/{key}`, which is not in the entry set",
+            entry.id
+        );
+    }
+    format!(
+        "archetype `{}` states no parent class and links no class entry",
+        entry.id
+    )
+}
+
+/// True when a paragraph states that the record is an archetype of a class.
+fn body_states_archetype_of(blocks: &[Block]) -> bool {
+    fn inlines(inlines: &[Inline]) -> bool {
+        inline_text(inlines)
+            .to_lowercase()
+            .contains("is an archetype of")
+    }
+    blocks.iter().any(|block| match block {
+        Block::Heading { content, .. } | Block::Paragraph { content, .. } => inlines(content),
+        Block::List { items, .. } => items.iter().any(|item| body_states_archetype_of(item)),
+        Block::Quote { content } => body_states_archetype_of(content),
+        _ => false,
+    })
+}
+
+/// Replaces every upstream encoded link `‹protocol/Name›` with its visible name, the
+/// same text the renderer shows. The canonical prerequisite field keeps the encoded
+/// form; relation reading must not treat the markup as part of a feat name.
+fn visible_encoded_links(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('‹') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + '‹'.len_utf8()..];
+        let Some(end) = after.find('›') else {
+            out.push_str(&rest[start..]);
+            return out;
+        };
+        let inner = &after[..end];
+        let (_, display) = crate::pf_markdown::link_parts(inner);
+        if display.is_empty() {
+            out.push_str(&rest[start..start + '‹'.len_utf8() + end + '›'.len_utf8()]);
+        } else {
+            out.push_str(&display);
+        }
+        rest = &after[end + '›'.len_utf8()..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The candidate whose upstream url is the longest proper prefix of the entry's url.
@@ -291,6 +493,17 @@ fn feat_prerequisites(
     found: &mut BTreeMap<EntryId, Vec<Relation>>,
     coverage: &mut PrerequisiteCoverage,
 ) -> BTreeMap<EntryId, Vec<EntryId>> {
+    feat_prerequisites_with(entries, found, coverage, str::to_string)
+}
+
+/// The shared prerequisite reader. `normalize` turns the stored wording into the text
+/// that [`crate::prereq`] reads; the PSRD build passes the text unchanged.
+fn feat_prerequisites_with(
+    entries: &[RuleEntry],
+    found: &mut BTreeMap<EntryId, Vec<Relation>>,
+    coverage: &mut PrerequisiteCoverage,
+    normalize: impl Fn(&str) -> String,
+) -> BTreeMap<EntryId, Vec<EntryId>> {
     let index = FeatIndex::new(entries.iter().filter(|e| e.kind == EntryKind::Feat));
     let mut resolved: BTreeMap<EntryId, Vec<EntryId>> = BTreeMap::new();
     for feat in entries.iter().filter(|e| e.kind == EntryKind::Feat) {
@@ -302,13 +515,14 @@ fn feat_prerequisites(
             continue;
         };
         coverage.feats_with_text += 1;
+        let text = normalize(text);
         let source = feat
             .source_ids
             .first()
             .map(String::as_str)
             .unwrap_or_default();
         let mut feats: BTreeSet<EntryId> = BTreeSet::new();
-        for requirement in prereq::parse(text) {
+        for requirement in prereq::parse(&text) {
             coverage.requirements += 1;
             let reading = match &requirement.reading {
                 Reading::AbilityScore => "ability_score",
@@ -533,5 +747,391 @@ mod tests {
             [feats[0].id.clone()]
         );
         assert!(resolve_candidate(&index, "Proficiency with selected weapon", "cr").is_empty());
+    }
+
+    fn canonical_entry(id: &str, kind: EntryKind, title: &str, parent: Option<&str>) -> RuleEntry {
+        RuleEntry {
+            id: EntryId::parse(id).unwrap(),
+            kind,
+            title: title.into(),
+            source_ids: vec!["core".into()],
+            section: vec![],
+            parent: parent.map(|id| EntryId::parse(id).unwrap()),
+            body: vec![],
+            fields: TypedFields::None,
+            tags: vec![],
+            links: vec![],
+            provenance: vec![Provenance {
+                dataset: "pathfinder-data-1-e".into(),
+                record: title.into(),
+                path: "json/test.json".into(),
+            }],
+            license_refs: vec!["ogl-1.0a".into()],
+            relations: vec![],
+        }
+    }
+
+    fn canonical_feat(id: &str, title: &str, prerequisites: Option<&str>) -> RuleEntry {
+        let mut entry = canonical_entry(id, EntryKind::Feat, title, None);
+        entry.fields = TypedFields::Feat(FeatFields {
+            prerequisites: prerequisites.map(str::to_string),
+            ..FeatFields::default()
+        });
+        entry
+    }
+
+    #[test]
+    fn canonical_racial_traits_link_to_their_race_by_parent_or_nesting() {
+        let race = canonical_entry("ref/race/dwarf", EntryKind::Race, "Dwarf", None);
+        let mut standard = canonical_entry(
+            "ref/racial-trait/dwarf/stonecunning",
+            EntryKind::RacialTrait,
+            "Stonecunning",
+            Some("ref/race/dwarf"),
+        );
+        standard.fields =
+            TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields { alternate: false });
+        let mut alternate = canonical_entry(
+            "ref/racial-trait/dwarf/alternate-racial-traits/ironhide",
+            EntryKind::RacialTrait,
+            "Ironhide",
+            None,
+        );
+        alternate.fields =
+            TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields { alternate: true });
+        let mut entries = vec![race, standard, alternate];
+        let nested = [NestedLink {
+            host: EntryId::parse("ref/race/dwarf").unwrap(),
+            target: EntryId::parse("ref/racial-trait/dwarf/alternate-racial-traits/ironhide")
+                .unwrap(),
+            trail: vec![],
+            child: false,
+        }];
+        let report = apply_canonical(&mut entries, &nested);
+
+        let dwarf = EntryId::parse("ref/race/dwarf").unwrap();
+        let standard = EntryId::parse("ref/racial-trait/dwarf/stonecunning").unwrap();
+        let alternate =
+            EntryId::parse("ref/racial-trait/dwarf/alternate-racial-traits/ironhide").unwrap();
+        assert_eq!(report.coverage.edges.get("part"), Some(&2));
+        assert!(report.index.edges.contains(&RelationEdge(
+            standard.clone(),
+            RelationKind::Part,
+            dwarf.clone()
+        )));
+        assert!(report.index.edges.contains(&RelationEdge(
+            alternate.clone(),
+            RelationKind::Part,
+            dwarf.clone()
+        )));
+        assert!(report.coverage.unplaced_parts.is_empty());
+        let standard_label = entries[1]
+            .relations
+            .iter()
+            .find(|r| r.kind == RelationKind::Part)
+            .and_then(|r| r.label.as_deref());
+        let alternate_label = entries[2]
+            .relations
+            .iter()
+            .find(|r| r.kind == RelationKind::Part)
+            .and_then(|r| r.label.as_deref());
+        assert_eq!(standard_label, None);
+        assert_eq!(alternate_label, Some("alternate"));
+    }
+
+    #[test]
+    fn canonical_archetypes_resolve_by_protocol_family_and_stated_parent() {
+        let class = canonical_entry("ref/class/fighter", EntryKind::Class, "Fighter", None);
+        let arc = canonical_entry(
+            "ref/arc-fighter/aerial-assaulter",
+            EntryKind::Archetype,
+            "Aerial Assaulter",
+            None,
+        );
+        let prestige = canonical_entry(
+            "ref/pclass/arcane-archer",
+            EntryKind::PrestigeClass,
+            "Arcane Archer",
+            None,
+        );
+        let mut stated = canonical_entry(
+            "ref/pclass/deadeye-devotee-arcane-archer",
+            EntryKind::Archetype,
+            "Deadeye Devotee (Arcane Archer)",
+            None,
+        );
+        let target = prestige.id.clone();
+        stated.body = vec![Block::Paragraph {
+            style: Default::default(),
+            content: vec![Inline::Strong {
+                c: vec![
+                    Inline::text("This is an archetype of the "),
+                    Inline::Link {
+                        target: target.clone(),
+                        anchor: None,
+                        c: vec![Inline::text("Arcane Archer")],
+                    },
+                    Inline::text("."),
+                ],
+            }],
+        }];
+        stated.links = vec![cast_iron_schema::EntryReference {
+            target: target.clone(),
+            anchor: None,
+        }];
+        let orphan = canonical_entry(
+            "ref/arc-companion/aberrant-companion",
+            EntryKind::Archetype,
+            "Aberrant Companion",
+            None,
+        );
+        let mut entries = vec![class, arc, prestige, stated, orphan];
+        let report = apply_canonical(&mut entries, &[]);
+
+        assert!(report.index.edges.contains(&RelationEdge(
+            EntryId::parse("ref/arc-fighter/aerial-assaulter").unwrap(),
+            RelationKind::Archetype,
+            EntryId::parse("ref/class/fighter").unwrap()
+        )));
+        assert!(report.index.edges.contains(&RelationEdge(
+            EntryId::parse("ref/pclass/deadeye-devotee-arcane-archer").unwrap(),
+            RelationKind::Archetype,
+            target
+        )));
+        let unplaced = &report.coverage.unplaced_parts;
+        assert_eq!(unplaced.len(), 1);
+        assert_eq!(unplaced[0].entry, "ref/arc-companion/aberrant-companion");
+        assert!(
+            unplaced[0].reason.contains("ref/class/companion"),
+            "{}",
+            unplaced[0].reason
+        );
+    }
+
+    #[test]
+    fn canonical_feat_prerequisites_read_visible_names_and_build_a_chain() {
+        let entries = vec![
+            canonical_feat("ref/feat/iron-will", "Iron Will", None),
+            canonical_feat(
+                "ref/feat/improved-iron-will",
+                "Improved Iron Will",
+                Some("‹feat/Iron Will›."),
+            ),
+            canonical_feat(
+                "ref/feat/clarity-of-pain",
+                "Clarity of Pain",
+                Some("Con 13, ‹feat/Improved Iron Will›, ‹feat/Iron Will›."),
+            ),
+            canonical_feat(
+                "ref/feat/exorcising-mutilation",
+                "Exorcising Mutilation",
+                Some(
+                    "Con 15, ‹feat/Clarity of Pain›, ‹feat/Improved Iron Will›, ‹feat/Iron Will›.",
+                ),
+            ),
+        ];
+        let mut entries = entries;
+        let report = apply_canonical(&mut entries, &[]);
+
+        let edge = |source: &str, target: &str| {
+            RelationEdge(
+                EntryId::parse(source).unwrap(),
+                RelationKind::Prerequisite,
+                EntryId::parse(target).unwrap(),
+            )
+        };
+        assert!(
+            report
+                .index
+                .edges
+                .contains(&edge("ref/feat/improved-iron-will", "ref/feat/iron-will"))
+        );
+        assert!(report.index.edges.contains(&edge(
+            "ref/feat/clarity-of-pain",
+            "ref/feat/improved-iron-will"
+        )));
+        assert!(
+            report
+                .index
+                .edges
+                .contains(&edge("ref/feat/clarity-of-pain", "ref/feat/iron-will"))
+        );
+        assert!(report.index.edges.contains(&edge(
+            "ref/feat/exorcising-mutilation",
+            "ref/feat/clarity-of-pain"
+        )));
+        assert_eq!(report.coverage.prerequisites.by_reading["feat"], 6);
+        assert_eq!(report.coverage.prerequisites.by_reading["ability_score"], 2);
+        assert!(report.coverage.prerequisites.unread.is_empty());
+        let clarity = &entries[2];
+        assert_eq!(
+            clarity.fields,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some("Con 13, ‹feat/Improved Iron Will›, ‹feat/Iron Will›.".into()),
+                prerequisite_feats: vec![
+                    EntryId::parse("ref/feat/improved-iron-will").unwrap(),
+                    EntryId::parse("ref/feat/iron-will").unwrap(),
+                ],
+                ..FeatFields::default()
+            })
+        );
+    }
+
+    #[test]
+    fn a_target_named_twice_keeps_one_unlabelled_relation() {
+        // Totemic Disciple, Ultimate Wilderness: the feat is required, then named again
+        // inside a later prose clause. The schema allows one edge per kind and target.
+        let mut entries = vec![
+            canonical_feat("ref/feat/totemic-initiate", "Totemic Initiate", None),
+            canonical_feat(
+                "ref/feat/totemic-disciple",
+                "Totemic Disciple",
+                Some(
+                    "Str 15; Dex 13; ‹feat/Totemic Initiate›; base attack bonus +9; no barbarian totem rage powers except those chosen with this feat or Totemic Initiate; nonlawful alignment.",
+                ),
+            ),
+        ];
+        let report = apply_canonical(&mut entries, &[]);
+        let disciple = &entries[1].relations;
+        assert_eq!(
+            disciple
+                .iter()
+                .filter(|r| r.target.as_str() == "ref/feat/totemic-initiate")
+                .count(),
+            1
+        );
+        assert_eq!(
+            disciple
+                .iter()
+                .find(|r| r.target.as_str() == "ref/feat/totemic-initiate")
+                .and_then(|r| r.label.as_deref()),
+            None
+        );
+        assert_eq!(report.coverage.edges.get("prerequisite"), Some(&1));
+    }
+
+    #[test]
+    fn canonical_relations_are_deterministic() {
+        let base = vec![
+            canonical_entry("ref/race/dwarf", EntryKind::Race, "Dwarf", None),
+            {
+                let mut trait_ = canonical_entry(
+                    "ref/racial-trait/dwarf/stonecunning",
+                    EntryKind::RacialTrait,
+                    "Stonecunning",
+                    Some("ref/race/dwarf"),
+                );
+                trait_.fields = TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields {
+                    alternate: false,
+                });
+                trait_
+            },
+            canonical_entry("ref/class/fighter", EntryKind::Class, "Fighter", None),
+            canonical_entry(
+                "ref/arc-fighter/aerial-assaulter",
+                EntryKind::Archetype,
+                "Aerial Assaulter",
+                None,
+            ),
+            canonical_feat("ref/feat/iron-will", "Iron Will", None),
+            canonical_feat(
+                "ref/feat/improved-iron-will",
+                "Improved Iron Will",
+                Some("‹feat/Iron Will›."),
+            ),
+        ];
+        let mut first = base.clone();
+        let mut second = base;
+        let first_report = apply_canonical(&mut first, &[]);
+        let second_report = apply_canonical(&mut second, &[]);
+        assert_eq!(
+            serde_json::to_vec(&first).unwrap(),
+            serde_json::to_vec(&second).unwrap()
+        );
+        assert_eq!(first_report.index, second_report.index);
+        assert_eq!(first_report.coverage, second_report.coverage);
+    }
+
+    /// The full pinned corpus is large; this test skips when the cache is absent, like the
+    /// canonical conversion tests.
+    #[test]
+    fn real_corpus_relations_place_core_traits_a_fighter_archetype_and_a_feat_chain() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let dataset = root.join(".cache/sources/pathfinder-data-1-e");
+        if !dataset.join("json").is_dir() {
+            eprintln!("skipping: the pinned primary source is not present");
+            return;
+        }
+        let inventory = crate::pf_data::inventory(
+            &dataset,
+            &root.join("sources/pathfinder-data-1-e/source.json"),
+        )
+        .unwrap();
+        let allowlist = crate::pf_rules::RuleAllowlist::load_optional(
+            &root.join("sources/pathfinder-data-1-e/derived-rules.json"),
+        )
+        .unwrap();
+        let converted = crate::canonical::convert_corpus(&inventory, &allowlist).unwrap();
+        let base = converted.entries;
+        let mut first = base.clone();
+        let report = apply_canonical(&mut first, &converted.links);
+
+        let id = |text: &str| EntryId::parse(text).unwrap();
+        let part_targets: BTreeSet<&EntryId> = report
+            .index
+            .edges
+            .iter()
+            .filter(|RelationEdge(_, kind, target)| {
+                *kind == RelationKind::Part && *target == id("ref/race/dwarf")
+            })
+            .map(|RelationEdge(source, _, _)| source)
+            .collect();
+        assert!(
+            part_targets.contains(&id("ref/racial-trait/dwarf/stonecunning")),
+            "Dwarf's standard traits: {part_targets:?}"
+        );
+        assert!(
+            part_targets.len() >= 10,
+            "Dwarf should have its standard traits, found {}",
+            part_targets.len()
+        );
+        assert!(report.index.edges.contains(&RelationEdge(
+            id("ref/arc-fighter/aerial-assaulter"),
+            RelationKind::Archetype,
+            id("ref/class/fighter")
+        )));
+        let chain = [
+            ("ref/feat/improved-iron-will", "ref/feat/iron-will"),
+            ("ref/feat/clarity-of-pain", "ref/feat/improved-iron-will"),
+            ("ref/feat/clarity-of-pain", "ref/feat/iron-will"),
+            ("ref/feat/exorcising-mutilation", "ref/feat/clarity-of-pain"),
+        ];
+        for (source, target) in chain {
+            assert!(
+                report.index.edges.contains(&RelationEdge(
+                    id(source),
+                    RelationKind::Prerequisite,
+                    id(target)
+                )),
+                "{source} should require {target}"
+            );
+        }
+        assert!(
+            !report
+                .index
+                .edges
+                .iter()
+                .any(|RelationEdge(source, _, target)| source == target),
+            "no entry may require or contain itself"
+        );
+
+        let mut second = base;
+        let again = apply_canonical(&mut second, &converted.links);
+        assert_eq!(
+            serde_json::to_vec(&first).unwrap(),
+            serde_json::to_vec(&second).unwrap()
+        );
+        assert_eq!(report.index, again.index);
+        assert_eq!(report.coverage, again.coverage);
     }
 }
