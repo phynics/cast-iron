@@ -23,7 +23,9 @@ cargo xtask <command>
   data-test                  Test the importer and Pathfinder Data 1e source
   content [--canonical]      Compile content into generated/content, or the canonical library into
                              generated/canonical; the default stays PSRD-Data
-  build-site [--public-url P]  Compile content when missing, build the app, and write dist/
+  build-site [--canonical] [--public-url P]
+                             Build dist/ from generated/content, or the canonical library from
+                             generated/canonical with --canonical; the default stays PSRD-Data.
                              The default public URL is /cast-iron/, the GitHub Pages project path
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
   check                      Run fmt, clippy, tests, and the WASM build
@@ -444,22 +446,37 @@ fn content(args: &[String]) -> Result {
 }
 
 fn build_site(args: &[String]) -> Result {
-    let public_url = match args {
-        [] => "/cast-iron/".to_string(),
-        [flag, value] if flag == "--public-url" => value.clone(),
-        _ => return Err("usage: build-site [--public-url /path/]".into()),
-    };
+    let mut public_url = "/cast-iron/".to_string();
+    let mut canonical = false;
+    let mut rest = args.iter();
+    while let Some(flag) = rest.next() {
+        match flag.as_str() {
+            "--canonical" => canonical = true,
+            "--public-url" => {
+                public_url = rest.next().ok_or("--public-url needs a value")?.clone();
+            }
+            _ => return Err("usage: build-site [--canonical] [--public-url /path/]".into()),
+        }
+    }
     if !public_url.starts_with('/') || !public_url.ends_with('/') {
         return Err("--public-url must start and end with /".into());
     }
-    if !root().join("generated/content/manifest.json").exists() {
+    // The default build stays PSRD-Data. --canonical packages the canonical library that
+    // `cargo xtask content --canonical` writes, without changing the production default.
+    let generated = if canonical {
+        "generated/canonical"
+    } else {
+        "generated/content"
+    };
+    if !root().join(generated).join("manifest.json").exists() {
         fetch_sources()?;
-        content(&[])?;
+        let canonical_args = ["--canonical".to_string()];
+        content(if canonical { &canonical_args } else { &[] })?;
     }
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
     let dist = root().join("dist");
-    copy_dir(&root().join("generated/content"), &dist.join("content"))?;
+    copy_dir(&root().join(generated), &dist.join("content"))?;
     fs::write(dist.join(".nojekyll"), "").map_err(|e| e.to_string())?;
     stamp_shell(&dist)
 }

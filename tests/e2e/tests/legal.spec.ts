@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test, expect, GENERATED, loadCorpus } from "./fixtures";
-import { installLibrary } from "./helpers";
+import { corpusEntry, installLibrary } from "./helpers";
 
 const { version, catalog } = loadCorpus();
 const legal = JSON.parse(fs.readFileSync(path.join(GENERATED, version, "legal.json"), "utf8"));
 const coverage = JSON.parse(fs.readFileSync(path.join(GENERATED, version, "coverage.json"), "utf8"));
+const entry = corpusEntry("spell", "Fireball");
+const stub = catalog.entries.find((candidate: any) => candidate.id === entry.id)!;
 
 test("Licensing information is preserved and accessible", async ({ page }) => {
   await installLibrary(page);
@@ -40,10 +42,14 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(excluded.locator("tbody tr")).toHaveCount(coverage.excluded.length);
   await expect(page.locator("table", { has: page.locator("caption", { hasText: "Link coverage" }) })).toBeVisible();
 
-  // An entry carries its own Section 15 line and a link back here.
-  await page.goto("#/entry/core-rulebook/spells/fireball");
-  const source = catalog.sources.find((s: any) => s.id === "core-rulebook");
-  await expect(page.locator(".entry-foot .copyright")).toContainText(source.copyright);
+  // An entry carries the Section 15 line of every publication it came from, and a link back here.
+  const sourceIds: string[] = (entry as any).source_ids ?? [stub.source];
+  const copyrights = [...new Set(sourceIds.map((id) => catalog.sources.find((candidate: any) => candidate.id === id)?.copyright).filter(Boolean))];
+  await page.goto(`#/entry/${entry.id}`);
+  await expect(page.locator(".entry-foot .copyright")).toHaveCount(copyrights.length);
+  for (const copyright of copyrights) {
+    await expect(page.locator(".entry-foot .copyright").filter({ hasText: copyright })).toHaveCount(1);
+  }
   await page.locator(".entry-foot a[href='#/legal']").click();
   await expect(page.getByRole("heading", { level: 1, name: "Legal and attribution" })).toBeVisible();
 });
