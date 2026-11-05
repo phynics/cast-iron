@@ -437,6 +437,13 @@ test("Entry reading puts rules first and exposes requirement links", async ({ pa
   const source = corpus.catalog.sources.find((candidate) => candidate.id === stub.source)!;
   await page.goto(`#/entry/${prestige.id}`);
   await expect(page.locator(".crumbs li").last()).toHaveText("Prestige classes");
-  await page.locator(".entry-meta").getByRole("link", { name: source.title, exact: true }).click();
+  // Books beyond the first open from the "+N more" disclosure.
+  const meta = page.locator(".entry-meta");
+  const bookLink = meta.getByRole("link", { name: source.title, exact: true });
+  await expect(meta.getByRole("link").first()).toBeVisible();
+  const more = meta.locator(".meta-more");
+  if ((await more.count()) > 0) await more.locator("summary").click();
+  await expect(bookLink).toBeVisible();
+  await bookLink.click();
   await expect(page.getByRole("heading", { name: source.title, level: 1 })).toBeVisible();
 });

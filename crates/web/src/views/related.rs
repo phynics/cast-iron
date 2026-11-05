@@ -587,7 +587,7 @@ fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
             <section class="rel" aria-labelledby="rel-trait">
                 <h2 id="rel-trait">"Trait category"</h2>
                 <p>
-                    <a class="chip-link" href=route.href()>{facet_label("trait_category", &fields.category)}</a>
+                    <a href=route.href()>{facet_label("trait_category", &fields.category)}</a>
                     {detail.map(|d| view! { <span class="muted">{format!(" · {d}")}</span> })}
                 </p>
                 <p class="hint">"The link lists every trait of this category."</p>
@@ -630,9 +630,9 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
                     level: Some(l.level),
                 }
                 .href();
-                view! { <li><a class="pill" href=href>{text}</a></li> }.into_any()
+                view! { <li><a class="jump" href=href>{text}</a></li> }.into_any()
             } else {
-                view! { <li><span class="pill">{text}</span></li> }.into_any()
+                view! { <li><span class="tag">{text}</span></li> }.into_any()
             }
         })
         .collect_view();
@@ -640,7 +640,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
         view! {
             <section class="rel" aria-labelledby="rel-lists">
                 <h2 id="rel-lists">"On spell lists"</h2>
-                <ul class="pill-list">{items}</ul>
+                <ul class="jump-list">{items}</ul>
             </section>
         }
         .into_any(),

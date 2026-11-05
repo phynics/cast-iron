@@ -481,3 +481,12 @@ Settles #84. The search screen requests every match because it groups duplicate 
 - **Ranking is unchanged.** The golden top-50 ids for the 50 `tests/e2e/measure-library.mjs` queries came from the `origin/main` engine at `404c530` on content `vbf0523074eb3de80`; `crates/search/tests/canonical_ranking.rs` compares them when that library is generated. A synthetic test also checks bounded limits against the full ranking and summaries against full hits. `INDEX_FORMAT_VERSION` stays 1; the serialized index did not change.
 - **The rest of the query path is allocation-light.** Each query token uses a document-indexed match table instead of a tree, prefix document frequency uses one reusable seen array, and a bounded limit selects the best rows before the final sort. None of these changes the comparator or the score formula.
 - **`data-search-ms` covers ranking and page materialization.** It no longer includes filter-count work, facet lookups, or rule-heading reads, which were already outside the old measurement. Wall time from typing to results is a separate, larger figure.
+
+## Entry header and chip roles, 2026-11-05
+
+Refs [#99](https://github.com/phynics/cast-iron/issues/99). One pill shape stood for eight meanings, and the entry header spent about 150 px on chips and a Star button at 390 px.
+
+- **Four roles, each with one form** (`DESIGN.md`): metadata is a text line, filters are the only pills, navigation is a 6 px rectangle, labels carry no border. The old classes `pill`, `pill-list` and `chip-link` are gone; navigation uses `jump` and `jump-list`, metadata uses `meta-link`.
+- **The entry header shows the first book in `source_ids`.** The metadata line shows the kind and that book; the other books open from `+N more`. All books stay reachable as links. The header does not reorder them: the compiler owns the primary order (#95).
+- **The star is an icon-only toggle.** Its name still reads `Star {title}` or `Unstar {title}` (it already changed with state, and the e2e suite relies on it), now next to `aria-pressed`. Home's Unstar uses the same icon button.
+- **"Related entries" jump link removed.** The relationship panels follow the body, and the Contents disclosure already covers navigation. The `entry-related` anchor stays for in-page links.
