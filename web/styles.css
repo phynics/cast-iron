@@ -1149,9 +1149,9 @@ mark {
   font-variant-numeric: tabular-nums;
 }
 
-/* Counts change with the search; a fixed minimum width keeps the chip from jumping. */
+/* Counts change with the search. A minimum width keeps one- and two-digit counts from jumping. */
 .chip .chip-count {
-  min-width: 3ch;
+  min-width: 2ch;
   text-align: end;
 }
 
