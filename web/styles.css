@@ -2931,6 +2931,12 @@ input::placeholder {
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
+  /* A surface-colored ring keeps the pip distinct from the arrow tip it touches. */
+  box-shadow: 0 0 0 1.5px var(--surface-2);
+}
+
+.header-action-btn:hover .header-action-pip {
+  box-shadow: 0 0 0 1.5px var(--surface);
 }
 
 @keyframes header-action-in {
