@@ -3019,7 +3019,7 @@ input::placeholder {
 }
 
 .settings-install p {
-  margin-block: var(--space-2);
+  margin: 0 0 var(--space-3);
 }
 
 /* The brand keeps one line; the search box gives way instead. */
