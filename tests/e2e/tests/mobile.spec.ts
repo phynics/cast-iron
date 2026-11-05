@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
@@ -38,7 +38,7 @@ const screens: [string, string][] = [
   ["#/legal", ".legal-text"],
 ];
 
-test("Mobile viewport shows no horizontal page scroll on key screens", async ({ page }) => {
+installedTest("Mobile viewport shows no horizontal page scroll on key screens", async ({ page }) => {
   expect(page.viewportSize()?.width).toBe(390);
   await installLibrary(page);
   const wide: string[] = [];
@@ -98,7 +98,7 @@ test("Mobile header Install button is icon-only, a full touch target, and crowds
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("Mobile entry header is compact: one metadata line and an icon star", async ({ page }) => {
+installedTest("Mobile entry header is compact: one metadata line and an icon star", async ({ page }) => {
   await installLibrary(page);
   await page.goto(`#/entry/${statSpell.id}`);
   await expect(page.locator(".stat-block").first()).toBeVisible();

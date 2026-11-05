@@ -1,4 +1,4 @@
-import { test, expect, goOffline, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, goOffline, loadCorpus } from "./fixtures";
 import {
   installLibrary,
   waitControlled,

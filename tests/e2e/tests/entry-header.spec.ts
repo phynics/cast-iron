@@ -1,5 +1,5 @@
 import type { Locator } from "@playwright/test";
-import { test, expect, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import { firstEntry, installLibrary, waitResults } from "./helpers";
 
 // The entry header and the four chip roles in DESIGN.md: metadata is a text line, filters are the

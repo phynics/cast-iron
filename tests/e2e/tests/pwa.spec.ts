@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { installedTest as test, expect } from "./fixtures";
 import { installLibrary, waitControlled } from "./helpers";
 
 test("Application is installable where browser support allows", async ({ page, baseURL }) => {

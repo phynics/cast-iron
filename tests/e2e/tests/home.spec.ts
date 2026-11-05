@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { installedTest as test, expect } from "./fixtures";
 import { installLibrary } from "./helpers";
 
 test.beforeEach(async ({ page }) => {

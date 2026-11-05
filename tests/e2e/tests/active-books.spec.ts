@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import {
   bookEntryOrder,
   bookOwners,
@@ -79,7 +79,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });
 
-test("No active books offers a direct recovery path from Home", async ({ page }) => {
+installedTest("No active books offers a direct recovery path from Home", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   // Every compiled book disabled is the state the Books screen reaches by unchecking
@@ -106,7 +106,7 @@ test("No active books offers a direct recovery path from Home", async ({ page })
   await expect(first).toBeChecked();
 });
 
-test("Invalid book choices recover without removing the library or stars", async ({ page }) => {
+installedTest("Invalid book choices recover without removing the library or stars", async ({ page }) => {
   const { entry, book, source } = target();
   await installLibrary(page);
   await waitControlled(page);
@@ -183,7 +183,7 @@ test("A source page count matches the entries its kind groups render", async ({ 
   }
 });
 
-test("Book page count follows its contents and survives deactivation", async ({ page }) => {
+installedTest("Book page count follows its contents and survives deactivation", async ({ page }) => {
   // Find a book whose contents tree and SourceInfo total disagree. The canonical library has
   // several; the PSRD carry-over library does not always differ for Fireball's first book.
   // A header that used the publication total or the active-book set would disagree with the

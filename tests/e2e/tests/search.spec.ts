@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { test, expect, loadCorpus } from "./fixtures";
+import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
 import { corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
 
@@ -19,7 +19,7 @@ async function renderedEntries(page: Page) {
   return page.locator(".results li.hit:not(.hit-group)").count();
 }
 
-test("Filter chips count the entries that choosing them shows", async ({ page }) => {
+installedTest("Filter chips count the entries that choosing them shows", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   const kindTotals = new Map<string, number>();
@@ -63,7 +63,7 @@ test("Filter chips count the entries that choosing them shows", async ({ page })
   }
 });
 
-test("Chip counts keep their last value while a query is pending", async ({ page }) => {
+installedTest("Chip counts keep their last value while a query is pending", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
