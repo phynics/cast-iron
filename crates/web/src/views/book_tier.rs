@@ -3,6 +3,23 @@
 //! Core rulebooks matter most; adventures matter least. The mapping is pure so native
 //! tests cover it, including every category value that the reviewed file contains.
 
+use cast_iron_schema::SourceInfo;
+use cast_iron_search::NEUTRAL_SOURCE_RANK;
+
+/// The search tie-break rank of every source in a catalog, from its reviewed category. Hand the
+/// result to `SearchIndex::set_source_ranks`.
+pub fn source_ranks(sources: &[SourceInfo]) -> Vec<(&str, u8)> {
+    sources
+        .iter()
+        .map(|source| {
+            (
+                source.id.as_str(),
+                Tier::from_category(source.category.as_deref()).search_rank(),
+            )
+        })
+        .collect()
+}
+
 /// A group of publications on the Books page, in display order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Tier {
@@ -61,6 +78,20 @@ impl Tier {
             .unwrap_or(Self::CATEGORIES.len())
     }
 
+    /// The tie-break rank that search uses: lower sorts first on equal relevance. It is the
+    /// tier's position in [`Tier::ALL`], so Rulebooks are 0. Other takes the search crate's
+    /// neutral rank, so a source with no reviewed category sorts like one that search has no
+    /// rank for. Search receives this number as plain data and never sees `Tier`.
+    pub fn search_rank(self) -> u8 {
+        match self {
+            Tier::Other => NEUTRAL_SOURCE_RANK,
+            tier => Self::ALL
+                .iter()
+                .position(|known| *known == tier)
+                .map_or(NEUTRAL_SOURCE_RANK, |position| position as u8),
+        }
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Tier::Rulebooks => "Rulebooks",
@@ -95,6 +126,52 @@ mod tests {
         assert_eq!(map("Miscellaneous"), Tier::Other);
         assert_eq!(map("Something new"), Tier::Other);
         assert_eq!(Tier::from_category(None), Tier::Other);
+    }
+
+    fn source(id: &str, category: Option<&str>) -> SourceInfo {
+        SourceInfo {
+            id: id.into(),
+            title: id.into(),
+            entry_count: 1,
+            copyright: None,
+            category: category.map(String::from),
+            publication_date: None,
+        }
+    }
+
+    /// Search ranks follow the tier order, with Other neutral. This ties the search tie-break
+    /// to the Books grouping: one table, `Tier::CATEGORIES`, feeds both.
+    #[test]
+    fn search_ranks_follow_the_tier_order_and_other_is_neutral() {
+        let ranks: Vec<u8> = Tier::ALL.iter().map(|tier| tier.search_rank()).collect();
+        assert_eq!(ranks, [0, 1, 2, 3, NEUTRAL_SOURCE_RANK]);
+        assert!(ranks.windows(2).all(|pair| pair[0] < pair[1]));
+        // Every category value in the table agrees with its tier.
+        for (category, tier) in Tier::CATEGORIES {
+            let sources = [source("x", Some(category))];
+            assert_eq!(source_ranks(&sources), [("x", tier.search_rank())]);
+        }
+    }
+
+    #[test]
+    fn source_ranks_treat_a_missing_or_unknown_category_as_other() {
+        let sources = [
+            source("core", Some("RPG")),
+            source("pc", Some("Player Companion")),
+            source("ap", Some("Adventure Path")),
+            source("none", None),
+            source("new", Some("Something new")),
+        ];
+        assert_eq!(
+            source_ranks(&sources),
+            [
+                ("core", 0),
+                ("pc", 1),
+                ("ap", 3),
+                ("none", NEUTRAL_SOURCE_RANK),
+                ("new", NEUTRAL_SOURCE_RANK)
+            ]
+        );
     }
 
     #[test]

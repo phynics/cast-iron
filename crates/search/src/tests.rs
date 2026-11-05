@@ -961,3 +961,134 @@ fn facet_lists_match_the_documents_after_a_round_trip() {
         idx.filter_counts_eligible("fire", &Filters::default(), all)
     );
 }
+
+// --- Source rank tie-break ---------------------------------------------------------------------
+
+/// Identical spells reprinted in three sources. The ids sort opposite to the priority, so the
+/// id tie-break alone would put the reprints in the wrong order.
+fn reprints() -> SearchIndex {
+    build(vec![
+        doc(
+            "a-adventure",
+            "Fireball",
+            "spell",
+            "ap",
+            "A burst of flame.",
+            &[],
+        ),
+        doc(
+            "b-companion",
+            "Fireball",
+            "spell",
+            "pc",
+            "A burst of flame.",
+            &[],
+        ),
+        doc(
+            "c-rulebook",
+            "Fireball",
+            "spell",
+            "core",
+            "A burst of flame.",
+            &[],
+        ),
+        doc(
+            "d-unlisted",
+            "Fireball",
+            "spell",
+            "other",
+            "A burst of flame.",
+            &[],
+        ),
+    ])
+}
+
+const RANKS: [(&str, u8); 3] = [("core", 0), ("pc", 1), ("ap", 3)];
+
+#[test]
+fn equal_scores_order_by_source_rank_before_title_and_id() {
+    let mut idx = reprints();
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["a-adventure", "b-companion", "c-rulebook", "d-unlisted"],
+        "without ranks the order is title then id"
+    );
+    idx.set_source_ranks(RANKS);
+    let hits = idx.search(&q("fireball"));
+    assert!(hits.windows(2).all(|w| w[0].score == w[1].score));
+    assert_eq!(
+        hits.iter().map(|h| h.id.as_str()).collect::<Vec<_>>(),
+        ["c-rulebook", "b-companion", "a-adventure", "d-unlisted"]
+    );
+}
+
+#[test]
+fn a_better_score_wins_over_a_better_source_rank() {
+    // The rulebook mentions the term once in a long body; the adventure titles it exactly.
+    let mut idx = build(vec![
+        doc(
+            "rb",
+            "Gear",
+            "item",
+            "core",
+            "Long body about many things, and a single mention of lantern somewhere.",
+            &[],
+        ),
+        doc("ap", "Lantern", "item", "ap", "Short.", &[]),
+    ]);
+    idx.set_source_ranks([("core", 0), ("ap", 3)]);
+    let hits = idx.search(&q("lantern"));
+    assert!(hits[0].score > hits[1].score);
+    assert_eq!(hits[0].id, "ap");
+    assert_eq!(hits[1].id, "rb");
+}
+
+#[test]
+fn an_unknown_or_missing_rank_sorts_as_neutral_and_last() {
+    let mut idx = reprints();
+    // `other` is absent from the map; `pc` carries the neutral rank explicitly.
+    idx.set_source_ranks([("core", 0), ("pc", NEUTRAL_SOURCE_RANK), ("ap", 3)]);
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["c-rulebook", "a-adventure", "b-companion", "d-unlisted"]
+    );
+}
+
+#[test]
+fn source_ranks_apply_to_summaries_and_to_bounded_results() {
+    let mut idx = reprints();
+    idx.set_source_ranks(RANKS);
+    let full: Vec<String> = idx
+        .search(&q("fireball"))
+        .into_iter()
+        .map(|h| h.id)
+        .collect();
+    let summaries: Vec<String> = idx
+        .search_summaries(&q("fireball"))
+        .into_iter()
+        .map(|h| h.id)
+        .collect();
+    assert_eq!(summaries, full);
+    let mut limited = q("fireball");
+    limited.limit = 2;
+    assert_eq!(ids(&idx, &limited), full[..2]);
+}
+
+#[test]
+fn ranked_order_is_deterministic_and_does_not_change_the_serialized_index() {
+    let plain = reprints();
+    let mut ranked = reprints();
+    ranked.set_source_ranks(RANKS);
+    assert_eq!(plain.to_bytes(), ranked.to_bytes());
+    let again = {
+        let mut idx = reprints();
+        idx.set_source_ranks(RANKS.iter().rev().copied());
+        idx
+    };
+    assert_eq!(ids(&ranked, &q("fireball")), ids(&again, &q("fireball")));
+    // A decoded index starts with no ranks and ranks the same way once they are set again.
+    let mut decoded = SearchIndex::from_bytes(&plain.to_bytes()).expect("round trip");
+    assert_eq!(ids(&decoded, &q("fireball")), ids(&plain, &q("fireball")));
+    decoded.set_source_ranks(RANKS);
+    assert_eq!(ids(&decoded, &q("fireball")), ids(&ranked, &q("fireball")));
+}

@@ -22,6 +22,10 @@ use store::{MetaSection, PostingsSection, TextSection};
 /// Bumped whenever the serialized layout changes.
 pub const INDEX_FORMAT_VERSION: u32 = 1;
 
+/// The rank of a source that has no assigned rank. A lower rank sorts first on a relevance tie,
+/// so the neutral rank sorts last. See [`SearchIndex::set_source_ranks`].
+pub const NEUTRAL_SOURCE_RANK: u8 = u8::MAX;
+
 /// A document to index.
 #[derive(Debug, Clone, Default)]
 pub struct DocInput {
@@ -182,6 +186,9 @@ pub struct SearchIndex {
     pub(crate) postings: PostingsSection,
     pub(crate) texts: TextSection,
     pub(crate) doc_lists: DocLists,
+    /// Tie-break rank per document ordinal, empty until [`SearchIndex::set_source_ranks`] runs.
+    /// Not serialized: the client derives it from the catalog, so the format is unchanged.
+    pub(crate) doc_ranks: Vec<u8>,
 }
 
 impl SearchIndex {
@@ -196,7 +203,28 @@ impl SearchIndex {
             postings,
             texts,
             doc_lists,
+            doc_ranks: Vec::new(),
         }
+    }
+
+    /// Assigns each source a rank for breaking ties between equally relevant results. A lower
+    /// rank sorts first. Relevance always wins: the rank only orders documents whose scores are
+    /// exactly equal, ahead of the title and id tie-breaks. A source that is not listed gets
+    /// [`NEUTRAL_SOURCE_RANK`], and an index that never receives ranks ranks every document the
+    /// same. The ranks are plain data from the caller and are not part of the serialized index.
+    pub fn set_source_ranks<'a>(&mut self, ranks: impl IntoIterator<Item = (&'a str, u8)>) {
+        let by_source: std::collections::BTreeMap<&str, u8> = ranks.into_iter().collect();
+        self.doc_ranks = self
+            .meta
+            .docs
+            .iter()
+            .map(|doc| {
+                by_source
+                    .get(doc.source.as_str())
+                    .copied()
+                    .unwrap_or(NEUTRAL_SOURCE_RANK)
+            })
+            .collect();
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {

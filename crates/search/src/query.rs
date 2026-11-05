@@ -583,7 +583,7 @@ impl SearchIndex {
             timer,
         )?;
         timer.enter(Phase::Sort);
-        sort_scored(&mut scored, &self.meta.docs, limit);
+        sort_scored(&mut scored, &self.meta.docs, &self.doc_ranks, limit);
         timer.exit(Phase::Sort);
         Some((scored, matcher))
     }
@@ -746,10 +746,24 @@ fn empty_matcher() -> Matcher {
     }
 }
 
-fn sort_scored(scored: &mut Vec<(u32, f32)>, docs: &[crate::store::DocMeta], limit: usize) {
+/// Final result order: score, then source rank, then title, then id. The source rank only
+/// separates exactly equal scores. A document without a rank counts as neutral.
+fn sort_scored(
+    scored: &mut Vec<(u32, f32)>,
+    docs: &[crate::store::DocMeta],
+    ranks: &[u8],
+    limit: usize,
+) {
+    let rank = |ord: u32| {
+        ranks
+            .get(ord as usize)
+            .copied()
+            .unwrap_or(crate::NEUTRAL_SOURCE_RANK)
+    };
     let order = |a: &(u32, f32), b: &(u32, f32)| {
         let (da, db) = (&docs[a.0 as usize], &docs[b.0 as usize]);
         b.1.total_cmp(&a.1)
+            .then_with(|| rank(a.0).cmp(&rank(b.0)))
             .then_with(|| da.title.cmp(&db.title))
             .then_with(|| da.id.cmp(&db.id))
     };

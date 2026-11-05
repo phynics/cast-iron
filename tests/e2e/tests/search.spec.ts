@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
+import { bodyText, corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -299,6 +299,40 @@ test("The Publication name box opens Adventures for its matches, then returns to
   await expect(box).toHaveValue("");
   await expect(adventures).toHaveAttribute("open", "");
   await expect(match).toBeVisible();
+});
+
+test("Equal relevance ranks the Rulebook entry before an Adventure entry", async ({ page }) => {
+  // Two entries whose titles share the query word score exactly the same in the compiled
+  // library. Their alphabetical order would put the Adventure Path entry first; the product-line
+  // tier puts the Rulebook entry first.
+  const rulebook = corpusEntry("rule", "Distracting Visitor");
+  const adventure = corpusEntry("feat", "Distracting Explosion");
+  const category = (entry: any) =>
+    corpus.catalog.sources.find((source: any) => source.id === entry.source_ids[0])?.category;
+  expect(category(rulebook), "the Rulebook fixture must come from an RPG book").toBe("RPG");
+  expect(category(adventure), "the lower-tier fixture must come from an Adventure Path").toBe("Adventure Path");
+  expect(adventure.title < rulebook.title, "the fixtures must tie in the opposite of tier order").toBe(true);
+  // The tie holds only while the query word is in the titles and nowhere in the bodies. Search
+  // matches a document word that starts with the query word, so "distraction" in a body does not
+  // count, but "distracting" does: it adds body relevance, and then relevance decides instead of
+  // the tier.
+  // See also the native pin in crates/search/tests/canonical_ranking.rs.
+  for (const entry of [rulebook, adventure]) {
+    expect(
+      bodyText(entry).toLowerCase(),
+      `${entry.title} now has a word starting with "distracting" in its body, so the two no longer tie on relevance. Pick another fixture pair that scores exactly equal.`,
+    ).not.toMatch(/\bdistracting/);
+  }
+
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("Distracting");
+  await waitResults(page, "Distracting");
+  await showAllResults(page);
+  const titles = await hitTitles(page);
+  expect(titles).toContain(rulebook.title);
+  expect(titles).toContain(adventure.title);
+  expect(titles.indexOf(rulebook.title)).toBeLessThan(titles.indexOf(adventure.title));
 });
 
 test("Leaving Search during a cold index load does not raise a page error", async ({ page }) => {
