@@ -318,6 +318,7 @@ pub fn plain_fields(fields: TypedFields) -> TypedFields {
         TypedFields::Spell(f) => {
             f.school = plain_text(&f.school);
             list(&mut f.subschools);
+            f.school = split_subschools(&f.school, &mut f.subschools);
             list(&mut f.descriptors);
             for level in &mut f.levels {
                 level.class = plain_text(&level.class);
@@ -385,15 +386,54 @@ pub fn plain_fields(fields: TypedFields) -> TypedFields {
     fields
 }
 
-/// The facet value for a spell school: the school word without a trailing bracketed note,
-/// lowercased, so `Transmutation [see text]` counts under `transmutation`. Facet values are
+/// Move a parenthetical subschool out of a spell school string.
+///
+/// Pf Data writes `conjuration (summoning) [see text]`. Each subschool word in the parentheses
+/// (split on commas, `or` and `and`) is appended to `subschools` in lowercase, skipping words
+/// already present (compared without case). The returned school keeps the bracketed note and
+/// loses the parenthetical, so the statistics panel shows the subschool once, on its own row.
+///
+/// A parenthetical that is only a pointer to the text (`multiple (see text)`) is not a
+/// subschool and stays in place.
+pub fn split_subschools(school: &str, subschools: &mut Vec<String>) -> String {
+    let (Some(open), Some(close)) = (school.find('('), school.find(')')) else {
+        return school.to_string();
+    };
+    if close < open {
+        return school.to_string();
+    }
+    let inner = school[open + 1..close].to_lowercase();
+    if inner.split_whitespace().collect::<Vec<_>>().join(" ") == "see text" {
+        return school.to_string();
+    }
+    for word in inner
+        .replace(" and ", ",")
+        .replace(" or ", ",")
+        .split(',')
+        .map(str::trim)
+        .filter(|w| !w.is_empty())
+    {
+        if !subschools.iter().any(|s| s.eq_ignore_ascii_case(word)) {
+            subschools.push(word.to_string());
+        }
+    }
+    format!("{} {}", &school[..open], &school[close + 1..])
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The facet value for a spell school: the school word alone, lowercased. A parenthetical
+/// subschool and a bracketed note both end the value, so `Conjuration (summoning) [see text]`
+/// counts under `conjuration` and `multiple (see text)` under `multiple`. Facet values are
 /// exact-match filter and route keys; the client capitalizes them for display.
 ///
-/// Only the school field carries bracketed notes. Do not use this for other facets, where
-/// a bracket can be part of the value.
+/// Only the school field carries these notes. Do not use this for other facets, where a
+/// bracket or parenthesis can be part of the value.
 pub fn school_facet(school: &str) -> String {
-    let base = school.split('[').next().unwrap_or(school);
-    base.split_whitespace()
+    let end = school.find(['[', '(']).unwrap_or(school.len());
+    school[..end]
+        .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase()
@@ -545,6 +585,102 @@ mod tests {
         assert_eq!(school_facet("Transmutation [see text]"), "transmutation");
         assert_eq!(school_facet("evocation"), "evocation");
         assert_eq!(school_facet("  conjuration   [healing]  "), "conjuration");
+    }
+
+    #[test]
+    fn school_facet_drops_a_parenthetical_subschool() {
+        for (school, facet) in [
+            ("conjuration (summoning) [see text]", "conjuration"),
+            (
+                "conjuration (calling) [see text for lesser planar binding]",
+                "conjuration",
+            ),
+            (
+                "enchantment (compulsion) [mind-affecting, see text]",
+                "enchantment",
+            ),
+            ("conjuration (creation or calling)", "conjuration"),
+            ("Conjuration (Creation Or Calling)", "conjuration"),
+            ("multiple (see text)", "multiple"),
+        ] {
+            assert_eq!(school_facet(school), facet, "{school}");
+        }
+    }
+
+    fn split(school: &str, existing: &[&str]) -> (String, Vec<String>) {
+        let mut subs: Vec<String> = existing.iter().map(|s| s.to_string()).collect();
+        let school = split_subschools(school, &mut subs);
+        (school, subs)
+    }
+
+    #[test]
+    fn split_subschools_moves_the_parenthetical_into_the_list() {
+        assert_eq!(
+            split("conjuration (summoning) [see text]", &[]),
+            ("conjuration [see text]".into(), vec!["summoning".into()])
+        );
+        assert_eq!(
+            split(
+                "conjuration (calling) [see text for lesser planar binding]",
+                &[]
+            ),
+            (
+                "conjuration [see text for lesser planar binding]".into(),
+                vec!["calling".into()]
+            )
+        );
+        assert_eq!(
+            split("enchantment (compulsion) [mind-affecting, see text]", &[]),
+            (
+                "enchantment [mind-affecting, see text]".into(),
+                vec!["compulsion".into()]
+            )
+        );
+        assert_eq!(
+            split("conjuration (creation or calling)", &[]),
+            (
+                "conjuration".into(),
+                vec!["creation".into(), "calling".into()]
+            )
+        );
+    }
+
+    #[test]
+    fn split_subschools_dedupes_and_keeps_existing_order() {
+        assert_eq!(
+            split(
+                "conjuration (creation, calling and summoning)",
+                &["Calling"]
+            ),
+            (
+                "conjuration".into(),
+                vec!["Calling".into(), "creation".into(), "summoning".into()]
+            )
+        );
+    }
+
+    #[test]
+    fn split_subschools_leaves_other_schools_alone() {
+        for school in [
+            "multiple (see text)",
+            "evocation",
+            "transmutation [see text]",
+        ] {
+            assert_eq!(split(school, &[]), (school.into(), vec![]), "{school}");
+        }
+    }
+
+    #[test]
+    fn plain_fields_splits_the_school_subschool() {
+        let fields = TypedFields::Spell(cast_iron_schema::SpellFields {
+            school: "conjuration (summoning) [see text]".into(),
+            ..Default::default()
+        });
+        let TypedFields::Spell(f) = plain_fields(fields) else {
+            unreachable!()
+        };
+        assert_eq!(f.school, "conjuration [see text]");
+        assert_eq!(f.subschools, ["summoning"]);
     }
 
     #[test]
