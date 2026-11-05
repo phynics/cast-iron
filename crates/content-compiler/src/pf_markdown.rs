@@ -1948,7 +1948,7 @@ fn clean_list_item(input: &str) -> String {
     if let Some((_, after)) = text.split_once('>') {
         text = after;
     }
-    convert_encoded_links(&text.replace('«', "").trim())
+    convert_encoded_links(text.replace('«', "").trim())
 }
 
 fn render_list(title: &str, attrs: &BTreeMap<String, String>) -> Result<String, String> {
