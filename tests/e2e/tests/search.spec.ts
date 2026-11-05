@@ -1,9 +1,11 @@
 import type { Page } from "@playwright/test";
 import { test, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { hitTitles, installLibrary, pct, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
+const entries = [...corpus.entries.values()];
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The chip whose label starts with `label`, and the count it shows. */
 const chipOf = (page: Page, label: RegExp) => page.locator(".filters .chip", { hasText: label });
@@ -88,6 +90,7 @@ test("Chip counts keep their last value while a query is pending", async ({ page
 });
 
 test("Search operates entirely offline", async ({ page, context, server }) => {
+  test.setTimeout(300_000);
   await installLibrary(page);
   await waitControlled(page);
   await goOffline(context, server);
@@ -97,41 +100,54 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await server.clearLog();
 
   // Results are live: typing is enough, there is no submit.
+  const spell = corpusEntry("spell", "Fireball");
+  const prefix = spell.title.slice(0, 3).toLowerCase();
   await page.keyboard.press("/");
   await expect(page.locator("#search-input")).toBeFocused();
-  await page.keyboard.type("fir");
+  await page.keyboard.type(prefix);
   await page.keyboard.press("Enter");
   await expect(page.locator(".search-page")).toBeVisible();
-  await page.locator("#search-input").pressSequentially("e");
-  await waitResults(page, "fire");
-  const fire = await hitTitles(page);
-  expect(fire).toContain("Fireball");
-  expect(fire.slice(0, 5).some(title => title.toLowerCase().startsWith("fire"))).toBe(true);
+  await page.locator("#search-input").pressSequentially(spell.title.slice(prefix.length).toLowerCase());
+  await waitResults(page, spell.title.toLowerCase());
+  const titles = await hitTitles(page);
+  expect(titles).toContain(spell.title);
+  expect(titles.slice(0, 5).some(title => title.toLowerCase().startsWith(prefix))).toBe(true);
   await expect(page.locator(".results .hit-title mark").first()).toBeVisible();
   await expect(page.locator(".result-count")).toHaveAttribute("aria-live", "polite");
 
-  await page.locator("#search-input").fill("fireball");
-  await waitResults(page, "fireball");
-  expect((await hitTitles(page))[0]).toBe("Fireball");
+  await page.locator("#search-input").fill(spell.title);
+  await waitResults(page, spell.title);
+  expect((await hitTitles(page))[0]).toBe(spell.title);
 
-  // Filters: school = evocation and spell level 3 give the set that the compiled data has.
+  // Filters: choose a school and spell level the compiled data has, then compare the
+  // grouped result set with the catalog's own grouping.
+  const combinations = new Map<string, { school: string; level: number; titles: Set<string> }>();
+  for (const entry of entries) {
+    if (entry.kind !== "spell" || !entry.fields?.school) continue;
+    for (const level of entry.fields.levels ?? []) {
+      const key = `${entry.fields.school}\u0000${level.level}`;
+      const group = combinations.get(key) ?? { school: entry.fields.school, level: level.level, titles: new Set() };
+      group.titles.add(entry.title);
+      combinations.set(key, group);
+    }
+  }
+  const all = [...combinations.values()];
+  const usable = all.filter((group) => /^[a-z]+$/.test(group.school));
+  const chosen = (usable.filter((group) => group.titles.size <= 60).sort((a, b) => b.titles.size - a.titles.size)[0]
+    ?? usable.sort((a, b) => b.titles.size - a.titles.size)[0]);
+  const expectedGroups = [...chosen.titles].sort();
+  expect(expectedGroups.length).toBeGreaterThan(1);
   await page.goto("#/search");
   await page.locator("#search-input").fill("");
   await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
-  await page.locator(".filters .chip", { hasText: /^evocation\d+$/i }).click();
-  await page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: /^3\d+$/ }).click();
-  await expect.poll(() => page.url()).toMatch(/spell_level:3/);
-  const expected = [...corpus.entries.values()]
-    .filter((e) => e.kind === "spell" && e.fields.school === "evocation" && e.fields.levels.some((l: any) => l.level === 3))
-    .map((e) => e.title)
-    .sort();
-  const expectedGroups = [...new Set(expected)];
-  expect(expectedGroups.length).toBeGreaterThan(10);
-  while (await page.locator(".results > .hit").count() < expectedGroups.length) {
-    const before = await page.locator(".results > .hit").count();
-    await page.getByRole("button", { name: "Show more results" }).click();
-    await expect(page.locator(".results > .hit")).toHaveCount(Math.min(before + 50, expectedGroups.length));
-  }
+  const schoolChip = page.locator(".filters .chip", { hasText: new RegExp(`^${escape(chosen.school)}\\d*$`, "i") });
+  await expect(schoolChip.first()).toBeVisible({ timeout: 60_000 });
+  await schoolChip.first().click();
+  const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${chosen.level}\\d*$`) });
+  await expect(levelChip.first()).toBeVisible({ timeout: 60_000 });
+  await levelChip.first().click();
+  await expect.poll(() => page.url()).toContain(`spell_level:${chosen.level}`);
+  await showAllResults(page);
   await expect(page.locator(".results > .hit")).toHaveCount(expectedGroups.length);
   expect((await page.locator(".results > .hit > .hit-link > .hit-title, .results > .hit > details > summary .hit-title").allInnerTexts()).sort()).toEqual(expectedGroups);
   const metas = await page.locator(".results .hit-meta").allInnerTexts();

@@ -1,7 +1,5 @@
-import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import { openBookContents, installLibrary, waitControlled } from "./helpers";
-import fs from "node:fs";
-import path from "node:path";
+import { test, expect, loadCorpus } from "./fixtures";
+import { bookTrees, installLibrary, openBookContents, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -21,11 +19,11 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.goto(`#/entry/${race.id}`);
   await expect(page.getByRole("heading", { name: race.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Racial traits/ })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: trait.title, exact: true }).click();
+  await page.locator(".entry-rel").getByRole("link", { name: trait.title, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${traitId.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: trait.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /racial trait of/i })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: race.title, exact: true }).click();
+  await page.locator(".entry-rel").getByRole("link", { name: race.title, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${race.id.replaceAll("/", "\\/")}$`));
 
   const classEntry = entries.find((e) => e.kind === "class" &&
@@ -36,40 +34,48 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.locator(".rel-disclosure > summary").click();
   const archetypeGroup = page.locator(".rel-group").filter({ has: page.getByRole("link", { name: archetype.title, exact: true }) });
   if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
-  await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).click();
+  await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${archetype.id.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: /An archetype of/ })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: classEntry.title, exact: true }).click();
+  await page.locator(".entry-rel").getByRole("link", { name: classEntry.title, exact: true }).first().click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${classEntry.id.replaceAll("/", "\\/")}$`));
 });
 
 test("spell lists filter by class, level, and query; search supports source filters", async ({ page }) => {
-  await page.goto("#/spells/Wizard");
-  await expect(page.getByRole("heading", { name: "Wizard spells", level: 1 })).toBeVisible();
-  const fire = corpus.entries.get("core-rulebook/spells/fireball")!;
-  await page.locator("#list-filter").fill("fireball");
-  await expect(page.locator(".entry-list").getByRole("link", { name: "Fireball", exact: true })).toBeVisible();
-  const matching = entries.filter((e) => e.kind === "spell" && e.title.toLowerCase().includes("fireball") &&
-    e.fields.levels.some((l: any) => l.class === "Wizard"));
+  const classLevels = new Map<string, number>();
+  for (const entry of entries) {
+    for (const level of entry.fields?.levels ?? []) classLevels.set(level.class, (classLevels.get(level.class) ?? 0) + 1);
+  }
+  const listClass = [...classLevels.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  const spell = entries.find((entry) => entry.kind === "spell" &&
+    entry.fields?.levels?.some((level: any) => level.class === listClass))!;
+  const level = spell.fields.levels.find((level: any) => level.class === listClass).level;
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}`);
+  await expect(page.getByRole("heading", { name: `${listClass} spells`, level: 1 })).toBeVisible();
+  await page.locator("#list-filter").fill(spell.title);
+  await expect(page.locator(".entry-list").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  const matching = entries.filter((entry) => entry.kind === "spell" &&
+    entry.title.toLowerCase().includes(spell.title.toLowerCase()) &&
+    entry.fields?.levels?.some((level: any) => level.class === listClass));
   await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(matching.length);
   await page.locator("#list-filter").fill("no-such-spell");
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
 
-  const fireballLevel = fire.fields.levels.find((l: any) => l.class === "Wizard").level;
-  await page.goto(`#/spells/Wizard/${fireballLevel}`);
-  await expect(page.getByRole("heading", { name: `Wizard spells, level ${fireballLevel}`, level: 1 })).toBeVisible();
-  await expect(page.locator(".entry-list").getByRole("link", { name: "Fireball", exact: true })).toBeVisible();
-  await expect(page.locator(".level-group")).toHaveAttribute("data-level", String(fireballLevel));
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}/${level}`);
+  await expect(page.getByRole("heading", { name: `${listClass} spells, level ${level}`, level: 1 })).toBeVisible();
+  await expect(page.locator(".entry-list").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  await expect(page.locator(".level-group")).toHaveAttribute("data-level", String(level));
 
-  await page.goto("#/search?q=fire&kind=spell&source=core-rulebook");
-  await expect(page.locator(".results-region")).toHaveAttribute("data-query", "fire");
+  const stub = corpus.catalog.entries.find((candidate) => candidate.id === spell.id)!;
+  await page.goto(`#/search?q=${encodeURIComponent(spell.title)}&kind=spell&source=${encodeURIComponent(stub.source)}`);
+  await expect(page.locator(".results-region")).toHaveAttribute("data-query", spell.title);
   await expect(page.locator(".results .hit").first()).toBeVisible();
-  await expect(page.locator(".results .hit-title").filter({ hasText: /^Fireball$/ })).toBeVisible();
+  await expect(page.locator(".results .hit-title").filter({ hasText: new RegExp(`^${spell.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }).first()).toBeVisible();
   const resultHrefs = await page.locator(".results .hit-link").evaluateAll((nodes) => nodes.map((n) => (n as HTMLAnchorElement).hash));
   expect(resultHrefs.length).toBeGreaterThan(0);
   for (const href of resultHrefs) {
     const id = href.replace(/^#\/entry\//, "").split("?")[0];
-    expect(corpus.catalog.entries.find((e) => e.id === id)?.source).toBe("core-rulebook");
+    expect(corpus.catalog.entries.find((e) => e.id === id)?.source).toBe(stub.source);
   }
 });
 
@@ -77,6 +83,7 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   const dependedOn = new Set(entries.flatMap((e) => related(e, "prerequisite").map((r: any) => r.target)));
   const feat = entries.find((e) => e.kind === "feat" && e.fields.prerequisites &&
     related(e, "prerequisite").some((r: any) => r.label === "or") && dependedOn.has(e.id))!;
+  expect(feat, "a feat with an either-or prerequisite that other feats name").toBeTruthy();
   await page.goto(`#/entry/${feat.id}`);
   await expect(page.locator("#rel-prereq")).toHaveText("Requirements");
   await expect(page.locator(".prereq-text")).toContainText(feat.fields.prerequisites);
@@ -84,7 +91,7 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   const expected = related(feat, "prerequisite");
   for (const edge of expected) {
     const target = corpus.entries.get(edge.target)!;
-    const link = page.locator(".rel-prereq").getByRole("link", { name: target.title, exact: true });
+    const link = page.locator(".rel-prereq").getByRole("link", { name: target.title, exact: true }).first();
     await expect(link).toBeVisible();
     if (edge.label === "or") await expect(link.locator("xpath=..")).toContainText("or");
   }
@@ -117,20 +124,22 @@ test("category hub exposes requested reference areas and dedicated lenses", asyn
   await expect(page.locator(".chain-heads .chain-head").first()).toBeVisible();
 });
 
-test("book contents keep their curated order and synchronize selection with history", async ({ page }) => {
-  const manifest = JSON.parse(fs.readFileSync(path.join(GENERATED, corpus.version, "books.json"), "utf8"));
-  const book = manifest.books.find((b: any) => b.source === "core-rulebook");
-  expect(book).toBeTruthy();
-  const first = book.chapters.find((n: any) => n.children.length > 0);
+test("book contents keep their order and synchronize selection with history", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => chapter.children?.length))!;
+  const first = book.chapters.find((chapter) => chapter.children?.length > 0)!;
   await page.goto("#/browse/books");
-  await openBookContents(page, "Core Rulebook");
-  await expect(page.getByRole("navigation", { name: /Contents of Core Rulebook/ })).toBeVisible();
+  await openBookContents(page, book.title);
+  await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${book.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) })).toBeVisible();
   await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
-  const tocTitles = await page.locator(".toc-top > .toc-branch > .toc-details > summary .toc-title").allInnerTexts();
-  expect(tocTitles).toEqual(book.chapters.map((n: any) => n.title));
+  const tocTitles = await page.locator(".toc-top > li").evaluateAll((items) => items.map((item) => {
+    const branch = item.querySelector(".toc-title");
+    const leaf = item.querySelector("a");
+    return (branch?.textContent ?? leaf?.textContent ?? "").trim();
+  }));
+  expect(tocTitles).toEqual(book.chapters.map((chapter) => chapter.title));
   const chapter = page.locator(".toc-details").filter({ has: page.locator("summary", { hasText: first.title }) }).first();
   await chapter.locator("summary").click();
-  await expect.poll(() => new URL(page.url()).hash).toContain("#/browse/book/core-rulebook?c=");
+  await expect.poll(() => new URL(page.url()).hash).toContain(`#/browse/book/${book.source}?c=`);
   const selectedUrl = page.url();
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/books");

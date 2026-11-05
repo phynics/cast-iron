@@ -1,5 +1,12 @@
-import { test, expect } from "./fixtures";
-import { cacheContents, hitTitles, installLibrary, waitControlled, waitReady, waitResults } from "./helpers";
+import { test, expect, loadCorpus } from "./fixtures";
+import { bookTrees, cacheContents, corpusEntry, firstEntry, hasBlock, hitTitles, installLibrary, waitControlled, waitReady, waitResults } from "./helpers";
+
+const corpus = loadCorpus();
+const entries = [...corpus.entries.values()];
+const spell = corpusEntry("spell", "Fireball");
+const classEntry = firstEntry("a class", (entry) => entry.kind === "class");
+const tableEntry = firstEntry("an entry with a table", (entry) => hasBlock(entry, "table"));
+const source = bookTrees()[0].source;
 
 test("Offline launch works after a new browser session", async ({ openProfile, server }) => {
   let context = await openProfile();
@@ -18,11 +25,11 @@ test("Offline launch works after a new browser session", async ({ openProfile, s
   await waitReady(page);
   await expect(page.locator("#home-title")).toBeVisible();
   await page.goto("#/search");
-  await page.locator("#search-input").fill("fireball");
-  await waitResults(page, "fireball");
-  expect((await hitTitles(page))[0]).toBe("Fireball");
-  await page.locator(".hit-link", { hasText: /^Fireball/ }).first().click();
-  await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
+  await page.locator("#search-input").fill(spell.title);
+  await waitResults(page, spell.title);
+  expect((await hitTitles(page))[0]).toBe(spell.title);
+  await page.locator(".hit-link", { hasText: new RegExp(`^${spell.title}`) }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
   // Chromium's offline mode does not cover the browser's own service worker script check; the
   // server refuses it. Nothing else may be requested.
   expect((await server.requests()).filter((p) => !p.startsWith("sw.js"))).toEqual([]);
@@ -37,19 +44,19 @@ test("No application feature requires a runtime server", async ({ page, context,
 
   // Online, but every request that reaches the server from here on is a failure of the product.
   await server.clearLog();
-  await page.goto("#/search?q=fireball");
-  await waitResults(page, "fireball");
-  await page.locator(".hit-link", { hasText: /^Fireball/ }).first().click();
-  await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
+  await page.goto(`#/search?q=${encodeURIComponent(spell.title)}`);
+  await waitResults(page, spell.title);
+  await page.locator(".hit-link", { hasText: new RegExp(`^${spell.title}`) }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   for (const hash of [
     "#/browse",
     "#/browse/kind/spell",
     "#/browse/kind/rule",
-    "#/browse/source/core-rulebook",
-    "#/entry/core-rulebook/classes/cleric",
-    "#/entry/core-rulebook/rules/equipment/weapons",
+    `#/browse/source/${source}`,
+    `#/entry/${classEntry.id}`,
+    `#/entry/${tableEntry.id}`,
     "#/bookmarks",
     "#/legal",
   ]) {
@@ -61,8 +68,8 @@ test("No application feature requires a runtime server", async ({ page, context,
   await expect(page.getByTestId("verify-status")).toContainText("verified");
   // A new tab and a full reload are served from the service worker too.
   const other = await context.newPage();
-  await other.goto("#/entry/core-rulebook/spells/fireball");
-  await expect(other.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
+  await other.goto(`#/entry/${spell.id}`);
+  await expect(other.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
   await page.reload();
   await waitReady(page);
 

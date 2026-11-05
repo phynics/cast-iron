@@ -1,11 +1,15 @@
 import { test, expect, distManifest } from "./fixtures";
 import { activeLibrary, cacheContents, contentCaches, installLibrary, waitReady } from "./helpers";
+import path from "node:path";
 
 const manifest = distManifest();
 const version = manifest.content_version;
 const cacheName = `cast-iron-content-${version}`;
 const contentPaths = (requests: string[]) =>
   requests.filter((p) => p.startsWith("content/") && !p.endsWith("manifest.json")).map((p) => p.slice("content/".length));
+/** Entry shards of the built library, in manifest order. Both libraries shard by kind. */
+const entryShards = manifest.files.map((f) => f.path).filter((p) => /(^|\/)entries\/[a-z_]+-\d+\.json$/.test(p));
+const shardName = (index: number) => path.posix.basename(entryShards[index]);
 
 test("Representative rules dataset installs completely", async ({ page }) => {
   await page.goto("./");
@@ -30,12 +34,12 @@ test("Representative rules dataset installs completely", async ({ page }) => {
 
 test("Download integrity is verified", async ({ page, server, guard }) => {
   guard.allow(/Failed to load resource|status of 5\d\d/);
-  const bad = manifest.files.find((f) => f.path.endsWith("entries/spell-001.json"))!.path;
+  const bad = entryShards[0];
   await server.hook(`content/${bad}`, "corrupt");
 
   await page.goto("./");
   await page.getByRole("button", { name: "Download" }).click();
-  const error = page.getByRole("alert").filter({ hasText: "spell-001.json" });
+  const error = page.getByRole("alert").filter({ hasText: shardName(0) });
   await expect(error).toContainText(/checksum|hash|sha/i, { timeout: 60_000 });
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
 
@@ -62,7 +66,7 @@ test("Download integrity is verified", async ({ page, server, guard }) => {
 
 test("Interrupted installation can recover safely", async ({ openProfile, server, guard }) => {
   guard.allow(/Failed to load resource|net::ERR|NetworkError|Load failed/);
-  const slow = manifest.files.find((f) => f.path.endsWith("entries/creature-002.json"))!.path;
+  const slow = entryShards[1];
   await server.hook(`content/${slow}`, "stall");
 
   let context = await openProfile();

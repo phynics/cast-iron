@@ -1,53 +1,73 @@
-import { test, expect, loadCorpus, GENERATED } from "./fixtures";
-import fs from "node:fs";
-import path from "node:path";
-import { installLibrary, waitControlled, waitReady } from "./helpers";
+import { test, expect, loadCorpus } from "./fixtures";
+import {
+  bookOwners,
+  bookTrees,
+  corpusEntry,
+  firstBookPlacement,
+  installLibrary,
+  waitControlled,
+  waitReady,
+} from "./helpers";
 
 const corpus = loadCorpus();
-const books = JSON.parse(fs.readFileSync(path.join(GENERATED, corpus.version, "books.json"), "utf8"));
-const owners = new Map<string,string>();
-const walk = (nodes: any[], source: string) => { for (const node of nodes) { if (node.entry) owners.set(node.entry, source); walk(node.children ?? [], source); } };
-for (const book of books.books) walk(book.chapters, book.source);
+const owners = bookOwners();
+
+/** A spell every library has, and the book the reader places it in first. */
+function target() {
+  const entry = corpusEntry("spell", "Fireball");
+  const book = firstBookPlacement(entry.id);
+  if (!book) throw new Error(`The compiled corpus does not place ${entry.id} in a book.`);
+  const source = corpus.catalog.sources.find((candidate) => candidate.id === book.source);
+  if (!source) throw new Error(`The compiled catalog has no source ${JSON.stringify(book.source)}.`);
+  return { entry, book, source };
+}
 
 test("Book visibility persists offline and filters discovery while keeping stars readable", async ({ openProfile }) => {
+  const { entry, book, source } = target();
   let context = await openProfile();
   let page = await context.newPage();
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/books");
   await waitReady(page);
-  const core = page.locator('.book-directory-item[data-book-id="core-rulebook"]');
-  const coreToggle = core.getByRole("checkbox", { name: "Active Core Rulebook" });
-  await expect(coreToggle).toBeChecked();
-  await page.goto("#/entry/core-rulebook/spells/fireball");
+  const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
+  const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
+  await expect(toggle).toBeChecked();
+  await page.goto(`#/entry/${entry.id}`);
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 
   await page.goto("#/books");
-  await core.getByRole("checkbox", { name: "Active Core Rulebook" }).uncheck();
-  await expect(core.getByRole("checkbox", { name: "Active Core Rulebook" })).not.toBeChecked();
-  await expect(core.getByRole("checkbox", { name: "Active Core Rulebook" })).toBeEnabled();
+  await row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true }).uncheck();
+  await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
+  await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeEnabled();
   await context.close();
 
   context = await openProfile({ offline: true });
   page = await context.newPage();
   await page.goto("#/books");
   await waitReady(page);
-  const restored = page.locator('.book-directory-item[data-book-id="core-rulebook"]');
-  await expect(restored.getByRole("checkbox", { name: "Active Core Rulebook" })).not.toBeChecked();
+  const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
+  await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   await page.goto("#/browse/kind/spell");
-  const expected = corpus.catalog.entries.filter((entry) => entry.kind === "spell" && (owners.get(entry.id) ?? entry.source) !== "core-rulebook").length;
+  // The reader places an entry in its first book, so an entry that a second book also
+  // holds disappears with this one. Derive the count from that same rule.
+  const expected = corpus.catalog.entries.filter((stub) =>
+    stub.kind === "spell" && (owners.get(stub.id) ?? stub.source) !== book.source).length;
   await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(expected);
-  await expect(page.getByRole("link", { name: "Fireball", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: entry.title, exact: true })).toHaveCount(0);
 
-  await page.goto("#/search?q=fire&kind=spell");
-  await expect(page.locator(".results .hit-link").first()).toBeVisible();
+  await page.goto("#/search?kind=spell");
+  await expect(page.locator(".results .hit").first()).toBeVisible();
+  // With only the kind filter the result set is discovery-wide, and no hit may come from
+  // the disabled book. The starred entry has no result at all.
   const hits = await page.locator(".results .hit-link").evaluateAll(links => links.map(link => (link as HTMLAnchorElement).hash.replace(/^#\/entry\//, "").split("?")[0]));
   expect(hits.length).toBeGreaterThan(0);
-  for (const id of hits) expect(owners.get(id)).not.toBe("core-rulebook");
+  for (const id of hits) expect(owners.get(id)).not.toBe(book.source);
+  await expect(page.locator(`.results a[href="#/entry/${entry.id}"]`)).toHaveCount(0);
   await page.goto("#/");
-  await page.locator(".home-bookmarks").getByRole("link", { name: "Fireball", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Fireball", level: 1, exact: true })).toBeVisible();
+  await page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true }).click();
+  await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
   await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled for search and browsing.");
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });
@@ -55,9 +75,22 @@ test("Book visibility persists offline and filters discovery while keeping stars
 test("No active books offers a direct recovery path from Home", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books");
-  for (const toggle of await page.getByRole("checkbox", { name: /^Active / }).all()) { await toggle.uncheck(); await expect(toggle).toBeEnabled(); }
-  await page.goto("#/");
+  // Every compiled book disabled is the state the Books screen reaches by unchecking
+  // every publication. Write it once instead of toggling hundreds of rows, then verify
+  // the reader's recovery path through the screen.
+  const books = bookTrees().map((book) => book.source);
+  await page.evaluate((disabled) => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open("cast-iron", 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction("meta", "readwrite");
+      tx.objectStore("meta").put(disabled, "disabled_books");
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }), books);
+  await page.reload();
   await expect(page.getByText("No books are active.")).toBeVisible();
   await page.getByRole("link", { name: "Open Books" }).click();
   await expect(page.getByRole("heading", { name: "Books", exact: true })).toBeVisible();
@@ -67,9 +100,10 @@ test("No active books offers a direct recovery path from Home", async ({ page })
 });
 
 test("Invalid book choices recover without removing the library or stars", async ({ page }) => {
+  const { entry, book, source } = target();
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/entry/core-rulebook/spells/fireball");
+  await page.goto(`#/entry/${entry.id}`);
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
@@ -89,7 +123,7 @@ test("Invalid book choices recover without removing the library or stars", async
   await page.getByRole("button", { name: "Reset active books" }).click();
   await waitReady(page);
   await page.goto("#/");
-  await expect(page.locator(".home-bookmarks").getByRole("link", { name: "Fireball", exact: true })).toBeVisible();
+  await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
   await page.goto("#/books");
-  await expect(page.getByRole("checkbox", { name: "Active Core Rulebook", exact: true })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();
 });

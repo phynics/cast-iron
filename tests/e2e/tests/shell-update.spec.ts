@@ -1,12 +1,14 @@
 import { test, expect, goOffline } from "./fixtures";
-import { activeLibrary, cacheContents, contentCaches, installLibrary, waitControlled, waitReady } from "./helpers";
+import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitReady } from "./helpers";
+
+const spell = corpusEntry("spell", "Fireball");
 
 const UPDATE_NAME = "App update ready. Reload to apply";
 
 test("App update waits for reload and keeps the installed library and Home bookmarks", async ({ page, context, server }) => {
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/entry/core-rulebook/spells/fireball");
+  await page.goto(`#/entry/${spell.id}`);
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   await page.goto("#/settings");
@@ -60,7 +62,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await page.reload();
   await waitReady(page);
-  await page.locator(".home-bookmarks").getByRole("link", { name: /Fireball/ }).click();
-  await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
+  await page.locator(".home-bookmarks").getByRole("link", { name: new RegExp(spell.title) }).click();
+  await expect(page.getByRole("heading", { level: 1, name: spell.title, exact: true })).toBeVisible();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });

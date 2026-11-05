@@ -113,7 +113,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { DIST, distManifest } from "./fixtures";
+import { DIST, GENERATED, distManifest, loadCorpus, type Entry } from "./fixtures";
 
 /**
  * Builds an alternative library in a temp directory: the served library with legal.json changed.
@@ -172,11 +172,224 @@ export async function afterRouteFrame(page: Page) {
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
 }
 
+/** Click "Show more results" until the whole grouped result list is on screen. */
+export async function showAllResults(page: Page) {
+  await expect(page.locator(".results .hit").first()).toBeVisible();
+  const more = page.getByRole("button", { name: "Show more results" });
+  for (let i = 0; i < 60; i++) {
+    if (!(await more.isVisible().catch(() => false))) return;
+    const before = await page.locator(".results .hit").count();
+    await more.click();
+    await expect.poll(() => page.locator(".results .hit").count()).toBeGreaterThan(before);
+  }
+}
+
 /** Open a publication choice before following its permanent entry link. */
 export async function revealSourceChoice(link: import("@playwright/test").Locator) {
   await expect(link).toBeAttached();
   const disclosure = link.locator("xpath=ancestor::details[1]");
   if (await disclosure.count() && !(await disclosure.evaluate((el: HTMLDetailsElement) => el.open))) {
     await disclosure.locator(":scope > summary").click();
+  }
+}
+
+/**
+ * Corpus selection. Expectations must come from the library that was built, not from one
+ * dataset's ids or titles, so a test that needs "a spell with a stat block" or "a class"
+ * asks the compiled corpus and uses what it returns.
+ */
+export function corpusEntry(kind: string, title: string): Entry {
+  const found = [...loadCorpus().entries.values()].find((e) => e.kind === kind && e.title === title);
+  if (!found) throw new Error(`The compiled corpus has no ${kind} titled ${JSON.stringify(title)}.`);
+  return found;
+}
+
+export function firstEntry(what: string, predicate: (entry: Entry) => boolean): Entry {
+  const found = [...loadCorpus().entries.values()].find(predicate);
+  if (!found) throw new Error(`The compiled corpus has no entry for ${what}.`);
+  return found;
+}
+
+/** Plain text of an inline content array. */
+export function inlineText(nodes: any[]): string {
+  return nodes
+    .map((node) => (typeof node.v === "string" ? node.v : inlineText(node.c ?? [])))
+    .join("");
+}
+
+/** Entry links in a body, in document order: the target id and its optional heading anchor. */
+export function bodyLinks(body: any[]): { target: string; anchor?: string; text: string }[] {
+  const found: { target: string; anchor?: string; text: string }[] = [];
+  const walk = (value: any) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    if (value.t === "link" && typeof value.target === "string") {
+      found.push({ target: value.target, anchor: value.anchor, text: inlineText(value.c ?? []) });
+    } else if (value.t === "entry_link" && typeof value.target === "string") {
+      // PSRD stores cross-references as labelled child links; canonical rules keep them inline.
+      found.push({ target: value.target, text: value.title ?? "" });
+    }
+    Object.values(value).forEach(walk);
+  };
+  walk(body);
+  return found;
+}
+
+/** All text of an entry body, joined with spaces. */
+export function bodyText(entry: Entry): string {
+  const parts: string[] = [];
+  const walk = (value: any) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    if (typeof value.v === "string") parts.push(value.v);
+    Object.values(value).forEach(walk);
+  };
+  walk(entry.body);
+  return parts.join(" ");
+}
+
+/** True when the body contains a block of this type. */
+export function hasBlock(entry: Entry, type: string): boolean {
+  let found = false;
+  const walk = (value: any) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    if (value.t === type) found = true;
+    Object.values(value).forEach(walk);
+  };
+  walk(entry.body);
+  return found;
+}
+
+/** Every heading block of an entry body, in document order, with or without an anchor. */
+export function bodyHeadings(entry: Entry): { anchor?: string; text: string; level: number }[] {
+  const found: { anchor?: string; text: string; level: number }[] = [];
+  const walk = (value: any) => {
+    if (Array.isArray(value)) return value.forEach(walk);
+    if (!value || typeof value !== "object") return;
+    if (value.t === "heading") {
+      found.push({ anchor: value.anchor, text: inlineText(value.content ?? []), level: value.level });
+    }
+    Object.values(value).forEach(walk);
+  };
+  walk(entry.body);
+  return found;
+}
+
+/** Anchored headings of an entry body, in document order. */
+export function headingAnchors(entry: Entry): { anchor: string; text: string; level: number }[] {
+  return bodyHeadings(entry).filter(
+    (heading): heading is { anchor: string; text: string; level: number } => typeof heading.anchor === "string",
+  );
+}
+
+export interface TocNode {
+  title: string;
+  entry?: string;
+  anchor?: string;
+  review?: string;
+  children?: TocNode[];
+}
+export interface BookTree {
+  source: string;
+  title: string;
+  basis: string;
+  review: string[];
+  chapters: TocNode[];
+}
+
+let cachedBooks: BookTree[] | undefined;
+/** `books.json` of the compiled library, parsed once per worker. */
+export function bookTrees(): BookTree[] {
+  if (!cachedBooks) {
+    const { version } = loadCorpus();
+    const file = JSON.parse(fs.readFileSync(path.join(GENERATED, version, "books.json"), "utf8"));
+    cachedBooks = file.books;
+  }
+  return cachedBooks!;
+}
+
+/** The chapter path of an entry in a book tree, or null when the book does not place it. */
+export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): number[] | null {
+  for (const [index, node] of nodes.entries()) {
+    const path = [...base, index];
+    if (node.entry === id && !node.children?.length) return path;
+    if (node.children?.length) {
+      const found = pathToEntry(node.children, id, path);
+      if (found) return found;
+    }
+    if (node.entry === id) return path;
+  }
+  return null;
+}
+
+let cachedOwners: Map<string, string> | undefined;
+/**
+ * The book the client shows an entry under: its first placement in `books.json` order.
+ * A canonical entry can appear in several publications, and the reader takes the first.
+ */
+export function bookOwners(): Map<string, string> {
+  if (!cachedOwners) {
+    const owners = new Map<string, string>();
+    for (const book of bookTrees()) {
+      for (const id of bookEntryOrder(book)) if (!owners.has(id)) owners.set(id, book.source);
+    }
+    cachedOwners = owners;
+  }
+  return cachedOwners;
+}
+
+export function firstBookPlacement(entryId: string): BookTree | undefined {
+  for (const book of bookTrees()) {
+    if (pathToEntry(book.chapters, entryId)) return book;
+  }
+  return undefined;
+}
+
+/** Entries of a book in reading order: a node's own entry, then its children. */
+export function bookEntryOrder(book: BookTree): string[] {
+  const order: string[] = [];
+  const walk = (nodes: TocNode[]) => {
+    for (const node of nodes) {
+      if (node.entry) order.push(node.entry);
+      walk(node.children ?? []);
+    }
+  };
+  walk(book.chapters);
+  return order;
+}
+
+const tocId = (path: number[]) => `toc-${path.map((index) => index + 1).join("-")}`;
+
+/** Expand a contents path and follow the entry it ends at. */
+export async function openBookEntry(
+  page: Page,
+  book: BookTree,
+  entryId: string,
+  { keys = false }: { keys?: boolean } = {},
+) {
+  const path = pathToEntry(book.chapters, entryId);
+  if (!path) throw new Error(`${book.title} does not place ${entryId}.`);
+  const activate = (locator: import("@playwright/test").Locator) =>
+    keys ? locator.press("Enter") : locator.click();
+  await openBookContents(page, book.title);
+  let nodes = book.chapters;
+  for (let depth = 0; depth < path.length; depth++) {
+    const node = nodes[path[depth]];
+    const id = tocId(path.slice(0, depth + 1));
+    if (!node.children?.length) {
+      await activate(page.locator(`a#${id}`));
+      return;
+    }
+    const details = page.locator(`#${id}`).locator("xpath=..");
+    if (!(await details.evaluate((el: HTMLDetailsElement) => el.open))) {
+      await activate(page.locator(`#${id}`));
+    }
+    await expect(details).toHaveJSProperty("open", true);
+    if (depth === path.length - 1) {
+      await activate(details.locator(":scope > ul > li.toc-self > a"));
+      return;
+    }
+    nodes = node.children;
   }
 }
