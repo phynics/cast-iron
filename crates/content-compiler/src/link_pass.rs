@@ -13,14 +13,17 @@
 //! 2. **Exact title.** An italic or bold span whose whole text equals the title of a spell or
 //!    special-ability entry, ignoring case, runs of whitespace, and trailing punctuation,
 //!    links to that entry. Plain, non-emphasised text is never linked automatically.
-//!    A spell wins over a special ability of the same title, because the books set spell
-//!    names in italic. Among the rest, the Core Rulebook wins, then the earliest
-//!    publication. A tie that remains stays unlinked and is reported.
+//!    For an italic span, a spell wins over a special ability of the same title, because
+//!    the books set spell names in italic. A bold span has no such preference. Among the
+//!    rest, the Core Rulebook wins, then the earliest publication. A tie that remains stays
+//!    unlinked and is reported. A span that opens a stat-line field (a colon inside or right
+//!    after it, or for a bold span `yes` or `no` after it) is a label and is never linked.
 //! 3. **Curated terms.** A [`TERMS`] row names plain text that links to one fixed target.
 //!    Plain text links only at its first occurrence in a block, which avoids a wall of
-//!    links. An italic or bold span that is exactly a curated term and names no spell links
-//!    to the curated target, because that target settles a title with many copies. A span
-//!    that also names a spell links to the spell (rule 2).
+//!    links. An italic or bold span that is exactly a curated term links to the curated
+//!    target, because that target settles a title with many copies, unless it is an italic
+//!    span that also names a spell: that links to the spell (rule 2). A plain match
+//!    followed by a colon is a field label and is not linked.
 //!
 //! A span is left alone, and counted, when it is already inside a link, inside a heading, a
 //! whole-paragraph label, or a header cell, or when it names the entry that holds it. A
@@ -253,6 +256,8 @@ pub struct Report {
     pub ambiguous: BTreeMap<String, AmbiguousRow>,
     /// Per curated term.
     pub curated: BTreeMap<String, CuratedRow>,
+    /// Bold spans and plain matches skipped as stat-line field labels, per normalised text.
+    pub field_labels: BTreeMap<String, u32>,
     /// Curated terms whose target is not in the input. Their matches are left alone.
     pub missing_targets: Vec<String>,
 }
@@ -413,6 +418,45 @@ struct Holder {
     title_key: String,
 }
 
+/// The typeface of an emphasised span.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Style {
+    Italic,
+    Bold,
+}
+
+/// True when a span opens a stat-line field: a colon is inside or follows it, or `yes` or
+/// `no` follows it after optional spaces (when `word_ok`) (`Spell Resistance: yes`, `Spell
+/// Resistance yes (harmless)`). `trail` is what the span holds after its match text, and
+/// `following` is the text right after the span. `word_ok` allows the `yes` or `no` test; plain
+/// prose such as "spell resistance no longer applies" must not pass it.
+fn is_field_label(trail: &str, following: Option<&str>, word_ok: bool) -> bool {
+    // Punctuation other than a colon or space after the name means running prose.
+    if trail.chars().any(|c| !(c.is_whitespace() || c == ':')) {
+        return false;
+    }
+    if trail.contains(':') {
+        return true;
+    }
+    let rest = following.unwrap_or_default().trim_start();
+    let (colon, rest) = match rest.strip_prefix(':') {
+        Some(rest) => (true, rest.trim_start()),
+        None => (false, rest),
+    };
+    if colon {
+        return true;
+    }
+    if !word_ok {
+        return false;
+    }
+    let word: String = rest
+        .chars()
+        .take_while(|c| c.is_alphabetic())
+        .collect::<String>()
+        .to_lowercase();
+    word == "yes" || word == "no"
+}
+
 /// Where a plain-text match sits when the pass cannot link it.
 #[derive(Clone, Copy)]
 enum Place {
@@ -495,14 +539,15 @@ impl Pass {
         }
     }
 
-    /// Picks the target of a title. A spell wins over a special ability of the same title,
-    /// because the books set spell names in italic. Among the remaining candidates the Core
+    /// Picks the target of a title. For an italic span, a spell wins over a special ability
+    /// of the same title, because the books set spell names in italic; a bold span has no
+    /// such preference, because bold is far more often a label. Among the candidates the Core
     /// Rulebook, then the earliest publication, wins. The category of an ambiguous title is
     /// the category of the entries tied for first place, not of every entry with the title.
-    fn resolve(&self, candidates: &[Candidate]) -> Resolution {
+    fn resolve(&self, candidates: &[Candidate], prefer_spell: bool) -> Resolution {
         let spells: Vec<&Candidate> = candidates
             .iter()
-            .filter(|c| c.category == Category::Spell)
+            .filter(|c| prefer_spell && c.category == Category::Spell)
             .collect();
         let pool: Vec<&Candidate> = if spells.is_empty() {
             candidates.iter().collect()
@@ -524,6 +569,11 @@ impl Pass {
                 }
             }
         }
+    }
+
+    fn count_field_label(&mut self, key: &str) {
+        self.report.skipped.label += 1;
+        *self.report.field_labels.entry(key.to_string()).or_default() += 1;
     }
 
     /// True when `holder` is the term's target, or is titled like any term for that target.
@@ -675,9 +725,15 @@ impl Pass {
         context: Context,
         linked: &mut BTreeSet<EntryId>,
     ) -> Vec<Inline> {
-        inlines
-            .into_iter()
-            .map(|node| match node {
+        let mut out = Vec::with_capacity(inlines.len());
+        let mut rest = inlines.into_iter().peekable();
+        while let Some(node) = rest.next() {
+            // The text right after a span tells a field label from a reference.
+            let following = match rest.peek() {
+                Some(Inline::Text { v }) => Some(v.as_str()),
+                _ => None,
+            };
+            out.push(match node {
                 Inline::Link { target, anchor, c } => Inline::Link {
                     target,
                     anchor,
@@ -691,18 +747,22 @@ impl Pass {
                         linked,
                     ),
                 },
-                Inline::Em { c } => match self.span(&c, holder, context, linked) {
-                    Some(c) => Inline::Em { c },
-                    None => Inline::Em {
-                        c: self.spans(c, holder, context, linked),
-                    },
-                },
-                Inline::Strong { c } => match self.span(&c, holder, context, linked) {
-                    Some(c) => Inline::Strong { c },
-                    None => Inline::Strong {
-                        c: self.spans(c, holder, context, linked),
-                    },
-                },
+                Inline::Em { c } => {
+                    match self.span(&c, Style::Italic, following, holder, context, linked) {
+                        Some(c) => Inline::Em { c },
+                        None => Inline::Em {
+                            c: self.spans(c, holder, context, linked),
+                        },
+                    }
+                }
+                Inline::Strong { c } => {
+                    match self.span(&c, Style::Bold, following, holder, context, linked) {
+                        Some(c) => Inline::Strong { c },
+                        None => Inline::Strong {
+                            c: self.spans(c, holder, context, linked),
+                        },
+                    }
+                }
                 Inline::Sup { c } => Inline::Sup {
                     c: self.spans(c, holder, context, linked),
                 },
@@ -710,8 +770,9 @@ impl Pass {
                     c: self.spans(c, holder, context, linked),
                 },
                 other => other,
-            })
-            .collect()
+            });
+        }
+        out
     }
 
     /// Decides one italic or bold span that holds only text. Returns the replacement content
@@ -719,6 +780,8 @@ impl Pass {
     fn span(
         &mut self,
         content: &[Inline],
+        style: Style,
+        following: Option<&str>,
         holder: &Holder,
         context: Context,
         linked: &mut BTreeSet<EntryId>,
@@ -757,12 +820,20 @@ impl Pass {
             self.report.skipped.self_title += 1;
             return None;
         }
+        // A span that opens a field is a label, not a reference: a colon inside or right
+        // after it (`_Spell Resistance:_ yes`), or, for bold only, `yes` or `no` after it
+        // (`**Spell Resistance** yes`).
+        if is_field_label(trail, following, style == Style::Bold) {
+            self.count_field_label(&key);
+            return None;
+        }
 
-        // A span that names a spell links to the spell: italic is how the books mark spell
+        // An italic span that names a spell links to the spell: italic is how the books mark spell
         // names. The curated target covers the other emphasised spans.
-        let names_spell = candidates
-            .as_ref()
-            .is_some_and(|all| all.iter().any(|c| c.category == Category::Spell));
+        let names_spell = style == Style::Italic
+            && candidates
+                .as_ref()
+                .is_some_and(|all| all.iter().any(|c| c.category == Category::Spell));
         let (target, category, rule) = if let Some(term) = curated.filter(|_| !names_spell) {
             let target = EntryId::parse(term.target).ok()?;
             let is_self = self.is_self_for(holder, term, &target);
@@ -790,7 +861,7 @@ impl Pass {
                     .skipped_blocked += 1;
                 return None;
             }
-            match self.resolve(&candidates) {
+            match self.resolve(&candidates, style == Style::Italic) {
                 Resolution::Ambiguous { tied, category } => {
                     let row = self.report.ambiguous.entry(key).or_default();
                     row.spans += 1;
@@ -808,7 +879,7 @@ impl Pass {
                     return None;
                 }
                 Resolution::Linked(id) => {
-                    if let Some(term) = curated {
+                    if let Some(term) = curated.filter(|_| style == Style::Italic) {
                         self.report
                             .curated
                             .entry(term.text.into())
@@ -953,6 +1024,10 @@ impl Pass {
                 row.skipped_self += 1;
                 continue;
             }
+            if is_field_label("", Some(&v[end..]), start == 0) {
+                self.count_field_label(&normalise(term.text));
+                continue;
+            }
             if linked.contains(&target) {
                 row.skipped_repeat += 1;
                 continue;
@@ -1063,6 +1138,18 @@ pub fn markdown(report: &Report) -> String {
         "\nMatching spans left alone: {} inside a link, {} in a heading, {} as a label, {} naming their own entry.",
         skipped.in_link, skipped.heading, skipped.label, skipped.self_title
     );
+    if !report.field_labels.is_empty() {
+        let total: u32 = report.field_labels.values().sum();
+        let _ = writeln!(
+            s,
+            "\n### Field labels\n\n{total} spans and plain matches open a stat-line field (a colon, or for bold yes/no, follows) and stay unlinked. Top terms:\n"
+        );
+        let mut rows: Vec<(&String, &u32)> = report.field_labels.iter().collect();
+        rows.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        for (term, count) in rows.into_iter().take(25) {
+            let _ = writeln!(s, "- `{term}`: {count}");
+        }
+    }
     let _ = writeln!(s, "\n### Blocked terms\n");
     if report.blocked.is_empty() {
         let _ = writeln!(s, "None matched.");
@@ -1267,7 +1354,7 @@ mod tests {
             host(
                 "ref/monster/a",
                 "A",
-                vec![para(vec![strong("Rend"), t(": 2 claws")])],
+                vec![para(vec![strong("Rend"), t(" attack: 2 claws")])],
             ),
         ]);
         let content = content_of(&body_of(&linked, "ref/monster/a")[0]);
@@ -1615,7 +1702,7 @@ mod tests {
                     t("It casts "),
                     em("darkvision"),
                     t(" and has darkvision, "),
-                    strong("Darkvision"),
+                    em("Darkvision"),
                     t("."),
                 ])],
             ),
@@ -1822,6 +1909,162 @@ mod tests {
             category_of(&spell("ref/spell/a", "A", &[])),
             Some(Category::Spell)
         );
+    }
+
+    fn host_para(content: Vec<Inline>) -> Vec<RuleEntry> {
+        vec![
+            darkvision(),
+            spell("ref/spell/darkvision", "Darkvision", &["core-rulebook"]),
+            spell("ref/spell/aid-a", "Aid", &["core-rulebook"]),
+            ability("ref/umr/aid-a", "Aid", &["core-rulebook"]),
+            spell("ref/spell/fireball", "Fireball", &["core-rulebook"]),
+            host("ref/monster/a", "A", vec![para(content)]),
+        ]
+    }
+
+    #[test]
+    fn the_spell_preference_applies_to_italic_spans_only() {
+        // Italic `darkvision` is the spell; bold `Darkvision` takes the curated rule.
+        let linked = run(host_para(vec![
+            t("Use "),
+            em("darkvision"),
+            t(" and "),
+            strong("Darkvision"),
+            t(" and "),
+            em("aid"),
+            t(" and "),
+            strong("aid"),
+            t("."),
+        ]));
+        let content = content_of(&body_of(&linked, "ref/monster/a")[0]);
+        assert_eq!(
+            content[1],
+            Inline::Em {
+                c: vec![link("ref/spell/darkvision", "darkvision")]
+            }
+        );
+        assert_eq!(
+            content[3],
+            Inline::Strong {
+                c: vec![link("ref/rule/darkvision", "Darkvision")]
+            }
+        );
+        // A spell and an ability tie only for bold: italic takes the spell.
+        assert_eq!(
+            content[5],
+            Inline::Em {
+                c: vec![link("ref/spell/aid-a", "aid")]
+            }
+        );
+        assert_eq!(content[7], strong("aid"));
+        let row = &linked.report.ambiguous["aid"];
+        assert_eq!((row.spans, row.category.as_str()), (1, "mixed"));
+        assert_eq!(linked.report.curated["darkvision"].emphasised_to_spell, 1);
+    }
+
+    #[test]
+    fn a_bold_span_that_opens_a_field_is_a_label_and_stays_unlinked() {
+        let before = vec![
+            para(vec![strong("Darkvision"), t(": 60 ft.")]),
+            para(vec![strong("Darkvision:"), t(" 60 ft.")]),
+            para(vec![strong("Darkvision"), t(" yes (harmless)")]),
+            para(vec![t("x "), strong("Fireball"), t(" : 3d6")]),
+            para(vec![t("x "), strong("Fireball"), t(": No")]),
+            para(vec![t("x "), strong("Fireball"), t(" NO.")]),
+        ];
+        let linked = run(vec![
+            darkvision(),
+            spell("ref/spell/fireball", "Fireball", &["core-rulebook"]),
+            host("ref/monster/a", "A", before.clone()),
+        ]);
+        assert_eq!(body_of(&linked, "ref/monster/a"), before.as_slice());
+        assert_eq!(linked.report.links_added, 0);
+        assert_eq!(linked.report.skipped.label, 6);
+        assert_eq!(linked.report.field_labels["darkvision"], 3);
+        assert_eq!(linked.report.field_labels["fireball"], 3);
+    }
+
+    #[test]
+    fn a_reference_or_an_italic_name_without_a_colon_is_not_a_field_label() {
+        let linked = run(host_para(vec![
+            t("x "),
+            strong("Fireball"),
+            t(" nonmagical, "),
+            strong("Fireball"),
+            t(" none, "),
+            strong("Fireball,"),
+            t(" yes, "),
+            strong("Fireball"),
+            link_text(),
+            t(" "),
+            em("fireball"),
+            t(" nonmagical, "),
+            em("fireball"),
+            t(" yes."),
+        ]));
+        let content = content_of(&body_of(&linked, "ref/monster/a")[0]);
+        let bold = [1usize, 3];
+        for at in bold {
+            assert!(
+                matches!(&content[at], Inline::Strong { c } if matches!(c[0], Inline::Link { .. })),
+                "bold at {at} is a reference"
+            );
+        }
+        // Prose punctuation after the name, or a non-text neighbour, is not a label.
+        assert!(matches!(&content[5], Inline::Strong { c } if matches!(c[0], Inline::Link { .. })));
+        assert!(matches!(&content[7], Inline::Strong { c } if matches!(c[0], Inline::Link { .. })));
+        // The yes/no test is for bold only: italic followed by yes still links.
+        for at in [10usize, 12] {
+            assert!(
+                matches!(&content[at], Inline::Em { c } if matches!(c[0], Inline::Link { .. })),
+                "italic at {at} links"
+            );
+        }
+        assert!(linked.report.field_labels.is_empty());
+    }
+
+    fn link_text() -> Inline {
+        link("ref/other/x", "see")
+    }
+
+    #[test]
+    fn an_italic_span_with_a_colon_is_a_label() {
+        let before = vec![
+            para(vec![t("x "), em("Fireball:"), t(" yes")]),
+            para(vec![t("x "), em("Fireball"), t(": 3d6")]),
+        ];
+        let linked = run(vec![
+            spell("ref/spell/fireball", "Fireball", &["core-rulebook"]),
+            host("ref/monster/a", "A", before.clone()),
+        ]);
+        assert_eq!(body_of(&linked, "ref/monster/a"), before.as_slice());
+        assert_eq!(linked.report.field_labels["fireball"], 2);
+        assert_eq!(linked.report.skipped.label, 2);
+    }
+
+    #[test]
+    fn a_plain_curated_match_before_a_colon_is_a_label() {
+        let before = vec![
+            para(vec![t("Darkvision: 60 ft.")]),
+            para(vec![t("Darkvision yes")]),
+        ];
+        let linked = run(vec![
+            darkvision(),
+            host("ref/monster/a", "A", before.clone()),
+        ]);
+        assert_eq!(body_of(&linked, "ref/monster/a"), before.as_slice());
+        assert_eq!(linked.report.field_labels["darkvision"], 2);
+        // Prose such as "darkvision no longer applies" still links.
+        let linked = run(vec![
+            darkvision(),
+            host(
+                "ref/monster/a",
+                "A",
+                vec![para(vec![t("The darkvision no longer applies.")])],
+            ),
+        ]);
+        assert_eq!(linked.report.links_added, 1);
+        assert!(linked.report.field_labels.is_empty());
     }
 
     #[test]
