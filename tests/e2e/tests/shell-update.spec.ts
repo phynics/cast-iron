@@ -2,7 +2,6 @@ import { test, expect, goOffline } from "./fixtures";
 import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitReady } from "./helpers";
 
 const spell = corpusEntry("spell", "Fireball");
-
 const UPDATE_NAME = "App update ready. Reload to apply";
 
 test("App update waits for reload and keeps the installed library and Home bookmarks", async ({ page, context, server }) => {
@@ -20,8 +19,8 @@ test("App update waits for reload and keeps the installed library and Home bookm
   const nextShell = `e2e-next-${previousShell}`;
 
   // On a reading screen: the indicator must not push the article down.
-  await page.goto("#/entry/core-rulebook/spells/fireball");
-  await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
+  await page.goto(`#/entry/${spell.id}`);
+  await expect(page.getByRole("heading", { name: spell.title, exact: true, level: 1 })).toBeVisible();
   const mainTop = (await page.locator("main").boundingBox())!.y;
 
   // Start the update through the app's own control, as a user would.
@@ -30,8 +29,8 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await page.getByRole("button", { name: "Check for updates", exact: true }).click();
   const update = page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME });
   await expect(update).toBeVisible();
-  await page.goto("#/entry/core-rulebook/spells/fireball");
-  await expect(page.getByRole("heading", { name: "Fireball", exact: true, level: 1 })).toBeVisible();
+  await page.goto(`#/entry/${spell.id}`);
+  await expect(page.getByRole("heading", { name: spell.title, exact: true, level: 1 })).toBeVisible();
   await expect(update).toBeVisible();
   await expect(update).toHaveAttribute("aria-label", UPDATE_NAME);
   await expect(update).toContainText("Update");

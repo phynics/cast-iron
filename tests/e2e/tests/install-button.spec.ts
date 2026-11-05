@@ -45,15 +45,17 @@ test("Header Install button prompts the browser and then goes away", async ({ pa
   await expect(button).toHaveCount(0);
 });
 
-test("The header button is reachable with Tab and named for screen readers", async ({ page, context }) => {
+test("The header button is reachable with Tab and named for screen readers", async ({ page, context, browserName }) => {
   await firePromptEarly(context);
   await installLibrary(page);
   await expect(headerButton(page)).toBeVisible();
 
+  // WebKit on macOS uses Option-Tab to include buttons in sequential navigation.
+  const tabKey = browserName === "webkit" ? "Alt+Tab" : "Tab";
   await page.locator("body").click({ position: { x: 1, y: 1 } });
   let focused = "";
   for (let i = 0; i < 20 && focused !== INSTALL_NAME; i++) {
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(tabKey);
     focused = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
   }
   expect(focused).toBe(INSTALL_NAME);

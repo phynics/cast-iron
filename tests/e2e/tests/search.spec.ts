@@ -85,7 +85,9 @@ test("Chip counts keep their last value while a query is pending", async ({ page
   });
   expect(during).toEqual(before);
   await waitResults(page, "fireb");
-  expect(await countsOf()).not.toEqual(before);
+  // The result region settles before every chip's reactive text is painted; the canonical
+  // library has hundreds of chips, so wait for the new numbers instead of one frame.
+  await expect.poll(countsOf).not.toEqual(before);
   expect((await widths()).length).toBe(widthsBefore.length);
 });
 
