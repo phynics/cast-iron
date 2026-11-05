@@ -3079,11 +3079,12 @@ input::placeholder {
 /* A tier is a native disclosure. Its two controls sit outside the disclosure, so a collapsed
    group still deactivates in one click, and share its first grid cell: they sit on the right
    of the heading, or on a row under it on a narrow screen. */
-.book-tier { display: grid; grid-template-columns: minmax(0, 1fr); margin-top: var(--space-5); }
+.book-tier { --tier-button: 9.5rem; display: grid; grid-template-columns: minmax(0, 1fr); max-width: 52rem; margin-top: var(--space-5); }
 .book-tier > * { grid-area: 1 / 1; }
 .tier-actions { align-self: start; justify-self: end; display: flex; gap: var(--space-2); z-index: 1; }
+.tier-actions .btn { width: var(--tier-button); padding-inline: var(--space-2); }
 .tier-details { min-width: 0; }
-.tier-summary { display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch); padding-right: 21rem; cursor: pointer; list-style: none; }
+.tier-summary { display: flex; align-items: center; gap: var(--space-3); min-height: var(--touch); padding-inline-end: calc(2 * var(--tier-button) + var(--space-2)); cursor: pointer; list-style: none; }
 .tier-summary::-webkit-details-marker { display: none; }
 .tier-summary::before { content: "›"; flex: none; width: 1rem; font-size: var(--step-2, var(--step-1)); line-height: 1; color: var(--accent); transition: transform 0.12s ease; }
 .tier-details[open] > .tier-summary::before { transform: rotate(90deg); }
@@ -3092,7 +3093,7 @@ input::placeholder {
 .tier-active { color: var(--ink-muted); font-size: var(--step--1); }
 @media (max-width: 40rem) {
   .tier-actions { align-self: start; justify-self: start; margin-top: var(--touch); }
-  .tier-summary { padding-right: 0; padding-bottom: calc(var(--touch) + var(--space-2)); flex-wrap: wrap; }
+  .tier-summary { padding-inline-end: 0; padding-bottom: calc(var(--touch) + var(--space-2)); flex-wrap: wrap; }
   .tier-summary::before { align-self: center; }
   .tier-details[open] > .tier-summary { margin-bottom: 0; }
 }

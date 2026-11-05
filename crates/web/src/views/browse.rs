@@ -251,6 +251,7 @@ fn book_row(
     lookup: BookLookupSignal,
     saving: RwSignal<bool>,
     save_error: RwSignal<Option<String>>,
+    status: RwSignal<Option<String>>,
 ) -> AnyView {
     let meta = book_meta(&row);
     let id = row.id;
@@ -302,12 +303,19 @@ fn book_row(
             <label class="book-activation">
                 <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
                     on:change=move |event| {
-                        if saving.get_untracked() { return; }
                         let input = event_target::<web_sys::HtmlInputElement>(&event);
+                        if saving.get_untracked() {
+                            // Another write is in flight: undo the click and say so.
+                            input.set_checked(save_library.book_active(&save_id));
+                            save_error.set(Some(SAVE_BUSY.to_string()));
+                            return;
+                        }
                         let active = input.checked();
                         // Discovery remains at the saved value while this control is busy.
                         saving.set(true);
                         save_error.set(None);
+                        // The bulk message no longer describes the selection.
+                        status.set(None);
                         let library = save_library.clone();
                         let id = save_id.clone();
                         spawn_local(async move {
@@ -553,7 +561,7 @@ pub fn Books() -> impl IntoView {
                             let items = group
                                 .books
                                 .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error))
+                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error, status))
                                 .collect_view();
                             match group.tier {
                                 Some(tier) => tier_section(tier, ids, items, library.clone(), apply.clone(), saving),
@@ -569,6 +577,9 @@ pub fn Books() -> impl IntoView {
     }
 }
 
+/// Shown when a click arrives while an earlier selection write is still being saved.
+const SAVE_BUSY: &str = "A book selection update is already being saved. Try again shortly.";
+
 /// The write path for the group and preset controls. It reuses the busy flag and the error line
 /// of the per-book checkboxes, so only one selection write runs at a time.
 #[derive(Clone)]
@@ -582,6 +593,8 @@ struct BulkApply {
 impl BulkApply {
     fn run(&self, activate: Vec<String>, deactivate: Vec<String>, message: String) {
         if self.saving.get_untracked() {
+            self.status.set(None);
+            self.save_error.set(Some(SAVE_BUSY.to_string()));
             return;
         }
         self.saving.set(true);

@@ -41,6 +41,19 @@ test("Books group by priority tier: Rulebooks first, Adventures collapsed with a
   }
   expect(present[0].label).toBe("Rulebooks");
 
+  // The group controls are never inside the summary (no interactive content in a summary), and
+  // on a wide screen they end on the same right edge as the book rows.
+  await expect(page.locator(".tier-summary button, .tier-summary a, .tier-summary input")).toHaveCount(0);
+  await expect(page.locator(".tier-summary > h2")).toHaveCount(present.length);
+  const rulebooks = page.locator('.book-tier[data-tier="Rulebooks"]');
+  const buttonsBox = (await rulebooks.locator(".tier-actions").boundingBox())!;
+  const rowBox = (await rulebooks.locator(".book-directory-item").first().boundingBox())!;
+  expect(Math.abs(buttonsBox.x + buttonsBox.width - (rowBox.x + rowBox.width))).toBeLessThanOrEqual(1);
+  const summaryBox = (await rulebooks.locator(".tier-summary").boundingBox())!;
+  const headingBox = (await rulebooks.locator(".tier-summary > .tier-active").boundingBox())!;
+  expect(headingBox.x + headingBox.width).toBeLessThanOrEqual(buttonsBox.x);
+  expect(summaryBox.height).toBeGreaterThanOrEqual(44);
+
   // A collapsed group hides its rows but keeps both controls one click away.
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
   if (await adventures.count()) {

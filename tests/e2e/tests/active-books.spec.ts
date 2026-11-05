@@ -152,6 +152,10 @@ test("Only Rulebooks and the group controls change search counts, and keep downl
   await page.goto("#/books");
   await adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true }).click();
   await expect(adventures.locator(".tier-active")).toHaveText(`0 of ${adventureBooks.length} active`);
+  await expect(page.getByRole("status").filter({ hasText: "Adventures: all" })).toBeVisible();
+  // A per-book toggle replaces the bulk message instead of leaving it on screen.
+  await page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("checkbox", { name: /^Active / }).first().uncheck();
+  await expect(page.locator(".books-status")).toHaveText("");
   await adventures.locator(".tier-summary").click();
   await expect(adventures.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   expect(await cacheContents(page)).toEqual(downloads);
