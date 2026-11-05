@@ -291,16 +291,6 @@ main:focus {
   background: var(--surface-2);
 }
 
-.banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  background: var(--surface-2);
-  border-bottom: var(--border);
-}
-
 main {
   width: 100%;
   max-width: var(--measure);
@@ -2909,6 +2899,22 @@ input::placeholder {
 
 .header-action-btn svg {
   flex: none;
+}
+
+/* The icon wrapper carries the update pip at its top-right corner. */
+.header-action-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.header-action-pip {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 @keyframes header-action-in {
