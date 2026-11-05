@@ -8,12 +8,41 @@ use crate::select::Survey;
 use crate::slug::{slug_segment, url_path, url_slug};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, LinkCoverage, ParagraphStyle, Provenance,
-    Rejection, RuleEntry, StatRow, TypedFields,
+    Rejection, RuleEntry, SpellLevel, StatRow, TypedFields,
 };
 use serde_json::{Map, Value};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const LICENSE_OGL: &str = "ogl-1.0a";
+
+/// A spell's class/level list as one line per spell level.
+///
+/// The upstream arrays group by class, which reads as one long comma list on a
+/// spell page ("Arcanist 5, Magus 5, ..."). Grouping by level keeps the
+/// class/level pairs and restores the line breaks (#42) without a new schema
+/// node.
+pub(crate) fn spell_level_value(levels: &[SpellLevel]) -> Vec<Inline> {
+    let mut grouped: BTreeMap<u8, Vec<&str>> = BTreeMap::new();
+    for level in levels {
+        grouped
+            .entry(level.level)
+            .or_default()
+            .push(level.class.as_str());
+    }
+    let mut value = Vec::new();
+    for (index, (level, classes)) in grouped.iter().enumerate() {
+        if index > 0 {
+            value.push(Inline::Break);
+        }
+        value.push(Inline::text(format!("{level}: {}", classes.join(", "))));
+    }
+    if value.is_empty() {
+        // Keep the empty row the flat spelling used to emit for a spell that
+        // has no class levels at all.
+        value.push(Inline::text(String::new()));
+    }
+    value
+}
 
 pub struct RawTyped {
     pub rel: String,
@@ -954,21 +983,30 @@ impl<'p> Ctx<'p> {
             school.push_str(&format!(" [{desc}]"));
         }
         self.push_row(&mut rows, "School", Some(&school));
-        let level = n.str_field("level_text").map(str::to_string).or_else(|| {
-            let levels = n.rest.get("levels")?.as_array()?;
-            let parts: Vec<String> = levels
-                .iter()
-                .filter_map(|l| {
-                    Some(format!(
-                        "{} {}",
-                        l.get("class")?.as_str()?,
-                        l.get("level")?.as_u64()?
-                    ))
-                })
-                .collect();
-            Some(parts.join(", "))
-        });
-        self.push_row(&mut rows, "Level", level.as_deref());
+        if let TypedFields::Spell(fields) = &ex.fields
+            && !fields.levels.is_empty()
+        {
+            rows.push(StatRow {
+                label: "Level".into(),
+                value: spell_level_value(&fields.levels),
+            });
+        } else {
+            let level = n.str_field("level_text").map(str::to_string).or_else(|| {
+                let levels = n.rest.get("levels")?.as_array()?;
+                let parts: Vec<String> = levels
+                    .iter()
+                    .filter_map(|l| {
+                        Some(format!(
+                            "{} {}",
+                            l.get("class")?.as_str()?,
+                            l.get("level")?.as_u64()?
+                        ))
+                    })
+                    .collect();
+                Some(parts.join(", "))
+            });
+            self.push_row(&mut rows, "Level", level.as_deref());
+        }
         self.push_row(&mut rows, "Casting Time", n.str_field("casting_time"));
         let components = n
             .str_field("component_text")

@@ -521,3 +521,26 @@ Refs [#99](https://github.com/phynics/cast-iron/issues/99). One pill shape stood
 - **One row per source and target; an anchor survives only when it is unique.** The compiler keeps the heading anchor when one source reaches the target through exactly one anchor. Several anchors, or a mix of an anchor and the entry top, keep no anchor because no single heading is the reference. The client repeats the collapse for any older compiler output.
 - **Sixteen FNV-1a shards, not a literal id prefix.** The canonical index is 5,172,403 bytes for 134,391 rows over 16,199 targets, 2.29% of the 226,239,516-byte library. That is below the 10% sharding threshold, but reading and parsing the whole file on every entry view is wasteful on mobile. Canonical ids all start with `ref/`, so a literal prefix would not split them; `backlink_shard` hashes the target id with FNV-1a modulo 16 instead. Shards are 344–408 KB, the client keeps four parsed shards in an LRU, and one entry view reads only its bucket. The shard count is in the descriptor, so a later change does not need a client release.
 - **The panel groups by publication and caps the preview.** "Referenced by" is in the same sticky side column as References. Rows group by publication title, groups with three or fewer rows open by default, and a group shows its first eight rows with a "Show all N" disclosure. Rows are ordinary links and native `<details>` disclosures, so keyboard and screen-reader use need no script. A missing index, a missing row, or a read error hides the panel and leaves the entry readable.
+
+## Spell-list structure in spell and creature stat lines, 2026-11-05
+
+Settles #42 against the canonical Pf Data library. The old `spell_rows` and
+`creature_rows` joined a spell's classes into one string and used raw directive
+keys for spell levels.
+
+- **A spell's `Level` row groups by spell level.** Each level is one line
+  ("3: Sorcerer, Wizard"), built from `Inline::Text` and `Inline::Break` nodes.
+  The class/level pairs survive and the compact stat-line styling does not
+  change. `spell_level_value` is shared by the canonical Pf Data renderer and
+  the PSRD carry-over renderer, so carried entries get the same shape.
+- **Creature spell lists keep their upstream groups and use readable labels.**
+  `::mspell` level keys `l0` through `l9` become "Cantrips" or "Nth-level
+  spells"; `cl`, `con`, and `pe` become "Caster level", "Concentration", and
+  "Power points". The values stay in one list per level or frequency, as the
+  source already grouped them.
+- **No serialized contract change.** No new block or inline node is introduced,
+  so `SCHEMA_VERSION` stays 3 and `INDEX_FORMAT_VERSION` stays 1. A loader that
+  ignores `Inline::Break` still reads the text.
+- **The PSRD-only build changes too.** `build.rs` uses the typed `levels` array
+  instead of the upstream one-line `level_text`, so `cargo xtask content --psrd`
+  has the same grouped shape as the canonical default.

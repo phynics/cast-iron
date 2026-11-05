@@ -3917,6 +3917,30 @@ fn push_labeled(out: &mut String, label: &str, value: &str) {
     out.push_str(&format!("**{label}:** {value}"));
 }
 
+/// Readable label for one `::mspell` level or frequency key.
+///
+/// The upstream directive names frequencies in camel case (`atWill`) and spell
+/// levels as `l0`..`l9`. `l0` is the cantrip list. A key that is not a level
+/// keeps its upstream spelling rather than being guessed at.
+fn spell_frequency_label(key: &str) -> String {
+    match key {
+        "constant" => "Constant".to_string(),
+        "atWill" => "At will".to_string(),
+        "day" => "Per day".to_string(),
+        "hour" => "Per hour".to_string(),
+        "week" => "Per week".to_string(),
+        "month" => "Per month".to_string(),
+        "year" => "Per year".to_string(),
+        "other" => "Other".to_string(),
+        "psyMag" => "Psychoactive powers".to_string(),
+        _ => match key.strip_prefix('l').and_then(|digits| digits.parse().ok()) {
+            Some(0) => "Cantrips".to_string(),
+            Some(level) => format!("{}-level spells", ordinal(level)),
+            None => key.to_string(),
+        },
+    }
+}
+
 fn render_mspell(attrs: &BTreeMap<String, String>) -> String {
     let heading = attrs
         .get("title")
@@ -3935,9 +3959,14 @@ fn render_mspell(attrs: &BTreeMap<String, String>) -> String {
     let mut out = format!("**{}**", convert_encoded_links(&heading));
     for key in ["cl", "con", "pe", "data"] {
         if let Some(value) = attrs.get(key) {
+            let label = match key {
+                "cl" => "Caster level",
+                "con" => "Concentration",
+                "pe" => "Power points",
+                _ => "Data",
+            };
             out.push_str(&format!(
-                "\n\n**{}:** {}",
-                field_label(key),
+                "\n\n**{label}:** {}",
                 convert_encoded_links(value)
             ));
         }
@@ -3949,18 +3978,8 @@ fn render_mspell(attrs: &BTreeMap<String, String>) -> String {
         let Some(value) = attrs.get(key) else {
             continue;
         };
-        let label = match key {
-            "constant" => "Constant",
-            "atWill" => "At will",
-            "day" => "Per day",
-            "hour" => "Per hour",
-            "week" => "Per week",
-            "month" => "Per month",
-            "year" => "Per year",
-            "other" => "Other",
-            "psyMag" => "Psychoactive powers",
-            _ => key,
-        };
+        let label = spell_frequency_label(key);
+        let label = label.as_str();
         out.push_str(&format!("\n\n**{label}:**"));
         for group in value.split("~~").filter(|group| !group.is_empty()) {
             let mut parts = group.split('~').filter(|part| !part.is_empty());
@@ -4571,6 +4590,41 @@ mod tests {
             assert!(rendered.contains(value), "missing {value}: {rendered}");
         }
         assert!(!rendered.contains('~') && !rendered.contains('|'));
+    }
+
+    #[test]
+    fn creature_spell_lists_use_readable_level_labels() {
+        let mut env = NullEnv;
+        let blocks = render(
+            &[
+                "::mspell{know cl=6 con=+12 l3=\"4~lightning bolt|DC 19\" l0=\"at will~detect magic\"}".into(),
+            ],
+            &mut env,
+        )
+        .unwrap();
+        let rendered = format!("{blocks:?}");
+        for value in [
+            "Spells Known",
+            "Caster level",
+            "Concentration",
+            "3rd-level spells",
+            "Cantrips",
+            "lightning bolt",
+        ] {
+            assert!(rendered.contains(value), "missing {value}: {rendered}");
+        }
+        assert!(!rendered.contains("l3"), "raw l3 label: {rendered}");
+        assert!(!rendered.contains("Cl:"), "raw Cl label: {rendered}");
+        assert!(!rendered.contains("Con:"), "raw Con label: {rendered}");
+    }
+
+    #[test]
+    fn spell_frequency_labels_keep_unknown_keys_and_number_levels() {
+        assert_eq!(spell_frequency_label("l0"), "Cantrips");
+        assert_eq!(spell_frequency_label("l3"), "3rd-level spells");
+        assert_eq!(spell_frequency_label("l11"), "11th-level spells");
+        assert_eq!(spell_frequency_label("atWill"), "At will");
+        assert_eq!(spell_frequency_label("weird"), "weird");
     }
 
     #[test]

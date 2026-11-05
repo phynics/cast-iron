@@ -2,7 +2,7 @@
 
 Source revision `08ea71f24375908d0190c822fd1fd080797667a9`.
 
-Observed 34530 input records, 40 selected, 42 converted. Canonical data 1174219 bytes; search 207767 bytes. 130 search checks; 0 schema errors.
+Observed 34530 input records, 40 selected, 42 converted. Canonical data 1174402 bytes; search 207806 bytes. 130 search checks; 0 schema errors.
 
 Publication gate: **blocked**. Browser checks: not run; isolated compiler experiment. These are experimental artifacts, not a production library.
 
