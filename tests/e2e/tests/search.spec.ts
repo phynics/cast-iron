@@ -301,6 +301,29 @@ test("The Publication name box opens Adventures for its matches, then returns to
   await expect(match).toBeVisible();
 });
 
+test("Equal relevance ranks the Rulebook entry before an Adventure entry", async ({ page }) => {
+  // Two entries whose titles share the query word score exactly the same in the compiled
+  // library. Their alphabetical order would put the Adventure Path entry first; the product-line
+  // tier puts the Rulebook entry first.
+  const rulebook = corpusEntry("rule", "Distracting Visitor");
+  const adventure = corpusEntry("feat", "Distracting Explosion");
+  const category = (entry: any) =>
+    corpus.catalog.sources.find((source: any) => source.id === entry.source_ids[0])?.category;
+  expect(category(rulebook), "the Rulebook fixture must come from an RPG book").toBe("RPG");
+  expect(category(adventure), "the lower-tier fixture must come from an Adventure Path").toBe("Adventure Path");
+  expect(adventure.title < rulebook.title, "the fixtures must tie in the opposite of tier order").toBe(true);
+
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("Distracting");
+  await waitResults(page, "Distracting");
+  await showAllResults(page);
+  const titles = await hitTitles(page);
+  expect(titles).toContain(rulebook.title);
+  expect(titles).toContain(adventure.title);
+  expect(titles.indexOf(rulebook.title)).toBeLessThan(titles.indexOf(adventure.title));
+});
+
 test("Leaving Search during a cold index load does not raise a page error", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
