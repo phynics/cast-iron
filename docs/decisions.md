@@ -446,7 +446,7 @@ This replaces the earlier rule that heading ids were the compiler's anchors, unp
 - **The site is built once.** The `site` job builds `dist/`, runs the publication screen and the dist size summary, and uploads `dist` (1 day). `e2e-chromium` and `e2e-webkit` download `dist` and `generated` and run in parallel, so the critical path is the slower suite instead of their sum. Test code and thresholds are unchanged.
 - **Playwright browsers are cached per browser.** The key is the `@playwright/test` version from `tests/e2e/package-lock.json` plus the browser name. `playwright install <browser>` runs only on a miss. `install-deps` always runs, because system libraries live outside the browser cache. `.github/actions/setup-e2e` holds these steps for both jobs.
 - **WebKit stays informational by job-level `continue-on-error: true`.** A failed job with `continue-on-error` does not fail the workflow run, so the `ci.yml` push run on `main` that `scripts/promote-release.py` reads still concludes `success`. Chromium and mobile Chromium remain required.
-- **Report artifacts are split.** `e2e-report-chromium` (with `dist-size.txt`) and `e2e-report-webkit` replace the single `e2e-report`; both keep 14-day retention.
+- **Report artifacts are split.** `e2e-report-chromium` and `e2e-report-webkit` replace the single `e2e-report`; both keep 14-day retention. `dist-size.txt` moves to its own 14-day `dist-size` artifact from the site job.
 - **Not cached: the Rust toolchain install.** It takes about 13 seconds, and restoring `~/.rustup` would cost nearly as much.
 
 ## CI browser shards and early cache saves, 2026-11-05

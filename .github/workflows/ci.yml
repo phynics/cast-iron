@@ -162,6 +162,13 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
+      # The dist artifact only bridges jobs; the size record keeps the old 14-day retention.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-size
+          path: dist-size.txt
+          if-no-files-found: error
+          retention-days: 14
 
   # Each browser runs as a matrix of shards. A shard has its own runner, test
   # server and browser state, so the suite's single worker assumption holds inside
