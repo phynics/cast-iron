@@ -130,6 +130,14 @@ fn main() -> ExitCode {
                 o.relations.unplaced_parts.len(),
                 o.relations.unpromoted.len()
             );
+            println!(
+                "backlinks: {} rows, {} targets, {} self excluded, {} relation excluded, {} bytes",
+                o.backlinks.links,
+                o.backlinks.targets,
+                o.backlinks.excluded_self,
+                o.backlinks.excluded_relation,
+                o.backlinks.bytes
+            );
             for (name, bytes) in &o.derived_bytes {
                 println!("{name}: {bytes} bytes");
             }

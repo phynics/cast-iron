@@ -1759,6 +1759,65 @@ mark {
   margin-top: var(--space-6);
 }
 
+/* The sidebar holds outgoing and incoming links. Hide it while both are empty. */
+.entry-refs:not(:has(.ref-block)) {
+  display: none;
+}
+
+.ref-block + .ref-block {
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: var(--border);
+}
+
+.backlink-count {
+  margin: 0 0 var(--space-2);
+}
+
+.backlink-group {
+  border-top: var(--border);
+}
+
+.backlink-group:first-of-type {
+  border-top: 0;
+}
+
+.backlink-more {
+  margin: 0 0 var(--space-2);
+}
+
+.backlink-more > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch);
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.backlink-more > summary::before {
+  content: "›";
+  flex: none;
+  width: 1rem;
+  font-size: var(--step-1);
+  line-height: 1;
+  color: var(--accent);
+  transition: transform 0.12s ease;
+}
+
+.backlink-more[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.backlink-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.backlink-anchor {
+  margin-left: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
 .entry-foot {
   margin-top: var(--space-6);
   padding-top: var(--space-4);

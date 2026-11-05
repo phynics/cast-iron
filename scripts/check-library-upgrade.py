@@ -236,7 +236,7 @@ def unplaced_entries(coverage):
 
 
 def dangling_index_references(new, directory):
-    """Check relations, spell lists, and books against the new catalog."""
+    """Check relations, spell lists, books, and the optional backlinks against the catalog."""
     dangling = []
     placed = set()
     duplicate_placements = []
@@ -262,7 +262,68 @@ def dangling_index_references(new, directory):
     for tree in (books or {}).get("books", []):
         for chapter in tree["chapters"]:
             walk_book_node(chapter, new, placed, dangling, duplicate_placements)
+    dangling.extend(backlink_reference_errors(new, directory))
     return dangling, placed, duplicate_placements, coverage
+
+
+def backlink_reference_errors(new, directory):
+    """Check the optional reverse body-link index against the new catalog.
+
+    An older library has no `backlinks.json`; that is valid and returns no errors. When the
+    descriptor is present, every target and source must exist, the rows must be sorted, no
+    self-link or typed-relation duplicate may remain, and the descriptor counts must match.
+    """
+    dangling = []
+    descriptor_path = directory / "backlinks.json"
+    if not descriptor_path.exists():
+        return dangling
+    descriptor = json.loads(descriptor_path.read_text())
+    shards = descriptor.get("shards")
+    if not isinstance(shards, int) or not 1 <= shards <= 100:
+        return ["backlinks.json: invalid shard count"]
+    links = 0
+    targets = 0
+    seen_targets = set()
+    for shard in range(shards):
+        path = directory / "backlinks" / f"{shard:02}.json"
+        if not path.exists():
+            dangling.append(f"backlinks/{shard:02}.json: missing")
+            continue
+        rows = json.loads(path.read_text())
+        previous_target = None
+        for target, sources in rows:
+            if previous_target is not None and target <= previous_target:
+                dangling.append(f"backlinks/{shard:02}.json: targets are not sorted")
+            previous_target = target
+            if target in seen_targets:
+                dangling.append(f"backlinks: {target} appears in more than one shard")
+            seen_targets.add(target)
+            if target not in new:
+                dangling.append(f"backlinks: target {target}")
+                continue
+            targets += 1
+            previous_source = None
+            for source_row in sources:
+                source = source_row[0]
+                if previous_source is not None and source <= previous_source:
+                    dangling.append(f"backlinks: {target} sources are not sorted")
+                previous_source = source
+                if source not in new:
+                    dangling.append(f"backlinks: source {source}")
+                    continue
+                if source == target:
+                    dangling.append(f"backlinks: self-link {source}")
+                source_relations = {
+                    row.get("target") for row in (new[source].get("relations") or [])
+                }
+                if target in source_relations:
+                    dangling.append(f"backlinks: {source} already relates to {target}")
+                links += 1
+    if links != descriptor.get("links"):
+        dangling.append(f"backlinks.json: links {descriptor.get('links')} != {links}")
+    if targets != descriptor.get("targets"):
+        dangling.append(f"backlinks.json: targets {descriptor.get('targets')} != {targets}")
+    return dangling
 
 
 def walk_book_node(node, new, placed, dangling, duplicate_placements):

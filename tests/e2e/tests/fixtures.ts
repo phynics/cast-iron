@@ -85,6 +85,43 @@ export function loadCorpus(): Corpus {
   return cachedCorpus;
 }
 
+export interface BacklinkSourceRow {
+  source: string;
+  anchor?: string;
+}
+
+/**
+ * The reverse body-link index from GENERATED, target id to its sources. The descriptor names
+ * the shard count, so the loader follows whatever the compiler wrote. An older library has
+ * no descriptor and returns an empty map.
+ */
+export function loadBacklinks(): Map<string, BacklinkSourceRow[]> {
+  const manifest: Manifest = JSON.parse(fs.readFileSync(path.join(GENERATED, "manifest.json"), "utf8"));
+  const descriptorPath = path.join(GENERATED, manifest.content_version, "backlinks.json");
+  const out = new Map<string, BacklinkSourceRow[]>();
+  if (!fs.existsSync(descriptorPath)) return out;
+  const descriptor = JSON.parse(fs.readFileSync(descriptorPath, "utf8")) as { shards: number };
+  for (let i = 0; i < descriptor.shards; i++) {
+    const shardPath = path.join(
+      GENERATED,
+      manifest.content_version,
+      "backlinks",
+      `${String(i).padStart(2, "0")}.json`,
+    );
+    const shard = JSON.parse(fs.readFileSync(shardPath, "utf8")) as [
+      string,
+      [string, string | null][],
+    ][];
+    for (const [target, rows] of shard) {
+      out.set(
+        target,
+        rows.map(([source, anchor]) => (anchor ? { source, anchor } : { source })),
+      );
+    }
+  }
+  return out;
+}
+
 /** Test-only controls of `server.mjs`. */
 export class ServerControl {
   constructor(private origin: string) {}

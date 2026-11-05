@@ -21,11 +21,11 @@ use crate::slug::slug_segment;
 use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
-    BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest, CopyrightNotice, CoverageReport,
-    DatasetNotice, DatasetRef, EntryId, EntryKind, EntryStub, Exclusion, Inline, LegalNotices,
-    ManifestFile, ParagraphStyle, PublicationCoverage, RELATIONS_FILE, Rejection, RelationIndex,
-    RelationKind, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, StatRow,
-    Table, TableCell, TableRow, TypedFields,
+    BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
+    CopyrightNotice, CoverageReport, DatasetNotice, DatasetRef, EntryId, EntryKind, EntryStub,
+    Exclusion, Inline, LegalNotices, ManifestFile, ParagraphStyle, PublicationCoverage,
+    RELATIONS_FILE, Rejection, RelationIndex, RelationKind, RuleEntry, SCHEMA_VERSION,
+    SPELL_LISTS_FILE, SourceInfo, SpellLists, StatRow, Table, TableCell, TableRow, TypedFields,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -76,6 +76,8 @@ pub struct Outcome {
     pub relations: cast_iron_schema::RelationCoverage,
     /// Size in bytes of `relations.json`, `lists.json`, and `books.json`.
     pub derived_bytes: BTreeMap<String, u64>,
+    /// Reverse body-link coverage, as written to `coverage.json`.
+    pub backlinks: cast_iron_schema::BacklinkCoverage,
 }
 
 /// A failed compile. `lines` is printed one per line.
@@ -404,6 +406,7 @@ pub fn build_psrd(opts: &Options) -> Result<Library, Failure> {
             book_order: books.coverage.clone(),
             ..relations.coverage.clone()
         },
+        backlinks: Default::default(),
     };
     let supplement_prefix = approved
         .as_ref()
@@ -474,7 +477,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         spell_lists,
         books,
         legal,
-        coverage,
+        mut coverage,
         aliases,
         facets,
         datasets,
@@ -506,6 +509,21 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
     let mut errors = validate_library(&entries, &catalog);
     errors.extend(validate_derived(&entries, &relations, &books, &spell_lists));
     let by_kind = coverage.by_kind.clone();
+
+    // Reverse body links. The index is optional and additive: it is written from the same
+    // entries that the shards hold, so it is hashed in the manifest like every other file.
+    let backlinks = crate::backlinks::build(&entries);
+    let mut backlink_files: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut backlink_shard_bytes = 0u64;
+    for (shard, targets) in backlinks.shards.iter().enumerate() {
+        let bytes = json_bytes(targets)?;
+        backlink_shard_bytes += bytes.len() as u64;
+        backlink_files.push((cast_iron_schema::backlink_shard_path(shard as u32), bytes));
+    }
+    let backlink_descriptor = json_bytes(&backlinks.index)?;
+    let backlink_descriptor_bytes = backlink_descriptor.len() as u64;
+    coverage.backlinks = backlinks.coverage;
+    coverage.backlinks.bytes = backlink_descriptor_bytes + backlink_shard_bytes;
 
     write_reports(
         reports,
@@ -562,6 +580,12 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         derived_bytes.insert(name.to_string(), bytes.len() as u64);
         files.insert(name.into(), bytes);
     }
+    files.insert(BACKLINKS_FILE.into(), backlink_descriptor);
+    for (path, bytes) in backlink_files {
+        files.insert(path, bytes);
+    }
+    derived_bytes.insert(BACKLINKS_FILE.to_string(), backlink_descriptor_bytes);
+    derived_bytes.insert(format!("{BACKLINKS_DIR}/"), backlink_shard_bytes);
     for (path, bytes) in shard_files {
         files.insert(path, bytes);
     }
@@ -618,6 +642,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         notes: notes.len(),
         relations: coverage.relations.clone(),
         derived_bytes,
+        backlinks: coverage.backlinks.clone(),
     })
 }
 
@@ -829,6 +854,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             book_order: books.coverage.clone(),
             ..relation_coverage
         },
+        backlinks: Default::default(),
     };
 
     let mut notes = psrd.notes.clone();
@@ -2248,6 +2274,23 @@ fn coverage_markdown(
         s,
         "- resolved: {}\n- out of selection: {}\n- broken: {}",
         c.links.resolved, c.links.out_of_selection, c.links.broken
+    );
+    let _ = writeln!(s, "\n## Referenced by (reverse body links)\n");
+    let _ = writeln!(
+        s,
+        "- rows: {}\n- targets: {}\n- self-links excluded: {}\n- links that repeat a typed relation: {}\n- bytes: {}",
+        c.backlinks.links,
+        c.backlinks.targets,
+        c.backlinks.excluded_self,
+        c.backlinks.excluded_relation,
+        c.backlinks.bytes
+    );
+    let _ = writeln!(
+        s,
+        "\nA self-link is dropped because the reader is already on that page. A link whose source\n\
+         states a typed relation to the same target is dropped because the relation panels show\n\
+         that edge. One row is kept per source and target; a source that reaches the target\n\
+         through several anchors keeps no anchor."
     );
     let _ = writeln!(s, "\n## Duplicates\n");
     let _ = writeln!(
