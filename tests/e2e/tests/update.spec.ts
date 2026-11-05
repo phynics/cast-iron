@@ -66,6 +66,17 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     expect((await activeLibrary(reader)).content_version).toBe(v1);
     await expect(reader.locator("#community-use + .legal-text")).not.toContainText(marker);
     await expect.poll(async () => contentCaches(await cacheContents(page)).sort()).toEqual([`cast-iron-content-${v1}`, `cast-iron-content-${next.version}`].sort());
+    // A page opened now, with v2 still downloading, must also start on v1 (AGENTS.md rule 7:
+    // a partly installed library never becomes active). The slow file keeps v2 in flight.
+    const fresh = await context.newPage();
+    await fresh.goto(`#/entry/${entry.id}`);
+    await expect(fresh.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
+    expect((await activeLibrary(fresh)).content_version).toBe(v1);
+    await fresh.goto("#/legal");
+    await expect(fresh.locator("#community-use + .legal-text")).not.toContainText(marker);
+    // Still in flight: activation would have deleted the v1 cache.
+    expect(contentCaches(await cacheContents(page))).toContain(`cast-iron-content-${v1}`);
+    await fresh.close();
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.
