@@ -2,6 +2,15 @@
 
 Decisions that refine `docs/spec.md` and that a later reader cannot derive from the code.
 
+## Plain-text corpus, step 1, 2026-11-06
+
+Refs [#127](https://github.com/phynics/cast-iron/issues/127).
+
+- **The corpus is one Markdown file per entry and four TOML source files.** Entry paths come from the permanent `ref/` id, so `ref/spell/fog-cloud` is `entries/spell/fog-cloud.md`. `publications.toml`, `books.toml`, `legal.toml`, and `aliases.toml` hold reviewed source data. The format is specified in `docs/corpus-format.md`.
+- **Derive before storing.** `relations.json`, `lists.json`, `coverage.json`, `backlinks.json` and its shards, `search.bin`, the manifest, catalogue stubs, and `entry_count` are compiler output. The corpus also omits `RuleEntry::links`: the reader recomputes it from the body. Five canonical entries currently carry a body link that the legal screen removed from the text; the round-trip check reports them separately because the format cannot store an invisible link.
+- **The body is typed, not HTML.** Headings, paragraphs, lists, quotes, simple pipe tables, and fenced tables, stat blocks, and entry links map one-to-one to `Block` and `Inline`. Emphasis alternates `_` and `*` so it can nest; a backslash escapes every syntax character, `\n` is a break, `\N`/`\R` are literal control characters, and `\0`/`\e` preserve adjacent and empty text nodes. Raw HTML is never accepted as markup.
+- **Step 1 does not switch the build.** `corpus-export` reads the compiled library and writes the text; `corpus-check` validates it; `corpus-roundtrip` compares it with the compiled values. The canonical compiler, the generated content, and the published library are unchanged. Populating the data repository and pinning it in the build stay in later steps.
+
 ## Long category lists open one letter at a time, 2026-11-05
 
 Refs [#100](https://github.com/phynics/cast-iron/issues/100).

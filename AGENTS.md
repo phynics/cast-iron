@@ -23,6 +23,9 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Compile the PSRD carry-over library | `cargo xtask content --psrd` (writes `generated/psrd/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (canonical default; `--psrd` for the PSRD library; `--public-url /` for a root path) |
 | Test the PSRD build | `CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- ...` |
+| Export the plain-text corpus | `cargo xtask corpus-export <out-dir>` |
+| Validate a plain-text corpus | `cargo xtask corpus-check <dir>` |
+| Compare a corpus with the compiled library | `cargo xtask corpus-roundtrip <dir>` |
 | Check before you finish | `cargo xtask check` |
 | Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 

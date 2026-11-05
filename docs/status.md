@@ -1,6 +1,29 @@
 # Status
 
-Updated 2026-11-05. The repository is public. The latest observed successful
+Updated 2026-11-06.
+
+## Plain-text corpus, step 1, 2026-11-06
+
+`crates/corpus` writes and reads the format in `docs/corpus-format.md`.
+`cargo xtask corpus-export` turns the compiled canonical library into text;
+`corpus-check` validates it; `corpus-roundtrip` compares it with the compiled
+library. The build is not switched, so this adds tooling and no library change.
+
+Local verification on 2026-11-06 against the pinned corpus (`v7037c9c1397b8e8f`,
+31,106 entries):
+
+| Check | Result |
+|---|---|
+| Export | 31,110 files, 79.88 MB of text |
+| Two exports, tree hash | Byte-identical: `980fb88dc9c36c1bbe11e6833544cccca8756576f2772e0b186ce29e932de99b` |
+| `cargo xtask corpus-check` | Passed: 31,106 entries, 439 publications, 449 books |
+| `cargo xtask corpus-roundtrip` | 0 mismatches; 5 entries had `links` recomputed from the body |
+| `cargo xtask check` | Passed (format, Python tests, native and WASM clippy, workspace tests, WASM build) |
+
+The five recomputed links are a pre-existing compiler/library difference, not a
+corpus loss; they are described in `docs/corpus-format.md`.
+
+Earlier status, 2026-11-05. The repository is public. The latest observed successful
 [main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and
 [Pages deployment](https://github.com/phynics/cast-iron/actions/runs/41691686716)
 are for `d48eaa3c8dce901b80a777600ae09238647c41cd`. The release migration has
