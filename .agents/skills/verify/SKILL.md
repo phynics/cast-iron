@@ -65,6 +65,7 @@ Use a real browser. Click through the feature the way a user does, and read the 
 - After the app is installed, it works offline. Set the browser to offline and reload.
 - Exercise new relationship, spell-list, and book routes offline. `relationships.spec.ts` installs first, waits for service-worker control, then disables the network for each test.
 - Take screenshots in both themes (light and dark) at 390 px and 1280 px wide. Open each screenshot and look at it. Check layout, text overflow, and contrast.
+- `node tests/e2e/measure-legal.mjs /tmp/cast-iron-legal` records the Legal page's initial rendered text length, DOM node count, and time from reload to the coverage summary in Chromium and WebKit at 1280 px and 390 px. The numbers are local evidence for `docs/status.md`.
 
 ## 5. Feature map
 

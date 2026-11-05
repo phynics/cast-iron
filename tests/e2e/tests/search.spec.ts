@@ -53,14 +53,106 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   await expect.poll(() => page.url()).toContain("school:evocation");
   await expect.poll(() => renderedEntries(page)).toBe(evocation);
   // A publication chip now counts what that book adds to the same selection.
-  const books = page.locator('.filters .filter-group:has(legend:text-is("Publication")) .chip:not([hidden])');
-  for (const chip of (await books.all()).slice(0, 4)) {
+  const books = page.locator('.filters .filter-group:has(legend:text-is("Publication")) .chip');
+  const labels = await books.locator("input").evaluateAll((inputs) =>
+    inputs.slice(0, 4).map((input) => input.getAttribute("aria-label")),
+  );
+  for (const label of labels) {
+    const chip = books.filter({ has: page.getByRole("checkbox", { name: label!, exact: true }) });
     const n = Number(await chip.locator(".chip-count").innerText());
-    await chip.click();
+    await chip.getByRole("checkbox", { name: label!, exact: true }).click();
     await expect.poll(() => renderedEntries(page)).toBe(n);
-    await chip.click();
+    await chip.getByRole("checkbox", { name: label!, exact: true }).click();
     await expect.poll(() => renderedEntries(page)).toBe(evocation);
   }
+});
+
+test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("fire");
+  await waitResults(page, "fire");
+
+  const group = page.locator('.filters .filter-group:has(legend:text-is("Publication"))');
+  const chips = group.locator(".chip");
+  const summary = group.locator(".publication-summary");
+  await expect(summary).toHaveText(/Showing 12 of \d+ publications with results/);
+  const totalWithResults = Number((await summary.innerText()).match(/of (\d+)/)![1]);
+  expect(totalWithResults).toBeLessThan(corpus.catalog.sources.length);
+  await expect(chips).toHaveCount(12);
+  const firstPageCounts = await chips.locator(".chip-count").allInnerTexts();
+  expect(firstPageCounts.every((count) => Number(count) > 0)).toBe(true);
+
+  // The name box and every chip are keyboard reachable, and a chip announces its count.
+  const filterBox = group.getByRole("searchbox", { name: "Filter publications by name" });
+  await filterBox.focus();
+  await page.keyboard.press("Tab");
+  const focused = await page.evaluate(() => {
+    const el = document.activeElement as HTMLInputElement | null;
+    return { type: el?.type, label: el?.getAttribute("aria-label") };
+  });
+  expect(focused.type).toBe("checkbox");
+  expect(focused.label).toMatch(/entries$/);
+
+  // The first page is capped, and "Show all" exposes every publication with results only.
+  const more = group.locator("button.publication-more");
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(more).toContainText("Show all publications");
+  await more.click();
+  await expect(more).toHaveAttribute("aria-expanded", "true");
+  await expect(more).toContainText("Show fewer publications");
+  await expect(summary).toHaveText(`Showing all ${totalWithResults} publications with results.`);
+  await expect(chips).toHaveCount(totalWithResults);
+  const expanded = await chips.locator("input").evaluateAll((inputs) =>
+    inputs.map((input) => ({
+      label: input.getAttribute("aria-label") ?? "",
+      count: Number((input.parentElement?.querySelector(".chip-count") as HTMLElement | null)?.textContent ?? "0"),
+    })),
+  );
+  expect(expanded.every((chip) => chip.count > 0)).toBe(true);
+  const outsideFirstPage = expanded[12];
+  expect(outsideFirstPage, "the corpus needs more than one page of publications").toBeTruthy();
+
+  // Collapsing again hides the rest; the name box finds one of them without "Show all".
+  await more.click();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(more).toContainText("Show all publications");
+  await expect(chips).toHaveCount(12);
+  const outside = group.getByRole("checkbox", { name: outsideFirstPage.label, exact: true });
+  await filterBox.fill(outsideFirstPage.label.replace(/, \d+ entr(y|ies)$/, ""));
+  await expect(outside).toHaveCount(1);
+  await expect(outside.locator("xpath=..").locator(".chip-count")).toHaveText(String(outsideFirstPage.count));
+
+  // Selecting a publication writes it to the URL and keeps the chip visible after a reload.
+  await filterBox.fill("");
+  await expect(chips).toHaveCount(12);
+  const chosen = expanded[0];
+  const chosenChip = group.getByRole("checkbox", { name: chosen.label, exact: true });
+  await chosenChip.click();
+  const chosenTitle = chosen.label.replace(/, \d+ entr(y|ies)$/, "");
+  const selectedSource = corpus.catalog.sources.find((source: any) => source.title === chosenTitle);
+  expect(selectedSource, `catalog source for ${chosenTitle}`).toBeTruthy();
+  const selected = () => {
+    const hash = new URL(page.url()).hash;
+    return new URLSearchParams(hash.split("?")[1] ?? "").getAll("source");
+  };
+  await expect.poll(selected).toContain(selectedSource.id);
+
+  await page.reload();
+  await waitResults(page, "fire");
+  const reloaded = group.getByRole("checkbox", { name: chosen.label, exact: true });
+  await expect(reloaded).toBeVisible();
+  await expect(reloaded).toBeChecked();
+
+  // A selected publication with no match stays visible at zero so it can be cleared, then goes.
+  await page.locator("#search-input").fill("no-such-rule-zzzz");
+  await waitResults(page, "no-such-rule-zzzz");
+  await expect.poll(() => chips.count()).toBe(1);
+  const zero = chips.first();
+  await expect(zero.locator("input")).toBeChecked();
+  await expect(zero.locator(".chip-count")).toHaveText("0");
+  await zero.locator("input").click();
+  await expect.poll(() => chips.count()).toBe(0);
 });
 
 installedTest("Chip counts keep their last value while a query is pending", async ({ page }) => {

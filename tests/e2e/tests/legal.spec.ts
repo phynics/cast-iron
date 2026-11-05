@@ -9,6 +9,32 @@ const coverage = JSON.parse(fs.readFileSync(path.join(GENERATED, version, "cover
 const entry = corpusEntry("spell", "Fireball");
 const stub = catalog.entries.find((candidate: any) => candidate.id === entry.id)!;
 
+/** The group label the Legal page gives a coverage reason. */
+function reasonGroup(reason: string) {
+  for (const group of ["converter derived exclusion", "converter native exclusion"]) {
+    if (reason.startsWith(group)) return group;
+  }
+  if (reason.startsWith("no publication with a Section 15 notice")) {
+    return "no publication with a Section 15 notice or a notice-pending decision";
+  }
+  if (reason.startsWith("converter coverage [")) {
+    const end = reason.indexOf("]");
+    if (end >= 0) return reason.slice(0, end + 1);
+  }
+  if (reason.startsWith("rights basis `")) {
+    const end = reason.indexOf("`", "rights basis `".length);
+    if (end >= 0) return reason.slice(0, end + 1);
+  }
+  return reason;
+}
+
+async function tableTotals(page: import("@playwright/test").Page, caption: string) {
+  const table = page.locator("table", { has: page.locator("caption", { hasText: caption }) });
+  return table.locator("tbody tr").evaluateAll((rows) =>
+    rows.map((row) => [...row.children].slice(1).map((cell) => Number(cell.textContent ?? "0"))),
+  );
+}
+
 test("Licensing information is preserved and accessible", async ({ page }) => {
   await installLibrary(page);
   // Reachable from the settings screen and from every entry.
@@ -52,14 +78,50 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     expect(legal.section_15.map((line: any) => line.title)).not.toContain(legal.notice_pending[0]);
   }
 
-  // Coverage tables: by publication, by category, excluded, links.
-  const byPublication = page.locator("table", { has: page.locator("caption", { hasText: "By publication" }) });
-  await expect(byPublication.locator("tbody tr")).toHaveCount(coverage.by_publication.length);
-  await expect(byPublication).toContainText(String(coverage.by_publication[0].included_entries));
+  // Coverage opens with counts, not with every upstream path. The initial page stays small
+  // enough for a phone, and each full table is built only when its disclosure opens.
+  await expect(page.locator("[data-coverage-summary]")).toBeVisible();
+  const renderedText = await page.evaluate(() => document.body.innerText.length);
+  expect(renderedText, "the initial legal page must not carry the full coverage dump").toBeLessThan(600_000);
+  await expect(page.locator('[data-detail="excluded"] table')).toHaveCount(0);
+  await expect(page.locator('[data-detail="publications"] table')).toHaveCount(0);
+
   const byKind = page.locator("table", { has: page.locator("caption", { hasText: "By category" }) });
   await expect(byKind.locator("tbody tr")).toHaveCount(Object.keys(coverage.by_kind).length);
-  const excluded = page.locator("table", { has: page.locator("caption", { hasText: "Excluded from this library" }) });
-  await expect(excluded.locator("tbody tr")).toHaveCount(coverage.excluded.length);
+
+  // The exclusion summary groups the coverage rows. The groups, paths, and records must add
+  // back to the compiled report without dropping a row.
+  const exclusionGroups = new Set(coverage.excluded.map((row: any) => reasonGroup(row.reason)));
+  const exclusionSummary = page.locator("table", { has: page.locator("caption", { hasText: "Exclusions by reason" }) });
+  await expect(exclusionSummary.locator("tbody tr")).toHaveCount(exclusionGroups.size);
+  const exclusionTotals = await tableTotals(page, "Exclusions by reason");
+  expect(exclusionTotals.reduce((sum, [paths]) => sum + paths, 0)).toBe(coverage.excluded.length);
+  expect(exclusionTotals.reduce((sum, [, records]) => sum + records, 0)).toBe(
+    coverage.excluded.reduce((sum: number, row: any) => sum + row.records, 0),
+  );
+
+  // The full tables remain available on demand.
+  const publications = page.locator('[data-detail="publications"]');
+  await publications.locator("summary").click();
+  const byPublication = publications.locator("table", { has: page.locator("caption", { hasText: "By publication" }) });
+  await expect(byPublication.locator("tbody tr")).toHaveCount(coverage.by_publication.length);
+  await expect(byPublication).toContainText(String(coverage.by_publication[0].included_entries));
+
+  const excluded = page.locator('[data-detail="excluded"]');
+  await excluded.locator("summary").click();
+  const excludedTable = excluded.locator("table", { has: page.locator("caption", { hasText: "Excluded from this library" }) });
+  await expect(excludedTable.locator("tbody tr")).toHaveCount(coverage.excluded.length);
+  await expect(excludedTable).toContainText(coverage.excluded[0].path);
+
+  if (coverage.rejected.length) {
+    const rejectedGroups = new Set(coverage.rejected.map((row: any) => reasonGroup(row.reason)));
+    const rejectedSummary = page.locator("table", { has: page.locator("caption", { hasText: "Rejected records by reason" }) });
+    await expect(rejectedSummary.locator("tbody tr")).toHaveCount(rejectedGroups.size);
+    const rejected = page.locator('[data-detail="rejected"]');
+    await rejected.locator("summary").click();
+    await expect(rejected.locator("table").locator("tbody tr")).toHaveCount(coverage.rejected.length);
+  }
+
   await expect(page.locator("table", { has: page.locator("caption", { hasText: "Link coverage" }) })).toBeVisible();
 
   // An entry carries the Section 15 line of every publication it came from, and a link back here.
