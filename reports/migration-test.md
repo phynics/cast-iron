@@ -12,6 +12,8 @@ Derived records built in this run: 1 (0 racial traits, 1 afflictions). Derivatio
 
 Derived rules: 1 converted (1 sections, 0 rows; 1 expected in this scope, 0 skipped). The in-scope corpus exposes 178 derivable rules.
 
+Canonical book index: 49 books, 42 entries, 37 placed by page, 5 unpaged, 9 in more than one book, 0 without publication attribution; 82 placements (47 paged, 35 unpaged).
+
 - Section 15 notice reconciliation for every imported publication is incomplete
 - Existing public IDs, production packaging, and browser upgrade/offline acceptance have not been migrated
 - Comics are excluded permanently; Paizo Blog records are deferred to issue #36
