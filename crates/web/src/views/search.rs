@@ -5,6 +5,7 @@
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
+use crate::views::book_tier::Tier;
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
@@ -188,22 +189,69 @@ fn chip_name(label: &str, count: usize) -> String {
     }
 }
 
-/// The publications a reader can see, and the counts for the controls around them.
+/// The publications a reader can see, grouped by product-line tier, and the counts for the
+/// controls around them.
 ///
 /// A publication with no match is absent unless it is already selected, so it can be cleared.
-/// At most [`PUBLICATION_TOP`] publications with results show until the reader asks for all of
-/// them or narrows the list by name. Selected publications come first, then results by count.
+/// Groups follow [`Tier::ALL`]: Rulebooks first. A group with nothing visible is absent.
+///
+/// The first page spends a budget of [`PUBLICATION_TOP`] publications in group order. Selected
+/// publications are always shown and spend the budget first; the rest are shown group by group,
+/// so a Rulebook is never hidden while a lower-tier publication that is not selected shows.
+/// Adventures come last and are a closed disclosure, so they get whatever budget is left; a
+/// group's count is the publications it holds, not the ones that "Show all" would add. Asking
+/// for all publications, or typing in the name box, lifts the budget. Inside a group the order
+/// is selected first, then results by count, then title.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 struct PublicationPage {
-    ids: Vec<String>,
+    groups: Vec<PublicationGroup>,
     /// Publications with at least one match for the current query and filters.
     with_results: usize,
-    /// Visible publications that have at least one match.
+    /// Visible publications that have at least one match, including those inside a closed
+    /// group.
     shown_with_results: usize,
     /// Publications with results that are not visible, while the reader has not asked for all.
     more: usize,
     /// Publications with results whose title matches the name box.
     matches: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PublicationGroup {
+    tier: Tier,
+    ids: Vec<String>,
+    /// Publications in this group with at least one match: the count the summary shows.
+    with_results: usize,
+    /// The group holds a selected publication, so it must be open.
+    holds_selected: bool,
+}
+
+impl PublicationPage {
+    /// Every visible publication id in the order a reader tabs through them.
+    #[cfg(test)]
+    fn ids(&self) -> Vec<&str> {
+        self.groups
+            .iter()
+            .flat_map(|group| group.ids.iter().map(String::as_str))
+            .collect()
+    }
+
+    fn group(&self, tier: Tier) -> Option<&PublicationGroup> {
+        self.groups.iter().find(|group| group.tier == tier)
+    }
+}
+
+/// Whether the Adventures-style disclosure for `group` shows open. A selected publication forces
+/// it open, so a chosen filter is never hidden; a name box opens it so that matches are seen;
+/// otherwise the reader's own choice, or the tier's default, applies.
+fn group_is_open(
+    group: &PublicationGroup,
+    user_choice: Option<bool>,
+    name_box_in_use: bool,
+) -> bool {
+    group.holds_selected
+        || name_box_in_use
+        || user_choice.unwrap_or(!group.tier.collapsed_by_default())
 }
 
 fn publication_page(
@@ -215,55 +263,79 @@ fn publication_page(
 ) -> PublicationPage {
     let filter = filter.trim().to_lowercase();
     let selected_set: BTreeSet<&str> = selected.iter().map(String::as_str).collect();
-    let mut matching: Vec<(&SourceInfo, usize)> = sources
+    let name_matches =
+        |source: &SourceInfo| filter.is_empty() || source.title.to_lowercase().contains(&filter);
+    let with_results = sources.iter().filter(|s| count_of(&s.id) > 0).count();
+    let matches = sources
+        .iter()
+        .filter(|s| count_of(&s.id) > 0 && name_matches(s))
+        .count();
+    // A name box is an explicit request to see every match. So is "Show all publications".
+    let unlimited = show_all || !filter.is_empty();
+
+    // Candidates by tier: pinned selections, plus every publication with results that the name
+    // box matches. Selected first, then count, then title.
+    let mut candidates: Vec<(Tier, &SourceInfo, usize, bool)> = sources
         .iter()
         .filter_map(|source| {
             let count = count_of(&source.id);
-            (count > 0 && (filter.is_empty() || source.title.to_lowercase().contains(&filter)))
-                .then_some((source, count))
+            let pinned = selected_set.contains(source.id.as_str());
+            (pinned || (count > 0 && name_matches(source))).then(|| {
+                let tier = Tier::from_category(source.category.as_deref());
+                (tier, source, count, pinned)
+            })
         })
         .collect();
-    matching.sort_by(|a, b| {
-        b.1.cmp(&a.1)
-            .then_with(|| a.0.title.to_lowercase().cmp(&b.0.title.to_lowercase()))
-            .then_with(|| a.0.id.cmp(&b.0.id))
+    candidates.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| b.3.cmp(&a.3))
+            .then_with(|| b.2.cmp(&a.2))
+            .then_with(|| a.1.title.to_lowercase().cmp(&b.1.title.to_lowercase()))
+            .then_with(|| a.1.id.cmp(&b.1.id))
     });
-    let with_results = sources.iter().filter(|s| count_of(&s.id) > 0).count();
-    // A name box is an explicit request to see every match. So is "Show all publications".
-    let limit = if show_all || !filter.is_empty() {
-        matching.len()
-    } else {
-        PUBLICATION_TOP.min(matching.len())
-    };
-    let mut ids: Vec<String> = Vec::new();
-    for id in selected {
-        if let Some(source) = sources.iter().find(|source| &source.id == id)
-            && !ids.contains(&source.id)
-        {
-            ids.push(source.id.clone());
+
+    // Selected publications with results spend the budget first. Then the rest are taken in
+    // group order, which is what keeps a Rulebook ahead of every lower tier.
+    let mut budget = PUBLICATION_TOP.saturating_sub(
+        candidates
+            .iter()
+            .filter(|(_, _, count, pinned)| *pinned && *count > 0)
+            .count(),
+    );
+    let mut groups: Vec<PublicationGroup> = Vec::new();
+    for (tier, source, count, pinned) in candidates {
+        let visible = pinned || unlimited || budget > 0;
+        if visible && !pinned && !unlimited {
+            budget -= 1;
         }
-    }
-    let mut shown_with_results = ids.iter().filter(|id| count_of(id) > 0).count();
-    for (source, count) in matching.iter().take(limit) {
-        if selected_set.contains(source.id.as_str()) {
+        if !visible {
             continue;
         }
-        ids.push(source.id.clone());
-        if *count > 0 {
-            shown_with_results += 1;
+        if groups.last().is_none_or(|group| group.tier != tier) {
+            groups.push(PublicationGroup {
+                tier,
+                ids: Vec::new(),
+                with_results: 0,
+                holds_selected: false,
+            });
         }
+        let group = groups.last_mut().expect("a group was just pushed");
+        group.ids.push(source.id.clone());
+        group.with_results += usize::from(count > 0);
+        group.holds_selected |= pinned;
     }
+    let shown_with_results = groups.iter().map(|group| group.with_results).sum();
     let more = if filter.is_empty() && !show_all {
         with_results.saturating_sub(shown_with_results)
     } else {
         0
     };
     PublicationPage {
-        ids,
+        groups,
         with_results,
         shown_with_results,
         more,
-        matches: matching.len(),
+        matches,
     }
 }
 
@@ -877,6 +949,72 @@ pub fn Search() -> impl IntoView {
             }
         }
     };
+    // One product-line group. The keyed lists keep every chip and group mounted while counts
+    // refresh, so focus and an open Adventures group survive a new result. Adventures is a
+    // native disclosure whose open state is derived from signals that outlive the group.
+    let group_choice = RwSignal::new(BTreeMap::<Tier, bool>::new());
+    let name_box_in_use = move || publication_filter.with(|filter| !filter.trim().is_empty());
+    let group_open = move |tier: Tier| {
+        publication_view.with(|page| {
+            page.group(tier).is_some_and(|group| {
+                group_is_open(
+                    group,
+                    group_choice.with(|choices| choices.get(&tier).copied()),
+                    name_box_in_use(),
+                )
+            })
+        })
+    };
+    let group_with_results = move |tier: Tier| {
+        publication_view.with(|page| page.group(tier).map_or(0, |group| group.with_results))
+    };
+    let group_ids = move |tier: Tier| {
+        publication_view.with(|page| page.group(tier).map(|g| g.ids.clone()).unwrap_or_default())
+    };
+    let publication_group = move |tier: Tier| {
+        let label = tier.label();
+        let title_id = format!(
+            "publication-group-{}",
+            label.to_lowercase().replace(' ', "-")
+        );
+        let chips = view! {
+            <For each=move || group_ids(tier) key=|id| id.clone() children=publication_chips.clone() />
+        };
+        if !tier.collapsed_by_default() {
+            return view! {
+                <div class="publication-group" role="group" aria-labelledby=title_id.clone() data-tier=label>
+                    <p class="publication-group-title" id=title_id.clone()>{label}</p>
+                    <div class="chips">{chips}</div>
+                </div>
+            }
+            .into_any();
+        }
+        let on_toggle = move |ev: web_sys::Event| {
+            let details = event_target::<web_sys::HtmlDetailsElement>(&ev);
+            let holds_selected = publication_view
+                .with_untracked(|page| page.group(tier).is_some_and(|group| group.holds_selected));
+            if holds_selected && !details.open() {
+                // A selected filter is never hidden.
+                details.set_open(true);
+            } else if details.open() != group_open(tier) {
+                group_choice.update(|choices| {
+                    choices.insert(tier, details.open());
+                });
+            }
+        };
+        view! {
+            <details class="publication-group publication-details" data-tier=label
+                prop:open=move || group_open(tier) on:toggle=on_toggle>
+                <summary class="publication-group-summary">
+                    <span class="publication-group-title" id=title_id.clone()>
+                        {move || format!("{label} ({})", group_with_results(tier))}
+                    </span>
+                </summary>
+                <div class="chips" role="group" aria-labelledby=title_id>{chips}</div>
+            </details>
+        }
+        .into_any()
+    };
     let publication_summary = move || {
         let page = publication_view.get();
         let filter = publication_filter.with(|filter| filter.clone());
@@ -897,11 +1035,11 @@ pub fn Search() -> impl IntoView {
             />
         </label>
         <p class="publication-summary" id="publication-summary">{publication_summary}</p>
-        <div id="publication-chips" class="chips">
+        <div id="publication-chips" class="publication-groups">
             <For
-                each=move || publication_view.with(|page| page.ids.clone())
-                key=|id| id.clone()
-                children=publication_chips
+                each=move || publication_view.with(|page| page.groups.iter().map(|group| group.tier).collect::<Vec<_>>())
+                key=|tier| *tier
+                children=move |tier: Tier| publication_group(tier)
             />
         </div>
         <Show when=move || {
@@ -1440,7 +1578,7 @@ mod tests {
             source("c", "Gamma"),
         ];
         let page = page_of(&sources, &[("a", 5), ("b", 0), ("c", 2)], &[], "", false);
-        assert_eq!(page.ids, ["a", "c"]);
+        assert_eq!(page.ids(), ["a", "c"]);
         assert_eq!(page.with_results, 2);
         assert_eq!(page.shown_with_results, 2);
         assert_eq!(page.more, 0);
@@ -1457,9 +1595,9 @@ mod tests {
             .map(|(n, source)| (source.id.as_str(), n + 1))
             .collect();
         let page = page_of(&sources, &counts, &[], "", false);
-        assert_eq!(page.ids.len(), PUBLICATION_TOP);
-        assert_eq!(page.ids[0], "s19");
-        assert_eq!(page.ids[PUBLICATION_TOP - 1], "s08");
+        assert_eq!(page.ids().len(), PUBLICATION_TOP);
+        assert_eq!(page.ids()[0], "s19");
+        assert_eq!(page.ids()[PUBLICATION_TOP - 1], "s08");
         assert_eq!(page.with_results, 20);
         assert_eq!(page.shown_with_results, PUBLICATION_TOP);
         assert_eq!(page.more, 20 - PUBLICATION_TOP);
@@ -1473,8 +1611,8 @@ mod tests {
             source("c", "Gamma"),
         ];
         let page = page_of(&sources, &[("a", 5), ("b", 0), ("c", 2)], &["b"], "", false);
-        assert_eq!(page.ids[0], "b");
-        assert_eq!(page.ids, ["b", "a", "c"]);
+        assert_eq!(page.ids()[0], "b");
+        assert_eq!(page.ids(), ["b", "a", "c"]);
         assert_eq!(page.shown_with_results, 2);
         assert_eq!(page.more, 0);
     }
@@ -1488,11 +1626,14 @@ mod tests {
         ];
         let counts = [("core", 5), ("apg", 3), ("bestiary", 0)];
         let page = page_of(&sources, &counts, &[], "player", false);
-        assert_eq!(page.ids, ["apg"]);
+        assert_eq!(page.ids(), ["apg"]);
         assert_eq!(page.matches, 1);
         assert_eq!(page.more, 0);
         let none = page_of(&sources, &counts, &[], "bestiary", false);
-        assert!(none.ids.is_empty(), "a zero-count publication stays hidden");
+        assert!(
+            none.ids().is_empty(),
+            "a zero-count publication stays hidden"
+        );
     }
 
     #[test]
@@ -1506,7 +1647,7 @@ mod tests {
             .map(|(n, source)| (source.id.as_str(), n + 1))
             .collect();
         let page = page_of(&sources, &counts, &[], "", true);
-        assert_eq!(page.ids.len(), 20);
+        assert_eq!(page.ids().len(), 20);
         assert_eq!(page.shown_with_results, 20);
         assert_eq!(page.more, 0);
     }
@@ -1520,7 +1661,7 @@ mod tests {
         ];
         let counts = [("z", 2), ("a", 2), ("b", 0)];
         let page = page_of(&sources, &counts, &["z"], "", false);
-        assert_eq!(page.ids, ["z", "a"]);
+        assert_eq!(page.ids(), ["z", "a"]);
         assert_eq!(page.with_results, 2);
     }
 
@@ -1530,7 +1671,7 @@ mod tests {
         let counts = [("a", 5), ("b", 0)];
         let page = page_of(&sources, &counts, &["b"], "alpha", false);
         // Beta stays visible so it can be cleared, but the name box has one match, not zero.
-        assert_eq!(page.ids, ["b", "a"]);
+        assert_eq!(page.ids(), ["b", "a"]);
         assert_eq!(page.matches, 1);
         assert_eq!(
             publication_summary_line(&page, "alpha", false),
@@ -1563,6 +1704,239 @@ mod tests {
             publication_summary_line(&page, "", true),
             "Showing all 20 publications with results."
         );
+    }
+
+    fn in_tier(id: &str, title: &str, category: &str) -> SourceInfo {
+        SourceInfo {
+            category: Some(category.into()),
+            ..source(id, title)
+        }
+    }
+
+    fn group_ids(page: &PublicationPage, tier: Tier) -> Vec<&str> {
+        page.group(tier)
+            .map(|group| group.ids.iter().map(String::as_str).collect())
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn groups_follow_the_tier_order_and_skip_empty_ones() {
+        let sources = [
+            in_tier("ap", "Adventure", "Adventure Path"),
+            in_tier("misc", "Odds and Ends", "Miscellaneous"),
+            in_tier("setting", "Setting", "Campaign Setting"),
+            in_tier("core", "Core", "RPG"),
+            in_tier("pc", "Companion", "Player Companion"),
+            source("none", "No category"),
+            in_tier("quiet", "Quiet Rulebook", "RPG"),
+        ];
+        let counts = [
+            ("ap", 9),
+            ("misc", 1),
+            ("setting", 2),
+            ("core", 3),
+            ("pc", 4),
+            ("none", 6),
+            ("quiet", 0),
+        ];
+        let page = page_of(&sources, &counts, &[], "", false);
+        let tiers: Vec<Tier> = page.groups.iter().map(|group| group.tier).collect();
+        assert_eq!(
+            tiers,
+            [
+                Tier::Rulebooks,
+                Tier::PlayerCompanions,
+                Tier::CampaignSetting,
+                Tier::Adventures,
+                Tier::Other
+            ]
+        );
+        // The publication with no category is Other, after Miscellaneous only by count.
+        assert_eq!(group_ids(&page, Tier::Other), ["none", "misc"]);
+        assert_eq!(page.ids(), ["core", "pc", "setting", "ap", "none", "misc"]);
+        let only_rulebooks = page_of(&sources, &[("core", 3)], &[], "", false);
+        assert_eq!(only_rulebooks.groups.len(), 1, "empty groups are absent");
+    }
+
+    #[test]
+    fn a_selected_publication_leads_its_own_tier_only() {
+        let sources = [
+            in_tier("big", "Big Rulebook", "RPG"),
+            in_tier("small", "Small Rulebook", "RPG"),
+            in_tier("pc", "Companion", "Player Companion"),
+        ];
+        let counts = [("big", 9), ("small", 1), ("pc", 5)];
+        let page = page_of(&sources, &counts, &["small"], "", false);
+        assert_eq!(group_ids(&page, Tier::Rulebooks), ["small", "big"]);
+        assert_eq!(group_ids(&page, Tier::PlayerCompanions), ["pc"]);
+        // A selection at zero is pinned inside its tier, and it does not count as a result.
+        let pinned = page_of(&sources, &[("big", 9)], &["pc"], "", false);
+        assert_eq!(group_ids(&pinned, Tier::PlayerCompanions), ["pc"]);
+        assert_eq!(
+            pinned.group(Tier::PlayerCompanions).unwrap().with_results,
+            0
+        );
+        assert_eq!(pinned.shown_with_results, 1);
+    }
+
+    fn many(prefix: &str, category: &str, n: usize) -> Vec<SourceInfo> {
+        (0..n)
+            .map(|i| {
+                in_tier(
+                    &format!("{prefix}{i:02}"),
+                    &format!("{prefix} {i:02}"),
+                    category,
+                )
+            })
+            .collect()
+    }
+
+    fn ranked_counts(sources: &[SourceInfo], base: usize) -> Vec<(&str, usize)> {
+        sources
+            .iter()
+            .enumerate()
+            .map(|(i, source)| (source.id.as_str(), base + i))
+            .collect()
+    }
+
+    #[test]
+    fn the_limit_is_spent_in_group_order_so_a_rulebook_is_never_hidden_for_a_lower_tier() {
+        // Fifteen rulebooks with few results and ten companions with many: counts alone
+        // would put the companions first.
+        let mut sources = many("rb", "RPG", 15);
+        sources.extend(many("pc", "Player Companion", 10));
+        let mut counts = ranked_counts(&sources[..15], 1);
+        counts.extend(ranked_counts(&sources[15..], 500));
+        let page = page_of(&sources, &counts, &[], "", false);
+        assert_eq!(page.ids().len(), PUBLICATION_TOP);
+        assert_eq!(group_ids(&page, Tier::Rulebooks).len(), PUBLICATION_TOP);
+        assert!(page.group(Tier::PlayerCompanions).is_none());
+        assert_eq!(page.more, 25 - PUBLICATION_TOP);
+        // The largest rulebooks come first inside the group.
+        assert_eq!(group_ids(&page, Tier::Rulebooks)[0], "rb14");
+        // With room left over, the next tier fills the rest of the budget.
+        let mut few = ranked_counts(&sources[..5], 1);
+        few.extend(ranked_counts(&sources[15..], 500));
+        let page = page_of(&sources, &few, &[], "", false);
+        assert_eq!(group_ids(&page, Tier::Rulebooks).len(), 5);
+        assert_eq!(group_ids(&page, Tier::PlayerCompanions).len(), 7);
+        assert_eq!(page.more, 3);
+    }
+
+    #[test]
+    fn adventures_come_last_and_take_only_the_budget_that_is_left() {
+        let mut sources = many("rb", "RPG", 4);
+        sources.extend(many("ap", "Adventure Path", 10));
+        sources.extend(many("mod", "Module", 5));
+        let counts: Vec<(&str, usize)> = sources
+            .iter()
+            .enumerate()
+            .map(|(i, source)| (source.id.as_str(), i + 1))
+            .collect();
+        let page = page_of(&sources, &counts, &[], "", false);
+        assert_eq!(group_ids(&page, Tier::Rulebooks).len(), 4);
+        let adventures = page.group(Tier::Adventures).expect("adventures group");
+        // The group's count is what it holds: eight of the fifteen adventures.
+        assert_eq!(adventures.ids.len(), PUBLICATION_TOP - 4);
+        assert_eq!(adventures.with_results, PUBLICATION_TOP - 4);
+        assert_eq!(page.more, 19 - PUBLICATION_TOP);
+        let all = page_of(&sources, &counts, &[], "", true);
+        assert_eq!(all.group(Tier::Adventures).unwrap().with_results, 15);
+        // Full rulebooks leave nothing for Adventures: the group is absent until "Show all".
+        let full = many("rb", "RPG", 14);
+        let mut with_ap = full.clone();
+        with_ap.extend(many("ap", "Adventure Path", 3));
+        let counts = ranked_counts(&with_ap, 1);
+        let page = page_of(&with_ap, &counts, &[], "", false);
+        assert!(page.group(Tier::Adventures).is_none());
+        assert_eq!(page.more, 17 - PUBLICATION_TOP);
+    }
+
+    #[test]
+    fn a_selected_publication_is_shown_even_when_it_is_beyond_the_limit() {
+        let mut sources = many("rb", "RPG", 15);
+        sources.extend(many("pc", "Player Companion", 3));
+        let counts = ranked_counts(&sources, 1);
+        // pc02 is the largest companion, rb14 the largest rulebook.
+        let page = page_of(&sources, &counts, &["pc00"], "", false);
+        let rulebooks = group_ids(&page, Tier::Rulebooks);
+        // The selection spends one slot of the budget, so eleven rulebooks remain.
+        assert_eq!(rulebooks.len(), PUBLICATION_TOP - 1);
+        assert_eq!(group_ids(&page, Tier::PlayerCompanions), ["pc00"]);
+        assert_eq!(page.ids().len(), PUBLICATION_TOP);
+    }
+
+    #[test]
+    fn adventures_with_a_selection_report_open_and_otherwise_follow_the_reader() {
+        let sources = [
+            in_tier("core", "Core", "RPG"),
+            in_tier("ap", "Adventure", "Adventure Path"),
+            in_tier("ap2", "Another", "Module"),
+        ];
+        let counts = [("core", 3), ("ap", 2), ("ap2", 1)];
+        let closed = page_of(&sources, &counts, &[], "", false);
+        let rulebooks = closed.group(Tier::Rulebooks).unwrap();
+        let adventures = closed.group(Tier::Adventures).unwrap();
+        assert!(
+            group_is_open(rulebooks, None, false),
+            "rulebooks start open"
+        );
+        assert!(
+            !group_is_open(adventures, None, false),
+            "adventures start closed"
+        );
+        assert!(group_is_open(adventures, Some(true), false));
+        assert!(!group_is_open(adventures, Some(false), false));
+        assert!(group_is_open(adventures, None, true), "a name box opens it");
+        let selected = page_of(&sources, &counts, &["ap2"], "", false);
+        let adventures = selected.group(Tier::Adventures).unwrap();
+        assert!(adventures.holds_selected);
+        assert!(
+            group_is_open(adventures, Some(false), false),
+            "a selection forces it open"
+        );
+        // A selection at zero still holds the group open.
+        let zero = page_of(&sources, &[("core", 3)], &["ap"], "", false);
+        let adventures = zero.group(Tier::Adventures).unwrap();
+        assert_eq!(adventures.with_results, 0);
+        assert!(group_is_open(adventures, None, false));
+    }
+
+    #[test]
+    fn the_name_box_lifts_the_limit_in_every_group() {
+        let mut sources = many("rb", "RPG", 20);
+        sources.extend(many("pc", "Player Companion", 20));
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "0", false);
+        // Titles containing "0": rb 00-09, rb 10, 20.. and so on; the point is no limit.
+        assert!(page.ids().len() > PUBLICATION_TOP);
+        assert_eq!(page.more, 0);
+        assert_eq!(page.ids().len(), page.matches);
+    }
+
+    #[test]
+    fn the_summary_line_counts_what_the_groups_show() {
+        let mut sources = many("rb", "RPG", 9);
+        sources.extend(many("ap", "Adventure Path", 11));
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        // Nine rulebooks and three adventures, of twenty.
+        assert_eq!(page.shown_with_results, PUBLICATION_TOP);
+        assert_eq!(page.with_results, 20);
+        assert_eq!(page.more, 20 - PUBLICATION_TOP);
+        assert_eq!(
+            publication_summary_line(&page, "", false),
+            "Showing 12 of 20 publications with results."
+        );
+        let all = page_of(&sources, &counts, &[], "", true);
+        assert_eq!(
+            publication_summary_line(&all, "", true),
+            "Showing all 20 publications with results."
+        );
+        // A pinned selection at zero is not counted, so the line never reads "1 of 0".
+        let pinned = page_of(&sources, &[], &["rb00"], "", false);
+        assert_eq!(pinned.shown_with_results, 0);
+        assert_eq!(pinned.with_results, 0);
     }
 
     #[test]
