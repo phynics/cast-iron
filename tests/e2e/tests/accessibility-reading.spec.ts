@@ -24,7 +24,7 @@ test("Keyboard reading traverses a complete Armor subsystem offline and preserve
     await disclosure.locator(`a[href="${link.href}"]`).press("Enter");
     const anchor = new URLSearchParams(link.href.split("?")[1]).get("a")!;
     await expect.poll(() => page.evaluate(id => {
-      const el = document.getElementById(id);
+      const el = document.getElementById(`h-${id}`);
       if (!el) return false;
       const top = el.getBoundingClientRect().top;
       return top >= 0 && top < innerHeight;

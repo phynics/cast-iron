@@ -131,7 +131,7 @@ test("Rules text search opens the matched heading and article contents link to r
   await grappleLink.click();
   await expect.poll(() => page.evaluate((anchor) => location.hash.includes(`a=${anchor}`), grapple.anchor)).toBe(true);
   await expect.poll(() => page.evaluate((anchor) => {
-    const top = document.getElementById(anchor)?.getBoundingClientRect().top ?? -1;
+    const top = document.getElementById(`h-${anchor}`)?.getBoundingClientRect().top ?? -1;
     return top >= 0 && top < innerHeight / 2;
   }, grapple.anchor)).toBe(true);
 });
@@ -188,15 +188,45 @@ test("Rule entries preserve complex formatting: nested headings with anchors", a
   await page.goto(`#/entry/${id}`);
   await expect(page.locator(".rich")).toBeVisible();
   const ids = await page.locator(".rich :is(h2,h3,h4,h5,h6)[id]").evaluateAll((els) => els.map((e) => e.id));
-  expect(ids.filter((i) => headings.some((h: any) => h.anchor === i))).toEqual(headings.map((h: any) => h.anchor));
+  expect(ids).toEqual(headings.map((h: any) => `h-${h.anchor}`));
   // The deepest anchor of the longest entry opens scrolled into view.
   const cleric = corpus.entries.get("core-rulebook/classes/cleric")!;
   const last = [...cleric.body].reverse().find((b) => b.t === "heading" && b.anchor).anchor;
   await page.goto(`#/entry/core-rulebook/classes/cleric?a=${last}`);
   await expect
-    .poll(() => page.evaluate((a) => document.getElementById(a)?.getBoundingClientRect().top ?? -1, last), { timeout: 10_000 })
+    .poll(() => page.evaluate((a) => document.getElementById(`h-${a}`)?.getBoundingClientRect().top ?? -1, last), { timeout: 10_000 })
     .toBeGreaterThanOrEqual(0);
-  expect(await page.evaluate((a) => document.getElementById(a)!.getBoundingClientRect().top < innerHeight / 2, last)).toBe(true);
+  expect(await page.evaluate((a) => document.getElementById(`h-${a}`)!.getBoundingClientRect().top < innerHeight / 2, last)).toBe(true);
+});
+
+test("Duplicate heading keys scroll to their own section and old anchor URLs still work", async ({ page }) => {
+  // A scan of generated/content found one entry with repeated heading keys: the blood golem's
+  // four "Construction" headings. The first two keys are sec-construction and sec-construction-2.
+  const id = "bestiary-4/monsters/golem/blood";
+  const keys = ["sec-construction", "sec-construction-2"];
+  for (const key of keys) {
+    await page.goto(`#/entry/${id}`);
+    await expect(page.locator(".rich")).toBeVisible();
+    const contents = page.locator(".article-contents");
+    await expect(contents).toBeVisible();
+    await contents.locator("summary").click();
+    const link = contents.locator(`a[href="#/entry/${id}?a=${key}"]`);
+    await expect(link).toHaveText("Construction");
+    await link.click();
+    await expect.poll(() => page.evaluate((a) => location.hash.includes(`a=${a}`), key)).toBe(true);
+    await expect(page.locator(`#h-${key}`)).toBeInViewport();
+    expect(await page.evaluate((a) => {
+      const top = document.getElementById(`h-${a}`)?.getBoundingClientRect().top ?? -1;
+      return top >= 0 && top < innerHeight / 2;
+    }, key)).toBe(true);
+  }
+  // An old-style URL with the first KEY still lands on the first heading.
+  await page.goto(`#/entry/${id}?a=${keys[0]}`);
+  await expect(page.locator(`#h-${keys[0]}`)).toBeInViewport();
+  await expect.poll(() => page.evaluate((a) => {
+    const top = document.getElementById(`h-${a}`)?.getBoundingClientRect().top ?? -1;
+    return top >= 0 && top < innerHeight / 2;
+  }, keys[0])).toBe(true);
 });
 
 test("Cross-reference navigation works", async ({ page }) => {
@@ -216,7 +246,7 @@ test("Cross-reference navigation works", async ({ page }) => {
   await page.goto("#/entry/core-rulebook/spells/summon-monster-iii");
   await page.locator(".rich a.xref[href*='a=monitor-lizard']").first().click();
   await expect.poll(() => page.evaluate(() => {
-    const top = document.getElementById("monitor-lizard")?.getBoundingClientRect().top ?? -1;
+    const top = document.getElementById("h-monitor-lizard")?.getBoundingClientRect().top ?? -1;
     return top >= 0 && top < innerHeight / 2;
   })).toBe(true);
 });
