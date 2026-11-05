@@ -1014,6 +1014,18 @@ pub struct SourceInfo {
     /// The Section 15 copyright line, when the legal notices have one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub copyright: Option<String>,
+    /// Reviewed publication category, such as `RPG` or `Player Companion`.
+    ///
+    /// Optional and additive: an older catalog has no field, and an older reader ignores
+    /// it. The Books page groups a source without one under `Unknown`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub category: Option<String>,
+    /// First publication date as an ISO 8601 calendar date (`YYYY-MM-DD`).
+    ///
+    /// Optional and additive, like [`Self::category`]. The ISO form sorts correctly as
+    /// text, so no timestamp or locale parsing is needed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub publication_date: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1368,6 +1380,39 @@ mod tests {
             ],"retired":[{"old":"a/y","reason":"rights"}]}"#,
         );
         assert!(valid.validate().is_ok());
+    }
+
+    #[test]
+    fn source_metadata_is_additive_and_unknown_fields_stay_ignored() {
+        // A catalog written before the metadata fields existed still opens.
+        let old = r#"{"sources":[{"id":"a","title":"A","entry_count":1}],"entries":[]}"#;
+        let catalog: Catalog = serde_json::from_str(old).unwrap();
+        assert_eq!(catalog.sources[0].category, None);
+        assert_eq!(catalog.sources[0].publication_date, None);
+
+        // A newer catalog carries the fields, and an older reader ignores them because
+        // neither Catalog nor SourceInfo denies unknown fields.
+        let new = r#"{"sources":[{"id":"a","title":"A","entry_count":1,"category":"RPG","publication_date":"2009-08-01"}],"entries":[]}"#;
+        let catalog: Catalog = serde_json::from_str(new).unwrap();
+        assert_eq!(catalog.sources[0].category.as_deref(), Some("RPG"));
+        assert_eq!(
+            catalog.sources[0].publication_date.as_deref(),
+            Some("2009-08-01")
+        );
+
+        // Unset values disappear from the serialized form, so an unchanged source looks
+        // the same as it did before the fields existed.
+        let empty = SourceInfo {
+            id: "a".into(),
+            title: "A".into(),
+            entry_count: 0,
+            copyright: None,
+            category: None,
+            publication_date: None,
+        };
+        let json = serde_json::to_string(&empty).unwrap();
+        assert!(!json.contains("category"));
+        assert!(!json.contains("publication_date"));
     }
 
     #[test]

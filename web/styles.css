@@ -3033,8 +3033,21 @@ input::placeholder {
 .book-card .cat-count { display: none; }
 .book-card .cat-blurb { display: block; margin: var(--space-1) 0 0 var(--space-4); color: var(--ink-muted); font-size: var(--step--1); }
 .book-directory-contents { padding: var(--space-2) var(--space-4) var(--space-3); }
-.book-directory-chapters { list-style: none; padding: 0; margin: var(--space-2) 0 0; }
-.book-directory-chapters a { display: inline-flex; align-items: center; min-height: var(--touch); }
+.book-sort { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-3) 0 var(--space-2); }
+.book-sort .sort-label { font-size: var(--step--1); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.sort-options { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1); padding: 0; margin: 0; }
+.sort-options a { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink); text-decoration: none; }
+.sort-options a:hover { border-color: var(--accent); color: var(--accent); }
+.sort-options a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.book-group { margin-top: var(--space-5); }
+.book-group .book-group-head { scroll-margin-top: var(--header-h); }
+.book-meta { color: var(--ink-muted); }
+.book-tree { margin-top: var(--space-2); }
+.book-tree-root { display: inline-flex; align-items: center; min-height: var(--touch); font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; }
+.book-tree .toc-top > li { background: transparent; border: 0; border-bottom: var(--border); border-radius: 0; margin-bottom: 0; }
+.book-tree .toc-top > li:last-child { border-bottom: 0; }
+.book-tree .toc-details > summary { padding-inline: var(--space-2) var(--space-3); }
+.book-tree .toc-list .toc-list { margin-left: var(--space-3); }
 .book-activation { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch); padding-inline: var(--space-2); cursor: pointer; }
 .book-activation input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
 .book-activation:has(input:disabled) { opacity: .65; cursor: wait; }

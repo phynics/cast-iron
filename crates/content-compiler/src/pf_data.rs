@@ -638,6 +638,8 @@ fn run_import(
                 title: source.clone(),
                 entry_count: 0,
                 copyright: None,
+                category: None,
+                publication_date: None,
             });
         }
     }

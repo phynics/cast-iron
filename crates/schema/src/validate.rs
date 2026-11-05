@@ -440,6 +440,8 @@ mod tests {
     fn catalog(entries: &[RuleEntry]) -> Catalog {
         Catalog {
             sources: vec![SourceInfo {
+                category: None,
+                publication_date: None,
                 id: "cr".into(),
                 title: "CR".into(),
                 entry_count: entries.len() as u32,

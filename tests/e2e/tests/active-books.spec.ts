@@ -184,13 +184,18 @@ test("A source page count matches the entries its kind groups render", async ({ 
 });
 
 test("Book page count follows its contents and survives deactivation", async ({ page }) => {
-  // Fireball's first placement is the Core Rulebook. On this corpus its contents tree holds
-  // 3001 distinct ids while SourceInfo.entry_count says 2277, so a header that used the
-  // publication total or the active-book set would disagree with the page.
-  const { book, source } = target();
-  const distinct = new Set(bookEntryOrder(book)).size;
-  expect(distinct, "the test needs a book whose contents differ from its publication total")
-    .not.toBe(source.entry_count);
+  // Find a book whose contents tree and SourceInfo total disagree. The canonical library has
+  // several; the PSRD carry-over library does not always differ for Fireball's first book.
+  // A header that used the publication total or the active-book set would disagree with the
+  // page, which is the property this test proves.
+  const candidate = bookTrees()
+    .map((book) => {
+      const source = corpus.catalog.sources.find((row) => row.id === book.source);
+      return source ? { book, source, distinct: new Set(bookEntryOrder(book)).size } : null;
+    })
+    .find((row) => row && row.distinct !== row.source.entry_count);
+  expect(candidate, "the test needs a book whose contents differ from its publication total").toBeTruthy();
+  const { book, source, distinct } = candidate!;
 
   await installLibrary(page);
   await waitControlled(page);

@@ -8,6 +8,8 @@
 //! #/search?q=..&kind=spell&source=core-rulebook&facet=school:evocation
 //! #/browse (Home)                    #/browse/kind/<slug>     #/browse/source/<id>
 //! #/browse/books                     the list of books, in original order of the library
+//! #/books?sort=category              the list grouped by publication category
+//! #/books?sort=date                  the list grouped by publication year
 //! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
@@ -18,6 +20,37 @@
 
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
+
+/// A displayed order for the publication directory. Library order is [`Route::Books`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum BookSort {
+    /// Group by the reviewed publication category, with `Unknown` last.
+    Category,
+    /// Group by publication year, newest first, with `Unknown` last.
+    Date,
+}
+
+impl BookSort {
+    pub const ALL: [BookSort; 2] = [BookSort::Category, BookSort::Date];
+
+    pub fn slug(self) -> &'static str {
+        match self {
+            BookSort::Category => "category",
+            BookSort::Date => "date",
+        }
+    }
+
+    pub fn from_slug(slug: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|sort| sort.slug() == slug)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            BookSort::Category => "Category",
+            BookSort::Date => "Publication date",
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
@@ -35,8 +68,10 @@ pub enum Route {
     },
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
-    /// The 16 books, each a doorway into its contents.
+    /// The publication directory, each a doorway into its contents, in library order.
     Books,
+    /// The publication directory grouped by one reviewed catalogue field.
+    BooksSorted(BookSort),
     /// One book's contents in original chapter order. `chapter` is the 0-based path of the
     /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
     Book {
@@ -131,7 +166,10 @@ impl Route {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
-            ["books"] | ["browse", "books"] => Route::Books,
+            ["books"] | ["browse", "books"] => query
+                .and_then(|q| query_pairs(q).find(|(k, _)| k == "sort"))
+                .and_then(|(_, v)| BookSort::from_slug(&v))
+                .map_or(Route::Books, Route::BooksSorted),
             ["browse", "book", id] => match percent_decode(id) {
                 Some(source) if !source.is_empty() => Route::Book {
                     source,
@@ -221,6 +259,7 @@ impl Route {
             },
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
+            Route::BooksSorted(sort) => format!("#/books?sort={}", sort.slug()),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -500,6 +539,8 @@ mod tests {
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
+            Route::BooksSorted(BookSort::Category),
+            Route::BooksSorted(BookSort::Date),
             Route::Spells,
             Route::FeatChains,
         ] {
@@ -530,6 +571,40 @@ mod tests {
                 "{bad:?}"
             );
         }
+    }
+
+    #[test]
+    fn book_sorts_round_trip_and_unknown_values_fall_back_to_library_order() {
+        assert_eq!(Route::Books.href(), "#/books");
+        assert_eq!(
+            Route::BooksSorted(BookSort::Category).href(),
+            "#/books?sort=category"
+        );
+        assert_eq!(
+            Route::BooksSorted(BookSort::Date).href(),
+            "#/books?sort=date"
+        );
+        assert_eq!(
+            Route::parse("#/books?sort=category"),
+            Route::BooksSorted(BookSort::Category)
+        );
+        assert_eq!(
+            Route::parse("#/books?sort=date"),
+            Route::BooksSorted(BookSort::Date)
+        );
+        // An unknown value is the default list, not an error or a second history entry.
+        for hash in [
+            "#/books?sort=title",
+            "#/books?sort=",
+            "#/books?other=date",
+            "#/browse/books?sort=unknown",
+        ] {
+            assert_eq!(Route::parse(hash), Route::Books, "{hash}");
+        }
+        assert_eq!(
+            Route::parse("#/browse/books?sort=date"),
+            Route::BooksSorted(BookSort::Date)
+        );
     }
 
     #[test]
