@@ -235,14 +235,14 @@ pub fn Settings() -> impl IntoView {
             </dl>
             {move || if install_ctx.standalone() {
                 view! {
-                    <p data-testid="install-status">
+                    <p data-testid="app-install">
                         <span class="badge">"Installed"</span>
                         " Cast Iron is running as an installed app."
                     </p>
                 }.into_any()
             } else if install_ctx.offer_in_settings() {
                 view! {
-                    <div class="settings-install" data-testid="install-status">
+                    <div class="settings-install" data-testid="app-install">
                         <p>"Install Cast Iron as an app for full-screen reading and an icon on your device."</p>
                         <p>
                             <button class="btn" type="button" on:click=move |event| {
@@ -256,7 +256,7 @@ pub fn Settings() -> impl IntoView {
                 }.into_any()
             } else {
                 view! {
-                    <p class="muted" data-testid="install-status">
+                    <p class="muted" data-testid="app-install">
                         "Your browser's menu may offer Install or Add to Home Screen."
                     </p>
                 }.into_any()

@@ -3021,3 +3021,9 @@ input::placeholder {
 .settings-install p {
   margin-block: var(--space-2);
 }
+
+/* The brand keeps one line; the search box gives way instead. */
+.app-header .brand {
+  flex: none;
+  white-space: nowrap;
+}

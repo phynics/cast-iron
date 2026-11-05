@@ -90,8 +90,8 @@ test("An installed app shows no header button and Settings says so", async ({ pa
     await installed.goto("#/settings");
     await waitReady(installed);
     await expect(installed.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await expect(installed.getByTestId("install-status"), name).toContainText("Cast Iron is running as an installed app.");
-    await expect(installed.getByTestId("install-status").locator(".badge"), name).toHaveText("Installed");
+    await expect(installed.getByTestId("app-install"), name).toContainText("Cast Iron is running as an installed app.");
+    await expect(installed.getByTestId("app-install").locator(".badge"), name).toHaveText("Installed");
     await expect(headerButton(installed), name).toHaveCount(0);
     await expect(installed.getByRole("button", { name: "Install app" }), name).toHaveCount(0);
     await installed.close();
@@ -136,7 +136,7 @@ test("A browser without an install option gets only a hint in Settings", async (
   await installLibrary(page);
   await expect(headerButton(page)).toHaveCount(0);
   await page.goto("#/settings");
-  await expect(page.getByTestId("install-status")).toHaveText("Your browser's menu may offer Install or Add to Home Screen.");
+  await expect(page.getByTestId("app-install")).toHaveText("Your browser's menu may offer Install or Add to Home Screen.");
   await expect(page.getByRole("button", { name: "Install app" })).toHaveCount(0);
 });
 
