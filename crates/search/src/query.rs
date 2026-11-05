@@ -1,6 +1,6 @@
 use crate::build::cap_text;
 use crate::text::{Tok, scan};
-use crate::{Filters, Hit, Query, SearchIndex, Snippet, normalize};
+use crate::{FilterCounts, Filters, Hit, Query, SearchIndex, Snippet, normalize};
 use std::collections::BTreeMap;
 
 const DEFAULT_LIMIT: usize = 50;
@@ -44,6 +44,13 @@ impl Matcher {
             .map(|t| (t.start, t.end))
             .collect()
     }
+}
+
+enum Skip<'a> {
+    Nothing,
+    Kinds,
+    Sources,
+    Field(&'a str),
 }
 
 fn contains_ci(list: &[String], v: &str) -> bool {
@@ -143,6 +150,72 @@ impl SearchIndex {
         map
     }
 
+    /// Counts for the filter chips of a search. The base set is every eligible document that
+    /// matches the query text (all eligible documents for empty text). A kind, source or facet
+    /// value counts the base documents that carry it and pass every *other* active filter, so a
+    /// chip shows what choosing it would add or swap. With no text and no filters this is the
+    /// library total of the eligible documents.
+    pub fn filter_counts_eligible(
+        &self,
+        text: &str,
+        filters: &Filters,
+        eligible: impl Fn(&str) -> bool,
+    ) -> FilterCounts {
+        let qtokens: Vec<String> = scan(text).into_iter().map(|t| t.norm).collect();
+        let base: Vec<usize> = if qtokens.is_empty() {
+            (0..self.meta.docs.len())
+                .filter(|&i| eligible(&self.meta.docs[i].id))
+                .collect()
+        } else {
+            match self.score_docs(&qtokens, |doc| eligible(&self.meta.docs[doc].id)) {
+                Some((scored, _)) => scored.into_iter().map(|(doc, _)| doc as usize).collect(),
+                None => Vec::new(),
+            }
+        };
+        let without = |skip: Skip| {
+            let mut f = filters.clone();
+            match skip {
+                Skip::Kinds => f.kinds.clear(),
+                Skip::Sources => f.sources.clear(),
+                Skip::Field(field) => f.facets.retain(|(k, _)| !k.eq_ignore_ascii_case(field)),
+                Skip::Nothing => {}
+            }
+            f
+        };
+        let mut counts = FilterCounts::default();
+        let kind_filters = without(Skip::Kinds);
+        let source_filters = without(Skip::Sources);
+        let plain = without(Skip::Nothing);
+        let mut field_filters: BTreeMap<String, Filters> = BTreeMap::new();
+        for &i in &base {
+            let d = &self.meta.docs[i];
+            if self.passes(i, &plain) {
+                counts.total += 1;
+            }
+            if self.passes(i, &kind_filters) {
+                *counts.kinds.entry(d.kind.clone()).or_default() += 1;
+            }
+            if self.passes(i, &source_filters) {
+                *counts.sources.entry(d.source.clone()).or_default() += 1;
+            }
+            let mut seen: Vec<(&str, &str)> = Vec::new();
+            for (field, value) in &d.facets {
+                if seen.contains(&(field.as_str(), value.as_str())) {
+                    continue;
+                }
+                seen.push((field, value));
+                let key = field.to_lowercase();
+                let f = field_filters
+                    .entry(key.clone())
+                    .or_insert_with(|| without(Skip::Field(&key)));
+                if self.passes(i, f) {
+                    *counts.facets.entry((key, value.clone())).or_default() += 1;
+                }
+            }
+        }
+        counts
+    }
+
     pub fn search(&self, query: &Query) -> Vec<Hit> {
         self.search_eligible(query, |_| true)
     }
@@ -181,6 +254,31 @@ impl SearchIndex {
                 .collect();
         }
 
+        let Some((mut scored, matcher)) = self.score_docs(&qtokens, |doc| {
+            eligible(&self.meta.docs[doc].id) && self.passes(doc, &query.filters)
+        }) else {
+            return Vec::new();
+        };
+        scored.sort_by(|a, b| {
+            let (da, db) = (&self.meta.docs[a.0 as usize], &self.meta.docs[b.0 as usize]);
+            b.1.total_cmp(&a.1)
+                .then_with(|| da.title.cmp(&db.title))
+                .then_with(|| da.id.cmp(&db.id))
+        });
+        scored
+            .into_iter()
+            .take(limit)
+            .map(|(o, s)| self.make_hit(o, s, &matcher))
+            .collect()
+    }
+
+    /// Scores every document that holds all query tokens and that `accept` allows. `None` when a
+    /// token matches no term at all.
+    fn score_docs(
+        &self,
+        qtokens: &[String],
+        accept: impl Fn(usize) -> bool,
+    ) -> Option<(Vec<(u32, f32)>, Matcher)> {
         let last = qtokens.len() - 1;
         let mut per_token = Vec::with_capacity(qtokens.len());
         let mut matcher = Matcher {
@@ -190,7 +288,7 @@ impl SearchIndex {
         for (i, q) in qtokens.iter().enumerate() {
             let (exp, prefixed) = self.expand(q, i == last);
             if exp.is_empty() {
-                return Vec::new();
+                return None;
             }
             matcher.exact.push(q.clone());
             if prefixed {
@@ -202,9 +300,7 @@ impl SearchIndex {
         let (first, rest) = per_token.split_first().expect("non-empty");
         let mut scored: Vec<(u32, f32)> = Vec::new();
         for (&doc, h0) in first {
-            if !eligible(&self.meta.docs[doc as usize].id)
-                || !self.passes(doc as usize, &query.filters)
-            {
+            if !accept(doc as usize) {
                 continue;
             }
             let mut score = h0.score;
@@ -242,17 +338,7 @@ impl SearchIndex {
             }
             scored.push((doc, score + boost));
         }
-        scored.sort_by(|a, b| {
-            let (da, db) = (&self.meta.docs[a.0 as usize], &self.meta.docs[b.0 as usize]);
-            b.1.total_cmp(&a.1)
-                .then_with(|| da.title.cmp(&db.title))
-                .then_with(|| da.id.cmp(&db.id))
-        });
-        scored
-            .into_iter()
-            .take(limit)
-            .map(|(o, s)| self.make_hit(o, s, &matcher))
-            .collect()
+        Some((scored, matcher))
     }
 
     fn make_hit(&self, ord: u32, score: f32, m: &Matcher) -> Hit {
