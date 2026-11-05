@@ -706,6 +706,11 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         .map_err(|error| failure(format!("canonical conversion failed: {error}")))?;
     let mut rejected: Vec<Rejection> = Vec::new();
     let legally_excluded = apply_legal_screen(&mut converted.entries, &states, &mut rejected)?;
+    // The earliest `‹SOURCE Book/page›` attribution is the printed starting
+    // point, so it makes the primary publication. The upstream `sources` array
+    // is not reliable for this: a mythic or later printing is often listed first.
+    let primary_reordered =
+        order_primary_sources(&mut converted.entries, &converted.pages, &states);
     for excluded in &converted.excluded {
         rejected.push(Rejection {
             path: excluded.identity.clone(),
@@ -850,6 +855,9 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             ));
         }
     }
+    notes.push(format!(
+        "canonical primary publication: {primary_reordered} multi-book entries reordered by earliest source attribution"
+    ));
     notes.push(format!(
         "canonical build: {} entries ({} Pf Data, {} carried, {} fallback carried), {} rejected records, {} alias retirements ({} rights, {} unrepresentable)",
         entries.len(),
@@ -1093,6 +1101,54 @@ fn publication_states(
     Ok(states)
 }
 
+/// Puts the publication named by the entry's earliest `‹SOURCE Book/page›`
+/// attribution first. The full publication set stays intact: only the order
+/// changes, so alias fit and every book chip keep their evidence.
+///
+/// Entries with no page attribution keep the upstream `sources` order. The
+/// return value counts entries whose primary publication changed.
+fn order_primary_sources(
+    entries: &mut [RuleEntry],
+    pages: &BTreeMap<EntryId, Vec<(String, Option<u32>)>>,
+    states: &BTreeMap<String, PublicationState>,
+) -> usize {
+    let title_to_source: BTreeMap<&str, &str> = states
+        .iter()
+        .map(|(title, state)| (title.as_str(), state.source.as_str()))
+        .collect();
+    let mut changed = 0;
+    for entry in entries {
+        if entry.source_ids.len() < 2 {
+            continue;
+        }
+        let Some(rows) = pages.get(&entry.id) else {
+            continue;
+        };
+        let mut ordered = Vec::with_capacity(entry.source_ids.len());
+        let mut seen = BTreeSet::new();
+        for (title, _) in rows {
+            let Some(&source) = title_to_source.get(title.as_str()) else {
+                continue;
+            };
+            if entry.source_ids.iter().any(|id| id.as_str() == source)
+                && seen.insert(source.to_string())
+            {
+                ordered.push(source.to_string());
+            }
+        }
+        for source in &entry.source_ids {
+            if seen.insert(source.clone()) {
+                ordered.push(source.clone());
+            }
+        }
+        if ordered != entry.source_ids {
+            entry.source_ids = ordered;
+            changed += 1;
+        }
+    }
+    changed
+}
+
 /// Rewrites each converted entry's source ids through the registry and drops the
 /// publications that have neither a notice nor a notice-pending decision. Returns
 /// the ids that were excluded.
@@ -1101,13 +1157,13 @@ fn apply_legal_screen(
     states: &BTreeMap<String, PublicationState>,
     rejected: &mut Vec<Rejection>,
 ) -> Result<BTreeSet<String>, Failure> {
-    let mut by_slug: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut by_slug: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut shippable: BTreeMap<String, bool> = BTreeMap::new();
     for (title, state) in states {
-        by_slug
-            .entry(slug_segment(title))
-            .or_default()
-            .insert(state.source.clone());
+        let sources = by_slug.entry(slug_segment(title)).or_default();
+        if !sources.contains(&state.source) {
+            sources.push(state.source.clone());
+        }
         shippable
             .entry(state.source.clone())
             .and_modify(|value| *value |= state.shippable())
@@ -1574,14 +1630,9 @@ fn canonical_sources(
             .cloned()
             .or_else(|| psrd_by_id.get(source).map(|info| info.title.clone()))
             .unwrap_or_else(|| source.to_string());
-        let copyright = notices.get(source).and_then(|rows| {
-            (!rows.is_empty()).then(|| {
-                rows.iter()
-                    .map(|(title, notice)| format!("{}. {}", title.trim_end_matches('.'), notice))
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            })
-        });
+        let copyright = notices
+            .get(source)
+            .and_then(|rows| (!rows.is_empty()).then(|| canonical_copyright(rows)));
         let copyright = copyright
             .or_else(|| {
                 pending.get(source).map(|title| {
@@ -1607,6 +1658,23 @@ fn canonical_sources(
     }
     sources.sort_by(|a, b| a.id.cmp(&b.id));
     sources
+}
+
+/// Join every distinct matched Section 15 notice once, verbatim, with `; `.
+///
+/// The book title is [`SourceInfo::title`] and the page heading; adding it to
+/// every notice produced strings such as "Core Rulebook. Core Rulebook, © …".
+/// Several printings of one book are distinct notices and each must stay.
+fn canonical_copyright(rows: &BTreeSet<(String, String)>) -> String {
+    let mut seen = BTreeSet::new();
+    let mut notices = Vec::new();
+    for (_, notice) in rows {
+        let notice = notice.trim();
+        if !notice.is_empty() && seen.insert(notice.to_string()) {
+            notices.push(notice.to_string());
+        }
+    }
+    notices.join("; ")
 }
 
 fn canonical_publications(
@@ -2438,6 +2506,56 @@ mod canonical_tests {
             &[Inline::Text {
                 v: "visible text".into()
             }]
+        );
+    }
+
+    #[test]
+    fn earliest_attribution_becomes_the_primary_publication() {
+        let mut states = BTreeMap::new();
+        states.insert(
+            "Mythic Adventures".into(),
+            state("mythic-adventures", "Mythic Adventures", true),
+        );
+        states.insert(
+            "PRPG Core Rulebook".into(),
+            state("core-rulebook", "PRPG Core Rulebook", true),
+        );
+        let mut entries = vec![entry("ref/spell/fireball", "mythic-adventures")];
+        entries[0].source_ids = vec!["mythic-adventures".into(), "core-rulebook".into()];
+        let pages = BTreeMap::from([(
+            EntryId::parse("ref/spell/fireball").unwrap(),
+            vec![("PRPG Core Rulebook".to_string(), Some(283))],
+        )]);
+        assert_eq!(order_primary_sources(&mut entries, &pages, &states), 1);
+        assert_eq!(
+            entries[0].source_ids,
+            ["core-rulebook", "mythic-adventures"]
+        );
+    }
+
+    #[test]
+    fn canonical_copyright_keeps_each_notice_once_without_added_titles() {
+        let rows = BTreeSet::from([
+            (
+                "Pathfinder RPG Core Rulebook".into(),
+                "Pathfinder RPG Core Rulebook, © 2009, Paizo.".into(),
+            ),
+            (
+                "Pathfinder RPG Core Rulebook".into(),
+                "Pathfinder RPG Core Rulebook. Copyright 2009, Paizo.".into(),
+            ),
+            (
+                "Pathfinder RPG Core Rulebook".into(),
+                "Pathfinder RPG Core Rulebook, © 2009, Paizo.".into(),
+            ),
+            (
+                "Pathfinder Roleplaying Game Core Rulebook".into(),
+                "© 2010, Paizo.".into(),
+            ),
+        ]);
+        assert_eq!(
+            canonical_copyright(&rows),
+            "Pathfinder RPG Core Rulebook, © 2009, Paizo.; Pathfinder RPG Core Rulebook. Copyright 2009, Paizo.; © 2010, Paizo."
         );
     }
 
