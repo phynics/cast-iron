@@ -516,6 +516,8 @@ pub struct MigrationReport {
     pub derived_sections: usize,
     pub derived_rows: usize,
     pub derived_skipped: usize,
+    /// Canonical page-ordered book index for this run's entries.
+    pub books: crate::books::CanonicalBookStats,
     pub out_of_scope: Vec<OutOfScope>,
     pub fixtures: Vec<FixtureResult>,
     pub findings: Vec<Finding>,
@@ -589,6 +591,7 @@ fn run_import(
         derived_sections: converted.derived_sections,
         derived_rows: converted.derived_rows,
         derived_skipped: converted.derived_skipped,
+        books: crate::books::CanonicalBookStats::default(),
         out_of_scope: inv.out_of_scope.clone(),
         fixtures: Vec::new(),
         findings: converted.findings,
@@ -606,6 +609,14 @@ fn run_import(
         ],
         browser_verification: "not run; isolated compiler experiment".into(),
     };
+    let book_report =
+        crate::books::build_canonical(&converted.entries, &converted.links, &converted.pages);
+    report.books = book_report.stats.clone();
+    let book_bytes = serde_json::to_vec_pretty(&book_report.index).map_err(|e| e.to_string())?;
+    write(&out.join("books.json"), &book_bytes)?;
+    let coverage_bytes =
+        serde_json::to_vec_pretty(&book_report.coverage).map_err(|e| e.to_string())?;
+    write(&out.join("book-coverage.json"), &coverage_bytes)?;
     let entries = converted.entries;
     let mut sources = BTreeMap::new();
     for entry in &entries {
@@ -953,6 +964,18 @@ pub fn markdown_report(r: &MigrationReport) -> String {
         r.derived_expected,
         r.derived_skipped,
         r.derived_available
+    ));
+    text.push_str(&format!(
+        "Canonical book index: {} books, {} entries, {} placed by page, {} unpaged, {} in more than one book, {} without publication attribution; {} placements ({} paged, {} unpaged).\n\n",
+        r.books.books,
+        r.books.entries,
+        r.books.placed_by_page,
+        r.books.unpaged,
+        r.books.multiple_books,
+        r.books.no_publication,
+        r.books.placements,
+        r.books.paged_placements,
+        r.books.unpaged_placements
     ));
     for blocker in &r.cutover_blockers {
         text.push_str(&format!("- {blocker}\n"));
