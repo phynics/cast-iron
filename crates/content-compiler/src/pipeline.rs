@@ -24,8 +24,8 @@ use cast_iron_schema::{
     BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest, CopyrightNotice, CoverageReport,
     DatasetNotice, DatasetRef, EntryId, EntryKind, EntryStub, Exclusion, Inline, LegalNotices,
     ManifestFile, ParagraphStyle, PublicationCoverage, RELATIONS_FILE, Rejection, RelationIndex,
-    RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, StatRow, Table, TableCell,
-    TableRow, TypedFields,
+    RelationKind, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, StatRow,
+    Table, TableCell, TableRow, TypedFields,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -856,6 +856,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             commit: dataset.commit.clone(),
         })
         .collect();
+    let facets = canonical_facets(&entries);
     Ok(Library {
         entries,
         relations: relations.index,
@@ -864,7 +865,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         legal,
         coverage,
         aliases,
-        facets: BTreeMap::new(),
+        facets,
         datasets,
         sources,
         notes,
@@ -873,6 +874,87 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         supplement_prefix: None,
         aliases_file: Some(aliases_file),
     })
+}
+
+/// Search facets for the canonical library. The PSRD builder captures facets while parsing
+/// upstream HTML; canonical entries are already typed, so the same values are read from
+/// [`TypedFields`] instead of a second representation of the record.
+///
+/// Race groups are the one gap: the pin stores the group only in the upstream subtype, and
+/// the canonical entry does not carry it. A race therefore has no `race_group` facet.
+fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, String)>> {
+    fn push(facets: &mut Vec<(String, String)>, name: &str, value: &str) {
+        if value.is_empty() {
+            return;
+        }
+        if !facets.iter().any(|(n, v)| n == name && v == value) {
+            facets.push((name.to_string(), value.to_string()));
+        }
+    }
+    let mut out = BTreeMap::new();
+    for entry in entries {
+        let mut facets = Vec::new();
+        match &entry.fields {
+            TypedFields::Spell(fields) => {
+                push(&mut facets, "school", &fields.school);
+                for descriptor in &fields.descriptors {
+                    push(&mut facets, "descriptor", descriptor);
+                }
+                for level in &fields.levels {
+                    push(&mut facets, "class", &level.class);
+                    push(&mut facets, "spell_level", &level.level.to_string());
+                }
+            }
+            TypedFields::Feat(fields) => {
+                for kind in &fields.feat_types {
+                    push(&mut facets, "feat_type", kind);
+                }
+            }
+            TypedFields::Creature(fields) => {
+                if let Some(value) = &fields.creature_type {
+                    push(&mut facets, "creature_type", value);
+                }
+                if let Some(value) = &fields.size {
+                    push(&mut facets, "size", value);
+                }
+                if let Some(value) = &fields.alignment {
+                    push(&mut facets, "alignment", value);
+                }
+                if let Some(cr) = fields.cr {
+                    push(&mut facets, "cr", &cr.display());
+                }
+            }
+            TypedFields::Item(fields) => {
+                if let Some(value) = &fields.category {
+                    push(&mut facets, "item_category", value);
+                }
+                if let Some(value) = fields.slot.as_deref().filter(|slot| *slot != "none") {
+                    push(&mut facets, "slot", value);
+                }
+            }
+            TypedFields::Class(fields) => {
+                if let Some(value) = &fields.class_type {
+                    push(&mut facets, "class_type", value);
+                }
+            }
+            TypedFields::Trait(fields) => push(&mut facets, "trait_category", &fields.category),
+            TypedFields::RacialTrait(_) | TypedFields::None => {}
+        }
+        // An archetype's class comes from its typed edge, not from a text field.
+        if let Some(target) = entry
+            .relations
+            .iter()
+            .find(|relation| relation.kind == RelationKind::Archetype)
+            .map(|relation| relation.target.as_str())
+        {
+            let class = target.rsplit('/').next().unwrap_or_default();
+            push(&mut facets, "archetype_class", class);
+        }
+        if !facets.is_empty() {
+            out.insert(entry.id.clone(), facets);
+        }
+    }
+    out
 }
 
 fn failure(message: impl Into<String>) -> Failure {
@@ -2298,6 +2380,42 @@ mod canonical_tests {
         assert_eq!(legal.datasets.len(), 1);
         assert_eq!(legal.datasets[0].commit, "new");
         assert_eq!(legal.section_15.len(), 1);
+    }
+
+    #[test]
+    fn facets_come_from_typed_fields_and_archetype_edges() {
+        let mut spell = entry("ref/spell/fireball", "s");
+        spell.kind = EntryKind::Spell;
+        spell.fields = TypedFields::Spell(cast_iron_schema::SpellFields {
+            school: "evocation".into(),
+            descriptors: vec!["fire".into()],
+            levels: vec![cast_iron_schema::SpellLevel {
+                class: "Wizard".into(),
+                level: 3,
+            }],
+            ..Default::default()
+        });
+        let mut archetype = entry("ref/arc-bard/buccaneer", "s");
+        archetype.kind = EntryKind::Archetype;
+        archetype.relations = vec![cast_iron_schema::Relation {
+            kind: RelationKind::Archetype,
+            target: EntryId::parse("ref/class/bard").unwrap(),
+            label: None,
+        }];
+        let facets = canonical_facets(&[spell, archetype]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/spell/fireball").unwrap()],
+            vec![
+                ("school".into(), "evocation".into()),
+                ("descriptor".into(), "fire".into()),
+                ("class".into(), "Wizard".into()),
+                ("spell_level".into(), "3".into()),
+            ]
+        );
+        assert_eq!(
+            facets[&EntryId::parse("ref/arc-bard/buccaneer").unwrap()],
+            vec![("archetype_class".into(), "bard".into())]
+        );
     }
 }
 
