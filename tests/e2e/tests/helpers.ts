@@ -525,7 +525,7 @@ export async function openBookEntry(
  */
 export async function seedHome(
   page: Page,
-  { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string }[] },
+  { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string; kind: string }[] },
 ) {
   await page.goto("#/settings");
   await page.evaluate(
@@ -539,7 +539,7 @@ export async function seedHome(
           tx.objectStore("bookmarks").clear();
           stars.forEach((s, i) =>
             tx.objectStore("bookmarks").put({
-              entry_id: s.id, title_snapshot: s.title, kind: "spell", added_at: 100 + i, collection_ids: [],
+              entry_id: s.id, title_snapshot: s.title, kind: s.kind, added_at: 100 + i, collection_ids: [],
             }));
           tx.objectStore("meta").put(recents.map((r) => ({ id: r.id, title: r.title })), "recent");
           tx.oncomplete = () => { db.close(); resolve(); };

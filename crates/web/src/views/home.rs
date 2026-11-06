@@ -54,12 +54,19 @@ fn entry_row(row: &RowData, show_book: bool, action: Option<AnyView>) -> AnyView
     } else {
         "Not in this library".to_string()
     };
+    // The name is the bare title, except when titles collide: then it carries the kind and
+    // book, so a screen reader can tell the rows apart as a sighted reader does.
+    let name = if show_book && row.in_library {
+        format!("{}, {}", row.title, meta.replace(" · ", ", "))
+    } else {
+        row.title.clone()
+    };
     let body = view! {
         <span class="home-row-title">{row.title.clone()}</span>
         <span class="home-row-meta">{meta}</span>
     };
     let main = if row.in_library {
-        view! { <a class="home-row-link" aria-label=row.title.clone() href=Route::entry(row.id.clone()).href()>{body}</a> }.into_any()
+        view! { <a class="home-row-link" aria-label=name href=Route::entry(row.id.clone()).href()>{body}</a> }.into_any()
     } else {
         view! { <span class="home-row-link home-bookmark-missing">{body}</span> }.into_any()
     };
@@ -142,7 +149,13 @@ pub fn Home() -> impl IntoView {
                                         match store::delete_bookmarks_matching(matches).await {
                                             Ok(_) => {
                                                 star_error.set(None);
-                                                bookmarks.set(Some(store::list_bookmarks().await.map_err(|e| e.to_string())));
+                                                let list = store::list_bookmarks().await.map_err(|e| e.to_string());
+                                                // The section goes with the last star; keep focus on the page.
+                                                let emptied = matches!(&list, Ok(items) if items.is_empty());
+                                                bookmarks.set(Some(list));
+                                                if emptied && let Some(title) = title_ref.get_untracked() {
+                                                    let _ = title.focus();
+                                                }
                                             }
                                             Err(error) => star_error.set(Some(format!("Could not unstar this entry: {error}"))),
                                         }
@@ -170,6 +183,7 @@ pub fn Home() -> impl IntoView {
                         <section aria-labelledby="home-bookmarks">
                             <h2 id="home-bookmarks">"Starred"</h2>
                             <ul class="home-list home-bookmarks" id="home-bookmarks-list">{visible}</ul>
+                            <p class="sr-only" role="status">{move || if expanded.get() { format!("Showing all {total} starred entries") } else { String::new() }}</p>
                             {more}
                         </section>
                     }.into_any()
@@ -192,19 +206,22 @@ pub fn Home() -> impl IntoView {
                         let library = use_library();
                         let all = recents.get();
                         let total = all.len();
-                        let ambiguous = duplicate_titles(all.iter().map(|r| r.title.as_str()));
-                        let take = if recent_expanded.get() { total } else { RECENT_PREVIEW };
-                        let rows = all.iter().take(take).map(|item| {
+                        // Resolve every title first: collisions are judged on what is shown, over the
+                        // whole history, so a row does not change when "Show more" opens.
+                        let resolved: Vec<RowData> = all.iter().map(|item| {
                             let stub = library.stub(&item.id);
-                            let row = RowData {
+                            RowData {
                                 id: item.id.clone(),
                                 title: stub.map_or_else(|| item.title.clone(), |s| s.title.clone()),
                                 kind: stub.map(|s| s.kind),
                                 book: stub.and_then(|s| library.source(&s.source)).map(|s| s.title.clone()),
-                                in_library: true,
-                            };
-                            let show_book = ambiguous.contains(&row.title.to_lowercase());
-                            entry_row(&row, show_book, None)
+                                in_library: stub.is_some(),
+                            }
+                        }).collect();
+                        let ambiguous = duplicate_titles(resolved.iter().map(|r| r.title.as_str()));
+                        let take = if recent_expanded.get() { total } else { RECENT_PREVIEW };
+                        let rows = resolved.iter().take(take).map(|row| {
+                            entry_row(row, ambiguous.contains(&row.title.to_lowercase()), None)
                         }).collect_view();
                         let more = (total > RECENT_PREVIEW).then(|| view! {
                             <button

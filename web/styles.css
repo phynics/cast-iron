@@ -3182,7 +3182,7 @@ main,
    separators. The title truncates; the kind (and, for equal titles, the book) follows it. */
 .home-list { list-style: none; padding: 0; margin: var(--space-1) 0 0; border-top: var(--border); }
 .home-row { display: flex; align-items: center; border-bottom: var(--border); min-height: var(--touch); }
-.home-row-link { display: flex; flex: 1 1 auto; min-width: 0; align-items: baseline; gap: var(--space-3); min-height: var(--touch); padding-block: var(--space-2); text-decoration: none; align-items: center; }
+.home-row-link { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: var(--space-3); min-height: var(--touch); padding-block: var(--space-2); text-decoration: none; }
 .home-row-title { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 a.home-row-link:hover .home-row-title { text-decoration: underline; }
 .home-row-meta { flex: 0 1 auto; max-width: 45%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-muted); font-size: var(--step--1); }

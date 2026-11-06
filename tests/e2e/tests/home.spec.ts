@@ -5,7 +5,8 @@ const corpus = loadCorpus();
 const spells = corpus.catalog.entries.filter((entry) => entry.kind === "spell");
 /** Distinct titles keep the link names unambiguous. */
 const distinct = spells.filter((entry, i) => spells.findIndex((c) => c.title === entry.title) === i);
-const pick = (from: number, n: number) => distinct.slice(from, from + n).map((e) => ({ id: e.id as string, title: e.title as string }));
+const pick = (from: number, n: number) =>
+  distinct.slice(from, from + n).map((e) => ({ id: e.id as string, title: e.title as string, kind: e.kind as string }));
 const twins = (() => {
   for (const entry of corpus.catalog.entries) {
     const other = corpus.catalog.entries.find((c) => c.title === entry.title && c.id !== entry.id && c.kind === entry.kind);
@@ -67,6 +68,7 @@ test("Home lists up to five stars above Recently viewed, and See all expands the
   await expect(seeAll).toHaveAttribute("aria-expanded", "false");
   await seeAll.click();
   await expect(rows).toHaveCount(7);
+  await expect(page.getByRole("status").filter({ hasText: "Showing all 7 starred entries" })).toHaveCount(1);
   await page.getByRole("button", { name: "Show fewer" }).first().click();
   await expect(rows).toHaveCount(5);
 });
@@ -77,6 +79,8 @@ test("Unstarring from Home is one tap and the last star brings back the teaching
   await expect(page.locator(".home-bookmarks")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Starred" })).toHaveCount(0);
   await expect(page.locator(".home-hint")).toBeVisible();
+  // The section left the page with the star; focus must not fall to the body.
+  await expect(page.locator("#home-title")).toBeFocused();
 });
 
 test("Recently viewed shows five rows, Show more reveals the stored history, Clear survives a reload", async ({ page }) => {
@@ -115,15 +119,34 @@ test("Recent rows are plain one-line links; same-titled entries also name their 
     const book = corpus.catalog.sources.find((s) => s.id === entry.source)!.title;
     await expect(rows.nth(i + 1).locator(".home-row-meta")).toContainText(book);
   }
+  // Screen readers get the same disambiguation: the two links have different names.
+  const names = [await rows.nth(1).locator("a").getAttribute("aria-label"), await rows.nth(2).locator("a").getAttribute("aria-label")];
+  expect(names[0]).not.toBe(names[1]);
+  for (const [i, entry] of [a, b].entries()) {
+    const book = corpus.catalog.sources.find((s) => s.id === entry.source)!.title;
+    expect(names[i]).toContain(entry.title);
+    expect(names[i]).toContain(book);
+    await expect(rows.nth(i + 1).getByRole("link", { name: names[i]!, exact: true })).toBeVisible();
+  }
+  // A row that is not twinned keeps its bare title as its name.
+  await expect(rows.first().getByRole("link", { name: pick(0, 1)[0].title, exact: true })).toBeVisible();
   await rows.nth(1).locator("a").click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${a.id}$`));
+});
+
+test("A recent entry the library no longer holds is a plain row, not a link", async ({ page }) => {
+  await seedHome(page, { recents: [{ id: "missing-source/old", title: "Gone Rule" }, ...pick(0, 1)] });
+  const gone = page.locator(".home-recent > li").first();
+  await expect(gone.locator(".home-row-meta")).toHaveText("Not in this library");
+  await expect(gone.getByRole("link")).toHaveCount(0);
+  await expect(page.locator(".home-recent > li").nth(1).getByRole("link")).toHaveCount(1);
 });
 
 test("Row titles stay on one line, however long", async ({ page }) => {
   const long = "A very long entry title that goes on and on and on for far more than one line of text on a phone";
   await seedHome(page, {
     recents: [{ id: distinct[0].id, title: long }],
-    stars: [{ id: "missing-source/old", title: long }],
+    stars: [{ id: "missing-source/old", title: long, kind: "rule" }],
   });
   for (const row of [page.locator(".home-recent > li").first(), page.locator(".home-bookmarks > li").first()]) {
     const title = row.locator(".home-row-title");
