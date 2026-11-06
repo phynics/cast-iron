@@ -134,7 +134,7 @@ fn group_view(heading: String, items: Vec<(EntryId, String)>, open_up_to: usize)
         <details class="rel-group" open=n <= open_up_to>
             <summary>
                 <span class="rel-group-name">{heading}</span>
-                <span class="rel-count">{n}</span>
+                <span class="rel-count">{fmt::count(n)}</span>
             </summary>
             <ul class="rel-chips">{rows}</ul>
         </details>
@@ -157,7 +157,7 @@ fn level_pills(list: &SpellListClass) -> impl IntoView + use<> {
                 <li>
                     <a class="lvl" href=href aria-label=label>
                         <span class="lvl-n">{level}</span>
-                        <span class="lvl-count">{n}</span>
+                        <span class="lvl-count">{fmt::count(n)}</span>
                     </a>
                 </li>
             }
@@ -389,7 +389,7 @@ fn feat_panels(
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-chain">
-                        <h2 id="rel-chain">"Prerequisite chain "<span class="rel-count">{n}</span></h2>
+                        <h2 id="rel-chain">"Prerequisite chain "<span class="rel-count">{fmt::count(n)}</span></h2>
                         <p class="hint">
                             {format!("Each feat is a prerequisite of the one above it. {title} is at the top.")}
                         </p>
@@ -419,7 +419,7 @@ fn feat_panels(
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-leads">
-                        <h2 id="rel-leads">"Leads to "<span class="rel-count">{n}</span></h2>
+                        <h2 id="rel-leads">"Leads to "<span class="rel-count">{fmt::count(n)}</span></h2>
                         <p class="hint">"Feats that name this feat in their prerequisites."</p>
                         <ul class="rel-list rel-cols">{rows}</ul>
                     </section>

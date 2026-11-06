@@ -6,6 +6,8 @@
 //! kind cannot reach the hub without a description.
 
 use crate::route::Route;
+use crate::views::filter_menu::MenuSpec;
+use crate::views::search::list_facets;
 use cast_iron_schema::EntryKind;
 
 /// The categories that `PRODUCT.md` names, in the order of the hub.
@@ -93,7 +95,25 @@ pub enum Lens {
         field: &'static str,
         label: &'static str,
     },
+    /// A facet too large for a row of pills: one filter menu that narrows the list in place.
+    Menu(MenuSpec),
+    /// A related page, as a plain link in the filter row.
+    Link {
+        label: &'static str,
+        route: Route,
+    },
 }
+
+/// The feat type menu. About 40 types, so it has a find field.
+pub const FEAT_TYPE_MENU: MenuSpec = MenuSpec {
+    field: "feat_type",
+    group: "Type",
+    all_label: "All types",
+    find_label: "Find a type",
+    list_label: "Feat type",
+    singular: "type",
+    plural: "types",
+};
 
 pub fn lenses(kind: EntryKind) -> Vec<Lens> {
     let facet = |field, label| Lens::Facet { field, label };
@@ -107,12 +127,11 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
             facet("school", "By school"),
         ],
         EntryKind::Feat => vec![
-            Lens::Page {
+            Lens::Menu(FEAT_TYPE_MENU),
+            Lens::Link {
                 label: "Feat chains",
-                blurb: "Feats that unlock others, and the feats that follow from them",
                 route: Route::FeatChains,
             },
-            facet("feat_type", "By feat type"),
         ],
         EntryKind::Class => vec![facet("class_type", "Core, base, and NPC")],
         EntryKind::Race => vec![facet("race_group", "By group")],
@@ -130,6 +149,22 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         | EntryKind::Affliction
         | EntryKind::Trap => Vec::new(),
     }
+}
+
+/// The facets a kind's list page applies in place: those a filter menu of the kind owns, one
+/// value for each. Other facets in a URL are left to search.
+pub fn applied_facets(kind: EntryKind, facets: &[(String, String)]) -> Vec<(String, String)> {
+    let menus: Vec<&str> = lenses(kind)
+        .into_iter()
+        .filter_map(|lens| match lens {
+            Lens::Menu(spec) => Some(spec.field),
+            _ => None,
+        })
+        .collect();
+    list_facets(facets, kind)
+        .into_iter()
+        .filter(|(field, _)| menus.contains(&field.as_str()))
+        .collect()
 }
 
 /// Facet values a lens leaves out. The class lens is for base, core, and NPC classes; prestige
@@ -215,13 +250,30 @@ mod tests {
                 ..
             }
         ));
-        assert!(lenses(EntryKind::Feat).iter().any(|l| matches!(
-            l,
-            Lens::Page {
+        // Feats: a menu for the type (the field the index holds), and a plain link to chains.
+        let feat = lenses(EntryKind::Feat);
+        assert_eq!(feat.len(), 2);
+        assert_eq!(feat[0], Lens::Menu(FEAT_TYPE_MENU));
+        assert_eq!(FEAT_TYPE_MENU.field, "feat_type");
+        assert!(matches!(
+            &feat[1],
+            Lens::Link {
                 route: Route::FeatChains,
                 ..
             }
-        )));
+        ));
+        // Only a field with a filter menu narrows a list in place. Spells have no menu yet.
+        let facet = |f: &str, v: &str| (f.to_string(), v.to_string());
+        let url = [
+            facet("feat_type", "Combat"),
+            facet("feat_type", "General"),
+            facet("school", "evocation"),
+        ];
+        assert_eq!(
+            applied_facets(EntryKind::Feat, &url),
+            [facet("feat_type", "Combat")]
+        );
+        assert!(applied_facets(EntryKind::Spell, &url).is_empty());
         assert!(lens_skips(EntryKind::Class, "class_type", "prestige"));
         assert!(!lens_skips(EntryKind::Class, "class_type", "npc"));
     }

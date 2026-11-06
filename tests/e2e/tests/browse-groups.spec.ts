@@ -1,5 +1,6 @@
+import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, count, installLibrary, letterId, waitControlled } from "./helpers";
+import { corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -101,4 +102,180 @@ test("Feat chains and the spell pages start their crumbs below a tab destination
   await expect(page.locator("main .crumbs li")).toHaveText(["Spells"]);
   const crumbs = page.locator("main .crumbs");
   await expect(crumbs.getByRole("link", { name: "Home" })).toHaveCount(0);
+});
+
+// ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
+
+const featsInCombat = [...corpus.entries.values()].filter((entry) => entry.kind === "feat" && (entry.fields?.feat_types ?? []).includes("Combat")).length;
+const featCount = corpus.catalog.entries.filter((stub) => stub.kind === "feat").length;
+const typeButton = (page: Page) => page.getByRole("button", { name: /^Type: /, exact: false });
+
+test("The feat type menu opens, finds a type, filters the list in place, and Back returns to all types", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const main = page.locator("main");
+  // The pill wall, its heading, "24 more" and the Feat chains card are gone.
+  await expect(typeButton(page)).toHaveText("Type: All types");
+  await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  await expect(main.getByText("By feat type")).toHaveCount(0);
+
+  const button = typeButton(page);
+  await expect(button).toBeEnabled();
+  expect(await button.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("6px");
+  expect(Math.round((await button.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  const panelId = (await button.getAttribute("aria-controls"))!;
+  const panel = page.locator(`#${panelId}`);
+  await expect(panel).toBeHidden();
+
+  await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await expect(panel).toBeVisible();
+  // Not a dialog, not fixed: it sits in the page flow and is at most half the viewport.
+  expect(await panel.evaluate((el) => getComputedStyle(el).position)).toBe("static");
+  expect(await panel.evaluate((el) => el.closest("dialog"))).toBeNull();
+  const viewportHeight = page.viewportSize()!.height;
+  expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(viewportHeight * 0.5 + 1);
+  // More than ten types: a find field, focused on open.
+  const find = panel.getByRole("searchbox", { name: "Find a type" });
+  await expect(find).toBeFocused();
+  const list = panel.getByRole("list", { name: "Feat type" });
+  await expect(list.getByRole("link", { name: /^All types/ })).toHaveAttribute("aria-current", "true");
+
+  await find.fill("comb");
+  await expect(panel.getByRole("status")).toHaveText(/^\d+ types?$/);
+  const combat = list.getByRole("link", { name: `Combat, ${count(featsInCombat)}` });
+  await expect(combat).toBeVisible();
+  await expect(list.getByRole("link", { name: /^Achievement/ })).toHaveCount(0);
+  await find.fill("zzzz");
+  await expect(panel.getByRole("status")).toHaveText('No types match "zzzz".');
+  await panel.getByRole("button", { name: "Clear" }).click();
+  await find.fill("comb");
+
+  const before = page.url();
+  await combat.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat?facet=feat_type:Combat");
+  expect(page.url()).not.toBe(before);
+  // Filtered in place: still the Feats page, A to Z, with the count of the part and the whole.
+  await expect(main.getByRole("heading", { level: 1, name: "Feats" })).toBeVisible();
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(featsInCombat)} of ${count(featCount)} feats · Show all`);
+  await expect(typeButton(page)).toHaveText("Type: Combat");
+  await expect(typeButton(page)).toBeEnabled();
+  // The selected value appears once, in the button.
+  await expect(main.getByText("Combat", { exact: true }).filter({ visible: true })).toHaveCount(0);
+  await expect(typeButton(page)).toBeFocused();
+  await expect(main.locator(".letter-group .entry-list a").first()).toBeVisible();
+  const heads = await main.locator(".letter-head").allInnerTexts();
+  const total = heads.reduce((sum, head) => sum + num(head.match(/([\d,]+) entries/)?.[1]), 0);
+  expect(total).toBe(featsInCombat);
+
+  // A letter keeps the filter, and the filtered state is a history entry.
+  await main.getByRole("link", { name: "Jump to C" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat?facet=feat_type:Combat&l=C");
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat?facet=feat_type:Combat");
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat");
+  await expect(typeButton(page)).toHaveText("Type: All types");
+  await expect(main.locator(".list-count")).toHaveText(`${count(featCount)} feats`);
+  await page.goForward();
+  await expect(typeButton(page)).toHaveText("Type: Combat");
+
+  // Show all in the count line clears the filter.
+  await main.getByRole("link", { name: "Show all feats" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat");
+  await expect(main.locator(".list-count")).toHaveText(`${count(featCount)} feats`);
+});
+
+test("Escape closes the feat type menu and returns focus to its button without changing the route", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const button = typeButton(page);
+  await expect(button).toBeEnabled();
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel.getByRole("searchbox")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await expect(button).toBeFocused();
+  expect(new URL(page.url()).hash).toBe("#/browse/kind/feat");
+  // Choosing the type that is already current closes the panel too.
+  await page.goto("#/browse/kind/feat?facet=feat_type:combat");
+  await expect(typeButton(page)).toHaveText("Type: Combat");
+  await typeButton(page).click();
+  await page.locator(".choice-row[aria-current='true']").click();
+  await expect(panel).toBeHidden();
+  await expect(typeButton(page)).toBeFocused();
+});
+
+test("A shared feat type link with another case still reads as that type, and an absent type shows an empty state", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat?facet=feat_type:COMBAT");
+  const main = page.locator("main");
+  await expect(typeButton(page)).toHaveText("Type: Combat");
+  await expect(main.locator(".list-count")).toHaveText(new RegExp(`^${count(featsInCombat)} of ${count(featCount)} feats`));
+  await page.goto("#/browse/kind/feat?facet=feat_type:Nonesuch");
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(featCount)} feats · Show all`);
+  await expect(typeButton(page)).toHaveText("Type: All types");
+  await expect(main.getByText("No Nonesuch feats in your active books.")).toBeVisible();
+  await expect(main.getByRole("link", { name: "Choose books" })).toBeVisible();
+  await main.locator("p.empty-actions").getByRole("link", { name: "Show all feats" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat");
+});
+
+test("Feat chains is a plain accent link in the filter row, not a card", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const link = page.locator("main .filter-row").getByRole("link", { name: "Feat chains" });
+  await expect(link).toBeVisible();
+  const style = await link.evaluate((el) => {
+    const s = getComputedStyle(el);
+    return { border: s.borderTopWidth, weight: s.fontWeight, color: s.color, accent: getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(), svg: !!el.querySelector("svg[aria-hidden='true']") };
+  });
+  expect(style.border).toBe("0px");
+  expect(Number(style.weight)).toBeGreaterThanOrEqual(600);
+  expect(style.svg).toBe(true);
+  expect(Math.round((await link.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  // The row is on the same line as the menu, so the link adds no height.
+  const menu = (await typeButton(page).boundingBox())!;
+  const box = (await link.boundingBox())!;
+  expect(Math.abs(box.y + box.height / 2 - (menu.y + menu.height / 2))).toBeLessThan(8);
+  await link.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/feats/chains");
+  await expect(page.getByRole("heading", { name: "Feat chains", level: 1 })).toBeVisible();
+});
+
+test("Feats that lead to more than five feats carry a chain marker, and it stays quiet", async ({ page }) => {
+  await installLibrary(page);
+  const leads = featLeadsTo(5);
+  const powerAttack = corpusEntry("feat", "Power Attack");
+  const dodge = corpusEntry("feat", "Dodge");
+  for (const feat of [powerAttack, dodge]) {
+    const n = leads.get(feat.id);
+    expect(n, `${feat.title} should lead to more than five feats`).toBeGreaterThan(5);
+    await page.goto(`#/browse/kind/feat?l=${groupLetter(feat.title)}`);
+    const row = page.locator(`.letter-group a[href="#/entry/${feat.id}"]`).first();
+    await expect(row.locator("svg.chain-mark")).toHaveCount(1);
+    expect(await row.locator("svg.chain-mark").getAttribute("aria-hidden")).toBe("true");
+    await expect(row).toHaveAccessibleName(new RegExp(`^${feat.title} ?, leads to ${count(n!)} feats$`));
+  }
+  // A feat that leads nowhere has none, and its name is its title.
+  const plain = corpusEntry("feat", "Aberrant Tumor");
+  await page.goto("#/browse/kind/feat?l=A");
+  await expect(page.locator(`.letter-group a[href="#/entry/${plain.id}"]`).first()).toHaveAccessibleName(plain.title);
+
+  // Measure: across every letter group the markers match the relations, and they are few.
+  const letters = await page.getByRole("navigation", { name: "Jump to letter" }).getByRole("link").evaluateAll((links) => links.map((link) => (link.textContent ?? "").trim()));
+  let marked = 0;
+  for (const letter of letters) {
+    await page.goto(`#/browse/kind/feat?l=${encodeURIComponent(letter)}`);
+    const expected = [...leads.keys()].filter((id) => groupLetter(corpus.entries.get(id)!.title) === letter).length;
+    await expect(page.locator(".letter-group .chain-mark")).toHaveCount(expected);
+    marked += expected;
+  }
+  console.log(`chain markers: ${marked} of ${featCount} feats (${((marked / featCount) * 100).toFixed(1)} %)`);
+  expect(marked).toBe(leads.size);
+  expect(marked / featCount).toBeLessThan(0.05);
 });

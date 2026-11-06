@@ -636,3 +636,32 @@ export function storedRecentCount(page: Page): Promise<number> {
 export async function waitHomeIdle(page: Page) {
   await page.locator(".home-page[data-index-ready=true]").waitFor({ state: "attached", timeout: 90_000 });
 }
+
+/**
+ * How many feats each feat leads to, directly or not, from the compiled relations: the number
+ * the chain marker states. Only feats that lead to more than `moreThan` are returned.
+ */
+export function featLeadsTo(moreThan = 5): Map<string, number> {
+  const dir = path.join(GENERATED, loadCorpus().version);
+  const index = JSON.parse(fs.readFileSync(path.join(dir, "relations.json"), "utf8"));
+  const leads = new Map<string, string[]>();
+  for (const [source, kind, target] of index.edges as [string, string, string][]) {
+    if (kind !== "prerequisite") continue;
+    leads.set(target, [...(leads.get(target) ?? []), source]);
+  }
+  const out = new Map<string, number>();
+  for (const start of leads.keys()) {
+    const seen = new Set([start]);
+    const stack = [start];
+    while (stack.length) {
+      for (const next of leads.get(stack.pop()!) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          stack.push(next);
+        }
+      }
+    }
+    if (seen.size - 1 > moreThan) out.set(start, seen.size - 1);
+  }
+  return out;
+}

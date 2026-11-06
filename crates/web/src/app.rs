@@ -407,9 +407,11 @@ fn RouteView() -> impl IntoView {
     move || match page.get().0 {
         Route::Home => view! { <Home /> }.into_any(),
         Route::Search { .. } => view! { <Search /> }.into_any(),
-        Route::BrowseKind { kind, letter } => {
-            view! { <BrowseKind kind letter=letter /> }.into_any()
-        }
+        Route::BrowseKind {
+            kind,
+            letter,
+            facets,
+        } => view! { <BrowseKind kind letter=letter facets=facets /> }.into_any(),
         // Old links to a publication land on its book when the library has book order.
         Route::BrowseSource(id) if use_library().has_books() => {
             view! { <BookView source=id /> }.into_any()
