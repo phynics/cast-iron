@@ -87,13 +87,14 @@ test("Keyboard focus is visible on the star and on metadata links", async ({ pag
 });
 
 test("Chips keep one form per role", async ({ page }) => {
-  // Navigation: Home's recently viewed entries are rectangles with the card radius.
+  // Navigation: Home's recently viewed entries are plain link rows, not pills or boxes.
   await page.goto(`#/entry/${single.id}`);
   await expect(page.getByTestId("entry-title")).toBeVisible();
   await page.goto("#/");
-  const recent = page.locator(".jump-list .jump").first();
+  const recent = page.locator(".home-recent .home-row-link").first();
   await expect(recent).toBeVisible();
-  expect(await recent.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("6px");
+  expect(await recent.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe("0px");
+  expect(await recent.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("0px");
 
   // Filters: the only pill; a selected one is filled and carries a check, and keeps its count.
   await page.goto("#/search?q=fire");
