@@ -37,17 +37,20 @@ function target() {
 installedTest("Quick search suggestions follow the active books", async ({ page }) => {
   const { entry, book, source } = target();
   await installLibrary(page);
+  /** Types the entry's title and returns the `Kind · Book` lines once suggestions have arrived. */
   const suggestions = async () => {
     await page.goto("#/");
     const layer = await openQuickSearch(page);
     await layer.getByRole("combobox", { name: "Search the rules" }).fill(entry.title);
     await expect(quickOptions(page).last()).toHaveText(`See all results for “${entry.title}”`);
-    // The suggestions follow a short pause in typing; give the lookup time to answer.
-    await page.waitForTimeout(800);
-    return layer.locator('[role="option"] .quick-search-meta').allInnerTexts();
+    // Suggestions follow a pause in typing: wait for them, not for a fixed time.
+    const lines = layer.locator('[role="option"] .quick-search-meta');
+    await expect.poll(() => lines.count()).toBeGreaterThan(0);
+    return lines.allInnerTexts();
   };
+  const fromBook = (lines: string[]) => lines.some((line) => line.endsWith(` · ${source.title}`));
   // With every book active, the book that holds the entry is suggested.
-  expect((await suggestions()).some((meta) => meta.endsWith(` · ${source.title}`))).toBe(true);
+  expect(fromBook(await suggestions())).toBe(true);
 
   await page.goto("#/books");
   await openBookGroups(page);
@@ -57,8 +60,8 @@ installedTest("Quick search suggestions follow the active books", async ({ page 
   await expect(toggle).not.toBeChecked();
   await expect(toggle).toBeEnabled();
 
-  // The same lookup no longer offers anything from the disabled book.
-  expect((await suggestions()).some((meta) => meta.endsWith(` · ${source.title}`))).toBe(false);
+  // The same lookup still answers, from the other books, and offers nothing from the disabled one.
+  expect(fromBook(await suggestions())).toBe(false);
 });
 
 test("Book visibility persists offline and filters discovery while keeping stars readable", async ({ openProfile }) => {
