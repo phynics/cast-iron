@@ -226,3 +226,79 @@ test("Publication groups fit 390 px with full-size targets", async ({ page }) =>
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show school, facts and rulebooks first", async ({ page }) => {
+  await installLibrary(page);
+  const overflow = () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+
+  // The hub opens with the class picker: Wizard sits inside the first screen, not below 30 cards.
+  await page.goto("#/spells");
+  const wizard = page.locator(".class-picker").first().getByRole("link", { name: /^Wizard spells,/ });
+  await expect(wizard).toBeVisible();
+  const box = (await wizard.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(box.y + box.height, "Wizard is inside the first screen").toBeLessThanOrEqual(844);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await wizard.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard spells" })).toBeVisible();
+  // The class page is a navigation rectangle on the list page, not on the hub.
+  const classPage = page.getByRole("link", { name: "Wizard class page" });
+  await expect(classPage).toHaveClass(/jump/);
+  expect((await classPage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  // Level 5: two-line rows with the school, the facts and the book. Expectations come from the corpus.
+  await page.goto("#/spells/Wizard/5");
+  const rows = page.locator(".spell-rows .spell-row");
+  await expect(rows.first()).toBeVisible();
+  await expect(page.locator(".spell-list")).toHaveAttribute("data-density", "wide");
+  const total = await rows.count();
+  expect(total).toBeGreaterThan(10);
+  for (const index of [0, 1, 2, 3, 4]) {
+    const row = rows.nth(index);
+    await expect(row.locator(".spell-school"), `row ${index} school`).not.toHaveText("");
+    await expect(row.locator(".spell-row-meta"), `row ${index} facts`).not.toHaveText("");
+  }
+  const cone = rows.filter({ has: page.getByRole("link", { name: "Cone of Cold", exact: true }) }).first();
+  await expect(cone.locator(".spell-school")).toHaveText("Evocation");
+  await expect(cone.locator(".spell-row-meta")).toContainText("1 standard action");
+  await expect(cone.locator(".spell-row-meta")).toContainText("Reflex half");
+  await expect(cone.locator(".spell-row-meta")).toContainText("Core Rulebook");
+  // The name never wraps and a row is at least 44 px tall.
+  const heights = await rows.evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().height));
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  const names = await page.locator(".spell-name").evaluateAll((nodes) =>
+    nodes.map((n) => n.getClientRects().length === 1 && n.getBoundingClientRect().height < 30));
+  expect(names.every(Boolean)).toBe(true);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // A Core spell comes before a spell that only an adventure prints.
+  const category = new Map<string, string>(corpus.catalog.sources.map((s: any) => [s.id, s.category]));
+  const stubs = new Map(corpus.catalog.entries.map((stub) => [stub.id, stub]));
+  const wizardFive = entries.filter((entry) => entry.kind === "spell" &&
+    entry.fields?.levels?.some((level: any) => level.class.toLowerCase() === "wizard" && level.level === 5));
+  const adventure = wizardFive.find((entry) =>
+    ["Adventure Path", "Module"].includes(category.get(stubs.get(entry.id)!.source) ?? ""));
+  expect(adventure, "an adventure-only Wizard 5 spell in the corpus").toBeTruthy();
+  const order = await page.locator(".spell-rows a.spell-name").evaluateAll((nodes) => nodes.map((n) => (n as HTMLAnchorElement).hash));
+  const at = (id: string) => order.indexOf(`#/entry/${id}`);
+  expect(at("ref/spell/cone-of-cold")).toBeGreaterThanOrEqual(0);
+  expect(at(adventure!.id)).toBeGreaterThan(at("ref/spell/cone-of-cold"));
+  await expect(page.locator(".tier-head").first()).toHaveText("Rulebooks");
+
+  // The school filter narrows the list; the chips live in a disclosure so the rows stay near the top.
+  const filter = page.locator("details.school-filter");
+  await filter.locator("summary").click();
+  // The counts are this level's: together they add up to the rows on the page, and the chosen
+  // school's count is the number of rows left.
+  const counts = (await filter.locator(".chip-count").allInnerTexts()).map(Number);
+  expect(counts.reduce((a, b) => a + b, 0)).toBe(total);
+  const evocation = filter.getByRole("checkbox", { name: /^Evocation,/ });
+  const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+) spells?$/)![1]);
+  await evocation.check();
+  await expect(rows.first()).toBeVisible();
+  const schools = await page.locator(".spell-school").allInnerTexts();
+  expect(schools.length).toBe(evocationCount);
+  expect(new Set(schools)).toEqual(new Set(["Evocation"]));
+  expect(await overflow()).toBeLessThanOrEqual(0);
+});

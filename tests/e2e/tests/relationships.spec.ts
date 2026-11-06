@@ -53,17 +53,17 @@ test("spell lists filter by class, level, and query; search supports source filt
   await page.goto(`#/spells/${encodeURIComponent(listClass)}`);
   await expect(page.getByRole("heading", { name: `${listClass} spells`, level: 1 })).toBeVisible();
   await page.locator("#list-filter").fill(spell.title);
-  await expect(page.locator(".entry-list").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  await expect(page.locator(".spell-rows").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
   const matching = entries.filter((entry) => entry.kind === "spell" &&
     entry.title.toLowerCase().includes(spell.title.toLowerCase()) &&
     entry.fields?.levels?.some((level: any) => level.class === listClass));
-  await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(matching.length);
+  await expect(page.locator('.spell-rows a[href^="#/entry/"]')).toHaveCount(matching.length);
   await page.locator("#list-filter").fill("no-such-spell");
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
 
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${level}`);
   await expect(page.getByRole("heading", { name: `${listClass} spells, level ${level}`, level: 1 })).toBeVisible();
-  await expect(page.locator(".entry-list").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  await expect(page.locator(".spell-rows").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
   await expect(page.locator(".level-group")).toHaveAttribute("data-level", String(level));
 
   const stub = corpus.catalog.entries.find((candidate) => candidate.id === spell.id)!;
