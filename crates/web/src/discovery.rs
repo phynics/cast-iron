@@ -46,9 +46,8 @@ impl Discovery {
         self.entries().filter(move |stub| stub.kind == kind)
     }
     pub fn entries_of_source<'a>(&'a self, source: &'a str) -> impl Iterator<Item = &'a EntryStub> {
-        self.entries().filter(move |stub| {
-            self.library.canonical_source_for_entry(&stub.id).as_deref() == Some(source)
-        })
+        self.entries()
+            .filter(move |stub| self.library.stub_is_in_source(stub, source))
     }
     pub fn kind_counts(&self) -> Vec<(EntryKind, usize)> {
         EntryKind::ALL
