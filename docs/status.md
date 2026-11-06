@@ -25,6 +25,7 @@ Local verification on 2026-11-06 after the review changes (`v6aa587a686a3caf0`,
 | `check-publication.py generated/content` | Exit 0 |
 | `check-library-upgrade.py generated/psrd generated/content` | Exit 0: 0 missing, 0 unresolvable, 0 dangling |
 | `cargo xtask data-report` | Exit 0; tracked `reports/` files unchanged |
+| `cargo xtask check` | Passed (format, Python tests, native and WASM clippy, workspace tests, WASM build) |
 
 Tree hash: SHA-256 over the sorted `file-sha256  relative-path` lines.
 
