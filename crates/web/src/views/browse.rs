@@ -515,7 +515,7 @@ pub fn Books() -> impl IntoView {
         );
         view! {
             <li>
-                <a href=href aria-current=move || (sort() == value).then_some("true")>{label}</a>
+                <a class="jump" href=href aria-current=move || (sort() == value).then_some("true")>{label}</a>
             </li>
         }
     };
