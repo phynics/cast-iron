@@ -1,11 +1,12 @@
 //! The one quiet action in the Reader header, and the dialog that Install can open.
 //!
 //! The header shows at most one action. An app update takes priority over Install, because it is
-//! the only thing the reader can act on right away.
+//! the one the reader can act on right away. The action opens Settings → Updates; it never
+//! applies an update by itself.
 
 use crate::app::use_app;
-use crate::js;
 use crate::pwa::{InstallCtx, restore_focus, use_install};
+use crate::views::settings::open_updates;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -21,7 +22,7 @@ impl HeaderActionKind {
     fn label(self) -> &'static str {
         match self {
             Self::Install => "Install",
-            Self::Update => "Update",
+            Self::Update => "Update ready",
         }
     }
 
@@ -29,7 +30,7 @@ impl HeaderActionKind {
     fn aria_label(self) -> &'static str {
         match self {
             Self::Install => "Install Cast Iron as an app",
-            Self::Update => "App update ready. Reload to apply",
+            Self::Update => "App update ready. Open Settings",
         }
     }
 
@@ -54,7 +55,8 @@ impl HeaderActionKind {
     fn activate(self, install: InstallCtx, opener: Option<web_sys::HtmlElement>) {
         match self {
             Self::Install => install.request(opener),
-            Self::Update => js::apply_shell_update(),
+            // The header never applies an update by surprise: it opens the controls that do.
+            Self::Update => open_updates(),
         }
     }
 }
