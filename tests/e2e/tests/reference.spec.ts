@@ -122,7 +122,7 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   const tiles = page.locator("section[aria-labelledby=by-kind] a.cat");
   for (const tile of await tiles.all()) {
     const name = (await tile.locator(".cat-name").innerText()).trim();
-    const shown = Number(await tile.locator(".cat-count").innerText());
+    const shown = Number((await tile.locator(".cat-count").innerText()).replace(/,/g, ""));
     const kind = new URL(await tile.evaluate((a: HTMLAnchorElement) => a.href)).hash.split("/").pop()!;
     expect(shown, name).toBe(count((s) => s.kind === kind));
   }

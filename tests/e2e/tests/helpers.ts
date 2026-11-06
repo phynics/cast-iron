@@ -1,7 +1,10 @@
 import { expect, type Page } from "@playwright/test";
 
-/** A count as the app writes it. */
-export const count = (n: number) => String(n);
+/** A count as the app writes it: digits grouped by commas. */
+export const count = (n: number) => n.toLocaleString("en-US");
+
+/** The number in text that the app wrote with grouped digits. */
+export const num = (text: string | null | undefined) => Number((text ?? "").replace(/,/g, ""));
 
 /** The browse A to Z group of a title: an ASCII letter, else `#` for digits and symbols. */
 export function groupLetter(title: string): string {

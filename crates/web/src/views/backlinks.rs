@@ -4,6 +4,7 @@
 //! renders nothing; a read error is logged and also renders nothing, so the entry itself
 //! stays readable.
 
+use crate::fmt;
 use crate::library::Library;
 use crate::route::Route;
 use crate::views::rich::plain_text;
@@ -170,7 +171,7 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
                 view! {
                     <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
                         <h2 id="backlinks-heading">"Referenced by"</h2>
-                        <p class="muted backlink-count">{format!("{total} entries link here.")}</p>
+                        <p class="muted backlink-count">{format!("{} entries link here.", fmt::count(total))}</p>
                         {groups_view}
                     </section>
                 }.into_any()
@@ -201,12 +202,12 @@ fn group_view(
         <details class="rel-group backlink-group" open=open>
             <summary>
                 <span class="rel-group-name">{heading}</span>
-                <span class="rel-count">{count}</span>
+                <span class="rel-count">{fmt::count(count)}</span>
             </summary>
             <ul class="ref-list">{preview_rows}</ul>
             {(count > GROUP_PREVIEW).then(|| view! {
                 <details class="backlink-more">
-                    <summary>{format!("Show all {count}")}</summary>
+                    <summary>{format!("Show all {}", fmt::count(count))}</summary>
                     <ul class="ref-list">{rest_rows}</ul>
                 </details>
             })}

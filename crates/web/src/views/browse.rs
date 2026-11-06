@@ -1,6 +1,7 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
+use crate::fmt;
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
@@ -104,7 +105,7 @@ fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
         <li>
             <a class="cat" href=Route::browse_kind(kind).href()>
                 <span class="cat-name">{kind.label()}</span>
-                <span class="cat-count">{n}</span>
+                <span class="cat-count">{fmt::count(n)}</span>
                 <span class="cat-blurb">{categories::blurb(kind)}</span>
             </a>
         </li>
@@ -700,7 +701,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
         view! {
             <li>
                 <a class="lens-chip" href=route.href()>
-                    {facet_label(field, &value)}<small>{n}</small>
+                    {facet_label(field, &value)}<small>{fmt::count(n)}</small>
                 </a>
             </li>
         }
@@ -722,7 +723,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
                         let rest = rest.iter().cloned().map(chip).collect_view();
                         view! {
                             <details class="lens-more">
-                                <summary>{format!("{n} more")}</summary>
+                                <summary>{format!("{} more", fmt::count(n))}</summary>
                                 <ul class="lens-chips">{rest}</ul>
                             </details>
                         }
@@ -804,14 +805,14 @@ pub fn kind_count_line(kind: EntryKind, n: usize) -> String {
     } else {
         kind.label().to_lowercase()
     };
-    format!("{n} {noun}")
+    format!("{} {noun}", fmt::count(n))
 }
 
 fn entry_count(n: usize) -> String {
     if n == 1 {
         "1 entry".to_string()
     } else {
-        format!("{n} entries")
+        format!("{} entries", fmt::count(n))
     }
 }
 
@@ -1216,7 +1217,8 @@ mod tests {
 
     #[test]
     fn the_count_line_names_the_kind() {
-        assert_eq!(kind_count_line(EntryKind::Feat, 3583), "3583 feats");
+        assert_eq!(kind_count_line(EntryKind::Feat, 3583), "3,583 feats");
+        assert_eq!(kind_count_line(EntryKind::Feat, 999), "999 feats");
         assert_eq!(kind_count_line(EntryKind::Feat, 1), "1 feat");
         assert_eq!(kind_count_line(EntryKind::Feat, 0), "0 feats");
         assert_eq!(

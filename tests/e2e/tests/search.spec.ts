@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, corpusEntry, hitTitles, installLibrary, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
+import { bodyText, corpusEntry, count, hitTitles, installLibrary, num, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -10,7 +10,7 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** The chip whose label starts with `label`, and the count it shows. */
 const chipOf = (page: Page, label: RegExp) => page.locator(".filters .chip", { hasText: label });
 const chipCount = async (page: Page, label: RegExp) =>
-  Number(await chipOf(page, label).locator(".chip-count").innerText());
+  num(await chipOf(page, label).locator(".chip-count").innerText());
 
 /** Every entry that the results list renders, after opening all pages and publication groups. */
 async function renderedEntries(page: Page) {
@@ -45,8 +45,8 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   expect(await chipCount(page, /^Feats/)).toBe(feats);
 
   // A facet value equals the results of choosing it, on top of the query and the kind.
-  const school = page.locator(".filter-group", { hasText: "School" }).locator(".chip", { hasText: /^evocation\d+$/i });
-  const evocation = Number(await school.locator(".chip-count").innerText());
+  const school = page.locator(".filter-group", { hasText: "School" }).locator(".chip", { hasText: /^evocation[\d,]+$/i });
+  const evocation = num(await school.locator(".chip-count").innerText());
   expect(evocation).toBeGreaterThan(0);
   expect(evocation).toBeLessThanOrEqual(spells);
   await school.click();
@@ -59,7 +59,7 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   );
   for (const label of labels) {
     const chip = books.filter({ has: page.getByRole("checkbox", { name: label!, exact: true }) });
-    const n = Number(await chip.locator(".chip-count").innerText());
+    const n = num(await chip.locator(".chip-count").innerText());
     await chip.getByRole("checkbox", { name: label!, exact: true }).click();
     await expect.poll(() => renderedEntries(page)).toBe(n);
     await chip.getByRole("checkbox", { name: label!, exact: true }).click();
@@ -81,7 +81,7 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   expect(totalWithResults).toBeLessThan(corpus.catalog.sources.length);
   await expect(chips).toHaveCount(12);
   const firstPageCounts = await chips.locator(".chip-count").allInnerTexts();
-  expect(firstPageCounts.every((count) => Number(count) > 0)).toBe(true);
+  expect(firstPageCounts.every((text) => num(text) > 0)).toBe(true);
 
   // The name box and every chip are keyboard reachable, and a chip announces its count.
   const filterBox = group.getByRole("searchbox", { name: "Filter publications by name" });
@@ -107,7 +107,7 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   const expanded = await chips.locator("input").evaluateAll((inputs) =>
     inputs.map((input) => ({
       label: input.getAttribute("aria-label") ?? "",
-      count: Number((input.parentElement?.querySelector(".chip-count") as HTMLElement | null)?.textContent ?? "0"),
+      count: Number(((input.parentElement?.querySelector(".chip-count") as HTMLElement | null)?.textContent ?? "0").replace(/,/g, "")),
     })),
   );
   expect(expanded.every((chip) => chip.count > 0)).toBe(true);
@@ -122,7 +122,7 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   const outside = group.getByRole("checkbox", { name: outsideFirstPage.label, exact: true });
   await filterBox.fill(outsideFirstPage.label.replace(/, \d+ entr(y|ies)$/, ""));
   await expect(outside).toHaveCount(1);
-  await expect(outside.locator("xpath=..").locator(".chip-count")).toHaveText(String(outsideFirstPage.count));
+  await expect(outside.locator("xpath=..").locator(".chip-count")).toHaveText(count(outsideFirstPage.count));
 
   // Selecting a publication writes it to the URL and keeps the chip visible after a reload.
   await filterBox.fill("");
@@ -432,7 +432,7 @@ installedTest("Chip counts keep their last value while a query is pending", asyn
   const before = await countsOf();
   const widthsBefore = await widths();
   expect(before.length).toBeGreaterThan(3);
-  expect(before.every((text) => /^\d+$/.test(text ?? ""))).toBe(true);
+  expect(before.every((text) => /^[\d,]+$/.test(text ?? ""))).toBe(true);
   // The debounce has not fired yet when this script reads the chips back.
   const during = await page.evaluate(() => {
     const input = document.getElementById("search-input") as HTMLInputElement;

@@ -2,6 +2,7 @@
 //! state, so a search is deep-linkable and back works. Typing replaces the history entry after
 //! a short pause; toggling a filter or leaving Home with a query pushes one.
 
+use crate::fmt;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
@@ -187,7 +188,7 @@ fn chip_count(
 fn chip_name(label: &str, count: usize) -> String {
     match count {
         1 => format!("{label}, 1 entry"),
-        n => format!("{label}, {n} entries"),
+        n => format!("{label}, {} entries", fmt::count(n)),
     }
 }
 
@@ -908,7 +909,7 @@ pub fn Search() -> impl IntoView {
                         aria-label=move || chip_name(kind.label(), n())
                         on:change=move |_| change_filters(&|s| s.kinds = toggled(&s.kinds, &kind))
                     />
-                    <span>{kind.label()}<small class="chip-count">{n}</small></span>
+                    <span>{kind.label()}<small class="chip-count">{move || fmt::count(n())}</small></span>
                 </label>
             }
         })
@@ -994,7 +995,7 @@ pub fn Search() -> impl IntoView {
                         aria-label=move || chip_name(&name_title, n.get())
                         on:change=move |_| change_filters(&|s| s.sources = toggled(&s.sources, &change_id))
                     />
-                    <span>{title}<small class="chip-count">{n}</small></span>
+                    <span>{title}<small class="chip-count">{move || fmt::count(n.get())}</small></span>
                 </label>
             }
         }
@@ -1148,7 +1149,7 @@ pub fn Search() -> impl IntoView {
                                             }
                                             on:change=move |_| change_filters(&|s| s.facets = toggled(&s.facets, &pair2))
                                         />
-                                        <span>{label}<small class="chip-count">{n}</small></span>
+                                        <span>{label}<small class="chip-count">{move || n.get().map(fmt::count)}</small></span>
                                     </label>
                                 }
                             }).collect_view()}
@@ -1169,7 +1170,7 @@ pub fn Search() -> impl IntoView {
                 .count();
             view! {
                 <div class="empty">
-                    <p>{format!("Search {total} entries by name or by any word in the text.")}</p>
+                    <p>{format!("Search {} entries by name or by any word in the text.", fmt::count(total))}</p>
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {STARTERS.into_iter().map(|q| {
@@ -1208,7 +1209,7 @@ pub fn Search() -> impl IntoView {
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {count} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name))}</span></summary>
+                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::count(count))}</span></summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })
@@ -1233,13 +1234,17 @@ pub fn Search() -> impl IntoView {
             let text = match (n, n > limit) {
                 (0, _) => "No results".to_string(),
                 (1, _) => "1 result".to_string(),
-                (_, true) => format!("Top {} of {n} results", limit.min(n)),
-                _ => format!("{n} results"),
+                (_, true) => format!(
+                    "Top {} of {} results",
+                    fmt::count(limit.min(n)),
+                    fmt::count(n)
+                ),
+                _ => format!("{} results", fmt::count(n)),
             };
             if total == groups {
                 text
             } else {
-                format!("{text} · {total} publication entries")
+                format!("{text} · {} publication entries", fmt::count(total))
             }
         }
         _ => String::new(),
@@ -1628,6 +1633,7 @@ mod tests {
         assert_eq!(chip_name("Spells", 12), "Spells, 12 entries");
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
+        assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
     }
 
     fn source(id: &str, title: &str) -> SourceInfo {

@@ -1,6 +1,7 @@
 //! Spell lists: every class with its levels (the hub), and the list of one class, whole or by
 //! level. The data is `lists.json`, an index of `SpellFields::levels`.
 
+use crate::fmt;
 use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::Route;
@@ -106,7 +107,7 @@ pub fn spells_noun(n: usize) -> String {
     if n == 1 {
         "1 spell".into()
     } else {
-        format!("{n} spells")
+        format!("{} spells", fmt::count(n))
     }
 }
 
@@ -156,7 +157,7 @@ fn class_jump(list: &SpellListClass) -> impl IntoView + use<> {
         <li>
             <a class="jump class-jump" href=href aria-label=label>
                 <span>{list.name.clone()}</span>
-                <small class="muted">{total}</small>
+                <small class="muted">{fmt::count(total)}</small>
             </a>
         </li>
     }
