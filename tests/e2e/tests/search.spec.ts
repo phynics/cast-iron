@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
+import { bodyText, corpusEntry, hitTitles, installLibrary, openQuickSearch, pct, quickField, quickSearch, quickSearchFor, searchIcon, showAllResults, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -462,10 +462,11 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   const spell = corpusEntry("spell", "Fireball");
   const prefix = spell.title.slice(0, 3).toLowerCase();
   await page.keyboard.press("/");
-  await expect(page.locator("#search-input")).toBeFocused();
+  await expect(quickField(page)).toBeFocused();
   await page.keyboard.type(prefix);
   await page.keyboard.press("Enter");
   await expect(page.locator(".search-page")).toBeVisible();
+  await expect(page.locator("#search-input")).toHaveValue(prefix);
   await page.locator("#search-input").pressSequentially(spell.title.slice(prefix.length).toLowerCase());
   await waitResults(page, spell.title.toLowerCase());
   const titles = await hitTitles(page);
@@ -539,4 +540,129 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
 
   // Nothing but the browser's own service worker update check (sw.js, refused) reached the server.
   expect((await server.requests()).filter((p) => !p.startsWith("sw.js"))).toEqual([]);
+});
+
+// ---- Quick search (#164) -----------------------------------------------------------------
+
+installedTest("The header search icon opens Quick search, Enter shows the results, and there is one field", async ({ page }) => {
+  await installLibrary(page);
+  await expect(page.locator("#home-title")).toBeVisible();
+
+  // The header offers an icon, not a field, and no search field exists until the layer opens.
+  const icon = searchIcon(page);
+  await expect(icon).toBeVisible();
+  const box = (await icon.boundingBox())!;
+  expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+  await expect(page.locator("input[type=search]:visible")).toHaveCount(0);
+
+  const layer = await openQuickSearch(page);
+  await expect(layer).toHaveAttribute("aria-modal", "true");
+  await expect(page.locator("input[type=search]:visible")).toHaveCount(1);
+  const field = quickField(page);
+  await field.fill("grapple");
+  await expect(layer.getByRole("button", { name: "Clear search" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  await expect(quickSearch(page)).toBeHidden();
+  expect(page.url()).toContain("#/search?q=grapple");
+
+  // The results page has the same single field, with no second field and no Search button.
+  await expect(page.getByRole("searchbox", { name: "Search the rules" })).toHaveCount(1);
+  await expect(page.locator("#search-input")).toHaveValue("grapple");
+  await expect(page.locator(".search-page button[type=submit]")).toHaveCount(0);
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+
+  // Back from the results is the page that opened the layer, not a hidden layer.
+  await page.goBack();
+  await expect(page.locator("#home-title")).toBeVisible();
+  await expect(quickSearch(page)).toBeHidden();
+});
+
+installedTest("Quick search clears with its x and ignores an empty Enter", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+  await page.keyboard.press("Enter");
+  await expect(layer).toBeVisible();
+  expect(page.url()).not.toContain("#/search");
+  await field.fill("fire");
+  await layer.getByRole("button", { name: "Clear search" }).click();
+  await expect(field).toHaveValue("");
+  await expect(field).toBeFocused();
+  await expect(layer.getByRole("button", { name: "Clear search" })).toHaveCount(0);
+});
+
+installedTest("Quick search leaves no stale query in the header after searches and an entry", async ({ page }) => {
+  await installLibrary(page);
+  await quickSearchFor(page, "wizard discovery");
+  for (const query of ["arcane discovery", "ancient red dragon"]) {
+    await page.locator("#search-input").fill(query);
+    await waitResults(page, query);
+  }
+  await page.locator(".results .hit-link").first().click();
+  await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+  // Opening the layer again starts from an empty field, and Books shows no query either.
+  const layer = await openQuickSearch(page);
+  await expect(quickField(page)).toHaveValue("");
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  await page.goto("#/books");
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+});
+
+installedTest("Cancel, Escape and Back close Quick search on the same page, scroll and focus", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await expect(page.locator(".book-directory-row").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 600));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  const url = page.url();
+
+  const closers: [string, () => Promise<void>][] = [
+    ["Cancel", async () => { await quickSearch(page).getByRole("button", { name: "Cancel" }).click(); }],
+    ["Escape", async () => { await page.keyboard.press("Escape"); }],
+    ["Back", async () => { await page.goBack(); }],
+  ];
+  for (const [name, close] of closers) {
+    const layer = await openQuickSearch(page, { keyboard: true });
+    await quickField(page).fill("fire");
+    await close();
+    await expect(layer, name).toBeHidden();
+    expect(page.url(), name).toBe(url);
+    expect(await page.evaluate(() => Math.round(window.scrollY)), name).toBe(before);
+    await expect(searchIcon(page), name).toBeFocused();
+  }
+  // Closing three times leaves no layer behind: one Back leaves the page the layer was opened on.
+  await page.goBack();
+  expect(page.url()).not.toBe(url);
+});
+
+installedTest("Quick search keeps Tab inside the layer and honors reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("fire");
+  expect(await layer.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("dialog.quick-search"))).toBe(true);
+  }
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("dialog.quick-search"))).toBe(true);
+  }
+});
+
+installedTest("The header icon on the results page focuses its one field", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  await page.locator("#search-input").blur();
+  await searchIcon(page).click();
+  await expect(page.locator("#search-input")).toBeFocused();
+  await expect(quickSearch(page)).toBeHidden();
 });

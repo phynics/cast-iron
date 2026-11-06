@@ -15,6 +15,7 @@ pub mod home;
 pub mod installer;
 pub mod legal;
 pub mod not_found;
+pub mod quick_search;
 pub mod recent;
 pub mod related;
 pub mod rich;

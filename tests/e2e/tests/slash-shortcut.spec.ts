@@ -1,7 +1,7 @@
 import { installedTest as test, expect } from "./fixtures";
-import { installLibrary } from "./helpers";
+import { installLibrary, quickField, quickSearch, waitResults } from "./helpers";
 
-test("slash focuses the search box from the page and types inside it", async ({ page }) => {
+test("slash opens Quick search from the page and types inside it", async ({ page }) => {
   await installLibrary(page);
   await expect(page.locator("#home-title")).toBeVisible();
 
@@ -10,19 +10,21 @@ test("slash focuses the search box from the page and types inside it", async ({ 
   const before = page.url();
   await page.keyboard.press("/");
 
-  const search = page.getByRole("searchbox", { name: "Search the rules", exact: true });
+  const search = quickField(page);
   await expect(search).toBeFocused();
   expect(page.url()).toBe(before);
 
   // Inside the box, `/` is a character. It must not be swallowed as a shortcut.
   await page.keyboard.type("a/b");
   await expect(search).toHaveValue("a/b");
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  expect(page.url()).toBe(before);
 });
 
 test("slash works when the layout needs Shift, and ignores Ctrl", async ({ page }) => {
   await installLibrary(page);
   await expect(page.locator("#home-title")).toBeVisible();
-  const search = page.getByRole("searchbox", { name: "Search the rules", exact: true });
   const press = (init: KeyboardEventInit) =>
     page.evaluate((init) => {
       (document.activeElement as HTMLElement | null)?.blur();
@@ -31,9 +33,20 @@ test("slash works when the layout needs Shift, and ignores Ctrl", async ({ page 
 
   // Ctrl+/ is left to the browser and assistive tools.
   await press({ ctrlKey: true });
-  await expect(search).not.toBeFocused();
+  await expect(quickSearch(page)).toBeHidden();
 
   // German and French layouts produce `/` with Shift held.
   await press({ shiftKey: true });
-  await expect(search).toBeFocused();
+  await expect(quickSearch(page)).toBeVisible();
+  await expect(quickField(page)).toBeFocused();
+});
+
+test("slash focuses the field of the results page instead of opening a second one", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await page.keyboard.press("/");
+  await expect(page.locator("#search-input")).toBeFocused();
+  await expect(quickSearch(page)).toBeHidden();
 });

@@ -114,6 +114,42 @@ export async function searchFor(page: Page, query: string) {
   await waitResults(page, query);
 }
 
+/** The header's search icon: the one control that opens Quick search. */
+export const searchIcon = (page: Page) => page.locator("header.app-header").getByRole("button", { name: "Search", exact: true });
+
+/** The Quick search layer. */
+export const quickSearch = (page: Page) => page.getByRole("dialog", { name: "Quick search" });
+
+/** The field of the Quick search layer. */
+export const quickField = (page: Page) => quickSearch(page).locator("#quick-search-input");
+
+/**
+ * Open Quick search from the header icon and return the layer. A mouse click makes Playwright
+ * scroll the sticky header's natural position into view, which moves a scrolled page. Pass
+ * `keyboard` to open with the Enter key and keep the scroll position under test.
+ */
+export async function openQuickSearch(page: Page, { keyboard = false } = {}) {
+  if (keyboard) {
+    // `locator.focus()` scrolls a sticky element's natural position into view as well.
+    await searchIcon(page).evaluate((el) => el.focus({ preventScroll: true }));
+    await page.keyboard.press("Enter");
+  } else {
+    await searchIcon(page).click();
+  }
+  const layer = quickSearch(page);
+  await expect(layer).toBeVisible();
+  await expect(quickField(page)).toBeFocused();
+  return layer;
+}
+
+/** Search from any page through Quick search and wait for the results of exactly this query. */
+export async function quickSearchFor(page: Page, query: string) {
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill(query);
+  await page.keyboard.press("Enter");
+  await waitResults(page, query);
+}
+
 export async function waitResults(page: Page, query: string) {
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);

@@ -38,7 +38,7 @@ features = [
   "Response", "ResponseInit", "Headers", "AbortSignal",
   "IdbDatabase", "IdbTransaction", "IdbTransactionMode", "IdbObjectStore", "IdbRequest",
   "IdbOpenDbRequest", "IdbObjectStoreParameters", "FocusOptions", "IdbKeyRange", "DomException", "MediaQueryList", "DomTokenList",
-  "Performance", "KeyboardEvent", "HtmlInputElement", "HtmlDetailsElement", "Blob", "File", "FileList", "HtmlAnchorElement", "Url", "HtmlDialogElement",
+  "Performance", "KeyboardEvent", "HtmlInputElement", "HtmlDetailsElement", "Blob", "File", "FileList", "HtmlAnchorElement", "Url", "HtmlDialogElement", "PopStateEvent", "NodeList",
 ]
 
 [dev-dependencies]
