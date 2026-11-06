@@ -160,15 +160,13 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.locator("section[aria-labelledby=by-kind] .cat-name", { hasText: /^Rules$/ })).toHaveCount(0);
 
-  // Each installed publication has an expandable row and a direct contents link.
+  // Each installed publication has one row that links to its book page.
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   await page.goto("#/books");
   await openBookGroups(page);
-  const row = page.locator(".book-directory-row").filter({ has: page.locator("summary", { hasText: book.title }) });
-  await row.locator("summary").click();
-  await expect(row.locator(".book-tree-root")).toHaveText(`Read ${book.title}`);
-  await expect(page.locator(".book-tree .toc-list > li").first()).toBeVisible();
-  await row.locator(".book-tree-root").click();
+  const row = page.locator("a.book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${escape(book.title)}$`) }) });
+  await expect(page.locator(".book-tree-root")).toHaveCount(0);
+  await row.click();
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
 
   // Legacy source routes still reach the book contents when directly bookmarked. One route

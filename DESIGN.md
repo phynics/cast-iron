@@ -24,6 +24,10 @@ Rules that apply to every role:
 
 The star is an icon-only 44 by 44 button (`.star-btn`), in the title row on an entry and at the end of each starred row on Home. It keeps its accessible name (`Star {title}` or `Unstar {title}`) through `aria-label`. A starred entry shows a filled icon in `--accent`. Do not add visible text next to it.
 
+## Rows with a separate control
+
+A list row that opens a page and also carries its own control (the Books list: the book link and the Active switch) is one link plus a sibling control. The link fills the row, is at least 44 px tall and ends in a chevron, an inline `aria-hidden` SVG (`.book-chevron`). The control sits beside the link after a hairline, keeps its own 44 px target, and is never nested in the link. Do not hide content behind an inline disclosure in such a row: the page it opens holds the content.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.

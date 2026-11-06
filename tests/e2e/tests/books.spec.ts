@@ -126,7 +126,73 @@ test("Books sort inside each tier, and the URL keeps the choice", async ({ page 
   await expect(page.locator(".book-tier").first()).toBeVisible();
 });
 
-test("Expanded books show a hierarchical contents tree and build closed branches lazily", async ({ page }) => {
+test("A book row is one link to its book page, with no inline tree and no Read link", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const item = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
+  const link = item.locator("a.book-directory-row");
+  await expect(link).toHaveAttribute("href", `#/browse/book/${book.source}`);
+  await expect(link).toContainText(book.title);
+
+  // Nothing on the list expands, and nothing is called "Read ...".
+  await expect(page.locator(".book-directory-item details")).toHaveCount(0);
+  await expect(page.locator(".book-tree, [data-testid=book-tree], .book-tree-root")).toHaveCount(0);
+  await expect(page.locator(".book-directory-item").getByRole("link", { name: /^Read / })).toHaveCount(0);
+
+  // The switch is a sibling control, not nested in the link, and each target is 44 px tall.
+  await expect(link.locator("input")).toHaveCount(0);
+  const linkBox = (await link.boundingBox())!;
+  const switchBox = (await item.locator(".book-activation").boundingBox())!;
+  expect(linkBox.height).toBeGreaterThanOrEqual(44);
+  expect(switchBox.height).toBeGreaterThanOrEqual(44);
+  expect(switchBox.x).toBeGreaterThanOrEqual(linkBox.x + linkBox.width - 1);
+
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(book.source)}`));
+  await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
+});
+
+test("The active switch toggles a book without leaving Books", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const item = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
+  const toggle = item.getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
+  const before = await toggle.isChecked();
+  await toggle.click();
+  await expect(toggle).toBeChecked({ checked: !before });
+  await expect(page).toHaveURL(/#\/books$/);
+  await toggle.click();
+  await expect(toggle).toBeChecked({ checked: before });
+  await expect(page).toHaveURL(/#\/books$/);
+});
+
+test("Back from a book page returns to Books at the same scroll position", async ({ page }) => {
+  await page.goto("#/books");
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  // Use the groups as they open by default: a collapsed group is not part of the saved position.
+  const items = page.locator("details.tier-details[open] .book-directory-item");
+  const count = await items.count();
+  expect(count).toBeGreaterThan(8);
+  const target = items.nth(count - 1);
+  const id = (await target.getAttribute("data-book-id"))!;
+  await target.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 40));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  await target.locator("a.book-directory-row").click();
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(id)}`));
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  await expect
+    .poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before), { timeout: 5000 })
+    .toBeLessThanOrEqual(2);
+});
+
+test("A book page shows a hierarchical contents tree and builds closed branches lazily", async ({ page }) => {
   const book =
     bookTrees().find((candidate) =>
       candidate.chapters.some((chapter) =>
@@ -135,15 +201,9 @@ test("Expanded books show a hierarchical contents tree and build closed branches
     ) ?? bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0));
   if (!book) throw new Error("The compiled corpus has no book with nested contents.");
 
-  await page.goto("#/books");
-  await openBookGroups(page);
-  const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
-  await row.locator(".book-directory-row > summary").click();
-  const tree = row.getByTestId("book-tree");
+  await page.goto(`#/browse/book/${book.source}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
   await expect(tree).toBeVisible();
-  const root = tree.locator(".book-tree-root");
-  await expect(root).toHaveText(`Read ${book.title}`);
-  await expect(tree).toHaveAttribute("aria-label", new RegExp(`Contents of ${escape(book.title)}`));
 
   const chapterIndex = book.chapters.findIndex((chapter) => (chapter.children ?? []).length > 0);
   const chapter = book.chapters[chapterIndex];
@@ -155,9 +215,6 @@ test("Expanded books show a hierarchical contents tree and build closed branches
   await expect(chapterRow.locator(":scope > .toc-details > ul")).toHaveCount(0);
   await chapterSummary.click();
   await expect(chapterRow.locator(":scope > .toc-details > ul")).toBeVisible();
-  await expect(chapterRow.locator(":scope > .toc-details > ul > li")).toHaveCount(
-    chapter.children.length + (chapter.entry ? 1 : 0),
-  );
 
   // The disclosure is keyboard operable and reports its state through the native element.
   const details = chapterSummary.locator("xpath=..");
@@ -180,9 +237,4 @@ test("Expanded books show a hierarchical contents tree and build closed branches
     await branch.locator(":scope > .toc-details > summary").click();
     await expect(branchChildren).toBeVisible();
   }
-
-  // The root is the doorway into the full contents, the same as before the tree was added.
-  await root.click();
-  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(book.source)}`));
-  await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
 });

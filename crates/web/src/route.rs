@@ -510,9 +510,70 @@ pub fn replace(route: &Route) {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return;
     };
-    let _ = history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
+    // Keep the entry's state, which carries its scroll-memory id.
+    let state = history.state().unwrap_or(wasm_bindgen::JsValue::NULL);
+    let _ = history.replace_state_with_url(&state, "", Some(&route.href()));
     if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
         write.set(read_location_route());
+    }
+}
+
+thread_local! {
+    static SCROLL_MEMORY: std::cell::RefCell<ScrollMemory> = std::cell::RefCell::new(ScrollMemory::default());
+}
+
+/// The scroll offset of each history entry visited in this session. It lives in memory only:
+/// a reload starts clean, and a pushed entry that was never visited here has no offset.
+#[derive(Default)]
+struct ScrollMemory {
+    current: Option<u32>,
+    saved: std::collections::HashMap<u32, f64>,
+}
+
+fn history_entry_id(history: &web_sys::History) -> Option<u32> {
+    let state = history.state().ok()?;
+    js_sys::Reflect::get(&state, &"scrollId".into())
+        .ok()?
+        .as_f64()
+        .map(|id| id as u32)
+}
+
+/// Records the offset of the entry on screen. Call it from a window `scroll` listener.
+pub fn remember_scroll() {
+    let Some(y) = web_sys::window().and_then(|w| w.scroll_y().ok()) else {
+        return;
+    };
+    SCROLL_MEMORY.with(|memory| {
+        let mut memory = memory.borrow_mut();
+        if let Some(id) = memory.current {
+            memory.saved.insert(id, y);
+        }
+    });
+}
+
+/// Marks the history entry that a route change has just reached. An entry that this session
+/// visited before (Back or Forward) returns the offset it was left at. A new entry gets an id
+/// in its history state and returns `None`.
+pub fn arrive_at_entry() -> Option<f64> {
+    let history = web_sys::window()?.history().ok()?;
+    if let Some(id) = history_entry_id(&history) {
+        return SCROLL_MEMORY.with(|memory| {
+            let mut memory = memory.borrow_mut();
+            memory.current = Some(id);
+            memory.saved.get(&id).copied()
+        });
+    }
+    let id = (js_sys::Math::random() * f64::from(u32::MAX)) as u32;
+    let state = js_sys::Object::new();
+    let _ = js_sys::Reflect::set(&state, &"scrollId".into(), &f64::from(id).into());
+    let _ = history.replace_state(&state, "");
+    SCROLL_MEMORY.with(|memory| memory.borrow_mut().current = Some(id));
+    None
+}
+
+pub fn scroll_to_offset(y: f64) {
+    if let Some(window) = web_sys::window() {
+        window.scroll_to_with_x_and_y(0.0, y);
     }
 }
 
