@@ -115,7 +115,7 @@ Product context: `PRODUCT.md`. Data findings and counts: `docs/research/relation
 
 ## Navigation after the iPhone walkthrough
 
-- Search is a control available from each reading screen, not a primary destination. The search results route remains for URLs, filters, history, and keyboard lookup. Its heading remains available to screen readers without consuming visual space above the bar. Header submission reads the input value at submit time to avoid stale query state.
+- Search is a control available from each reading screen, not a primary destination. The search results route remains for URLs, filters, history, and keyboard lookup. Its heading remains available to screen readers without consuming visual space above the bar. Header submission reads the input value at submit time to avoid stale query state. Superseded by the Quick search entry (#181).
 - Home shows the six newest saved entries and recent reading. The existing bookmark and collection manager remains reachable from Home, preserving saved URLs and management actions. Books has a separate primary destination so reading a publication does not require going through category browsing.
 - A `grapple` query on the published iPhone build initially surfaced equipment and feats. Quick search scopes expose Rules text directly. Rule body headings feed the existing search alias field, so a section such as Grapple can surface its containing Special Attacks entry. The index layout stays at version 1, and content stays at schema 3. This improves discovery without claiming complete prerequisite or character-build logic.
 - App-shell and rules-library updates are separate lifecycles. Settings checks both; a waiting shell requires Reload, while a library replacement requires Download update. The shell-update acceptance test changes the service-worker version through a test-server hook, verifies it waits, then confirms activation preserves the active library and Home bookmarks offline. The hook is not shipped with the app.
@@ -133,7 +133,7 @@ These are accepted product directions awaiting implementation in [the UI task li
 
 ## Reference simplification implementation
 
-- Active-book preferences store disabled canonical book IDs under the existing metadata key `disabled_books`. Absence and an empty set mean all books active. Unknown disabled IDs survive updates, and newly added books default active. Disabling does not remove cache files or stars.
+- Active-book preferences store disabled canonical book IDs under the existing metadata key `disabled_books`. Absence and an empty set mean all books active. Unknown disabled IDs survive updates, and newly added books default active (new installs change to Paizo Rulebooks when #157 lands). Disabling does not remove cache files or stars.
 - `Library` keeps canonical reads. `Discovery` snapshots eligible IDs using book placement, with an explicit catalog-source fallback for older libraries or missing placement. Ordinary discovery uses this scope before counting, limiting, or projecting relations and spell lists. Search publication filters still describe attribution sources, which can differ from book placement.
 - Library loading reads preferences and placement before rendering discovery. A corrupt preference value offers Retry or Reset active books, preserving downloaded content and stars. Toggle writes publish a revision only after persistence. That revision rebuilds discovery screens, while Books remains mounted to preserve its controls and open sections.
 - Collection UI and manager routes are retired. Existing stored records remain readable, and each unique starred EntryId appears on Home. Missing entries keep their saved title and an Unstar action. Legacy saved-entry URLs recover to Home, and the old Rules-category URL recovers to Books.
@@ -725,3 +725,15 @@ Refs [#165](https://github.com/phynics/cast-iron/issues/165), [#164](https://git
 - **No two-column grid on wide screens.** The titles of rules entries are long, a single column keeps the kind next to its title and reads in recency order, and the list is at most five rows by default.
 - **The star in the hint is an inline SVG** like the other icons. Issue #175 replaces the remaining text glyphs; this change adds none.
 - **PRODUCT.md is unchanged.** Home still holds starred entries with direct open and unstar actions and recent reading. Only density and the empty state change.
+
+## Book presets and third-party books, 2026-11-06
+
+Refs [#157](https://github.com/phynics/cast-iron/issues/157), [#189](https://github.com/phynics/cast-iron/issues/189). Owner decisions; implementation is pending.
+
+- **Four presets.** Paizo Rulebooks is the default for new installs only; an existing install keeps the active set it has. Paizo Rulebooks & More adds Player Companions and Campaign Setting. Paizo Everything includes every Paizo book. Everything incl. 3rd party adds third-party books.
+- **Third-party books are opt-in.** They sit in their own group and are inactive by default. Only the Everything incl. 3rd party preset, that group's own control, or a book's own switch enables them.
+
+## Header search is Quick search, 2026-11-06
+
+Refs [#181](https://github.com/phynics/cast-iron/pull/181). PR #181 replaced the header search field with an icon that opens Quick search.
+

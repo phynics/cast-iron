@@ -13,6 +13,12 @@ owner approved them in [#127](https://github.com/phynics/cast-iron/issues/127).
 | 1. Alias-capable shell, PSRD library | `ae032ba` (one-time fast-forward push) | tag `psrd-last-buildable` plus `--psrd` | `vcdd730994d863e50`, 9,990 entries | [42200932251](https://github.com/phynics/cast-iron/actions/runs/42200932251): build and deploy succeeded |
 | 2. Canonical corpus library | `ccbfb7c` (`promote-release.py --push`) | `main` `ccbfb7c` (#177, #179, #184) | `vc01cc1c20a652c37` | [42206465391](https://github.com/phynics/cast-iron/actions/runs/42206465391): build and deploy succeeded |
 
+**Main is ahead of release.** `release` is at `ccbfb7c`. Merged on `main` since then, and not
+released: [#185](https://github.com/phynics/cast-iron/pull/185) Home density,
+[#190](https://github.com/phynics/cast-iron/pull/190) Books tab speed, and
+[#181](https://github.com/phynics/cast-iron/pull/181) Quick search. None of these has a Pages
+deployment.
+
 **CI**
 - Prep commit `ae032ba`: [42190040210](https://github.com/phynics/cast-iron/actions/runs/42190040210)
   succeeded on attempt 2, including the PSRD determinism steps. On attempt 1, WebKit shard 3/3
@@ -462,7 +468,7 @@ Navigation CI and deployment succeeded in runs 41595871949 and 41595872013. The 
 - [#13](https://github.com/phynics/cast-iron/issues/13): Book-order fidelity is incomplete. Core Rulebook main chapters are verified; other outlines, nested placement, and appendix grouping need publisher evidence and mapping work. Zero unplaced entries proves coverage, not printed order.
 - [#14](https://github.com/phynics/cast-iron/issues/14): Advanced Race Guide standard racial traits remain embedded in race bodies rather than standalone records. Alternate-trait replacement links are not modeled.
 - [#14](https://github.com/phynics/cast-iron/issues/14): Eight spell-list names lack a class entry, as listed above. The lists cover installed spells; they do not establish complete coverage of those classes or their books. Feat chains contain extracted named links, including alternatives, rather than complete eligibility logic.
-- [#15](https://github.com/phynics/cast-iron/issues/15): No "Referenced by" list for body links (needs a reverse link index). Typed relations have inverse lookups in the entry screens; ordinary body links still lack a reverse index.
+- [#43](https://github.com/phynics/cast-iron/issues/43), [#116](https://github.com/phynics/cast-iron/issues/116): The "Referenced by" panel shipped in #106; the remaining gaps are tracked here. Typed relations have inverse lookups in the entry screens, and the panel covers body links, but old libraries and the listed follow-ups are still open.
 - [#15](https://github.com/phynics/cast-iron/issues/15): Category lens counts and source counts are global. Search facet chips carry counts conditional on the other active filters; those counts are not used by the category lenses.
 - [#15](https://github.com/phynics/cast-iron/issues/15): In spell and creature `spells` stat lines, upstream lists become lines with breaks, so list structure is lost.
 - [#15](https://github.com/phynics/cast-iron/issues/15): Heading ids are not prefixed, so a content anchor could collide with an app element id such as `main`.
