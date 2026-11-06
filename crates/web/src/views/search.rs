@@ -7,6 +7,7 @@ use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
+use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
@@ -928,6 +929,7 @@ pub fn Search() -> impl IntoView {
         };
         view! {
             <button class="scope-choice" type="button" aria-pressed=move || selected().to_string()
+                id=kind.is_none().then_some("scope-all")
                 on:click=move |_| change_filters(&|s| s.kinds = kind.into_iter().collect())>
                 {label}
             </button>
@@ -1243,6 +1245,21 @@ pub fn Search() -> impl IntoView {
         _ => String::new(),
     };
 
+    // Removing the scope searches everything again. Focus moves to "All entries", which now
+    // reads as pressed; the field is left alone so a phone's keyboard does not rise.
+    let remove_scope = move |()| {
+        change_filters(&|s| {
+            s.kinds.clear();
+            s.facets.clear();
+        });
+        if let Some(button) = web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.get_element_by_id("scope-all"))
+            .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = button.focus();
+        }
+    };
     let clear_filters = move |_| {
         change_filters(&|s| {
             s.kinds.clear();
@@ -1304,6 +1321,13 @@ pub fn Search() -> impl IntoView {
                     </Show>
                 </div>
             </form>
+            // The scope that Quick search applied, or that a kind choice made: one tap removes it.
+            {move || state.with(|s| Scope::of_search(&s.kinds, &s.facets)).map(|scope| view! {
+                <div class="search-scope" role="group" aria-label="Search scope">
+                    <span class="quick-search-scope-label">"Searching in"</span>
+                    <ScopePill scope on_remove=Callback::new(remove_scope) />
+                </div>
+            })}
             <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
             <div class="search-layout">
                 <aside class="filters" aria-label="Filters">

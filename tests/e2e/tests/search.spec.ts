@@ -896,3 +896,162 @@ installedTest("Suggestions are announced only while the list is open, and the ic
   await waitResults(page, "fire");
   await expect(searchIcon(page)).not.toHaveAttribute("aria-haspopup", /./);
 });
+
+// ---- Scoped Quick search from a list page (#193) -----------------------------------------
+
+/**
+ * A word that is in a few feat titles and in many titles of other kinds, so a feat-only search
+ * and an everything search return visibly different lists.
+ */
+function sharedWord(): string {
+  const wordsOf = (title: string) => new Set(title.toLowerCase().split(/[^a-z]+/).filter((word) => word.length >= 5));
+  const feats = new Map<string, number>();
+  const others = new Map<string, number>();
+  for (const entry of entries) {
+    for (const word of wordsOf(entry.title)) {
+      const into = entry.kind === "feat" ? feats : others;
+      into.set(word, (into.get(word) ?? 0) + 1);
+    }
+  }
+  const candidates = [...feats.entries()]
+    .filter(([word, n]) => n <= 3 && (others.get(word) ?? 0) >= 12)
+    .sort((a, b) => (others.get(b[0]) ?? 0) - (others.get(a[0]) ?? 0));
+  if (!candidates.length) throw new Error("The compiled corpus has no word shared by a few feats and many other entries.");
+  return candidates[0][0];
+}
+
+const scopePill = (page: Page, name = "Feats") => page.getByRole("button", { name: `Remove scope: ${name}`, exact: true });
+
+installedTest("The header icon on a list page opens Quick search scoped to that kind, and one tap removes the scope", async ({ page }) => {
+  await installLibrary(page);
+  const word = sharedWord();
+  await page.goto("#/browse/kind/feat");
+  await expect(page.getByRole("heading", { level: 1, name: "Feats" })).toBeVisible();
+
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+  await expect(field).toHaveAttribute("placeholder", "Search feats");
+  await expect(field).toHaveAttribute("aria-label", "Search feats");
+  const pill = scopePill(page);
+  await expect(pill).toBeVisible();
+  await expect(layer.getByRole("group", { name: "Search scope" })).toContainText("Feats");
+  const box = (await pill.boundingBox())!;
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
+
+  // The suggestions honor the scope: every row is a feat.
+  await field.fill(word);
+  await expect(quickOptions(page).last()).toHaveText(`See all results for “${word}”`);
+  await expect.poll(async () => (await suggestionTitles(page)).length).toBeGreaterThan(0);
+  const metas = await layer.locator('[role="option"]:not(.quick-search-all) .quick-search-meta').allInnerTexts();
+  expect(metas.length).toBeGreaterThan(0);
+  for (const meta of metas) expect(meta).toMatch(/^Feat · /);
+
+  // Removing the scope keeps the text, returns focus to the field, and widens the suggestions.
+  await pill.click();
+  await expect(pill).toHaveCount(0);
+  await expect(field).toHaveValue(word);
+  await expect(field).toBeFocused();
+  await expect(field).toHaveAttribute("placeholder", "Search spells, feats, rules…");
+  await expect(field).toHaveAttribute("aria-label", "Search the rules");
+  await expect.poll(async () =>
+    (await layer.locator('[role="option"]:not(.quick-search-all) .quick-search-meta').allInnerTexts()).some((meta) => !meta.startsWith("Feat · ")),
+  ).toBe(true);
+
+  // Enter now searches everything.
+  await page.keyboard.press("Enter");
+  await waitResults(page, word);
+  expect(page.url()).not.toContain("kind=");
+  await expect(scopePill(page)).toHaveCount(0);
+  await expect.poll(async () => (await page.locator(".results .hit-meta").allInnerTexts()).some((meta) => !meta.startsWith("Feat"))).toBe(true);
+});
+
+installedTest("Enter in a scoped Quick search keeps the scope on the results page, where it can be removed", async ({ page }) => {
+  await installLibrary(page);
+  const word = sharedWord();
+  await page.goto("#/browse/kind/feat");
+  await openQuickSearch(page);
+  await quickField(page).fill(word);
+  await page.keyboard.press("Enter");
+  await waitResults(page, word);
+  await expect(quickSearch(page)).toBeHidden();
+  expect(page.url()).toContain(`#/search?q=${word}&kind=feat`);
+
+  // Every result is a feat, the scope shows, and the Feats choice is pressed.
+  const metas = await page.locator(".results .hit-meta").allInnerTexts();
+  expect(metas.length).toBeGreaterThan(0);
+  for (const meta of metas) expect(meta).toMatch(/^Feat/);
+  const pill = scopePill(page);
+  await expect(pill).toBeVisible();
+  await expect(page.getByRole("button", { name: "Feats", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".search-page").getByRole("button", { name: /^Remove scope/ })).toHaveCount(1);
+
+  // One tap removes it: the text stays, the URL loses the kind, and the results widen.
+  await pill.click();
+  await expect(pill).toHaveCount(0);
+  await expect.poll(() => new URL(page.url()).hash).toBe(`#/search?q=${word}`);
+  await waitResults(page, word);
+  await expect(page.locator("#search-input")).toHaveValue(word);
+  await expect(page.getByRole("button", { name: "All entries", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "All entries", exact: true })).toBeFocused();
+  await expect.poll(async () => (await page.locator(".results .hit-meta").allInnerTexts()).some((meta) => !meta.startsWith("Feat"))).toBe(true);
+});
+
+installedTest("A scope that the Feats choice does not offer still shows and removes on the results page", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/trait");
+  const layer = await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search traits");
+  await expect(scopePill(page, "Traits")).toBeVisible();
+  await layer.getByRole("button", { name: "Remove scope: Traits" }).click();
+  await expect(scopePill(page, "Traits")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+
+  await page.goto("#/search?q=bully&kind=trait");
+  await waitResults(page, "bully");
+  await expect(scopePill(page, "Traits")).toBeVisible();
+  await scopePill(page, "Traits").click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/search?q=bully");
+});
+
+installedTest("Back from a scoped search returns to the list, and the scope follows the page, not a memory", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const listHash = new URL(page.url()).hash;
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("grapple");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe(listHash);
+  await expect(layer).toBeHidden();
+
+  // Escape closes the layer on the same list page; the scope is read again at the next opening.
+  await openQuickSearch(page);
+  await expect(scopePill(page)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  expect(new URL(page.url()).hash).toBe(listHash);
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await expect(scopePill(page)).toHaveCount(0);
+  await expect(quickSearch(page).getByRole("group", { name: "Search scope" })).toHaveCount(0);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells, feats, rules…");
+  // Outside a list page a search is unscoped.
+  await quickField(page).fill("grapple");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  expect(page.url()).not.toContain("kind=");
+});
+
+installedTest("The / shortcut on a list page opens the same scoped Quick search", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/spell");
+  await expect(page.getByRole("heading", { level: 1, name: "Spells" })).toBeVisible();
+  await page.locator("main").focus();
+  await page.keyboard.press("/");
+  await expect(quickSearch(page)).toBeVisible();
+  await expect(scopePill(page, "Spells")).toBeVisible();
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells");
+});

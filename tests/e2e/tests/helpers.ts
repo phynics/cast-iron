@@ -1,5 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 
+/** A count as the app writes it. */
+export const count = (n: number) => String(n);
+
 /** The browse A to Z group of a title: an ASCII letter, else `#` for digits and symbols. */
 export function groupLetter(title: string): string {
   const first = [...title].find((char) => /[\p{L}\p{N}]/u.test(char))?.toUpperCase();
