@@ -241,6 +241,7 @@ pub struct RuleEntry {
     /// Every resolved internal reference that the body holds, deduplicated and sorted.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<EntryReference>,
+    /// Where an imported entry came from. Empty for a hand-written entry.
     pub provenance: Vec<Provenance>,
     /// License ids. Each id must exist in [`LegalNotices::licenses`].
     pub license_refs: Vec<String>,

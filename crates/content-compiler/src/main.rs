@@ -1,12 +1,15 @@
+use cast_iron_content_compiler::corpus_build::compile_corpus;
 use cast_iron_content_compiler::pipeline::{CanonicalOptions, Options, compile, compile_canonical};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cast-iron-compile --source-config <source.toml> --dataset <dir> --out <dir> --reports <dir> [--write-digest] [--strict] [--id-overrides <file>] [--canonical --pf-dataset <dir> --pf-registry <source.json> --canonical-dir <dir>]";
+const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir>\n   or: cast-iron-compile --source-config <source.toml> --dataset <dir> --out <dir> --reports <dir> [--write-digest] [--strict] [--id-overrides <file>] [--canonical --pf-dataset <dir> --pf-registry <source.json> --canonical-dir <dir>]";
 
 struct Args {
     options: Options,
     canonical: Option<CanonicalOptions>,
+    /// Compile from the plain-text corpus at this directory instead of an upstream dataset.
+    corpus: Option<PathBuf>,
 }
 
 fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
@@ -19,6 +22,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut pf_registry = None;
     let mut canonical_dir = None;
     let mut canonical = false;
+    let mut corpus = None;
     let mut write_digest = false;
     let mut strict = false;
     let mut args = args;
@@ -33,6 +37,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--pf-dataset" => pf_dataset = Some(PathBuf::from(value("--pf-dataset")?)),
             "--pf-registry" => pf_registry = Some(PathBuf::from(value("--pf-registry")?)),
             "--canonical-dir" => canonical_dir = Some(PathBuf::from(value("--canonical-dir")?)),
+            "--corpus" => corpus = Some(PathBuf::from(value("--corpus")?)),
             "--canonical" => canonical = true,
             "--write-digest" => write_digest = true,
             "--strict" => strict = true,
@@ -41,6 +46,36 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
         }
     }
     let need = |v: Option<PathBuf>, n: &str| v.ok_or_else(|| format!("missing {n}\n{USAGE}"));
+    if corpus.is_some() {
+        if source_config.is_some()
+            || dataset.is_some()
+            || canonical
+            || pf_dataset.is_some()
+            || pf_registry.is_some()
+            || canonical_dir.is_some()
+            || overrides.is_some()
+            || write_digest
+            || strict
+        {
+            return Err(format!(
+                "--corpus reads no upstream dataset and takes only --out and --reports\n{USAGE}"
+            ));
+        }
+        let options = Options {
+            source_config: PathBuf::new(),
+            dataset: PathBuf::new(),
+            out: need(out, "--out")?,
+            reports: need(reports, "--reports")?,
+            write_digest: false,
+            strict: false,
+            overrides: None,
+        };
+        return Ok(Args {
+            options,
+            canonical: None,
+            corpus,
+        });
+    }
     let options = Options {
         source_config: need(source_config, "--source-config")?,
         dataset: need(dataset, "--dataset")?,
@@ -65,7 +100,11 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
         }
         None
     };
-    Ok(Args { options, canonical })
+    Ok(Args {
+        options,
+        canonical,
+        corpus,
+    })
 }
 
 fn main() -> ExitCode {
@@ -76,13 +115,18 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let Args { options, canonical } = args;
+    let Args {
+        options,
+        canonical,
+        corpus,
+    } = args;
     // Rules trees nest up to 15 JSON levels. A large stack keeps deeper input from overflowing.
     let worker = std::thread::Builder::new()
         .stack_size(256 * 1024 * 1024)
-        .spawn(move || match canonical {
-            Some(canonical) => compile_canonical(&canonical),
-            None => compile(&options),
+        .spawn(move || match (corpus, canonical) {
+            (Some(corpus), _) => compile_corpus(&corpus, &options.out, &options.reports),
+            (None, Some(canonical)) => compile_canonical(&canonical),
+            (None, None) => compile(&options),
         });
     let result = match worker.map(|h| h.join()) {
         Ok(Ok(result)) => result,
