@@ -77,7 +77,8 @@ test("Books sort inside each tier, and the URL keeps the choice", async ({ page 
     const radius = await link.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
     expect(radius).not.toBe("999px");
     expect(parseFloat(radius)).toBeLessThan(10);
-    expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    const box = await link.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
   }
 
   await sortNav.getByRole("link", { name: "Category", exact: true }).click();
