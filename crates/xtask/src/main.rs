@@ -46,8 +46,10 @@ cargo xtask <command>
   corpus-export <out-dir> [--content <dir>]
                              Write the plain-text corpus from the compiled library
                              (default generated/content)
-  corpus-check <dir>         Read a plain-text corpus and validate ids, paths, sources,
-                             and licences; exits non-zero and names the file and line
+  corpus-check <dir> [--drift-report <file>]
+                             Read a plain-text corpus and validate ids, paths, sources,
+                             and licences; exits non-zero and names the file and line.
+                             Lists fields-versus-body disagreements as warnings
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-roundtrip <dir> [--content <dir>]
@@ -913,18 +915,43 @@ fn corpus_export(args: &[String]) -> Result {
 }
 
 fn corpus_check(args: &[String]) -> Result {
-    if args.len() != 1 {
-        return Err("usage: corpus-check <dir>".into());
+    let mut dir = None;
+    let mut drift_report = None;
+    let mut rest = args.iter();
+    while let Some(argument) = rest.next() {
+        match argument.as_str() {
+            "--drift-report" => {
+                drift_report = Some(PathBuf::from(
+                    rest.next().ok_or("--drift-report needs a file path")?,
+                ));
+            }
+            other if other.starts_with('-') => {
+                return Err(format!("unknown argument {other:?} for corpus-check"));
+            }
+            other => {
+                if dir.replace(PathBuf::from(other)).is_some() {
+                    return Err("corpus-check takes one corpus directory".into());
+                }
+            }
+        }
     }
-    let corpus = Corpus::load(Path::new(&args[0])).map_err(|errors| {
+    let dir = dir.ok_or("usage: corpus-check <dir> [--drift-report <file>]")?;
+    let corpus = Corpus::load(&dir).map_err(|errors| {
         for error in &errors {
             eprintln!("{error}");
         }
         format!("corpus check failed with {} read error(s)", errors.len())
     })?;
     let report = check_corpus(&corpus);
-    for warning in &report.warnings {
+    if let Some(path) = &drift_report {
+        fs::write(path, report.drift_report())
+            .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
+    for warning in report.warnings.iter().take(20) {
         eprintln!("warning: {warning}");
+    }
+    if report.warnings.len() > 20 {
+        eprintln!("warning: ... and {} more", report.warnings.len() - 20);
     }
     if !report.problems.is_empty() {
         for problem in &report.problems {
@@ -942,6 +969,18 @@ fn corpus_check(args: &[String]) -> Result {
         corpus.books.books.len(),
         corpus.legal.licenses.len()
     );
+    if !report.drift.is_empty() {
+        let kinds: Vec<String> = report
+            .drift_by_kind()
+            .iter()
+            .map(|(kind, count)| format!("{kind} {count}"))
+            .collect();
+        println!(
+            "drift warnings: {} ({})",
+            report.drift.len(),
+            kinds.join(", ")
+        );
+    }
     Ok(())
 }
 

@@ -1,5 +1,6 @@
 //! Cross-file checks over a loaded corpus.
 
+use crate::drift::{Disagreement, find_drift};
 use crate::entry::entry_path;
 use crate::load::Corpus;
 use cast_iron_schema::headings::keyed_headings;
@@ -13,6 +14,40 @@ use std::path::Path;
 pub struct Report {
     pub problems: Vec<String>,
     pub warnings: Vec<String>,
+    /// Values that `[fields]` and the body both state and that disagree. Each one is also
+    /// listed in `warnings`.
+    pub drift: Vec<Disagreement>,
+}
+
+impl Report {
+    /// Disagreements per entry kind, by kind slug.
+    pub fn drift_by_kind(&self) -> BTreeMap<&str, usize> {
+        let mut counts = BTreeMap::new();
+        for item in &self.drift {
+            *counts.entry(item.kind.as_str()).or_default() += 1;
+        }
+        counts
+    }
+
+    /// The drift list as a report file: counts per kind, then one line per disagreement.
+    pub fn drift_report(&self) -> String {
+        let mut out = String::from("# Corpus drift report\n\n");
+        out.push_str(
+            "Values that `[fields]` and the body both state and that disagree. Each line names both places.\n\n",
+        );
+        out.push_str("| Kind | Disagreements |\n|---|---|\n");
+        for (kind, count) in self.drift_by_kind() {
+            out.push_str(&format!("| {kind} | {count} |\n"));
+        }
+        out.push_str(&format!("| **total** | **{}** |\n\n", self.drift.len()));
+        let mut sorted: Vec<&Disagreement> = self.drift.iter().collect();
+        sorted.sort_by(|a, b| (&a.kind, &a.id, a.field).cmp(&(&b.kind, &b.id, b.field)));
+        for item in sorted {
+            out.push_str(&item.describe());
+            out.push('\n');
+        }
+        out
+    }
 }
 
 /// The 1-based line of the first line of `text` that holds `needle`, or 1.
@@ -168,6 +203,10 @@ pub fn check(corpus: &Corpus) -> Report {
             }
         }
         let _ = id;
+        for item in find_drift(stored) {
+            report.warnings.push(item.describe());
+            report.drift.push(item);
+        }
     }
 
     for tree in &corpus.books.books {

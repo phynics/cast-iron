@@ -488,6 +488,35 @@ file and line, when:
   the fix);
 - `exclusions.toml` repeats a row.
 
+## Drift between fields and body
+
+Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`
+compares each pair that states a value in both places and lists every disagreement
+as a **warning** that names both places:
+
+```text
+entries/feat/accursed-hex.md:12: [fields] prerequisites = "Accursed Hex." disagrees with the `**Prerequisites:**` line = "Hex class feature." (line 20)
+```
+
+It prints the count per kind. `--drift-report <file>` writes the full list. The
+check is a warning, not an error, because the freeze data already holds
+disagreements (see `reports/corpus-drift.md`). Fix the wrong copy, or leave it.
+
+| Kind | Typed field | Body |
+|---|---|---|
+| spell | `school`, `subschools`, `descriptors`, `levels`, `casting_time`, `components`, `range`, `effects`, `duration`, `saving_throw`, `spell_resistance` | the matching rows of the stat block (`School`, `Level`, `Range`, `Target`/`Effect`/`Area`, ...) |
+| creature | `cr`, `creature_type`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR`, `Type`, `Size`, `AC`, `hp`, `Fort`, ... rows |
+| item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot`, `Aura`, `CL` rows |
+| feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
+
+The comparison reads both sides as words: it ignores case, repeated blanks, an
+end period, `*` and `[label](target)` markers, and a few entities (`&times;`). A
+spell's `School` row may add the subschool and descriptors. A feat field agrees
+when any `**Label:**` line in the body says the same, because a feat with a
+mythic variant states the label twice. A value stated in only one place is not
+drift. The two copies are not unified: the typed fields feed search and facets,
+and the body is what a reader sees.
+
 ## Formatting
 
 `corpus-fmt <dir>` rewrites every file into its one canonical form, and

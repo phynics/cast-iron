@@ -23,6 +23,7 @@
 mod block;
 mod check;
 mod config;
+mod drift;
 mod entry;
 mod error;
 mod files;
@@ -37,6 +38,7 @@ pub use check::{Report, check, fields_kind, fields_match, heading_keys, line_of}
 pub use config::{
     CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, read_config, write_config,
 };
+pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{

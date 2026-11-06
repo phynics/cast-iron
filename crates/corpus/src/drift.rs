@@ -1,0 +1,837 @@
+//! Drift between the typed `[fields]` and the body text that states the same value.
+//!
+//! An entry keeps some values twice: once in `[fields]`, where search and facets read
+//! them, and once in the body, where the reader sees them (a spell's `Range` row, a
+//! creature's `AC` row, a feat's `**Prerequisites:**` line). The corpus keeps both
+//! copies. This check compares each pair that both state and reports every
+//! disagreement, naming both places, so a hand edit to one copy is noticed.
+
+use crate::load::Stored;
+use cast_iron_schema::headings::plain_text;
+use cast_iron_schema::{Block, Inline, RuleEntry, StatRow, TypedFields};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+
+/// One pair of values that disagree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Disagreement {
+    pub id: String,
+    pub path: PathBuf,
+    /// The entry kind slug.
+    pub kind: String,
+    pub field: &'static str,
+    pub field_line: usize,
+    pub field_value: String,
+    /// `stat block row `Range`` or ``**Prerequisites:**` line`.
+    pub source: String,
+    pub source_line: usize,
+    pub source_value: String,
+}
+
+impl Disagreement {
+    /// `path:line: [fields] range = "A" disagrees with the stat block row `Range`: "B" (line 36)`
+    pub fn describe(&self) -> String {
+        format!(
+            "{}:{}: [fields] {} = {:?} disagrees with the {} = {:?} (line {})",
+            self.path.display(),
+            self.field_line,
+            self.field,
+            self.field_value,
+            self.source,
+            self.source_value,
+            self.source_line
+        )
+    }
+}
+
+/// The typed fields keep the upstream Markdown (`*emphasis*`, `[label](target)`); the body
+/// holds the same words as typed nodes. Reduce both to their words.
+fn strip_markup(text: &str) -> String {
+    let decoded = text
+        .replace("&times;", "×")
+        .replace("&dagger;", "†")
+        .replace("&amp;", "&");
+    let text = decoded.as_str();
+    let mut out = String::with_capacity(text.len());
+    let chars: Vec<char> = text.chars().collect();
+    let mut index = 0;
+    while index < chars.len() {
+        match chars[index] {
+            '*' => index += 1,
+            '[' => {
+                // `[label](target)` keeps the label.
+                let close = chars[index..].iter().position(|ch| *ch == ']');
+                match close {
+                    Some(offset) if chars.get(index + offset + 1) == Some(&'(') => {
+                        let label: String = chars[index + 1..index + offset].iter().collect();
+                        out.push_str(&label);
+                        let end = chars[index + offset..]
+                            .iter()
+                            .position(|ch| *ch == ')')
+                            .map_or(chars.len(), |end| index + offset + end + 1);
+                        index = end;
+                    }
+                    _ => {
+                        out.push('[');
+                        index += 1;
+                    }
+                }
+            }
+            ch => {
+                out.push(ch);
+                index += 1;
+            }
+        }
+    }
+    out
+}
+
+/// Lowercase, one space between words, no end punctuation, no Markdown markers.
+fn normalize(text: &str) -> String {
+    strip_markup(text)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+        .trim_end_matches(['.', ';'])
+        .to_string()
+}
+
+fn split_on_break(inlines: &[Inline]) -> Vec<&[Inline]> {
+    let mut parts = Vec::new();
+    let mut start = 0;
+    for (index, inline) in inlines.iter().enumerate() {
+        if matches!(inline, Inline::Break) {
+            parts.push(&inlines[start..index]);
+            start = index + 1;
+        }
+    }
+    parts.push(&inlines[start..]);
+    parts
+}
+
+fn stat_rows(body: &[Block]) -> Vec<&StatRow> {
+    body.iter()
+        .filter_map(|block| match block {
+            Block::StatBlock { rows, .. } => Some(rows),
+            _ => None,
+        })
+        .flatten()
+        .collect()
+}
+
+/// The text after each bold `**Label:**` in the top-level paragraphs, up to the next break,
+/// in document order. A feat with a mythic variant states the label more than once.
+fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
+    let wanted = format!("{label}:");
+    let mut found = Vec::new();
+    for block in body {
+        let Block::Paragraph { content, .. } = block else {
+            continue;
+        };
+        for (start, inline) in content.iter().enumerate() {
+            if !matches!(inline, Inline::Strong { c } if plain_text(c).trim() == wanted) {
+                continue;
+            }
+            let rest = &content[start + 1..];
+            let end = rest
+                .iter()
+                .position(|inline| matches!(inline, Inline::Break))
+                .unwrap_or(rest.len());
+            found.push(plain_text(&rest[..end]).trim().to_string());
+        }
+    }
+    found
+}
+
+/// The 1-based line of the first line after the front matter that satisfies `matches`.
+fn body_line(text: &str, matches: impl Fn(&str) -> bool) -> usize {
+    let mut lines = text.lines().enumerate();
+    // Skip the front matter: two `+++` lines.
+    let mut fences = 0;
+    for (index, line) in lines.by_ref() {
+        if line.trim_end() == "+++" {
+            fences += 1;
+            if fences == 2 {
+                let _ = index;
+                break;
+            }
+        }
+    }
+    for (index, line) in lines {
+        if matches(line) {
+            return index + 1;
+        }
+    }
+    1
+}
+
+fn field_line(text: &str, field: &str) -> usize {
+    let prefix = format!("{field} = ");
+    text.lines()
+        .position(|line| line.starts_with(&prefix))
+        .map_or(1, |index| index + 1)
+}
+
+/// One field-to-row pair with the text each side states.
+struct Pair {
+    field: &'static str,
+    field_value: String,
+    source: String,
+    source_line: usize,
+    source_value: String,
+    agree: bool,
+}
+
+fn row_pair(
+    text: &str,
+    rows: &[&StatRow],
+    field: &'static str,
+    value: &str,
+    labels: &[&str],
+) -> Option<Pair> {
+    let row = rows.iter().find(|row| {
+        labels
+            .iter()
+            .any(|label| row.label.eq_ignore_ascii_case(label))
+    })?;
+    let source_value = plain_text(&row.value).trim().to_string();
+    let label = row.label.clone();
+    let prefix = format!("{}:", label.to_lowercase());
+    Some(Pair {
+        field,
+        field_value: value.to_string(),
+        source: format!("stat block row `{label}`"),
+        source_line: body_line(text, |line| line.to_lowercase().starts_with(&prefix)),
+        agree: normalize(value) == normalize(&source_value),
+        source_value,
+    })
+}
+
+fn text_pair(
+    text: &str,
+    body: &[Block],
+    field: &'static str,
+    value: &str,
+    label: &str,
+) -> Option<Pair> {
+    let stated = labelled_texts(body, label);
+    let source_value = stated.first()?.clone();
+    let marker = format!("**{label}:**");
+    // The typed field may hold a variant's wording, so it agrees when any statement matches.
+    let agree = stated
+        .iter()
+        .any(|statement| normalize(value) == normalize(statement));
+    Some(Pair {
+        field,
+        field_value: value.to_string(),
+        source: format!("`**{label}:**` line"),
+        source_line: body_line(text, |line| line.contains(&marker)),
+        agree,
+        source_value,
+    })
+}
+
+fn joined(values: &[String]) -> String {
+    values.join(", ")
+}
+
+/// `(class, level)` pairs of a spell's `Level` row: lines like `2: Arcanist, Druid`.
+fn parse_levels(value: &[Inline]) -> BTreeSet<(String, u8)> {
+    let mut found = BTreeSet::new();
+    for line in split_on_break(value) {
+        let line = plain_text(line);
+        let Some((level, classes)) = line.split_once(':') else {
+            continue;
+        };
+        let Ok(level) = level.trim().parse::<u8>() else {
+            continue;
+        };
+        for class in classes.split(',') {
+            let class = normalize(class);
+            if !class.is_empty() {
+                found.insert((class, level));
+            }
+        }
+    }
+    found
+}
+
+fn describe_levels(levels: &BTreeSet<(String, u8)>) -> String {
+    let mut by_level: std::collections::BTreeMap<u8, Vec<&str>> = Default::default();
+    for (class, level) in levels {
+        by_level.entry(*level).or_default().push(class);
+    }
+    by_level
+        .iter()
+        .map(|(level, classes)| format!("{level}: {}", classes.join(", ")))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+const SPELL_OTHER_ROWS: &[&str] = &[
+    "School",
+    "Subschool",
+    "Descriptors",
+    "Level",
+    "Casting time",
+    "Components",
+    "Range",
+    "Duration",
+    "Saving throw",
+    "Spell resistance",
+];
+
+fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
+    let TypedFields::Spell(fields) = &entry.fields else {
+        return vec![];
+    };
+    let mut pairs = Vec::new();
+    if let Some(mut pair) = row_pair(text, rows, "school", &fields.school, &["School"]) {
+        // The row adds the subschool and descriptors: `conjuration (calling) [curse]`.
+        let school = normalize(&fields.school);
+        let stated = normalize(&pair.source_value);
+        pair.agree = pair.agree
+            || stated.starts_with(&format!("{school} ("))
+            || stated.starts_with(&format!("{school} ["));
+        pairs.push(pair);
+    }
+    if !fields.subschools.is_empty() {
+        pairs.extend(row_pair(
+            text,
+            rows,
+            "subschools",
+            &joined(&fields.subschools),
+            &["Subschool"],
+        ));
+    }
+    if !fields.descriptors.is_empty() {
+        pairs.extend(row_pair(
+            text,
+            rows,
+            "descriptors",
+            &joined(&fields.descriptors),
+            &["Descriptors"],
+        ));
+    }
+    if let Some(row) = rows
+        .iter()
+        .find(|row| row.label.eq_ignore_ascii_case("Level"))
+        && !fields.levels.is_empty()
+    {
+        let stated = parse_levels(&row.value);
+        let typed: BTreeSet<(String, u8)> = fields
+            .levels
+            .iter()
+            .map(|level| (normalize(&level.class), level.level))
+            .collect();
+        pairs.push(Pair {
+            field: "levels",
+            field_value: describe_levels(&typed),
+            source: "stat block row `Level`".into(),
+            source_line: body_line(text, |line| line.to_lowercase().starts_with("level:")),
+            source_value: describe_levels(&stated),
+            agree: typed == stated,
+        });
+    }
+    for (field, value, labels) in [
+        ("casting_time", &fields.casting_time, &["Casting time"][..]),
+        ("components", &fields.components, &["Components"][..]),
+        ("range", &fields.range, &["Range"][..]),
+        ("duration", &fields.duration, &["Duration"][..]),
+        ("saving_throw", &fields.saving_throw, &["Saving throw"][..]),
+        (
+            "spell_resistance",
+            &fields.spell_resistance,
+            &["Spell resistance"][..],
+        ),
+    ] {
+        if let Some(value) = value {
+            pairs.extend(row_pair(text, rows, field, value, labels));
+        }
+    }
+    if !fields.effects.is_empty() {
+        let stated: BTreeSet<(String, String)> = rows
+            .iter()
+            .filter(|row| {
+                !SPELL_OTHER_ROWS
+                    .iter()
+                    .any(|other| row.label.eq_ignore_ascii_case(other))
+            })
+            .map(|row| (normalize(&row.label), normalize(&plain_text(&row.value))))
+            .collect();
+        if !stated.is_empty() {
+            let typed: BTreeSet<(String, String)> = fields
+                .effects
+                .iter()
+                .map(|(label, value)| (normalize(label), normalize(value)))
+                .collect();
+            let show = |set: &BTreeSet<(String, String)>| {
+                set.iter()
+                    .map(|(label, value)| format!("{label}: {value}"))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            };
+            let first = rows
+                .iter()
+                .find(|row| {
+                    !SPELL_OTHER_ROWS
+                        .iter()
+                        .any(|other| row.label.eq_ignore_ascii_case(other))
+                })
+                .map(|row| row.label.to_lowercase())
+                .unwrap_or_default();
+            pairs.push(Pair {
+                field: "effects",
+                field_value: show(&typed),
+                source: "stat block rows `Target`, `Effect`, `Area`".into(),
+                source_line: body_line(text, |line| {
+                    line.to_lowercase().starts_with(&format!("{first}:"))
+                }),
+                source_value: show(&stated),
+                agree: typed == stated,
+            });
+        }
+    }
+    pairs
+}
+
+/// The six ability scores of an `Ability Scores` row: `Str 3, Dex 16, ...`.
+fn parse_abilities(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(|part| {
+            part.split_whitespace()
+                .last()
+                .unwrap_or_default()
+                .to_string()
+        })
+        .collect()
+}
+
+fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
+    let TypedFields::Creature(fields) = &entry.fields else {
+        return vec![];
+    };
+    let mut pairs = Vec::new();
+    if let Some(cr) = fields.cr {
+        pairs.extend(row_pair(text, rows, "cr", &cr.display(), &["CR"]));
+    }
+    for (field, value, labels) in [
+        ("size", &fields.size, &["Size"][..]),
+        ("alignment", &fields.alignment, &["Alignment"][..]),
+        ("ac", &fields.ac, &["AC"][..]),
+        ("hp", &fields.hp, &["hp"][..]),
+        ("fortitude", &fields.fortitude, &["Fort"][..]),
+        ("reflex", &fields.reflex, &["Ref"][..]),
+        ("will", &fields.will, &["Will"][..]),
+        ("melee", &fields.melee, &["Melee"][..]),
+        ("ranged", &fields.ranged, &["Ranged"][..]),
+        (
+            "special_attacks",
+            &fields.special_attacks,
+            &["Special Attacks"][..],
+        ),
+        (
+            "special_qualities",
+            &fields.special_qualities,
+            &["SQ", "Special Qualities"][..],
+        ),
+    ] {
+        if let Some(value) = value {
+            pairs.extend(row_pair(text, rows, field, value, labels));
+        }
+    }
+    if let Some(kind) = &fields.creature_type {
+        // The row may add the subtypes in parentheses.
+        let with_subtypes = if fields.subtypes.is_empty() {
+            kind.clone()
+        } else {
+            format!("{kind} ({})", joined(&fields.subtypes))
+        };
+        if let Some(mut pair) = row_pair(text, rows, "creature_type", &with_subtypes, &["Type"]) {
+            pair.agree = pair.agree || normalize(kind) == normalize(&pair.source_value);
+            pairs.push(pair);
+        }
+    }
+    if let Some(abilities) = &fields.abilities
+        && let Some(row) = rows
+            .iter()
+            .find(|row| row.label.eq_ignore_ascii_case("Ability Scores"))
+    {
+        let stated_text = plain_text(&row.value);
+        let stated = parse_abilities(&stated_text);
+        let typed: Vec<String> = abilities.to_vec();
+        pairs.push(Pair {
+            field: "abilities",
+            field_value: typed.join(", "),
+            source: "stat block row `Ability Scores`".into(),
+            source_line: body_line(text, |line| line.starts_with("Ability Scores:")),
+            source_value: stated_text.trim().to_string(),
+            agree: typed
+                .iter()
+                .map(|value| normalize(value))
+                .eq(stated.iter().map(|value| normalize(value))),
+        });
+    }
+    pairs
+}
+
+fn item_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
+    let TypedFields::Item(fields) = &entry.fields else {
+        return vec![];
+    };
+    let mut pairs = Vec::new();
+    for (field, value, labels) in [
+        ("price", &fields.price, &["Price"][..]),
+        ("weight", &fields.weight, &["Weight"][..]),
+        ("slot", &fields.slot, &["Slot"][..]),
+        ("aura", &fields.aura, &["Aura"][..]),
+        ("caster_level", &fields.caster_level, &["CL"][..]),
+    ] {
+        if let Some(value) = value {
+            pairs.extend(row_pair(text, rows, field, value, labels));
+        }
+    }
+    pairs
+}
+
+fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
+    let TypedFields::Feat(fields) = &entry.fields else {
+        return vec![];
+    };
+    let mut pairs = Vec::new();
+    for (field, value, label) in [
+        ("prerequisites", &fields.prerequisites, "Prerequisites"),
+        ("benefit", &fields.benefit, "Benefit"),
+        ("normal", &fields.normal, "Normal"),
+        ("special", &fields.special, "Special"),
+    ] {
+        if let Some(value) = value {
+            pairs.extend(text_pair(text, &entry.body, field, value, label));
+        }
+    }
+    pairs
+}
+
+/// Every pair in the entry that states a value in both places and disagrees.
+pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
+    let entry = &stored.entry;
+    let rows = stat_rows(&entry.body);
+    let pairs = match &entry.fields {
+        TypedFields::Spell(_) => spell_pairs(entry, &stored.text, &rows),
+        TypedFields::Creature(_) => creature_pairs(entry, &stored.text, &rows),
+        TypedFields::Item(_) => item_pairs(entry, &stored.text, &rows),
+        TypedFields::Feat(_) => feat_pairs(entry, &stored.text),
+        _ => vec![],
+    };
+    pairs
+        .into_iter()
+        .filter(|pair| !pair.agree)
+        .map(|pair| Disagreement {
+            id: entry.id.to_string(),
+            path: stored.path.clone(),
+            kind: entry.kind.slug().to_string(),
+            field: pair.field,
+            field_line: field_line(&stored.text, pair.field),
+            field_value: pair.field_value,
+            source: pair.source,
+            source_line: pair.source_line,
+            source_value: pair.source_value,
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+    use crate::entry::{entry_path, write_entry};
+    use cast_iron_schema::{
+        CreatureFields, EntryId, EntryKind, FeatFields, ItemFields, ParagraphStyle, SpellFields,
+        SpellLevel,
+    };
+
+    fn stored(mut entry: RuleEntry) -> Stored {
+        entry.links.clear();
+        Stored {
+            text: write_entry(&entry, &Config::default()),
+            path: entry_path(&entry.id),
+            entry,
+        }
+    }
+
+    fn base(id: &str, kind: EntryKind, fields: TypedFields, body: Vec<Block>) -> RuleEntry {
+        RuleEntry {
+            id: EntryId::parse(id).unwrap(),
+            kind,
+            title: "T".into(),
+            source_ids: vec!["core-rulebook".into()],
+            section: vec![],
+            parent: None,
+            body,
+            fields,
+            tags: vec![],
+            links: vec![],
+            provenance: vec![],
+            license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+            relations: vec![],
+        }
+    }
+
+    fn row(label: &str, value: &str) -> StatRow {
+        StatRow {
+            label: label.into(),
+            value: vec![Inline::text(value)],
+        }
+    }
+
+    fn statblock(rows: Vec<StatRow>) -> Block {
+        Block::StatBlock { title: None, rows }
+    }
+
+    fn spell(range_field: &str, range_row: &str) -> Stored {
+        stored(base(
+            "ref/spell/test",
+            EntryKind::Spell,
+            TypedFields::Spell(SpellFields {
+                school: "evocation".into(),
+                levels: vec![
+                    SpellLevel {
+                        class: "Wizard".into(),
+                        level: 3,
+                    },
+                    SpellLevel {
+                        class: "Sorcerer".into(),
+                        level: 3,
+                    },
+                ],
+                range: Some(range_field.into()),
+                effects: vec![("Target".into(), "one creature".into())],
+                ..Default::default()
+            }),
+            vec![statblock(vec![
+                row("School", "Evocation"),
+                StatRow {
+                    label: "Level".into(),
+                    value: vec![Inline::text("3: Sorcerer, Wizard")],
+                },
+                row("Range", range_row),
+                row("Target", "one creature."),
+            ])],
+        ))
+    }
+
+    #[test]
+    fn matching_spell_values_do_not_drift() {
+        assert!(find_drift(&spell("close", "Close")).is_empty());
+    }
+
+    #[test]
+    fn a_changed_range_names_both_places() {
+        let drift = find_drift(&spell("close (25 ft.)", "medium (100 ft.)"));
+        assert_eq!(drift.len(), 1);
+        let text = drift[0].describe();
+        assert!(text.starts_with("entries/spell/test.md:"), "{text}");
+        assert!(
+            text.contains("[fields] range = \"close (25 ft.)\""),
+            "{text}"
+        );
+        assert!(text.contains("stat block row `Range`"), "{text}");
+        assert!(text.contains("\"medium (100 ft.)\""), "{text}");
+        // The stat block row is further down the file than the field.
+        assert!(drift[0].source_line > drift[0].field_line);
+        assert_eq!(drift[0].kind, "spell");
+    }
+
+    #[test]
+    fn spell_levels_compare_as_sets_across_break_lines() {
+        let mut one = spell("close", "close");
+        let Block::StatBlock { rows, .. } = &mut one.entry.body[0] else {
+            panic!("stat block");
+        };
+        rows[1].value = vec![
+            Inline::text("3: Sorcerer"),
+            Inline::Break,
+            Inline::text("4: Wizard"),
+        ];
+        let drift = find_drift(&one);
+        assert_eq!(drift.len(), 1);
+        assert_eq!(drift[0].field, "levels");
+        assert!(
+            drift[0].source_value.contains("4: wizard"),
+            "{:?}",
+            drift[0]
+        );
+    }
+
+    #[test]
+    fn creature_values_and_abilities_are_compared() {
+        let entry = base(
+            "ref/monster/test",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                ac: Some("15, touch 11".into()),
+                hp: Some("10 (2d8)".into()),
+                abilities: Some([
+                    "10".into(),
+                    "11".into(),
+                    "12".into(),
+                    "-".into(),
+                    "8".into(),
+                    "9".into(),
+                ]),
+                ..Default::default()
+            })),
+            vec![statblock(vec![
+                row("AC", "16, touch 11"),
+                row("hp", "10 (2d8)"),
+                row(
+                    "Ability Scores",
+                    "Str 10, Dex 11, Con 12, Int -, Wis 8, Cha 9",
+                ),
+            ])],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "ac");
+    }
+
+    #[test]
+    fn item_rows_are_compared() {
+        let entry = base(
+            "ref/item/test",
+            EntryKind::Item,
+            TypedFields::Item(ItemFields {
+                price: Some("300 gp".into()),
+                weight: Some("1 lb.".into()),
+                ..Default::default()
+            }),
+            vec![statblock(vec![
+                row("Price", "350 gp"),
+                row("Weight", "1 lb"),
+            ])],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1);
+        assert_eq!(drift[0].field, "price");
+    }
+
+    #[test]
+    fn feat_prerequisites_and_benefit_come_from_the_bold_labels() {
+        let paragraph = Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::text("Intro."),
+                Inline::Break,
+                Inline::Strong {
+                    c: vec![Inline::text("Prerequisites:")],
+                },
+                Inline::text(" Str 13, base attack bonus +1."),
+                Inline::Break,
+                Inline::Strong {
+                    c: vec![Inline::text("Benefit:")],
+                },
+                Inline::text(" You gain a bonus."),
+            ],
+        };
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some("Power Attack.".into()),
+                benefit: Some("You gain a bonus.".into()),
+                ..Default::default()
+            }),
+            vec![paragraph],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "prerequisites");
+        assert!(drift[0].describe().contains("`**Prerequisites:**` line"));
+    }
+
+    #[test]
+    fn a_value_stated_in_only_one_place_is_not_drift() {
+        let entry = base(
+            "ref/item/test",
+            EntryKind::Item,
+            TypedFields::Item(ItemFields {
+                price: Some("300 gp".into()),
+                ..Default::default()
+            }),
+            vec![statblock(vec![row("Weight", "1 lb.")])],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn a_feat_field_that_matches_a_variant_statement_is_not_drift() {
+        let labelled = |label: &str, text: &str| {
+            vec![
+                Inline::Strong {
+                    c: vec![Inline::text(format!("{label}:"))],
+                },
+                Inline::text(format!(" {text}")),
+            ]
+        };
+        let mut content = labelled("Benefit", "Normal wording.");
+        content.push(Inline::Break);
+        content.extend(labelled("Benefit", "Mythic *wording*."));
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some("Mythic *wording*.".into()),
+                ..Default::default()
+            }),
+            vec![Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content,
+            }],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn markdown_markers_and_entities_in_a_field_are_not_drift() {
+        let mut stored_spell = spell("close", "close");
+        let TypedFields::Spell(fields) = &mut stored_spell.entry.fields else {
+            panic!("spell");
+        };
+        fields.components = Some("V, S, [M](rule/m) &times; 2".into());
+        let Block::StatBlock { rows, .. } = &mut stored_spell.entry.body[0] else {
+            panic!("stat block");
+        };
+        rows.push(row("Components", "V, S, M × 2"));
+        assert!(find_drift(&stored_spell).is_empty());
+    }
+
+    #[test]
+    fn the_school_row_may_add_a_subschool_and_descriptors() {
+        let set_school = |stored: &mut Stored, text: &str| {
+            let Block::StatBlock { rows, .. } = &mut stored.entry.body[0] else {
+                panic!("stat block");
+            };
+            rows[0] = row("School", text);
+        };
+        let mut stored_spell = spell("close", "close");
+        set_school(&mut stored_spell, "evocation (force) [fire]");
+        assert!(find_drift(&stored_spell).is_empty());
+        set_school(&mut stored_spell, "necromancy [death]");
+        assert_eq!(find_drift(&stored_spell).len(), 1);
+    }
+
+    #[test]
+    fn the_check_lists_drift_as_warnings_with_counts_and_a_report() {
+        let drifting = spell("close (25 ft.)", "medium (100 ft.)");
+        let report = crate::check(&crate::testkit::corpus(vec![drifting.entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1);
+        assert_eq!(report.drift_by_kind().get("spell"), Some(&1));
+        let text = report.drift_report();
+        assert!(text.contains("| spell | 1 |"), "{text}");
+        assert!(text.contains("| **total** | **1** |"), "{text}");
+        assert!(text.contains("stat block row `Range`"), "{text}");
+    }
+}
