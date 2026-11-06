@@ -265,7 +265,7 @@ installedTest("Mobile Quick search rows are full-size touch targets", async ({ p
   const layer = await openQuickSearch(page);
   await quickField(page).fill("fireb");
   const options = layer.getByRole("option");
-  await expect(options.first()).toBeVisible();
+  await expect(options).not.toHaveCount(1);
   await expect(options.last()).toHaveText("See all results for “fireb”");
   const viewport = page.viewportSize()!;
   for (const option of await options.all()) {

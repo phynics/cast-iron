@@ -650,6 +650,10 @@ pub fn Search() -> impl IntoView {
             && pointer_is_fine()
         {
             let _ = input.focus();
+            // WebKit puts the caret at the start of a value that was set before the focus, such
+            // as the text that Quick search handed over. Typing continues at the end.
+            let end = u32::try_from(input.value().encode_utf16().count()).unwrap_or(0);
+            let _ = input.set_selection_range(end, end);
         }
     });
 

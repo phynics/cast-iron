@@ -467,6 +467,9 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await page.keyboard.press("Enter");
   await expect(page.locator(".search-page")).toBeVisible();
   await expect(page.locator("#search-input")).toHaveValue(prefix);
+  // The app leaves the caret at the end of the handed-over text; Playwright's own focus in
+  // WebKit moves it to the start, so go to the end before typing on.
+  await page.locator("#search-input").press("End");
   await page.locator("#search-input").pressSequentially(spell.title.slice(prefix.length).toLowerCase());
   await waitResults(page, spell.title.toLowerCase());
   const titles = await hitTitles(page);
@@ -694,14 +697,22 @@ installedTest("Quick search suggests entries while typing and opens one from the
   await expect(field).not.toHaveAttribute("aria-activedescendant", /./);
   await expect(layer.getByRole("listbox", { name: "Suggestions" })).toBeVisible();
 
-  // A shorter prefix ranks other titles that share it first (the engine breaks the tie by
-  // book), but the spell is among the first suggestions.
+  // `fireb` scores Firebrand and Fireball within one percent of each other; the suggestions
+  // break that near tie by the shorter completion, so Fireball is first. `firebrand` is
+  // Firebrand. Each step starts from a list with another first row, so a stale list cannot pass.
   const suggested = await suggestionTitles(page);
   expect(suggested[0]).toBe(spell.title);
+  await field.fill("firebrand");
+  await expect(options.last()).toHaveText("See all results for “firebrand”");
+  await expect(options.first().locator(".quick-search-name")).toHaveText("Firebrand");
   await field.fill("fireb");
   await expect(options.last()).toHaveText("See all results for “fireb”");
-  expect((await suggestionTitles(page)).slice(0, 3)).toContain(spell.title);
+  await expect(options.first().locator(".quick-search-name")).toHaveText(spell.title);
+  await expect(options.first().locator(".quick-search-meta")).toHaveText(/^Spell · \S/);
+  // Back to `firebal`: wait until the list no longer holds the Firebrand rows of `fireb`.
   await field.fill("firebal");
+  await expect.poll(async () => (await suggestionTitles(page)).includes("Firebrand")).toBe(false);
+  await expect(options.first().locator(".quick-search-name")).toHaveText(spell.title);
   await expect(options.last()).toHaveText("See all results for “firebal”");
 
   // Down highlights the first row and names it through aria-activedescendant.
@@ -730,7 +741,8 @@ installedTest("Quick search suggestions match the results page and tap opens an 
   await installLibrary(page);
   const layer = await openQuickSearch(page);
   await quickField(page).fill("cure light");
-  await expect(quickOptions(page).first()).toBeVisible();
+  // Suggestions arrive after a pause in typing; until then only "See all results" is listed.
+  await expect(quickOptions(page)).not.toHaveCount(1);
   await expect(quickOptions(page).last()).toHaveText("See all results for “cure light”");
   const suggested = await suggestionTitles(page);
   expect(suggested.length).toBeGreaterThan(0);
@@ -745,7 +757,7 @@ installedTest("Quick search suggestions match the results page and tap opens an 
   await page.goto("#/");
   await openQuickSearch(page);
   await quickField(page).fill("cure light");
-  await expect(quickOptions(page).first()).toBeVisible();
+  await expect(quickOptions(page)).not.toHaveCount(1);
   const first = suggested[0];
   await quickOptions(page).first().click();
   await expect(page.getByRole("heading", { level: 1, name: first })).toBeVisible();
@@ -786,7 +798,7 @@ installedTest("Quick search offers the starter searches until a search is submit
   await expect(quickOptions(page)).toHaveText(["grapple"]);
 });
 
-installedTest("Recent searches persist offline, stay unique and newest first, and can be removed or cleared", async ({ page, context }) => {
+installedTest("Recent searches persist offline, stay unique and newest first, and can be removed or cleared", async ({ page, context, server }) => {
   await installLibrary(page);
   await waitControlled(page);
   await quickSearchFor(page, "grapple");
@@ -798,7 +810,7 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   // The same query in another case moves to the front and does not repeat.
   await quickSearchFor(page, "Grapple");
 
-  await context.setOffline(true);
+  await goOffline(context, server);
   await page.goto("#/");
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
@@ -835,4 +847,52 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await openQuickSearch(page);
   await quickOptions(page).first().click();
   await waitResults(page, "wizard");
+  // The search was written to storage; read it back so no write is still in flight when the
+  // test ends (WebKit reports "Context is stopped" for one that is).
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await expect(quickOptions(page)).toHaveText(["wizard"]);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+});
+
+installedTest("The highlight is dropped when the suggestions change under it", async ({ page }) => {
+  await installLibrary(page);
+  await openQuickSearch(page);
+  const field = quickField(page);
+  const options = quickOptions(page);
+  await field.fill("fire");
+  await expect(options.first()).toBeVisible();
+  // Move the highlight to the last row while the lookup for the new text is still pending
+  // (suggestions wait for a pause in typing), so the rows change under it.
+  await field.fill("fireball trap");
+  for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowDown");
+  await expect(options.last()).toHaveText("See all results for “fireball trap”");
+  await expect(options.first().locator(".quick-search-name")).toHaveText(/^Fireball Trap/);
+  // Whatever happened in between, the field never names a row that is not in the list.
+  const named = await field.getAttribute("aria-activedescendant");
+  if (named) await expect(page.locator(`#${named}`)).toHaveCount(1);
+  // Typing clears the highlight, and with none Enter searches the text rather than a row.
+  await field.fill("fireball trap");
+  await expect(field).not.toHaveAttribute("aria-activedescendant", /./);
+  await page.keyboard.press("Enter");
+  await waitResults(page, "fireball trap");
+});
+
+installedTest("Suggestions are announced only while the list is open, and the icon only promises a dialog where it opens one", async ({ page }) => {
+  await installLibrary(page);
+  await expect(searchIcon(page)).toHaveAttribute("aria-haspopup", "dialog");
+  const layer = await openQuickSearch(page);
+  const status = layer.getByRole("status");
+  await quickField(page).fill("fireb");
+  await expect(status).toHaveText(/^\d+ suggestions?$/);
+  await page.keyboard.press("Escape");
+  await expect(quickField(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(status).toHaveText("");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveText(/^\d+ suggestions?$/);
+  await page.keyboard.press("Enter");
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  await expect(searchIcon(page)).not.toHaveAttribute("aria-haspopup", /./);
 });

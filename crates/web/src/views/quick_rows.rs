@@ -75,6 +75,49 @@ pub fn dedupe_hits(hits: Vec<HitSummary>, limit: usize) -> Vec<HitSummary> {
         .collect()
 }
 
+/// How close two engine scores must be to count as a near tie: within this share of the best
+/// score of the run. `fireb` scores Firebrand 522.5, Fireball 518.7 and Firebrand (spell) 518.2,
+/// which the engine ranks by a margin of under one percent; the next title scores 515.7.
+const NEAR_TIE: f32 = 0.01;
+
+fn near_tie(best: f32, score: f32) -> bool {
+    (best - score).abs() <= NEAR_TIE * best.abs().max(1.0)
+}
+
+/// Among hits whose engine scores are within [`NEAR_TIE`] of the best of their run and whose
+/// title starts with the typed text, puts the shorter title first: `fireb` completes to
+/// Fireball before Firebrand. A run starts at the first hit that is not within the band of the
+/// run before it. Everything else keeps the engine's order, so only a near tie is broken and the
+/// ranking is never reversed across a real score gap. The results page does not use this.
+pub fn shortest_completion_first(hits: Vec<HitSummary>, typed: &str) -> Vec<HitSummary> {
+    let typed = normalized_title(typed);
+    let completes = |hit: &HitSummary| normalized_title(&hit.title).starts_with(&typed);
+    let mut out = Vec::with_capacity(hits.len());
+    let mut hits = hits.into_iter().peekable();
+    while let Some(first) = hits.next() {
+        let best = first.score;
+        let mut run = vec![first];
+        while let Some(next) = hits.next_if(|hit| near_tie(best, hit.score)) {
+            run.push(next);
+        }
+        // A stable sort: completions first, shortest first, the rest in engine order.
+        run.sort_by_key(|hit| {
+            if completes(hit) {
+                (0, hit.title.chars().count())
+            } else {
+                (1, 0)
+            }
+        });
+        out.extend(run);
+    }
+    out
+}
+
+/// The highlight if it still names a row of a list of `len` rows.
+pub fn valid_active(active: Option<usize>, len: usize) -> Option<usize> {
+    active.filter(|&index| index < len)
+}
+
 /// Moves the highlight. Down from the field highlights the first row and stops at the last.
 /// Up from the field highlights the last row, and Up from the first row returns to the field.
 pub fn step(active: Option<usize>, len: usize, down: bool) -> Option<usize> {
@@ -176,6 +219,77 @@ mod tests {
         assert_eq!(kept[0].id, "a/fireball");
         assert_eq!(kept[1].id, "a/fireball-feat");
         assert!(kept.iter().all(|hit| hit.id != "b/fireball"));
+    }
+
+    fn scored(id: &str, title: &str, score: f32) -> HitSummary {
+        HitSummary {
+            score,
+            ..hit(id, title, "spell")
+        }
+    }
+
+    fn ids(hits: &[HitSummary]) -> Vec<&str> {
+        hits.iter().map(|hit| hit.id.as_str()).collect()
+    }
+
+    #[test]
+    fn in_a_near_tie_the_shorter_completion_comes_first() {
+        // The engine's real scores for `fireb`: Firebrand just ahead of Fireball.
+        let engine = vec![
+            scored("brand-arch", "Firebrand", 522.5),
+            scored("ball", "Fireball", 518.68),
+            scored("brand-spell", "Firebrand", 518.16),
+            scored("trap", "Fireball Trap", 515.7),
+        ];
+        let ranked = shortest_completion_first(engine, "fireb");
+        // Fireball leads the first run; Fireball Trap (515.7) is within 1% of 522.5 as well and
+        // is longer than both, so it follows them.
+        assert_eq!(ids(&ranked), ["ball", "brand-arch", "brand-spell", "trap"]);
+        // When the text is the longer word, only Firebrand completes it and stays first.
+        let engine = vec![
+            scored("brand", "Firebrand", 600.0),
+            scored("ball", "Fireball", 590.0),
+        ];
+        assert_eq!(
+            ids(&shortest_completion_first(engine, "firebrand")),
+            ["brand", "ball"]
+        );
+    }
+
+    #[test]
+    fn a_real_score_gap_is_never_crossed() {
+        let engine = vec![
+            scored("brand", "Firebrand", 2.1),
+            scored("ball", "Fireball", 2.0),
+        ];
+        assert_eq!(
+            ids(&shortest_completion_first(engine, "fireb")),
+            ["brand", "ball"]
+        );
+        let engine = vec![
+            scored("a", "Fire Shield Greater", 300.0),
+            scored("b", "Fireball", 200.0),
+            scored("c", "Wall of Fire", 199.0),
+            scored("d", "Firebrand", 198.5),
+            scored("e", "Fire", 100.0),
+        ];
+        // Within the 200 run, completions go first (shortest first); `Wall of Fire` does not
+        // start with the text and keeps its place after them. Other runs stay put.
+        assert_eq!(
+            ids(&shortest_completion_first(engine, "fire")),
+            ["a", "b", "d", "c", "e"]
+        );
+        // Equal length completions keep the engine's order.
+        let engine = vec![scored("x", "Firefly", 1.0), scored("y", "Firebug", 1.0)];
+        assert_eq!(ids(&shortest_completion_first(engine, "fire")), ["x", "y"]);
+    }
+
+    #[test]
+    fn the_highlight_never_names_a_missing_row() {
+        assert_eq!(valid_active(None, 3), None);
+        assert_eq!(valid_active(Some(2), 3), Some(2));
+        assert_eq!(valid_active(Some(3), 3), None);
+        assert_eq!(valid_active(Some(0), 0), None);
     }
 
     #[test]

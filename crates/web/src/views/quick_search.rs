@@ -10,7 +10,10 @@ use crate::discovery::Discovery;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{self, Route, use_route};
-use crate::views::quick_rows::{MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, step};
+use crate::views::quick_rows::{
+    MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
+    valid_active,
+};
 use crate::views::recent_searches::{self, normalize};
 use crate::views::search::discovery_for;
 use crate::views::util::kind_name;
@@ -25,6 +28,8 @@ use wasm_bindgen::JsCast;
 const HISTORY_MARKER: &str = "cast-iron:quick-search";
 /// The id of the header button, which receives focus when the layer closes.
 pub const OPEN_BUTTON_ID: &str = "quick-search-open";
+/// The pause after the last keystroke before the suggestions are looked up.
+const SUGGEST_DEBOUNCE_MS: u32 = 100;
 /// How many ranked hits to read before the reprints are collapsed into suggestions.
 const LOOKUP_LIMIT: usize = 64;
 /// Searches offered when the reader has nothing recent to repeat.
@@ -305,7 +310,10 @@ pub fn QuickSearchButton() -> impl IntoView {
             class="header-search-btn"
             type="button"
             aria-label="Search"
-            aria-haspopup="dialog"
+            // On the results page the button only focuses that page's field.
+            aria-haspopup=move || {
+                (!matches!(current.get(), Route::Search { .. })).then_some("dialog")
+            }
             on:click=move |_| {
                 if matches!(current.get_untracked(), Route::Search { .. }) {
                     focus_results_field();
@@ -368,6 +376,12 @@ fn watch_suggestions(quick: QuickSearch) {
         let discovery = discovery_for(&library, cache, revision);
         let library = library.clone();
         spawn_local(async move {
+            // Wait for the reader to pause; a newer keystroke makes this lookup stale.
+            js::sleep(SUGGEST_DEBOUNCE_MS).await;
+            if quick.lookup.try_get_value() != Some(id) {
+                return;
+            }
+            let typed = query.clone();
             let query = Query {
                 text: query,
                 filters: Filters::default(),
@@ -376,6 +390,7 @@ fn watch_suggestions(quick: QuickSearch) {
             let Ok(hits) = discovery.search_summaries(&query).await else {
                 return;
             };
+            let hits = shortest_completion_first(hits, &typed);
             let list: Vec<Suggestion> = dedupe_hits(hits, MAX_SUGGESTIONS)
                 .into_iter()
                 .filter_map(|hit| {
@@ -432,6 +447,12 @@ pub fn QuickSearchLayer() -> impl IntoView {
                     .with(|recents| rows(text, suggestions, recents, &STARTERS))
             })
         })
+    });
+    // The rows changed under the highlight, so it may name a row that is gone or a different
+    // one. Drop it: Enter then searches the text instead of opening a row the reader did not see.
+    Effect::new(move |_| {
+        list.track();
+        quick.active.set(None);
     });
     // The list is a popup only while the reader types. Recent and starter searches are the
     // content of the empty layer, so they stay expanded.
@@ -516,7 +537,10 @@ pub fn QuickSearchLayer() -> impl IntoView {
                         aria-controls="quick-search-list"
                         aria-expanded=move || expanded().to_string()
                         aria-activedescendant=move || {
-                            quick.active.get().filter(|_| expanded()).map(option_id)
+                            let len = list.with(|(_, rows)| rows.len());
+                            valid_active(quick.active.get(), len)
+                                .filter(|_| expanded())
+                                .map(option_id)
                         }
                         placeholder="Search spells, feats, rules…"
                         autocomplete="off"
@@ -581,8 +605,9 @@ pub fn QuickSearchLayer() -> impl IntoView {
             </form>
             <p class="sr-only" role="status">
                 {move || {
+                    // Say nothing while the list is closed: it shows no suggestions.
                     let typed = quick.text.with(|text| !text.trim().is_empty());
-                    typed.then(|| match quick.suggestions.with(Vec::len) {
+                    (typed && expanded()).then(|| match quick.suggestions.with(Vec::len) {
                         0 => "No suggestions".to_string(),
                         1 => "1 suggestion".to_string(),
                         n => format!("{n} suggestions"),

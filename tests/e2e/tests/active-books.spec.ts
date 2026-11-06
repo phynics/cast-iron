@@ -42,6 +42,8 @@ installedTest("Quick search suggestions follow the active books", async ({ page 
     const layer = await openQuickSearch(page);
     await layer.getByRole("combobox", { name: "Search the rules" }).fill(entry.title);
     await expect(quickOptions(page).last()).toHaveText(`See all results for “${entry.title}”`);
+    // The suggestions follow a short pause in typing; give the lookup time to answer.
+    await page.waitForTimeout(800);
     return layer.locator('[role="option"] .quick-search-meta').allInnerTexts();
   };
   // With every book active, the book that holds the entry is suggested.
