@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { installLibrary, seedHome, waitReady as waitReadyHome } from "./helpers";
+import { installLibrary, seedHome, storedRecentCount, waitHomeIdle, waitReady as waitReadyHome } from "./helpers";
 
 const corpus = loadCorpus();
 const spells = corpus.catalog.entries.filter((entry) => entry.kind === "spell");
@@ -100,6 +100,11 @@ test("Recently viewed shows five rows, Show more reveals the stored history, Cle
 
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  // The list leaves the screen before its write finishes, and Home is still reading the search
+  // index. Reloading under either stops the page mid-operation, which WebKit reports as
+  // "Context is stopped"; wait for both.
+  await expect.poll(() => storedRecentCount(page)).toBe(0);
+  await waitHomeIdle(page);
   await page.reload();
   await waitReadyHome(page);
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);

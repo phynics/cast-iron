@@ -573,7 +573,11 @@ export async function seedHome(
   page: Page,
   { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string; kind: string }[] },
 ) {
-  await page.goto("#/settings");
+  // Stage on Legal, not Settings: Settings has its own storage and service worker reads in flight
+  // for a moment after it renders, and a reload that stops the page under them is reported by
+  // WebKit as the page error "Context is stopped". Legal reads nothing after it renders.
+  await page.goto("#/legal");
+  await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
   await page.evaluate(
     ({ recents, stars }) =>
       new Promise<void>((resolve, reject) => {
@@ -594,8 +598,35 @@ export async function seedHome(
       }),
     { recents, stars },
   );
-  await page.goto("#/");
   await page.reload();
+  await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
+  await page.goto("#/");
   await waitReady(page);
   await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+}
+
+/** How many recently viewed entries are in storage right now, read straight from IndexedDB. */
+export function storedRecentCount(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const get = db.transaction("meta").objectStore("meta").get("recent");
+          get.onsuccess = () => { db.close(); resolve(Array.isArray(get.result) ? get.result.length : 0); };
+          get.onerror = () => { db.close(); reject(get.error); };
+        };
+      }),
+  );
+}
+
+/**
+ * Waits until Home has finished warming the search index. The read of `search.bin` runs for about
+ * a second after Home renders; a reload that stops the page under it is reported by WebKit as the
+ * page error "Context is stopped".
+ */
+export async function waitHomeIdle(page: Page) {
+  await page.locator(".home-page[data-index-ready=true]").waitFor({ state: "attached", timeout: 90_000 });
 }
