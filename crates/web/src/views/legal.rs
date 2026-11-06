@@ -4,6 +4,7 @@
 //! (thousands of upstream paths), so its overview is a set of counts and every full table is
 //! built only when its disclosure opens.
 
+use crate::fmt;
 use crate::library::use_library;
 use crate::route::Route;
 use crate::views::util::{Shared, local_resource};
@@ -325,7 +326,10 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
             <section aria-labelledby="coverage-publications">
                 <h3 id="coverage-publications">"Publications"</h3>
                 <p>{format!(
-                    "{publication_count} publications, {upstream_records} upstream records, and {included_entries} included publication entries."
+                    "{} publications, {} upstream records, and {} included publication entries.",
+                    fmt::count(publication_count),
+                    fmt::count(upstream_records),
+                    fmt::count(included_entries),
                 )}</p>
                 {lazy_details("publications", format!("All publications ({publication_count})"), publications_detail)}
             </section>
@@ -377,8 +381,8 @@ fn publications_table(report: &CoverageReport) -> AnyView {
             view! {
                 <tr>
                     <th scope="row">{p.title.clone()}</th>
-                    <td class="num">{p.upstream_records}</td>
-                    <td class="num">{p.included_entries}</td>
+                    <td class="num">{fmt::count(p.upstream_records)}</td>
+                    <td class="num">{fmt::count(p.included_entries)}</td>
                 </tr>
             }
         })

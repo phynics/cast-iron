@@ -1,6 +1,7 @@
 //! Feat chains: the feats that start a chain, and the feats that follow from each. Also the
 //! tree renderer that the feat entry screen uses for its own chain.
 
+use crate::fmt;
 use crate::graph::{ChainHead, ChainNode, Relations};
 use crate::library::{Library, use_library};
 use crate::route::Route;
@@ -86,7 +87,6 @@ pub fn FeatChains() -> impl IntoView {
         <div class="wide">
             <nav class="crumbs" aria-label="Breadcrumb">
                 <ol>
-                    <li><a href=Route::Home.href()>"Home"</a></li>
                     <li><a href=Route::browse_kind(EntryKind::Feat).href()>"Feats"</a></li>
                 </ol>
             </nav>
@@ -156,7 +156,7 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
         })
         .collect_view();
     view! {
-        <p class="muted" role="status">{format!("{count} feats start a chain")}</p>
+        <p class="muted" role="status">{format!("{} feats start a chain", fmt::count(count))}</p>
         <ul class="chain-heads">{rows}</ul>
     }
 }

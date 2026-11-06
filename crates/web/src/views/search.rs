@@ -2,11 +2,13 @@
 //! state, so a search is deep-linkable and back works. Typing replaces the history entry after
 //! a short pause; toggling a filter or leaving Home with a query pushes one.
 
+use crate::fmt;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
+use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
@@ -186,7 +188,7 @@ fn chip_count(
 fn chip_name(label: &str, count: usize) -> String {
     match count {
         1 => format!("{label}, 1 entry"),
-        n => format!("{label}, {n} entries"),
+        n => format!("{label}, {} entries", fmt::count(n)),
     }
 }
 
@@ -907,7 +909,7 @@ pub fn Search() -> impl IntoView {
                         aria-label=move || chip_name(kind.label(), n())
                         on:change=move |_| change_filters(&|s| s.kinds = toggled(&s.kinds, &kind))
                     />
-                    <span>{kind.label()}<small class="chip-count">{n}</small></span>
+                    <span>{kind.label()}<small class="chip-count">{move || fmt::count(n())}</small></span>
                 </label>
             }
         })
@@ -928,6 +930,7 @@ pub fn Search() -> impl IntoView {
         };
         view! {
             <button class="scope-choice" type="button" aria-pressed=move || selected().to_string()
+                id=kind.is_none().then_some("scope-all")
                 on:click=move |_| change_filters(&|s| s.kinds = kind.into_iter().collect())>
                 {label}
             </button>
@@ -992,7 +995,7 @@ pub fn Search() -> impl IntoView {
                         aria-label=move || chip_name(&name_title, n.get())
                         on:change=move |_| change_filters(&|s| s.sources = toggled(&s.sources, &change_id))
                     />
-                    <span>{title}<small class="chip-count">{n}</small></span>
+                    <span>{title}<small class="chip-count">{move || fmt::count(n.get())}</small></span>
                 </label>
             }
         }
@@ -1146,7 +1149,7 @@ pub fn Search() -> impl IntoView {
                                             }
                                             on:change=move |_| change_filters(&|s| s.facets = toggled(&s.facets, &pair2))
                                         />
-                                        <span>{label}<small class="chip-count">{n}</small></span>
+                                        <span>{label}<small class="chip-count">{move || n.get().map(fmt::count)}</small></span>
                                     </label>
                                 }
                             }).collect_view()}
@@ -1167,7 +1170,7 @@ pub fn Search() -> impl IntoView {
                 .count();
             view! {
                 <div class="empty">
-                    <p>{format!("Search {total} entries by name or by any word in the text.")}</p>
+                    <p>{format!("Search {} entries by name or by any word in the text.", fmt::count(total))}</p>
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {STARTERS.into_iter().map(|q| {
@@ -1206,7 +1209,7 @@ pub fn Search() -> impl IntoView {
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {count} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name))}</span></summary>
+                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::count(count))}</span></summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })
@@ -1231,18 +1234,37 @@ pub fn Search() -> impl IntoView {
             let text = match (n, n > limit) {
                 (0, _) => "No results".to_string(),
                 (1, _) => "1 result".to_string(),
-                (_, true) => format!("Top {} of {n} results", limit.min(n)),
-                _ => format!("{n} results"),
+                (_, true) => format!(
+                    "Top {} of {} results",
+                    fmt::count(limit.min(n)),
+                    fmt::count(n)
+                ),
+                _ => format!("{} results", fmt::count(n)),
             };
             if total == groups {
                 text
             } else {
-                format!("{text} · {total} publication entries")
+                format!("{text} · {} publication entries", fmt::count(total))
             }
         }
         _ => String::new(),
     };
 
+    // Removing the scope searches everything again. Focus moves to "All entries", which now
+    // reads as pressed; the field is left alone so a phone's keyboard does not rise.
+    let remove_scope = move |()| {
+        change_filters(&|s| {
+            s.kinds.clear();
+            s.facets.clear();
+        });
+        if let Some(button) = web_sys::window()
+            .and_then(|window| window.document())
+            .and_then(|document| document.get_element_by_id("scope-all"))
+            .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = button.focus();
+        }
+    };
     let clear_filters = move |_| {
         change_filters(&|s| {
             s.kinds.clear();
@@ -1304,6 +1326,13 @@ pub fn Search() -> impl IntoView {
                     </Show>
                 </div>
             </form>
+            // The scope that Quick search applied, or that a kind choice made: one tap removes it.
+            {move || state.with(|s| Scope::of_search(&s.kinds, &s.facets)).map(|scope| view! {
+                <div class="search-scope" role="group" aria-label="Search scope">
+                    <span class="quick-search-scope-label">"Searching in"</span>
+                    <ScopePill scope on_remove=Callback::new(remove_scope) />
+                </div>
+            })}
             <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
             <div class="search-layout">
                 <aside class="filters" aria-label="Filters">
@@ -1604,6 +1633,7 @@ mod tests {
         assert_eq!(chip_name("Spells", 12), "Spells, 12 entries");
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
+        assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
     }
 
     fn source(id: &str, title: &str) -> SourceInfo {

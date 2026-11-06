@@ -132,11 +132,7 @@ fn normalize_location() {
     if (path != base_path || !search.is_empty())
         && let Ok(history) = window.history()
     {
-        let _ = history.replace_state_with_url(
-            &wasm_bindgen::JsValue::NULL,
-            "",
-            Some(&format!("{base_path}{hash}")),
-        );
+        route::replace_url_keeping_state(&history, &format!("{base_path}{hash}"));
     }
 }
 

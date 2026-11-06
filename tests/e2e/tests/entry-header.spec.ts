@@ -104,7 +104,7 @@ test("Chips keep one form per role", async ({ page }) => {
   expect(await pill.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
   expect(await pill.evaluate((el) => getComputedStyle(el, "::before").content)).toBe("none");
   await chip.click();
-  await expect(chip.locator(".chip-count")).toHaveText(/^\d+$/);
+  await expect(chip.locator(".chip-count")).toHaveText(/^[\d,]+$/);
   expect(await pill.evaluate((el) => getComputedStyle(el, "::before").content)).toBe('""');
   const selected = await pill.evaluate((el) => {
     const s = getComputedStyle(el);

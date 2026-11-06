@@ -116,7 +116,7 @@ pub fn InstallPanel(
                     <dl class="facts">
                         <div><dt>{intro}</dt><dd>{m.content_version.clone()}</dd></div>
                         <div><dt>"Download size"</dt><dd data-testid="download-size">{fmt::bytes(m.total_bytes)}</dd></div>
-                        <div><dt>"Entries"</dt><dd>{m.entry_count}</dd></div>
+                        <div><dt>"Entries"</dt><dd>{fmt::count(m.entry_count)}</dd></div>
                     </dl>
                 }
             })}

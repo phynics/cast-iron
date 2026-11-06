@@ -15,17 +15,16 @@ use crate::views::quick_rows::{
     valid_active,
 };
 use crate::views::recent_searches::{self, normalize};
+use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
 use crate::views::util::kind_name;
 use cast_iron_schema::{EntryId, EntryKind};
-use cast_iron_search::{Filters, Query};
+use cast_iron_search::Query;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-/// The history state of the entry that Quick search pushes.
-const HISTORY_MARKER: &str = "cast-iron:quick-search";
 /// The id of the header button, which receives focus when the layer closes.
 pub const OPEN_BUTTON_ID: &str = "quick-search-open";
 /// The pause after the last keystroke before the suggestions are looked up.
@@ -58,21 +57,20 @@ pub struct QuickSearch {
     recents: RwSignal<Vec<String>>,
     /// Numbers the suggestion lookups, so a slow answer for an old text is dropped.
     lookup: StoredValue<u64>,
+    /// The page that is open, which the scope is taken from at opening.
+    route: ReadSignal<Route>,
+    /// What the search is limited to. Set at opening from a list page; the reader removes it
+    /// with the pill. It limits the suggestions and the results page that Enter opens.
+    scope: RwSignal<Option<Scope>>,
 }
 
 pub fn use_quick_search() -> QuickSearch {
     expect_context::<QuickSearch>()
 }
 
-fn history() -> Option<web_sys::History> {
-    web_sys::window()?.history().ok()
-}
-
 fn marker_is_current() -> bool {
-    history()
-        .and_then(|history| history.state().ok())
-        .and_then(|state| state.as_string())
-        .is_some_and(|state| state == HISTORY_MARKER)
+    // The entry's state is shared with the scroll memory; only the `quickSearch` field is ours.
+    route::current_entry_has_flag(route::QUICK_SEARCH_FIELD)
 }
 
 /// Keeps Tab and Shift+Tab inside the layer. A modal dialog already blocks the page behind it,
@@ -141,6 +139,8 @@ impl QuickSearch {
             suggestions: RwSignal::new(Vec::new()),
             recents: RwSignal::new(Vec::new()),
             lookup: StoredValue::new(0),
+            route: use_route(),
+            scope: RwSignal::new(None),
         }
     }
 
@@ -171,16 +171,14 @@ impl QuickSearch {
             window.scroll_x().unwrap_or(0.0),
             window.scroll_y().unwrap_or(0.0),
         ));
-        let pushed = history().is_some_and(|history| {
-            history
-                .push_state_with_url(&wasm_bindgen::JsValue::from_str(HISTORY_MARKER), "", None)
-                .is_ok()
-        });
+        let pushed = route::push_flagged_entry(route::QUICK_SEARCH_FIELD);
         self.pushed.set_value(pushed);
         self.session.update_value(|session| *session += 1);
         self.text.set(String::new());
         self.active.set(None);
         self.list_open.set(true);
+        // A list page hands its kind to the search; every other page searches everything.
+        self.scope.set(Scope::of_page(&self.route.get_untracked()));
         self.open.set(true);
         spawn_local(async move {
             let list = recent_searches::load().await;
@@ -226,6 +224,7 @@ impl QuickSearch {
         }
         self.open.set(false);
         self.text.set(String::new());
+        self.scope.set(None);
         let opener = self.opener.try_update_value(Option::take).flatten();
         if !restore {
             return;
@@ -251,7 +250,8 @@ impl QuickSearch {
         let replace = self.pushed.get_value() && marker_is_current();
         self.finish_close(false);
         if replace {
-            route::replace(&to);
+            // The layer's entry becomes another page, so it starts without the old page's state.
+            route::replace_as_new_page(&to);
         } else {
             route::navigate(&to);
         }
@@ -267,7 +267,11 @@ impl QuickSearch {
         spawn_local(async move {
             recent_searches::record(&remembered).await;
         });
-        self.go(Route::search(text));
+        let route = match self.scope.get_untracked() {
+            Some(scope) => scope.route(text),
+            None => Route::search(text),
+        };
+        self.go(route);
     }
 
     fn submit(self) {
@@ -366,6 +370,7 @@ fn watch_suggestions(quick: QuickSearch) {
     let cache = StoredValue::new_local(None::<(u64, Rc<Discovery>)>);
     Effect::new(move |_| {
         let query = quick.text.with(|text| normalize(text));
+        let scope = quick.scope.get();
         let revision = library.selection_revision().get();
         let id = quick.lookup.get_value() + 1;
         quick.lookup.set_value(id);
@@ -384,7 +389,7 @@ fn watch_suggestions(quick: QuickSearch) {
             let typed = query.clone();
             let query = Query {
                 text: query,
-                filters: Filters::default(),
+                filters: scope.map(|scope| scope.filters()).unwrap_or_default(),
                 limit: LOOKUP_LIMIT,
             };
             let Ok(hits) = discovery.search_summaries(&query).await else {
@@ -532,7 +537,14 @@ pub fn QuickSearchLayer() -> impl IntoView {
                         node_ref=quick.input
                         type="search"
                         role="combobox"
-                        aria-label="Search the rules"
+                        aria-label=move || {
+                            quick.scope.with(|scope| {
+                                scope.as_ref().map_or_else(
+                                    || "Search the rules".to_string(),
+                                    Scope::placeholder,
+                                )
+                            })
+                        }
                         aria-autocomplete="list"
                         aria-controls="quick-search-list"
                         aria-expanded=move || expanded().to_string()
@@ -542,7 +554,14 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                 .filter(|_| expanded())
                                 .map(option_id)
                         }
-                        placeholder="Search spells, feats, rules…"
+                        placeholder=move || {
+                            quick.scope.with(|scope| {
+                                scope.as_ref().map_or_else(
+                                    || "Search spells, feats, rules…".to_string(),
+                                    Scope::placeholder,
+                                )
+                            })
+                        }
                         autocomplete="off"
                         autocapitalize="off"
                         spellcheck="false"
@@ -603,6 +622,16 @@ pub fn QuickSearchLayer() -> impl IntoView {
                     "Cancel"
                 </button>
             </form>
+            // The scope sits under the field, where a reader looks next, and one tap removes it.
+            {move || quick.scope.get().map(|scope| view! {
+                <div class="quick-search-scope" role="group" aria-label="Search scope">
+                    <span class="quick-search-scope-label">"Searching in"</span>
+                    <ScopePill scope on_remove=Callback::new(move |()| {
+                        quick.scope.set(None);
+                        quick.focus_field();
+                    }) />
+                </div>
+            })}
             <p class="sr-only" role="status">
                 {move || {
                     // Say nothing while the list is closed: it shows no suggestions.
