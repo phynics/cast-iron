@@ -1,14 +1,18 @@
 import { test, expect, distManifest, loadCorpus } from "./fixtures";
 import {
   activeLibrary,
+  buildNewerManifest,
   buildUpdatedLibrary,
   cacheContents,
   contentCaches,
   corpusEntry,
+  deleteMeta,
   firstBookPlacement,
   installLibrary,
   openBookGroups,
+  storedMeta,
   waitControlled,
+  waitReady,
 } from "./helpers";
 
 const v1 = distManifest().content_version;
@@ -43,7 +47,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
 
     // No update yet: the check says so.
     await page.goto("#/settings");
-    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+    await page.getByRole("button", { name: "Check now", exact: true }).click();
     await expect(page.getByTestId("update-status")).toContainText("up to date");
 
     // A second page opened under v1. It stays on the old library while a replacement downloads;
@@ -64,7 +68,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     // library's first entries shard is about 400 KB, so 1500 ms per 16 KB chunk holds
     // activation for roughly 40 s.
     await server.hook(`content/${slow}`, "slow", { ms: 1500 });
-    await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+    await page.getByRole("button", { name: "Check now", exact: true }).click();
     await expect(page.getByText("Newer library available")).toBeVisible();
     await expect(page.locator(".install-panel .facts")).toContainText(next.version);
     await page.getByRole("button", { name: "Download update" }).click();
@@ -108,4 +112,80 @@ test("Content update keeps user records", async ({ page, context, server }) => {
   } finally {
     next.cleanup();
   }
+});
+
+test("The daily check surfaces a newer library, and Settings puts Updates first", async ({ page, server }) => {
+  const next = buildNewerManifest();
+  try {
+    await installLibrary(page);
+    await waitControlled(page);
+    // Forget the check the installation made, so the next start asks again at once.
+    await deleteMeta(page, "update_check");
+    await server.overlay(next.dir);
+    await page.reload();
+    await waitReady(page);
+
+    // The start check finds the newer manifest, and the header says so without a tap.
+    const action = page
+      .locator("header.app-header")
+      .getByRole("button", { name: "Library update available. Open Settings" });
+    await expect(action).toBeVisible();
+    await action.click();
+
+    // Settings → Updates, focused and first, with the library row before the app row.
+    await expect(page.locator("#set-updates")).toBeFocused();
+    const sections = page.locator("main section.settings-section");
+    await expect(sections.first()).toHaveAttribute("id", "set-updates");
+    const row = page.getByTestId("library-update");
+    await expect(row).toContainText(`Newer rules library: ${next.version}`);
+    await expect(row).toContainText("Your stars and book choices are kept.");
+    await expect(page.getByTestId("last-checked")).toContainText("Last checked:");
+    await expect(page.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
+
+    // A check only reads the manifest: the active library and its cache are untouched.
+    expect((await activeLibrary(page)).content_version).toBe(v1);
+    expect(contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${v1}`]);
+  } finally {
+    next.cleanup();
+  }
+});
+
+test("With the automatic check off, no manifest request happens at start", async ({ page, server }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/settings");
+  const toggle = page.getByRole("checkbox", { name: "Check for updates automatically" });
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await expect.poll(() => storedMeta(page, "auto_update_check")).toBe(false);
+
+  // An enabled app would ask again as soon as the last check is forgotten.
+  await deleteMeta(page, "update_check");
+  await server.clearLog();
+  await page.reload();
+  await waitReady(page);
+  await page.waitForTimeout(1000);
+  expect((await server.requests()).filter((p) => p === "content/manifest.json")).toEqual([]);
+});
+
+test("Offline, the automatic check asks for nothing and Settings still works", async ({ openProfile, server }) => {
+  let context = await openProfile();
+  let page = await context.newPage();
+  await installLibrary(page);
+  await waitControlled(page);
+  // The install session made its check, so the offline session has a time to show.
+  await expect.poll(() => storedMeta(page, "update_check")).not.toBeNull();
+  await context.close();
+
+  // A new session with no network from its first navigation.
+  await server.clearLog();
+  context = await openProfile({ offline: true });
+  page = await context.newPage();
+  await page.goto("./");
+  await waitReady(page);
+  await expect(page.locator("#home-title")).toBeVisible();
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByTestId("last-checked")).toContainText("Last checked:");
+  expect((await server.requests()).filter((p) => p === "content/manifest.json")).toEqual([]);
 });
