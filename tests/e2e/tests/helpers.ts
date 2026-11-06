@@ -123,6 +123,14 @@ export const quickSearch = (page: Page) => page.getByRole("dialog", { name: "Qui
 /** The field of the Quick search layer. */
 export const quickField = (page: Page) => quickSearch(page).locator("#quick-search-input");
 
+/** The rows of the Quick search list: suggestions, or recent and starter searches. */
+export const quickOptions = (page: Page) => quickSearch(page).getByRole("option");
+
+/** The names of the entries that Quick search suggests, without the "See all results" row. */
+export async function suggestionTitles(page: Page) {
+  return quickSearch(page).locator('[role="option"]:not(.quick-search-all) .quick-search-name').allInnerTexts();
+}
+
 /**
  * Open Quick search from the header icon and return the layer. A mouse click makes Playwright
  * scroll the sticky header's natural position into view, which moves a scrolled page. Pass
@@ -144,6 +152,8 @@ export async function openQuickSearch(page: Page, { keyboard = false } = {}) {
 
 /** Search from any page through Quick search and wait for the results of exactly this query. */
 export async function quickSearchFor(page: Page, query: string) {
+  // On the results page the icon focuses that page's own field, so leave it first.
+  if (page.url().includes("#/search")) await page.goto("#/");
   const layer = await openQuickSearch(page);
   await quickField(page).fill(query);
   await page.keyboard.press("Enter");

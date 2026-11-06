@@ -589,7 +589,7 @@ pub fn marked(text: &str, ranges: &[(usize, usize)]) -> Vec<AnyView> {
 /// The discovery snapshot for one selection revision. Search asks for it from the search
 /// effect, both chip-total memos, and the idle panel; rebuilding it each time rescanned the
 /// whole catalog once per caller.
-fn discovery_for(
+pub(crate) fn discovery_for(
     library: &crate::library::Library,
     cache: StoredValue<Option<(u64, Rc<crate::discovery::Discovery>)>, LocalStorage>,
     revision: u64,
@@ -1254,6 +1254,10 @@ pub fn Search() -> impl IntoView {
                 ev.prevent_default();
                 typing_gen.update_untracked(|g| *g += 1);
                 flush();
+                let submitted = text.get_untracked();
+                spawn_local(async move {
+                    crate::views::recent_searches::record(&submitted).await;
+                });
                 if !pointer_is_fine()
                     && let Some(input) = input_ref.get()
                 {

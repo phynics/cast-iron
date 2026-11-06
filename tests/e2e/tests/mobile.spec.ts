@@ -259,3 +259,30 @@ installedTest("Mobile Quick search is a full-screen layer with 44 px controls", 
   expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(before);
   await expect(searchIcon(page)).toBeFocused();
 });
+
+installedTest("Mobile Quick search rows are full-size touch targets", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("fireb");
+  const options = layer.getByRole("option");
+  await expect(options.first()).toBeVisible();
+  await expect(options.last()).toHaveText("See all results for “fireb”");
+  const viewport = page.viewportSize()!;
+  for (const option of await options.all()) {
+    const box = (await option.boundingBox())!;
+    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  // The empty field lists recent searches with 44 px remove buttons.
+  await options.last().click();
+  await waitResults(page, "fireb");
+  await page.goto("#/");
+  await openQuickSearch(page);
+  const remove = layer.getByRole("button", { name: /^Remove “fireb” from recent searches$/ });
+  const box = (await remove.boundingBox())!;
+  expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+});

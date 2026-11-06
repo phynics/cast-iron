@@ -17,6 +17,8 @@ test("slash opens Quick search from the page and types inside it", async ({ page
   // Inside the box, `/` is a character. It must not be swallowed as a shortcut.
   await page.keyboard.type("a/b");
   await expect(search).toHaveValue("a/b");
+  // With text in the field, the first Escape closes the suggestion list and the second the layer.
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(quickSearch(page)).toBeHidden();
   expect(page.url()).toBe(before);

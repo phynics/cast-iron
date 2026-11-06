@@ -11,6 +11,8 @@ import {
   groupLetter,
   installLibrary,
   openBookGroups,
+  openQuickSearch,
+  quickOptions,
   waitControlled,
   waitReady,
   waitResults,
@@ -31,6 +33,31 @@ function target() {
   if (!source) throw new Error(`The compiled catalog has no source ${JSON.stringify(book.source)}.`);
   return { entry, book, source };
 }
+
+installedTest("Quick search suggestions follow the active books", async ({ page }) => {
+  const { entry, book, source } = target();
+  await installLibrary(page);
+  const suggestions = async () => {
+    await page.goto("#/");
+    const layer = await openQuickSearch(page);
+    await layer.getByRole("combobox", { name: "Search the rules" }).fill(entry.title);
+    await expect(quickOptions(page).last()).toHaveText(`See all results for “${entry.title}”`);
+    return layer.locator('[role="option"] .quick-search-meta').allInnerTexts();
+  };
+  // With every book active, the book that holds the entry is suggested.
+  expect((await suggestions()).some((meta) => meta.endsWith(` · ${source.title}`))).toBe(true);
+
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
+    .getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
+
+  // The same lookup no longer offers anything from the disabled book.
+  expect((await suggestions()).some((meta) => meta.endsWith(` · ${source.title}`))).toBe(false);
+});
 
 test("Book visibility persists offline and filters discovery while keeping stars readable", async ({ openProfile }) => {
   const { entry, book, source } = target();

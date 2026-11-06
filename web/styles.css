@@ -3513,12 +3513,37 @@ html:has(.quick-search[open]) {
     max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
 }
 
+.quick-search-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch);
+  padding-inline: var(--space-2);
+}
+
 .quick-search-heading {
-  margin: var(--space-3) 0 var(--space-1);
+  margin: 0;
   font-family: var(--font-text);
   font-size: var(--step--1);
   font-weight: 600;
   color: var(--ink-muted);
+}
+
+.quick-search-clear-all {
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-search-clear-all:hover {
+  text-decoration: underline;
 }
 
 .quick-search-list {
@@ -3527,28 +3552,73 @@ html:has(.quick-search[open]) {
   list-style: none;
 }
 
+.quick-search-list[hidden] {
+  display: none;
+}
+
+.quick-search-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--border);
+}
+
+/* A row of the listbox. The field keeps focus; the highlighted row carries a rule at its
+   start as well as a tint, so the highlight never depends on color alone. */
 .quick-search-row {
   display: flex;
+  flex: 1;
   flex-direction: column;
   justify-content: center;
-  width: 100%;
+  min-width: 0;
   min-height: var(--touch);
-  padding: var(--space-2) var(--space-2);
-  border: 0;
-  border-bottom: var(--border);
-  background: transparent;
+  padding: var(--space-2);
   color: var(--ink);
-  font: inherit;
-  text-align: left;
   cursor: pointer;
 }
 
-.quick-search-row:hover {
+.quick-search-row:hover,
+.quick-search-row[aria-selected="true"] {
   background: var(--surface-2);
+}
+
+.quick-search-row[aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.quick-search-name {
+  overflow-wrap: anywhere;
 }
 
 .quick-search-all .quick-search-name {
   font-weight: 600;
+}
+
+/* Metadata role: one muted line. */
+.quick-search-meta {
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.quick-search-remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--touch);
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.quick-search-remove:hover {
+  color: var(--ink);
+}
+
+.quick-search-remove svg {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 @media (min-width: 48rem) {
