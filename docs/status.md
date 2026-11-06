@@ -2,6 +2,39 @@
 
 Updated 2026-11-06.
 
+## Plain-text corpus, step 6: the upstream import is removed, 2026-11-06
+
+Step 6 of [#127](https://github.com/phynics/cast-iron/issues/127). The content compiler,
+`cargo xtask`, `sources/`, `scripts/`, CI, and the e2e suite no longer contain the PSRD-Data and
+Pf Data adapters, the `--psrd`, `--canonical`, and `--from-upstream` builds, or the upstream
+download. The last commit that builds them is the tag `psrd-last-buildable`
+(`9800663202f4cb9bcd4fad1af43c5ebf884b4a09`). Decision:
+[the upstream import is removed](decisions.md).
+
+Local verification, 2026-11-06 (no CI or deployment claim):
+
+| Check | Result |
+|---|---|
+| `cargo xtask fetch-sources` | Downloads only the pinned corpus (tree hash `d103cc70...` verified) |
+| `generated/content` before and after the removal | Byte-identical (`diff -r`): content version `v6aa587a686a3caf0`, 31,106 entries, content tree hash `2c6005d60af70d6c2c09d5106cd5303d434ab049310d6c13cc706586166b50f3` |
+| Two corpus builds from scratch | Byte-identical over all of `generated/` (content and reports): `7a6ec44b0e26030711cbbe41851f825e517927a828c6f5323dbf6fc4b797dc4a`. The reports changed shape (no deduplication counts, survey, or supplemental sections), so this hash differs from the step 3 entry |
+| `dist/content` after `cargo xtask build-site` | Same tree hash as `generated/content` (`2c6005d6...`) |
+| `python3 scripts/check-publication.py` | Exit 0. The registry comparison is replaced by a check that the sixteen core books are present |
+| `npm --prefix tests/e2e test -- reference search install books legal --project=chromium` | 45 passed (a sample, not the full suite) |
+| `cargo xtask check` | Passed: 184 compiler-adjacent and crate unit tests, the new corpus build integration tests, and the WASM build |
+| Build from the tag | `cargo xtask fetch-sources && cargo xtask content --psrd` in a checkout of `psrd-last-buildable` gives the PSRD library `vcdd730994d863e50`, unchanged from the step 3 entry |
+| `check-library-upgrade.py` from the tag against this branch's `generated/content` | Exit 0: 9,968 old ids, 0 missing, 0 unresolvable, 0 alias problems, 0 dangling references, 0 class-category errors |
+
+Removed: 125 files and about 36,600 lines of Rust, 3,900 lines of Python, and the upstream inputs
+and fixtures under `sources/`, `reports/`, and the compiler's test fixtures. Added: about 500 lines of
+Rust (mostly the new corpus build integration test and the relocated tests).
+
+Limitations: this is local evidence. CI has not run the changed content job, and nothing is
+deployed. The PSRD release step needs a release commit whose Pages workflow builds with `--psrd`;
+`docs/releasing.md` records this and does not prepare it. The tier table for Books categories is
+checked against the five categories of the pinned corpus; a corpus bump with a new category fails
+the `book_tier` test until the table lists it.
+
 ## Plain-text corpus, step 3: the build reads the corpus, 2026-11-06
 
 `cargo xtask content` now compiles the canonical library from the pinned corpus
