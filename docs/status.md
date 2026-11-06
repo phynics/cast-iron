@@ -9,21 +9,24 @@ Updated 2026-11-06.
 `corpus-check` validates it; `corpus-roundtrip` compares it with the compiled
 library. The build is not switched, so this adds tooling and no library change.
 
-Local verification on 2026-11-06 against the pinned corpus after the body-link pass
-(`vd14efc1479965461`, 31,106 entries, 149,047 body links):
+Local verification on 2026-11-06 after the review changes (`v6aa587a686a3caf0`,
+31,106 entries, 149,047 body links):
 
 | Check | Result |
 |---|---|
-| Export | 31,111 files, 84.33 MB of text |
-| Two exports, tree hash | Byte-identical: `889c4d1348585a805c3e2fa6285b9ffb06c1de774981aeb00029cad27a050296` |
-| `cargo xtask corpus-check` | Passed: 31,106 entries, 439 publications, 449 books, 1 licence |
-| `cargo xtask corpus-roundtrip` | 0 mismatches, no link special case |
-| `cargo xtask content` twice | Byte-identical: `vd14efc1479965461`, 149,047 links, 145,450 backlink rows; content tree hash `7b3b4aad84a85995499e112dfba92aed23575aea5985e652303f4ad106f17626` |
-| PSRD `--psrd` | Unchanged: `vcdd730994d863e50`, 9,990 entries, tree hash `efa8188cc3d36f3f27be9734438e41777353fef86e3e63c721a7b0b3d82a107c` |
-| `check-publication.py generated/content` | Exit 0, 0 issues |
-| `check-library-upgrade.py generated/psrd generated/content` | Exit 0, no missing, unresolvable, or dangling ids |
+| `cargo xtask content` twice | Byte-identical: `v6aa587a686a3caf0`, content tree hash `2c6005d60af70d6c2c09d5106cd5303d434ab049310d6c13cc706586166b50f3` |
+| Change against the previous library (`vd14efc1479965461`) | 4 entries: adjacent text nodes merged in 3, one explicit heading anchor (`sec-ghast` in the Ghoul entry); `coverage.json`, `books.json`, `relations.json` byte-identical |
+| `cargo xtask corpus-export` twice | Byte-identical, tree hash `4564c25541e4f9d7facb7a1f9707a20ae15127dfd1d211aa84ba404f4ce176e9` |
+| Export size and count | 31,113 files, 82.61 MB (sum of file bytes) |
+| `cargo xtask corpus-fmt --check` | 0 of 31,113 files unformatted |
+| `cargo xtask corpus-check` | 0 errors; 80 drift warnings (creature 1, feat 79) |
+| `cargo xtask corpus-roundtrip` | 0 mismatches, exact comparison; coverage rebuilt from the corpus equals `coverage.json` |
+| PSRD `--psrd` | Unchanged: `vcdd730994d863e50`, 9,990 entries |
+| `check-publication.py generated/content` | Exit 0 |
+| `check-library-upgrade.py generated/psrd generated/content` | Exit 0: 0 missing, 0 unresolvable, 0 dangling |
 | `cargo xtask data-report` | Exit 0; tracked `reports/` files unchanged |
-| `cargo xtask check` | Passed (format, Python tests, native and WASM clippy, workspace tests, WASM build) |
+
+Tree hash: SHA-256 over the sorted `file-sha256  relative-path` lines.
 
 Earlier status, 2026-11-05. The repository is public. The latest observed successful
 [main CI](https://github.com/phynics/cast-iron/actions/runs/41691686691) and
