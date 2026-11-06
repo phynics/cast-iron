@@ -1132,6 +1132,64 @@ mark {
   min-width: 0;
 }
 
+/* The one search field: results page and Quick search. A magnifier at the start, a clear
+   button at the end, and no native clear control. */
+.search-field {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+
+.search-field input[type="search"] {
+  width: 100%;
+  padding-inline: 2.25rem var(--touch);
+  background: var(--surface-2);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-field input[type="search"]::-webkit-search-cancel-button,
+.search-field input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  display: none;
+}
+
+.search-field-icon {
+  position: absolute;
+  left: var(--space-3);
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+
+.search-clear {
+  position: absolute;
+  right: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: var(--touch);
+  height: 100%;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  color: var(--ink);
+}
+
+.search-clear svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .search-layout {
   display: grid;
   gap: var(--space-4);
@@ -3134,35 +3192,7 @@ main,
 }
 
 /* Reader navigation and home */
-.app-header .header-search {
-  flex: 1 1 14rem;
-  max-width: 28rem;
-  min-width: 0;
-  gap: 0;
-  position: relative;
-}
-.header-search input[type="search"] {
-  width: 100%;
-  min-width: 0;
-  padding-right: 3rem;
-  background: var(--surface-2);
-}
-.header-search-submit {
-  position: absolute;
-  right: 0;
-  top: 0;
-  display: grid;
-  place-items: center;
-  width: var(--touch);
-  height: 100%;
-  min-height: var(--touch);
-  border: 0;
-  background: transparent;
-  color: var(--ink-muted);
-  cursor: pointer;
-}
-.header-search-submit:hover { color: var(--ink); }
-.header-search-submit svg, .nav-icon svg { width: 1.25rem; height: 1.25rem; }
+.nav-icon svg { width: 1.25rem; height: 1.25rem; }
 .app-header nav { margin-right: 0; margin-left: auto; flex-wrap: nowrap; }
 .nav-link {
   gap: .45rem;
@@ -3194,7 +3224,7 @@ a.home-row-link:hover .home-row-title { text-decoration: underline; }
 .home-books p { margin-block: var(--space-2); }
 @media (max-width: 47.99rem) {
   .app-header { gap: var(--space-2); }
-  .app-header .header-search { max-width: none; }
+  .app-header .header-search-btn { margin-left: auto; }
   /* One equal column per nav link, whatever the count. */
   .app-header nav { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; padding-top: .25rem; }
   .nav-link { flex-direction: column; gap: .15rem; justify-content: center; min-height: var(--nav-h); margin: 0 .2rem; padding: .25rem; border: 0; line-height: 1.15; }
@@ -3511,4 +3541,252 @@ input::placeholder {
 .app-header .brand {
   flex: none;
   white-space: nowrap;
+}
+
+/* ---- Header search icon and Quick search --------------------------------------------------- */
+
+.header-search-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--touch);
+  height: var(--touch);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.header-search-btn:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.header-search-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* A full-screen layer on a phone, a large sheet near the top on a wide screen. */
+.quick-search {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--ink);
+  background: var(--bg);
+  overscroll-behavior: contain;
+}
+
+.quick-search[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-search::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+html:has(.quick-search[open]) {
+  overflow: hidden;
+}
+
+.quick-search-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: max(var(--space-2), env(safe-area-inset-top)) max(var(--space-3), env(safe-area-inset-right))
+    var(--space-2) max(var(--space-3), env(safe-area-inset-left));
+  background: var(--surface);
+  border-bottom: var(--border);
+}
+
+.quick-search-cancel {
+  flex: none;
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-search-cancel:hover {
+  text-decoration: underline;
+}
+
+.quick-search-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2) max(var(--space-3), env(safe-area-inset-right))
+    max(var(--space-4), env(safe-area-inset-bottom)) max(var(--space-3), env(safe-area-inset-left));
+}
+
+.quick-search-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch);
+  padding-inline: var(--space-2);
+}
+
+.quick-search-heading {
+  margin: 0;
+  font-family: var(--font-text);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.quick-search-clear-all {
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--step--1);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-search-clear-all:hover {
+  text-decoration: underline;
+}
+
+.quick-search-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quick-search-list[hidden] {
+  display: none;
+}
+
+.quick-search-item {
+  display: flex;
+  align-items: stretch;
+  border-bottom: var(--border);
+}
+
+/* A row of the listbox. The field keeps focus; the highlighted row carries a rule at its
+   start as well as a tint, so the highlight never depends on color alone. */
+.quick-search-row {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: var(--touch);
+  padding: var(--space-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.quick-search-row:hover,
+.quick-search-row[aria-selected="true"] {
+  background: var(--surface-2);
+}
+
+.quick-search-row[aria-selected="true"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.quick-search-name {
+  overflow-wrap: anywhere;
+}
+
+.quick-search-all .quick-search-name {
+  font-weight: 600;
+}
+
+/* Metadata role: one muted line. */
+.quick-search-meta {
+  font-size: var(--step--1);
+  color: var(--ink-muted);
+}
+
+.quick-search-remove {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--touch);
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.quick-search-remove:hover {
+  color: var(--ink);
+}
+
+.quick-search-remove svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+@media (min-width: 48rem) {
+  .quick-search {
+    inset: 8vh 0 auto 0;
+    width: min(40rem, calc(100% - 2 * var(--space-5)));
+    height: auto;
+    max-height: 80vh;
+    margin-inline: auto;
+    border: var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .quick-search-bar {
+    padding-top: var(--space-2);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .quick-search[open] {
+    animation: quick-search-in 0.16s ease-out;
+  }
+
+  .quick-search[open]::backdrop {
+    animation: quick-search-fade 0.16s ease-out;
+  }
+}
+
+@keyframes quick-search-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes quick-search-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

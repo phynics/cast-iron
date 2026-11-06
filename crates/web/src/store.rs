@@ -31,6 +31,7 @@ pub const KEY_PENDING_INSTALL: &str = "pending_install";
 pub const KEY_THEME: &str = "theme";
 pub const KEY_DISABLED_BOOKS: &str = "disabled_books";
 pub const KEY_RECENT: &str = "recent";
+pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
 
 #[derive(Debug, Clone, PartialEq, Eq)]

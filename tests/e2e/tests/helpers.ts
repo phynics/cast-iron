@@ -114,6 +114,52 @@ export async function searchFor(page: Page, query: string) {
   await waitResults(page, query);
 }
 
+/** The header's search icon: the one control that opens Quick search. */
+export const searchIcon = (page: Page) => page.locator("header.app-header").getByRole("button", { name: "Search", exact: true });
+
+/** The Quick search layer. */
+export const quickSearch = (page: Page) => page.getByRole("dialog", { name: "Quick search" });
+
+/** The field of the Quick search layer. */
+export const quickField = (page: Page) => quickSearch(page).locator("#quick-search-input");
+
+/** The rows of the Quick search list: suggestions, or recent and starter searches. */
+export const quickOptions = (page: Page) => quickSearch(page).getByRole("option");
+
+/** The names of the entries that Quick search suggests, without the "See all results" row. */
+export async function suggestionTitles(page: Page) {
+  return quickSearch(page).locator('[role="option"]:not(.quick-search-all) .quick-search-name').allInnerTexts();
+}
+
+/**
+ * Open Quick search from the header icon and return the layer. A mouse click makes Playwright
+ * scroll the sticky header's natural position into view, which moves a scrolled page. Pass
+ * `keyboard` to open with the Enter key and keep the scroll position under test.
+ */
+export async function openQuickSearch(page: Page, { keyboard = false } = {}) {
+  if (keyboard) {
+    // `locator.focus()` scrolls a sticky element's natural position into view as well.
+    await searchIcon(page).evaluate((el) => el.focus({ preventScroll: true }));
+    await page.keyboard.press("Enter");
+  } else {
+    await searchIcon(page).click();
+  }
+  const layer = quickSearch(page);
+  await expect(layer).toBeVisible();
+  await expect(quickField(page)).toBeFocused();
+  return layer;
+}
+
+/** Search from any page through Quick search and wait for the results of exactly this query. */
+export async function quickSearchFor(page: Page, query: string) {
+  // On the results page the icon focuses that page's own field, so leave it first.
+  if (page.url().includes("#/search")) await page.goto("#/");
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill(query);
+  await page.keyboard.press("Enter");
+  await waitResults(page, query);
+}
+
 export async function waitResults(page: Page, query: string) {
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
@@ -527,7 +573,11 @@ export async function seedHome(
   page: Page,
   { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string; kind: string }[] },
 ) {
-  await page.goto("#/settings");
+  // Stage on Legal, not Settings: Settings has its own storage and service worker reads in flight
+  // for a moment after it renders, and a reload that stops the page under them is reported by
+  // WebKit as the page error "Context is stopped". Legal reads nothing after it renders.
+  await page.goto("#/legal");
+  await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
   await page.evaluate(
     ({ recents, stars }) =>
       new Promise<void>((resolve, reject) => {
@@ -548,8 +598,35 @@ export async function seedHome(
       }),
     { recents, stars },
   );
-  await page.goto("#/");
   await page.reload();
+  await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
+  await page.goto("#/");
   await waitReady(page);
   await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+}
+
+/** How many recently viewed entries are in storage right now, read straight from IndexedDB. */
+export function storedRecentCount(page: Page): Promise<number> {
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const get = db.transaction("meta").objectStore("meta").get("recent");
+          get.onsuccess = () => { db.close(); resolve(Array.isArray(get.result) ? get.result.length : 0); };
+          get.onerror = () => { db.close(); reject(get.error); };
+        };
+      }),
+  );
+}
+
+/**
+ * Waits until Home has finished warming the search index. The read of `search.bin` runs for about
+ * a second after Home renders; a reload that stops the page under it is reported by WebKit as the
+ * page error "Context is stopped".
+ */
+export async function waitHomeIdle(page: Page) {
+  await page.locator(".home-page[data-index-ready=true]").waitFor({ state: "attached", timeout: 90_000 });
 }

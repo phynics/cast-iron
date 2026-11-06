@@ -6,6 +6,7 @@ use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::Tier;
+use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
@@ -530,13 +531,6 @@ fn pointer_is_fine() -> bool {
         .is_some_and(|m| m.matches())
 }
 
-fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
-    web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.get_element_by_id(id))
-        .and_then(|e| e.dyn_into().ok())
-}
-
 /// True when the event target is a text field or sits inside a contenteditable region, where
 /// `/` is a character rather than a shortcut.
 fn is_text_entry(target: &web_sys::EventTarget) -> bool {
@@ -556,30 +550,20 @@ fn is_text_entry(target: &web_sys::EventTarget) -> bool {
     false
 }
 
-/// `/` focuses the search box from anywhere outside a text field, or opens Search.
-pub fn install_slash_shortcut() {
+/// `/` focuses the search box from anywhere outside a text field: the field of the results page
+/// when it is open, otherwise Quick search.
+pub fn install_slash_shortcut(quick: QuickSearch) {
     let handle = window_event_listener(leptos::ev::keydown, move |ev| {
         // Match the produced character, not Shift: some layouts (German, French) need Shift for `/`.
         if ev.is_composing() || ev.key() != "/" || ev.ctrl_key() || ev.meta_key() || ev.alt_key() {
             return;
         }
-        if ev.target().is_some_and(|target| is_text_entry(&target)) {
+        if quick.is_open() || ev.target().is_some_and(|target| is_text_entry(&target)) {
             return;
         }
         ev.prevent_default();
-        if let Some(input) = element_by_id("search-input") {
-            let _ = input.focus();
-            if let Ok(input) = input.dyn_into::<web_sys::HtmlInputElement>() {
-                input.select();
-            }
-        } else {
-            navigate(&Route::search(""));
-            spawn_local(async {
-                js::sleep(60).await;
-                if let Some(input) = element_by_id("search-input") {
-                    let _ = input.focus();
-                }
-            });
+        if !focus_results_field() {
+            quick.open();
         }
     });
     on_cleanup(move || handle.remove());
@@ -605,7 +589,7 @@ pub fn marked(text: &str, ranges: &[(usize, usize)]) -> Vec<AnyView> {
 /// The discovery snapshot for one selection revision. Search asks for it from the search
 /// effect, both chip-total memos, and the idle panel; rebuilding it each time rescanned the
 /// whole catalog once per caller.
-fn discovery_for(
+pub(crate) fn discovery_for(
     library: &crate::library::Library,
     cache: StoredValue<Option<(u64, Rc<crate::discovery::Discovery>)>, LocalStorage>,
     revision: u64,
@@ -666,6 +650,10 @@ pub fn Search() -> impl IntoView {
             && pointer_is_fine()
         {
             let _ = input.focus();
+            // WebKit puts the caret at the start of a value that was set before the focus, such
+            // as the text that Quick search handed over. Typing continues at the end.
+            let end = u32::try_from(input.value().encode_utf16().count()).unwrap_or(0);
+            let _ = input.set_selection_range(end, end);
         }
     });
 
@@ -1182,7 +1170,7 @@ pub fn Search() -> impl IntoView {
                     <p>{format!("Search {total} entries by name or by any word in the text.")}</p>
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
-                        {["fireball", "grapple", "cure light", "dragon"].into_iter().map(|q| {
+                        {STARTERS.into_iter().map(|q| {
                             view! { <a class="jump" href=Route::search(q).href()>{q}</a> }
                         }).collect_view()}
                     </p>
@@ -1270,6 +1258,10 @@ pub fn Search() -> impl IntoView {
                 ev.prevent_default();
                 typing_gen.update_untracked(|g| *g += 1);
                 flush();
+                let submitted = text.get_untracked();
+                spawn_local(async move {
+                    crate::views::recent_searches::record(&submitted).await;
+                });
                 if !pointer_is_fine()
                     && let Some(input) = input_ref.get()
                 {
@@ -1277,19 +1269,40 @@ pub fn Search() -> impl IntoView {
                 }
             }>
                 <label class="sr-only" for="search-input">"Search the rules"</label>
-                <input
-                    id="search-input"
-                    node_ref=input_ref
-                    type="search"
-                    placeholder="Search spells, feats, rules…"
-                    autocomplete="off"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    enterkeyhint="search"
-                    prop:value=move || text.get()
-                    on:input=move |ev| { text.set(event_target_value(&ev)); schedule(); }
-                />
-                <button class="btn btn-primary" type="submit">"Search"</button>
+                <div class="search-field">
+                    <svg class="search-field-icon" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
+                    </svg>
+                    <input
+                        id="search-input"
+                        node_ref=input_ref
+                        type="search"
+                        placeholder="Search spells, feats, rules…"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        enterkeyhint="search"
+                        prop:value=move || text.get()
+                        on:input=move |ev| { text.set(event_target_value(&ev)); schedule(); }
+                    />
+                    <Show when=move || text.with(|text| !text.is_empty())>
+                        <button class="search-clear" type="button" aria-label="Clear search"
+                            on:click=move |_| {
+                                text.set(String::new());
+                                typing_gen.update_untracked(|g| *g += 1);
+                                flush();
+                                if let Some(input) = input_ref.get() {
+                                    let _ = input.focus();
+                                }
+                            }>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                                <path d="m7 7 10 10M17 7 7 17"/>
+                            </svg>
+                        </button>
+                    </Show>
+                </div>
             </form>
             <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
             <div class="search-layout">

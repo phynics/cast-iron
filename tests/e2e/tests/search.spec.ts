@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, corpusEntry, hitTitles, installLibrary, pct, showAllResults, waitControlled, waitResults } from "./helpers";
+import { bodyText, corpusEntry, hitTitles, installLibrary, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -462,10 +462,14 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   const spell = corpusEntry("spell", "Fireball");
   const prefix = spell.title.slice(0, 3).toLowerCase();
   await page.keyboard.press("/");
-  await expect(page.locator("#search-input")).toBeFocused();
+  await expect(quickField(page)).toBeFocused();
   await page.keyboard.type(prefix);
   await page.keyboard.press("Enter");
   await expect(page.locator(".search-page")).toBeVisible();
+  await expect(page.locator("#search-input")).toHaveValue(prefix);
+  // The app leaves the caret at the end of the handed-over text; Playwright's own focus in
+  // WebKit moves it to the start, so go to the end before typing on.
+  await page.locator("#search-input").press("End");
   await page.locator("#search-input").pressSequentially(spell.title.slice(prefix.length).toLowerCase());
   await waitResults(page, spell.title.toLowerCase());
   const titles = await hitTitles(page);
@@ -539,4 +543,356 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
 
   // Nothing but the browser's own service worker update check (sw.js, refused) reached the server.
   expect((await server.requests()).filter((p) => !p.startsWith("sw.js"))).toEqual([]);
+});
+
+// ---- Quick search (#164) -----------------------------------------------------------------
+
+installedTest("The header search icon opens Quick search, Enter shows the results, and there is one field", async ({ page }) => {
+  await installLibrary(page);
+  await expect(page.locator("#home-title")).toBeVisible();
+
+  // The header offers an icon, not a field, and no search field exists until the layer opens.
+  const icon = searchIcon(page);
+  await expect(icon).toBeVisible();
+  const box = (await icon.boundingBox())!;
+  expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+  await expect(page.locator("input[type=search]:visible")).toHaveCount(0);
+
+  const layer = await openQuickSearch(page);
+  await expect(layer).toHaveAttribute("aria-modal", "true");
+  await expect(page.locator("input[type=search]:visible")).toHaveCount(1);
+  const field = quickField(page);
+  await field.fill("grapple");
+  await expect(layer.getByRole("button", { name: "Clear search" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  await expect(quickSearch(page)).toBeHidden();
+  expect(page.url()).toContain("#/search?q=grapple");
+
+  // The results page has the same single field, with no second field and no Search button.
+  await expect(page.getByRole("searchbox", { name: "Search the rules" })).toHaveCount(1);
+  await expect(page.locator("#search-input")).toHaveValue("grapple");
+  await expect(page.locator(".search-page button[type=submit]")).toHaveCount(0);
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+
+  // Back from the results is the page that opened the layer, not a hidden layer.
+  await page.goBack();
+  await expect(page.locator("#home-title")).toBeVisible();
+  await expect(quickSearch(page)).toBeHidden();
+});
+
+installedTest("Quick search clears with its x and ignores an empty Enter", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+  await page.keyboard.press("Enter");
+  await expect(layer).toBeVisible();
+  expect(page.url()).not.toContain("#/search");
+  await field.fill("fire");
+  await layer.getByRole("button", { name: "Clear search" }).click();
+  await expect(field).toHaveValue("");
+  await expect(field).toBeFocused();
+  await expect(layer.getByRole("button", { name: "Clear search" })).toHaveCount(0);
+});
+
+installedTest("Quick search leaves no stale query in the header after searches and an entry", async ({ page }) => {
+  await installLibrary(page);
+  await quickSearchFor(page, "wizard discovery");
+  for (const query of ["arcane discovery", "ancient red dragon"]) {
+    await page.locator("#search-input").fill(query);
+    await waitResults(page, query);
+  }
+  await page.locator(".results .hit-link").first().click();
+  await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+  // Opening the layer again starts from an empty field, and Books shows no query either.
+  const layer = await openQuickSearch(page);
+  await expect(quickField(page)).toHaveValue("");
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  await page.goto("#/books");
+  await expect(page.locator("header.app-header input")).toHaveCount(0);
+});
+
+installedTest("Cancel, Escape and Back close Quick search on the same page, scroll and focus", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await expect(page.locator(".book-directory-row").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 600));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  const url = page.url();
+
+  const closers: [string, () => Promise<void>][] = [
+    ["Cancel", async () => { await quickSearch(page).getByRole("button", { name: "Cancel" }).click(); }],
+    // With text in the field the first Escape closes the suggestion list, the second the layer.
+    ["Escape", async () => { await page.keyboard.press("Escape"); await page.keyboard.press("Escape"); }],
+    ["Back", async () => { await page.goBack(); }],
+  ];
+  for (const [name, close] of closers) {
+    const layer = await openQuickSearch(page, { keyboard: true });
+    await quickField(page).fill("fire");
+    await close();
+    await expect(layer, name).toBeHidden();
+    expect(page.url(), name).toBe(url);
+    expect(await page.evaluate(() => Math.round(window.scrollY)), name).toBe(before);
+    await expect(searchIcon(page), name).toBeFocused();
+  }
+  // Closing three times leaves no layer behind: one Back leaves the page the layer was opened on.
+  await page.goBack();
+  expect(page.url()).not.toBe(url);
+});
+
+installedTest("Quick search keeps Tab inside the layer and honors reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("fire");
+  expect(await layer.evaluate((el) => getComputedStyle(el).animationName)).toBe("none");
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("dialog.quick-search"))).toBe(true);
+  }
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await page.evaluate(() => !!document.activeElement?.closest("dialog.quick-search"))).toBe(true);
+  }
+});
+
+installedTest("The header icon on the results page focuses its one field", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  await page.locator("#search-input").blur();
+  await searchIcon(page).click();
+  await expect(page.locator("#search-input")).toBeFocused();
+  await expect(quickSearch(page)).toBeHidden();
+});
+
+// ---- Quick search suggestions and recent searches (#165) ----------------------------------
+
+installedTest("Quick search suggests entries while typing and opens one from the keyboard", async ({ page }) => {
+  await installLibrary(page);
+  const spell = corpusEntry("spell", "Fireball");
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+  await expect(field).toHaveAttribute("role", "combobox");
+  await expect(field).toHaveAccessibleName("Search the rules");
+  await field.fill("firebal");
+
+  // The first suggestion is the spell, with its kind and book on a muted line.
+  const options = quickOptions(page);
+  await expect(options.first().locator(".quick-search-name")).toHaveText(spell.title);
+  await expect(options.first().locator(".quick-search-meta")).toHaveText(/^Spell · \S/);
+  const count = await options.count();
+  expect(count).toBeGreaterThan(1);
+  expect(count).toBeLessThanOrEqual(9);
+  await expect(options.last()).toHaveText("See all results for “firebal”");
+  for (const option of await options.all()) {
+    expect(Math.round((await option.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  }
+  await expect(field).toHaveAttribute("aria-expanded", "true");
+  await expect(field).not.toHaveAttribute("aria-activedescendant", /./);
+  await expect(layer.getByRole("listbox", { name: "Suggestions" })).toBeVisible();
+
+  // `fireb` scores Firebrand and Fireball within one percent of each other; the suggestions
+  // break that near tie by the shorter completion, so Fireball is first. `firebrand` is
+  // Firebrand. Each step starts from a list with another first row, so a stale list cannot pass.
+  const suggested = await suggestionTitles(page);
+  expect(suggested[0]).toBe(spell.title);
+  await field.fill("firebrand");
+  await expect(options.last()).toHaveText("See all results for “firebrand”");
+  await expect(options.first().locator(".quick-search-name")).toHaveText("Firebrand");
+  await field.fill("fireb");
+  await expect(options.last()).toHaveText("See all results for “fireb”");
+  await expect(options.first().locator(".quick-search-name")).toHaveText(spell.title);
+  await expect(options.first().locator(".quick-search-meta")).toHaveText(/^Spell · \S/);
+  // Back to `firebal`: wait until the list no longer holds the Firebrand rows of `fireb`.
+  await field.fill("firebal");
+  await expect.poll(async () => (await suggestionTitles(page)).includes("Firebrand")).toBe(false);
+  await expect(options.first().locator(".quick-search-name")).toHaveText(spell.title);
+  await expect(options.last()).toHaveText("See all results for “firebal”");
+
+  // Down highlights the first row and names it through aria-activedescendant.
+  await page.keyboard.press("ArrowDown");
+  await expect(options.first()).toHaveAttribute("aria-selected", "true");
+  const id = await options.first().getAttribute("id");
+  await expect(field).toHaveAttribute("aria-activedescendant", id!);
+  await page.keyboard.press("ArrowUp");
+  await expect(field).not.toHaveAttribute("aria-activedescendant", /./);
+  await page.keyboard.press("ArrowUp");
+  await expect(options.last()).toHaveAttribute("aria-selected", "true");
+  for (let i = 1; i < count; i++) await page.keyboard.press("ArrowUp");
+  await expect(options.first()).toHaveAttribute("aria-selected", "true");
+
+  // Enter on a highlighted suggestion opens the entry, and Back returns to the page.
+  const home = page.url();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
+  await expect(layer).toBeHidden();
+  expect(page.url()).toContain(`#/entry/${spell.id}`);
+  await page.goBack();
+  expect(page.url()).toBe(home);
+});
+
+installedTest("Quick search suggestions match the results page and tap opens an entry", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("cure light");
+  // Suggestions arrive after a pause in typing; until then only "See all results" is listed.
+  await expect(quickOptions(page)).not.toHaveCount(1);
+  await expect(quickOptions(page).last()).toHaveText("See all results for “cure light”");
+  const suggested = await suggestionTitles(page);
+  expect(suggested.length).toBeGreaterThan(0);
+  // "See all results" shows the same entries, best first.
+  await quickOptions(page).last().click();
+  await waitResults(page, "cure light");
+  const results = await hitTitles(page);
+  expect(results.slice(0, suggested.length)).toEqual(suggested);
+  expect(page.url()).toContain("#/search?q=cure%20light");
+
+  // A tap on a suggestion opens the entry.
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await quickField(page).fill("cure light");
+  await expect(quickOptions(page)).not.toHaveCount(1);
+  const first = suggested[0];
+  await quickOptions(page).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: first })).toBeVisible();
+  await expect(layer).toBeHidden();
+});
+
+installedTest("Escape closes the suggestion list first, then Quick search", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+  await field.fill("fireb");
+  await expect(quickOptions(page).first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeVisible();
+  await expect(field).toHaveAttribute("aria-expanded", "false");
+  await expect(quickOptions(page)).toHaveCount(0);
+  // Typing again, or Down, brings the list back.
+  await page.keyboard.press("ArrowDown");
+  await expect(field).toHaveAttribute("aria-expanded", "true");
+  await expect(quickOptions(page).first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+});
+
+installedTest("Quick search offers the starter searches until a search is submitted", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await expect(layer.getByRole("heading", { name: "Try searching for" })).toBeVisible();
+  await expect(quickOptions(page)).toHaveText(["fireball", "grapple", "cure light", "dragon"]);
+  await expect(layer.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+  await quickOptions(page).filter({ hasText: "grapple" }).click();
+  await waitResults(page, "grapple");
+  // A starter is a submitted search, so it is remembered.
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
+  await expect(quickOptions(page)).toHaveText(["grapple"]);
+});
+
+installedTest("Recent searches persist offline, stay unique and newest first, and can be removed or cleared", async ({ page, context, server }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await quickSearchFor(page, "grapple");
+  await quickSearchFor(page, "fireball");
+  // A search from the results page's own field is remembered too.
+  await page.locator("#search-input").fill("dragon");
+  await waitResults(page, "dragon");
+  await page.locator("#search-input").press("Enter");
+  // The same query in another case moves to the front and does not repeat.
+  await quickSearchFor(page, "Grapple");
+
+  await goOffline(context, server);
+  await page.goto("#/");
+  await page.reload();
+  await expect(page.locator("#home-title")).toBeVisible();
+  const layer = await openQuickSearch(page);
+  await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
+  await expect(quickOptions(page)).toHaveText(["Grapple", "dragon", "fireball"]);
+
+  // Remove one with its own button; the field keeps focus.
+  await layer.getByRole("button", { name: "Remove “dragon” from recent searches" }).click();
+  await expect(quickOptions(page)).toHaveText(["Grapple", "fireball"]);
+  await expect(quickField(page)).toBeFocused();
+
+  // A highlighted recent search is forgotten with Delete.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Delete");
+  await expect(quickOptions(page)).toHaveText(["Grapple"]);
+
+  // The list survives closing and a reload, then Clear removes everything.
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  await page.reload();
+  await expect(page.locator("#home-title")).toBeVisible();
+  await openQuickSearch(page);
+  await expect(quickOptions(page)).toHaveText(["Grapple"]);
+  await layer.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(layer.getByRole("heading", { name: "Try searching for" })).toBeVisible();
+  await expect(quickOptions(page)).toHaveText(["fireball", "grapple", "cure light", "dragon"]);
+
+  // Tapping a recent search runs it.
+  await page.keyboard.press("Escape");
+  await quickSearchFor(page, "wizard");
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await quickOptions(page).first().click();
+  await waitResults(page, "wizard");
+  // The search was written to storage; read it back so no write is still in flight when the
+  // test ends (WebKit reports "Context is stopped" for one that is).
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await expect(quickOptions(page)).toHaveText(["wizard"]);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+});
+
+installedTest("The highlight is dropped when the suggestions change under it", async ({ page }) => {
+  await installLibrary(page);
+  await openQuickSearch(page);
+  const field = quickField(page);
+  const options = quickOptions(page);
+  await field.fill("fire");
+  await expect(options.first()).toBeVisible();
+  // Move the highlight to the last row while the lookup for the new text is still pending
+  // (suggestions wait for a pause in typing), so the rows change under it.
+  await field.fill("fireball trap");
+  for (let i = 0; i < 12; i++) await page.keyboard.press("ArrowDown");
+  await expect(options.last()).toHaveText("See all results for “fireball trap”");
+  await expect(options.first().locator(".quick-search-name")).toHaveText(/^Fireball Trap/);
+  // Whatever happened in between, the field never names a row that is not in the list.
+  const named = await field.getAttribute("aria-activedescendant");
+  if (named) await expect(page.locator(`#${named}`)).toHaveCount(1);
+  // Typing clears the highlight, and with none Enter searches the text rather than a row.
+  await field.fill("fireball trap");
+  await expect(field).not.toHaveAttribute("aria-activedescendant", /./);
+  await page.keyboard.press("Enter");
+  await waitResults(page, "fireball trap");
+});
+
+installedTest("Suggestions are announced only while the list is open, and the icon only promises a dialog where it opens one", async ({ page }) => {
+  await installLibrary(page);
+  await expect(searchIcon(page)).toHaveAttribute("aria-haspopup", "dialog");
+  const layer = await openQuickSearch(page);
+  const status = layer.getByRole("status");
+  await quickField(page).fill("fireb");
+  await expect(status).toHaveText(/^\d+ suggestions?$/);
+  await page.keyboard.press("Escape");
+  await expect(quickField(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(status).toHaveText("");
+  await page.keyboard.press("ArrowDown");
+  await expect(status).toHaveText(/^\d+ suggestions?$/);
+  await page.keyboard.press("Enter");
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  await expect(searchIcon(page)).not.toHaveAttribute("aria-haspopup", /./);
 });

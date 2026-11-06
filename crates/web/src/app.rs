@@ -18,6 +18,7 @@ use crate::views::{
     installer::InstallerScreen,
     legal::Legal,
     not_found::NotFound,
+    quick_search::{QuickSearch, QuickSearchButton, QuickSearchLayer},
     search::Search,
     settings::Settings,
     spells::{SpellListView, SpellsHub},
@@ -249,8 +250,7 @@ fn Reader(library: Library) -> impl IntoView {
     provide_context(library);
     let app = use_app();
     let current = use_route();
-    let query = RwSignal::new(String::new());
-    let search_input = NodeRef::<leptos::html::Input>::new();
+    let quick = QuickSearch::provide();
 
     // After each route change: scroll to the anchor or the top, and move focus to <main>
     // so that screen readers announce the new page. Search edits its own route while the user
@@ -286,39 +286,26 @@ fn Reader(library: Library) -> impl IntoView {
         });
         next
     });
-    views::search::install_slash_shortcut();
+
+    views::search::install_slash_shortcut(quick);
 
     view! {
         <div class="app">
             <header class="app-header">
                 <a class="brand" href=Route::Home.href()>"Cast Iron"</a>
-                <Show when=move || !matches!(current.get(), Route::Search { .. })>
-                    <form class="search-form header-search" role="search" on:submit=move |ev| {
-                        ev.prevent_default();
-                        let text = search_input.get().map(|input| input.value()).unwrap_or_default();
-                        route::navigate(&Route::search(text.trim()));
-                    }>
-                        <label class="sr-only" for="search-input">"Search the rules"</label>
-                        <input id="search-input" node_ref=search_input type="search" placeholder="Search the rules"
-                            autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
-                            prop:value=move || query.get()
-                            on:input=move |ev| query.set(event_target_value(&ev)) />
-                        <button class="header-search-submit" type="submit" aria-label="Search">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-                        </button>
-                    </form>
-                </Show>
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
                     <NavLink label="Books" route=Route::Books />
                     <NavLink label="Settings" route=Route::Settings />
                 </nav>
+                <QuickSearchButton />
                 <HeaderAction />
                 <Show when=move || !app.online.get()>
                     <span class="badge" title="No connection. Everything here still works.">"Offline"</span>
                 </Show>
             </header>
             <InstallGuide />
+            <QuickSearchLayer />
             <main id="main" tabindex="-1">
                 <RouteView />
             </main>

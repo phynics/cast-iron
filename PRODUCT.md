@@ -18,7 +18,7 @@ Find, browse, and understand the legally redistributable PF1e rules without a ne
 
 Users need both category-based discovery and relationships between rules. A separate book view follows the original chapter and section order only, as confirmed on 2026-11-03. It is not a book-filtered alphabetical category list.
 
-Search is available as a bar rather than a primary tab. Home lists starred entries with direct open and unstar actions, plus recent reading. Collections and a separate bookmark manager are not part of the interface. The primary destinations are Home, Books, and Settings. Home holds starred entries, recent reading, and the entry categories; `#/browse` links open Home. Books holds the publication directory and rules browser. Rules are reached through Books and search, while existing reading links and starred rules remain usable. Active-book choices filter discovery without deleting downloaded content or stars.
+Search stays at the top of every screen as an icon that opens a full-screen Quick search, not as a tab and not as a header field. The results page has its own single field. Home lists starred entries with direct open and unstar actions, plus recent reading. Collections and a separate bookmark manager are not part of the interface. The primary destinations are Home, Books, and Settings. Home holds starred entries, recent reading, and the entry categories; `#/browse` links open Home. Books holds the publication directory and rules browser. Rules are reached through Books and search, while existing reading links and starred rules remain usable. Active-book choices filter discovery without deleting downloaded content or stars.
 
 ## Capabilities and Constraints
 
