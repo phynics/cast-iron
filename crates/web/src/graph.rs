@@ -6,7 +6,7 @@
 
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, EntryId, Inline, RelationIndex, RelationKind,
-    SpellListClass, SpellListSpell, SpellLists,
+    SpellListClass, SpellListDetail, SpellLists,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -318,28 +318,75 @@ pub fn list_total(list: &SpellListClass) -> usize {
     list.levels.iter().map(|l| l.spells.len()).sum()
 }
 
-/// The spells of one list, grouped by level, narrowed to one level and by a text filter.
-/// The filter is a case-insensitive substring of the title; blank keeps everything. Spells keep
-/// the list's order (by title). Levels with no match are left out.
+/// One spell of a list with what its row shows. `detail` is `None` in a library built before
+/// rows carried details.
+#[derive(Debug, Clone, Copy)]
+pub struct ListedSpell<'a> {
+    pub id: &'a EntryId,
+    pub title: &'a str,
+    pub detail: Option<&'a SpellListDetail>,
+}
+
+impl<'a> ListedSpell<'a> {
+    fn at(lists: &'a SpellLists, position: u32) -> Option<Self> {
+        let spell = lists.spells.get(position as usize)?;
+        Some(Self {
+            id: &spell.0,
+            title: &spell.1,
+            detail: lists.details.get(position as usize),
+        })
+    }
+
+    fn school(&self) -> &'a str {
+        self.detail.map_or("", |d| d.school.as_str())
+    }
+}
+
+/// The spells of one list, grouped by level, narrowed to one level, by a text filter and by
+/// school. The text is a case-insensitive substring of the title; blank keeps everything. No
+/// school keeps everything; several keep a spell of any of them. Spells keep the list's order
+/// (by title). Levels with no match are left out.
 pub fn filter_list<'a>(
     lists: &'a SpellLists,
     list: &'a SpellListClass,
     level: Option<u8>,
     filter: &str,
-) -> Vec<(u8, Vec<&'a SpellListSpell>)> {
+    schools: &[String],
+) -> Vec<(u8, Vec<ListedSpell<'a>>)> {
     let needle = filter.trim().to_lowercase();
     list.levels
         .iter()
         .filter(|l| level.is_none_or(|wanted| wanted == l.level))
         .filter_map(|l| {
-            let spells: Vec<&SpellListSpell> = l
+            let spells: Vec<ListedSpell> = l
                 .spells
                 .iter()
-                .filter_map(|&pos| lists.spells.get(pos as usize))
-                .filter(|spell| needle.is_empty() || spell.1.to_lowercase().contains(&needle))
+                .filter_map(|&pos| ListedSpell::at(lists, pos))
+                .filter(|spell| needle.is_empty() || spell.title.to_lowercase().contains(&needle))
+                .filter(|spell| schools.is_empty() || schools.iter().any(|s| s == spell.school()))
                 .collect();
             (!spells.is_empty()).then_some((l.level, spells))
         })
+        .collect()
+}
+
+/// The schools of a list's spells with how many spells each holds, by name. Empty when the
+/// library carries no details, so the reader then offers no school filter.
+pub fn list_schools(lists: &SpellLists, list: &SpellListClass) -> Vec<(String, usize)> {
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    for level in &list.levels {
+        for &pos in &level.spells {
+            if let Some(spell) = ListedSpell::at(lists, pos) {
+                let school = spell.school();
+                if !school.is_empty() {
+                    *counts.entry(school).or_default() += 1;
+                }
+            }
+        }
+    }
+    counts
+        .into_iter()
+        .map(|(s, n)| (s.to_string(), n))
         .collect()
 }
 
@@ -569,7 +616,7 @@ pub fn entries_under(node: &BookNode) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cast_iron_schema::{RelationEdge, SpellListLevel};
+    use cast_iron_schema::{RelationEdge, SpellListLevel, SpellListSpell};
 
     fn id(s: &str) -> EntryId {
         EntryId::parse(s).unwrap()
@@ -634,6 +681,7 @@ mod tests {
                 SpellListSpell(id("c/spell-a"), "A".into()),
                 SpellListSpell(id("c/spell-b"), "B".into()),
             ],
+            details: vec![],
             classes: vec![SpellListClass {
                 name: "Wizard".into(),
                 class: Some(id("c/wizard")),
@@ -800,6 +848,14 @@ mod tests {
                     }],
                 },
             ],
+            details: ["evocation", "evocation", "evocation", "evocation"]
+                .iter()
+                .enumerate()
+                .map(|(i, school)| SpellListDetail {
+                    school: if i == 0 { "conjuration" } else { school }.into(),
+                    ..Default::default()
+                })
+                .collect(),
         }
     }
 
@@ -809,15 +865,15 @@ mod tests {
         let wizard = find_list(&lists, "wizard").unwrap();
         assert_eq!(level_counts(wizard), [(1, 2), (2, 1), (3, 1)]);
         assert_eq!(list_total(wizard), 4);
-        let titles = |groups: Vec<(u8, Vec<&SpellListSpell>)>| -> Vec<(u8, Vec<String>)> {
+        let titles = |groups: Vec<(u8, Vec<ListedSpell>)>| -> Vec<(u8, Vec<String>)> {
             groups
                 .into_iter()
-                .map(|(l, s)| (l, s.into_iter().map(|s| s.1.clone()).collect()))
+                .map(|(l, s)| (l, s.into_iter().map(|s| s.title.to_string()).collect()))
                 .collect()
         };
         // One level.
         assert_eq!(
-            titles(filter_list(&lists, wizard, Some(1), "")),
+            titles(filter_list(&lists, wizard, Some(1), "", &[])),
             [(
                 1,
                 vec!["Burning Hands".to_string(), "Magic Missile".to_string()]
@@ -825,11 +881,11 @@ mod tests {
         );
         // Text across levels, case-insensitive, with padding.
         assert_eq!(
-            titles(filter_list(&lists, wizard, None, "  AR ")),
+            titles(filter_list(&lists, wizard, None, "  AR ", &[])),
             [(2, vec!["Acid Arrow".to_string()])]
         );
         assert_eq!(
-            titles(filter_list(&lists, wizard, None, "I")),
+            titles(filter_list(&lists, wizard, None, "I", &[])),
             [
                 (
                     1,
@@ -840,13 +896,38 @@ mod tests {
             ]
         );
         // A level with no match disappears; an unknown level gives nothing.
-        assert!(filter_list(&lists, wizard, Some(3), "acid").is_empty());
-        assert!(filter_list(&lists, wizard, Some(9), "").is_empty());
+        assert!(filter_list(&lists, wizard, Some(3), "acid", &[]).is_empty());
+        assert!(filter_list(&lists, wizard, Some(9), "", &[]).is_empty());
         // A broken position in the file is skipped, not a panic.
         let mut broken = lists.clone();
         broken.classes[0].levels[0].spells.push(99);
         let wizard = find_list(&broken, "Wizard").unwrap();
-        assert_eq!(filter_list(&broken, wizard, Some(1), "").len(), 1);
+        assert_eq!(filter_list(&broken, wizard, Some(1), "", &[]).len(), 1);
+    }
+
+    #[test]
+    fn spell_lists_filter_by_school_and_count_the_schools() {
+        let lists = lists();
+        let wizard = find_list(&lists, "wizard").unwrap();
+        assert_eq!(
+            list_schools(&lists, wizard),
+            [("conjuration".to_string(), 1), ("evocation".to_string(), 3)]
+        );
+        let titles = |schools: &[&str]| -> Vec<String> {
+            let schools: Vec<String> = schools.iter().map(|s| s.to_string()).collect();
+            filter_list(&lists, wizard, None, "", &schools)
+                .into_iter()
+                .flat_map(|(_, s)| s.into_iter().map(|s| s.title.to_string()))
+                .collect()
+        };
+        assert_eq!(titles(&["conjuration"]), ["Acid Arrow"]);
+        assert_eq!(titles(&["conjuration", "evocation"]).len(), 4);
+        assert!(titles(&["necromancy"]).is_empty());
+        // A library without details has no schools and a school filter matches nothing.
+        let mut bare = lists.clone();
+        bare.details.clear();
+        let wizard = find_list(&bare, "wizard").unwrap();
+        assert!(list_schools(&bare, wizard).is_empty());
     }
 
     #[test]

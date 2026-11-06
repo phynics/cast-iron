@@ -4,12 +4,71 @@
 //! level 3 spells" does not need every spell shard. Class names are grouped without regard
 //! to case; the display name is the class entry's title when a class entry exists.
 
+use crate::pipeline::school_facet;
+use crate::text::inline_text;
 use cast_iron_schema::{
-    EntryId, EntryKind, RuleEntry, SpellListClass, SpellListCoverage, SpellListLevel,
-    SpellListSpell, SpellLists, TypedFields, UnmappedClass,
+    Block, EntryId, EntryKind, RuleEntry, SpellFields, SpellListClass, SpellListCoverage,
+    SpellListDetail, SpellListLevel, SpellListSpell, SpellLists, TypedFields, UnmappedClass,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Longest gist, in characters. A row shows it on one line and cuts it with an ellipsis, so
+/// the file does not need more than a phone line can use.
+const GIST_CHARS: usize = 70;
+
+/// The first sentence of the description, for the second line of a list row. The statistics
+/// block, the `Sources:` line and headings are skipped; the first plain paragraph counts.
+/// Empty when the entry has no such paragraph.
+pub fn gist(body: &[Block]) -> String {
+    let paragraph = body.iter().find_map(|block| match block {
+        Block::Paragraph { content, .. } => {
+            let text = inline_text(content);
+            let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+            let skip = text.is_empty()
+                || text.starts_with("Sources:")
+                || text.starts_with("Source:")
+                || text.starts_with("Source ");
+            (!skip).then_some(text)
+        }
+        _ => None,
+    });
+    let Some(text) = paragraph else {
+        return String::new();
+    };
+    first_sentence_within(&text, GIST_CHARS)
+}
+
+/// Up to the first sentence end (`.`, `!` or `?` followed by a space), or all of `text`.
+/// Over `limit` characters it is cut at the last word boundary and ends with `…`.
+fn first_sentence_within(text: &str, limit: usize) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let end = chars
+        .windows(2)
+        .position(|w| matches!(w[0], '.' | '!' | '?') && w[1] == ' ')
+        .map_or(chars.len(), |i| i + 1);
+    let sentence: String = chars[..end].iter().collect();
+    if end <= limit {
+        return sentence.trim_end_matches('.').trim().to_string();
+    }
+    let cut: String = chars[..limit].iter().collect();
+    let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
+    format!("{}…", cut.trim_end_matches([',', ';', ':', ' ', '.']))
+}
+
+fn detail(entry: &RuleEntry, fields: &SpellFields) -> SpellListDetail {
+    let clean = |value: &Option<String>| {
+        value
+            .as_deref()
+            .map(|v| v.split_whitespace().collect::<Vec<_>>().join(" "))
+            .unwrap_or_default()
+    };
+    SpellListDetail {
+        school: school_facet(&fields.school),
+        casting_time: clean(&fields.casting_time),
+        saving_throw: clean(&fields.saving_throw),
+        gist: gist(&entry.body),
+    }
+}
 pub struct Report {
     pub lists: SpellLists,
     pub coverage: SpellListCoverage,
@@ -41,6 +100,7 @@ pub fn build(entries: &[RuleEntry]) -> Report {
     }
     let mut classes: BTreeMap<String, ClassAcc> = BTreeMap::new();
     let mut spell_titles: BTreeMap<&EntryId, &str> = BTreeMap::new();
+    let mut spell_details: BTreeMap<&EntryId, SpellListDetail> = BTreeMap::new();
     let mut pairs_upstream = 0u32;
     let mut spells = 0u32;
     for entry in entries.iter().filter(|e| e.kind == EntryKind::Spell) {
@@ -49,6 +109,7 @@ pub fn build(entries: &[RuleEntry]) -> Report {
         };
         spells += 1;
         spell_titles.insert(&entry.id, &entry.title);
+        spell_details.insert(&entry.id, detail(entry, fields));
         for level in &fields.levels {
             pairs_upstream += 1;
             let name = level.class.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -74,6 +135,7 @@ pub fn build(entries: &[RuleEntry]) -> Report {
         .iter()
         .map(|id| SpellListSpell((*id).clone(), spell_titles[id].to_string()))
         .collect();
+    let details: Vec<SpellListDetail> = used.iter().map(|id| spell_details[id].clone()).collect();
     let position: BTreeMap<&EntryId, u32> = used
         .iter()
         .enumerate()
@@ -135,6 +197,7 @@ pub fn build(entries: &[RuleEntry]) -> Report {
         lists: SpellLists {
             spells: table,
             classes: list_classes,
+            details,
         },
     }
 }
@@ -237,5 +300,62 @@ mod tests {
             .map(|&p| report.lists.spells[p as usize].1.as_str())
             .collect();
         assert_eq!(titles, ["Aid", "Zone of Truth"]);
+    }
+
+    fn text(v: &str) -> Vec<cast_iron_schema::Inline> {
+        vec![cast_iron_schema::Inline::Text { v: v.into() }]
+    }
+
+    fn paragraph(v: &str) -> Block {
+        Block::Paragraph {
+            style: Default::default(),
+            content: text(v),
+        }
+    }
+
+    #[test]
+    fn the_gist_is_the_first_sentence_after_the_statistics_and_sources() {
+        let body = vec![
+            Block::StatBlock {
+                title: None,
+                rows: vec![],
+            },
+            paragraph("Sources: PRPG Core Rulebook pg 258"),
+            paragraph("Fire  leaps\nfrom your hand. It burns. More text."),
+        ];
+        assert_eq!(gist(&body), "Fire leaps from your hand");
+        assert_eq!(gist(&[paragraph("Sources: x")]), "");
+        assert_eq!(gist(&[]), "");
+    }
+
+    #[test]
+    fn a_long_sentence_is_cut_at_a_word_and_marked() {
+        let long = "word ".repeat(40);
+        let gist = first_sentence_within(long.trim(), 20);
+        assert_eq!(gist, "word word word word…");
+        assert!(gist.chars().count() <= 21);
+        assert_eq!(first_sentence_within("No stop here", 100), "No stop here");
+    }
+
+    #[test]
+    fn rows_carry_school_casting_time_save_and_gist_in_table_order() {
+        let mut entry = spell("a/b", "Bolt", &[("Wizard", 1)]);
+        if let TypedFields::Spell(fields) = &mut entry.fields {
+            fields.school = "evocation [fire]".into();
+            fields.casting_time = Some("1 standard  action".into());
+            fields.saving_throw = Some("Reflex half".into());
+        }
+        entry.body = vec![paragraph("A bolt of fire.")];
+        let bare = spell("a/a", "Alarm", &[("Wizard", 1)]);
+        let report = build(&[entry, bare]);
+        assert_eq!(report.lists.spells.len(), report.lists.details.len());
+        assert_eq!(report.lists.spells[0].1, "Alarm");
+        assert_eq!(report.lists.details[0].casting_time, "");
+        assert_eq!(report.lists.details[0].gist, "");
+        let bolt = &report.lists.details[1];
+        assert_eq!(bolt.school, "evocation");
+        assert_eq!(bolt.casting_time, "1 standard action");
+        assert_eq!(bolt.saving_throw, "Reflex half");
+        assert_eq!(bolt.gist, "A bolt of fire");
     }
 }

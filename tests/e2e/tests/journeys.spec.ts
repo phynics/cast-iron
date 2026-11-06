@@ -136,10 +136,10 @@ test("Home categories connect races, class options, spell levels, and reference 
   await primary.getByRole("link", { name: "Home", exact: true }).click();
   await afterRouteFrame(page);
   await page.getByRole("link", { name: "Spell lists by class and level" }).click();
-  await page.locator(".spell-class h3").getByRole("link", { name: listClass, exact: true }).click();
+  await page.locator(".class-picker").getByRole("link", { name: new RegExp(`^${listClass} spells,`, "i") }).click();
   await expect(page.getByRole("heading", { level: 1, name: `${listClass} spells` })).toBeVisible();
   await page.locator(".level-nav").getByRole("link", { name: new RegExp(`^Level ${listLevel},`) }).click();
-  await page.locator(".entry-list").getByRole("link", { name: listSpell.title, exact: true }).first().click();
+  await page.locator(".spell-rows").getByRole("link", { name: listSpell.title, exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: listSpell.title })).toBeVisible();
 
   // The other reference categories lead to readable entries through their displayed links.

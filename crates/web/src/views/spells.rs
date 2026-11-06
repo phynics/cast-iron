@@ -1,28 +1,104 @@
 //! Spell lists: every class with its levels (the hub), and the list of one class, whole or by
 //! level. The data is `lists.json`, an index of `SpellFields::levels`.
 
-use crate::graph::{filter_list, find_list, level_counts, list_total};
+use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::Route;
+use crate::views::book_tier::Tier;
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::util::{Shared, local_resource, set_title};
-use cast_iron_schema::{EntryKind, SpellListClass, SpellLists};
+use cast_iron_schema::{EntryKind, SpellListClass, SpellListDetail, SpellLists};
 use leptos::prelude::*;
 
-/// Lists whose class has an entry first, then the others, each group in name order.
-pub fn split_lists(lists: &SpellLists) -> (Vec<&SpellListClass>, Vec<&SpellListClass>) {
-    let mut with_class: Vec<&SpellListClass> = Vec::new();
-    let mut without: Vec<&SpellListClass> = Vec::new();
-    for list in &lists.classes {
-        if list.class.is_some() {
-            with_class.push(list);
-        } else {
-            without.push(list);
+/// The classes that most players look for, in the order that the picker lists them. Names
+/// compare without regard to case.
+const COMMON_CLASSES: [&str; 7] = [
+    "wizard", "sorcerer", "cleric", "druid", "bard", "ranger", "paladin",
+];
+
+/// The class picker's two groups: the common classes that the library lists, in
+/// [`COMMON_CLASSES`] order, then every other list by name.
+pub fn picker_groups(lists: &SpellLists) -> (Vec<&SpellListClass>, Vec<&SpellListClass>) {
+    let common: Vec<&SpellListClass> = COMMON_CLASSES
+        .iter()
+        .filter_map(|name| {
+            lists
+                .classes
+                .iter()
+                .find(|l| l.name.to_lowercase() == *name)
+        })
+        .collect();
+    let mut rest: Vec<&SpellListClass> = lists
+        .classes
+        .iter()
+        .filter(|l| !COMMON_CLASSES.contains(&l.name.to_lowercase().as_str()))
+        .collect();
+    rest.sort_by_key(|l| l.name.to_lowercase());
+    (common, rest)
+}
+
+/// `evocation` as `Evocation`.
+fn school_label(school: &str) -> String {
+    let mut chars = school.chars();
+    chars
+        .next()
+        .map(|c| c.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
+/// What a part of the second line is, which decides how it gives way on a narrow screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    /// Casting time or saving throw: short, and always whole.
+    Fact,
+    /// The first sentence of the description: it ends in an ellipsis when space runs out.
+    Gist,
+    /// The book: whole up to a share of the line.
+    Book,
+}
+
+impl Part {
+    fn class(self) -> &'static str {
+        match self {
+            Part::Fact => "spell-fact",
+            Part::Gist => "spell-fact spell-gist",
+            Part::Book => "spell-fact spell-book",
         }
     }
-    with_class.sort_by_key(|l| l.name.to_lowercase());
-    without.sort_by_key(|l| l.name.to_lowercase());
-    (with_class, without)
+}
+
+/// The parts of the second line, in reading order: casting time, saving throw, the gist of the
+/// description, the book. A missing part is left out.
+pub fn meta_parts(detail: Option<&SpellListDetail>, book: Option<&str>) -> Vec<(Part, String)> {
+    let mut parts: Vec<(Part, String)> = Vec::new();
+    if let Some(d) = detail {
+        for (part, text) in [
+            (Part::Fact, &d.casting_time),
+            (Part::Fact, &d.saving_throw),
+            (Part::Gist, &d.gist),
+        ] {
+            if !text.is_empty() {
+                parts.push((part, text.clone()));
+            }
+        }
+    }
+    if let Some(book) = book.filter(|b| !b.is_empty()) {
+        parts.push((Part::Book, book.to_string()));
+    }
+    parts
+}
+
+/// Keeps the order inside each tier and puts Rulebooks first, then the other tiers in
+/// [`Tier::ALL`] order. A tier with no spell is left out.
+pub fn by_tier<T>(rows: Vec<(Tier, T)>) -> Vec<(Tier, Vec<T>)> {
+    let mut groups: Vec<(Tier, Vec<T>)> = Tier::ALL.iter().map(|&t| (t, Vec::new())).collect();
+    for (tier, row) in rows {
+        if let Some((_, rows)) = groups.iter_mut().find(|(t, _)| *t == tier) {
+            rows.push(row);
+        }
+    }
+    groups.retain(|(_, rows)| !rows.is_empty());
+    groups
 }
 
 /// `1 spell` or `22 spells`.
@@ -69,46 +145,20 @@ fn spell_crumbs(last: Option<(&'static str, Route)>) -> impl IntoView {
     }
 }
 
-fn class_card(list: &SpellListClass, library: &Library) -> impl IntoView + use<> {
-    let class_href = list
-        .class
-        .as_ref()
-        .map(|id| Route::entry(id.clone()).href());
-    let list_href = Route::SpellList {
+fn class_jump(list: &SpellListClass) -> impl IntoView + use<> {
+    let href = Route::SpellList {
         class: list.name.clone(),
         level: None,
     }
     .href();
-    let levels = level_counts(list)
-        .into_iter()
-        .map(|(level, n)| {
-            let href = Route::SpellList {
-                class: list.name.clone(),
-                level: Some(level),
-            }
-            .href();
-            let label = format!("{} level {level}, {}", list.name, spells_noun(n));
-            view! {
-                <li>
-                    <a class="lvl" href=href aria-label=label>
-                        <span class="lvl-n">{level}</span>
-                        <span class="lvl-count">{n}</span>
-                    </a>
-                </li>
-            }
-        })
-        .collect_view();
-    let _ = library;
     let total = list_total(list);
-    let name = list.name.clone();
+    let label = format!("{} spells, {}", list.name, spells_noun(total));
     view! {
-        <li class="spell-class">
-            <div class="spell-class-head">
-                <h3><a href=list_href>{name}</a></h3>
-                <span class="muted">{spells_noun(total)}</span>
-                {class_href.map(|href| view! { <a class="spell-class-page" href=href>"Class page"</a> })}
-            </div>
-            <ol class="lvls" aria-label=format!("{} levels", list.name)>{levels}</ol>
+        <li>
+            <a class="jump class-jump" href=href aria-label=label>
+                <span>{list.name.clone()}</span>
+                <small class="muted">{total}</small>
+            </a>
         </li>
     }
 }
@@ -139,41 +189,33 @@ pub fn SpellsHub() -> impl IntoView {
         })
     };
     let body = {
-        let library = library.clone();
         move || {
             lists.with(|state| match state {
-                None => view! { <p class="status" role="status">"Loading spell lists…"</p> }.into_any(),
+                None => {
+                    view! { <p class="status" role="status">"Loading spell lists…"</p> }.into_any()
+                }
                 Some(Err(error)) => load_failed(error).into_any(),
                 Some(Ok(None)) => missing_lists().into_any(),
                 Some(Ok(Some(lists))) => {
-                    let (with_class, without) = split_lists(lists);
-                    let cards = with_class
-                        .iter()
-                        .map(|l| class_card(l, &library))
-                        .collect_view();
-                    let others = (!without.is_empty()).then(|| {
-                        let cards = without.iter().map(|l| class_card(l, &library)).collect_view();
+                    let (common, rest) = picker_groups(lists);
+                    let common_jumps = common.iter().map(|l| class_jump(l)).collect_view();
+                    let rest_jumps = rest.iter().map(|l| class_jump(l)).collect_view();
+                    let more = (!rest.is_empty()).then(|| {
                         view! {
-                            <section aria-labelledby="other-lists">
-                                <h2 id="other-lists" class="sub-head">"Lists without a class page"</h2>
-                                <p class="muted measure">
-                                    "These class pages are unavailable or belong to disabled books. "
-                                    "Their lists include spells from your active books."
-                                </p>
-                                <ul class="spell-classes">{cards}</ul>
-                            </section>
+                            <h3 id="other-classes" class="sub-head">"More classes"</h3>
+                            <ul class="jump-list class-picker" aria-labelledby="other-classes">
+                                {rest_jumps}
+                            </ul>
                         }
                     });
                     view! {
                         <section aria-labelledby="class-lists">
-                            <h2 id="class-lists" class="sub-head">"By class and level"</h2>
-                            <p class="muted measure">
-                                "Choose a class for its whole list, or a number for one spell level. "
-                                "The small number under a level is how many spells it holds."
-                            </p>
-                            <ul class="spell-classes">{cards}</ul>
+                            <h2 id="class-lists" class="sub-head">"Choose a class"</h2>
+                            <ul class="jump-list class-picker" aria-labelledby="class-lists">
+                                {common_jumps}
+                            </ul>
+                            {more}
                         </section>
-                        {others}
                     }
                     .into_any()
                 }
@@ -233,6 +275,7 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
         })
     };
     let filter = RwSignal::new(String::new());
+    let schools = RwSignal::new(Vec::<String>::new());
     move || {
         let (class, library) = (class.clone(), library.clone());
         lists.with(|state| match state {
@@ -253,9 +296,83 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
             }
             .into_any(),
             Some(Ok(Some(lists))) => {
-                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level filter library /> }.into_any()
+                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level filter schools library /> }.into_any()
             }
         })
+    }
+}
+
+/// One row of a list: the spell, what its second line says, and the tier of its book.
+struct SpellRow {
+    id: cast_iron_schema::EntryId,
+    title: String,
+    school: String,
+    parts: Vec<(Part, String)>,
+    tier: Tier,
+}
+
+impl SpellRow {
+    fn new(library: &Library, spell: ListedSpell<'_>) -> Self {
+        let source = library
+            .canonical_source_for_entry(spell.id)
+            .and_then(|id| library.source(&id).cloned());
+        let tier = Tier::from_category(source.as_ref().and_then(|s| s.category.as_deref()));
+        let book = source.as_ref().map(|s| s.title.as_str());
+        Self {
+            id: spell.id.clone(),
+            title: spell.title.to_string(),
+            school: spell
+                .detail
+                .map(|d| school_label(&d.school))
+                .unwrap_or_default(),
+            parts: meta_parts(spell.detail, book),
+            tier,
+        }
+    }
+}
+
+/// A two-line row. The link wraps the name only, so its accessible name stays the title; a
+/// stretched overlay makes the whole row the tap target.
+fn spell_row(row: SpellRow) -> impl IntoView {
+    let SpellRow {
+        id,
+        title,
+        school,
+        parts,
+        ..
+    } = row;
+    // Separators are drawn by the stylesheet, so the narrow layout can move the gist to its own
+    // line and keep the dots right. `sep` is a dot before the part on the one-line layout;
+    // `sep-narrow` is a dot on the narrow one, where the gist stands apart.
+    let mut facts_seen = 0usize;
+    let mut facts = Vec::new();
+    let mut gist = None;
+    for (seen, (part, text)) in parts.into_iter().enumerate() {
+        let mut class = part.class().to_string();
+        if seen > 0 {
+            class.push_str(" sep");
+        }
+        if part != Part::Gist && facts_seen > 0 {
+            class.push_str(" sep-narrow");
+        }
+        if part == Part::Fact {
+            facts_seen += 1;
+        }
+        let item = view! { <span class=class>{text}</span> };
+        if part == Part::Gist {
+            gist = Some(item);
+        } else {
+            facts.push(item);
+        }
+    }
+    view! {
+        <li class="spell-row">
+            <div class="spell-row-head">
+                <a class="spell-name" href=Route::entry(id).href()>{title}</a>
+                {(!school.is_empty()).then(|| view! { <span class="tag spell-school">{school}</span> })}
+            </div>
+            <p class="spell-row-meta"><span class="spell-facts">{facts}</span>{gist}</p>
+        </li>
     }
 }
 
@@ -265,6 +382,7 @@ fn ListPage(
     class: String,
     level: Option<u8>,
     filter: RwSignal<String>,
+    schools: RwSignal<Vec<String>>,
     library: Library,
 ) -> impl IntoView {
     let Some(list) = find_list(&lists, &class) else {
@@ -329,17 +447,22 @@ fn ListPage(
     };
     let lists_for_body = lists.clone();
     let list_name = name.clone();
+    let library_for_body = library.clone();
     let body = move || {
         let Some(list) = find_list(&lists_for_body, &list_name) else {
             return ().into_any();
         };
-        let groups = filter_list(&lists_for_body, list, level, &filter.get());
+        let chosen = schools.get();
+        let groups = filter_list(&lists_for_body, list, level, &filter.get(), &chosen);
         if groups.is_empty() {
             let text = filter.get();
+            let narrowed = !chosen.is_empty();
             return view! {
                 <p class="empty" role="status">
-                    {if text.trim().is_empty() {
+                    {if text.trim().is_empty() && !narrowed {
                         "No spells at this level.".to_string()
+                    } else if text.trim().is_empty() {
+                        "No spell on this list is in the chosen schools.".to_string()
                     } else {
                         format!("No spell on this list matches {:?}.", text.trim())
                     }}
@@ -348,18 +471,50 @@ fn ListPage(
             .into_any();
         }
         let shown: usize = groups.iter().map(|(_, s)| s.len()).sum();
-        let sections = groups
+        // Tier headings appear once the list spans more than one tier.
+        let tiered: Vec<(u8, Vec<(Tier, SpellRow)>)> = groups
             .into_iter()
             .map(|(l, spells)| {
-                let n = spells.len();
                 let rows = spells
                     .into_iter()
                     .map(|spell| {
-                        view! { <li><a href=Route::entry(spell.0.clone()).href()>{spell.1.clone()}</a></li> }
+                        let row = SpellRow::new(&library_for_body, spell);
+                        (row.tier, row)
+                    })
+                    .collect();
+                (l, rows)
+            })
+            .collect();
+        let several_tiers = tiered
+            .iter()
+            .flat_map(|(_, rows)| rows.iter().map(|(tier, _)| *tier))
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            > 1;
+        let sections = tiered
+            .into_iter()
+            .map(|(l, rows)| {
+                let n = rows.len();
+                let tiers = by_tier(rows)
+                    .into_iter()
+                    .map(|(tier, rows)| {
+                        let head = several_tiers.then(|| {
+                            if level.is_none() {
+                                view! { <h3 class="tier-head">{tier.label()}</h3> }.into_any()
+                            } else {
+                                view! { <h2 class="tier-head">{tier.label()}</h2> }.into_any()
+                            }
+                        });
+                        let items = rows.into_iter().map(spell_row).collect_view();
+                        view! { {head}<ul class="spell-rows">{items}</ul> }
                     })
                     .collect_view();
                 let head = level.is_none().then(|| {
-                    let href = Route::SpellList { class: list_name.clone(), level: Some(l) }.href();
+                    let href = Route::SpellList {
+                        class: list_name.clone(),
+                        level: Some(l),
+                    }
+                    .href();
                     view! {
                         <h2 class="level-head">
                             <a href=href>{level_label(l)}</a>
@@ -370,7 +525,7 @@ fn ListPage(
                 view! {
                     <section class="level-group" data-level=l>
                         {head}
-                        <ul class="entry-list">{rows}</ul>
+                        {tiers}
                     </section>
                 }
             })
@@ -382,7 +537,48 @@ fn ListPage(
         .into_any()
     };
 
-    let _ = library;
+    let school_counts = list_schools(&lists, list);
+    let school_filter = (school_counts.len() > 1).then(|| {
+        let chips = school_counts
+            .into_iter()
+            .map(|(school, n)| {
+                let label = school_label(&school);
+                let value = school.clone();
+                let checked = Signal::derive({
+                    let school = school.clone();
+                    move || schools.with(|chosen| chosen.contains(&school))
+                });
+                let toggle = move |_| {
+                    schools.update(|chosen| match chosen.iter().position(|s| *s == value) {
+                        Some(i) => {
+                            chosen.remove(i);
+                        }
+                        None => chosen.push(value.clone()),
+                    })
+                };
+                let aria = format!("{label}, {}", spells_noun(n));
+                view! {
+                    <label class="chip">
+                        <input type="checkbox" prop:checked=checked aria-label=aria on:change=toggle />
+                        <span>{label}<small class="chip-count">{n}</small></span>
+                    </label>
+                }
+            })
+            .collect_view();
+        view! {
+            <details class="lens-more school-filter">
+                <summary>
+                    "Filter by school"
+                    {move || {
+                        let n = schools.with(Vec::len);
+                        (n > 0).then(|| view! { <span class="muted">{format!("{n} chosen")}</span> })
+                    }}
+                </summary>
+                <div class="chips">{chips}</div>
+            </details>
+        }
+    });
+
     view! {
         <div class="wide">
             {spell_crumbs(Some(("Spell lists", Route::Spells)))}
@@ -410,6 +606,7 @@ fn ListPage(
                     on:input=move |ev| filter.set(event_target_value(&ev))
                 />
             </form>
+            {school_filter}
             {body}
         </div>
     }
@@ -430,25 +627,68 @@ mod tests {
     }
 
     #[test]
-    fn lists_split_by_whether_their_class_has_a_page() {
+    fn the_picker_leads_with_the_common_classes_in_their_own_order() {
         let lists = SpellLists {
-            spells: vec![],
-            classes: vec![
-                list("Wizard", Some("c/wizard")),
-                list("Hunter", None),
-                list("bard", Some("c/bard")),
-                list("Arcanist", None),
-            ],
+            classes: ["Witch", "Wizard", "Hunter", "bard", "Cleric", "Arcanist"]
+                .iter()
+                .map(|n| list(n, None))
+                .collect(),
+            ..Default::default()
         };
-        let (with, without) = split_lists(&lists);
+        let (common, rest) = picker_groups(&lists);
+        let names = |lists: &[&SpellListClass]| -> Vec<String> {
+            lists.iter().map(|l| l.name.clone()).collect()
+        };
+        assert_eq!(names(&common), ["Wizard", "Cleric", "bard"]);
+        assert_eq!(names(&rest), ["Arcanist", "Hunter", "Witch"]);
+    }
+
+    #[test]
+    fn a_row_leaves_out_what_it_does_not_have() {
+        let detail = SpellListDetail {
+            school: "evocation".into(),
+            casting_time: "1 standard action".into(),
+            saving_throw: String::new(),
+            gist: "Fire leaps from your hand".into(),
+        };
         assert_eq!(
-            with.iter().map(|l| l.name.as_str()).collect::<Vec<_>>(),
-            ["bard", "Wizard"]
+            meta_parts(Some(&detail), Some("Core Rulebook")),
+            [
+                (Part::Fact, "1 standard action".to_string()),
+                (Part::Gist, "Fire leaps from your hand".to_string()),
+                (Part::Book, "Core Rulebook".to_string()),
+            ]
         );
         assert_eq!(
-            without.iter().map(|l| l.name.as_str()).collect::<Vec<_>>(),
-            ["Arcanist", "Hunter"]
+            meta_parts(None, Some("Core Rulebook")),
+            [(Part::Book, "Core Rulebook".to_string())]
         );
+        assert!(meta_parts(None, None).is_empty());
+        assert!(meta_parts(Some(&SpellListDetail::default()), Some("")).is_empty());
+    }
+
+    #[test]
+    fn tiers_put_rulebooks_first_and_keep_the_title_order_inside_a_tier() {
+        let rows = vec![
+            (Tier::Adventures, "Aid"),
+            (Tier::Rulebooks, "Bless"),
+            (Tier::Other, "Calm"),
+            (Tier::Rulebooks, "Daze"),
+        ];
+        assert_eq!(
+            by_tier(rows),
+            [
+                (Tier::Rulebooks, vec!["Bless", "Daze"]),
+                (Tier::Adventures, vec!["Aid"]),
+                (Tier::Other, vec!["Calm"]),
+            ]
+        );
+    }
+
+    #[test]
+    fn schools_read_with_a_capital() {
+        assert_eq!(school_label("evocation"), "Evocation");
+        assert_eq!(school_label(""), "");
     }
 
     #[test]

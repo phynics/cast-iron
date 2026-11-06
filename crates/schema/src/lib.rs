@@ -720,6 +720,27 @@ pub struct SpellLists {
     pub spells: Vec<SpellListSpell>,
     /// Sorted by name, ignoring case.
     pub classes: Vec<SpellListClass>,
+    /// What a list row shows besides the title, one per spell and in the same order as
+    /// `spells`. Empty in a library built before rows carried it; the reader then shows the
+    /// title alone. Additive, so [`SCHEMA_VERSION`] stays 3.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub details: Vec<SpellListDetail>,
+}
+
+/// The facts a spell-list row shows under its title. A missing fact is empty and is left
+/// out of the file.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SpellListDetail {
+    /// The school alone, lowercase, as the `school` search facet spells it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub school: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub casting_time: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub saving_throw: String,
+    /// The first sentence of the description, cut at a word boundary to fit one line.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub gist: String,
 }
 
 /// `[id, title]` in JSON.
