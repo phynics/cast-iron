@@ -183,8 +183,9 @@ as `main`: Rust, Trunk, Node, and Python 3.
    the migration issue.
 
 6. **Publish it.** `scripts/promote-release.py` accepts only a commit that is an ancestor of
-   `origin/main` and has a successful `ci.yml` run on `main` for that exact SHA. The prep commit is
-   neither, so the helper refuses it. The owner chose a one-time fast-forward push of the verified
+   `origin/main` and has a successful `ci.yml` run on `main` for that exact SHA. At publication the
+   prep commit was neither, so the helper refused it. Step 7 later makes it an ancestor of `main`,
+   but it never gets a `main` CI run, so the helper still refuses it. The owner chose a one-time fast-forward push of the verified
    prep commit (decided 2026-11-06 in #127; see `docs/decisions.md`). The helper stays unchanged:
 
    ```sh
