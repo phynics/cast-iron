@@ -251,9 +251,8 @@ fn validate_entry(
             errors.push(error(id, format!("unknown source {source}")));
         }
     }
-    if entry.provenance.is_empty() {
-        errors.push(error(id, "no provenance"));
-    }
+    // Provenance records where an imported entry came from. A hand-written entry has none,
+    // so an empty list is valid.
     if entry.license_refs.is_empty() {
         errors.push(error(id, "no license reference"));
     }
@@ -468,11 +467,18 @@ mod tests {
     }
 
     #[test]
+    fn an_entry_without_provenance_is_valid() {
+        let mut written = entry("a");
+        written.provenance.clear();
+        let entries = vec![written];
+        assert_eq!(validate_library(&entries, &catalog(&entries)), vec![]);
+    }
+
+    #[test]
     fn broken_records_are_reported() {
         let mut dangling = entry("a");
         dangling.title = " ".into();
         dangling.source_ids = vec!["nope".into()];
-        dangling.provenance.clear();
         dangling.license_refs.clear();
         dangling.fields = TypedFields::Feat(Default::default());
         dangling.body = vec![Block::Paragraph {
@@ -493,7 +499,6 @@ mod tests {
             "duplicate id",
             "empty title",
             "unknown source nope",
-            "no provenance",
             "no license reference",
             "typed fields do not match the entry kind",
             "link to unknown entry missing",

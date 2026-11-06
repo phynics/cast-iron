@@ -1,0 +1,21 @@
+# The plain-text rules corpus that `cargo xtask content` compiles. See docs/decisions.md.
+#
+# The corpus is the source of truth for the canonical library. It lives in its own
+# repository so that people can edit entries without building Cast Iron. The pin is the
+# commit plus a tree hash over the extracted files. The archive bytes are not pinned,
+# because GitHub does not promise that a generated archive stays byte-identical.
+#
+# tree_sha256 is the SHA-256 of one line per regular file, in byte order of the
+# relative path (`/` separators, no leading `./`): "<sha256 of the file>  <path>\n".
+# It equals the output of:
+#   find . -type f | sed 's|^\./||' | LC_ALL=C sort | xargs sha256sum | sha256sum
+# run inside the extracted tree. `cargo xtask corpus-tree-hash <dir>` prints it.
+#
+# To bump the pin: tag the new corpus in cast-iron-data, set `tag` and `commit`, download
+# `https://codeload.github.com/phynics/cast-iron-data/tar.gz/<commit>`, extract it, set
+# `tree_sha256` to `cargo xtask corpus-tree-hash <extracted dir>`, then run
+# `cargo xtask fetch-sources` and `cargo xtask content`.
+repository = "https://github.com/phynics/cast-iron-data"
+tag = "v0.1.0"
+commit = "0e7c3abe620b80293e0a6382e2ab7a4b3372f8e4"
+tree_sha256 = "d103cc70e91293ebdd7026d0ac01013dfa3edfba6395ca8b4bbfb7d27a6df373"

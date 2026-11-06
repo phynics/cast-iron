@@ -18,8 +18,10 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Task | Command |
 |---|---|
 | Install Trunk (once) | `cargo install trunk --locked` |
-| Get the pinned datasets | `cargo xtask fetch-sources` |
-| Compile the canonical library (default) | `cargo xtask content` (writes `generated/content/`) |
+| Get the pinned corpus and datasets | `cargo xtask fetch-sources` (verifies the corpus tree hash in `sources/corpus.toml`) |
+| Compile the canonical library (default) | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
+| Compile the canonical library from the upstream datasets | `cargo xtask content --from-upstream` (comparison only; removed in a later step) |
+| Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Compile the PSRD carry-over library | `cargo xtask content --psrd` (writes `generated/psrd/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (canonical default; `--psrd` for the PSRD library; `--public-url /` for a root path) |
 | Test the PSRD build | `CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- ...` |
@@ -36,11 +38,12 @@ To prove a change in the real app, use the `verify` skill in `.agents/skills/ver
 | Path | Contents |
 |---|---|
 | `crates/schema` | The contract between the compiler and the client: content types, validation |
-| `crates/content-compiler` | Native CLI: PSRD-Data adapter, HTML to rich content, reports |
+| `crates/content-compiler` | Native CLI: corpus build, PSRD-Data adapter, HTML to rich content, reports |
 | `crates/search` | Index generation and query engine, for native and WASM. No dependency on `schema` |
 | `crates/web` | Leptos client |
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
+| `sources/corpus.toml` | Pin of the plain-text corpus (`phynics/cast-iron-data`): tag, commit, tree hash. To bump it: tag the corpus, update `commit` and `tree_sha256` (`cargo xtask corpus-tree-hash <extracted dir>`), run `cargo xtask fetch-sources` and `cargo xtask content` |
 | `sources/psrd-data/` | Dataset pin, reviewed selection, book order, id overrides, legal notices |
 | `sources/pathfinder-data-1-e/` | Supplemental pin, approval gate (`approved.json`), out-of-scope list |
 | `scripts/` | Source selection, publication, upgrade, and audit checks |

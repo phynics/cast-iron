@@ -19,8 +19,10 @@ use std::process::{Command, ExitCode};
 const HELP: &str = "\
 cargo xtask <command>
 
-  fetch-sources              Download the pinned PSRD-Data and Pathfinder Data 1e commits into
-                             .cache/sources
+  fetch-sources              Download the pinned plain-text corpus (cast-iron-data), PSRD-Data, and
+                             Pathfinder Data 1e commits into .cache/sources. The corpus is verified
+                             by tree hash (see sources/corpus.toml)
+  corpus-tree-hash <dir>     Print the tree hash of a directory (the pin algorithm in sources/corpus.toml)
   data-fetch                 Download the pinned Pathfinder Data 1e archive into .cache/sources/pathfinder-data-1-e
   data-audit                 Audit the Pathfinder Data 1e source
   data-import                Import the Pathfinder Data 1e source
@@ -36,8 +38,11 @@ cargo xtask <command>
   data-publications [--check]
                              Generate sources/canonical/publications.toml, or verify the committed copy
   data-test                  Test the importer and Pathfinder Data 1e source
-  content [--psrd]           Compile the canonical library into generated/content (default), or
-                             the PSRD-Data library into generated/psrd with --psrd
+  content [--psrd | --from-upstream]
+                             Compile the canonical library into generated/content from the pinned
+                             corpus (default). --from-upstream compiles it from the upstream
+                             datasets instead, for comparison; --psrd compiles the PSRD-Data
+                             library into generated/psrd
   build-site [--psrd] [--public-url P]
                              Build dist/ from generated/content (canonical by default), or from
                              generated/psrd with --psrd. The default public URL is /cast-iron/,
@@ -64,6 +69,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(String::as_str) {
         Some("fetch-sources") => fetch_sources(),
+        Some("corpus-tree-hash") => corpus_tree_hash(&args[1..]),
         Some("data-fetch") => data_fetch(),
         Some("data-audit") => data_tool("audit"),
         Some("data-import") => data_tool("import"),
@@ -137,8 +143,204 @@ fn toml_string(text: &str, key: &str) -> Option<String> {
 }
 
 fn fetch_sources() -> Result {
+    fetch_corpus()?;
     fetch_legacy_sources()?;
     data_fetch()
+}
+
+/// The pinned plain-text corpus: `sources/corpus.toml`.
+struct CorpusPin {
+    repository: String,
+    commit: String,
+    tree_sha256: String,
+}
+
+fn read_corpus_pin() -> Result<CorpusPin> {
+    let path = root().join("sources/corpus.toml");
+    let text =
+        fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let field = |key: &str| -> Result<String> {
+        toml_string(&text, key)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("sources/corpus.toml has no {key}"))
+    };
+    let pin = CorpusPin {
+        repository: field("repository")?,
+        commit: field("commit")?.to_ascii_lowercase(),
+        tree_sha256: field("tree_sha256")?.to_ascii_lowercase(),
+    };
+    let hex_of = |value: &str, length: usize| {
+        value.len() == length && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+    };
+    if !hex_of(&pin.commit, 40) {
+        return Err("sources/corpus.toml commit must be 40 hexadecimal characters".into());
+    }
+    if !hex_of(&pin.tree_sha256, 64) {
+        return Err("sources/corpus.toml tree_sha256 must be 64 hexadecimal characters".into());
+    }
+    Ok(pin)
+}
+
+fn corpus_cache() -> PathBuf {
+    root().join(".cache/sources/cast-iron-data")
+}
+
+/// The tree hash that `sources/corpus.toml` pins: SHA-256 over one line per regular file,
+/// `<sha256 of the contents>  <relative path>\n`, in byte order of the path, with `/`
+/// separators and no leading `./`. It is the hash of
+/// `find . -type f | sed 's|^\./||' | LC_ALL=C sort | xargs sha256sum`, so the
+/// pin does not depend on archive bytes, which GitHub does not promise to keep stable.
+/// A symbolic link or other special file is an error.
+fn tree_hash(dir: &Path) -> Result<String> {
+    let mut paths = Vec::new();
+    collect_tree(dir, dir, &mut paths)?;
+    paths.sort();
+    let mut listing = Sha256::new();
+    for (relative, path) in &paths {
+        let bytes = fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        listing.update(format!("{}  {relative}\n", hex(&Sha256::digest(&bytes))));
+    }
+    Ok(hex(&listing.finalize()))
+}
+
+fn collect_tree(base: &Path, dir: &Path, found: &mut Vec<(String, PathBuf)>) -> Result {
+    for item in fs::read_dir(dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))? {
+        let item = item.map_err(|e| e.to_string())?;
+        let path = item.path();
+        let kind = item.file_type().map_err(|e| e.to_string())?;
+        if kind.is_dir() {
+            collect_tree(base, &path, found)?;
+        } else if kind.is_file() {
+            let relative = path
+                .strip_prefix(base)
+                .map_err(|e| e.to_string())?
+                .components()
+                .map(|part| {
+                    part.as_os_str()
+                        .to_str()
+                        .map(str::to_owned)
+                        .ok_or_else(|| format!("non-UTF-8 path under {}", base.display()))
+                })
+                .collect::<Result<Vec<_>>>()?
+                .join("/");
+            found.push((relative, path));
+        } else {
+            return Err(format!(
+                "{} is not a regular file or directory; the tree hash does not allow links",
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn corpus_tree_hash(args: &[String]) -> Result {
+    match args {
+        [dir] => {
+            println!("{}", tree_hash(Path::new(dir))?);
+            Ok(())
+        }
+        _ => Err("usage: corpus-tree-hash <dir>".into()),
+    }
+}
+
+fn tree_hash_mismatch(what: &str, expected: &str, actual: &str) -> String {
+    format!(
+        "{what} tree hash mismatch: sources/corpus.toml pins {expected}, found {actual}.\n\
+         The pinned commit must yield exactly the pinned files. If you bumped the pin on purpose, \
+         update tree_sha256 with `cargo xtask corpus-tree-hash <extracted dir>`."
+    )
+}
+
+/// Downloads the pinned corpus commit into `.cache/sources/cast-iron-data` and verifies the
+/// tree hash. The cache is replaced only after the new tree verifies.
+fn fetch_corpus() -> Result {
+    let pin = read_corpus_pin()?;
+    let target = corpus_cache();
+    if target.is_dir() && tree_hash(&target).is_ok_and(|found| found == pin.tree_sha256) {
+        println!("Corpus {} is already present", pin.commit);
+        return Ok(());
+    }
+    let repo = pin.repository.trim_end_matches('/');
+    let name = repo
+        .strip_prefix("https://github.com/")
+        .filter(|rest| rest.split('/').count() == 2 && !rest.contains(".."))
+        .ok_or("sources/corpus.toml repository must be an https://github.com/<owner>/<name> URL")?;
+    let parent = target.parent().ok_or("invalid cache target")?;
+    fs::create_dir_all(parent).map_err(|e| format!("cannot create cache parent: {e}"))?;
+    let unique = format!(
+        "{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    );
+    let stage = parent.join(format!(".cast-iron-data-stage-{unique}"));
+    let archive = parent.join(format!(".cast-iron-data-{unique}.tar.gz"));
+    let url = format!("https://codeload.github.com/{name}/tar.gz/{}", pin.commit);
+    let archive_str = archive.to_str().ok_or("non-UTF-8 archive path")?;
+    let operation = (|| -> Result {
+        run("curl", &["-fsSL", "--retry", "3", "-o", archive_str, &url])?;
+        fs::create_dir(&stage).map_err(|e| format!("cannot create staging directory: {e}"))?;
+        let stage_str = stage.to_str().ok_or("non-UTF-8 staging path")?;
+        run(
+            "tar",
+            &["xzf", archive_str, "--strip-components=1", "-C", stage_str],
+        )?;
+        let actual = tree_hash(&stage)?;
+        if actual != pin.tree_sha256 {
+            return Err(tree_hash_mismatch(
+                "downloaded corpus",
+                &pin.tree_sha256,
+                &actual,
+            ));
+        }
+        Ok(())
+    })();
+    let _ = fs::remove_file(&archive);
+    if let Err(error) = operation {
+        let _ = fs::remove_dir_all(&stage);
+        return Err(error);
+    }
+    let backup = parent.join(format!(".cast-iron-data-old-{unique}"));
+    let had_target = target.exists();
+    if had_target {
+        fs::rename(&target, &backup).map_err(|e| format!("cannot preserve existing cache: {e}"))?;
+    }
+    if let Err(error) = fs::rename(&stage, &target) {
+        if had_target {
+            let _ = fs::rename(&backup, &target);
+        }
+        let _ = fs::remove_dir_all(&stage);
+        return Err(format!("cannot activate downloaded cache: {error}"));
+    }
+    if had_target {
+        fs::remove_dir_all(&backup)
+            .map_err(|e| format!("new cache is active but old cache cleanup failed: {e}"))?;
+    }
+    println!("Fetched corpus {}", pin.commit);
+    Ok(())
+}
+
+/// Fails unless the cached corpus is exactly the pinned tree.
+fn verify_corpus_cache() -> Result {
+    let pin = read_corpus_pin()?;
+    let target = corpus_cache();
+    if !target.is_dir() {
+        return Err(
+            "the pinned corpus is not in .cache/sources/cast-iron-data; run `cargo xtask fetch-sources`"
+                .into(),
+        );
+    }
+    let actual = tree_hash(&target)?;
+    if actual != pin.tree_sha256 {
+        return Err(format!(
+            "{}\nRun `cargo xtask fetch-sources` to replace the cache.",
+            tree_hash_mismatch("cached corpus", &pin.tree_sha256, &actual)
+        ));
+    }
+    Ok(())
 }
 
 fn fetch_legacy_sources() -> Result {
@@ -460,11 +662,13 @@ fn data_publications(args: &[String]) -> Result {
     run("cargo", &borrowed)
 }
 
-/// The library a build command selects. The canonical library is the default;
-/// `--psrd` keeps the carry-over input buildable for inspection and comparison.
+/// The library a build command selects. The canonical library compiled from the pinned
+/// corpus is the default; `--from-upstream` compiles the same library from the upstream
+/// datasets for comparison, and `--psrd` keeps the carry-over input buildable.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum LibrarySource {
     Canonical,
+    FromUpstream,
     Psrd,
 }
 
@@ -473,17 +677,18 @@ fn library_source(command: &str, args: &[String]) -> Result<LibrarySource> {
     for arg in args {
         let source = match arg.as_str() {
             "--psrd" => LibrarySource::Psrd,
+            "--from-upstream" => LibrarySource::FromUpstream,
             // Kept as an explicit spelling of the default for existing callers.
             "--canonical" => LibrarySource::Canonical,
             other => {
                 return Err(format!(
-                    "unknown argument {other:?} for {command}\nusage: {command} [--psrd]"
+                    "unknown argument {other:?} for {command}\nusage: {command} [--psrd | --from-upstream]"
                 ));
             }
         };
         if selected.replace(source).is_some() {
             return Err(format!(
-                "{command} accepts only one of --canonical and --psrd"
+                "{command} accepts only one of --canonical, --from-upstream, and --psrd"
             ));
         }
     }
@@ -491,47 +696,61 @@ fn library_source(command: &str, args: &[String]) -> Result<LibrarySource> {
 }
 
 fn content(args: &[String]) -> Result {
-    let canonical = library_source("content", args)? == LibrarySource::Canonical;
-    let mut arguments = vec![
-        "run".to_string(),
-        "--quiet".to_string(),
-        "--release".to_string(),
-        "--package".to_string(),
-        "cast-iron-content-compiler".to_string(),
-        "--bin".to_string(),
-        "cast-iron-compile".to_string(),
-        "--".to_string(),
-        "--source-config".to_string(),
-        "sources/psrd-data/source.toml".to_string(),
-        "--dataset".to_string(),
-        ".cache/sources/psrd-data".to_string(),
-        "--out".to_string(),
-        if canonical {
-            "generated/content".to_string()
-        } else {
-            "generated/psrd".to_string()
-        },
-        "--reports".to_string(),
-        if canonical {
-            "generated/reports".to_string()
-        } else {
-            "generated/reports/psrd".to_string()
-        },
-    ];
-    if canonical {
-        arguments.extend(
-            [
-                "--canonical",
-                "--pf-dataset",
-                ".cache/sources/pathfinder-data-1-e",
-                "--pf-registry",
-                "sources/pathfinder-data-1-e/source.json",
-                "--canonical-dir",
-                "sources/canonical",
+    let source = library_source("content", args)?;
+    let mut arguments: Vec<String> = [
+        "run",
+        "--quiet",
+        "--release",
+        "--package",
+        "cast-iron-content-compiler",
+        "--bin",
+        "cast-iron-compile",
+        "--",
+    ]
+    .map(String::from)
+    .to_vec();
+    let rest: &[&str] = match source {
+        LibrarySource::Canonical => {
+            // The corpus is the source of truth: no upstream dataset is read.
+            verify_corpus_cache()?;
+            &[
+                "--corpus",
+                ".cache/sources/cast-iron-data",
+                "--out",
+                "generated/content",
+                "--reports",
+                "generated/reports",
             ]
-            .map(String::from),
-        );
-    }
+        }
+        LibrarySource::FromUpstream => &[
+            "--source-config",
+            "sources/psrd-data/source.toml",
+            "--dataset",
+            ".cache/sources/psrd-data",
+            "--out",
+            "generated/content",
+            "--reports",
+            "generated/reports",
+            "--canonical",
+            "--pf-dataset",
+            ".cache/sources/pathfinder-data-1-e",
+            "--pf-registry",
+            "sources/pathfinder-data-1-e/source.json",
+            "--canonical-dir",
+            "sources/canonical",
+        ],
+        LibrarySource::Psrd => &[
+            "--source-config",
+            "sources/psrd-data/source.toml",
+            "--dataset",
+            ".cache/sources/psrd-data",
+            "--out",
+            "generated/psrd",
+            "--reports",
+            "generated/reports/psrd",
+        ],
+    };
+    arguments.extend(rest.iter().map(|arg| (*arg).to_string()));
     let borrowed: Vec<&str> = arguments.iter().map(String::as_str).collect();
     run("cargo", &borrowed)
 }
@@ -1225,6 +1444,71 @@ mod tests {
         let text = "[dataset]\ncommit = \"abc\"\nother = \"x\"";
         assert_eq!(toml_string(text, "commit").as_deref(), Some("abc"));
         assert_eq!(toml_string(text, "missing"), None);
+    }
+
+    fn temp_tree(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("cast-iron-xtask-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("entries")).unwrap();
+        fs::write(dir.join("entries/a.md"), "alpha").unwrap();
+        fs::write(dir.join("b.toml"), "beta").unwrap();
+        dir
+    }
+
+    #[test]
+    fn tree_hash_follows_the_documented_listing() {
+        let dir = temp_tree("listing");
+        let a = hex(&Sha256::digest(b"alpha"));
+        let b = hex(&Sha256::digest(b"beta"));
+        // Byte order of the path: "b.toml" sorts before "entries/a.md".
+        let listing = format!("{b}  b.toml\n{a}  entries/a.md\n");
+        assert_eq!(
+            tree_hash(&dir).unwrap(),
+            hex(&Sha256::digest(listing.as_bytes()))
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tree_hash_changes_with_content_and_with_path() {
+        let dir = temp_tree("change");
+        let before = tree_hash(&dir).unwrap();
+        fs::write(dir.join("b.toml"), "gamma").unwrap();
+        let edited = tree_hash(&dir).unwrap();
+        assert_ne!(before, edited);
+        fs::write(dir.join("b.toml"), "beta").unwrap();
+        fs::rename(dir.join("b.toml"), dir.join("c.toml")).unwrap();
+        assert_ne!(before, tree_hash(&dir).unwrap());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tree_hash_refuses_a_symbolic_link() {
+        let dir = temp_tree("link");
+        std::os::unix::fs::symlink("b.toml", dir.join("link")).unwrap();
+        assert!(tree_hash(&dir).unwrap_err().contains("not a regular file"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_committed_corpus_pin_is_well_formed() {
+        let pin = read_corpus_pin().unwrap();
+        assert_eq!(pin.commit.len(), 40);
+        assert_eq!(pin.tree_sha256.len(), 64);
+        assert!(pin.repository.starts_with("https://github.com/"));
+    }
+
+    #[test]
+    fn content_accepts_from_upstream_and_rejects_two_sources() {
+        let upstream = ["--from-upstream".to_string()];
+        assert_eq!(
+            library_source("content", &upstream).unwrap(),
+            LibrarySource::FromUpstream
+        );
+        let both = ["--from-upstream".to_string(), "--psrd".to_string()];
+        assert!(library_source("content", &both).is_err());
     }
 
     #[test]

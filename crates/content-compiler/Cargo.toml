@@ -18,6 +18,7 @@ name = "cast-iron-data"
 path = "src/data_main.rs"
 
 [dependencies]
+cast-iron-corpus.workspace = true
 cast-iron-schema.workspace = true
 cast-iron-search.workspace = true
 serde.workspace = true

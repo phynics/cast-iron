@@ -969,7 +969,7 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
 ///
 /// Race groups are the one gap: the pin stores the group only in the upstream subtype, and
 /// the canonical entry does not carry it. A race therefore has no `race_group` facet.
-fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, String)>> {
+pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, String)>> {
     fn push(facets: &mut Vec<(String, String)>, name: &str, value: &str) {
         if value.is_empty() {
             return;
@@ -1051,7 +1051,7 @@ fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, Str
 /// Fails the canonical build when Pathfinder Data inline markup (`‹`, `›`, `&#`) is left in
 /// any compiled text: entry titles, fields, body text, facets, aliases, or the coverage
 /// report. Field and body text must carry display text only (see `pf_plain`).
-fn check_no_markup_leaks(
+pub(crate) fn check_no_markup_leaks(
     entries: &[RuleEntry],
     facets: &BTreeMap<EntryId, Vec<(String, String)>>,
     aliases: &BTreeMap<EntryId, Vec<String>>,
@@ -1092,7 +1092,7 @@ fn check_no_markup_leaks(
     Err(Failure { lines: all })
 }
 
-fn failure(message: impl Into<String>) -> Failure {
+pub(crate) fn failure(message: impl Into<String>) -> Failure {
     Failure {
         lines: vec![message.into()],
     }
@@ -1746,7 +1746,7 @@ fn canonical_aliases(
     })
 }
 
-fn search_aliases(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<String>> {
+pub(crate) fn search_aliases(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<String>> {
     entries
         .iter()
         .map(|entry| {

@@ -286,6 +286,7 @@ fn EntryView(
         .map(|line| view! { <p class="copyright">{line}</p> })
         .collect_view();
 
+    let has_provenance = !entry.provenance.is_empty();
     let provenance = entry
         .provenance
         .iter()
@@ -347,10 +348,12 @@ fn EntryView(
             <p class="muted">
                 "Open Game License content. "<a href=Route::Legal.href()>"Legal and attribution"</a>
             </p>
-            <details class="provenance">
-                <summary>"Provenance"</summary>
-                <dl class="facts">{provenance}</dl>
-            </details>
+            {has_provenance.then(|| view! {
+                <details class="provenance">
+                    <summary>"Provenance"</summary>
+                    <dl class="facts">{provenance}</dl>
+                </details>
+            })}
         </footer>
     }
 }
