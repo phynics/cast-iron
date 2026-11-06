@@ -1,5 +1,6 @@
 //! Reading a whole corpus directory.
 
+use crate::config::{Config, read_config};
 use crate::entry::read_entry;
 use crate::error::{Error, Result};
 use crate::files::{
@@ -24,6 +25,7 @@ pub struct Stored {
 #[derive(Debug, Clone)]
 pub struct Corpus {
     pub dir: PathBuf,
+    pub config: Config,
     /// Entries by permanent id.
     pub entries: BTreeMap<String, Stored>,
     pub publications: Vec<Publication>,
@@ -67,6 +69,11 @@ impl Corpus {
     /// so one run lists every file that needs a fix.
     pub fn load(dir: &Path) -> std::result::Result<Corpus, Vec<Error>> {
         let mut errors = Vec::new();
+        let config = take(
+            &mut errors,
+            read_text(dir, "corpus.toml")
+                .and_then(|text| read_config(Path::new("corpus.toml"), &text)),
+        );
         let publications = take(
             &mut errors,
             read_text(dir, "publications.toml")
@@ -97,6 +104,7 @@ impl Corpus {
             Some(None)
         };
 
+        let read_config_value = config.clone().unwrap_or_default();
         let mut files = Vec::new();
         if let Err(message) = list_files(&dir.join("entries"), &mut files) {
             errors.push(Error::new("entries", 1, message));
@@ -122,7 +130,7 @@ impl Corpus {
                     continue;
                 }
             };
-            match read_entry(&relative, &text) {
+            match read_entry(&relative, &text, &read_config_value) {
                 Ok(entry) => {
                     let id = entry.id.to_string();
                     let stored = Stored {
@@ -137,8 +145,17 @@ impl Corpus {
                 Err(error) => errors.push(error),
             }
         }
-        match (publications, books, books_text, legal, coverage, aliases) {
+        match (
+            config,
+            publications,
+            books,
+            books_text,
+            legal,
+            coverage,
+            aliases,
+        ) {
             (
+                Some(config),
                 Some(publications),
                 Some(books),
                 Some(books_text),
@@ -147,6 +164,7 @@ impl Corpus {
                 Some(aliases),
             ) if errors.is_empty() => Ok(Corpus {
                 dir: dir.to_path_buf(),
+                config,
                 entries,
                 publications,
                 books,
@@ -163,6 +181,7 @@ impl Corpus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::write_config;
     use crate::entry::{entry_path, write_entry};
     use crate::files::{write_books, write_coverage, write_legal};
     use crate::testkit::{corpus, paragraph, rule};
@@ -180,8 +199,9 @@ mod tests {
         for stored in source.entries.values() {
             let path = dir.join(entry_path(&stored.entry.id));
             fs::create_dir_all(path.parent().unwrap()).unwrap();
-            fs::write(path, write_entry(&stored.entry)).unwrap();
+            fs::write(path, write_entry(&stored.entry, &source.config)).unwrap();
         }
+        fs::write(dir.join("corpus.toml"), write_config(&source.config)).unwrap();
         fs::write(
             dir.join("publications.toml"),
             "[[publication]]\nid = \"core-rulebook\"\ntitle = \"Core Rulebook\"\n",

@@ -1,9 +1,9 @@
 //! Repository automation. Run `cargo xtask help`.
 
 use cast_iron_corpus::{
-    Corpus, check as check_corpus, entry_path, read_aliases, read_books, read_coverage, read_legal,
-    read_publications, write_aliases, write_books, write_coverage, write_entry, write_legal,
-    write_publications,
+    Config, Corpus, check as check_corpus, entry_path, read_aliases, read_books, read_coverage,
+    read_legal, read_publications, write_aliases, write_books, write_config, write_coverage,
+    write_entry, write_legal, write_publications,
 };
 use cast_iron_schema::{
     AliasIndex, BookIndex, Catalog, ContentManifest, CoverageReport, LegalNotices, RuleEntry,
@@ -859,18 +859,20 @@ fn corpus_export(args: &[String]) -> Result {
 
     let mut files = 0usize;
     let mut bytes = 0u64;
+    let config = Config::default();
     for entry in &library.entries {
         let path = out.join(entry_path(&entry.id));
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
         }
-        let text = write_entry(entry);
+        let text = write_entry(entry, &config);
         bytes += text.len() as u64;
         files += 1;
         fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
     }
     let stored = [
+        ("corpus.toml", write_config(&config)),
         (
             "publications.toml",
             write_publications(&library.catalog.sources),

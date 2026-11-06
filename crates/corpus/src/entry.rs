@@ -1,11 +1,13 @@
 //! Entry files: `+++` TOML front matter followed by the block body.
 
 use crate::block::{parse_blocks, write_blocks};
+use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::tomlutil;
 use cast_iron_schema::{
     Block, ChallengeRating, CreatureFields, EntryId, EntryKind, EntryReference, FeatFields, Inline,
-    ItemFields, Provenance, Relation, RuleEntry, SpellFields, SpellLevel, TypedFields,
+    ItemFields, Provenance, Relation, RelationKind, RuleEntry, SpellFields, SpellLevel,
+    TypedFields,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -78,7 +80,7 @@ fn collect_inline_links(inlines: &[Inline], links: &mut BTreeSet<EntryReference>
     }
 }
 
-pub fn write_entry(entry: &RuleEntry) -> String {
+pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
     let mut out = String::new();
     out.push_str("+++\n");
     out.push_str("id = ");
@@ -111,10 +113,17 @@ pub fn write_entry(entry: &RuleEntry) -> String {
         }
         out.push_str("]\n");
     }
-    write_string_array(&mut out, "license_refs", &entry.license_refs);
-    if !entry.relations.is_empty() {
+    // The default is declared once in `corpus.toml`; only a difference is written,
+    // and an empty list is a difference.
+    if entry.license_refs != config.license_refs {
+        out.push_str("license_refs = ");
+        out.push_str(&tomlutil::string_array(&entry.license_refs));
+        out.push('\n');
+    }
+    let stored = stored_relations(entry);
+    if !stored.is_empty() {
         out.push_str("relations = [\n");
-        for relation in &entry.relations {
+        for relation in stored {
             out.push_str("  ");
             out.push_str(&tomlutil::relation(relation));
             out.push_str(",\n");
@@ -132,6 +141,53 @@ pub fn write_entry(entry: &RuleEntry) -> String {
         out.push('\n');
     }
     out
+}
+
+/// The ids a feat names as prerequisites; empty for every other kind.
+fn prerequisite_feats(fields: &TypedFields) -> &[EntryId] {
+    match fields {
+        TypedFields::Feat(fields) => &fields.prerequisite_feats,
+        _ => &[],
+    }
+}
+
+/// The relations the file stores. A prerequisite relation is derived from
+/// `prerequisite_feats`, so only what that list cannot say is stored: a label
+/// (`or`) and a prerequisite whose target the list does not hold.
+fn stored_relations(entry: &RuleEntry) -> Vec<&Relation> {
+    let feats = prerequisite_feats(&entry.fields);
+    entry
+        .relations
+        .iter()
+        .filter(|relation| {
+            !(relation.kind == RelationKind::Prerequisite
+                && relation.label.is_none()
+                && feats.contains(&relation.target))
+        })
+        .collect()
+}
+
+/// The full relation list: one prerequisite per `prerequisite_feats` id in list
+/// order (with the stored label, if any), then the stored rows.
+fn merge_relations(fields: &TypedFields, stored: Vec<Relation>) -> Vec<Relation> {
+    let feats = prerequisite_feats(fields);
+    let mut relations: Vec<Relation> = feats
+        .iter()
+        .map(|feat| Relation {
+            kind: RelationKind::Prerequisite,
+            target: feat.clone(),
+            label: stored
+                .iter()
+                .find(|row| row.kind == RelationKind::Prerequisite && &row.target == feat)
+                .and_then(|row| row.label.clone()),
+        })
+        .collect();
+    relations.extend(stored.into_iter().filter(|row| {
+        !(row.kind == RelationKind::Prerequisite
+            && row.label.is_some()
+            && feats.contains(&row.target))
+    }));
+    relations
 }
 
 fn write_string_array(out: &mut String, key: &str, values: &[String]) {
@@ -289,13 +345,13 @@ struct RawFront {
     #[serde(default)]
     provenance: Vec<Provenance>,
     #[serde(default)]
-    license_refs: Vec<String>,
+    license_refs: Option<Vec<String>>,
     #[serde(default)]
     relations: Vec<Relation>,
     fields: toml::Table,
 }
 
-pub fn read_entry(path: &Path, source: &str) -> Result<RuleEntry> {
+pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntry> {
     let lines: Vec<&str> = source.lines().collect();
     if lines.first().map(|line| line.trim_end()) != Some("+++") {
         return Err(Error::new(path, 1, "an entry file must start with `+++`"));
@@ -344,6 +400,7 @@ pub fn read_entry(path: &Path, source: &str) -> Result<RuleEntry> {
         .transpose()
         .map_err(|e| Error::new(path, key_line(&front, "parent"), e.to_string()))?;
     let fields = parse_fields(path, &front, &raw.fields)?;
+    let relations = merge_relations(&fields, raw.relations);
 
     let body_lines = &lines[close + 1..];
     let body_start = close + 2;
@@ -367,8 +424,10 @@ pub fn read_entry(path: &Path, source: &str) -> Result<RuleEntry> {
         tags: raw.tags,
         links,
         provenance: raw.provenance,
-        license_refs: raw.license_refs,
-        relations: raw.relations,
+        license_refs: raw
+            .license_refs
+            .unwrap_or_else(|| config.license_refs.clone()),
+        relations,
     })
 }
 
@@ -751,7 +810,7 @@ fn toml_error_line(error: &toml::de::Error, text: &str) -> usize {
 mod tests {
     use super::*;
     use crate::block::write_blocks;
-    use cast_iron_schema::{ParagraphStyle, RelationKind, StatRow, Table, TableCell, TableRow};
+    use cast_iron_schema::{ParagraphStyle, StatRow, Table, TableCell, TableRow};
 
     fn entry() -> RuleEntry {
         RuleEntry {
@@ -878,16 +937,21 @@ mod tests {
     fn an_entry_round_trips_and_recomputes_links() {
         let mut entry = entry();
         let path = entry_path(&entry.id);
-        let text = write_entry(&entry);
+        let text = write_entry(&entry, &Config::default());
         entry.links = derived_links(&entry.body);
-        assert_eq!(read_entry(&path, &text).unwrap(), entry);
+        assert_eq!(read_entry(&path, &text, &Config::default()).unwrap(), entry);
     }
 
     #[test]
     fn a_mismatched_path_is_rejected_with_a_line() {
         let entry = entry();
-        let text = write_entry(&entry);
-        let error = read_entry(Path::new("entries/spell/not-fog-cloud.md"), &text).unwrap_err();
+        let text = write_entry(&entry, &Config::default());
+        let error = read_entry(
+            Path::new("entries/spell/not-fog-cloud.md"),
+            &text,
+            &Config::default(),
+        )
+        .unwrap_err();
         assert!(error.message.contains("belongs at"), "{error}");
         assert!(error.line >= 1);
     }
@@ -895,16 +959,18 @@ mod tests {
     #[test]
     fn unknown_front_matter_keys_are_rejected() {
         let entry = entry();
-        let text = write_entry(&entry).replace("title = ", "bogus = true\ntitle = ");
-        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        let text =
+            write_entry(&entry, &Config::default()).replace("title = ", "bogus = true\ntitle = ");
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
         assert!(error.message.contains("front matter"), "{error}");
     }
 
     #[test]
     fn unknown_typed_fields_are_rejected() {
         let entry = entry();
-        let text = write_entry(&entry).replace("school = ", "nonsense = 1\nschool = ");
-        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        let text =
+            write_entry(&entry, &Config::default()).replace("school = ", "nonsense = 1\nschool = ");
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
         assert!(error.message.contains("unexpected field"), "{error}");
     }
 
@@ -913,8 +979,11 @@ mod tests {
         let mut entry = entry();
         entry.body.clear();
         entry.links.clear();
-        let text = write_entry(&entry);
-        assert_eq!(read_entry(&entry_path(&entry.id), &text).unwrap(), entry);
+        let text = write_entry(&entry, &Config::default());
+        assert_eq!(
+            read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap(),
+            entry
+        );
     }
 
     #[test]
@@ -926,7 +995,15 @@ mod tests {
         }];
         entry.links.clear();
         let path = entry_path(&entry.id);
-        assert_eq!(read_entry(&path, &write_entry(&entry)).unwrap(), entry);
+        assert_eq!(
+            read_entry(
+                &path,
+                &write_entry(&entry, &Config::default()),
+                &Config::default()
+            )
+            .unwrap(),
+            entry
+        );
     }
 
     #[test]
@@ -937,11 +1014,11 @@ mod tests {
 
     fn round_trip_entry(entry: RuleEntry) {
         let path = entry_path(&entry.id);
-        let text = write_entry(&entry);
+        let text = write_entry(&entry, &Config::default());
         let mut expected = entry;
         expected.links = derived_links(&expected.body);
         assert_eq!(
-            read_entry(&path, &text).unwrap(),
+            read_entry(&path, &text, &Config::default()).unwrap(),
             expected,
             "source:\n{text}"
         );
@@ -1006,6 +1083,15 @@ mod tests {
         ];
         for fields in variants {
             let mut entry = entry();
+            if let TypedFields::Feat(feat) = &fields {
+                // A feat's prerequisite relations mirror its prerequisite_feats list.
+                entry.relations = feat
+                    .prerequisite_feats
+                    .iter()
+                    .map(|target| prerequisite(target.as_str(), None))
+                    .chain(entry.relations)
+                    .collect();
+            }
             entry.fields = fields;
             round_trip_entry(entry);
         }
@@ -1082,30 +1168,154 @@ mod tests {
     #[test]
     fn a_front_matter_parse_error_names_a_line() {
         let entry = entry();
-        let text = write_entry(&entry).replace("school = ", "school = [\n");
-        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        let text = write_entry(&entry, &Config::default()).replace("school = ", "school = [\n");
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
         assert!(error.line >= 2, "{error}");
     }
 
     #[test]
     fn unknown_kind_and_bad_id_are_rejected() {
         let entry = entry();
-        let text = write_entry(&entry).replace("kind = \"spell\"", "kind = \"nope\"");
-        assert!(read_entry(&entry_path(&entry.id), &text).is_err());
-        let text = write_entry(&entry).replace("id = \"ref/spell/fog-cloud\"", "id = \"Bad Id\"");
-        assert!(read_entry(&entry_path(&entry.id), &text).is_err());
+        let text =
+            write_entry(&entry, &Config::default()).replace("kind = \"spell\"", "kind = \"nope\"");
+        assert!(read_entry(&entry_path(&entry.id), &text, &Config::default()).is_err());
+        let text = write_entry(&entry, &Config::default())
+            .replace("id = \"ref/spell/fog-cloud\"", "id = \"Bad Id\"");
+        assert!(read_entry(&entry_path(&entry.id), &text, &Config::default()).is_err());
     }
 
     #[test]
     fn a_body_error_names_a_line() {
         let entry = entry();
-        let text = write_entry(&entry).replace("## Effects {#effects}", "## Effects");
-        assert!(read_entry(&entry_path(&entry.id), &text).is_ok());
-        let text = write_entry(&entry).replace("## Effects {#effects}", "## Effects {#bad anchor}");
-        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        let text =
+            write_entry(&entry, &Config::default()).replace("## Effects {#effects}", "## Effects");
+        assert!(read_entry(&entry_path(&entry.id), &text, &Config::default()).is_ok());
+        let text = write_entry(&entry, &Config::default())
+            .replace("## Effects {#effects}", "## Effects {#bad anchor}");
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
         assert!(error.message.contains("invalid heading anchor"), "{error}");
-        let text = write_entry(&entry).replace("A pipe \\| and a star \\*.", "*open");
-        let error = read_entry(&entry_path(&entry.id), &text).unwrap_err();
+        let text =
+            write_entry(&entry, &Config::default()).replace("A pipe \\| and a star \\*.", "*open");
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
         assert!(error.line >= 1, "{error}");
+    }
+
+    fn round_trip_with(entry: &RuleEntry, config: &Config) -> String {
+        let text = write_entry(entry, config);
+        let mut expected = entry.clone();
+        expected.links = derived_links(&expected.body);
+        assert_eq!(
+            read_entry(&entry_path(&entry.id), &text, config).unwrap(),
+            expected,
+            "{text}"
+        );
+        text
+    }
+
+    #[test]
+    fn default_licence_refs_are_not_written_and_a_difference_is() {
+        let config = Config::default();
+        let mut entry = entry();
+        entry.license_refs = config.license_refs.clone();
+        let text = round_trip_with(&entry, &config);
+        assert!(!text.contains("license_refs"), "{text}");
+
+        entry.license_refs = vec!["ogl-1.0a".into()];
+        let text = round_trip_with(&entry, &config);
+        assert!(text.contains("license_refs = [\"ogl-1.0a\"]"), "{text}");
+
+        entry.license_refs = vec![];
+        let text = round_trip_with(&entry, &config);
+        assert!(text.contains("license_refs = []"), "{text}");
+    }
+
+    #[test]
+    fn the_default_comes_from_the_corpus_config() {
+        let config = Config {
+            format: 1,
+            license_refs: vec!["other".into()],
+        };
+        let mut entry = entry();
+        entry.license_refs = vec!["other".into()];
+        let text = round_trip_with(&entry, &config);
+        assert!(!text.contains("license_refs"), "{text}");
+        // Read with the standard defaults, the same file means something else.
+        let read = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap();
+        assert_eq!(read.license_refs, Config::default().license_refs);
+    }
+
+    fn feat_with_prerequisites(relations: Vec<Relation>) -> RuleEntry {
+        let mut entry = entry();
+        entry.id = EntryId::parse("ref/feat/power-attack").unwrap();
+        entry.kind = EntryKind::Feat;
+        entry.fields = TypedFields::Feat(FeatFields {
+            prerequisite_feats: vec![
+                EntryId::parse("ref/feat/a").unwrap(),
+                EntryId::parse("ref/feat/b").unwrap(),
+            ],
+            ..Default::default()
+        });
+        entry.relations = relations;
+        entry
+    }
+
+    fn prerequisite(target: &str, label: Option<&str>) -> Relation {
+        Relation {
+            kind: RelationKind::Prerequisite,
+            target: EntryId::parse(target).unwrap(),
+            label: label.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn prerequisite_relations_are_derived_from_prerequisite_feats() {
+        let entry = feat_with_prerequisites(vec![
+            prerequisite("ref/feat/a", None),
+            prerequisite("ref/feat/b", None),
+        ]);
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(!text.contains("relations"), "{text}");
+        assert!(!text.contains("prerequisite\""), "{text}");
+    }
+
+    #[test]
+    fn a_labelled_prerequisite_is_the_only_one_stored() {
+        let entry = feat_with_prerequisites(vec![
+            prerequisite("ref/feat/a", None),
+            prerequisite("ref/feat/b", Some("or")),
+        ]);
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(text.contains("kind = \"prerequisite\", target = \"ref/feat/b\", label = \"or\""));
+        assert!(!text.contains("target = \"ref/feat/a\""), "{text}");
+    }
+
+    #[test]
+    fn other_relation_kinds_and_stray_prerequisites_stay_stored() {
+        let mut feat = feat_with_prerequisites(vec![
+            prerequisite("ref/feat/a", None),
+            prerequisite("ref/feat/b", None),
+            prerequisite("ref/feat/not-listed", None),
+        ]);
+        feat.relations.push(Relation {
+            kind: RelationKind::Archetype,
+            target: EntryId::parse("ref/class/fighter").unwrap(),
+            label: None,
+        });
+        let text = round_trip_with(&feat, &Config::default());
+        assert!(text.contains("ref/feat/not-listed"), "{text}");
+        assert!(text.contains("ref/class/fighter"), "{text}");
+        // A non-feat has no list to derive from.
+        let mut other = self::entry();
+        other.relations = vec![prerequisite("ref/feat/a", None)];
+        let text = round_trip_with(&other, &Config::default());
+        assert!(text.contains("ref/feat/a"), "{text}");
+    }
+
+    #[test]
+    fn provenance_is_optional() {
+        let mut entry = entry();
+        entry.provenance.clear();
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(!text.contains("provenance"), "{text}");
     }
 }

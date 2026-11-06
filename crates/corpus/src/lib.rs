@@ -21,6 +21,7 @@
 
 mod block;
 mod check;
+mod config;
 mod entry;
 mod error;
 mod files;
@@ -31,6 +32,9 @@ mod testkit;
 mod tomlutil;
 
 pub use check::{Report, check, fields_kind, fields_match, heading_keys, line_of};
+pub use config::{
+    CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, read_config, write_config,
+};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{
@@ -38,8 +42,3 @@ pub use files::{
     read_publications, write_aliases, write_books, write_coverage, write_legal, write_publications,
 };
 pub use load::{Corpus, Stored, list_files};
-
-/// Format version of the plain-text corpus. Independent of the serialized
-/// content schema: the corpus carries schema 3 fields today, but a schema
-/// change adds fields here rather than changing this number.
-pub const CORPUS_FORMAT: u32 = 1;

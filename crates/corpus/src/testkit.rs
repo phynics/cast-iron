@@ -1,5 +1,6 @@
 //! Small in-memory corpora for tests.
 
+use crate::config::Config;
 use crate::entry::{derived_links, entry_path, write_entry};
 use crate::files::Publication;
 use crate::load::{Corpus, Stored};
@@ -58,7 +59,7 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
 pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
     let mut by_id = BTreeMap::new();
     for entry in entries {
-        let text = write_entry(&entry);
+        let text = write_entry(&entry, &Config::default());
         by_id.insert(
             entry.id.to_string(),
             Stored {
@@ -76,6 +77,7 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
     }
     Corpus {
         dir: PathBuf::from("corpus"),
+        config: Config::default(),
         entries: by_id,
         publications: vec![Publication {
             id: "core-rulebook".into(),

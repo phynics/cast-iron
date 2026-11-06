@@ -12,6 +12,7 @@ can hold.
 ## Layout
 
 ```text
+corpus.toml                     format version and the defaults entries omit
 entries/<id without ref/>.md    one entry per file
 publications.toml               publication metadata used by the catalogue
 books.toml                      curated chapter order (BookIndex)
@@ -35,7 +36,9 @@ meaning; the corpus does not invent a new path for an existing id.
 
 The file starts with `+++`, then TOML, then a closing `+++` line. Keys appear in
 schema order. Empty keys are omitted. `links` is never written; the reader
-recomputes it from the body.
+recomputes it from the body. `license_refs` is written only when it differs from
+the default in `corpus.toml`, and `relations` never holds a prerequisite that
+`prerequisite_feats` already states (see the key table).
 
 ```text
 +++
@@ -49,7 +52,6 @@ tags = ["fog"]
 provenance = [
   { dataset = "pathfinder-data-1-e", record = "fog_cloud", path = "json/spells4.json" },
 ]
-license_refs = ["ogl-1.0a", "legal#community-use"]
 relations = [
   { kind = "part", target = "ref/race/dwarf", label = "alternate" },
 ]
@@ -89,9 +91,9 @@ class level and the full body below.
 | `section` | array of strings | Breadcrumb inside the rules hierarchy. |
 | `parent` | string | Containing rules entry; must resolve to another entry. Omitted when absent. |
 | `tags` | array of strings | Stable labels such as `standard_race`. |
-| `provenance` | array of tables | `dataset`, `record`, `path`. At least one source record normally. |
-| `license_refs` | array of strings | A licence id from `legal.toml`, or `legal#community-use` when the Community Use notice applies. |
-| `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`), `target`, and optional `label` (`or`, `alternate`). |
+| `provenance` | array of tables | Optional. `dataset`, `record`, `path` of the upstream record the entry came from. **Frozen history: do not edit it, and leave it out of a new entry.** |
+| `license_refs` | array of strings | Omitted when it equals `[defaults] license_refs` in `corpus.toml` (today `["ogl-1.0a", "legal#community-use"]`). Written only for an entry that differs; an empty list is written as `license_refs = []`. Each value is a licence id from `legal.toml`, or `legal#community-use`. |
+| `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`), `target`, and optional `label` (`or`, `alternate`). A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
 
 ### Typed fields
 
@@ -113,6 +115,34 @@ order:
 printed fraction (`1/2`, `1/8`) or a whole number. `abilities` is six strings in
 STR, DEX, CON, INT, WIS, CHA order, with `-` where none applies.
 
+## `corpus.toml`
+
+```toml
+format = 1
+
+[defaults]
+license_refs = ["ogl-1.0a", "legal#community-use"]
+```
+
+`format` is the corpus format version. A reader refuses a corpus whose format it
+does not know, and the message names the command that converts it
+(`cast-iron-corpus migrate`). `[defaults]` declares, once, the values an entry
+omits. Today that is `license_refs`.
+
+### Format versions
+
+The format number changes when the files mean something different: a renamed
+key, a new default, a different escape or layout rule. Adding an optional key
+that an old reader would reject also counts. A format change always ships with:
+
+1. a `migrate` step in the tooling that converts a corpus from the previous
+   format and rewrites `corpus.toml`;
+2. one mechanical pull request that applies the migration to the whole corpus
+   and does nothing else, followed by `fmt` so every file is canonical.
+
+Never mix a migration with an edit to content. Reviewers can then check the
+migration PR by running the step and comparing.
+
 ## Stored and derived data
 
 The compiler rebuilds everything it can. A stored file exists only when it is
@@ -125,7 +155,7 @@ reviewed source material that an entry cannot express.
 | `books.json` | **Stored** as `books.toml` | Chapter order is a curated decision, not a function of the body text. |
 | `legal.json` | **Stored** as `legal.toml` | Licences and notices are reviewed legal text. |
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
-| `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. |
+| `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
 | `coverage.json` | **Stored** as `coverage.toml` | An exclusion decided when the corpus was cut cannot be recomputed from the entries. Freezing the report keeps every excluded and rejected record accounted for. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
