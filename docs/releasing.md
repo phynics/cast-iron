@@ -182,13 +182,19 @@ as `main`: Rust, Trunk, Node, and Python 3.
    the exact prep commit SHA, the library version `vcdd730994d863e50`, and these results in
    the migration issue.
 
-6. **Publish it.** *Owner decision, open:* `scripts/promote-release.py` accepts only a commit
-   that is an ancestor of `origin/main` and has a successful `ci.yml` run on `main` for that
-   exact SHA, and the prep commit is neither, so the helper refuses it. The owner chooses
-   between a one-time fast-forward push of the verified prep commit
-   (`git push origin PREP_SHA:refs/heads/release`; `release` is at `d48eaa3`, an ancestor of
-   the prep commit, so it never resets or forces) and a reviewed exception in the helper.
-   Do not publish until the owner has decided and written the choice in the migration issue.
+6. **Publish it.** `scripts/promote-release.py` accepts only a commit that is an ancestor of
+   `origin/main` and has a successful `ci.yml` run on `main` for that exact SHA. At publication the
+   prep commit was neither, so the helper refused it. Step 7 later makes it an ancestor of `main`,
+   but it never gets a `main` CI run, so the helper still refuses it. The owner chose a one-time fast-forward push of the verified
+   prep commit (decided 2026-11-06 in #127; see `docs/decisions.md`). The helper stays unchanged:
+
+   ```sh
+   git push origin PREP_SHA:refs/heads/release
+   ```
+
+   `release` must be an ancestor of the prep commit, so the push never resets or forces. The
+   2026-11-06 release used this push once, for `ae032ba`. Any later PSRD-first release needs a new
+   owner decision.
 
    The push triggers `pages.yml` from the prep commit. Then follow
    [Verify publication](#verify-publication) for the exact SHA, and check the installed shell
