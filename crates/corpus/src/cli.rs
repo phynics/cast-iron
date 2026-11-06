@@ -12,7 +12,7 @@ cast-iron-corpus <command>
   check [DIR] [--drift-report FILE]
         Read every file under DIR (default: the current directory) and check ids,
         paths, sources, licences, links, and heading anchors. Fields that disagree
-        with the body are listed as warnings and counted.
+        with the body fail the check; --drift-report writes their full list.
   fmt [--check] [DIR]
         Rewrite every file into its one canonical form. With --check, change nothing:
         print the first differing line of each file that is not canonical and fail.
@@ -80,15 +80,21 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
     {
         fs::write(path, report.drift_report()).map_err(|e| format!("cannot write {path}: {e}"))?;
     }
-    for warning in report.warnings.iter().take(20) {
-        eprintln!("warning: {warning}");
-    }
-    if report.warnings.len() > 20 {
-        eprintln!("warning: ... and {} more", report.warnings.len() - 20);
-    }
     if !report.problems.is_empty() {
         for problem in &report.problems {
             eprintln!("{problem}");
+        }
+        if !report.drift.is_empty() {
+            let kinds: Vec<String> = report
+                .drift_by_kind()
+                .iter()
+                .map(|(kind, count)| format!("{kind} {count}"))
+                .collect();
+            eprintln!(
+                "drift: {} disagreement(s) ({})",
+                report.drift.len(),
+                kinds.join(", ")
+            );
         }
         return Err(format!(
             "check failed with {} problem(s)",
@@ -102,18 +108,6 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
         corpus.books.books.len(),
         corpus.legal.licenses.len()
     );
-    if !report.drift.is_empty() {
-        let kinds: Vec<String> = report
-            .drift_by_kind()
-            .iter()
-            .map(|(kind, count)| format!("{kind} {count}"))
-            .collect();
-        println!(
-            "drift warnings: {} ({})",
-            report.drift.len(),
-            kinds.join(", ")
-        );
-    }
     Ok(())
 }
 

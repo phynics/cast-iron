@@ -8,14 +8,12 @@ use cast_iron_schema::{Block, BookNode, EntryKind, RuleEntry, TypedFields};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-/// What a check found. `problems` fail the run; `warnings` are listed and
-/// counted but do not.
+/// What a check found. Every problem fails the run; there are no warnings.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
     pub problems: Vec<String>,
-    pub warnings: Vec<String>,
     /// Values that `[fields]` and the body both state and that disagree. Each one is also
-    /// listed in `warnings`.
+    /// listed in `problems`.
     pub drift: Vec<Disagreement>,
 }
 
@@ -241,7 +239,7 @@ pub fn check(corpus: &Corpus) -> Report {
         }
         let _ = id;
         for item in find_drift(stored) {
-            report.warnings.push(item.describe());
+            report.problems.push(item.describe());
             report.drift.push(item);
         }
     }

@@ -21,7 +21,7 @@ cargo xtask <command>
   corpus-check <dir> [--drift-report <file>]
                              Read a plain-text corpus and validate ids, paths, sources,
                              and licences; exits non-zero and names the file and line.
-                             Lists fields-versus-body disagreements as warnings
+                             Fails on fields-versus-body disagreements (drift)
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)

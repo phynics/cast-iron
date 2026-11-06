@@ -126,5 +126,5 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
     };
     let report = check(&corpus);
     assert!(report.problems.is_empty(), "{:?}", report.problems);
-    assert!(report.drift.is_empty(), "{:?}", report.warnings);
+    assert!(report.drift.is_empty(), "{:?}", report.problems);
 }

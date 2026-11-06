@@ -36,8 +36,8 @@ cast-iron-corpus fmt --check .    # change nothing; name the first line that is 
 ```
 
 `check` fails with a message like `entries/rule/ambush.md:14: unknown link target
-`ref/skill/stealh``. The message names the file and line. It also lists fields that disagree
-with the body as warnings; those do not fail the run.
+`ref/skill/stealh``. The message names the file and line. It also fails when a field
+disagrees with the body (drift), and names both lines.
 
 `fmt` is safe to run at any time. It re-wraps paragraphs, trims table cells, renumbers lists
 to `1.`, and adds a `{#anchor}` to a heading that a link reaches. Run it after every edit,
@@ -127,7 +127,7 @@ A stat appears in the typed front matter (search and filters read it) and in the
  :::
 ```
 
-`check` prints a drift warning with both line numbers if you change only one.
+`check` fails with both line numbers if you change only one.
 
 ### Add an entry
 
