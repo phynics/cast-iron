@@ -9,16 +9,16 @@ Updated 2026-11-06.
 `corpus-check` validates it; `corpus-roundtrip` compares it with the compiled
 library. The build is not switched, so this adds tooling and no library change.
 
-Local verification on 2026-11-06 against the pinned corpus (`v17192bfbdba50086`,
-31,106 entries):
+Local verification on 2026-11-06 against the pinned corpus after the body-link pass
+(`vd14efc1479965461`, 31,106 entries, 149,047 body links):
 
 | Check | Result |
 |---|---|
-| Export | 31,111 files, 83.78 MB of text |
-| Two exports, tree hash | Byte-identical: `e59c0a3828630288b8450b4e4467960f305c08d38b42f42d7d88a49a08c05f35` |
+| Export | 31,111 files, 84.33 MB of text |
+| Two exports, tree hash | Byte-identical: `889c4d1348585a805c3e2fa6285b9ffb06c1de774981aeb00029cad27a050296` |
 | `cargo xtask corpus-check` | Passed: 31,106 entries, 439 publications, 449 books, 1 licence |
 | `cargo xtask corpus-roundtrip` | 0 mismatches, no link special case |
-| `cargo xtask content` twice | Byte-identical: `v17192bfbdba50086`, content tree hash `4e3d15b6323377ba2b3815ae74e7f7aea58cd83402e7454dfea191d77bc5aff6` |
+| `cargo xtask content` twice | Byte-identical: `vd14efc1479965461`, 149,047 links, 145,450 backlink rows; content tree hash `7b3b4aad84a85995499e112dfba92aed23575aea5985e652303f4ad106f17626` |
 | PSRD `--psrd` | Unchanged: `vcdd730994d863e50`, 9,990 entries, tree hash `efa8188cc3d36f3f27be9734438e41777353fef86e3e63c721a7b0b3d82a107c` |
 | `check-publication.py generated/content` | Exit 0, 0 issues |
 | `check-library-upgrade.py generated/psrd generated/content` | Exit 0, no missing, unresolvable, or dangling ids |
