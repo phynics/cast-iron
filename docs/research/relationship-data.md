@@ -1,5 +1,7 @@
 # Relationship data in PSRD-Data
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Checked 2026-11-03 against the pinned snapshot (`76ea4784604145ba3dea40eb56f83bb904759467`, 16 selected books). The dataset is untrusted: every number below comes from parsing JSON or from read-only queries (`sqlite3 -readonly`, `mode=ro`). `scripts/survey-relationships.py` reproduces sections 1 to 4 and the database order in section 6. The compiler results (resolution rates, placement) are the ones in `coverage.json` of the library built from this branch.
 
 Marks: **verified** means a script or the compiler measured it. **Unverified** means it rests on memory of the printed books or on a guess, and a person must confirm it.

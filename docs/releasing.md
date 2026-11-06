@@ -27,7 +27,8 @@ permission to push `release`. Run the commands from the repository root.
    If the range includes the canonical default switch, confirm the alias-capable
    shell from the previous PSRD release is already live and verified. An old shell
    cannot resolve canonical bookmarks; publish and verify it before this promotion
-   (design section 6.5).
+   (design section 6.5). The PSRD library no longer builds on `main`; build it from
+   the tag (see [Publish the PSRD library first, from the tag](#publish-the-psrd-library-first-from-the-tag)).
 2. Preview the promotion from the repository root:
 
    ```sh
@@ -68,6 +69,179 @@ workflow is installed. The environment restriction also blocks the old main
 workflow during migration. The Pages concurrency group remains `pages` with
 cancellation disabled, so deployments are serialized. A queued older release
 can finish first; verify the final successful run's SHA, not just any green run.
+
+## Publish the PSRD library first, from the tag
+
+The upstream import was removed from `main` after the library moved to the pinned
+plain-text corpus. The git tag `psrd-last-buildable` (commit
+`9800663202f4cb9bcd4fad1af43c5ebf884b4a09`) is the last commit that builds the PSRD
+library from PSRD-Data and Pathfinder Data 1e. The first release step publishes the
+alias-capable shell on the PSRD library from that tag (design section 6.5); the canonical
+library follows from `main` in a second step. Nothing on `main` builds the PSRD library, so
+never delete or move the tag.
+
+The commands use two checkouts that sit next to each other. Replace the names if yours
+differ, but keep both outside any other repository:
+
+- `../cast-iron` is your checkout of this repository on `main` (the **main checkout**).
+- `../cast-iron-psrd` is a new worktree of the tag (the **tag worktree**).
+
+Run each command from the directory in its `cd` line. The tag worktree needs the same tools
+as `main`: Rust, Trunk, Node, and Python 3.
+
+1. **Build the canonical library on `main`.** The upgrade check below needs it, and the
+   second release step publishes it.
+
+   ```sh
+   cd ../cast-iron
+   git switch main && git pull --ff-only
+   cargo xtask fetch-sources
+   cargo xtask content
+   ```
+
+   This writes `../cast-iron/generated/content/`. The build fails if an id listed in
+   `sources/published-ids.txt` no longer resolves.
+
+2. **Build the PSRD library in a worktree of the tag.**
+
+   ```sh
+   cd ../cast-iron
+   git fetch origin tag psrd-last-buildable
+   git worktree add --detach ../cast-iron-psrd psrd-last-buildable
+   cd ../cast-iron-psrd
+   cargo xtask fetch-sources
+   cargo xtask content --psrd
+   ```
+
+   `fetch-sources` at the tag downloads the pinned PSRD-Data and Pathfinder Data 1e archives
+   and the corpus into `.cache/sources`. `content --psrd` writes the library
+   `vcdd730994d863e50` (9,990 entries) to `generated/psrd/`.
+
+3. **Check that the canonical library resolves every id the PSRD release published.** Run the
+   tag's script, because `main` no longer ships it or its legacy-id snapshot, and name the
+   main checkout's library by path:
+
+   ```sh
+   cd ../cast-iron-psrd
+   python3 scripts/check-library-upgrade.py generated/psrd ../cast-iron/generated/content
+   ```
+
+   It must exit 0 and report `"missing_ids": 0`, `"unresolvable_ids": []`, `"alias_problems": 0`,
+   and `"dangling_references": 0`. The aliases it resolves are the compiled form of
+   `aliases.toml` in the corpus. For `main` at `9800663` it reports 9,968 old ids and 0 of each
+   problem.
+
+4. **Prepare the release commit from the tag.** The Pages workflow at the tag builds the
+   canonical default. Make one commit that builds the PSRD library instead:
+
+   ```sh
+   cd ../cast-iron-psrd
+   git switch -c release-prep-psrd
+   ```
+
+   In `.github/workflows/pages.yml`, change one line in the `Build the site` step:
+
+   ```diff
+   -            cargo xtask build-site --public-url /cast-iron/ && exit 0
+   +            cargo xtask build-site --psrd --public-url /cast-iron/ && exit 0
+   ```
+
+   and update the comment above the step to say that `build-site` compiles the PSRD library
+   (`--psrd`). Change nothing else. The dataset cache needs no new key: the step
+   `Read the pinned dataset commits` keys `.cache/sources` on
+   `psrd-data-<PSRD-Data commit>-pf-<Pathfinder Data 1e commit>`, and `--psrd` reads the same
+   two archives that `fetch-sources` downloads (the corpus lands in the same directory and is
+   verified by tree hash whatever the cache holds). Commit it:
+
+   ```sh
+   git commit -am "Build the Pages site from the PSRD library"
+   git push origin release-prep-psrd
+   ```
+
+5. **Verify the prepared commit before it goes near `release`.** Pages only deploys from
+   `release`, so dispatching `pages.yml` on the prep branch skips both jobs. Verify in the tag
+   worktree and with the tag's own full CI instead:
+
+   ```sh
+   cd ../cast-iron-psrd
+   cargo xtask build-site --psrd --public-url /cast-iron/
+   python3 scripts/check-publication.py
+   npm --prefix tests/e2e ci
+   CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- reference search install legal \
+     --project=chromium \
+     --grep-invert "Publication filter|Publication name box|Equal relevance ranks|creature spell lists use readable"
+   gh workflow run ci.yml --repo phynics/cast-iron --ref release-prep-psrd
+   ```
+
+   `check-publication.py` must exit 0 and the Chromium run must pass (30 tests). The full
+   suite does not run against the PSRD library at the tag: `entry-header.spec.ts` needs an
+   entry that several books publish, and the PSRD library has none, so Playwright stops at
+   load. The four excluded names are the product-line and tier tests plus one
+   creature-formatting test, which expect data the PSRD library lacks. Wait for the
+   `ci.yml` run on `release-prep-psrd` to succeed, including its PSRD determinism steps. Record
+   the exact prep commit SHA, the library version `vcdd730994d863e50`, and these results in
+   the migration issue.
+
+6. **Publish it.** *Owner decision, open:* `scripts/promote-release.py` accepts only a commit
+   that is an ancestor of `origin/main` and has a successful `ci.yml` run on `main` for that
+   exact SHA, and the prep commit is neither, so the helper refuses it. The owner chooses
+   between a one-time fast-forward push of the verified prep commit
+   (`git push origin PREP_SHA:refs/heads/release`; `release` is at `d48eaa3`, an ancestor of
+   the prep commit, so it never resets or forces) and a reviewed exception in the helper.
+   Do not publish until the owner has decided and written the choice in the migration issue.
+
+   The push triggers `pages.yml` from the prep commit. Then follow
+   [Verify publication](#verify-publication) for the exact SHA, and check the installed shell
+   and library as that section describes.
+
+7. **Bring the release history into `main`.** The canonical promotion requires `origin/release`
+   to be an ancestor of the promoted `main` commit, which the prep commit is not yet. Integrate
+   it with a merge commit that keeps the tree of `main` unchanged, so the `--psrd` workflow edit
+   never reaches `main`:
+
+   ```sh
+   cd ../cast-iron
+   git fetch origin
+   git switch -c integrate-psrd-release origin/main
+   git merge --no-ff -s ours origin/release -m "Integrate the PSRD release history"
+   git diff --stat origin/main HEAD
+   git push -u origin integrate-psrd-release
+   ```
+
+   `git diff --stat origin/main HEAD` must print nothing. Open a PR to `main` and merge it with
+   a merge commit (not squash or rebase). Then start a full CI run on the new `main` head
+   (`gh workflow run ci.yml --ref main`) and promote that SHA with
+   [Promote a tested commit](#promote-a-tested-commit).
+
+8. **Clean up.**
+
+   ```sh
+   cd ../cast-iron
+   git worktree remove ../cast-iron-psrd
+   ```
+
+   Keep the tag and the `release-prep-psrd` branch until the canonical library is live and
+   verified.
+
+## Published ids
+
+`sources/published-ids.txt` lists every id that a published library has used: the 9,968 legacy
+PSRD ids and the `ref/` ids of the canonical library. `cargo xtask content` fails when a listed
+id is neither an entry nor an `aliases.toml` row whose target is an entry, so an edit in the
+corpus cannot silently break a bookmark. A retired alias row does not count.
+
+After a library is published and verified, record its ids:
+
+```sh
+cargo xtask content
+cargo xtask published-ids
+git add sources/published-ids.txt
+```
+
+The command adds the ids of `generated/content` (every entry id and every alias `old` id) to
+the file and keeps it sorted. Commit the added lines with the release record. The file only
+grows: never delete or edit a line. An id that must truly go away needs an `aliases.toml` row
+that sends it to a live entry.
 
 ## Verify publication
 

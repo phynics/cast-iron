@@ -1,7 +1,6 @@
 //! Plain-text projections of typed content, for search documents and tests.
 
-use cast_iron_schema::{Block, EntryReference, Inline, Table, TableRow};
-use std::collections::BTreeSet;
+use cast_iron_schema::{Block, Inline, Table, TableRow};
 
 pub fn inline_text(inlines: &[Inline]) -> String {
     let mut out = String::new();
@@ -86,74 +85,6 @@ fn push_row(row: &TableRow, out: &mut String) {
     }
 }
 
-/// Every internal reference a final body holds, deduplicated and sorted.
-///
-/// The link list is always a projection of the body, never an independent field. A
-/// converter, policy pass, or settlement step that removes body content must not
-/// leave a reference behind; callers recompute the list after the last body change.
-pub fn collect_links(blocks: &[Block]) -> Vec<EntryReference> {
-    let mut links = BTreeSet::new();
-    collect_block_links(blocks, &mut links);
-    links.into_iter().collect()
-}
-
-fn collect_block_links(blocks: &[Block], links: &mut BTreeSet<EntryReference>) {
-    for block in blocks {
-        match block {
-            Block::Heading { content, .. } | Block::Paragraph { content, .. } => {
-                collect_inline_links(content, links);
-            }
-            Block::List { items, .. } => {
-                for item in items {
-                    collect_block_links(item, links);
-                }
-            }
-            Block::Table(table) => {
-                collect_inline_links(&table.caption, links);
-                for cell in table
-                    .head
-                    .iter()
-                    .chain(&table.body)
-                    .chain(&table.foot)
-                    .flat_map(|row| &row.cells)
-                {
-                    collect_inline_links(&cell.content, links);
-                }
-            }
-            Block::Quote { content } => collect_block_links(content, links),
-            Block::StatBlock { rows, .. } => {
-                for row in rows {
-                    collect_inline_links(&row.value, links);
-                }
-            }
-            Block::EntryLink { target, .. } => {
-                links.insert(EntryReference {
-                    target: target.clone(),
-                    anchor: None,
-                });
-            }
-        }
-    }
-}
-
-fn collect_inline_links(inlines: &[Inline], links: &mut BTreeSet<EntryReference>) {
-    for inline in inlines {
-        match inline {
-            Inline::Link { target, anchor, c } => {
-                links.insert(EntryReference {
-                    target: target.clone(),
-                    anchor: anchor.clone(),
-                });
-                collect_inline_links(c, links);
-            }
-            Inline::Em { c } | Inline::Strong { c } | Inline::Sup { c } | Inline::Sub { c } => {
-                collect_inline_links(c, links);
-            }
-            Inline::Text { .. } | Inline::Break => {}
-        }
-    }
-}
-
 /// Merges adjacent `Text` nodes and drops empty ones, in every inline run of the bodies.
 ///
 /// The plain-text corpus has no spelling for a text-node boundary, so the compiled value
@@ -214,14 +145,6 @@ fn normalize_inlines(inlines: &mut Vec<Inline>) {
         out.push(inline);
     }
     *inlines = out;
-}
-
-/// Lowercases and collapses whitespace, for comparisons.
-pub fn squash(text: &str) -> String {
-    text.split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-        .to_lowercase()
 }
 
 #[cfg(test)]

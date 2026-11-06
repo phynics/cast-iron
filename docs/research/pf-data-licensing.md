@@ -1,5 +1,7 @@
 # Pf Data 1e source review
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Reviewed snapshot: `jasontankapps/pathfinder-data-1-e` commit
 `08ea71f24375908d0190c822fd1fd080797667a9`. This review establishes source-level
 evidence. It does not classify every passage in the corpus for publication.

@@ -99,7 +99,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
         publications: vec![Publication {
             id: "example-book".into(),
             title: "Example Book".into(),
-            copyright: None,
+            copyright: Some("Example Book, (c) Example Publisher.".into()),
             category: None,
             publication_date: None,
         }],
@@ -113,7 +113,10 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
             }],
             product_identity: String::new(),
             community_use_notice: "notice".into(),
-            section_15: vec![],
+            section_15: vec![cast_iron_schema::CopyrightNotice {
+                title: "Example Book".into(),
+                notice: "Example Book, (c) Example Publisher.".into(),
+            }],
             notice_pending: vec![],
             datasets: vec![],
         },

@@ -15,19 +15,9 @@ From the repository root:
 cargo xtask build-site --public-url /cast-iron/
 ```
 
-This compiles the canonical library into `generated/content/` when its manifest is missing, builds the WebAssembly app with Trunk, and writes `dist/`. Run `cargo xtask check` as well before you finish.
+This fetches the pinned corpus and compiles the library into `generated/content/` when its manifest is missing, builds the WebAssembly app with Trunk, and writes `dist/`. Run `cargo xtask check` as well before you finish.
 
-The PSRD library is the carry-over input and the last published library, not the default. Build it into the same `dist/` with `--psrd`:
-
-```sh
-cargo xtask content --psrd
-cargo xtask build-site --psrd --public-url /cast-iron/
-CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium
-```
-
-`CAST_IRON_CONTENT` selects the compiled corpus the tests read their expectations from; its default is `generated/content`, which now holds the canonical library. The suite fails early when the built site and the expectations are different libraries.
-
-If compiler code, schema types, or source configuration changed, run `cargo xtask content` first, and `cargo xtask content --psrd` when the carry-over input or PSRD output changed. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
+If compiler code, schema types, or the corpus pin changed, run `cargo xtask fetch-sources` and `cargo xtask content` first. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
 
 ## 2. Run the acceptance suite
 
@@ -80,11 +70,11 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
 | Body-link backlinks ("Referenced by") | `Referenced by` (`backlinks.spec.ts`) | `crates/content-compiler/src/backlinks.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/library.rs` |
 | Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
-| Books sorting and contents tree | `Books sort by category\|Expanded books show a hierarchical\|Expanded books, their contents tree` (`books.spec.ts`, `mobile.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs`, `sources/canonical/publication-metadata.toml` |
+| Books sorting and contents tree | `Books sort by category\|Expanded books show a hierarchical\|Expanded books, their contents tree` (`books.spec.ts`, `mobile.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
-| Book contents and reading order | `book contents\|Expanded books\|hierarchical` | `crates/web/src/views/book.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/graph.rs`, `sources/psrd-data/book-order.toml` |
+| Book contents and reading order | `book contents\|Expanded books\|hierarchical` | `crates/web/src/views/book.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/graph.rs` |
 | Publication choices | `Source variants` (`source-variants.spec.ts`) | `crates/web/src/views/source_variants.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/related.rs` |
 | Keyboard and subsystem reading | `Keyboard` (`accessibility-reading.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/book.rs`, `web/styles.css` |
 | Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
@@ -95,9 +85,9 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
 | Mobile layout | `Mobile viewport\|Expanded books, their contents tree` (`mobile.spec.ts`) | `web/styles.css`, `crates/web/src/views/browse.rs` |
-| Legal and attribution | `Licensing` | `crates/web/src/views/legal.rs`, `sources/psrd-data/legal-notices.json`, `sources/pathfinder-data-1-e/` |
+| Legal and attribution | `Licensing` | `crates/web/src/views/legal.rs` |
 | Publication scope | none: `python3 scripts/check-publication.py` after building the default | `scripts/check-publication.py`, `docs/research/licensing-audit.md` |
-| Content compiler and default library | none: `cargo test -p cast-iron-content-compiler`, CI canonical and PSRD determinism job, `python3 scripts/check-library-upgrade.py generated/psrd generated/content` | `crates/content-compiler`, `crates/xtask`, `sources/canonical/` |
+| Content compiler and default library | none: `cargo test -p cast-iron-content-compiler`, CI determinism job (two corpus builds, same bytes) | `crates/content-compiler`, `crates/corpus`, `crates/xtask`, `sources/corpus.toml` |
 
 ## Keep this file current
 
@@ -105,21 +95,11 @@ When you add a feature, add its row to the feature map, with its e2e test area a
 
 ## Corpus and schema changes
 
-The previous library is the last published PSRD library, because the default build is now the canonical library and every legacy bookmark must resolve through its alias map. Save that release's `content/` directory outside `dist/` and `generated/` before rebuilding. If you do not have the published copy, `cargo xtask content --psrd` rebuilds the same carry-over library. Then build the canonical default and run
-
-```sh
-python3 scripts/check-library-upgrade.py <previous-psrd-content-directory> generated/content
-```
-
-It checks old IDs and titles, class classification, alias resolution, and dangling references in the schema-3 indexes. It reports kind changes without failing, so inspect that list separately. For a PSRD replacement instead, pass `generated/psrd` as the second argument.
+Save the previously published library's `content/` directory outside `dist/` and `generated/` before rebuilding, so that you can install it in a browser and activate the replacement. Compile the new library with `cargo xtask content`. When the change touches ids, the legacy alias map (`aliases.toml` in the corpus), or books, also resolve every id of the last PSRD release against the new library; `docs/releasing.md` gives the commands and the tag that builds it.
 
 Install the previous published library in a browser, bookmark an entry affected by the change, then activate the replacement. Verify the bookmark and entry before and after activation, then reload offline. Record which schema versions were exercised. A file-level ID check does not prove browser update behavior.
 
-Compile twice and compare all generated files when compiler output changes. Keep the PSRD build's determinism check too:
-
-```sh
-cargo xtask content --psrd
-```
+Compile twice and compare all generated files when compiler output changes: `rm -rf generated`, run `cargo xtask content`, hash the tree, and repeat.
 
 Run `python3 scripts/check-publication.py` against the built distribution for corpus changes. It screens `dist/content` by default; pass a generated directory to screen another library. Record actual counts and limitations in `docs/status.md`.
 
@@ -145,8 +125,6 @@ After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It 
 
 Wait for both selected scope and result kinds before treating a screenshot as filter evidence. A screenshot taken immediately after a click can still show the previous state. Article contents tests must also click a heading whose URL is already current, since no hashchange event occurs in that case.
 
-For AoN navigation mapping changes, run `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/scripts -v`. Regenerate the mapping with the command in `docs/research/aon-mapping-resolution.md`; compare two outputs. Mapping status is evidence and must not be reported as imported content.
-
 ## Remaining physical iPhone acceptance
 
 Use a physical iPhone for these checks. Simulator status-bar changes do not disable networking, and browser accessibility trees do not prove VoiceOver output.
@@ -158,5 +136,3 @@ Use a physical iPhone for these checks. Simulator status-bar changes do not disa
 5. Restore networking and test shell and library updates separately. Preserve the same star and disabled-book choice across each update, then repeat the offline restart.
 
 Record the actual iOS version, release/build, and outcomes. Do not mark these checks complete from desktop WebKit or a simulator relaunch with networking available.
-
-The book-content audit uses `scripts/audit-book-content.py` and `scripts/inventory-missing-sources.py`. Apply selected passage/chapter evidence with the extractor's `--evidence` option. Follow `docs/research/aon-mapping-resolution.md` for the baseline, bounded article cache, and deterministic replay. Evidence is tied to typed-entry and book-index hashes; a corpus change requires a fresh audit. Keep chapter target identity, opening-text gaps, and actual imported content separate in reports.

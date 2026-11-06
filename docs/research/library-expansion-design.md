@@ -1,5 +1,7 @@
 # Library expansion design
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Historical design for the schema-2 expansion from the two-book POC to 16 books. Counts and migration results below describe that stage. For schema 3 and the current UI, see [status](../status.md) and [decisions](../decisions.md).
 
 ## Problem and traced data flow

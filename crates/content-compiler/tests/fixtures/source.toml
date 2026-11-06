@@ -1,9 +1,0 @@
-[dataset]
-id = "fixture-data"
-repository = "https://example.invalid/fixture"
-branch = "main"
-commit = "0000000000000000000000000000000000000000"
-note = "Hand-written fixture in the real PSRD-Data shapes."
-input_digest = ""
-typed = ["book_a/spell", "book_a/feat", "book_a/item", "book_a/creature"]
-rules = ["book_a/rules/combat.json"]

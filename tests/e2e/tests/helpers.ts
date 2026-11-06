@@ -291,7 +291,7 @@ export function bodyLinks(body: any[]): { target: string; anchor?: string; text:
     if (value.t === "link" && typeof value.target === "string") {
       found.push({ target: value.target, anchor: value.anchor, text: inlineText(value.c ?? []) });
     } else if (value.t === "entry_link" && typeof value.target === "string") {
-      // PSRD stores cross-references as labelled child links; canonical rules keep them inline.
+      // Rules entries keep cross-references inline as entry links.
       found.push({ target: value.target, text: value.title ?? "" });
     }
     Object.values(value).forEach(walk);

@@ -1,9 +1,0 @@
-{
-  "id": "owner-copies-section15",
-  "source": "The project owner's copies of the books",
-  "supplied": "2026-11-05",
-  "list": "owner-copies.json",
-  "sha256": "cf1f30bbe1c81092085a1322ee70c31d4dfa48dd2edbe32ed0380856d61cbdff",
-  "rows": 3,
-  "note": "Supplied by the project owner from the owner's copies of the books, 2026-11-05. The compiler verifies this SHA256 and row count before matching."
-}

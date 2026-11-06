@@ -1,12 +1,8 @@
 // Local acceptance measurements for one built library: install, storage, search, memory.
 // Dev and test only; it is not part of the product.
 //
-//   cargo xtask build-site                        (canonical default)
+//   cargo xtask build-site
 //   node tests/e2e/measure-library.mjs
-//
-// For the PSRD carry-over library:
-//   cargo xtask content --psrd && cargo xtask build-site --psrd
-//   CAST_IRON_CONTENT=generated/psrd node tests/e2e/measure-library.mjs
 //
 // It serves dist/ on its own port, installs the library in a fresh profile per browser,
 // and prints one JSON object plus a short table. Record the output in docs/status.md.
@@ -21,7 +17,7 @@ import { startServer } from "./server.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../..");
 const dist = path.join(root, "dist");
-const generated = path.resolve(root, process.env.CAST_IRON_CONTENT ?? "generated/content");
+const generated = path.resolve(root, "generated/content");
 const port = Number(process.env.E2E_PORT ?? 4399);
 const base = `http://127.0.0.1:${port}/cast-iron/`;
 

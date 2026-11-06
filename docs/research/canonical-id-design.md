@@ -1,5 +1,7 @@
 # Canonical IDs and the Pf Data derived-record layer
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Chosen 2026-11-04. This is an implementation contract, not a shipped-behavior report.
 Authored at `921e1d1ce2e3439d3bc04ad9e8cfab688cdc0660`; rebased onto current `main`.
 Counts must be reconfirmed against the rebased tree before Phase 1 begins.

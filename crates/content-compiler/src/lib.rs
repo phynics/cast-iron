@@ -1,41 +1,10 @@
-//! Native content compiler: upstream PF1e JSON to the Cast Iron content library.
+//! Native content compiler: the plain-text corpus to the Cast Iron content library.
 
-pub mod alias;
-pub mod alias_propose;
 pub mod backlinks;
-pub mod books;
-pub mod build;
-pub mod canonical;
-pub mod carry;
-pub mod carry_review;
-pub mod config;
 pub mod corpus_build;
 pub mod corpus_coverage;
-pub mod family;
-pub mod fields;
-pub mod html;
-pub mod legal;
-pub mod link_pass;
 pub mod lists;
-pub mod model;
-pub mod order;
-pub mod pf_approved;
-pub mod pf_data;
-pub mod pf_derived;
-pub mod pf_directives;
-pub mod pf_fields;
-pub mod pf_legal;
-pub mod pf_markdown;
-pub mod pf_plain;
-pub mod pf_records;
-pub mod pf_rules;
-pub mod pf_screen;
 pub mod pipeline;
-pub mod policy;
-pub mod prereq;
-pub mod publication_metadata;
-pub mod publications;
+pub mod published;
 pub mod relations;
-pub mod select;
-pub mod slug;
 pub mod text;

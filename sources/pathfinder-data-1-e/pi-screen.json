@@ -1,4 +1,0 @@
-{
-  "note": "Product Identity screen for Pf Data records. Since 2026-11-05 the owner keeps Paizo Product Identity under Paizo's Community Use Policy: names, deity descriptions, unique character biographies, and NPC stories ship, and every entry carries the Community Use notice. The screen still removes outbound links (the reference is offline). Add a section rule here only to omit specific material by a reviewed decision. See docs/decisions.md, 'Paizo Product Identity kept under the Community Use Policy'.",
-  "sections": []
-}

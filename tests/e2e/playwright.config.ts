@@ -7,9 +7,7 @@ const dist = path.resolve(__dirname, "../../dist");
 // The suite tests the real build. It never builds, and it fails early and clearly without one.
 if (!fs.existsSync(path.join(dist, "index.html")) || !fs.existsSync(path.join(dist, "content/manifest.json"))) {
   throw new Error(
-    `No built site at ${dist}.\nBuild it first from the repository root:\n  cargo xtask build-site --public-url /cast-iron/\n` +
-      `For the PSRD carry-over library:\n  cargo xtask content --psrd && cargo xtask build-site --psrd --public-url /cast-iron/\n` +
-      `and set CAST_IRON_CONTENT=generated/psrd for the test run.`,
+    `No built site at ${dist}.\nBuild it first from the repository root:\n  cargo xtask build-site --public-url /cast-iron/`,
   );
 }
 

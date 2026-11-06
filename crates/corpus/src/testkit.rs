@@ -76,7 +76,7 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
         publications: vec![Publication {
             id: "core-rulebook".into(),
             title: "Core Rulebook".into(),
-            copyright: None,
+            copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
         }],
@@ -90,7 +90,10 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
             }],
             product_identity: String::new(),
             community_use_notice: "notice".into(),
-            section_15: vec![],
+            section_15: vec![cast_iron_schema::CopyrightNotice {
+                title: "Core Rulebook".into(),
+                notice: "Core Rulebook, (c) Paizo Inc.".into(),
+            }],
             notice_pending: vec![],
             datasets: vec![],
         },

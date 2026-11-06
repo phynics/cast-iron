@@ -1,6 +1,6 @@
 [package]
 name = "cast-iron-content-compiler"
-description = "Compiles upstream datasets into versioned Cast Iron content"
+description = "Compiles the plain-text corpus into versioned Cast Iron content"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,10 +13,6 @@ path = "src/lib.rs"
 name = "cast-iron-compile"
 path = "src/main.rs"
 
-[[bin]]
-name = "cast-iron-data"
-path = "src/data_main.rs"
-
 [dependencies]
 cast-iron-corpus.workspace = true
 cast-iron-schema.workspace = true
@@ -24,10 +20,6 @@ cast-iron-search.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
 sha2.workspace = true
-scraper = "0.29"
-toml = "0.9"
-unicode-normalization = "0.1"
-pulldown-cmark = "0.13"
 
 [lints]
 workspace = true

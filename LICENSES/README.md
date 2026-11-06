@@ -7,8 +7,8 @@ the license listed below.
 | Part | License | Where |
 |---|---|---|
 | Code written for Cast Iron | MIT | Root [LICENSE](../LICENSE), copy in [MIT.txt](MIT.txt), and `license = "MIT"` in `Cargo.toml` |
-| Open Game Content in the generated rules library (both datasets below) | OGL 1.0a | [OGL-1.0a.txt](OGL-1.0a.txt), plus the app's Legal page |
-| Section 15 copyright notices | OGL 1.0a Section 15 | `sources/psrd-data/legal-notices.json`, appended Pf Data notices at build time, shown in the app |
+| Open Game Content in the generated rules library (compiled from the corpus below) | OGL 1.0a | [OGL-1.0a.txt](OGL-1.0a.txt), plus the app's Legal page |
+| Section 15 copyright notices | OGL 1.0a Section 15 | `legal.toml` in the corpus, shown in the app |
 | Paizo material used under Paizo's policy | Paizo Community Use Policy | Notice in the app and in the README; not a file in this repo |
 
 ## MIT (code)
@@ -33,50 +33,42 @@ ship artwork or other Product Identity (`AGENTS.md`, rule 10). See
 ## Section 15 notices
 
 OGL 1.0a Section 6 and Section 15 require reproducing the copyright notices of
-the sources that contributed Open Game Content. PSRD-Data notices are kept in
-`sources/psrd-data/legal-notices.json`. The compiler also unions the complete
-Section 15 list from the pinned Pf Data source's `OPENGAMECONTENT.md` and the
-reviewed d20pfsrd.com Section 15 statements export at
-`sources/pathfinder-data-1-e/section15/d20pfsrd-section15.csv`. That export was
-supplied by the project owner on 2026-11-05; its provenance file pins the
-SHA-256 and 1,244-row count, and d20pfsrd.com distributes its PF1e Open Game
-Content under OGL 1.0a. The app shows the combined notices on its Legal and
-attribution page.
+the sources that contributed Open Game Content. The corpus carries them in its
+`legal.toml`, and the compiler copies them into the library's legal data, which
+the app shows on its Legal and attribution page. The corpus repository also
+holds the complete Section 15 list in its own `LICENSES/OGL-1.0a.md`, and names
+the publications whose notice is still pending.
 
-## PSRD-Data (dataset)
+## The corpus (rules content)
 
-The bulk of the generated library is compiled from
-[PSRD-Data](https://github.com/devonjones/PSRD-Data), pinned in
-`sources/psrd-data/source.toml`. PSRD-Data has no license of its own: its
-repository has no license file and no license field. The licensing position of
-the data is recorded in `docs/research/licensing-audit.md`. Its rules content
-is used under OGL 1.0a plus Paizo's Community Use Policy for permitted
-descriptive references, as reviewed there.
+The rules text is compiled from the plain-text corpus in
+[phynics/cast-iron-data](https://github.com/phynics/cast-iron-data), pinned by
+commit and tree hash in `sources/corpus.toml`. `cargo xtask fetch-sources`
+downloads it and verifies the hash; nothing else supplies rules content. The
+corpus repository carries its own licensing files: `LICENSE.md` (the table of
+parts), `LICENSES/MIT.txt` for its format and tooling files,
+`LICENSES/OGL-1.0a.md` for the Open Game Content, and
+`LICENSES/community-use.md` for Paizo's Community Use Policy.
 
-## Pf Data 1e (supplemental dataset)
+The corpus was written once from two public datasets, recorded in its
+`legal.toml` and in each entry's frozen `provenance`:
 
-One reviewed record is imported from
-[jasontankapps/pathfinder-data-1-e](https://github.com/jasontankapps/pathfinder-data-1-e),
-pinned in `sources/pathfinder-data-1-e/source.json`. That repository declares
-its terms in its README and license files at the pin:
+- [PSRD-Data](https://github.com/devonjones/PSRD-Data). It has no license of
+  its own; its content derives from Paizo's Pathfinder Reference Document, used
+  under OGL 1.0a plus Paizo's Community Use Policy for permitted descriptive
+  references.
+- [jasontankapps/pathfinder-data-1-e](https://github.com/jasontankapps/pathfinder-data-1-e).
+  Its `json/` directory is Open Game Content under OGL 1.0a. The non-OGC
+  application content of that repository is under GPL-3.0-or-later; Cast Iron
+  never copied its renderer or other application code. Its ORC-licensed
+  Pathfinder Second Edition material was out of scope and is not in the
+  corpus.
 
-- `json/` is Open Game Content under OGL 1.0a (see its `OPENGAMECONTENT.md`,
-  which carries the OGL text, Section 15 credits, and Paizo's Product Identity
-  exclusion). The imported passage is ordinary OGC game mechanics used under
-  this grant. See `docs/research/pf-data-licensing.md`.
-- Non-OGC application content in that repository is copyright 2024 Jason Tamez
-  and offered under GPL-3.0-or-later (see its `GNULICENSE.md`). Cast Iron does
-  not copy its renderer or other application code, so this grant does not
-  extend to Cast Iron's MIT-licensed code.
-- That repository also carries `ORCLICENSE.md` for its Pathfinder Second
-  Edition material. ORC-licensed PF2 records and notices are explicitly
-  out of scope, excluded before selection in
-  `sources/pathfinder-data-1-e/out-of-scope.json`, and never enter the library
-  or the OGL legal page.
-
-GitHub reporting no recognized repository license does not override these
-in-file declarations. Upstream GPL and ORC texts are hashed in the source pin
-so a changed notice fails the audit; they are not redistributed here.
+Cast Iron no longer downloads or reads either dataset. The import code, the
+pins, and the source selection are preserved in the git tag
+`psrd-last-buildable`. The licensing reviews remain in
+`docs/research/licensing-audit.md` and `docs/research/pf-data-licensing.md`;
+they describe that retired import.
 
 ## Paizo Community Use Policy
 

@@ -1,5 +1,7 @@
 # PF1e data migration
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Tracking issue: [#18](https://github.com/phynics/cast-iron/issues/18).
 This document records the migration design and observed limitations. Acceptance
 and outstanding work remain in the issue.

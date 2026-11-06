@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 import re
 import sys
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist/content"
@@ -27,30 +26,17 @@ for item in manifest["files"]:
         issues.append(f"Manifest mismatch: {item['path']}")
 
 sources = {source["id"] for source in catalog["sources"]}
-books = tomllib.loads((ROOT / "sources/psrd-data/source.toml").read_text())["dataset"]["books"]
-expected_sources = {re.sub(r"[^a-z0-9]+", "-", title.lower().replace("'", "")).strip("-") for title in books.values()}
-# The canonical library publishes a wider scope. Its reviewed registry is the
-# authority for that scope; the PSRD book set must still be present. A PSRD
-# library keeps the exact-scope check unchanged. The library kind is the
-# manifest, not the source set, so a missing book cannot pass by looking like a
-# legitimate subset.
-canonical_library = any(item["path"].endswith("/aliases.json") for item in manifest["files"])
-if canonical_library:
-    registry = tomllib.loads((ROOT / "sources/canonical/publications.toml").read_text())
-    canonical_sources = {row["source"] for row in registry["publication"].values()}
-    if not expected_sources <= sources:
-        issues.append("Canonical library is missing a PSRD publication: review the source selection")
-    if not sources <= canonical_sources:
-        unreviewed = sorted(sources - canonical_sources)
-        issues.append(
-            "Canonical library names publications outside the reviewed registry: "
-            + ", ".join(unreviewed)
-        )
-    if not sources:
-        issues.append("Canonical library has no publications")
-else:
-    if sources != expected_sources:
-        issues.append("Publication scope changed: review the new source selection")
+# The sixteen core books that the first release published must stay in the library. Every
+# other publication comes from the corpus `publications.toml`, which `corpus-check` validates
+# against each entry's `source_ids`; the compiler builds the catalog from that file.
+CORE_SOURCES = {
+    "advanced-players-guide", "advanced-race-guide", "bestiary", "bestiary-2", "bestiary-3",
+    "bestiary-4", "core-rulebook", "game-mastery-guide", "monster-codex", "mythic-adventures",
+    "npc-codex", "technology-guide", "ultimate-campaign", "ultimate-combat",
+    "ultimate-equipment", "ultimate-magic",
+}
+if not CORE_SOURCES <= sources:
+    issues.append("Library is missing a core publication: " + ", ".join(sorted(CORE_SOURCES - sources)))
 if any(not source["copyright"] for source in catalog["sources"]):
     issues.append("Missing source copyright notice")
 if "Cast Iron uses trademarks" not in legal["community_use_notice"]:
@@ -130,7 +116,7 @@ report = {
     "by_kind": dict(sorted(counts.items())),
     "community_use_named_entries": cup_named,
     "issues": issues,
-    "limitations": "Finite named-material screen and structural checks only. Named material is accepted only on entries that carry the Community Use notice path; descriptive Product Identity prose is screened at compile time by sources/pathfinder-data-1-e/pi-screen.json. Does not classify every sentence or establish legal permission.",
+    "limitations": "Finite named-material screen and structural checks only. Named material is accepted only on entries that carry the Community Use notice path; descriptive Product Identity prose is screened by the retired import (tag psrd-last-buildable) before the corpus was written. Does not classify every sentence or establish legal permission.",
 }
 output = ROOT / "generated/reports/publication.json"
 output.parent.mkdir(parents=True, exist_ok=True)

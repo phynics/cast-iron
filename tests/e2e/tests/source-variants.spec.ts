@@ -5,7 +5,7 @@ const corpus = loadCorpus();
 const owners = bookOwners();
 /**
  * A title the library publishes more than once under distinct books, other than the
- * books-only Rule kind. The canonical and PSRD libraries repeat different titles, so the
+ * books-only Rule kind. The library repeats titles that differ by corpus version, so the
  * group comes from the compiled catalog rather than a literal name.
  */
 const BROWSABLE = new Set(["spell", "feat", "trait", "item", "creature", "class", "race",

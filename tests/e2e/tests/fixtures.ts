@@ -9,13 +9,8 @@ export type { BrowserContext, Page };
 
 export const ROOT = path.resolve(__dirname, "../../..");
 export const DIST = path.join(ROOT, "dist");
-/**
- * Compiled corpus the test expectations come from. The default is the canonical library
- * that `cargo xtask build-site` packages from `generated/content`. Set
- * CAST_IRON_CONTENT=generated/psrd to check the same suite against the PSRD carry-over
- * build (`cargo xtask content --psrd` and `cargo xtask build-site --psrd`).
- */
-export const GENERATED = path.resolve(ROOT, process.env.CAST_IRON_CONTENT ?? "generated/content");
+/** Compiled library the test expectations come from: what `cargo xtask build-site` packages. */
+export const GENERATED = path.resolve(ROOT, "generated/content");
 
 export interface ManifestFile {
   path: string;
@@ -59,7 +54,7 @@ export interface Corpus {
 }
 let cachedCorpus: Corpus | undefined;
 /**
- * The compiled corpus, parsed once per worker. The canonical library is about 29,000
+ * The compiled corpus, parsed once per worker. The library is about 29,000
  * entries, so a second parse per spec file would dominate the run's memory and startup.
  */
 export function loadCorpus(): Corpus {
@@ -70,10 +65,7 @@ export function loadCorpus(): Corpus {
     throw new Error(
       `The built site has content ${built.content_version}, but the expectations read ` +
         `${manifest.content_version} from ${path.relative(ROOT, GENERATED)}.\n` +
-        `Build both from the same library, or point CAST_IRON_CONTENT at the corpus that was built.\n` +
-        `  canonical (default): cargo xtask content && cargo xtask build-site\n` +
-        `  PSRD:                cargo xtask content --psrd && cargo xtask build-site --psrd\n` +
-        `Then run the suite with CAST_IRON_CONTENT=generated/psrd for the PSRD build.`,
+        `Build both from the same library: cargo xtask content && cargo xtask build-site`,
     );
   }
   const dir = path.join(GENERATED, manifest.content_version, "entries");

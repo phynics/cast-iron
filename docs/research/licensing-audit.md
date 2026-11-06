@@ -1,5 +1,7 @@
 # Licensing audit: PSRD-Data and PF1e rules material for Cast Iron
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Status: fact gathering, not legal advice. Community Use Policy findings were re-verified from directly fetched official pages on 2026-11-03. Every claim below has a source (URL or file path) and, where useful, a short quote. Items marked UNVERIFIED were not checked.
 
 ## Open risks for redistribution in a public GitHub Pages deployment

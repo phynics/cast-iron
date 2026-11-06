@@ -26,9 +26,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The tests read the pinned corpus (the Books tier table is checked against its
+      # categories), and the test fails in CI when it is missing. The cache is keyed on the
+      # pinned commit, like the content job's.
+      - name: Read the pinned corpus commit
+        id: pin
+        run: echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
+      - name: Restore the pinned corpus
+        id: corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/sources/cast-iron-data
+          key: cast-iron-data-${{ steps.pin.outputs.corpus }}
       - uses: ./.github/actions/setup-build
         with:
           cache-key: check
+      - run: cargo xtask fetch-sources
+      - name: Save the pinned corpus
+        if: ${{ steps.corpus.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/sources/cast-iron-data
+          key: ${{ steps.corpus.outputs.cache-primary-key }}
       - name: Release promotion safety checks
         run: python3 scripts/test-promote-release.py
       - name: cargo xtask check
@@ -42,20 +61,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Read the pinned dataset commits
+      - name: Read the pinned corpus commit
         id: pin
-        run: |
-          echo "commit=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/psrd-data/source.toml)" >> "$GITHUB_OUTPUT"
-          echo "primary=$(python3 -c 'import json; print(json.load(open("sources/pathfinder-data-1-e/source.json"))["commit"])')" >> "$GITHUB_OUTPUT"
-          echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
-      - name: Restore the pinned datasets
-        id: sources
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            .cache/sources
-            !.cache/sources/cast-iron-data
-          key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
+        run: echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
       # The plain-text corpus has its own cache, keyed on the pinned commit.
       # `fetch-sources` still verifies the tree hash of whatever it finds.
       - name: Restore the pinned corpus
@@ -69,74 +77,27 @@ jobs:
           cache-key: content
       - run: cargo xtask fetch-sources
       # Save before the compile and determinism checks, which a failure would skip.
-      - name: Save the pinned datasets
-        if: ${{ steps.sources.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            .cache/sources
-            !.cache/sources/cast-iron-data
-          key: ${{ steps.sources.outputs.cache-primary-key }}
       - name: Save the pinned corpus
         if: ${{ steps.corpus.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: .cache/sources/cast-iron-data
           key: ${{ steps.corpus.outputs.cache-primary-key }}
-      # The canonical library is the default build (generated/content), compiled
-      # from the pinned plain-text corpus.
+      # The library is compiled from the pinned plain-text corpus into generated/content.
       - run: cargo xtask content
-      - name: Hash the first canonical compile
+      - name: Hash the first compile
         id: first
         run: echo "hash=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Compile the canonical default again from scratch
+      - name: Compile the library again from scratch
         run: |
           rm -rf generated
           cargo xtask content
-      - name: Canonical output must be byte-identical (NFR-05)
+      - name: Output must be byte-identical (NFR-05)
         run: |
           second=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
           echo "first : ${{ steps.first.outputs.hash }}"
           echo "second: $second"
           test "$second" = "${{ steps.first.outputs.hash }}"
-      # The corpus was exported from the upstream build of the same revision, so
-      # compiling the library from the upstream datasets must give the same bytes.
-      # The corpus build stays in generated/; the upstream build is only compared.
-      - name: The corpus build must equal the upstream build
-        run: |
-          tree_hash() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1); }
-          corpus=$(tree_hash generated/content)
-          mv generated "$RUNNER_TEMP/corpus-generated"
-          cargo xtask content --from-upstream
-          upstream=$(tree_hash generated/content)
-          rm -rf generated
-          mv "$RUNNER_TEMP/corpus-generated" generated
-          echo "corpus  : $corpus"
-          echo "upstream: $upstream"
-          test "$upstream" = "$corpus"
-      # PSRD-Data is no longer the default, but it remains the carry-over input
-      # and the previous published library. Its build must stay deterministic.
-      - name: Compile the PSRD carry-over library
-        run: cargo xtask content --psrd
-      - name: Hash the first PSRD compile
-        id: psrd-first
-        run: echo "hash=$(find generated/psrd generated/reports/psrd -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Compile the PSRD carry-over library again from scratch
-        run: |
-          rm -rf generated/psrd generated/reports/psrd
-          cargo xtask content --psrd
-      - name: PSRD output must be byte-identical
-        run: |
-          second=$(find generated/psrd generated/reports/psrd -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
-          echo "first : ${{ steps.psrd-first.outputs.hash }}"
-          echo "second: $second"
-          test "$second" = "${{ steps.psrd-first.outputs.hash }}"
-      - name: The default library resolves every previous PSRD id
-        run: python3 scripts/check-library-upgrade.py generated/psrd generated/content
-      - name: Audit the complete pinned primary input and representative conversion
-        run: |
-          cargo xtask data-report
-          git diff --exit-code -- reports/migration-coverage.json reports/migration-legal.json reports/migration-test.json reports/migration-test.md
       - uses: actions/upload-artifact@v7
         with:
           name: generated

@@ -1,5 +1,7 @@
 # AoN rule target resolution
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Issue [#11](https://github.com/phynics/cast-iron/issues/11) tracks missing and ambiguous book content. Checked on 2026-11-04 against installed library `vff56b0e6310710c1`. AoN navigation identifies site sections; it does not establish printed book order.
 
 ## Current targets and limits
