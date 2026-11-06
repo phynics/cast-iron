@@ -1,5 +1,5 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
-import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, seedHome, waitResults } from "./helpers";
+import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, searchIcon, seedHome, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
 // Every screen names a target the compiled corpus actually holds; the two libraries differ
@@ -152,7 +152,7 @@ test("Mobile header Install button is icon-only, a full touch target, and crowds
   // Device pixel ratios round a 44px target slightly below 44 in the layout viewport.
   expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
   expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
-  const search = (await page.locator("header.app-header .header-search").boundingBox())!;
+  const search = (await searchIcon(page).boundingBox())!;
   expect(search.x + search.width).toBeLessThanOrEqual(box.x);
   const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
@@ -225,6 +225,66 @@ test("Publication groups fit 390 px with full-size targets", async ({ page }) =>
     () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+installedTest("Mobile Quick search is a full-screen layer with 44 px controls", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await expect(page.locator(".book-directory-row").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 500));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+
+  const icon = (await searchIcon(page).boundingBox())!;
+  expect(Math.round(icon.width)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(icon.height)).toBeGreaterThanOrEqual(44);
+
+  const layer = await openQuickSearch(page, { keyboard: true });
+  const box = (await layer.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  expect(Math.round(box.x)).toBe(0);
+  expect(Math.round(box.y)).toBe(0);
+  expect(Math.round(box.width)).toBe(viewport.width);
+  expect(Math.round(box.height)).toBe(viewport.height);
+  const field = (await quickField(page).boundingBox())!;
+  const cancel = (await layer.getByRole("button", { name: "Cancel" }).boundingBox())!;
+  expect(Math.round(field.height)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(cancel.height)).toBeGreaterThanOrEqual(44);
+  expect(cancel.x + cancel.width).toBeLessThanOrEqual(viewport.width);
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  await layer.getByRole("button", { name: "Cancel" }).click();
+  await expect(layer).toBeHidden();
+  expect(await page.evaluate(() => Math.round(window.scrollY))).toBe(before);
+  await expect(searchIcon(page)).toBeFocused();
+});
+
+installedTest("Mobile Quick search rows are full-size touch targets", async ({ page }) => {
+  await installLibrary(page);
+  const layer = await openQuickSearch(page);
+  await quickField(page).fill("fireb");
+  const options = layer.getByRole("option");
+  await expect(options).not.toHaveCount(1);
+  await expect(options.last()).toHaveText("See all results for “fireb”");
+  const viewport = page.viewportSize()!;
+  for (const option of await options.all()) {
+    const box = (await option.boundingBox())!;
+    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  // The empty field lists recent searches with 44 px remove buttons.
+  await options.last().click();
+  await waitResults(page, "fireb");
+  await page.goto("#/");
+  await openQuickSearch(page);
+  const remove = layer.getByRole("button", { name: /^Remove “fireb” from recent searches$/ });
+  const box = (await remove.boundingBox())!;
+  expect(Math.round(box.width)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
 });
 
 test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show school, facts and rulebooks first", async ({ page }) => {

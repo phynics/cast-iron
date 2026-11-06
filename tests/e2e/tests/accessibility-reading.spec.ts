@@ -10,6 +10,7 @@ import {
   letterId,
   openBookEntry,
   pathToEntry,
+  searchIcon,
 } from "./helpers";
 
 /**
@@ -108,7 +109,7 @@ test("Keyboard controls expose focus and native disclosure state at phone and de
     await page.goto("#/");
     // Route changes focus the reading area on the next frame. Test controls after that settles.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
-    await page.getByRole("searchbox", { name: "Search the rules", exact: true }).focus();
+    await searchIcon(page).focus();
     await page.keyboard.press(tabKey);
     const focused = page.locator(":focus");
     await expect(focused).toHaveCount(1);

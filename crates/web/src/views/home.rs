@@ -85,11 +85,14 @@ pub fn Home() -> impl IntoView {
             store::list_bookmarks().await.map_err(|e| e.to_string()),
         ));
     });
-    // Load the index in the background so that the first search is instant.
+    // Load the index in the background so that the first search is instant. `data-index-ready`
+    // marks the end of that read, so a test can wait for it before it reloads the page.
+    let index_ready = RwSignal::new(false);
     {
         let library = library.clone();
         spawn_local(async move {
             let _ = library.search_index().await;
+            index_ready.try_set(true);
         });
     }
     let star_error = RwSignal::new(None::<String>);
@@ -100,7 +103,7 @@ pub fn Home() -> impl IntoView {
     let title_ref = NodeRef::<leptos::html::H1>::new();
 
     view! {
-        <div class="wide home-page">
+        <div class="wide home-page" data-index-ready=move || index_ready.get().then_some("true")>
             <h1 id="home-title" tabindex="-1" node_ref=title_ref>"Your rules reference"</h1>
             <Show when=move || use_library().discovery().entries().next().is_none()>
                 <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>

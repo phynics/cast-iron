@@ -8,6 +8,7 @@ import {
   installLibrary,
   openBookContents,
   openBookEntry,
+  quickSearchFor,
   revealSourceChoice,
   waitControlled,
   waitResults,
@@ -31,12 +32,10 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(primary.getByRole("link")).toHaveText(["Home", "Books", "Settings"]);
   await expect(primary.getByRole("link", { name: /Search|Bookmark/i })).toHaveCount(0);
 
-  // A quick lookup from a non-search page uses the persistent header search.
+  // A quick lookup from a non-search page uses the header search icon and Quick search.
   await primary.getByRole("link", { name: "Home", exact: true }).click();
   await afterRouteFrame(page);
-  await page.locator(".header-search #search-input").fill("grapple");
-  await page.locator(".header-search #search-input").press("Enter");
-  await waitResults(page, "grapple");
+  await quickSearchFor(page, "grapple");
   await page.getByRole("group", { name: "Quick search categories" }).getByRole("button", { name: "Rules text", exact: true }).click();
   await expect.poll(() => page.url()).toContain("kind=rule");
   await expect(page.locator(".results .hit").first()).toBeVisible();
@@ -59,9 +58,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   const spell = corpusEntry("spell", "Fireball");
   await primary.getByRole("link", { name: "Home", exact: true }).click();
   await afterRouteFrame(page);
-  await page.locator(".header-search #search-input").fill(spell.title);
-  await page.locator(".header-search #search-input").press("Enter");
-  await waitResults(page, spell.title);
+  await quickSearchFor(page, spell.title);
   await page.locator(".results .hit-link").filter({ has: page.locator(".hit-title", { hasText: new RegExp(`^${spell.title}$`) }) }).first().click();
   await expect(page.getByRole("heading", { level: 1, name: spell.title })).toBeVisible();
 
