@@ -175,8 +175,22 @@ There is no raw HTML: `<` and `>` are escaped text, never markup.
 Blocks are separated by one blank line. Only an ASCII space or tab is blank;
 Unicode spaces such as a non-breaking space are paragraph content. The writer
 emits exactly one blank line between blocks and never trails a file with a blank
-line. A paragraph's source line breaks are soft and read back as a space; use
-`\n` for `Inline::Break`.
+line.
+
+Three keystrokes mean three different things inside a paragraph:
+
+| You type | You get |
+|---|---|
+| Enter | A space. The paragraph continues on the next line. |
+| Enter, blank line | A new block. |
+| `\` then Enter | A line break (`Inline::Break`). |
+
+The writer wraps a paragraph at about 100 columns. It breaks only at a single
+space between two words, and never inside a link `[label](target)`, an escape,
+or where the next line would start with a block marker. A reader joins the lines
+with one space after it trims the blanks at both ends of each line, so a wrapped
+paragraph and the same paragraph on one line mean the same. `corpus fmt`
+re-wraps.
 
 ### Headings
 
@@ -327,7 +341,7 @@ inline link, because it stands alone and is not part of a sentence.
 | Strong | `**text**` | |
 | Superscript | `^1^` | |
 | Subscript | `~2~` | |
-| Break | `\n` | One `Inline::Break`. |
+| Break | `\` at the end of a line | One `Inline::Break`. The next line starts after the break. |
 | Link | `[label](ref/spell/fog-cloud#effects)` | Target must be a canonical id; `#anchor` is optional. |
 
 The writer starts with `_` for the outermost emphasis and alternates `_` and `*`
@@ -343,20 +357,27 @@ characters everywhere in text:
 \ * _ ^ ~ [ ] # > | { } <
 ```
 
-Parentheses and underscores in prose stay readable; only `_` is special, and
-the writer escapes it. The following sequences are structural:
+Parentheses in prose stay readable. A backslash may precede any ASCII
+punctuation character, digit, space, or tab; the writer uses a leading `\` to
+keep a line start from reading as a block marker (`\- text`, `\1. text`) and to
+keep a space at the start or end of a line (`\ `). Two sequences are
+structural:
 
 | Sequence | Meaning |
 |---|---|
-| `\n` | `Inline::Break` |
 | `\N` | A literal newline character in text |
 | `\R` | A literal carriage return in text |
-| `\0` | Text-node boundary: flush the current text so the next text becomes a separate `Text` node |
-| `\e` | An empty `Text` node |
 
-`\0` and `\e` exist only because the schema keeps adjacent and empty `Text`
-nodes as separate values. They occur in a handful of entries. A literal
-backslash is `\\`; therefore a literal `\n` in text is `\\n`.
+Any other backslash followed by a letter is an error with a line number. A
+literal backslash is `\\`.
+
+A backslash at the very end of a line is a line break. In a heading, a pipe
+table cell, and a fenced table string, which cannot hold a second line, the break
+is written `\n`, and the reader accepts `\n` anywhere. A stat block row is one
+line unless it ends in `\`; then the value continues on the next line.
+
+There is no spelling for two adjacent `Text` nodes or for an empty one. The
+writer merges and drops them, and the content compiler never produces them.
 
 Unescaped `*`, `_`, `^`, `~`, `[`, `]`, or `:` where syntax expects one of them
 is an error with a line number. An unclosed emphasis span, link, fence, or table

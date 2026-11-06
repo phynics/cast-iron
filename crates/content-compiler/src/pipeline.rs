@@ -805,7 +805,12 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             .filter_map(|(source, row)| row.publication_date.map(|date| (source, date)))
             .collect();
     let linked = crate::link_pass::link_entries(entries, &ranks);
-    let (entries, link_pass) = (linked.entries, linked.report);
+    let (mut entries, link_pass) = (linked.entries, linked.report);
+    // The plain-text corpus has no spelling for a text-node boundary: merge adjacent text and
+    // drop empty text so the compiled value is the value a corpus file reads back to.
+    for entry in &mut entries {
+        crate::text::normalize_text_nodes(&mut entry.body);
+    }
 
     // Carried entries have a PSRD source but no page attribution. Giving their
     // book a display title keeps the canonical book view from showing a slug.

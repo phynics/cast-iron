@@ -1,7 +1,10 @@
 //! Block writer and parser for the Markdown subset in `docs/corpus-format.md`.
 
 use crate::error::{Error, Result};
-use crate::inline::{parse_inlines, write_inline_line, write_inlines};
+use crate::inline::{
+    Flow, WRAP_WIDTH, ends_with_break, parse_flow, parse_inlines, trim_line_end, write_flow,
+    write_inlines,
+};
 use crate::tomlutil;
 use cast_iron_schema::{
     Block, EntryId, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow,
@@ -16,13 +19,24 @@ struct Line {
     number: usize,
 }
 
+/// The narrowest wrap column a nested block uses.
+const MIN_WIDTH: usize = 40;
+
 /// Renders blocks separated by one blank line, without a trailing newline.
 pub fn write_blocks(blocks: &[Block]) -> String {
+    write_blocks_at(blocks, WRAP_WIDTH)
+}
+
+fn write_blocks_at(blocks: &[Block], width: usize) -> String {
     let mut rendered = Vec::with_capacity(blocks.len());
     for block in blocks {
-        rendered.push(write_block(block));
+        rendered.push(write_block(block, width));
     }
     rendered.join("\n\n")
+}
+
+fn paragraph_text(content: &[Inline], width: usize) -> String {
+    write_flow(content, Flow { width, guard: true })
 }
 
 pub fn parse_blocks(path: &Path, lines: &[(usize, &str)]) -> Result<Vec<Block>> {
@@ -36,7 +50,7 @@ pub fn parse_blocks(path: &Path, lines: &[(usize, &str)]) -> Result<Vec<Block>> 
     parse_lines(path, &owned)
 }
 
-fn write_block(block: &Block) -> String {
+fn write_block(block: &Block, width: usize) -> String {
     match block {
         Block::Heading {
             level,
@@ -46,7 +60,7 @@ fn write_block(block: &Block) -> String {
             let mut out = format!("{} ", "#".repeat(usize::from(*level)));
             // Inline text escapes `{` and `}`, so a literal `{#...}` suffix in
             // the heading text cannot be read back as an anchor.
-            out.push_str(&write_inline_line(content));
+            write_inlines(content, &mut out);
             if let Some(anchor) = anchor {
                 out.push_str(" {#");
                 out.push_str(anchor);
@@ -55,21 +69,21 @@ fn write_block(block: &Block) -> String {
             out
         }
         Block::Paragraph { style, content } => match style {
-            ParagraphStyle::Normal => write_inline_line(content),
+            ParagraphStyle::Normal => paragraph_text(content, width),
             ParagraphStyle::StatLine => format!(
                 "::: paragraph statline\n{}\n:::",
-                write_inline_line(content)
+                paragraph_text(content, width)
             ),
             ParagraphStyle::Indented => {
                 format!(
                     "::: paragraph indented\n{}\n:::",
-                    write_inline_line(content)
+                    paragraph_text(content, width)
                 )
             }
         },
-        Block::List { ordered, items } => write_list(*ordered, items),
+        Block::List { ordered, items } => write_list(*ordered, items, width),
         Block::Table(table) => write_table(table),
-        Block::Quote { content } => write_quote(content),
+        Block::Quote { content } => write_quote(content, width),
         Block::StatBlock { title, rows } => write_stat_block(title.as_deref(), rows),
         Block::EntryLink { target, title } => format!(
             "::: entry-link\ntarget = {}\ntitle = {}\n:::",
@@ -79,7 +93,8 @@ fn write_block(block: &Block) -> String {
     }
 }
 
-fn write_list(ordered: bool, items: &[Vec<Block>]) -> String {
+fn write_list(ordered: bool, items: &[Vec<Block>], width: usize) -> String {
+    let inner = width.saturating_sub(2).max(MIN_WIDTH);
     let marker = if ordered { "1." } else { "-" };
     let mut out = String::new();
     for (index, item) in items.iter().enumerate() {
@@ -94,17 +109,27 @@ fn write_list(ordered: bool, items: &[Vec<Block>]) -> String {
         }) = blocks.next()
         {
             out.push(' ');
-            out.push_str(&write_inline_line(content));
+            // The first line follows the marker; later lines are item content.
+            let text = paragraph_text(content, inner);
+            let mut lines = text.split('\n');
+            out.push_str(lines.next().unwrap_or_default());
+            for line in lines {
+                out.push('\n');
+                if !line.is_empty() {
+                    out.push_str("  ");
+                }
+                out.push_str(line);
+            }
         } else {
             for block in item {
                 out.push('\n');
-                indent(&mut out, &write_block(block), 2);
+                indent(&mut out, &write_block(block, inner), 2);
             }
             continue;
         }
         for block in blocks {
             out.push_str("\n\n");
-            indent(&mut out, &write_block(block), 2);
+            indent(&mut out, &write_block(block, inner), 2);
         }
     }
     out
@@ -123,8 +148,8 @@ fn indent(out: &mut String, text: &str, spaces: usize) {
     }
 }
 
-fn write_quote(content: &[Block]) -> String {
-    let inner = write_blocks(content);
+fn write_quote(content: &[Block], width: usize) -> String {
+    let inner = write_blocks_at(content, width.saturating_sub(2).max(MIN_WIDTH));
     let mut out = String::new();
     for (index, line) in inner.split('\n').enumerate() {
         if index > 0 {
@@ -255,10 +280,23 @@ fn write_stat_block(title: Option<&str>, rows: &[StatRow]) -> String {
     }
     for row in rows {
         out.push_str(&escape_label(&row.label));
-        out.push_str(": ");
-        let mut value = String::new();
-        write_inlines(&row.value, &mut value);
-        out.push_str(&value);
+        out.push(':');
+        let value = write_flow(
+            &row.value,
+            Flow {
+                width: usize::MAX,
+                guard: false,
+            },
+        );
+        if !value.is_empty() {
+            out.push(' ');
+            out.push_str(&value);
+        }
+        // A trailing break would continue onto the next row, so it keeps its
+        // own empty continuation line.
+        if matches!(row.value.last(), Some(Inline::Break)) {
+            out.push('\n');
+        }
         out.push('\n');
     }
     out.push_str(":::");
@@ -387,13 +425,11 @@ fn parse_paragraph(path: &Path, lines: &[Line], index: usize) -> Result<(Block, 
         }
         end += 1;
     }
-    let joined = lines[index..end]
+    let texts: Vec<&str> = lines[index..end]
         .iter()
         .map(|line| line.text.as_str())
-        .collect::<Vec<_>>()
-        .join(" ");
-    let content = parse_inlines(&joined)
-        .map_err(|e| Error::new(path, lines[index].number, format!("paragraph: {e}")))?;
+        .collect();
+    let content = parse_flow(&texts).map_err(|e| paragraph_error(path, &lines[index..end], &e))?;
     Ok((
         Block::Paragraph {
             style: ParagraphStyle::Normal,
@@ -672,16 +708,14 @@ fn opener_line(lines: &[Line], index: usize) -> usize {
 }
 
 fn parse_fence_inlines(path: &Path, content: &[Line], line: usize) -> Result<Vec<Inline>> {
-    let text = join_lines(content);
-    parse_inlines(&text).map_err(|e| Error::new(path, line, format!("paragraph: {e}")))
+    let texts: Vec<&str> = content.iter().map(|line| line.text.as_str()).collect();
+    parse_flow(&texts).map_err(|e| Error::new(path, line, format!("paragraph: {e}")))
 }
 
-fn join_lines(content: &[Line]) -> String {
-    content
-        .iter()
-        .map(|line| line.text.as_str())
-        .collect::<Vec<_>>()
-        .join(" ")
+/// A paragraph error names the first line of the paragraph.
+fn paragraph_error(path: &Path, lines: &[Line], message: &str) -> Error {
+    let number = lines.first().map_or(1, |line| line.number);
+    Error::new(path, number, format!("paragraph: {message}"))
 }
 
 fn join_lines_newline(content: &[Line]) -> String {
@@ -807,7 +841,10 @@ fn parse_stat_block(
 ) -> Result<(Option<String>, Vec<StatRow>)> {
     let mut title = None;
     let mut rows = Vec::new();
-    for item in content {
+    let mut cursor = 0;
+    while cursor < content.len() {
+        let item = &content[cursor];
+        cursor += 1;
         if is_blank(&item.text) {
             continue;
         }
@@ -819,8 +856,18 @@ fn parse_stat_block(
             title = Some(raw.title);
             continue;
         }
-        let (label, value) = split_stat_row(path, item)?;
-        let value = parse_inlines(&value)
+        let (label, first) = split_stat_row(path, item)?;
+        // A backslash at the end of a line is a break; the value goes on to the
+        // next line, even when that line is empty.
+        let mut value_lines = vec![first];
+        while ends_with_break(trim_line_end(value_lines.last().map_or("", String::as_str)))
+            && cursor < content.len()
+        {
+            value_lines.push(content[cursor].text.clone());
+            cursor += 1;
+        }
+        let texts: Vec<&str> = value_lines.iter().map(String::as_str).collect();
+        let value = parse_flow(&texts)
             .map_err(|e| Error::new(path, item.number, format!("statblock row: {e}")))?;
         rows.push(StatRow {
             label: unescape_label(&label),
@@ -1144,5 +1191,159 @@ mod tests {
         let error = parse("## Effects {#bad anchor}").unwrap_err();
         assert!(error.message.contains("invalid heading anchor"), "{error}");
         assert_eq!(error.line, 1);
+    }
+
+    fn long_paragraph(words: usize) -> Block {
+        let text: Vec<String> = (0..words).map(|n| format!("word{n}")).collect();
+        paragraph(&text.join(" "))
+    }
+
+    #[test]
+    fn paragraphs_wrap_near_one_hundred_columns() {
+        let blocks = vec![long_paragraph(80)];
+        let text = write_blocks(&blocks);
+        assert!(text.lines().count() > 3);
+        for line in text.lines() {
+            assert!(line.chars().count() <= 100, "{line}");
+        }
+        round_trip(blocks);
+    }
+
+    #[test]
+    fn a_break_in_a_paragraph_is_a_trailing_backslash() {
+        let blocks = vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Sources:")],
+                },
+                Inline::text(" Book pg 3"),
+                Inline::Break,
+                Inline::text("Second line"),
+            ],
+        }];
+        let text = write_blocks(&blocks);
+        assert_eq!(text, "**Sources:** Book pg 3\\\nSecond line");
+        round_trip(blocks);
+    }
+
+    #[test]
+    fn nested_paragraphs_wrap_inside_lists_quotes_and_fences() {
+        let list = Block::List {
+            ordered: false,
+            items: vec![
+                vec![
+                    long_paragraph(60),
+                    Block::List {
+                        ordered: true,
+                        items: vec![vec![long_paragraph(60)]],
+                    },
+                ],
+                vec![Block::Paragraph {
+                    style: ParagraphStyle::Normal,
+                    content: vec![Inline::text("a"), Inline::Break, Inline::text("b")],
+                }],
+            ],
+        };
+        let quote = Block::Quote {
+            content: vec![long_paragraph(60)],
+        };
+        let fenced = Block::Paragraph {
+            style: ParagraphStyle::StatLine,
+            content: long_paragraph_inlines(60),
+        };
+        for block in [list, quote, fenced] {
+            let text = write_blocks(std::slice::from_ref(&block));
+            for line in text.lines() {
+                assert!(line.chars().count() <= 100, "{line}");
+            }
+            round_trip(vec![block]);
+        }
+    }
+
+    fn long_paragraph_inlines(words: usize) -> Vec<Inline> {
+        match long_paragraph(words) {
+            Block::Paragraph { content, .. } => content,
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn a_wrapped_line_never_reads_as_a_new_block() {
+        let mut text = "word ".repeat(19);
+        text.push_str("- dash then more words and a trailing 1. number");
+        round_trip(vec![paragraph(&text)]);
+        let mut text = "word ".repeat(19);
+        text.push_str("::: then words");
+        round_trip(vec![paragraph(&text)]);
+    }
+
+    #[test]
+    fn statblock_values_keep_breaks_as_continuation_lines() {
+        let blocks = vec![Block::StatBlock {
+            title: None,
+            rows: vec![
+                StatRow {
+                    label: "Level".into(),
+                    value: vec![
+                        Inline::text("2: Alchemist"),
+                        Inline::Break,
+                        Inline::text("3: Hunter"),
+                    ],
+                },
+                StatRow {
+                    label: "Trailing".into(),
+                    value: vec![Inline::text("x"), Inline::Break],
+                },
+                StatRow {
+                    label: "Empty".into(),
+                    value: vec![],
+                },
+                StatRow {
+                    label: "Next".into(),
+                    value: vec![Inline::text(" padded ")],
+                },
+            ],
+        }];
+        let text = write_blocks(&blocks);
+        assert!(
+            text.contains("Level: 2: Alchemist\\\n3: Hunter\n"),
+            "{text}"
+        );
+        assert!(text.contains("\nEmpty:\n"), "{text}");
+        round_trip(blocks);
+    }
+
+    #[test]
+    fn a_line_end_in_a_paragraph_reads_as_a_space() {
+        let parsed = parse_blocks(
+            Path::new("entries/test.md"),
+            &[(1, "one two"), (2, "  three  "), (3, "four")],
+        )
+        .unwrap();
+        assert_eq!(parsed, vec![paragraph("one two three four")]);
+    }
+
+    #[test]
+    fn heading_and_cell_breaks_use_the_n_escape() {
+        round_trip(vec![
+            Block::Heading {
+                level: 2,
+                anchor: None,
+                content: vec![Inline::text("a"), Inline::Break, Inline::text("b")],
+            },
+            Block::Table(Table {
+                head: vec![TableRow {
+                    cells: vec![TableCell {
+                        header: true,
+                        colspan: 1,
+                        rowspan: 1,
+                        content: vec![Inline::text("a"), Inline::Break, Inline::text("b")],
+                    }],
+                }],
+                body: vec![],
+                ..Table::default()
+            }),
+        ]);
     }
 }

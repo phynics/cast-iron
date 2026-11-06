@@ -154,10 +154,152 @@ fn collect_inline_links(inlines: &[Inline], links: &mut BTreeSet<EntryReference>
     }
 }
 
+/// Merges adjacent `Text` nodes and drops empty ones, in every inline run of the bodies.
+///
+/// The plain-text corpus has no spelling for a text-node boundary, so the compiled value
+/// must not carry one. The merged text reads and searches the same.
+pub fn normalize_text_nodes(blocks: &mut [Block]) {
+    for block in blocks {
+        match block {
+            Block::Heading { content, .. } | Block::Paragraph { content, .. } => {
+                normalize_inlines(content);
+            }
+            Block::List { items, .. } => {
+                for item in items {
+                    normalize_text_nodes(item);
+                }
+            }
+            Block::Table(table) => {
+                normalize_inlines(&mut table.caption);
+                for row in table
+                    .head
+                    .iter_mut()
+                    .chain(&mut table.body)
+                    .chain(&mut table.foot)
+                {
+                    for cell in &mut row.cells {
+                        normalize_inlines(&mut cell.content);
+                    }
+                }
+            }
+            Block::Quote { content } => normalize_text_nodes(content),
+            Block::StatBlock { rows, .. } => {
+                for row in rows {
+                    normalize_inlines(&mut row.value);
+                }
+            }
+            Block::EntryLink { .. } => {}
+        }
+    }
+}
+
+fn normalize_inlines(inlines: &mut Vec<Inline>) {
+    let mut out: Vec<Inline> = Vec::with_capacity(inlines.len());
+    for mut inline in std::mem::take(inlines) {
+        match &mut inline {
+            Inline::Text { v } if v.is_empty() => continue,
+            Inline::Text { v } => {
+                if let Some(Inline::Text { v: previous }) = out.last_mut() {
+                    previous.push_str(v);
+                    continue;
+                }
+            }
+            Inline::Em { c }
+            | Inline::Strong { c }
+            | Inline::Sup { c }
+            | Inline::Sub { c }
+            | Inline::Link { c, .. } => normalize_inlines(c),
+            Inline::Break => {}
+        }
+        out.push(inline);
+    }
+    *inlines = out;
+}
+
 /// Lowercases and collapses whitespace, for comparisons.
 pub fn squash(text: &str) -> String {
     text.split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cast_iron_schema::{ParagraphStyle, TableCell};
+
+    fn paragraph(content: Vec<Inline>) -> Block {
+        Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content,
+        }
+    }
+
+    #[test]
+    fn adjacent_and_empty_text_nodes_are_normalized_everywhere() {
+        let mut blocks = vec![
+            paragraph(vec![
+                Inline::text("1 "),
+                Inline::text("night hag"),
+                Inline::text(""),
+                Inline::Em {
+                    c: vec![Inline::text("a"), Inline::text("b")],
+                },
+                Inline::text(""),
+                Inline::Break,
+                Inline::text("x"),
+            ]),
+            Block::List {
+                ordered: false,
+                items: vec![vec![paragraph(vec![Inline::text("p"), Inline::text("q")])]],
+            },
+            Block::Table(Table {
+                body: vec![TableRow {
+                    cells: vec![TableCell {
+                        header: false,
+                        colspan: 1,
+                        rowspan: 1,
+                        content: vec![Inline::text("c"), Inline::text("d")],
+                    }],
+                }],
+                ..Table::default()
+            }),
+        ];
+        normalize_text_nodes(&mut blocks);
+        assert_eq!(
+            blocks[0],
+            paragraph(vec![
+                Inline::text("1 night hag"),
+                Inline::Em {
+                    c: vec![Inline::text("ab")]
+                },
+                Inline::Break,
+                Inline::text("x"),
+            ])
+        );
+        assert_eq!(
+            blocks[1],
+            Block::List {
+                ordered: false,
+                items: vec![vec![paragraph(vec![Inline::text("pq")])]]
+            }
+        );
+        let Block::Table(table) = &blocks[2] else {
+            panic!("table");
+        };
+        assert_eq!(table.body[0].cells[0].content, vec![Inline::text("cd")]);
+    }
+
+    #[test]
+    fn normalization_keeps_the_plain_text_and_the_links() {
+        let mut blocks = vec![paragraph(vec![
+            Inline::text("see "),
+            Inline::text(""),
+            Inline::text("this"),
+        ])];
+        let before = blocks_text(&blocks);
+        normalize_text_nodes(&mut blocks);
+        assert_eq!(blocks_text(&blocks), before);
+    }
 }
