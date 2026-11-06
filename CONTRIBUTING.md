@@ -27,3 +27,10 @@ acceptance context; do not restart its completed tasks. Star scope follows
 local to the browser profile. Existing install and update requests are
 [#8](https://github.com/phynics/cast-iron/issues/8) and
 [#9](https://github.com/phynics/cast-iron/issues/9).
+
+## Editing rules content
+
+Rules content lives in [phynics/cast-iron-data](https://github.com/phynics/cast-iron-data), not in
+this repository. Fix or add entries there by following its `CONTRIBUTING.md`, then bump the pin in
+`sources/corpus.toml` and run `cargo xtask fetch-sources` and `cargo xtask content`. The format is
+documented in [docs/corpus-format.md](docs/corpus-format.md).
