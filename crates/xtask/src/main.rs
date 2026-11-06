@@ -1,15 +1,16 @@
 //! Repository automation. Run `cargo xtask help`.
 
 use cast_iron_corpus::{
-    entry_path, read_aliases, read_books, read_coverage, read_entry, read_legal, read_publications,
-    write_aliases, write_books, write_coverage, write_entry, write_legal, write_publications,
+    Corpus, check as check_corpus, entry_path, read_aliases, read_books, read_coverage, read_legal,
+    read_publications, write_aliases, write_books, write_coverage, write_entry, write_legal,
+    write_publications,
 };
 use cast_iron_schema::{
-    AliasIndex, Block, BookIndex, Catalog, ContentManifest, CoverageReport, EntryKind, Inline,
-    LegalNotices, RuleEntry, SourceInfo, TypedFields,
+    AliasIndex, BookIndex, Catalog, ContentManifest, CoverageReport, LegalNotices, RuleEntry,
+    SourceInfo,
 };
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -905,357 +906,51 @@ fn corpus_check(args: &[String]) -> Result {
     if args.len() != 1 {
         return Err("usage: corpus-check <dir>".into());
     }
-    let dir = Path::new(&args[0]);
-    let mut problems: Vec<String> = Vec::new();
-    let read_stored = |name: &str| -> Result<String> {
-        let path = dir.join(name);
-        fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
-    };
-    let publications = read_publications(
-        &dir.join("publications.toml"),
-        &read_stored("publications.toml")?,
-    )
-    .map_err(|e| e.to_string())?;
-    let books = read_books(&dir.join("books.toml"), &read_stored("books.toml")?)
-        .map_err(|e| e.to_string())?;
-    let legal = read_legal(&dir.join("legal.toml"), &read_stored("legal.toml")?)
-        .map_err(|e| e.to_string())?;
-    let coverage = read_coverage(&dir.join("coverage.toml"), &read_stored("coverage.toml")?)
-        .map_err(|e| e.to_string())?;
-    let aliases = if dir.join("aliases.toml").is_file() {
-        Some(
-            read_aliases(&dir.join("aliases.toml"), &read_stored("aliases.toml")?)
-                .map_err(|e| e.to_string())?,
-        )
-    } else {
-        None
-    };
-
-    let mut files = Vec::new();
-    list_files(&dir.join("entries"), &mut files)?;
-    files.sort();
-    let mut entries: BTreeMap<String, RuleEntry> = BTreeMap::new();
-    let mut texts: BTreeMap<String, String> = BTreeMap::new();
-    for file in &files {
-        if file.extension().is_none_or(|ext| ext != "md") {
-            continue;
+    let corpus = Corpus::load(Path::new(&args[0])).map_err(|errors| {
+        for error in &errors {
+            eprintln!("{error}");
         }
-        let text =
-            fs::read_to_string(file).map_err(|e| format!("cannot read {}: {e}", file.display()))?;
-        let relative = file
-            .strip_prefix(dir)
-            .map_err(|e| e.to_string())?
-            .to_path_buf();
-        let entry = read_entry(&relative, &text).map_err(|e| e.to_string())?;
-        let id = entry.id.to_string();
-        if entries.insert(id.clone(), entry).is_some() {
-            problems.push(format!("{}:1: duplicate entry id {id}", relative.display()));
-        }
-        texts.insert(id, text);
+        format!("corpus check failed with {} read error(s)", errors.len())
+    })?;
+    let report = check_corpus(&corpus);
+    for warning in &report.warnings {
+        eprintln!("warning: {warning}");
     }
-
-    let publication_ids: BTreeSet<&str> = publications
-        .iter()
-        .map(|publication| publication.id.as_str())
-        .collect();
-    let mut license_ids: BTreeSet<&str> = legal
-        .licenses
-        .iter()
-        .map(|license| license.id.as_str())
-        .collect();
-    if !legal.community_use_notice.is_empty() {
-        license_ids.insert("legal#community-use");
-    }
-    let ids: BTreeSet<&str> = entries.keys().map(String::as_str).collect();
-    let anchors: BTreeMap<String, BTreeSet<String>> = entries
-        .iter()
-        .map(|(id, entry)| {
-            let mut keys = BTreeSet::new();
-            let mut used = BTreeSet::new();
-            collect_heading_keys(&entry.body, &mut keys, &mut used);
-            (id.clone(), keys)
-        })
-        .collect();
-    for (id, entry) in &entries {
-        let text = &texts[id];
-        let line = |needle: &str| {
-            text.lines()
-                .position(|l| l.contains(needle))
-                .map(|i| i + 1)
-                .unwrap_or(1)
-        };
-        if !fields_match(entry.kind, &entry.fields) {
-            problems.push(format!(
-                "{}:{}: entry kind `{}` does not match `[fields]` kind `{}`",
-                entry_path(&entry.id).display(),
-                line("kind"),
-                entry.kind.slug(),
-                fields_kind(&entry.fields)
-            ));
-        }
-        for source in &entry.source_ids {
-            if !publication_ids.contains(source.as_str()) {
-                problems.push(format!(
-                    "{}:{}: unknown publication `{source}`",
-                    entry_path(&entry.id).display(),
-                    line(source)
-                ));
-            }
-        }
-        for license in &entry.license_refs {
-            if !license_ids.contains(license.as_str()) {
-                problems.push(format!(
-                    "{}:{}: unknown licence `{license}`",
-                    entry_path(&entry.id).display(),
-                    line(license)
-                ));
-            }
-        }
-        if let Some(parent) = &entry.parent
-            && !ids.contains(parent.as_str())
-        {
-            problems.push(format!(
-                "{}:{}: unknown parent `{parent}`",
-                entry_path(&entry.id).display(),
-                line(parent.as_str())
-            ));
-        }
-        for link in &entry.links {
-            if !ids.contains(link.target.as_str()) {
-                problems.push(format!(
-                    "{}:{}: unknown link target `{}`",
-                    entry_path(&entry.id).display(),
-                    line(link.target.as_str()),
-                    link.target
-                ));
-            } else if let Some(anchor) = &link.anchor
-                && !anchors
-                    .get(link.target.as_str())
-                    .is_some_and(|keys| keys.contains(anchor))
-            {
-                problems.push(format!(
-                    "{}:{}: link target `{}` has no heading anchor `{anchor}`",
-                    entry_path(&entry.id).display(),
-                    line(anchor),
-                    link.target
-                ));
-            }
-        }
-        if let TypedFields::Feat(fields) = &entry.fields {
-            for feat in &fields.prerequisite_feats {
-                if !ids.contains(feat.as_str()) {
-                    problems.push(format!(
-                        "{}:{}: unknown prerequisite feat `{feat}`",
-                        entry_path(&entry.id).display(),
-                        line(feat.as_str())
-                    ));
-                }
-            }
-        }
-        for relation in &entry.relations {
-            if !ids.contains(relation.target.as_str()) {
-                problems.push(format!(
-                    "{}:{}: unknown relation target `{}`",
-                    entry_path(&entry.id).display(),
-                    line(relation.target.as_str()),
-                    relation.target
-                ));
-            }
-        }
-    }
-    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
-    for entry in entries.values() {
-        *by_kind.entry(entry.kind.slug().to_string()).or_default() += 1;
-    }
-    if by_kind != coverage.by_kind {
-        problems.push(format!(
-            "coverage.toml:1: by_kind {:?} does not match the entries {by_kind:?}",
-            coverage.by_kind
-        ));
-    }
-    for tree in &books.books {
-        let mut placed = BTreeSet::new();
-        for chapter in &tree.chapters {
-            check_book_node(chapter, &ids, &mut placed, &mut problems);
-        }
-    }
-    if let Some(aliases) = &aliases {
-        for entry in &aliases.entries {
-            if !ids.contains(entry.target.as_str()) {
-                problems.push(format!(
-                    "aliases.toml:1: alias target `{}` is not an entry",
-                    entry.target
-                ));
-            }
-        }
-    }
-
-    if !problems.is_empty() {
-        for problem in &problems {
+    if !report.problems.is_empty() {
+        for problem in &report.problems {
             eprintln!("{problem}");
         }
         return Err(format!(
             "corpus check failed with {} problem(s)",
-            problems.len()
+            report.problems.len()
         ));
     }
     println!(
         "corpus ok: {} entries, {} publications, {} books, {} licences",
-        entries.len(),
-        publications.len(),
-        books.books.len(),
-        legal.licenses.len()
+        corpus.entries.len(),
+        corpus.publications.len(),
+        corpus.books.books.len(),
+        corpus.legal.licenses.len()
     );
     Ok(())
-}
-
-fn check_book_node(
-    node: &cast_iron_schema::BookNode,
-    ids: &BTreeSet<&str>,
-    placed: &mut BTreeSet<String>,
-    problems: &mut Vec<String>,
-) {
-    if let Some(entry) = &node.entry {
-        if !ids.contains(entry.as_str()) {
-            problems.push(format!(
-                "books.toml:1: book node `{}` names unknown entry `{entry}`",
-                node.title
-            ));
-        } else if node.anchor.is_none() && !placed.insert(entry.to_string()) {
-            problems.push(format!("books.toml:1: book places `{entry}` twice"));
-        }
-    }
-    for child in &node.children {
-        check_book_node(child, ids, placed, problems);
-    }
-}
-
-fn fields_kind(fields: &TypedFields) -> &'static str {
-    match fields {
-        TypedFields::Spell(_) => "spell",
-        TypedFields::Feat(_) => "feat",
-        TypedFields::Creature(_) => "creature",
-        TypedFields::Item(_) => "item",
-        TypedFields::Class(_) => "class",
-        TypedFields::Trait(_) => "trait",
-        TypedFields::RacialTrait(_) => "racial_trait",
-        TypedFields::None => "none",
-    }
-}
-
-fn fields_match(kind: EntryKind, fields: &TypedFields) -> bool {
-    match fields {
-        TypedFields::Spell(_) => kind == EntryKind::Spell,
-        TypedFields::Feat(_) => kind == EntryKind::Feat,
-        TypedFields::Creature(_) => kind == EntryKind::Creature,
-        TypedFields::Item(_) => kind == EntryKind::Item,
-        TypedFields::Class(_) => matches!(kind, EntryKind::Class | EntryKind::PrestigeClass),
-        TypedFields::Trait(_) => kind == EntryKind::Trait,
-        TypedFields::RacialTrait(_) => kind == EntryKind::RacialTrait,
-        TypedFields::None => matches!(
-            kind,
-            EntryKind::Rule
-                | EntryKind::Race
-                | EntryKind::Skill
-                | EntryKind::Affliction
-                | EntryKind::Trap
-                | EntryKind::Archetype
-        ),
-    }
-}
-
-fn collect_heading_keys(
-    blocks: &[Block],
-    keys: &mut BTreeSet<String>,
-    used: &mut BTreeSet<String>,
-) {
-    for block in blocks {
-        match block {
-            Block::Heading {
-                anchor, content, ..
-            } => {
-                let base = anchor
-                    .as_deref()
-                    .filter(|anchor| !anchor.is_empty())
-                    .map(str::to_string)
-                    .or_else(|| {
-                        let slug = heading_slug(content);
-                        (!slug.is_empty()).then(|| format!("sec-{slug}"))
-                    });
-                if let Some(base) = base {
-                    let mut key = base.clone();
-                    let mut suffix = 2;
-                    while !used.insert(key.clone()) {
-                        key = format!("{base}-{suffix}");
-                        suffix += 1;
-                    }
-                    keys.insert(key);
-                }
-            }
-            Block::List { items, .. } => {
-                for item in items {
-                    collect_heading_keys(item, keys, used);
-                }
-            }
-            Block::Quote { content } => collect_heading_keys(content, keys, used),
-            _ => {}
-        }
-    }
-}
-
-fn heading_slug(inlines: &[Inline]) -> String {
-    let mut text = String::new();
-    push_plain_text(inlines, &mut text);
-    let mut out = String::new();
-    let mut pending_dash = false;
-    for ch in text.chars() {
-        if ch.is_ascii_alphanumeric() {
-            if pending_dash && !out.is_empty() {
-                out.push('-');
-            }
-            pending_dash = false;
-            out.push(ch.to_ascii_lowercase());
-        } else {
-            pending_dash = true;
-        }
-    }
-    out
-}
-
-fn push_plain_text(inlines: &[Inline], out: &mut String) {
-    for inline in inlines {
-        match inline {
-            Inline::Text { v } => out.push_str(v),
-            Inline::Break => out.push(' '),
-            Inline::Em { c } | Inline::Strong { c } | Inline::Sup { c } | Inline::Sub { c } => {
-                push_plain_text(c, out)
-            }
-            Inline::Link { c, .. } => push_plain_text(c, out),
-        }
-    }
 }
 
 fn corpus_roundtrip(args: &[String]) -> Result {
     let (dir, content) = corpus_args(args, "corpus-roundtrip")?;
     let library = load_library(&content)?;
 
-    let mut files = Vec::new();
-    list_files(&dir.join("entries"), &mut files)?;
-    files.sort();
-    let mut read_entries: BTreeMap<String, RuleEntry> = BTreeMap::new();
-    for file in &files {
-        if file.extension().is_none_or(|ext| ext != "md") {
-            continue;
-        }
-        let text =
-            fs::read_to_string(file).map_err(|e| format!("cannot read {}: {e}", file.display()))?;
-        let relative = file
-            .strip_prefix(&dir)
-            .map_err(|e| e.to_string())?
-            .to_path_buf();
-        let entry = read_entry(&relative, &text).map_err(|e| e.to_string())?;
-        read_entries.insert(entry.id.to_string(), entry);
-    }
+    let corpus = Corpus::load(&dir).map_err(|errors| {
+        errors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n")
+    })?;
+    let read_entries: BTreeMap<String, RuleEntry> = corpus
+        .entries
+        .iter()
+        .map(|(id, stored)| (id.clone(), stored.entry.clone()))
+        .collect();
 
     let expected: BTreeMap<String, RuleEntry> = library
         .entries
@@ -1493,43 +1188,6 @@ fn check() -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn typed_fields_must_match_the_entry_kind() {
-        let none = TypedFields::None;
-        assert!(fields_match(EntryKind::Rule, &none));
-        assert!(fields_match(EntryKind::Archetype, &none));
-        assert!(!fields_match(EntryKind::Spell, &none));
-        let class = TypedFields::Class(cast_iron_schema::ClassFields::default());
-        assert!(fields_match(EntryKind::Class, &class));
-        assert!(fields_match(EntryKind::PrestigeClass, &class));
-        assert!(!fields_match(EntryKind::Feat, &class));
-        let spell = TypedFields::Spell(cast_iron_schema::SpellFields::default());
-        assert!(fields_match(EntryKind::Spell, &spell));
-        assert!(!fields_match(EntryKind::Item, &spell));
-        assert_eq!(fields_kind(&spell), "spell");
-    }
-
-    #[test]
-    fn heading_keys_cover_explicit_implicit_and_duplicate_anchors() {
-        let heading = |anchor: Option<&str>, text: &str| Block::Heading {
-            level: 2,
-            anchor: anchor.map(String::from),
-            content: vec![Inline::text(text)],
-        };
-        let body = vec![
-            heading(Some("explicit"), "One"),
-            heading(None, "Two Words"),
-            heading(None, "Two Words"),
-        ];
-        let mut keys = BTreeSet::new();
-        let mut used = BTreeSet::new();
-        collect_heading_keys(&body, &mut keys, &mut used);
-        assert!(keys.contains("explicit"));
-        assert!(keys.contains("sec-two-words"));
-        assert!(keys.contains("sec-two-words-2"));
-        assert_eq!(heading_slug(&[Inline::text("Élan 5")]), "lan-5");
-    }
 
     #[test]
     fn reads_toml_strings() {
