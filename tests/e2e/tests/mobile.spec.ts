@@ -185,10 +185,19 @@ test("Publication groups fit 390 px with full-size targets", async ({ page }) =>
   const group = page.locator('.filters .filter-group:has(legend:text-is("Publication"))');
   await expect(group.locator(".publication-group").first()).toBeVisible();
   await expect(group.locator(".publication-group").first()).toHaveAttribute("data-tier", "Rulebooks");
-  await group.locator("button.publication-more").click();
   const adventures = group.locator('details.publication-group[data-tier="Adventures"]');
   await expect(adventures).toHaveCount(1);
   await expect(adventures).not.toHaveAttribute("open", "");
+  // Every tier that the budget skipped is a closed heading: full-size, inside the viewport.
+  const headings = group.locator("details.publication-group > summary");
+  expect(await headings.count()).toBeGreaterThanOrEqual(3);
+  for (const heading of await headings.all()) {
+    await expect(heading).toBeVisible();
+    const box = (await heading.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
   const summary = adventures.locator("summary");
   const summaryBox = (await summary.boundingBox())!;
   expect(summaryBox.height).toBeGreaterThanOrEqual(44);
@@ -199,6 +208,10 @@ test("Publication groups fit 390 px with full-size targets", async ({ page }) =>
   );
   expect(radii.length).toBeGreaterThan(1);
   expect(radii.every((radius) => radius !== "999px")).toBe(true);
+  const overflowClosed = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(overflowClosed).toBeLessThanOrEqual(0);
   await summary.click();
   await expect(adventures).toHaveAttribute("open", "");
   const chips = adventures.locator(".chip");

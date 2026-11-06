@@ -107,6 +107,12 @@ impl Tier {
     pub fn collapsed_by_default(self) -> bool {
         self == Tier::Adventures
     }
+
+    /// Every tier but Rulebooks is a disclosure in the search Publication filter. Rulebooks
+    /// matter most and lead the list, so they are a plain group that is always listed.
+    pub fn is_disclosure(self) -> bool {
+        self != Tier::Rulebooks
+    }
 }
 
 #[cfg(test)]

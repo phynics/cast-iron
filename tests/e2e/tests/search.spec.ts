@@ -199,18 +199,15 @@ test("Publication filter groups publications by product line with Adventures col
   expect(labelled.length).toBeGreaterThan(0);
   expect(labelled.every((name) => !!name)).toBe(true);
 
-  // Adventures come after the budget, so "Show all" brings the whole group in. It starts closed
-  // and its summary counts the publications with results that it holds.
-  await group.locator("button.publication-more").click();
-  inOrder(await shownTiers());
+  // Adventures take no budget, but the heading is there at once. It starts closed and its
+  // summary counts the publications with results that it holds.
   const adventures = group.locator('details.publication-group[data-tier="Adventures"]');
   await expect(adventures, "the corpus needs an Adventures publication with results for 'fire'").toHaveCount(1);
   await expect(adventures).not.toHaveAttribute("open", "");
   const adventureTitle = adventures.locator("summary");
   await expect(adventureTitle).toHaveText(/^Adventures \(\d+\)$/);
   const adventureCount = Number((await adventureTitle.innerText()).match(/\((\d+)\)/)![1]);
-  await expect(adventures.locator(".chip")).toHaveCount(adventureCount);
-  await expect(adventures.locator(".chip").first()).toBeHidden();
+  await expect(adventures.locator(".chip")).toHaveCount(0);
   expect((await adventureTitle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await adventureTitle.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe("999px");
   expect(await adventureTitle.evaluate((el) => getComputedStyle(el).userSelect)).toBe("none");
@@ -220,6 +217,7 @@ test("Publication filter groups publications by product line with Adventures col
   await adventureTitle.focus();
   await page.keyboard.press("Enter");
   await expect(adventures).toHaveAttribute("open", "");
+  await expect(adventures.locator(".chip")).toHaveCount(adventureCount);
   const chip = adventures.locator(".chip").first();
   await expect(chip).toBeVisible();
   const label = (await chip.locator("input").getAttribute("aria-label"))!;
@@ -255,6 +253,76 @@ test("Publication filter groups publications by product line with Adventures col
   expect(new URLSearchParams(hash.split("?")[1] ?? "").getAll("source")).toContain(source.id);
 });
 
+test("Publication filter keeps a closed heading with a count for every tier the budget skipped", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("fire");
+  await waitResults(page, "fire");
+
+  const group = page.locator('.filters .filter-group:has(legend:text-is("Publication"))');
+  const summary = group.locator(".publication-summary");
+  const chips = group.locator(".chip");
+
+  // The twelve slots go to Rulebooks, which keep their chips.
+  await expect(summary).toHaveText(/Showing 12 of \d+ publications with results/);
+  const total = Number((await summary.innerText()).match(/of (\d+)/)![1]);
+  await expect(chips).toHaveCount(12);
+  const rulebooks = group.locator('.publication-group[data-tier="Rulebooks"]');
+  await expect(rulebooks.locator(".chip")).toHaveCount(12);
+  const rulebookTitle = await rulebooks.locator(".publication-group-title").innerText();
+  const rulebookTotal = Number(rulebookTitle.match(/^Rulebooks \(12 of (\d+)\)$/)![1]);
+
+  // Every other tier with results is a closed heading with its count, in tier order.
+  const headings = group.locator("details.publication-group > summary");
+  await expect(headings).toHaveText([
+    /^Player Companions \(\d+\)$/,
+    /^Campaign Setting \(\d+\)$/,
+    /^Adventures \(\d+\)$/,
+    /^Other \(\d+\)$/,
+  ]);
+  const held = (await headings.allInnerTexts()).map((text) => Number(text.match(/\((\d+)\)/)![1]));
+  // The counts reconcile with the summary line: every publication with results is in a group.
+  expect(rulebookTotal + held.reduce((sum, n) => sum + n, 0)).toBe(total);
+  for (const details of await group.locator("details.publication-group").all()) {
+    await expect(details).not.toHaveAttribute("open", "");
+    await expect(details.locator(".chip")).toHaveCount(0);
+  }
+  // Each heading is a labelled group once its chips are listed.
+  const companions = group.locator('details.publication-group[data-tier="Player Companions"]');
+  const companionCount = held[0];
+
+  // A real click opens the tier and lists all of its publications, with no "Show all".
+  await companions.locator("summary").click();
+  await expect(companions).toHaveAttribute("open", "");
+  await expect(companions.locator(".chip")).toHaveCount(companionCount);
+  await expect(summary).toHaveText(`Showing ${12 + companionCount} of ${total} publications with results.`);
+  await expect(group.locator("button.publication-more")).toHaveAttribute("aria-expanded", "false");
+  const grouped = await companions.locator('[role="group"]').getAttribute("aria-labelledby");
+  expect(await page.locator(`#${grouped}`).innerText()).toBe(await companions.locator("summary").innerText());
+
+  // Choosing one of them filters the results, and the tier stays open after the counts refresh.
+  const chip = companions.locator(".chip").first();
+  const label = (await chip.locator("input").getAttribute("aria-label"))!;
+  const title = label.replace(/, \d+ entr(y|ies)$/, "");
+  await chip.locator("input").click();
+  await expect
+    .poll(async () => {
+      const metas = await page.locator(".results li.hit:not(.hit-group) .hit-meta").allTextContents();
+      return metas.length > 0 && metas.every((meta) => meta.endsWith(`· ${title}`));
+    })
+    .toBe(true);
+  await expect(companions).toHaveAttribute("open", "");
+  await expect(companions.locator(".chip")).toHaveCount(companionCount);
+  await expect(companions.getByRole("checkbox", { name: label, exact: true })).toBeChecked();
+
+  // "Show all" and the headings do not fight: Show all lists and opens every tier.
+  await group.locator("button.publication-more").click();
+  await expect(summary).toHaveText(new RegExp(`^Showing all \\d+ publications with results\\.$`));
+  for (const details of await group.locator("details.publication-group").all()) {
+    await expect(details).toHaveAttribute("open", "");
+  }
+});
+
 test("The Publication name box opens Adventures for its matches, then returns to the reader's choice", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
@@ -265,14 +333,18 @@ test("The Publication name box opens Adventures for its matches, then returns to
   const box = group.getByRole("searchbox", { name: "Filter publications by name" });
   const adventures = group.locator('details.publication-group[data-tier="Adventures"]');
 
-  // Keep every group in the list, so clearing the box does not drop Adventures from the page.
-  await group.locator("button.publication-more").click();
+  // Adventures have a heading from the first view. Open it once to read a title, then close it,
+  // so the reader's stored answer is "closed".
   await expect(adventures).toHaveCount(1);
   await expect(adventures).not.toHaveAttribute("open", "");
+  await adventures.locator("summary").click();
+  await expect(adventures).toHaveAttribute("open", "");
   const label = (await adventures.locator(".chip input").first().getAttribute("aria-label"))!;
   const title = label.replace(/, \d+ entr(y|ies)$/, "");
   const partial = title.slice(0, Math.min(title.length, 18));
   const match = adventures.getByRole("checkbox", { name: label, exact: true });
+  await adventures.locator("summary").click();
+  await expect(adventures).not.toHaveAttribute("open", "");
 
   // Typing a partial title opens Adventures so that the match is visible without a click.
   await box.click();
@@ -280,7 +352,7 @@ test("The Publication name box opens Adventures for its matches, then returns to
   await expect(adventures).toHaveAttribute("open", "");
   await expect(match).toBeVisible();
 
-  // Clearing the box returns to the stored choice. There was none, so Adventures closes.
+  // Clearing the box returns to the stored choice, which is closed.
   await page.keyboard.press("ControlOrMeta+A");
   await page.keyboard.press("Backspace");
   await expect(box).toHaveValue("");
