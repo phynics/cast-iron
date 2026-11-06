@@ -542,6 +542,26 @@ A TOML file (`corpus.toml`, `publications.toml`, `books.toml`, `legal.toml`,
 `exclusions.toml`, `history.toml`, `aliases.toml`) is read and written back by
 the tool, so a comment in it does not survive `fmt` and fails `--check`.
 
+## Contributor kit
+
+`corpus-kit/` holds what the data repository needs to accept edits from people
+who do not build Cast Iron. It is copied into `cast-iron-data`.
+
+- `README.md`: the three rules and one recipe for each common edit (fix a typo,
+  fix a link, split a paragraph, add a table row, change a stat value, add an
+  entry).
+- `examples/`: one annotated, valid example file per entry kind. A test reads
+  every example, requires it to be canonical once its comments are removed, and
+  checks the set as one corpus.
+- `.github/workflows/corpus.yml`: builds `cast-iron-corpus` at a pinned Cast Iron
+  revision, then runs `check .` and `fmt --check .`.
+- `.github/pull_request_template.md`: the checklist for a data pull request.
+
+The `cast-iron-corpus` binary (`cargo install --git ... cast-iron-corpus`) has
+three commands: `check [DIR] [--drift-report FILE]`, `fmt [--check] [DIR]`, and
+`migrate [DIR]`. It depends only on the corpus and schema crates. The same code
+runs behind `cargo xtask corpus-check`, `corpus-fmt`, and `corpus-migrate`.
+
 ## Determinism
 
 The writer is deterministic: the same `RuleEntry` gives byte-identical text, and

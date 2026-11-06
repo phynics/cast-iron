@@ -1,0 +1,46 @@
+name: corpus
+
+# Checks every pull request against the format: references resolve, and every file is in
+# canonical form. Copy this file to `.github/workflows/corpus.yml` in the data repository.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: corpus-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # The Cast Iron revision whose `cast-iron-corpus` reads this corpus. Change it in the same
+  # pull request that migrates the corpus to a newer format.
+  CAST_IRON_REV: REPLACE_WITH_A_FULL_COMMIT_SHA
+
+jobs:
+  corpus:
+    name: check and fmt --check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Cache the tool
+        id: tool
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo-tool
+          key: cast-iron-corpus-${{ env.CAST_IRON_REV }}
+      - name: Build cast-iron-corpus
+        if: steps.tool.outputs.cache-hit != 'true'
+        run: >
+          cargo install --locked --root ~/.cargo-tool
+          --git https://github.com/phynics/cast-iron --rev "$CAST_IRON_REV"
+          cast-iron-corpus
+      - name: Check
+        run: ~/.cargo-tool/bin/cast-iron-corpus check .
+      - name: Formatting
+        run: ~/.cargo-tool/bin/cast-iron-corpus fmt --check .

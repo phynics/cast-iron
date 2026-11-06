@@ -22,6 +22,7 @@
 
 mod block;
 mod check;
+pub mod cli;
 mod config;
 mod drift;
 mod entry;
@@ -30,6 +31,7 @@ mod files;
 mod fmt;
 mod inline;
 mod load;
+mod migrate;
 #[cfg(test)]
 mod testkit;
 mod tomlutil;
@@ -48,3 +50,4 @@ pub use files::{
 };
 pub use fmt::{Change, FmtReport, format_corpus};
 pub use load::{Corpus, Stored, list_files};
+pub use migrate::{MIGRATIONS, Migration, migrate, migrate_with};

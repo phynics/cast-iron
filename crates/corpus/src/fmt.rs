@@ -83,9 +83,7 @@ fn first_difference(path: &Path, expected: &str, found: &str) -> Option<Change> 
                 text: expected.to_string(),
             });
         }
-        if e.is_none() {
-            return None;
-        }
+        e?;
     }
 }
 
