@@ -2475,9 +2475,8 @@ main,
   margin: 0 var(--space-2);
 }
 
-/* Narrow: casting time, save and book on one line; the gist alone under it. The save gives
-   way first, then the book, so a long entry ends in an ellipsis and never cuts the casting
-   time. A long gist ends in an ellipsis on its own line. */
+/* Narrow: the facts keep to one line (the save gives way first, then the book) and a long
+   entry ends in an ellipsis; the casting time is never cut. */
 .spell-row-meta .spell-facts {
   display: flex;
 }
@@ -2491,7 +2490,10 @@ main,
   max-width: 100%;
 }
 
-.spell-row-meta .spell-gist {
+/* Density "wide" (the only one for now, issue #182 adds a compact one): on a phone the gist
+   stands alone under the facts, so a row is three lines. Another density sets its own rules
+   under its own value of data-density. */
+.spell-list[data-density="wide"] .spell-row-meta .spell-gist {
   display: block;
 }
 
@@ -2519,7 +2521,9 @@ main,
     flex: 0 0 auto;
   }
 
+  .spell-list[data-density="wide"] .spell-row-meta .spell-gist,
   .spell-row-meta .spell-gist {
+    display: inline;
     order: 1;
     flex: 0 4 auto;
   }

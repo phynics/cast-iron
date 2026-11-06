@@ -24,10 +24,10 @@ pub fn gist(body: &[Block]) -> String {
         Block::Paragraph { content, .. } => {
             let text = inline_text(content);
             let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-            let skip = text.is_empty()
-                || text.starts_with("Sources:")
-                || text.starts_with("Source:")
-                || text.starts_with("Source ");
+            // Only a citation line is skipped. A sentence that begins with the word "Source"
+            // is description.
+            let skip =
+                text.is_empty() || text.starts_with("Sources:") || text.starts_with("Source:");
             (!skip).then_some(text)
         }
         _ => None,
@@ -38,21 +38,82 @@ pub fn gist(body: &[Block]) -> String {
     first_sentence_within(&text, GIST_CHARS)
 }
 
-/// Up to the first sentence end (`.`, `!` or `?` followed by a space), or all of `text`.
-/// Over `limit` characters it is cut at the last word boundary and ends with `…`.
+/// Words that end in a period without ending a sentence. Compared in lowercase, without the
+/// period and without a leading parenthesis.
+const ABBREVIATIONS: [&str; 11] = [
+    "max", "min", "ft", "lb", "lbs", "etc", "e.g", "i.e", "rd", "cf", "vs",
+];
+
+/// True when the period at `chars[i]` closes an abbreviation such as `max.` or `e.g.`.
+fn ends_abbreviation(chars: &[char], i: usize) -> bool {
+    let start = chars[..i]
+        .iter()
+        .rposition(|c| c.is_whitespace())
+        .map_or(0, |p| p + 1);
+    let word: String = chars[start..i]
+        .iter()
+        .collect::<String>()
+        .trim_start_matches(['(', '[', '"'])
+        .to_lowercase();
+    ABBREVIATIONS.contains(&word.as_str())
+}
+
+/// The first sentence of `text`. A sentence ends at `.`, `!` or `?` followed by a space (or the
+/// end of the text), but not at an abbreviation (`max.`, `ft.`, `e.g.`) and not inside an open
+/// parenthesis or bracket. Longer than `limit` characters, it is cut at the last word boundary
+/// that sits outside an open parenthesis. Any cut ends with `…`; a complete sentence loses only
+/// its final period.
 fn first_sentence_within(text: &str, limit: usize) -> String {
     let chars: Vec<char> = text.chars().collect();
-    let end = chars
-        .windows(2)
-        .position(|w| matches!(w[0], '.' | '!' | '?') && w[1] == ' ')
-        .map_or(chars.len(), |i| i + 1);
-    let sentence: String = chars[..end].iter().collect();
+    let mut depth = 0i32;
+    // The index just past the sentence end, if there is one.
+    let mut end = None;
+    for (i, &c) in chars.iter().enumerate() {
+        match c {
+            '(' | '[' => depth += 1,
+            ')' | ']' => depth = (depth - 1).max(0),
+            '.' | '!' | '?'
+                if depth == 0
+                    && chars.get(i + 1).is_none_or(|n| *n == ' ')
+                    && !(c == '.' && ends_abbreviation(&chars, i)) =>
+            {
+                end = Some(i + 1);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let end = end.unwrap_or(chars.len());
     if end <= limit {
+        let sentence: String = chars[..end].iter().collect();
         return sentence.trim_end_matches('.').trim().to_string();
     }
-    let cut: String = chars[..limit].iter().collect();
-    let cut = cut.rsplit_once(' ').map_or(cut.as_str(), |(head, _)| head);
-    format!("{}…", cut.trim_end_matches([',', ';', ':', ' ', '.']))
+    // Cut at a word boundary within the limit, then back out of any open parenthesis.
+    let mut cut = limit;
+    while cut > 0 && chars.get(cut).is_some_and(|c| *c != ' ') {
+        cut -= 1;
+    }
+    let mut open: Vec<usize> = Vec::new();
+    for (i, &c) in chars[..cut].iter().enumerate() {
+        match c {
+            '(' | '[' => open.push(i),
+            ')' | ']' => {
+                open.pop();
+            }
+            _ => {}
+        }
+    }
+    if let Some(&first_open) = open.first() {
+        cut = first_open;
+    }
+    let head: String = chars[..cut].iter().collect();
+    let head = head.trim_end_matches([',', ';', ':', ' ', '.', '-', '+']);
+    if head.is_empty() {
+        // One long word: keep what fits.
+        let head: String = chars[..limit.min(chars.len())].iter().collect();
+        return format!("{head}…");
+    }
+    format!("{head}…")
 }
 
 fn detail(entry: &RuleEntry, fields: &SpellFields) -> SpellListDetail {
@@ -335,6 +396,86 @@ mod tests {
         assert_eq!(gist, "word word word word…");
         assert!(gist.chars().count() <= 21);
         assert_eq!(first_sentence_within("No stop here", 100), "No stop here");
+        // A cut that lands exactly on a word boundary keeps that word.
+        assert_eq!(
+            first_sentence_within("alpha beta gamma delta", 10),
+            "alpha beta…"
+        );
+    }
+
+    #[test]
+    fn abbreviations_do_not_end_a_sentence() {
+        let gist = |t: &str| first_sentence_within(t, 100);
+        assert_eq!(
+            gist("The target takes 1d6 damage (max. 5d6) per level. More."),
+            "The target takes 1d6 damage (max. 5d6) per level"
+        );
+        assert_eq!(
+            gist("Range is 30 ft. longer than normal. More."),
+            "Range is 30 ft. longer than normal"
+        );
+        assert_eq!(
+            gist("It weighs 5 lbs. at most. Next."),
+            "It weighs 5 lbs. at most"
+        );
+        assert_eq!(
+            gist("Fire, cold, etc. also work. Next."),
+            "Fire, cold, etc. also work"
+        );
+        assert_eq!(
+            gist("Use it, e.g. on a rope. Next."),
+            "Use it, e.g. on a rope"
+        );
+        assert_eq!(
+            gist("That is, i.e. a thing. Next."),
+            "That is, i.e. a thing"
+        );
+        assert_eq!(gist("Wait 1 min. then go. Next."), "Wait 1 min. then go");
+        assert_eq!(
+            gist("Lasts 1 rd. per level. Next."),
+            "Lasts 1 rd. per level"
+        );
+        assert_eq!(gist("See cf. the table. Next."), "See cf. the table");
+        // `!` and `?` still end a sentence; a real period too.
+        assert_eq!(gist("Run! Hide."), "Run!");
+        assert_eq!(gist("Is it done? Yes."), "Is it done?");
+        assert_eq!(gist("Done. Next."), "Done");
+    }
+
+    #[test]
+    fn the_greater_magic_fang_gist_is_not_cut_inside_its_parenthesis() {
+        let text = "One natural weapon gets +1/four levels (max. +5). The weapon also gets more.";
+        assert_eq!(
+            first_sentence_within(text, 100),
+            "One natural weapon gets +1/four levels (max. +5)"
+        );
+    }
+
+    #[test]
+    fn a_cut_never_ends_inside_an_open_parenthesis() {
+        let text = "The weapon gets a bonus on every attack roll and damage roll (max. +5 and more to come later";
+        let gist = first_sentence_within(text, 70);
+        assert_eq!(
+            gist,
+            "The weapon gets a bonus on every attack roll and damage roll…"
+        );
+        assert!(!gist.contains('('));
+        // A parenthesis that never closes does not end the sentence early.
+        assert_eq!(
+            first_sentence_within("Opens (see text. Still open. Never closes", 100),
+            "Opens (see text. Still open. Never closes"
+        );
+    }
+
+    #[test]
+    fn only_a_citation_line_is_skipped() {
+        let body = vec![
+            paragraph("Source energy flows from the caster. More."),
+            paragraph("Sources: ignored"),
+        ];
+        assert_eq!(gist(&body), "Source energy flows from the caster");
+        let cited = vec![paragraph("Source: Core Rulebook"), paragraph("Real text.")];
+        assert_eq!(gist(&cited), "Real text");
     }
 
     #[test]

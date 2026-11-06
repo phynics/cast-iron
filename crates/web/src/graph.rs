@@ -370,12 +370,22 @@ pub fn filter_list<'a>(
         .collect()
 }
 
-/// The schools of a list's spells with how many spells each holds, by name. Empty when the
-/// library carries no details, so the reader then offers no school filter.
-pub fn list_schools(lists: &SpellLists, list: &SpellListClass) -> Vec<(String, usize)> {
+/// The schools of a list's spells with how many spells each holds, by name. `level` narrows
+/// the count to one spell level, so the numbers match the rows on that page, and a school with
+/// no spell there is absent. Empty when the library carries no details, so the reader then
+/// offers no school filter.
+pub fn list_schools(
+    lists: &SpellLists,
+    list: &SpellListClass,
+    level: Option<u8>,
+) -> Vec<(String, usize)> {
     let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-    for level in &list.levels {
-        for &pos in &level.spells {
+    for l in list
+        .levels
+        .iter()
+        .filter(|l| level.is_none_or(|wanted| wanted == l.level))
+    {
+        for &pos in &l.spells {
             if let Some(spell) = ListedSpell::at(lists, pos) {
                 let school = spell.school();
                 if !school.is_empty() {
@@ -910,9 +920,21 @@ mod tests {
         let lists = lists();
         let wizard = find_list(&lists, "wizard").unwrap();
         assert_eq!(
-            list_schools(&lists, wizard),
+            list_schools(&lists, wizard, None),
             [("conjuration".to_string(), 1), ("evocation".to_string(), 3)]
         );
+        // One level counts only its own spells; a school with none there is not offered.
+        // Level 1 holds Burning Hands and Magic Missile, both evocation; Acid Arrow
+        // (conjuration) is at level 2.
+        assert_eq!(
+            list_schools(&lists, wizard, Some(1)),
+            [("evocation".to_string(), 2)]
+        );
+        assert_eq!(
+            list_schools(&lists, wizard, Some(2)),
+            [("conjuration".to_string(), 1)]
+        );
+        assert!(list_schools(&lists, wizard, Some(9)).is_empty());
         let titles = |schools: &[&str]| -> Vec<String> {
             let schools: Vec<String> = schools.iter().map(|s| s.to_string()).collect();
             filter_list(&lists, wizard, None, "", &schools)
@@ -927,7 +949,7 @@ mod tests {
         let mut bare = lists.clone();
         bare.details.clear();
         let wizard = find_list(&bare, "wizard").unwrap();
-        assert!(list_schools(&bare, wizard).is_empty());
+        assert!(list_schools(&bare, wizard, None).is_empty());
     }
 
     #[test]

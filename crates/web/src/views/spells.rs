@@ -530,14 +530,24 @@ fn ListPage(
                 }
             })
             .collect_view();
+        // `data-density` is the reader's choice of row layout. "wide" is the only value for
+        // now: casting time, save and book on one line and the gist under them on a phone.
         view! {
             <p class="muted" role="status" data-testid="list-count">{spells_noun(shown)}</p>
-            {sections}
+            <div class="spell-list" data-density="wide">{sections}</div>
         }
         .into_any()
     };
 
-    let school_counts = list_schools(&lists, list);
+    // Counts follow the page: on a level page they are that level's. A school that is still
+    // chosen stays listed, with its count, so it can be cleared.
+    let mut school_counts = list_schools(&lists, list, level);
+    for chosen in schools.get_untracked() {
+        if !school_counts.iter().any(|(s, _)| *s == chosen) {
+            school_counts.push((chosen, 0));
+        }
+    }
+    school_counts.sort();
     let school_filter = (school_counts.len() > 1).then(|| {
         let chips = school_counts
             .into_iter()
@@ -583,10 +593,14 @@ fn ListPage(
         <div class="wide">
             {spell_crumbs(Some(("Spell lists", Route::Spells)))}
             <h1>{heading}</h1>
-            <p class="muted">
-                {format!("{} on this list", spells_noun(total))}
-                {class_href.map(|href| view! { " · " <a href=href>{format!("{name} class page")}</a> })}
-            </p>
+            <p class="muted">{format!("{} on this list", spells_noun(total))}</p>
+            {class_href.map(|href| view! {
+                <p>
+                    <a class="jump class-page" href=href aria-label=format!("{name} class page")>
+                        "Class page"
+                    </a>
+                </p>
+            })}
             {level_links}
             {(!known_level).then(|| view! {
                 <p class="notice">
