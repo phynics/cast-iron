@@ -591,7 +591,7 @@ Native verification passes `cargo xtask check`, including 99 web tests. Six extr
 
 The primary agent also used a manual browser walkthrough to open Core Rulebook > Equipment > Armor, read the rendered article, jump to Masterwork Armor, follow Armor Spikes, use Back and Forward, and step to Banded Mail and back. No console errors appeared. Automated offline acceptance visits all 24 Armor article contents stops and follows a typed cross-link with reading history. The article is the sampled scope; this does not claim every linked equipment entry was read.
 
-A 52-capture batch covers phone and desktop widths in both themes, including open publication choices and star transfer. It reports no horizontal overflow, undersized alphabet/spell-level controls, or console errors. Representative PNGs were opened and inspected. Screenshots are stored locally under `/tmp/cast-iron-followup-ui-final` and are not committed.
+A 52-capture batch covers phone and desktop widths in both themes, including open publication choices and star transfer. It reports no horizontal overflow, undersized alphabet/spell-level controls, or console errors. Representative PNGs were opened and inspected. The screenshots were kept outside the repository and are not committed.
 
 Physical-iPhone VoiceOver and genuine offline standalone restart remain unverified. Only an iPhone 18 Pro iOS 27.2 simulator is connected. The device driver's settings support no VoiceOver control, and its Wi-Fi/airplane switches only override the simulator status bar. The verify skill contains the remaining physical-device steps. PR #6 is merged; this follow-up is not deployed, and its CI result is not yet verified.
 
