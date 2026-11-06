@@ -4,8 +4,7 @@
 
 ## Checklist
 
-- [ ] `cast-iron-corpus check .` passes (warnings about fields that disagree with the body are
-      fine for an entry I did not touch; I fixed them for the ones I did)
+- [ ] `cast-iron-corpus check .` passes, with no fields that disagree with the body
 - [ ] `cast-iron-corpus fmt --check .` passes
 - [ ] I did not change any `id` or move any file
 - [ ] I did not edit `history.toml`, remove a row from `exclusions.toml`, or edit a
