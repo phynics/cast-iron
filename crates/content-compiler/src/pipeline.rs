@@ -835,6 +835,9 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
         &aliases.targets,
         &aliases.dropped,
     );
+    // Every heading that a body link or a book node names gets that key as an explicit
+    // anchor, so editing its text cannot break the link. The key string is unchanged.
+    let anchor_report = crate::anchors::anchor_linked_headings(&mut entries, &books.index);
     let spell_lists = crate::lists::build(&entries);
     let relations = crate::relations::index_over(&entries, pf_relations.coverage);
     let relation_coverage = relations.coverage.clone();
@@ -909,6 +912,10 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
             ));
         }
     }
+    notes.push(format!(
+        "heading anchors: {} linked headings in {} entries carry an explicit anchor ({} entries anchored in full to keep duplicate keys stable)",
+        anchor_report.anchored, anchor_report.entries, anchor_report.fallbacks
+    ));
     notes.push(format!(
         "canonical primary publication: {primary_reordered} multi-book entries reordered by earliest source attribution"
     ));

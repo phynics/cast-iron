@@ -204,6 +204,19 @@ anchor omits the braces. The anchor is `[A-Za-z0-9_.-]+`; any other suffix in
 braces is an error, not heading text. This example is from Special Abilities
 (Core Rulebook).
 
+**Linked headings carry an explicit anchor.** A heading that any entry body link
+or any `books.toml` node reaches carries `{#anchor}`. Only a heading that nothing
+links to may omit it; the client then derives the URL key `sec-<slug of the
+text>` (with `-2`, `-3` for repeats). The rule keeps a link alive when someone
+edits a heading's text: the anchor does not move with the words. The anchor
+string is the key the heading already had, so a section URL does not change.
+The content compiler writes the anchors; `corpus fmt` adds one when an edit links
+to a heading that has none.
+
+A link anchor must name a heading anchor in the target entry. The check names
+the file with the link, the target file, the headings the target has, and the
+fix.
+
 ### Paragraphs
 
 ```markdown
@@ -404,8 +417,9 @@ naming the file and line, when:
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
 - a parent, body link, prerequisite feat, relation target, book node, or alias
   target names an unknown entry;
-- a body link anchor is not a heading anchor or a derived `sec-` heading key in
-  the target entry;
+- a body link or a `books.toml` anchor is not a heading key of the target entry
+  (the message names the linking file, the target file and its headings, and
+  the fix);
 - `coverage.toml` by-kind counts do not equal the entry files.
 
 ## Determinism

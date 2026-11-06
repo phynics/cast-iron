@@ -2,6 +2,7 @@
 
 pub mod alias;
 pub mod alias_propose;
+pub mod anchors;
 pub mod backlinks;
 pub mod books;
 pub mod build;
