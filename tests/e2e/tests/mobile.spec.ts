@@ -1,5 +1,5 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
-import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, waitResults } from "./helpers";
+import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, seedHome, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
 // Every screen names a target the compiled corpus actually holds; the two libraries differ
@@ -301,4 +301,40 @@ test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show schoo
   expect(schools.length).toBe(evocationCount);
   expect(new Set(schools)).toEqual(new Set(["Evocation"]));
   expect(await overflow()).toBeLessThanOrEqual(0);
+});
+
+const homeSpells = entries.filter((entry) => entry.kind === "spell")
+  .filter((entry, i, all) => all.findIndex((c) => c.title === entry.title) === i)
+  .map((entry) => ({ id: entry.id as string, title: entry.title as string }));
+
+installedTest("Home at 390 px: Categories starts in the first viewport with no stars and few recents", async ({ page }) => {
+  await installLibrary(page);
+  await seedHome(page, { recents: homeSpells.slice(0, 3) });
+  const top = await page.locator("#by-kind").evaluate((el) => el.getBoundingClientRect().top);
+  expect(top).toBeLessThan(page.viewportSize()!.height);
+  await expect(page.getByRole("heading", { name: "Starred" })).toHaveCount(0);
+  await expect(page.locator(".home-recent > li")).toHaveCount(3);
+});
+
+installedTest("Home at 390 px: twelve recents take five rows and a Show more control", async ({ page }) => {
+  await installLibrary(page);
+  await seedHome(page, { recents: homeSpells.slice(0, 12) });
+  const rows = page.locator(".home-recent > li");
+  await expect(rows).toHaveCount(5);
+  const more = page.getByRole("button", { name: /^Show more/ });
+  await expect(more).toBeVisible();
+  const section = (await page.locator("section[aria-labelledby=home-recent]").boundingBox())!;
+  const last = (await rows.last().boundingBox())!;
+  const moreBox = (await more.boundingBox())!;
+  // Heading, five one-line rows and the control: no taller than that plus a little spacing.
+  expect(section.height).toBeLessThan(44 + 5 * 52 + 44 + 24);
+  expect(moreBox.y).toBeGreaterThan(last.y);
+  for (const row of await rows.all()) {
+    const title = row.locator(".home-row-title");
+    const lineHeight = await title.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect((await title.boundingBox())!.height).toBeLessThanOrEqual(lineHeight + 1);
+    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
 });

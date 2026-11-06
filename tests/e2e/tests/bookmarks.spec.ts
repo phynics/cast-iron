@@ -85,7 +85,7 @@ test("More than six starred entries stay independently openable and removable", 
   await page.goto("#/");
   const rows = page.locator(".home-bookmarks > li");
   await expect(rows).toHaveCount(5);
-  const showAll = page.getByRole("button", { name: "Show all 7 starred entries" });
+  const showAll = page.getByRole("button", { name: "See all (7)" });
   await expect(showAll).toHaveAttribute("aria-expanded", "false");
   await expect(showAll).toHaveAttribute("aria-controls", "home-bookmarks-list");
   await showAll.click();
@@ -94,7 +94,7 @@ test("More than six starred entries stay independently openable and removable", 
   await expect(showFewer).toHaveAttribute("aria-expanded", "true");
   await showFewer.click();
   await expect(rows).toHaveCount(5);
-  await page.getByRole("button", { name: "Show all 7 starred entries" }).click();
+  await page.getByRole("button", { name: "See all (7)" }).click();
   await expect(rows).toHaveCount(7);
   const first = rows.filter({ has: page.getByRole("link", { name: distinct[0].title, exact: true }) });
   await first.getByRole("button", { name: `Unstar ${distinct[0].title}` }).click();

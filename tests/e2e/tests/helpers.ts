@@ -518,3 +518,38 @@ export async function openBookEntry(
     nodes = node.children;
   }
 }
+
+/**
+ * Replaces the stored recent history and stars with the given entries, then opens Home on a
+ * fresh load. Writes straight to IndexedDB so a test need not browse to fill the lists.
+ */
+export async function seedHome(
+  page: Page,
+  { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string }[] },
+) {
+  await page.goto("#/settings");
+  await page.evaluate(
+    ({ recents, stars }) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction(["bookmarks", "meta"], "readwrite");
+          tx.objectStore("bookmarks").clear();
+          stars.forEach((s, i) =>
+            tx.objectStore("bookmarks").put({
+              entry_id: s.id, title_snapshot: s.title, kind: "spell", added_at: 100 + i, collection_ids: [],
+            }));
+          tx.objectStore("meta").put(recents.map((r) => ({ id: r.id, title: r.title })), "recent");
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    { recents, stars },
+  );
+  await page.goto("#/");
+  await page.reload();
+  await waitReady(page);
+  await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+}

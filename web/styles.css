@@ -3174,14 +3174,22 @@ main,
 .nav-icon { display: flex; }
 .home-page > h1 { margin: var(--space-4) 0 var(--space-5); }
 .home-page section { margin-block: var(--space-5); }
-.home-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-.home-section-heading h2 { margin-bottom: var(--space-2); }
-.home-section-heading > a { flex-shrink: 0; }
-.home-bookmarks { list-style: none; padding: 0; margin: var(--space-2) 0 0; border-top: var(--border); }
-.home-bookmarks a, .home-bookmark-missing { display: flex; justify-content: space-between; gap: var(--space-3); align-items: center; min-height: var(--touch); padding: var(--space-2) 0; border-bottom: var(--border); text-decoration: none; }
-.home-bookmarks a:hover span:first-child { text-decoration: underline; }
-.home-bookmarks .muted { font-size: var(--step--1); }
-.home-bookmarks-more { margin-top: var(--space-2); }
+.home-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.home-section-heading h2 { margin-block: 0; }
+.home-section-heading > a, .home-section-heading > button { flex-shrink: 0; }
+.home-page h2 { margin-bottom: var(--space-1); }
+/* One compact list for Starred and Recently viewed: plain rows, one line each, hairline
+   separators. The title truncates; the kind (and, for equal titles, the book) follows it. */
+.home-list { list-style: none; padding: 0; margin: var(--space-1) 0 0; border-top: var(--border); }
+.home-row { display: flex; align-items: center; border-bottom: var(--border); min-height: var(--touch); }
+.home-row-link { display: flex; flex: 1 1 auto; min-width: 0; align-items: baseline; gap: var(--space-3); min-height: var(--touch); padding-block: var(--space-2); text-decoration: none; align-items: center; }
+.home-row-title { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+a.home-row-link:hover .home-row-title { text-decoration: underline; }
+.home-row-meta { flex: 0 1 auto; max-width: 45%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-muted); font-size: var(--step--1); }
+.home-row .star-btn { flex: none; }
+.home-list-more { margin-top: var(--space-1); }
+.home-hint { margin-block: var(--space-3); font-size: var(--step--1); }
+.home-hint svg { width: 1em; height: 1em; vertical-align: -0.12em; }
 .cats-note { font-size: var(--step--1); margin: 0 0 var(--space-3); }
 .home-books p { margin-block: var(--space-2); }
 @media (max-width: 47.99rem) {
