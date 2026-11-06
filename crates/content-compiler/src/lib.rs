@@ -9,6 +9,7 @@ pub mod canonical;
 pub mod carry;
 pub mod carry_review;
 pub mod config;
+pub mod corpus_coverage;
 pub mod family;
 pub mod fields;
 pub mod html;

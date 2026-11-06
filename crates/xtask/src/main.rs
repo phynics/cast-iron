@@ -1,6 +1,17 @@
 //! Repository automation. Run `cargo xtask help`.
 
+use cast_iron_content_compiler::corpus_coverage;
+use cast_iron_corpus::{
+    Config, Corpus, Exclusions, entry_path, read_aliases, read_books, read_legal,
+    read_publications, write_aliases, write_books, write_config, write_entry, write_exclusions,
+    write_history, write_legal, write_publications,
+};
+use cast_iron_schema::{
+    AliasIndex, BookIndex, Catalog, ContentManifest, CoverageReport, LegalNotices, RuleEntry,
+    SourceInfo,
+};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -32,6 +43,18 @@ cargo xtask <command>
                              generated/psrd with --psrd. The default public URL is /cast-iron/,
                              the GitHub Pages project path
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
+  corpus-export <out-dir> [--content <dir>]
+                             Write the plain-text corpus from the compiled library
+                             (default generated/content)
+  corpus-check <dir> [--drift-report <file>]
+                             Read a plain-text corpus and validate ids, paths, sources,
+                             and licences; exits non-zero and names the file and line.
+                             Lists fields-versus-body disagreements as warnings
+  corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
+                             list the first differing line of each file that is not canonical
+  corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
+  corpus-roundtrip <dir> [--content <dir>]
+                             Compare every corpus file with the compiled library
   check                      Run fmt, clippy, tests, and the WASM build
 ";
 
@@ -55,6 +78,11 @@ fn main() -> ExitCode {
         Some("content") => content(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist")),
+        Some("corpus-export") => corpus_export(&args[1..]),
+        Some("corpus-check") => corpus_check(&args[1..]),
+        Some("corpus-roundtrip") => corpus_roundtrip(&args[1..]),
+        Some("corpus-fmt") => corpus_fmt(&args[1..]),
+        Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
         Some("check") => check(),
         Some("help") | None => {
             print!("{HELP}");
@@ -714,6 +742,425 @@ fn stamp_shell(dist: &Path) -> Result {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+struct Library {
+    entries: Vec<RuleEntry>,
+    catalog: Catalog,
+    books: BookIndex,
+    legal: LegalNotices,
+    coverage: CoverageReport,
+    aliases: Option<AliasIndex>,
+}
+
+fn load_library(content: &Path) -> Result<Library> {
+    let manifest_path = content.join("manifest.json");
+    let manifest: ContentManifest = serde_json::from_slice(
+        &fs::read(&manifest_path)
+            .map_err(|e| format!("cannot read {}: {e}", manifest_path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", manifest_path.display()))?;
+    let version = content.join(&manifest.content_version);
+    let mut entries = Vec::new();
+    let entries_dir = version.join("entries");
+    for item in fs::read_dir(&entries_dir)
+        .map_err(|e| format!("cannot read {}: {e}", entries_dir.display()))?
+    {
+        let path = item.map_err(|e| e.to_string())?.path();
+        if path.extension().is_some_and(|ext| ext == "json") {
+            let mut shard: Vec<RuleEntry> = serde_json::from_slice(
+                &fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
+            )
+            .map_err(|e| format!("{}: {e}", path.display()))?;
+            entries.append(&mut shard);
+        }
+    }
+    entries.sort_by(|a, b| a.id.cmp(&b.id));
+    if entries.len() != manifest.entry_count as usize {
+        return Err(format!(
+            "{} has {} entries but the manifest names {}",
+            entries_dir.display(),
+            entries.len(),
+            manifest.entry_count
+        ));
+    }
+    for pair in entries.windows(2) {
+        if pair[0].id == pair[1].id {
+            return Err(format!(
+                "duplicate id {} in {}",
+                pair[0].id,
+                entries_dir.display()
+            ));
+        }
+    }
+    let read = |name: &str| -> Result<Vec<u8>> {
+        let path = version.join(name);
+        fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    };
+    let catalog: Catalog =
+        serde_json::from_slice(&read("catalog.json")?).map_err(|e| format!("catalog.json: {e}"))?;
+    let books: BookIndex =
+        serde_json::from_slice(&read("books.json")?).map_err(|e| format!("books.json: {e}"))?;
+    let legal: LegalNotices =
+        serde_json::from_slice(&read("legal.json")?).map_err(|e| format!("legal.json: {e}"))?;
+    let coverage: CoverageReport = serde_json::from_slice(&read("coverage.json")?)
+        .map_err(|e| format!("coverage.json: {e}"))?;
+    let aliases_path = version.join("aliases.json");
+    let aliases = if aliases_path.is_file() {
+        Some(
+            serde_json::from_slice(&fs::read(&aliases_path).map_err(|e| e.to_string())?)
+                .map_err(|e| format!("aliases.json: {e}"))?,
+        )
+    } else {
+        None
+    };
+    Ok(Library {
+        entries,
+        catalog,
+        books,
+        legal,
+        coverage,
+        aliases,
+    })
+}
+
+fn corpus_args(args: &[String], command: &str) -> Result<(PathBuf, PathBuf)> {
+    let mut positional = None;
+    let mut content = None;
+    let mut rest = args.iter();
+    while let Some(argument) = rest.next() {
+        if argument == "--content" {
+            content = Some(PathBuf::from(
+                rest.next().ok_or("--content needs a directory")?,
+            ));
+        } else if argument.starts_with('-') {
+            return Err(format!("unknown argument {argument:?} for {command}"));
+        } else if positional.replace(PathBuf::from(argument)).is_some() {
+            return Err(format!("{command} takes one corpus directory"));
+        }
+    }
+    let corpus = positional.ok_or_else(|| format!("usage: {command} <dir> [--content <dir>]"))?;
+    Ok((
+        corpus,
+        content.unwrap_or_else(|| root().join("generated/content")),
+    ))
+}
+
+fn corpus_export(args: &[String]) -> Result {
+    let (out, content) = corpus_args(args, "corpus-export")?;
+    let library = load_library(&content)?;
+    if out.exists() {
+        let empty = fs::read_dir(&out)
+            .map_err(|e| format!("cannot read {}: {e}", out.display()))?
+            .next()
+            .is_none();
+        let corpus = out.join("entries").is_dir() || out.join("publications.toml").is_file();
+        if !empty && !corpus {
+            return Err(format!(
+                "refusing to clear {}: it is not an empty directory or a corpus",
+                out.display()
+            ));
+        }
+        fs::remove_dir_all(&out).map_err(|e| format!("cannot clear {}: {e}", out.display()))?;
+    }
+    fs::create_dir_all(&out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
+
+    let mut files = 0usize;
+    let mut bytes = 0u64;
+    let config = Config::default();
+    let (excluded, rejected, history) =
+        corpus_coverage::split(&library.coverage, &library.catalog.sources);
+    let exclusions = Exclusions { excluded, rejected };
+    for entry in &library.entries {
+        let path = out.join(entry_path(&entry.id));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+        }
+        let text = write_entry(entry, &config);
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    }
+    let stored = [
+        ("corpus.toml", write_config(&config)),
+        (
+            "publications.toml",
+            write_publications(&library.catalog.sources),
+        ),
+        ("books.toml", write_books(&library.books)),
+        ("legal.toml", write_legal(&library.legal)),
+        ("exclusions.toml", write_exclusions(&exclusions)),
+        ("history.toml", write_history(&history)),
+    ];
+    for (name, text) in stored {
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(out.join(name), text)
+            .map_err(|e| format!("cannot write {}: {e}", out.join(name).display()))?;
+    }
+    if let Some(aliases) = &library.aliases {
+        let text = write_aliases(aliases);
+        bytes += text.len() as u64;
+        files += 1;
+        fs::write(out.join("aliases.toml"), text)
+            .map_err(|e| format!("cannot write aliases.toml: {e}"))?;
+    }
+    println!(
+        "exported {} entries, {} files, {:.2} MB to {}",
+        library.entries.len(),
+        files,
+        bytes as f64 / (1024.0 * 1024.0),
+        out.display()
+    );
+    Ok(())
+}
+
+fn corpus_check(args: &[String]) -> Result {
+    cast_iron_corpus::cli::run_check(args)
+}
+
+fn corpus_fmt(args: &[String]) -> Result {
+    cast_iron_corpus::cli::run_fmt(args)
+}
+
+fn corpus_roundtrip(args: &[String]) -> Result {
+    let (dir, content) = corpus_args(args, "corpus-roundtrip")?;
+    let library = load_library(&content)?;
+
+    let corpus = Corpus::load(&dir).map_err(|errors| {
+        errors
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n")
+    })?;
+    let read_entries: BTreeMap<String, RuleEntry> = corpus
+        .entries
+        .iter()
+        .map(|(id, stored)| (id.clone(), stored.entry.clone()))
+        .collect();
+    let entries_vec: Vec<RuleEntry> = read_entries.values().cloned().collect();
+    let corpus_sources: Vec<SourceInfo> = corpus
+        .publications
+        .iter()
+        .map(|publication| publication.to_source(0))
+        .collect();
+
+    let expected: BTreeMap<String, RuleEntry> = library
+        .entries
+        .iter()
+        .cloned()
+        .map(|entry| (entry.id.to_string(), entry))
+        .collect();
+    let mut mismatches = 0usize;
+    for entry in &library.entries {
+        let id = entry.id.to_string();
+        match read_entries.get(&id) {
+            None => {
+                mismatches += 1;
+                eprintln!("missing entry file for {id}");
+            }
+            Some(read) if read != &expected[&id] => {
+                mismatches += 1;
+                let field = first_difference(&expected[&id], read);
+                eprintln!("{id}: {field}");
+            }
+            Some(_) => {}
+        }
+    }
+    for id in read_entries.keys() {
+        if !expected.contains_key(id) {
+            mismatches += 1;
+            eprintln!("unexpected entry file for {id}");
+        }
+    }
+
+    let publications = read_publications(
+        &dir.join("publications.toml"),
+        &fs::read_to_string(dir.join("publications.toml"))
+            .map_err(|e| format!("cannot read publications.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    let mut counts: BTreeMap<&str, u32> = BTreeMap::new();
+    for entry in &library.entries {
+        if let Some(source) = entry.source_ids.first() {
+            *counts.entry(source.as_str()).or_default() += 1;
+        }
+    }
+    let expected_publications: Vec<SourceInfo> = library
+        .catalog
+        .sources
+        .iter()
+        .map(|source| {
+            let mut source = source.clone();
+            source.entry_count = counts.get(source.id.as_str()).copied().unwrap_or(0);
+            source
+        })
+        .collect();
+    for source in &expected_publications {
+        let found = publications
+            .iter()
+            .find(|publication| publication.id == source.id)
+            .map(|publication| publication.to_source(source.entry_count));
+        if found.as_ref() != Some(source) {
+            mismatches += 1;
+            eprintln!(
+                "publications.toml: {} does not match the catalogue",
+                source.id
+            );
+        }
+    }
+    for publication in &publications {
+        if !expected_publications
+            .iter()
+            .any(|source| source.id == publication.id)
+        {
+            mismatches += 1;
+            eprintln!(
+                "publications.toml: unexpected publication {}",
+                publication.id
+            );
+        }
+    }
+
+    let read_books = read_books(
+        &dir.join("books.toml"),
+        &fs::read_to_string(dir.join("books.toml"))
+            .map_err(|e| format!("cannot read books.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if read_books != library.books {
+        mismatches += 1;
+        eprintln!("books.toml does not match the compiled book index");
+    }
+    let read_legal = read_legal(
+        &dir.join("legal.toml"),
+        &fs::read_to_string(dir.join("legal.toml"))
+            .map_err(|e| format!("cannot read legal.toml: {e}"))?,
+    )
+    .map_err(|e| e.to_string())?;
+    if read_legal != library.legal {
+        mismatches += 1;
+        eprintln!("legal.toml does not match the compiled legal notices");
+    }
+    match &corpus.history {
+        None => {
+            mismatches += 1;
+            eprintln!("history.toml is missing");
+        }
+        Some(history) => {
+            let derived = corpus_coverage::derive(
+                &entries_vec,
+                &corpus_sources,
+                &corpus.exclusions.excluded,
+                &corpus.exclusions.rejected,
+                history,
+            )?;
+            if derived != library.coverage {
+                mismatches += 1;
+                eprintln!(
+                    "the coverage derived from the corpus differs from the compiled coverage.json: {}",
+                    coverage_difference(&derived, &library.coverage)
+                );
+            }
+        }
+    }
+    match (&library.aliases, dir.join("aliases.toml").is_file()) {
+        (Some(expected), true) => {
+            let read = read_aliases(
+                &dir.join("aliases.toml"),
+                &fs::read_to_string(dir.join("aliases.toml"))
+                    .map_err(|e| format!("cannot read aliases.toml: {e}"))?,
+            )
+            .map_err(|e| e.to_string())?;
+            if &read != expected {
+                mismatches += 1;
+                eprintln!("aliases.toml does not match the compiled alias index");
+            }
+        }
+        (None, false) => {}
+        (Some(_), false) => {
+            mismatches += 1;
+            eprintln!("aliases.toml is missing");
+        }
+        (None, true) => {
+            mismatches += 1;
+            eprintln!("aliases.toml is present but the library has no alias index");
+        }
+    }
+
+    if mismatches > 0 {
+        return Err(format!("round trip has {mismatches} mismatch(es)"));
+    }
+    println!(
+        "round trip ok: {} entries, 0 mismatches; {} publications, {} books",
+        library.entries.len(),
+        publications.len(),
+        library.books.books.len()
+    );
+    Ok(())
+}
+
+/// Names the first coverage section that differs.
+fn coverage_difference(derived: &CoverageReport, compiled: &CoverageReport) -> String {
+    let derived = serde_json::to_value(derived).unwrap_or_default();
+    let compiled = serde_json::to_value(compiled).unwrap_or_default();
+    if let (Some(a), Some(b)) = (derived.as_object(), compiled.as_object()) {
+        for (key, value) in a {
+            if b.get(key) != Some(value) {
+                if let (Some(a), Some(b)) = (
+                    value.as_object(),
+                    b.get(key).and_then(serde_json::Value::as_object),
+                ) {
+                    for (inner, value) in a {
+                        if b.get(inner) != Some(value) {
+                            return format!("`{key}.{inner}`");
+                        }
+                    }
+                }
+                return format!("`{key}`");
+            }
+        }
+    }
+    "values differ".into()
+}
+
+fn first_difference(expected: &RuleEntry, read: &RuleEntry) -> String {
+    let expected = serde_json::to_value(expected).unwrap_or_default();
+    let read = serde_json::to_value(read).unwrap_or_default();
+    if let (Some(a), Some(b)) = (expected.as_object(), read.as_object()) {
+        for key in a.keys() {
+            if a.get(key) != b.get(key) {
+                if key == "body"
+                    && let (Some(expected), Some(read)) = (
+                        a.get(key).and_then(serde_json::Value::as_array),
+                        b.get(key).and_then(serde_json::Value::as_array),
+                    )
+                {
+                    let index = expected
+                        .iter()
+                        .zip(read)
+                        .position(|(left, right)| left != right)
+                        .unwrap_or_else(|| expected.len().min(read.len()));
+                    let left = expected.get(index);
+                    let right = read.get(index);
+                    return format!(
+                        "field `body` differs at block {index}: expected {}, read {}",
+                        left.map_or_else(|| "<missing>".into(), serde_json::Value::to_string),
+                        right.map_or_else(|| "<missing>".into(), serde_json::Value::to_string)
+                    );
+                }
+                return format!("field `{key}` differs");
+            }
+        }
+        for key in b.keys() {
+            if a.get(key).is_none() {
+                return format!("unexpected field `{key}`");
+            }
+        }
+    }
+    "values differ".into()
 }
 
 fn check() -> Result {

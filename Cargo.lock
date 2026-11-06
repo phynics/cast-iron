@@ -146,6 +146,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cast-iron-corpus"
+version = "0.1.0"
+dependencies = [
+ "cast-iron-schema",
+ "serde",
+ "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
 name = "cast-iron-schema"
 version = "0.1.0"
 dependencies = [
@@ -2230,6 +2239,9 @@ checksum = "3ad82d2a33cdc9674dc7465672f271e096168fcdbe0f799d9e6db8c5892679dc"
 name = "xtask"
 version = "0.1.0"
 dependencies = [
+ "cast-iron-content-compiler",
+ "cast-iron-corpus",
+ "cast-iron-schema",
  "serde_json",
  "sha2",
 ]
