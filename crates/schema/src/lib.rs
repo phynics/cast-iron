@@ -35,6 +35,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
+pub mod headings;
 pub mod validate;
 
 /// Version of the serialized content format.
