@@ -29,9 +29,9 @@ published id starts with `ref/`, so the rule is reversible: remove `entries/`
 and `.md`, then prepend `ref/`. The file also stores `id` in the front matter, and the
 reader rejects a file whose path does not match it.
 
-Ids never change. Moving a file, or editing an id, is a data error. An upstream
-id rename gets a row in `sources/psrd-data/id-overrides.toml` and never a second
-meaning; the corpus does not invent a new path for an existing id.
+Ids never change. Moving a file, or editing an id, is a data error. A legacy id gets a
+row in `aliases.toml` and never a second meaning; the corpus does not invent a new path
+for an existing id.
 
 ## Entry front matter
 
@@ -174,9 +174,8 @@ deterministic pass over the entries can produce it, derive it.
 - links inside emphasis, headings, tables, lists, quotes, captions, and stat rows count;
 - the result is sorted and deduplicated.
 
-The content compiler recomputes this list from the final body after the legal
-screen and settlement steps. The corpus reader performs the same projection, so
-the compiled value and the read-back value are identical.
+The corpus reader recomputes this list from the body when it reads the entry, so a
+hand edit to a body cannot leave a stale link list.
 
 ### Coverage
 
@@ -226,9 +225,8 @@ cannot state, kept as they were at the cut:
 Do not edit the file. These values describe the import, not the corpus. The
 upstream dataset pins stay in `legal.toml`.
 
-`cargo xtask corpus-roundtrip` rebuilds the full coverage report from the
-entries, `exclusions.toml`, and `history.toml`, and requires it to equal the
-compiled `coverage.json` exactly.
+`cargo xtask content` derives the report from these files and writes it to
+`coverage.json`.
 
 ## Body
 
@@ -564,8 +562,6 @@ runs behind `cargo xtask corpus-check`, `corpus-fmt`, and `corpus-migrate`.
 
 ## Determinism
 
-The writer is deterministic: the same `RuleEntry` gives byte-identical text, and
-the same library gives byte-identical corpus files. It uses a fixed key order,
-fixed block separation, no timestamps, and no hash-map iteration. The export
-command clears a previous corpus directory (or an empty one) first, so a stale
-file cannot survive a second export.
+The writer is deterministic: the same `RuleEntry` gives byte-identical text. It uses a
+fixed key order, fixed block separation, no timestamps, and no hash-map iteration, so
+`fmt` rewrites a file to the same bytes every time.

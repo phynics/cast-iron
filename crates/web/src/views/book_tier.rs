@@ -1,5 +1,5 @@
 //! Priority tiers for the Books page. One table maps the reviewed publication category
-//! (`SourceInfo.category`, from `sources/canonical/publication-metadata.toml`) to a tier.
+//! (`SourceInfo.category`, from the corpus `publications.toml`) to a tier.
 //! Core rulebooks matter most; adventures matter least. The mapping is pure so native
 //! tests cover it, including every category value that the reviewed file contains.
 
@@ -212,53 +212,68 @@ mod tests {
         assert_eq!(names.len(), Tier::CATEGORIES.len(), "a duplicate category");
     }
 
-    /// The reviewed metadata file is the input. A category value that this table does not
-    /// know would silently land in Other, so the test fails and names it instead.
+    /// The categories that the pinned corpus (`publications.toml`) uses. A category value that
+    /// this table does not know would silently land in Other, so the test fails and names it
+    /// instead. When a corpus bump adds a category, add it here and to `Tier::CATEGORIES`.
+    const REVIEWED_CATEGORIES: [&str; 5] = [
+        "Adventure Path",
+        "Campaign Setting",
+        "Module",
+        "Player Companion",
+        "RPG",
+    ];
+
+    fn assert_category_has_a_tier(id: &str, category: &str) {
+        let known = Tier::CATEGORIES.iter().find(|(name, _)| *name == category);
+        let (_, tier) = known.unwrap_or_else(|| {
+            panic!(
+                "publication {id} has category {category:?}, which Tier::CATEGORIES does not \
+                 list. Add it with its tier; do not let it fall to Other."
+            )
+        });
+        assert_eq!(Tier::from_category(Some(category)), *tier);
+        if *tier == Tier::Other {
+            assert_eq!(
+                category, "Miscellaneous",
+                "publication {id} falls to Other unexpectedly"
+            );
+        }
+    }
+
     #[test]
     fn every_reviewed_category_has_a_tier_and_none_falls_to_other_by_accident() {
+        for category in REVIEWED_CATEGORIES {
+            assert_category_has_a_tier("(reviewed list)", category);
+        }
+    }
+
+    /// When the pinned corpus is in the cache (`cargo xtask fetch-sources`), every category it
+    /// uses must be in the reviewed list above. The test is skipped without the cache.
+    #[test]
+    fn every_category_in_the_cached_corpus_is_reviewed() {
         let path = concat!(
             env!("CARGO_MANIFEST_DIR"),
-            "/../../sources/canonical/publication-metadata.toml"
+            "/../../.cache/sources/cast-iron-data/publications.toml"
         );
-        let text = std::fs::read_to_string(path).expect("publication-metadata.toml is readable");
-        let file: toml::Table = text
-            .parse()
-            .expect("publication-metadata.toml is valid TOML");
-        let publications = file
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return;
+        };
+        let file: toml::Table = text.parse().expect("publications.toml is valid TOML");
+        let rows = file
             .get("publication")
-            .and_then(toml::Value::as_table)
-            .expect("the file has a [publication] table");
-        assert!(!publications.is_empty());
-        let mut seen = BTreeSet::new();
-        for (id, row) in publications {
+            .and_then(toml::Value::as_array)
+            .expect("the file has [[publication]] rows");
+        assert!(!rows.is_empty());
+        for row in rows {
+            let id = row.get("id").and_then(toml::Value::as_str).unwrap_or("?");
             let Some(category) = row.get("category").and_then(toml::Value::as_str) else {
                 continue;
             };
-            seen.insert(category.to_string());
-            let known = Tier::CATEGORIES.iter().find(|(name, _)| *name == category);
-            let (_, tier) = known.unwrap_or_else(|| {
-                panic!(
-                    "publication {id} has category {category:?}, which Tier::CATEGORIES does not \
-                     list. Add it with its tier; do not let it fall to Other."
-                )
-            });
-            assert_eq!(Tier::from_category(Some(category)), *tier);
-            if *tier == Tier::Other {
-                assert_eq!(
-                    category, "Miscellaneous",
-                    "publication {id} falls to Other unexpectedly"
-                );
-            }
-        }
-        // The table also keeps its promise for the values the file has today.
-        for required in [
-            "RPG",
-            "Player Companion",
-            "Campaign Setting",
-            "Adventure Path",
-            "Module",
-        ] {
-            assert!(seen.contains(required), "{required} is no longer reviewed");
+            assert!(
+                REVIEWED_CATEGORIES.contains(&category),
+                "publication {id} has category {category:?}; add it to REVIEWED_CATEGORIES"
+            );
+            assert_category_has_a_tier(id, category);
         }
     }
 }

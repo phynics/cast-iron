@@ -1,5 +1,7 @@
 # AoN and legacy PRD book sections
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Checked 2026-11-03 for Cast Iron's book view. This research compares three different structures: publisher print contents, legacy PRD navigation, and Archives of Nethys source/category pages. Only publisher contents can establish printed chapter order. Neither website's navigation nor its database grouping is sufficient evidence of that order.
 
 ## Directly checked sources

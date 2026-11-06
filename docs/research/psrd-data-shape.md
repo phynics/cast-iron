@@ -1,5 +1,7 @@
 # PSRD-Data-release: data shape survey
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Source: `/tmp/ci-dl-1/PSRD-Data-release` (read-only). All counts come from scripts in `/tmp/ci-survey-scripts/` (`inventory.py`, `detail.py`, `values.py`, `html_survey.py`, `links3.py`, `structure.py`, `examples.py`, `dirmap.py`, `verify.py`, `gen_tables.py`). Raw outputs are in `/tmp/ci-survey-scripts/out/`.
 
 ## 0. Inventory

@@ -1,5 +1,7 @@
 # Printed book order evidence
 
+> **Retired import.** The evidence below still governs `books.toml` in the corpus. The `book-order.toml` and upstream order file it names belonged to the retired import (git tag `psrd-last-buildable`) and no longer exist on `main`.
+
 This record distinguishes publisher evidence from the order present in the PSRD dataset. A rule-tree sequence is useful for grouping records, but does not establish printed chapter order. Only chapter titles and order are recorded here; no book artwork or PDF text is reproduced.
 
 ## Core Rulebook

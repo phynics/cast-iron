@@ -1,5 +1,7 @@
 # PF1e dataset candidates
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Research checked 2026-11-03. This compares public GitHub repositories and their published source material for a free, offline PF1 reference. It does not establish legal clearance. A repository license for code does not license game text stored beside that code; a crawler's existence does not grant permission to redistribute its output.
 
 ## Findings

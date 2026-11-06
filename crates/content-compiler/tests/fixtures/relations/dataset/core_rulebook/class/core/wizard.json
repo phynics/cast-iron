@@ -1,9 +1,0 @@
-{
- "name": "Wizard",
- "url": "pfsrd://Core Rulebook/Classes/Wizard",
- "source": "Core Rulebook",
- "type": "class",
- "subtype": "core",
- "hit_die": "d6",
- "body": "<p>Beyond the veil of the mundane hide the secrets of absolute power.</p>"
-}

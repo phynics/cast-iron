@@ -7,7 +7,7 @@ Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rul
 - Development tracking: [GitHub Issues](https://github.com/phynics/cast-iron/issues). Search before creating an issue. Link each implementation PR to its issue. See `CONTRIBUTING.md`.
 - Integration and publication: `main` integrates work; `release` publishes Pages. Follow `docs/releasing.md` for explicit promotion, verification, and recovery. Never auto-promote main or reset release history.
 - Current state, corpus counts, and acceptance results: `docs/status.md`. Distinguish local verification, CI, and deployment.
-- Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `sources/psrd-data/book-order.toml`; website menus and dataset order do not establish printed order.
+- Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `books.toml` in the corpus; website menus and dataset order do not establish printed order.
 
 ## Commands
 
@@ -18,36 +18,33 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Task | Command |
 |---|---|
 | Install Trunk (once) | `cargo install trunk --locked` |
-| Get the pinned corpus and datasets | `cargo xtask fetch-sources` (verifies the corpus tree hash in `sources/corpus.toml`) |
-| Compile the canonical library (default) | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
-| Compile the canonical library from the upstream datasets | `cargo xtask content --from-upstream` (comparison only; removed in a later step) |
+| Get the pinned corpus | `cargo xtask fetch-sources` (downloads `phynics/cast-iron-data`; verifies the tree hash in `sources/corpus.toml`) |
+| Compile the library | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
+| Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
-| Compile the PSRD carry-over library | `cargo xtask content --psrd` (writes `generated/psrd/`) |
-| Build the site into `dist/` | `cargo xtask build-site` (canonical default; `--psrd` for the PSRD library; `--public-url /` for a root path) |
-| Test the PSRD build | `CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- ...` |
-| Export the plain-text corpus | `cargo xtask corpus-export <out-dir>` |
-| Validate a plain-text corpus | `cargo xtask corpus-check <dir>` |
-| Compare a corpus with the compiled library | `cargo xtask corpus-roundtrip <dir>` |
+| Validate a corpus | `cargo xtask corpus-check <dir>` |
+| Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Check before you finish | `cargo xtask check` |
 | Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
 
 To prove a change in the real app, use the `verify` skill in `.agents/skills/verify/SKILL.md`.
+
+The retired upstream import and the PSRD library build are preserved at the git tag `psrd-last-buildable`. `docs/releasing.md` says when to use it.
 
 ## Layout
 
 | Path | Contents |
 |---|---|
 | `crates/schema` | The contract between the compiler and the client: content types, validation |
-| `crates/content-compiler` | Native CLI: corpus build, PSRD-Data adapter, HTML to rich content, reports |
+| `crates/content-compiler` | Native CLI: compiles the corpus into the content library, writes reports |
+| `crates/corpus` | The plain-text corpus format: reader, writer, check, formatter (`docs/corpus-format.md`) |
 | `crates/search` | Index generation and query engine, for native and WASM. No dependency on `schema` |
 | `crates/web` | Leptos client |
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
 | `sources/corpus.toml` | Pin of the plain-text corpus (`phynics/cast-iron-data`): tag, commit, tree hash. To bump it: tag the corpus, update `commit` and `tree_sha256` (`cargo xtask corpus-tree-hash <extracted dir>`), run `cargo xtask fetch-sources` and `cargo xtask content` |
-| `sources/psrd-data/` | Dataset pin, reviewed selection, book order, id overrides, legal notices |
-| `sources/pathfinder-data-1-e/` | Supplemental pin, approval gate (`approved.json`), out-of-scope list |
-| `scripts/` | Source selection, publication, upgrade, and audit checks |
-| `LICENSE`, `LICENSES/` | MIT code license and content/upstream notices |
+| `scripts/` | Publication screen and release promotion scripts |
+| `LICENSE`, `LICENSES/` | MIT code license, OGL text, and the licensing of the corpus |
 | `generated/`, `dist/`, `.cache/` | Build output. Never commit these directories |
 | `tests/e2e` | Playwright acceptance tests |
 
@@ -55,16 +52,16 @@ To prove a change in the real app, use the `verify` skill in `.agents/skills/ver
 
 1. Offline is the product. Nothing at runtime may contact a third-party host: no CDN, no remote font, no telemetry. After installation, ordinary use makes no network request at all.
 2. Client rendering uses typed nodes only. Never add `inner_html` or raw upstream HTML. This is the XSS defense.
-3. `EntryId` values are public, permanent identifiers, because bookmarks store them. If an upstream change alters a PSRD id, add a mapping in `sources/psrd-data/id-overrides.toml`. Published canonical ids are `ref/` ids; a legacy id resolves through `sources/canonical/id-map.toml` and never gets a second meaning.
+3. `EntryId` values are public, permanent identifiers, because bookmarks store them. Never edit an `id` or move an entry file in the corpus. Published ids are `ref/` ids; a legacy id resolves through `aliases.toml` in the corpus and never gets a second meaning.
 4. A breaking change to serialized content must increase `SCHEMA_VERSION`. A breaking change to the search format must increase `INDEX_FORMAT_VERSION`.
 5. Compiler output must stay byte-identical between runs: no timestamps, no hash-map iteration order.
-6. Excluded or rejected material must appear in the coverage report. Never drop it silently.
+6. Excluded or rejected material must appear in the coverage report. Record it in `exclusions.toml` in the corpus; never drop it silently.
 7. A partly installed library must never show as ready. Verify hashes before activation. The active library stays usable until a replacement is verified.
 8. JavaScript stays limited to `web/sw.js` and the small bridge in `crates/web/js/`. Put logic that can be tested natively in Rust.
 9. All asset URLs are relative to the document base, because the app runs under a project path (`/cast-iron/`).
-10. Do not ship artwork. Paizo Product Identity (names, deities, characters, setting prose) ships only under Paizo's Community Use Policy: every entry carries the `legal#community-use` notice path, and the legal page keeps the Community Use notice. Never imply official status (rule 11). Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the canonical Pf Data corpus. Keep the legal page data complete for both dataset pins and `LICENSES/README.md` accurate.
+10. Do not ship artwork. Paizo Product Identity (names, deities, characters, setting prose) ships only under Paizo's Community Use Policy: every entry carries the `legal#community-use` notice path, and the legal page keeps the Community Use notice. Never imply official status (rule 11). Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the Pf Data corpus. Keep `legal.toml` in the corpus complete (Section 15 notices, dataset pins) and `LICENSES/README.md` accurate.
 11. The app must not use the Pathfinder logo, and must not claim official status or compatibility.
-12. PSRD supplemental records enter its library only through `sources/pathfinder-data-1-e/approved.json`. Canonical Pf Data records enter through the screened inventory and the reviewed `sources/canonical/publications.toml` registry. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope via `out-of-scope.json`.
+12. Entries enter the library only by editing the corpus repository (`phynics/cast-iron-data`) and bumping the pin in `sources/corpus.toml`. Each new publication needs a row in the corpus `publications.toml` and its Section 15 notice or a recorded pending decision. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope.
 
 ## Working pattern
 
@@ -76,4 +73,4 @@ Work in small commits, each with a verifiable state. A task is finished only aft
 
 Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
 
-After changing compiler code, schema types, or source configuration, run `cargo xtask content` (canonical default) before `cargo xtask build-site`. Run `cargo xtask content --psrd` as well when the PSRD carry-over input or the previous published library is affected. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill and retain the last published PSRD library outside build-output directories.
+After changing compiler code, schema types, or the corpus pin, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill.

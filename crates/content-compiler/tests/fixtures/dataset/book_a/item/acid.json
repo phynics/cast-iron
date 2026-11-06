@@ -1,4 +1,0 @@
-{"body": "<p>You can throw a flask of acid as a splash weapon.</p>", "name": "Acid", "weight": "1 lb.",
- "url": "pfsrd://Core Rulebook/Rules/Combat/Goods/Acid", "price": "10 gp/flask",
- "misc": {"null": {"Gear Type": "Special Substances and Items", "Craft": "DC 15 Craft (Alchemy) Check"}},
- "source": "Core Rulebook", "type": "item", "slot": "None"}

@@ -9,8 +9,7 @@
 //!   how prerequisite wording was read, which parts were left unplaced, how upstream page
 //!   numbers placed entries), which the corpus stores as the frozen `history.toml`.
 //!
-//! [`split`] cuts a compiled report into those three parts at export time, and [`derive`]
-//! puts them back together. `derive(split(report)) == report` is the round-trip proof.
+//! [`derive`] puts the three parts together.
 
 use crate::backlinks;
 use crate::lists;
@@ -102,46 +101,6 @@ fn backlinks_bytes(built: &backlinks::Built) -> Result<u64, String> {
         bytes += serde_json::to_vec(shard).map_err(|e| e.to_string())?.len() as u64;
     }
     Ok(bytes)
-}
-
-/// The exclusion rows, the rejection rows, and the frozen history of a compiled report.
-pub fn split(
-    coverage: &CoverageReport,
-    sources: &[SourceInfo],
-) -> (Vec<Exclusion>, Vec<Rejection>, CoverageHistory) {
-    let catalogue: BTreeMap<&str, &str> = sources
-        .iter()
-        .map(|source| (source.id.as_str(), source.title.as_str()))
-        .collect();
-    let publications = coverage
-        .by_publication
-        .iter()
-        .filter_map(|row| {
-            let listed = catalogue.get(row.source_id.as_str()).copied();
-            let title = (listed != Some(row.title.as_str()) && row.title != row.source_id)
-                .then(|| row.title.clone());
-            (row.upstream_records > 0 || listed.is_none() || title.is_some()).then(|| {
-                UpstreamPublication {
-                    source_id: row.source_id.clone(),
-                    upstream_records: row.upstream_records,
-                    title,
-                }
-            })
-        })
-        .collect();
-    let history = CoverageHistory {
-        input_digest: coverage.input_digest.clone(),
-        publications,
-        prerequisites: coverage.relations.prerequisites.clone(),
-        unplaced_parts: coverage.relations.unplaced_parts.clone(),
-        unpromoted: coverage.relations.unpromoted.clone(),
-        book_order: coverage.relations.book_order.clone(),
-    };
-    (
-        coverage.excluded.clone(),
-        coverage.rejected.clone(),
-        history,
-    )
 }
 
 #[cfg(test)]
@@ -295,53 +254,5 @@ mod tests {
         assert_eq!(after.by_kind["rule"], 2);
         assert_eq!(after.links.resolved, 1);
         assert_eq!(after.by_publication[0].included_entries, 2);
-    }
-
-    #[test]
-    fn splitting_and_deriving_gives_the_report_back() {
-        let entries = vec![
-            entry("ref/rule/a", EntryKind::Rule, &["book"], Some("ref/rule/b")),
-            entry("ref/rule/b", EntryKind::Rule, &["book"], None),
-        ];
-        let sources = vec![source("book", "Book")];
-        let history = CoverageHistory {
-            input_digest: "f".repeat(64),
-            publications: vec![
-                UpstreamPublication {
-                    source_id: "book".into(),
-                    upstream_records: 5,
-                    title: Some("Book (long title)".into()),
-                },
-                UpstreamPublication {
-                    source_id: "unlisted".into(),
-                    upstream_records: 1,
-                    title: None,
-                },
-            ],
-            unplaced_parts: vec![cast_iron_schema::Unplaced {
-                entry: "ref/arc-x/y".into(),
-                reason: "no class".into(),
-            }],
-            ..Default::default()
-        };
-        let excluded = vec![Exclusion {
-            path: "p".into(),
-            records: 1,
-            reason: "r".into(),
-        }];
-        let report = derive(&entries, &sources, &excluded, &[], &history).unwrap();
-        let (excluded_back, rejected_back, history_back) = split(&report, &sources);
-        assert_eq!(excluded_back, excluded);
-        assert!(rejected_back.is_empty());
-        assert_eq!(history_back, history);
-        let again = derive(
-            &entries,
-            &sources,
-            &excluded_back,
-            &rejected_back,
-            &history_back,
-        )
-        .unwrap();
-        assert_eq!(again, report);
     }
 }

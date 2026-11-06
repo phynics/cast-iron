@@ -18,21 +18,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Read the pinned dataset commits
+      - name: Read the pinned corpus commit
         id: pin
-        run: |
-          echo "commit=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/psrd-data/source.toml)" >> "$GITHUB_OUTPUT"
-          echo "primary=$(python3 -c 'import json; print(json.load(open("sources/pathfinder-data-1-e/source.json"))["commit"])')" >> "$GITHUB_OUTPUT"
+        run: echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6
         with:
-          path: .cache/sources
-          key: psrd-data-${{ steps.pin.outputs.commit }}-pf-${{ steps.pin.outputs.primary }}
+          path: .cache/sources/cast-iron-data
+          key: cast-iron-data-${{ steps.pin.outputs.corpus }}
       - uses: ./.github/actions/setup-build
         with:
           # Same key as the CI site job, so a release build reuses compiled dependencies.
           cache-key: site
           trunk: "true"
-      # build-site fetches both datasets and compiles the canonical default when
+      # build-site fetches the pinned corpus and compiles the library when
       # generated/content is missing.
       - name: Build the site
         run: |

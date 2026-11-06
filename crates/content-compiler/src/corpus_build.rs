@@ -4,19 +4,16 @@
 //! that derive everything the corpus does not store: relations, spell lists, coverage (from the
 //! entries, `exclusions.toml`, and `history.toml`), search aliases and facets, and the alias
 //! file. [`crate::pipeline::package`] then writes backlinks, the catalog, the search index, and
-//! the manifest, exactly as it does for the upstream builders.
+//! the manifest.
 //!
-//! The corpus is the source of truth. This path reads no upstream dataset.
+//! The corpus is the source of truth.
 
-use crate::alias::ALIASES_FILE;
-use crate::build::DedupeStats;
 use crate::corpus_coverage;
 use crate::pipeline::{
-    Failure, Library, Outcome, canonical_facets, check_no_markup_leaks, failure, package,
-    search_aliases,
+    ALIASES_FILE, Failure, Library, Outcome, canonical_facets, check_no_markup_leaks, failure,
+    package, search_aliases,
 };
 use crate::relations;
-use crate::select::Survey;
 use crate::{lists, text};
 use cast_iron_corpus::Corpus;
 use cast_iron_schema::{DatasetRef, RelationCoverage, RuleEntry, SourceInfo};
@@ -111,7 +108,7 @@ pub fn build_from_corpus(dir: &Path) -> Result<Library, Failure> {
         .aliases
         .as_ref()
         .map(|index| {
-            // Same bytes as `alias::to_bytes`: pretty JSON with a trailing newline.
+            // Pretty JSON with a trailing newline.
             let mut bytes = serde_json::to_vec_pretty(index).map_err(|e| e.to_string())?;
             bytes.push(b'\n');
             Ok::<_, String>(bytes)
@@ -138,11 +135,7 @@ pub fn build_from_corpus(dir: &Path) -> Result<Library, Failure> {
         datasets,
         sources,
         notes,
-        dedupe: DedupeStats::default(),
-        survey: Survey::default(),
-        supplement_prefix: None,
         aliases_file,
-        link_pass: None,
     })
 }
 

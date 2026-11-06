@@ -27,7 +27,8 @@ permission to push `release`. Run the commands from the repository root.
    If the range includes the canonical default switch, confirm the alias-capable
    shell from the previous PSRD release is already live and verified. An old shell
    cannot resolve canonical bookmarks; publish and verify it before this promotion
-   (design section 6.5).
+   (design section 6.5). The PSRD library no longer builds on `main`; build it from
+   the tag (see [Build the PSRD library from the tag](#build-the-psrd-library-from-the-tag)).
 2. Preview the promotion from the repository root:
 
    ```sh
@@ -68,6 +69,57 @@ workflow is installed. The environment restriction also blocks the old main
 workflow during migration. The Pages concurrency group remains `pages` with
 cancellation disabled, so deployments are serialized. A queued older release
 can finish first; verify the final successful run's SHA, not just any green run.
+
+## Build the PSRD library from the tag
+
+The upstream import was removed from `main` after the library moved to the pinned
+plain-text corpus. The git tag `psrd-last-buildable` (commit
+`9800663202f4cb9bcd4fad1af43c5ebf884b4a09`) is the last commit that builds the PSRD
+library from PSRD-Data and Pathfinder Data 1e. The first release step builds from it:
+the alias-capable shell on the PSRD library, followed by the canonical library.
+Nothing on `main` builds the PSRD library, so do not delete or move the tag.
+
+1. Check out the tag in a separate worktree. Use a path outside this repository:
+
+   ```sh
+   git fetch origin tag psrd-last-buildable
+   git worktree add --detach WORKTREE_DIR psrd-last-buildable
+   cd WORKTREE_DIR
+   ```
+
+2. Build the PSRD library and the site from the tag. These are the exact commands the
+   tag's own README and `AGENTS.md` document:
+
+   ```sh
+   cargo xtask fetch-sources
+   cargo xtask content --psrd
+   cargo xtask build-site --psrd --public-url /cast-iron/
+   ```
+
+   `fetch-sources` downloads the pinned PSRD-Data and Pathfinder Data 1e archives and
+   the corpus. `content --psrd` writes the library to `generated/psrd/`, and
+   `build-site --psrd` packages it into `dist/`. Run the browser suite against it with
+   `CAST_IRON_CONTENT=generated/psrd npm --prefix tests/e2e test -- ...`.
+
+3. Check that the canonical library built on `main` resolves every id that the PSRD
+   release published. Build the canonical library on `main` first
+   (`cargo xtask fetch-sources && cargo xtask content`), then run the tag's check
+   from the tag worktree. `main` no longer ships `scripts/check-library-upgrade.py`
+   or its legacy-id snapshot; the tag does:
+
+   ```sh
+   python3 scripts/check-library-upgrade.py generated/psrd MAIN_CHECKOUT/generated/content
+   ```
+
+   It must exit 0 with no missing, unresolvable, or dangling ids. The aliases it
+   resolves are the compiled form of `aliases.toml` in the corpus.
+
+4. Publishing the PSRD build needs a release commit whose Pages workflow builds with
+   `--psrd`. The workflow on `main` builds the corpus library only. Prepare that
+   commit from the tag's tree, link it in the migration issue, and promote it with
+   the steps above before the canonical promotion.
+
+Remove the worktree after the release step (`git worktree remove WORKTREE_DIR`).
 
 ## Verify publication
 

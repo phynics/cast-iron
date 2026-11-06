@@ -1,5 +1,7 @@
 # Missing PF1e book source audit
 
+> **Retired import.** This document describes the upstream import that built the library before it moved to the pinned plain-text corpus. The import code is preserved at the git tag `psrd-last-buildable`; the facts below stay as evidence and history, and the paths they name no longer exist on `main`.
+
 Checked 2026-11-03. This is a source-shape and notice audit, not legal clearance. Repository code licenses do not settle rights in game data. Record counts below are reproducible counts of named JSON objects carrying an exact source-title string in `sources`; duplicate appearances across files are counted as occurrences, not deduplicated entities. They show concrete tagged data, not completeness or book-order fidelity.
 
 ## Pinned sources and method

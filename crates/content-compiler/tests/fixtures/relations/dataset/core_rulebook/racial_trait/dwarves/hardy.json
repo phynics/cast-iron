@@ -1,8 +1,0 @@
-{
- "name": "Hardy",
- "url": "pfsrd://Core Rulebook/Races/Dwarves/Dwarf Racial Traits/Hardy",
- "source": "Core Rulebook",
- "type": "racial_trait",
- "subtype": "dwarves",
- "body": "<p>Dwarves gain a +2 bonus on saving throws against poison, spells, and spell-like abilities.</p>"
-}

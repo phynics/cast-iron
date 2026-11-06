@@ -14,9 +14,9 @@ import {
 
 /**
  * A placed rule article long enough for the keyboard walk: more than ten headings, at
- * least one typed cross-reference, and a following entry in its book. The canonical and
- * PSRD libraries differ in ids and chapter structure, so the test asks the compiled corpus
- * for the article instead of naming one.
+ * least one typed cross-reference, and a following entry in its book. The ids and chapter
+ * structure change with the corpus, so the test asks the compiled library for the article
+ * instead of naming one.
  */
 function readingTarget() {
   const entries = [...loadCorpus().entries.values()];

@@ -269,8 +269,8 @@ test("A source page count matches the entries its kind groups render", async ({ 
 });
 
 installedTest("Book page count follows its contents and survives deactivation", async ({ page }) => {
-  // Find a book whose contents tree and SourceInfo total disagree. The canonical library has
-  // several; the PSRD carry-over library does not always differ for Fireball's first book.
+  // Find a book whose contents tree and SourceInfo total disagree. The library has
+  // several.
   // A header that used the publication total or the active-book set would disagree with the
   // page, which is the property this test proves.
   const candidate = bookTrees()

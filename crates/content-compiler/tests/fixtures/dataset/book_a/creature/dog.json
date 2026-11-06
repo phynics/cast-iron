@@ -1,7 +1,0 @@
-{"name": "Dog", "url": "pfsrd://Bestiary/Monsters/Dog/Dog", "source": "Bestiary", "type": "creature",
- "cr": "1/3", "xp": "135", "size": "Small", "alignment": "N", "creature_type": "Animal",
- "strength": "13", "dexterity": "17", "constitution": "15", "intelligence": "2", "wisdom": "12", "charisma": "6",
- "ac": "12, touch 12, flat-footed 11", "hp": "6 (1d8+2)", "speed": "40 ft.", "melee": "bite +2 (1d4+1)",
- "description": "Dogs are loyal.",
- "spells": [{"spell-like abilities": "(CL 1st)<p class=\"stat-block-2\">1/day-<i>daylight</i></p>"}],
- "sections": [{"body": "<table><caption>Table: Dogs</caption><thead><tr><th rowspan=\"2\">Name</th><th colspan=\"2\">Stats</th></tr><tr><th>A</th><th>B</th></tr></thead><tr><td>x</td><td>1</td><td>2</td></tr></table>", "source": "Bestiary", "type": "section", "name": "Dog Notes"}]}
