@@ -26,11 +26,23 @@ pub struct Disagreement {
     pub source: String,
     pub source_line: usize,
     pub source_value: String,
+    /// The field has no statement of its label in the normal part at all.
+    pub missing: bool,
 }
 
 impl Disagreement {
     /// `path:line: [fields] range = "A" disagrees with the stat block row `Range`: "B" (line 36)`
     pub fn describe(&self) -> String {
+        if self.missing {
+            return format!(
+                "{}:{}: [fields] {} = {:?} has no {} statement in the normal part",
+                self.path.display(),
+                self.field_line,
+                self.field,
+                self.field_value,
+                self.source
+            );
+        }
         format!(
             "{}:{}: [fields] {} = {:?} disagrees with the {} = {:?} (line {})",
             self.path.display(),
@@ -86,15 +98,92 @@ fn strip_markup(text: &str) -> String {
     out
 }
 
-/// Lowercase, one space between words, no end punctuation, no Markdown markers.
+/// Lowercase, one space between words, no end punctuation, no Markdown markers,
+/// no footnote markers.
 fn normalize(text: &str) -> String {
-    strip_markup(text)
+    strip_footnotes(&strip_markup(text))
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase()
         .trim_end_matches(['.', ';'])
         .to_string()
+}
+
+/// A superscript is a footnote marker when it holds only a short number: `^1^`, or the
+/// `^[1](…)` link the reader sees. Real superscripts such as `10^2^` keep their text.
+fn is_footnote_sup(items: &[Inline]) -> bool {
+    let text = plain_text(items);
+    !text.is_empty() && text.len() <= 3 && text.chars().all(|ch| ch.is_ascii_digit())
+}
+
+/// Plain text with footnote superscripts dropped. A footnote marker is not part of the
+/// rule text, and the field side spells it differently, so it must not decide a comparison.
+fn comparison_text(items: &[Inline]) -> String {
+    let mut out = String::new();
+    push_comparison_text(items, &mut out);
+    out
+}
+
+fn push_comparison_text(items: &[Inline], out: &mut String) {
+    for item in items {
+        match item {
+            Inline::Text { v } => out.push_str(v),
+            Inline::Break => out.push(' '),
+            Inline::Sup { c } if is_footnote_sup(c) => {}
+            Inline::Em { c } | Inline::Strong { c } | Inline::Sup { c } | Inline::Sub { c } => {
+                push_comparison_text(c, out);
+            }
+            Inline::Link { c, .. } => push_comparison_text(c, out),
+        }
+    }
+}
+
+/// Drop footnote markers: `[^P]` in a typed field, `^P^` and `^1^` as written text, and
+/// the flattened form where a superscript's link has become a bare number glued to the
+/// word before it (`ranks.1`, `ranks,1`).
+fn strip_footnotes(text: &str) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let mut out = String::with_capacity(text.len());
+    let mut index = 0;
+    while index < chars.len() {
+        // `[^P]`, `[^X]`
+        if chars[index] == '['
+            && chars.get(index + 1) == Some(&'^')
+            && let Some(offset) = chars[index..].iter().position(|ch| *ch == ']')
+        {
+            index += offset + 1;
+            continue;
+        }
+        // `^1^`, `^P^`
+        if chars[index] == '^'
+            && let Some(offset) = chars[index + 1..].iter().position(|ch| *ch == '^')
+        {
+            let marker: String = chars[index + 1..index + 1 + offset].iter().collect();
+            if !marker.is_empty() && marker.len() <= 3 && !marker.contains(char::is_whitespace) {
+                index += offset + 2;
+                continue;
+            }
+        }
+        // `ranks.1`, `ranks,1`: a flattened marker glued to the word before it. A comma or
+        // period inside a number (`1,000`) follows a digit, so it is left alone.
+        if matches!(chars[index], '.' | ',') && index > 0 && chars[index - 1].is_alphabetic() {
+            let mut end = index + 1;
+            while end < chars.len() && chars[end].is_ascii_digit() {
+                end += 1;
+            }
+            let ends_marker = chars
+                .get(end)
+                .is_none_or(|ch| ch.is_whitespace() || matches!(ch, '.' | ',' | ';' | ')' | ']'));
+            if end > index + 1 && ends_marker {
+                index = end;
+                continue;
+            }
+        }
+        out.push(chars[index]);
+        index += 1;
+    }
+    out
 }
 
 fn split_on_break(inlines: &[Inline]) -> Vec<&[Inline]> {
@@ -121,11 +210,21 @@ fn stat_rows(body: &[Block]) -> Vec<&StatRow> {
 }
 
 /// The text after each bold `**Label:**` in the top-level paragraphs, up to the next break,
-/// in document order. A feat with a mythic variant states the label more than once.
+/// in document order. The normal part of a feat may state the same label more than once,
+/// and a sidebar or variant list may carry the statement inside a quote.
 fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
     let wanted = format!("{label}:");
     let mut found = Vec::new();
+    collect_labelled(body, &wanted, &mut found);
+    found
+}
+
+fn collect_labelled(body: &[Block], wanted: &str, found: &mut Vec<String>) {
     for block in body {
+        if let Block::Quote { content } = block {
+            collect_labelled(content, wanted, found);
+            continue;
+        }
         let Block::Paragraph { content, .. } = block else {
             continue;
         };
@@ -138,10 +237,49 @@ fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
                 .iter()
                 .position(|inline| matches!(inline, Inline::Break))
                 .unwrap_or(rest.len());
-            found.push(plain_text(&rest[..end]).trim().to_string());
+            found.push(comparison_text(&rest[..end]).trim().to_string());
         }
     }
-    found
+}
+
+/// Whether `block` is a paragraph whose first inline is the bold `**Sources:**` label.
+fn is_sources_line(block: &Block) -> bool {
+    let Block::Paragraph { content, .. } = block else {
+        return false;
+    };
+    matches!(
+        content.first(),
+        Some(Inline::Strong { c }) if plain_text(c).trim() == "Sources:"
+    )
+}
+
+/// The normal feat's part of the body: everything before the first block that starts a
+/// second source. A source block starts at a level-3 heading that carries its own
+/// `**Sources:**` line, or at any later bare `**Sources:**` line (an Elephant-in-the-Room
+/// tail, a second printing). Those blocks hold another publication's version of the feat
+/// (a `### Mythic` or `### Stamina` block, an Elephant-in-the-Room replacement, …). A base
+/// feat's `[fields]` describe the normal feat, so those blocks are never compared.
+///
+/// A `###` heading without its own `**Sources:**` line organizes the normal feat's own
+/// text (options, examples, a table) and stays in the comparison.
+fn normal_part(body: &[Block]) -> &[Block] {
+    let mut seen_sources = false;
+    for (index, block) in body.iter().enumerate() {
+        if is_sources_line(block) {
+            // The entry's first `**Sources:**` line opens the normal part. A later bare
+            // one starts another source's block.
+            if seen_sources {
+                return &body[..index];
+            }
+            seen_sources = true;
+            continue;
+        }
+        let is_subsection = matches!(block, Block::Heading { level: 3, .. });
+        if is_subsection && body.get(index + 1).is_some_and(is_sources_line) {
+            return &body[..index];
+        }
+    }
+    body
 }
 
 /// The 1-based line of the first line after the front matter that satisfies `matches`.
@@ -181,6 +319,7 @@ struct Pair {
     source_line: usize,
     source_value: String,
     agree: bool,
+    missing: bool,
 }
 
 fn row_pair(
@@ -205,6 +344,7 @@ fn row_pair(
         source_line: body_line(text, |line| line.to_lowercase().starts_with(&prefix)),
         agree: normalize(value) == normalize(&source_value),
         source_value,
+        missing: false,
     })
 }
 
@@ -218,7 +358,8 @@ fn text_pair(
     let stated = labelled_texts(body, label);
     let source_value = stated.first()?.clone();
     let marker = format!("**{label}:**");
-    // The typed field may hold a variant's wording, so it agrees when any statement matches.
+    // A normal feat may state its label more than once in its own part (a variant
+    // statement), so the field agrees when any of those statements matches.
     let agree = stated
         .iter()
         .any(|statement| normalize(value) == normalize(statement));
@@ -229,6 +370,7 @@ fn text_pair(
         source_line: body_line(text, |line| line.contains(&marker)),
         agree,
         source_value,
+        missing: false,
     })
 }
 
@@ -332,6 +474,7 @@ fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
             source_line: body_line(text, |line| line.to_lowercase().starts_with("level:")),
             source_value: describe_levels(&stated),
             agree: typed == stated,
+            missing: false,
         });
     }
     for (field, value, labels) in [
@@ -390,6 +533,7 @@ fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
                 }),
                 source_value: show(&stated),
                 agree: typed == stated,
+                missing: false,
             });
         }
     }
@@ -472,6 +616,7 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
                 .iter()
                 .map(|value| normalize(value))
                 .eq(stated.iter().map(|value| normalize(value))),
+            missing: false,
         });
     }
     pairs
@@ -500,6 +645,8 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
     let TypedFields::Feat(fields) = &entry.fields else {
         return vec![];
     };
+    // A base feat's fields describe the normal feat, never a source subsection.
+    let body = normal_part(&entry.body);
     let mut pairs = Vec::new();
     for (field, value, label) in [
         ("prerequisites", &fields.prerequisites, "Prerequisites"),
@@ -508,7 +655,23 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         ("special", &fields.special, "Special"),
     ] {
         if let Some(value) = value {
-            pairs.extend(text_pair(text, &entry.body, field, value, label));
+            match text_pair(text, body, field, value, label) {
+                Some(pair) => pairs.push(pair),
+                // The normal part states no such label, so nothing compares the field.
+                // Report it when another block in the body does state the label: the
+                // field can only have come from there. A body that never uses the label
+                // (the carried heading-and-statline style) is outside this check.
+                None if !labelled_texts(&entry.body, label).is_empty() => pairs.push(Pair {
+                    field,
+                    field_value: value.to_string(),
+                    source: format!("`**{label}:**`"),
+                    source_line: 1,
+                    source_value: String::new(),
+                    agree: false,
+                    missing: true,
+                }),
+                None => {}
+            }
         }
     }
     pairs
@@ -538,6 +701,7 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
             source: pair.source,
             source_line: pair.source_line,
             source_value: pair.source_value,
+            missing: pair.missing,
         })
         .collect()
 }
@@ -765,32 +929,236 @@ mod tests {
         assert!(find_drift(&stored(entry)).is_empty());
     }
 
-    #[test]
-    fn a_feat_field_that_matches_a_variant_statement_is_not_drift() {
-        let labelled = |label: &str, text: &str| {
+    fn labelled(label: &str, text: &str) -> Vec<Inline> {
+        vec![
+            Inline::Strong {
+                c: vec![Inline::text(format!("{label}:"))],
+            },
+            Inline::text(format!(" {text}")),
+        ]
+    }
+
+    /// A feat whose normal part states one `**Benefit:**` and whose `### Mythic Test`
+    /// subsection, carrying its own `**Sources:**` line, states another.
+    fn mythic_feat(benefit: &str) -> Stored {
+        let mut subsection = vec![
+            Inline::Strong {
+                c: vec![Inline::text("Sources:")],
+            },
+            Inline::text(" Mythic Adventures pg 1"),
+            Inline::Break,
+        ];
+        subsection.extend(labelled("Benefit", "Mythic *wording*."));
+        stored(base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some(benefit.into()),
+                ..Default::default()
+            }),
             vec![
-                Inline::Strong {
-                    c: vec![Inline::text(format!("{label}:"))],
+                Block::Paragraph {
+                    style: ParagraphStyle::Normal,
+                    content: labelled("Benefit", "Normal wording."),
                 },
-                Inline::text(format!(" {text}")),
-            ]
-        };
-        let mut content = labelled("Benefit", "Normal wording.");
-        content.push(Inline::Break);
-        content.extend(labelled("Benefit", "Mythic *wording*."));
+                Block::Heading {
+                    level: 3,
+                    anchor: None,
+                    content: vec![Inline::text("Mythic Test")],
+                },
+                Block::Paragraph {
+                    style: ParagraphStyle::Normal,
+                    content: subsection,
+                },
+            ],
+        ))
+    }
+
+    #[test]
+    fn mythic_wording_in_a_base_field_is_drift() {
+        let drift = find_drift(&mythic_feat("Mythic *wording*."));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "benefit");
+        assert_eq!(drift[0].source_value, "Normal wording.");
+    }
+
+    #[test]
+    fn a_field_that_matches_the_normal_benefit_is_not_drift() {
+        assert!(find_drift(&mythic_feat("Normal wording.")).is_empty());
+    }
+
+    fn paragraph(content: Vec<Inline>) -> Block {
+        Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content,
+        }
+    }
+
+    fn sources(text: &str) -> Block {
+        paragraph(vec![
+            Inline::Strong {
+                c: vec![Inline::text("Sources:")],
+            },
+            Inline::text(format!(" {text}")),
+        ])
+    }
+
+    #[test]
+    fn a_heading_without_its_own_sources_line_stays_compared() {
+        // `### Options` organizes the normal feat's own text; it is not a source block.
         let entry = base(
             "ref/feat/test",
             EntryKind::Feat,
             TypedFields::Feat(FeatFields {
-                benefit: Some("Mythic *wording*.".into()),
+                benefit: Some("Variant wording.".into()),
+                ..Default::default()
+            }),
+            vec![
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Heading {
+                    level: 3,
+                    anchor: None,
+                    content: vec![Inline::text("Options")],
+                },
+                paragraph(labelled("Benefit", "Variant wording.")),
+            ],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn an_eitr_tail_after_a_bare_sources_line_is_cut() {
+        // A bare `**Sources:**` line starts another source's block, here the
+        // Elephant-in-the-Room tail that follows the normal feat.
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some("Tail wording.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                sources("The Elephant in the Room: Feat Taxes in Pathfinder"),
+                paragraph(labelled("Benefit", "Tail wording.")),
+            ],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "benefit");
+        assert_eq!(drift[0].source_value, "Normal wording.");
+    }
+
+    #[test]
+    fn a_labelled_statement_inside_a_quote_still_counts() {
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                normal: Some("A normal choice.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Quote {
+                    content: vec![paragraph(labelled("Normal", "A normal choice."))],
+                },
+            ],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn a_field_with_no_statement_in_the_normal_part_is_drift() {
+        // Prerequisites appear only in the mythic subsection, so the normal part has no
+        // line to compare; the field must not pass silently.
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some("Mythic Test.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Heading {
+                    level: 3,
+                    anchor: None,
+                    content: vec![Inline::text("Mythic Test")],
+                },
+                sources("Mythic Adventures pg 1"),
+                paragraph(labelled("Prerequisites", "Mythic Test.")),
+            ],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "prerequisites");
+        assert!(drift[0].missing);
+        assert!(
+            drift[0]
+                .describe()
+                .contains("has no `**Prerequisites:**` statement in the normal part")
+        );
+    }
+
+    fn footnote_feat(field: &str, body: Vec<Inline>) -> Stored {
+        let mut content = vec![Inline::Strong {
+            c: vec![Inline::text("Prerequisites:")],
+        }];
+        content.extend(body);
+        stored(base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some(field.into()),
                 ..Default::default()
             }),
             vec![Block::Paragraph {
                 style: ParagraphStyle::Normal,
                 content,
             }],
+        ))
+    }
+
+    #[test]
+    fn footnote_markers_are_ignored_when_comparing() {
+        let sup = |text: &str| Inline::Sup {
+            c: vec![Inline::text(text)],
+        };
+        // `[^P]` in the field; the body carries the marker as a superscript.
+        assert!(
+            find_drift(&footnote_feat(
+                "Stealth 3 ranks, Survival 3 ranks.[^P]",
+                vec![
+                    Inline::text(" Stealth 3 ranks, Survival 3 ranks."),
+                    sup("1"),
+                ],
+            ))
+            .is_empty()
         );
-        assert!(find_drift(&stored(entry)).is_empty());
+        // The flattened form: the superscript's link is a bare number glued to the word.
+        assert!(
+            find_drift(&footnote_feat(
+                "Stealth 3 ranks, Survival 3 ranks.[^P]",
+                vec![Inline::text(" Stealth 3 ranks, Survival 3 ranks.1")],
+            ))
+            .is_empty()
+        );
+        // A marker that follows a space (`Play ^1^).`) still matches a field `[^X]`.
+        assert!(
+            find_drift(&footnote_feat(
+                "Ability to attempt Day Job checks (see the Guide [^X]).",
+                vec![
+                    Inline::text(" Ability to attempt Day Job checks (see the Guide "),
+                    sup("1"),
+                    Inline::text(")."),
+                ],
+            ))
+            .is_empty()
+        );
     }
 
     #[test]

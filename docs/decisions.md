@@ -130,7 +130,6 @@ These are accepted product directions awaiting implementation in [the UI task li
 - Remove collections and the separate bookmark manager. Home lists starred entries and lets the user open or unstar them. Preserve existing stars when retiring collection UI and routes.
 - Add book activation controls. The proposed default is a persistent filter over downloaded content rather than deletion. Detailed filtering and saved-entry behavior are documented as working defaults in UI-03, not additional confirmed user requirements.
 
-
 ## Reference simplification implementation
 
 - Active-book preferences store disabled canonical book IDs under the existing metadata key `disabled_books`. Absence and an empty set mean all books active. Unknown disabled IDs survive updates, and newly added books default active (new installs change to Paizo Rulebooks when #157 lands). Disabling does not remove cache files or stars.
@@ -140,7 +139,6 @@ These are accepted product directions awaiting implementation in [the UI task li
 - Article contents and heading-aware search use existing typed headings and entry anchors. Matching rule results read installed shards, and exact named rule sections rank ahead of longer title prefixes. Search format 1 and content schema 3 are unchanged. Article contents uses stylesheet classes because inline indentation violated the strict CSP in the first browser run. Clicking an already-current section explicitly scrolls to it.
 - Primary rule text precedes relationship discovery. Compact jumps retain research access. Prestige requirements resolve unambiguous feat and skill names only inside their stated sections, with punctuation normalized. Duplicate names remain text instead of choosing a source silently.
 - AoN's Rules directory is a navigation baseline and a reproducible mapping inventory. Printed-order evidence and unresolved-section reporting remain separate. No new rule content or source was imported.
-
 
 ## Release branch and issue tracking, 2026-11-03
 
@@ -248,7 +246,6 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 - **An unsorted catalog is corrupt, not a lookup miss.** `Catalog::validate` checks that entries are strictly ascending by id, and `Library::load` rejects a violation as `LibraryError::Corrupt`. A miss stays a miss (no O(n) scan), but a catalog that breaks the invariant now fails loudly instead of silently mis-resolving every id after the first out-of-order row.
 - **Search p95 is recorded, not a correctness gate.** A shared CI runner produced a 102 ms p95 for WebKit against a 4.8 ms desktop figure, so a hard 100 ms assertion failed on load, not on engine speed. The test now annotates the measured p95 and max every run and asserts only a 250 ms smoke bound, which still catches an index that failed to load or an engine regression.
 
-
 ## Pf Data migration coverage exceptions, 2026-11-04
 
 - **Explained omissions are coverage, not findings.** `migration-test.json` and `migration-full.json` separate `findings` from `coverage`. A finding still means a converter defect or a reference that does not resolve anywhere in the pinned inventory. Coverage records a construct the converter deliberately omits, with a stable category, the exact detail, a reason, and the affected record. Nothing is deleted: the Markdown report lists every coverage row and a per-category tally.
@@ -309,7 +306,6 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 - **The review is deterministic and idempotent.** `data-carry-review` writes `generated/migration/carry-review.json` and `id-map.reviewed.toml`, and `--apply` replaces accepted rows in place, preserving the map's append order, comments, and separators. A second run finds no carried row left above the threshold. `reports/carry-review.json` records the pre-apply run with the reviewed map's SHA-256.
 - **Current result.** On this tree the PSRD build publishes 2,245 carried entries. 395 have a same-title Pf candidate, producing 681 scored pairs. 120 are merged: 100 become plain `[map]` rows and 20 become `[shared]` rows because two carried ids merge onto the same target. 2,125 stay carried: `no_candidate` 1,822, `below_threshold` 210, `book_mismatch` 49, `fallback_target` 29, `short_body` 12, `ambiguous` 3. The canonical entry count falls by 120, from 29,515 to 29,395.
 
-
 ## Product Identity screen for the Pf Data corpus, 2026-11-04
 
 - **Names stay, descriptive PI prose goes.** Pf Data is book text, not Paizo's genericized PRD. About 16% of its description records name setting Product Identity, including most core class and race pages, mainly in archetype flavor lines. The product owner chose fidelity under Paizo's Community Use Policy. Proper names (deities, places, organizations, characters) inside game mechanics stay as descriptive references. This replaces the zero-names standard that the PSRD baseline met only because PRD text was already genericized. Descriptive Product Identity prose is still omitted, as the licensing audit requires.
@@ -333,8 +329,6 @@ See [contributing](../CONTRIBUTING.md), [release operations](releasing.md), and
 - **A failed record is excluded and reported.** `Converted.excluded` names the upstream identity, the canonical id when one was derived, the category (`native`, `derived`, or `rule`), and the reason. The existing finding keeps the converter defect; the exclusion states that no entry was emitted. Neither a failed record nor a rejected derivation fails the run, so rule 6 is satisfied without turning the corpus into a build failure. A duplicate id is still a rejection, never a suffix.
 - **Synthesized parent-to-child links use `build::NestedLink`.** A derived racial trait or affliction is `child: false` (a typed record the host nests); a promoted rule is `child: true` (a child of the host rules tree). Their `trail` is empty, like the reviewed-supplement links, because this layer inserts the link itself rather than resolving an upstream heading at render time. The field is left for the later book-order and relations work.
 - **Reports changed only where the id namespace did.** `data-report` still reproduces its committed files byte-for-byte, but the 222 derived records in `reports/migration-coverage.json` now name their parent as `ref/...` instead of `pf-data/...`, and the representative sample's serialized byte counts shrink (`1179224` content, `208006` search). The full import keeps 29,253 selected and 27,853 converted records, the same 6/6 fixtures, and all findings except one search check that left the first-100 window when `ref/` ids reordered the corpus. `cargo xtask content` remains byte-identical to `origin/main` (`content_version` `vdb43853600b8ed8b`, 9,968 entries).
-
-
 
 ## Install button, 2026-11-05
 
@@ -677,6 +671,16 @@ Refs [#127](https://github.com/phynics/cast-iron/issues/127), [#18](https://gith
 - **CI.** The content job builds the library from the corpus twice and compares the bytes. The upstream equality, PSRD determinism, and upgrade steps and the upstream dataset cache are gone. The Pages workflow caches only the corpus.
 - **History stays.** `docs/research/` keeps the licensing and evidence documents, each with a note that it describes the retired import and the tag. `LICENSES/README.md` now describes the corpus repository and its licensing and keeps the upstream attribution that OGL Section 15 requires; the corpus `legal.toml` carries the notices.
 
+## Feat fields describe the normal feat, 2026-11-06
+
+Refs [#180](https://github.com/phynics/cast-iron/issues/180). The checker is `crates/corpus/src/drift.rs`.
+
+- **A base feat's `[fields]` are compared only with the body before its first source subsection.** A source subsection is a level-3 heading followed by its own `**Sources:**` line: a `### Mythic …` block, `### Stamina`, an Elephant-in-the-Room replacement, or any other book's version of the same feat. The fields describe the normal feat, so a field that matches only the subsection's `**Benefit:**` or `**Prerequisites:**` line is drift. A `###` heading that organizes the feat's own text and carries no `**Sources:**` line stays in the comparison, so its `**Benefit:**` line still counts as a variant statement of the normal feat.
+- **The multiple-statement rule stays inside the normal part.** When the normal part states a label more than once (a variant statement), the field agrees with any of those statements. Subsections are never candidates.
+- **Footnote markers do not decide a comparison.** The field writes `[^P]` or `[^X]`, the body carries `^1^` or the flattened `ranks.1`, and neither is rule text. The checker drops the markers and the footnote superscripts before it compares.
+- **Measurement on corpus `v0.1.0`.** The previous checker reported 4 disagreements, all footnote-only (`conceal-scent`, `heightened-trap-sense`, `improved-day-job`, `religious-pilgrim`). The stricter checker reports 272 disagreements across 160 feats: 198 in base fields that hold a mythic subsection's wording, 74 that hold the Elephant-in-the-Room tail's wording, and none that hold plain Stamina wording; by field, 140 `benefit`, 120 `prerequisites`, 10 `special`, and 2 `normal`. A field is attributed to the source block that actually states the matched text, not to the nearest `###` heading: 44 of the Elephant-in-the-Room rows sit under a `### Mythic …` heading whose subsection ends with a bare `**Sources:** The Elephant in the Room…` line. The companion change in `phynics/cast-iron-data` (#3) corrects every one and brings the report to 0.
+- **A field with no statement in the normal part is drift.** Some fields exist only because another block states them. `text_pair` returned nothing when the normal part had no `**Label:**` line, so nothing compared them and no warning appeared. When the label is stated elsewhere in the body (a source subsection), the field now counts as drift too, with a message that names the missing label. That is still a warning, like every other drift. A body that never uses the bold label — the carried heading-and-statline entries — stays outside this check, as it was before.
+- **A statement inside a quote counts.** A sidebar or variant list may carry a `**Normal:**` or `**Special:**` line inside a blockquote; it is still a statement of the normal feat, so the checker reads quoted paragraphs too.
 ## Search is a header icon that opens Quick search, 2026-11-06
 
 Refs [#164](https://github.com/phynics/cast-iron/issues/164), [#151](https://github.com/phynics/cast-iron/issues/151). Owner decision from the 2026-11-06 browser review. It revisits the PRODUCT.md line "Search is available as a bar rather than a primary tab": search stays at the top and is not a tab, but it is an icon, not a field.
