@@ -1103,6 +1103,42 @@ pub struct CoverageReport {
     pub backlinks: BacklinkCoverage,
 }
 
+/// The part of [`CoverageReport`] that the one-time import decided and the entries cannot
+/// restate. The corpus stores it as `history.toml`. It is frozen: nothing edits it, and every
+/// other part of the report is derived from the entries, the publication list, the book index,
+/// and the exclusion rows.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CoverageHistory {
+    /// Digest of the upstream inputs the import read.
+    pub input_digest: String,
+    /// Upstream record counts per publication.
+    #[serde(default)]
+    pub publications: Vec<UpstreamPublication>,
+    /// How the import read feat prerequisite wording, over the records it converted.
+    #[serde(default)]
+    pub prerequisites: PrerequisiteCoverage,
+    /// Racial traits and archetypes the import could not place under a parent.
+    #[serde(default)]
+    pub unplaced_parts: Vec<Unplaced>,
+    /// Upstream records of a typed family that stayed ordinary rules text.
+    #[serde(default)]
+    pub unpromoted: Vec<Rejection>,
+    /// How upstream page numbers placed entries in books.
+    #[serde(default)]
+    pub book_order: BookOrderCoverage,
+}
+
+/// One publication's upstream record count.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpstreamPublication {
+    pub source_id: String,
+    pub upstream_records: u32,
+    /// Set only when the coverage title differs from the catalogue title, or the catalogue
+    /// has no such publication.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
 /// What the reverse body-link pass did, including the links it deliberately left out.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BacklinkCoverage {

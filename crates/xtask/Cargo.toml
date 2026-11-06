@@ -7,6 +7,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+cast-iron-content-compiler.workspace = true
 cast-iron-corpus.workspace = true
 cast-iron-schema.workspace = true
 sha2.workspace = true

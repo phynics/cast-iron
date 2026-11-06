@@ -1,8 +1,8 @@
 //! Lossless plain-text corpus format for Cast Iron.
 //!
 //! One entry file per [`RuleEntry`], plus a small set of stored source files
-//! (`publications.toml`, `books.toml`, `legal.toml`, `coverage.toml`,
-//! `aliases.toml`). Every other compiler-derived file (relations, spell lists,
+//! (`corpus.toml`, `publications.toml`, `books.toml`, `legal.toml`,
+//! `exclusions.toml`, `history.toml`, `aliases.toml`). Every other compiler-derived file (relations, spell lists,
 //! backlinks, catalog stubs, search index, manifest) is rebuilt by the compiler,
 //! not stored.
 //!
@@ -15,7 +15,8 @@
 //! publications.toml             source metadata for the catalog
 //! books.toml                    BookIndex (curated chapter order)
 //! legal.toml                    LegalNotices
-//! coverage.toml                 frozen CoverageReport
+//! exclusions.toml               what the import left out, append-only
+//! history.toml                  frozen import report
 //! aliases.toml                  AliasIndex (optional, as in the library)
 //! ```
 
@@ -38,7 +39,8 @@ pub use config::{
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{
-    Publication, PublicationsFile, read_aliases, read_books, read_coverage, read_legal,
-    read_publications, write_aliases, write_books, write_coverage, write_legal, write_publications,
+    Exclusions, Publication, PublicationsFile, read_aliases, read_books, read_exclusions,
+    read_history, read_legal, read_publications, write_aliases, write_books, write_exclusions,
+    write_history, write_legal, write_publications,
 };
 pub use load::{Corpus, Stored, list_files};

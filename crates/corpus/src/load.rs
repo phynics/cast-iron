@@ -4,9 +4,10 @@ use crate::config::{Config, read_config};
 use crate::entry::read_entry;
 use crate::error::{Error, Result};
 use crate::files::{
-    Publication, read_aliases, read_books, read_coverage, read_legal, read_publications,
+    Exclusions, Publication, read_aliases, read_books, read_exclusions, read_history, read_legal,
+    read_publications,
 };
-use cast_iron_schema::{AliasIndex, BookIndex, CoverageReport, LegalNotices, RuleEntry};
+use cast_iron_schema::{AliasIndex, BookIndex, CoverageHistory, LegalNotices, RuleEntry};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,7 +33,9 @@ pub struct Corpus {
     pub books: BookIndex,
     pub books_text: String,
     pub legal: LegalNotices,
-    pub coverage: CoverageReport,
+    pub exclusions: Exclusions,
+    /// The frozen import report. Absent in a corpus that never had an import.
+    pub history: Option<CoverageHistory>,
     pub aliases: Option<AliasIndex>,
 }
 
@@ -88,11 +91,21 @@ impl Corpus {
             read_text(dir, "legal.toml")
                 .and_then(|text| read_legal(Path::new("legal.toml"), &text)),
         );
-        let coverage = take(
+        let exclusions = take(
             &mut errors,
-            read_text(dir, "coverage.toml")
-                .and_then(|text| read_coverage(Path::new("coverage.toml"), &text)),
+            read_text(dir, "exclusions.toml")
+                .and_then(|text| read_exclusions(Path::new("exclusions.toml"), &text)),
         );
+        let history = if dir.join("history.toml").is_file() {
+            take(
+                &mut errors,
+                read_text(dir, "history.toml")
+                    .and_then(|text| read_history(Path::new("history.toml"), &text)),
+            )
+            .map(Some)
+        } else {
+            Some(None)
+        };
         let aliases = if dir.join("aliases.toml").is_file() {
             take(
                 &mut errors,
@@ -151,7 +164,8 @@ impl Corpus {
             books,
             books_text,
             legal,
-            coverage,
+            exclusions,
+            history,
             aliases,
         ) {
             (
@@ -160,7 +174,8 @@ impl Corpus {
                 Some(books),
                 Some(books_text),
                 Some(legal),
-                Some(coverage),
+                Some(exclusions),
+                Some(history),
                 Some(aliases),
             ) if errors.is_empty() => Ok(Corpus {
                 dir: dir.to_path_buf(),
@@ -170,7 +185,8 @@ impl Corpus {
                 books,
                 books_text,
                 legal,
-                coverage,
+                exclusions,
+                history,
                 aliases,
             }),
             _ => Err(errors),
@@ -183,7 +199,7 @@ mod tests {
     use super::*;
     use crate::config::write_config;
     use crate::entry::{entry_path, write_entry};
-    use crate::files::{write_books, write_coverage, write_legal};
+    use crate::files::{write_books, write_exclusions, write_legal};
     use crate::testkit::{corpus, paragraph, rule};
     use cast_iron_schema::Inline;
 
@@ -209,7 +225,11 @@ mod tests {
         .unwrap();
         fs::write(dir.join("books.toml"), write_books(&source.books)).unwrap();
         fs::write(dir.join("legal.toml"), write_legal(&source.legal)).unwrap();
-        fs::write(dir.join("coverage.toml"), write_coverage(&source.coverage)).unwrap();
+        fs::write(
+            dir.join("exclusions.toml"),
+            write_exclusions(&source.exclusions),
+        )
+        .unwrap();
     }
 
     #[test]

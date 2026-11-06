@@ -1,14 +1,14 @@
 //! Stored non-entry source files.
 //!
-//! `publication`, `books`, `legal`, `coverage`, and `aliases` are stored source
-//! data. Catalog stubs, `entry_count`, relations, spell lists, backlinks,
-//! search, and the manifest are compiler output and are never stored here.
-//! Coverage is stored because its exclusions were decided when the corpus was
-//! cut and cannot be recomputed from the entries.
+//! `publications`, `books`, `legal`, `exclusions`, `history`, and `aliases` are
+//! stored source data. Catalog stubs, `entry_count`, relations, spell lists,
+//! backlinks, search, the manifest, and every coverage count are compiler
+//! output and are never stored here. Exclusions are stored because they were
+//! decided when the corpus was cut and cannot be recomputed from the entries.
 
 use crate::error::{Error, Result};
 use cast_iron_schema::{
-    AliasIndex, BookIndex, CoverageReport, EntryKind, LegalNotices, SourceInfo,
+    AliasIndex, BookIndex, CoverageHistory, Exclusion, LegalNotices, Rejection, SourceInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -119,35 +119,81 @@ pub fn read_legal(path: &Path, text: &str) -> Result<LegalNotices> {
         .map_err(|error| Error::new(path, toml_line(&error, text), format!("legal: {error}")))
 }
 
-/// The frozen coverage report. It preserves exclusions and rejections that were
-/// decided when the corpus was cut, so a corpus compile can emit the same report.
-pub fn write_coverage(coverage: &CoverageReport) -> String {
-    toml::to_string(coverage).expect("coverage serializes")
+/// `exclusions.toml`: what the import left out and why. Rows are only appended.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Exclusions {
+    /// Upstream paths not selected, with the number of records and the reason.
+    #[serde(default)]
+    pub excluded: Vec<Exclusion>,
+    /// Records selected but dropped, with the reason.
+    #[serde(default)]
+    pub rejected: Vec<Rejection>,
 }
 
-pub fn read_coverage(path: &Path, text: &str) -> Result<CoverageReport> {
-    let coverage: CoverageReport = toml::from_str(text)
-        .map_err(|error| Error::new(path, toml_line(&error, text), format!("coverage: {error}")))?;
-    validate_coverage(&coverage)
-        .map_err(|problem| Error::new(path, 1, format!("coverage: {problem}")))?;
-    Ok(coverage)
+pub fn write_exclusions(exclusions: &Exclusions) -> String {
+    toml::to_string(exclusions).expect("exclusions serialize")
 }
 
-fn validate_coverage(coverage: &CoverageReport) -> std::result::Result<(), String> {
-    if coverage.input_digest.len() != 64
-        || !coverage
+pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
+    let exclusions: Exclusions = toml::from_str(text).map_err(|error| {
+        Error::new(
+            path,
+            toml_line(&error, text),
+            format!("exclusions: {error}"),
+        )
+    })?;
+    let mut seen = std::collections::BTreeSet::new();
+    for row in &exclusions.excluded {
+        if !seen.insert((row.path.as_str(), row.reason.as_str())) {
+            return Err(Error::new(
+                path,
+                line_of_value(text, &row.path),
+                format!("duplicate excluded row for {:?}", row.path),
+            ));
+        }
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for row in &exclusions.rejected {
+        if !seen.insert((row.path.as_str(), row.reason.as_str())) {
+            return Err(Error::new(
+                path,
+                line_of_value(text, &row.path),
+                format!("duplicate rejected row for {:?}", row.path),
+            ));
+        }
+    }
+    Ok(exclusions)
+}
+
+/// `history.toml`: the frozen part of the import report. Never edited.
+pub fn write_history(history: &CoverageHistory) -> String {
+    toml::to_string(history).expect("history serializes")
+}
+
+pub fn read_history(path: &Path, text: &str) -> Result<CoverageHistory> {
+    let history: CoverageHistory = toml::from_str(text)
+        .map_err(|error| Error::new(path, toml_line(&error, text), format!("history: {error}")))?;
+    if history.input_digest.len() != 64
+        || !history
             .input_digest
             .bytes()
             .all(|byte| byte.is_ascii_hexdigit())
     {
-        return Err("input_digest must be 64 hexadecimal characters".into());
+        return Err(Error::new(
+            path,
+            1,
+            "history: input_digest must be 64 hexadecimal characters",
+        ));
     }
-    for kind in coverage.by_kind.keys() {
-        if EntryKind::from_slug(kind).is_none() {
-            return Err(format!("unknown kind {kind:?} in by_kind"));
-        }
-    }
-    Ok(())
+    Ok(history)
+}
+
+fn line_of_value(text: &str, value: &str) -> usize {
+    let needle = crate::tomlutil::string(value);
+    text.lines()
+        .position(|line| line.contains(&needle))
+        .map_or(1, |index| index + 1)
 }
 
 fn toml_line(error: &toml::de::Error, text: &str) -> usize {
@@ -256,21 +302,44 @@ mod tests {
     }
 
     #[test]
-    fn coverage_round_trips_and_validates_its_digest_and_kinds() {
-        let coverage = cast_iron_schema::CoverageReport {
+    fn exclusions_round_trip_and_reject_a_repeated_row() {
+        let exclusions = Exclusions {
+            excluded: vec![Exclusion {
+                path: "json/art.json".into(),
+                records: 3,
+                reason: "artwork".into(),
+            }],
+            rejected: vec![Rejection {
+                path: "json/a.json#b".into(),
+                reason: "not convertible".into(),
+            }],
+        };
+        let text = write_exclusions(&exclusions);
+        let path = Path::new("exclusions.toml");
+        assert_eq!(read_exclusions(path, &text).unwrap(), exclusions);
+        let repeated = format!("{text}\n{}", text.replace("records = 3", "records = 4"));
+        let error = read_exclusions(path, &repeated).unwrap_err();
+        assert!(error.message.contains("duplicate"), "{error}");
+        assert!(read_exclusions(path, "unknown = 1\n").is_err());
+        assert_eq!(read_exclusions(path, "").unwrap(), Exclusions::default());
+    }
+
+    #[test]
+    fn history_round_trips_and_validates_its_digest() {
+        let history = CoverageHistory {
             input_digest: "a".repeat(64),
-            by_kind: [("spell".to_string(), 2)].into_iter().collect(),
+            publications: vec![cast_iron_schema::UpstreamPublication {
+                source_id: "core-rulebook".into(),
+                upstream_records: 9,
+                title: None,
+            }],
             ..Default::default()
         };
-        let text = write_coverage(&coverage);
-        assert_eq!(
-            read_coverage(Path::new("coverage.toml"), &text).unwrap(),
-            coverage
-        );
-        let bad_digest = text.replace(&"a".repeat(64), "not-a-digest");
-        assert!(read_coverage(Path::new("coverage.toml"), &bad_digest).is_err());
-        let bad_kind = text.replace("spell = 2", "not_a_kind = 2");
-        assert!(read_coverage(Path::new("coverage.toml"), &bad_kind).is_err());
+        let text = write_history(&history);
+        let path = Path::new("history.toml");
+        assert_eq!(read_history(path, &text).unwrap(), history);
+        let bad = text.replace(&"a".repeat(64), "not-a-digest");
+        assert!(read_history(path, &bad).is_err());
     }
 
     #[test]

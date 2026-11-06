@@ -2,11 +2,11 @@
 
 use crate::config::Config;
 use crate::entry::{derived_links, entry_path, write_entry};
-use crate::files::Publication;
+use crate::files::{Exclusions, Publication};
 use crate::load::{Corpus, Stored};
 use cast_iron_schema::{
-    Block, BookIndex, CoverageReport, EntryId, EntryKind, Inline, LegalNotices, LicenseText,
-    ParagraphStyle, RuleEntry, TypedFields,
+    Block, BookIndex, EntryId, EntryKind, Inline, LegalNotices, LicenseText, ParagraphStyle,
+    RuleEntry, TypedFields,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -69,12 +69,6 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
             },
         );
     }
-    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
-    for stored in by_id.values() {
-        *by_kind
-            .entry(stored.entry.kind.slug().to_string())
-            .or_default() += 1;
-    }
     Corpus {
         dir: PathBuf::from("corpus"),
         config: Config::default(),
@@ -100,11 +94,8 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
             notice_pending: vec![],
             datasets: vec![],
         },
-        coverage: CoverageReport {
-            input_digest: "0".repeat(64),
-            by_kind,
-            ..Default::default()
-        },
+        exclusions: Exclusions::default(),
+        history: None,
         aliases: None,
     }
 }

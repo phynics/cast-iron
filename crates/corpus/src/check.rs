@@ -170,18 +170,6 @@ pub fn check(corpus: &Corpus) -> Report {
         let _ = id;
     }
 
-    let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
-    for stored in corpus.entries.values() {
-        *by_kind
-            .entry(stored.entry.kind.slug().to_string())
-            .or_default() += 1;
-    }
-    if by_kind != corpus.coverage.by_kind {
-        report.problems.push(format!(
-            "coverage.toml:1: by_kind {:?} does not match the entries {by_kind:?}",
-            corpus.coverage.by_kind
-        ));
-    }
     for tree in &corpus.books.books {
         let mut placed = BTreeSet::new();
         for chapter in &tree.chapters {

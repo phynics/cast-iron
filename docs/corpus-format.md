@@ -17,7 +17,8 @@ entries/<id without ref/>.md    one entry per file
 publications.toml               publication metadata used by the catalogue
 books.toml                      curated chapter order (BookIndex)
 legal.toml                      licences, Product Identity, Section 15, dataset pins
-coverage.toml                   frozen coverage report, including freeze-time exclusions
+exclusions.toml                 what the import left out and why; rows are only appended
+history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
 ```
 
@@ -157,17 +158,14 @@ reviewed source material that an entry cannot express.
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
 | `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
-| `coverage.json` | **Stored** as `coverage.toml` | An exclusion decided when the corpus was cut cannot be recomputed from the entries. Freezing the report keeps every excluded and rejected record accounted for. |
+| `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion and rejection rows, and a few results of the import, are stored. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
 | `search.bin` | **Derived** | Built from titles, aliases, sections, and body text. |
 | `manifest.json` | **Derived** | Hashes and byte counts describe build output. |
 | `publications` registry | **Stored** as `publications.toml` | Titles, categories, dates, and Section 15 lines are reviewed metadata; counts are not. |
 
 The rule of thumb: if two people could disagree about it, store it; if a
-deterministic pass over the entries can produce it, derive it. Coverage is the
-one report that mixes both: derived counts are stored next to freeze-time
-exclusions so a corpus compile can reproduce the complete report instead of
-silently losing the rows that describe what is absent.
+deterministic pass over the entries can produce it, derive it.
 
 `RuleEntry::links` is the set of body links. It is derived, never stored:
 
@@ -182,20 +180,55 @@ the compiled value and the read-back value are identical.
 
 ### Coverage
 
-`coverage.toml` is the compiled `coverage.json`, frozen as TOML. It keeps:
+The compiled `coverage.json` is rebuilt from three sources.
 
-- the input digest;
-- counts by publication and kind;
-- excluded upstream paths;
-- rejected records and reasons;
-- link, relation, book-order, and backlink coverage;
-- stripped-content counts.
+**Derived at read time** from the entries, the publication list, and the book
+index, so a hand edit never leaves a count stale:
 
-The reader validates the report's digest and kind names. `corpus-check` also
-requires `by_kind` to equal the counts of the entry files. A corpus compile uses
-the frozen rows as the exclusion and rejection input; derived counts can be
-checked against the rebuilt library. Nothing that was deliberately left out
-disappears just because the entries cannot express it.
+- counts by kind and by publication (included entries, with the title from
+  `publications.toml`);
+- link totals and relation edge counts per kind (a feat's prerequisite edges come
+  from `prerequisite_feats`);
+- spell-list coverage;
+- backlink coverage.
+
+**`exclusions.toml`** holds what the import left out. It has two kinds of row:
+
+```toml
+[[excluded]]
+path = "json/faiths8.json"
+records = 420
+reason = "Product Identity"
+
+[[rejected]]
+path = "json/archetypes_barbarian.json#totem_warrior"
+reason = "uses compileFrom; recipe expansion is not implemented"
+```
+
+`excluded` names an upstream path that was not selected, with the number of
+records it holds. `rejected` names a record that was selected but dropped.
+Nothing derives these rows from the entries, because the entries do not contain
+what is absent. Rows are only appended: a pull request that edits or removes a
+row is wrong, and a duplicate `path` plus `reason` is a read error. The file may
+be empty.
+
+**`history.toml`** holds the results of the one-time import that the entries
+cannot state, kept as they were at the cut:
+
+- `input_digest`, the digest of the upstream inputs;
+- `[[publications]]`, the upstream record count per publication (a `title` only
+  where the report's title differs from the catalogue's);
+- `[prerequisites]`, how the import read feat prerequisite wording;
+- `[[unplaced_parts]]` and `[[unpromoted]]`, what the import could not place or
+  promote;
+- `[book_order]`, how upstream page numbers placed entries in books.
+
+Do not edit the file. These values describe the import, not the corpus. The
+upstream dataset pins stay in `legal.toml`.
+
+`cargo xtask corpus-roundtrip` rebuilds the full coverage report from the
+entries, `exclusions.toml`, and `history.toml`, and requires it to equal the
+compiled `coverage.json` exactly.
 
 ## Body
 
@@ -450,7 +483,7 @@ naming the file and line, when:
 - a body link or a `books.toml` anchor is not a heading key of the target entry
   (the message names the linking file, the target file and its headings, and
   the fix);
-- `coverage.toml` by-kind counts do not equal the entry files.
+- `exclusions.toml` repeats a row.
 
 ## Determinism
 

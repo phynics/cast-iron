@@ -1,9 +1,10 @@
 //! Repository automation. Run `cargo xtask help`.
 
+use cast_iron_content_compiler::corpus_coverage;
 use cast_iron_corpus::{
-    Config, Corpus, check as check_corpus, entry_path, read_aliases, read_books, read_coverage,
-    read_legal, read_publications, write_aliases, write_books, write_config, write_coverage,
-    write_entry, write_legal, write_publications,
+    Config, Corpus, Exclusions, check as check_corpus, entry_path, read_aliases, read_books,
+    read_legal, read_publications, write_aliases, write_books, write_config, write_entry,
+    write_exclusions, write_history, write_legal, write_publications,
 };
 use cast_iron_schema::{
     AliasIndex, BookIndex, Catalog, ContentManifest, CoverageReport, LegalNotices, RuleEntry,
@@ -860,6 +861,9 @@ fn corpus_export(args: &[String]) -> Result {
     let mut files = 0usize;
     let mut bytes = 0u64;
     let config = Config::default();
+    let (excluded, rejected, history) =
+        corpus_coverage::split(&library.coverage, &library.catalog.sources);
+    let exclusions = Exclusions { excluded, rejected };
     for entry in &library.entries {
         let path = out.join(entry_path(&entry.id));
         if let Some(parent) = path.parent() {
@@ -879,7 +883,8 @@ fn corpus_export(args: &[String]) -> Result {
         ),
         ("books.toml", write_books(&library.books)),
         ("legal.toml", write_legal(&library.legal)),
-        ("coverage.toml", write_coverage(&library.coverage)),
+        ("exclusions.toml", write_exclusions(&exclusions)),
+        ("history.toml", write_history(&history)),
     ];
     for (name, text) in stored {
         bytes += text.len() as u64;
@@ -952,6 +957,12 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         .entries
         .iter()
         .map(|(id, stored)| (id.clone(), stored.entry.clone()))
+        .collect();
+    let entries_vec: Vec<RuleEntry> = read_entries.values().cloned().collect();
+    let corpus_sources: Vec<SourceInfo> = corpus
+        .publications
+        .iter()
+        .map(|publication| publication.to_source(0))
         .collect();
 
     let expected: BTreeMap<String, RuleEntry> = library
@@ -1051,15 +1062,27 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         mismatches += 1;
         eprintln!("legal.toml does not match the compiled legal notices");
     }
-    let read_coverage = read_coverage(
-        &dir.join("coverage.toml"),
-        &fs::read_to_string(dir.join("coverage.toml"))
-            .map_err(|e| format!("cannot read coverage.toml: {e}"))?,
-    )
-    .map_err(|e| e.to_string())?;
-    if read_coverage != library.coverage {
-        mismatches += 1;
-        eprintln!("coverage.toml does not match the compiled coverage report");
+    match &corpus.history {
+        None => {
+            mismatches += 1;
+            eprintln!("history.toml is missing");
+        }
+        Some(history) => {
+            let derived = corpus_coverage::derive(
+                &entries_vec,
+                &corpus_sources,
+                &corpus.exclusions.excluded,
+                &corpus.exclusions.rejected,
+                history,
+            )?;
+            if derived != library.coverage {
+                mismatches += 1;
+                eprintln!(
+                    "the coverage derived from the corpus differs from the compiled coverage.json: {}",
+                    coverage_difference(&derived, &library.coverage)
+                );
+            }
+        }
     }
     match (&library.aliases, dir.join("aliases.toml").is_file()) {
         (Some(expected), true) => {
@@ -1095,6 +1118,30 @@ fn corpus_roundtrip(args: &[String]) -> Result {
         library.books.books.len()
     );
     Ok(())
+}
+
+/// Names the first coverage section that differs.
+fn coverage_difference(derived: &CoverageReport, compiled: &CoverageReport) -> String {
+    let derived = serde_json::to_value(derived).unwrap_or_default();
+    let compiled = serde_json::to_value(compiled).unwrap_or_default();
+    if let (Some(a), Some(b)) = (derived.as_object(), compiled.as_object()) {
+        for (key, value) in a {
+            if b.get(key) != Some(value) {
+                if let (Some(a), Some(b)) = (
+                    value.as_object(),
+                    b.get(key).and_then(serde_json::Value::as_object),
+                ) {
+                    for (inner, value) in a {
+                        if b.get(inner) != Some(value) {
+                            return format!("`{key}.{inner}`");
+                        }
+                    }
+                }
+                return format!("`{key}`");
+            }
+        }
+    }
+    "values differ".into()
 }
 
 fn first_difference(expected: &RuleEntry, read: &RuleEntry) -> String {
