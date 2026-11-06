@@ -198,7 +198,7 @@ fn stat_rows(body: &[Block]) -> Vec<&StatRow> {
 }
 
 /// The text after each bold `**Label:**` in the top-level paragraphs, up to the next break,
-/// in document order. A feat with a mythic variant states the label more than once.
+/// in document order. The normal part of a feat may state the same label more than once.
 fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
     let wanted = format!("{label}:");
     let mut found = Vec::new();
