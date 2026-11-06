@@ -5,5 +5,6 @@ pub mod corpus_build;
 pub mod corpus_coverage;
 pub mod lists;
 pub mod pipeline;
+pub mod published;
 pub mod relations;
 pub mod text;

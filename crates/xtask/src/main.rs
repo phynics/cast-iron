@@ -11,7 +11,9 @@ cargo xtask <command>
   fetch-sources              Download the pinned plain-text corpus (cast-iron-data) into
                              .cache/sources, verified by tree hash (see sources/corpus.toml)
   corpus-tree-hash <dir>     Print the tree hash of a directory (the pin algorithm in sources/corpus.toml)
-  content                    Compile the library from the pinned corpus into generated/content
+  content                    Compile the library from the pinned corpus into generated/content;
+                             fails when an id in sources/published-ids.txt stops resolving
+  published-ids              Add the ids of generated/content to sources/published-ids.txt
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
@@ -34,6 +36,7 @@ fn main() -> ExitCode {
         Some("fetch-sources") => fetch_sources(),
         Some("corpus-tree-hash") => corpus_tree_hash(&args[1..]),
         Some("content") => content(&args[1..]),
+        Some("published-ids") => published_ids(),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist")),
         Some("corpus-check") => corpus_check(&args[1..]),
@@ -316,8 +319,98 @@ fn content(args: &[String]) -> Result {
             "generated/content",
             "--reports",
             "generated/reports",
+            "--published",
+            PUBLISHED_IDS,
         ],
     )
+}
+
+/// Every id that a published library has used. `content` fails when one stops resolving.
+const PUBLISHED_IDS: &str = "sources/published-ids.txt";
+
+const PUBLISHED_IDS_HEADER: &str = "\
+# Every id that a published Cast Iron library has used, one per line, sorted by byte order.
+# A reader's bookmarks can hold any of them, so `cargo xtask content` fails when one no longer
+# resolves to an entry, directly or through a row of `aliases.toml` in the corpus.
+#
+# Made by `cargo xtask published-ids` from a compiled library: every entry id in catalog.json and
+# every `old` id in aliases.json. The legacy ids are those of the PSRD library; they match the
+# frozen snapshot at the git tag psrd-last-buildable (sources/canonical/legacy-ids.json).
+#
+# The file only grows. After a library is published: run `cargo xtask content`, run
+# `cargo xtask published-ids`, and commit the added lines. Never delete or edit a line.
+";
+
+/// Adds the ids of `generated/content` to `sources/published-ids.txt`, keeping the file sorted.
+fn published_ids() -> Result {
+    let content = root().join("generated/content");
+    let manifest: serde_json::Value = read_json(&content.join("manifest.json"))?;
+    let version = manifest["content_version"]
+        .as_str()
+        .ok_or("manifest.json has no content_version")?;
+    let version_dir = content.join(version);
+    let path = root().join(PUBLISHED_IDS);
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let mut ids: std::collections::BTreeSet<String> = existing
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .map(str::to_string)
+        .collect();
+    let before = ids.len();
+    let catalog: serde_json::Value = read_json(&version_dir.join("catalog.json"))?;
+    let entries = catalog["entries"]
+        .as_array()
+        .ok_or("catalog.json has no entries")?;
+    for entry in entries {
+        ids.insert(
+            entry["id"]
+                .as_str()
+                .ok_or("a catalog entry has no id")?
+                .to_string(),
+        );
+    }
+    let aliases_path = version_dir.join("aliases.json");
+    if aliases_path.is_file() {
+        let aliases: serde_json::Value = read_json(&aliases_path)?;
+        for list in ["entries", "retired"] {
+            for row in aliases[list].as_array().into_iter().flatten() {
+                ids.insert(
+                    row["old"]
+                        .as_str()
+                        .ok_or("an alias has no old id")?
+                        .to_string(),
+                );
+            }
+        }
+    }
+    let header: String = if existing.starts_with('#') {
+        existing
+            .lines()
+            .take_while(|line| line.starts_with('#'))
+            .map(|line| format!("{line}\n"))
+            .collect()
+    } else {
+        PUBLISHED_IDS_HEADER.to_string()
+    };
+    let mut text = header;
+    for id in &ids {
+        text.push_str(id);
+        text.push('\n');
+    }
+    fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    println!(
+        "{PUBLISHED_IDS}: {} ids ({} added)",
+        ids.len(),
+        ids.len() - before
+    );
+    Ok(())
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value> {
+    serde_json::from_slice(
+        &fs::read(path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
+    )
+    .map_err(|e| format!("{}: {e}", path.display()))
 }
 
 fn build_site(args: &[String]) -> Result {

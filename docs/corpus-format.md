@@ -484,7 +484,12 @@ file and line, when:
 - a body link or a `books.toml` anchor is not a heading key of the target entry
   (the message names the linking file, the target file and its headings, and
   the fix);
-- `exclusions.toml` repeats a row.
+- `exclusions.toml` repeats a row;
+- a publication in `publications.toml` has no `copyright`, or is covered by neither a
+  `section_15` notice in `legal.toml` (the notice text is part of the publication's
+  `copyright`) nor a title in `notice_pending`. The message names `publications.toml`, the
+  line, and the publication id. This is the licensing gate for adding a book: its
+  Section 15 notice, or a recorded pending decision, goes in the same change.
 
 ## Drift between fields and body
 
@@ -496,9 +501,16 @@ as a **warning** that names both places:
 entries/feat/accursed-hex.md:12: [fields] prerequisites = "Accursed Hex." disagrees with the `**Prerequisites:**` line = "Hex class feature." (line 20)
 ```
 
-It prints the count per kind. `--drift-report <file>` writes the full list. The
-check is a warning, not an error, because the freeze data already holds
-disagreements (see `reports/corpus-drift.md`). Fix the wrong copy, or leave it.
+It prints the count per kind and the first warnings. The full list is not stored in the
+repository; print it with `--drift-report`:
+
+```sh
+cargo xtask corpus-check .cache/sources/cast-iron-data --drift-report /tmp/corpus-drift.md
+```
+
+The file holds the count per kind, then one line per disagreement. The check is a
+warning, not an error, because the freeze data already holds disagreements (80 in
+corpus `v0.1.0`: 79 feats, 1 creature). Fix the wrong copy, or leave it.
 
 | Kind | Typed field | Body |
 |---|---|---|

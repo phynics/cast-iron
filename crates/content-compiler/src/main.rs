@@ -2,18 +2,21 @@ use cast_iron_content_compiler::corpus_build::compile_corpus;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir>";
+const USAGE: &str =
+    "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir> [--published <file>]";
 
 struct Args {
     corpus: PathBuf,
     out: PathBuf,
     reports: PathBuf,
+    published: Option<PathBuf>,
 }
 
 fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut corpus = None;
     let mut out = None;
     let mut reports = None;
+    let mut published = None;
     let mut args = args;
     while let Some(arg) = args.next() {
         let mut value = |name: &str| args.next().ok_or_else(|| format!("{name} needs a value"));
@@ -21,6 +24,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--corpus" => corpus = Some(PathBuf::from(value("--corpus")?)),
             "--out" => out = Some(PathBuf::from(value("--out")?)),
             "--reports" => reports = Some(PathBuf::from(value("--reports")?)),
+            "--published" => published = Some(PathBuf::from(value("--published")?)),
             "--help" | "-h" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
         }
@@ -30,6 +34,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
         corpus: need(corpus, "--corpus")?,
         out: need(out, "--out")?,
         reports: need(reports, "--reports")?,
+        published,
     })
 }
 
@@ -44,7 +49,14 @@ fn main() -> ExitCode {
     // A large stack keeps deeply nested entry bodies from overflowing it.
     let worker = std::thread::Builder::new()
         .stack_size(256 * 1024 * 1024)
-        .spawn(move || compile_corpus(&args.corpus, &args.out, &args.reports));
+        .spawn(move || {
+            compile_corpus(
+                &args.corpus,
+                &args.out,
+                &args.reports,
+                args.published.as_deref(),
+            )
+        });
     let result = match worker.map(|h| h.join()) {
         Ok(Ok(result)) => result,
         _ => {

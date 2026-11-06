@@ -105,6 +105,41 @@ pub fn fields_match(kind: EntryKind, fields: &TypedFields) -> bool {
     }
 }
 
+/// The licensing gate: every publication states a copyright and is covered by a Section 15
+/// notice or a reviewed `notice_pending` entry.
+///
+/// A publication is covered when the text of some `section_15` notice in `legal.toml` is part of
+/// its `copyright`, which is how the import joined them, or when its title is in
+/// `notice_pending`. A problem names `publications.toml`, the line, and the publication id.
+fn check_publication_notices(corpus: &Corpus, report: &mut Report) {
+    let text = std::fs::read_to_string(corpus.dir.join("publications.toml")).unwrap_or_default();
+    for publication in &corpus.publications {
+        let at = format!(
+            "publications.toml:{}",
+            line_of(&text, &format!("id = \"{}\"", publication.id))
+        );
+        let copyright = publication.copyright.as_deref().map_or("", str::trim);
+        if copyright.is_empty() {
+            report.problems.push(format!(
+                "{at}: publication `{}` has no copyright",
+                publication.id
+            ));
+            continue;
+        }
+        let pending = corpus.legal.notice_pending.contains(&publication.title);
+        let noticed = corpus.legal.section_15.iter().any(|notice| {
+            let notice = notice.notice.trim();
+            !notice.is_empty() && copyright.contains(notice)
+        });
+        if !pending && !noticed {
+            report.problems.push(format!(
+                "{at}: publication `{}` ({}) is covered by no section_15 notice in legal.toml and is not in notice_pending",
+                publication.id, publication.title
+            ));
+        }
+    }
+}
+
 /// Runs every cross-file check.
 pub fn check(corpus: &Corpus) -> Report {
     let mut report = Report::default();
@@ -128,6 +163,8 @@ pub fn check(corpus: &Corpus) -> Report {
         .iter()
         .map(|(id, stored)| (id.as_str(), heading_keys(&stored.entry)))
         .collect();
+
+    check_publication_notices(corpus, &mut report);
 
     for (id, stored) in &corpus.entries {
         let entry = &stored.entry;
@@ -301,6 +338,30 @@ mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
     use cast_iron_schema::{BookIndex, BookNode, BookTree, EntryId};
+
+    #[test]
+    fn a_publication_needs_a_copyright_and_a_notice_or_a_pending_decision() {
+        let mut c = corpus(vec![]);
+        c.publications[0].copyright = None;
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("publications.toml:1: publication `core-rulebook` has no copyright"),
+            "{text}"
+        );
+
+        let mut c = corpus(vec![]);
+        c.legal.section_15.clear();
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains(
+                "publication `core-rulebook` (Core Rulebook) is covered by no section_15"
+            ),
+            "{text}"
+        );
+
+        c.legal.notice_pending = vec!["Core Rulebook".into()];
+        assert!(check(&c).problems.is_empty());
+    }
 
     #[test]
     fn a_clean_corpus_has_no_problems() {

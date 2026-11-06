@@ -13,16 +13,20 @@ use crate::pipeline::{
     ALIASES_FILE, Failure, Library, Outcome, canonical_facets, check_no_markup_leaks, failure,
     package, search_aliases,
 };
+use crate::published;
 use crate::relations;
 use crate::{lists, text};
 use cast_iron_corpus::Corpus;
 use cast_iron_schema::{DatasetRef, RelationCoverage, RuleEntry, SourceInfo};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 /// Reads the corpus at `dir` and derives the library. Every problem the corpus check finds is
 /// returned together, so one run lists every file that needs a fix.
-pub fn build_from_corpus(dir: &Path) -> Result<Library, Failure> {
+///
+/// With `published` (`sources/published-ids.txt`), the build also fails when a listed id no
+/// longer resolves to an entry, directly or through `aliases.toml`.
+pub fn build_from_corpus(dir: &Path, published: Option<&Path>) -> Result<Library, Failure> {
     let corpus = Corpus::load(dir).map_err(|errors| Failure {
         lines: std::iter::once(format!(
             "cannot read the corpus {}: {} error(s)",
@@ -44,6 +48,9 @@ pub fn build_from_corpus(dir: &Path) -> Result<Library, Failure> {
             lines.push(format!("... and {} more", report.problems.len() - 50));
         }
         return Err(Failure { lines });
+    }
+    if let Some(path) = published {
+        check_published(path, &corpus)?;
     }
     let history = corpus.history.as_ref().ok_or_else(|| {
         failure(
@@ -139,7 +146,38 @@ pub fn build_from_corpus(dir: &Path) -> Result<Library, Failure> {
     })
 }
 
+/// Fails when an id in the published-id file no longer resolves in `corpus`.
+fn check_published(path: &Path, corpus: &Corpus) -> Result<(), Failure> {
+    let text = std::fs::read_to_string(path).map_err(|e| {
+        failure(format!(
+            "cannot read the published ids {}: {e}",
+            path.display()
+        ))
+    })?;
+    let ids = published::parse(&text).map_err(|lines| Failure { lines })?;
+    let entry_ids: BTreeSet<&str> = corpus.entries.keys().map(String::as_str).collect();
+    let missing = published::unresolved(&ids, &entry_ids, corpus.aliases.as_ref());
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let mut lines = vec![format!(
+        "{} published id(s) no longer resolve; a bookmark may hold each of them:",
+        missing.len()
+    )];
+    lines.extend(missing.iter().take(50).map(|line| format!("  {line}")));
+    if missing.len() > 50 {
+        lines.push(format!("  ... and {} more", missing.len() - 50));
+    }
+    Err(Failure { lines })
+}
+
 /// Builds the library from the corpus at `dir` and writes it to `out`, with reports in `reports`.
-pub fn compile_corpus(dir: &Path, out: &Path, reports: &Path) -> Result<Outcome, Failure> {
-    package(build_from_corpus(dir)?, out, reports)
+/// `published` is the optional published-id file (see [`build_from_corpus`]).
+pub fn compile_corpus(
+    dir: &Path,
+    out: &Path,
+    reports: &Path,
+    published: Option<&Path>,
+) -> Result<Outcome, Failure> {
+    package(build_from_corpus(dir, published)?, out, reports)
 }

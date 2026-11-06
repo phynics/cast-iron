@@ -32,9 +32,27 @@ rewritten report writer).
 
 Limitations: this is local evidence. CI has not run the changed content job, and nothing is
 deployed. The PSRD release step needs a release commit whose Pages workflow builds with `--psrd`;
-`docs/releasing.md` records this and does not prepare it. The tier table for Books categories is
+`docs/releasing.md` gives the exact preparation and verification, and records the one open
+owner decision (how the prep commit reaches `release`). The tier table for Books categories is
 checked against the five categories of the pinned corpus; a corpus bump with a new category fails
 the `book_tier` test until the table lists it.
+
+### Step 6, review round 1, 2026-11-06
+
+Added after review: the published-id guard (`sources/published-ids.txt`, 41,074 ids: 9,968 PSRD
+ids equal to the snapshot at the tag, and the 31,106 `ref/` ids of `v6aa587a686a3caf0`), the
+`corpus-check` licensing gate, a CI-enforced `book_tier` corpus test, and an executable PSRD
+release procedure in `docs/releasing.md`. Local verification, no CI or deployment claim:
+
+| Check | Result |
+|---|---|
+| `generated/content` tree hash after the guard | `2c6005d60af70d6c2c09d5106cd5303d434ab049310d6c13cc706586166b50f3`, `diff -r` against the baseline empty; two builds from scratch identical (`7a6ec44b...dc4a` over all of `generated/`) |
+| Guard on the real corpus | `cargo xtask content` passes; with an extra unresolvable id in a copy of the file the compiler exits 1 before writing any output and names the id |
+| `cargo xtask corpus-check` on corpus `v0.1.0` with the licensing gate | Exit 0: 439 publications, all with a copyright; 431 covered by a `section_15` notice, 8 by `notice_pending` (Bestiary 6, Faiths of Purity, Goblins of Golarion, Horror Realms, Inner Sea Taverns, Kingmaker Player's Guide, Magic of Thassilon, Serpent's Skull Player's Guide); no exceptions |
+| `book_tier` cached-corpus test | Fails with `CI=true` and no cache; prints a skip message locally without one |
+| `cargo xtask check`, `check-publication.py`, `cargo xtask build-site` | Passed; `dist/content` tree hash `2c6005d6...` |
+| `npm --prefix tests/e2e test -- reference search install books legal --project=chromium` | 45 passed (a sample) |
+| PSRD procedure in a worktree of `psrd-last-buildable` | Followed as written: `content --psrd` (`vcdd730994d863e50`), the tag's upgrade check against this branch's `generated/content` by relative path exit 0, the one-line `pages.yml` edit on a prep branch, `build-site --psrd`, `check-publication.py` exit 0, and 30 Chromium tests pass with the four documented exclusions. The full suite does not load against the PSRD library (`entry-header.spec.ts`); six tests of the first sample fail on missing categories. `git merge -s ours` of the prep commit into `main` leaves the tree identical and makes the prep commit and `release` ancestors |
 
 ## Plain-text corpus, step 3: the build reads the corpus, 2026-11-06
 

@@ -247,8 +247,9 @@ mod tests {
         }
     }
 
-    /// When the pinned corpus is in the cache (`cargo xtask fetch-sources`), every category it
-    /// uses must be in the reviewed list above. The test is skipped without the cache.
+    /// Every category the pinned corpus uses must be in the reviewed list above. The corpus is
+    /// read from the cache that `cargo xtask fetch-sources` fills. CI (the `CI` variable is set)
+    /// fails when the cache is missing; a local run without it prints a skip message.
     #[test]
     fn every_category_in_the_cached_corpus_is_reviewed() {
         let path = concat!(
@@ -256,6 +257,12 @@ mod tests {
             "/../../.cache/sources/cast-iron-data/publications.toml"
         );
         let Ok(text) = std::fs::read_to_string(path) else {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "the pinned corpus is not in .cache/sources/cast-iron-data; the CI job must run \
+                 `cargo xtask fetch-sources` first"
+            );
+            eprintln!("skipped: run `cargo xtask fetch-sources` to check the cached corpus");
             return;
         };
         let file: toml::Table = text.parse().expect("publications.toml is valid TOML");

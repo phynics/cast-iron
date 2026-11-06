@@ -85,7 +85,10 @@ fn write_corpus(dir: &Path) {
         product_identity: "Product Identity.".into(),
         community_use_notice: "Cast Iron uses trademarks under Paizo's Community Use Policy."
             .into(),
-        section_15: vec![],
+        section_15: vec![cast_iron_schema::CopyrightNotice {
+            title: "Core Rulebook".into(),
+            notice: "Core Rulebook. (c) Paizo Inc.".into(),
+        }],
         notice_pending: vec![],
         datasets: vec![],
     };
@@ -147,7 +150,7 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     for run in 0..2 {
         let out = temp(&format!("out{run}"));
         let reports = temp(&format!("reports{run}"));
-        let outcome = compile_corpus(&corpus, &out, &reports).unwrap_or_else(|f| {
+        let outcome = compile_corpus(&corpus, &out, &reports, None).unwrap_or_else(|f| {
             panic!("{}", f.lines.join("\n"));
         });
         assert_eq!(outcome.entry_count, 2);
@@ -181,8 +184,31 @@ fn a_broken_link_in_the_corpus_stops_the_build_and_names_the_file() {
         write_entry(&entry, &Config::default()),
     )
     .unwrap();
-    let failure = compile_corpus(&corpus, &temp("broken-out"), &temp("broken-reports"))
+    let failure = compile_corpus(&corpus, &temp("broken-out"), &temp("broken-reports"), None)
         .expect_err("a link to a missing entry must fail");
     let text = failure.lines.join("\n");
     assert!(text.contains("grapple"), "{text}");
+}
+
+#[test]
+fn a_published_id_that_stops_resolving_fails_the_build_before_anything_is_written() {
+    let corpus = temp("published");
+    write_corpus(&corpus);
+    let ids = temp("published-ids").join("ids.txt");
+    fs::write(&ids, "# header\nref/rule/combat\nref/rule/grapple\n").unwrap();
+    compile_corpus(
+        &corpus,
+        &temp("published-ok"),
+        &temp("published-ok-reports"),
+        Some(&ids),
+    )
+    .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+
+    fs::write(&ids, "ref/rule/combat\nref/rule/dropped\n").unwrap();
+    let out = temp("published-bad");
+    let failure = compile_corpus(&corpus, &out, &temp("published-bad-reports"), Some(&ids))
+        .expect_err("a dropped published id must fail");
+    let text = failure.lines.join("\n");
+    assert!(text.contains("ref/rule/dropped"), "{text}");
+    assert!(!out.join("manifest.json").exists());
 }

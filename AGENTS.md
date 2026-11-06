@@ -22,6 +22,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Compile the library | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
+| Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Check before you finish | `cargo xtask check` |
@@ -52,7 +53,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 
 1. Offline is the product. Nothing at runtime may contact a third-party host: no CDN, no remote font, no telemetry. After installation, ordinary use makes no network request at all.
 2. Client rendering uses typed nodes only. Never add `inner_html` or raw upstream HTML. This is the XSS defense.
-3. `EntryId` values are public, permanent identifiers, because bookmarks store them. Never edit an `id` or move an entry file in the corpus. Published ids are `ref/` ids; a legacy id resolves through `aliases.toml` in the corpus and never gets a second meaning.
+3. `EntryId` values are public, permanent identifiers, because bookmarks store them. Never edit an `id` or move an entry file in the corpus. Published ids are `ref/` ids; a legacy id resolves through `aliases.toml` in the corpus and never gets a second meaning. `sources/published-ids.txt` lists every id a published library used; `cargo xtask content` fails when one stops resolving, and the file only grows.
 4. A breaking change to serialized content must increase `SCHEMA_VERSION`. A breaking change to the search format must increase `INDEX_FORMAT_VERSION`.
 5. Compiler output must stay byte-identical between runs: no timestamps, no hash-map iteration order.
 6. Excluded or rejected material must appear in the coverage report. Record it in `exclusions.toml` in the corpus; never drop it silently.
@@ -61,7 +62,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 9. All asset URLs are relative to the document base, because the app runs under a project path (`/cast-iron/`).
 10. Do not ship artwork. Paizo Product Identity (names, deities, characters, setting prose) ships only under Paizo's Community Use Policy: every entry carries the `legal#community-use` notice path, and the legal page keeps the Community Use notice. Never imply official status (rule 11). Read `docs/research/licensing-audit.md` before adding a source, plus `docs/research/pf-data-licensing.md` for anything from the Pf Data corpus. Keep `legal.toml` in the corpus complete (Section 15 notices, dataset pins) and `LICENSES/README.md` accurate.
 11. The app must not use the Pathfinder logo, and must not claim official status or compatibility.
-12. Entries enter the library only by editing the corpus repository (`phynics/cast-iron-data`) and bumping the pin in `sources/corpus.toml`. Each new publication needs a row in the corpus `publications.toml` and its Section 15 notice or a recorded pending decision. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope.
+12. Entries enter the library only by editing the corpus repository (`phynics/cast-iron-data`) and bumping the pin in `sources/corpus.toml`. Each new publication needs a row in the corpus `publications.toml` with a copyright and its Section 15 notice or a `notice_pending` decision; `corpus-check` fails without them. Never copy upstream renderer code or artwork; ORC-licensed PF2 material stays out of scope.
 
 ## Working pattern
 

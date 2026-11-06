@@ -26,9 +26,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # The tests read the pinned corpus (the Books tier table is checked against its
+      # categories), and the test fails in CI when it is missing. The cache is keyed on the
+      # pinned commit, like the content job's.
+      - name: Read the pinned corpus commit
+        id: pin
+        run: echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
+      - name: Restore the pinned corpus
+        id: corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/sources/cast-iron-data
+          key: cast-iron-data-${{ steps.pin.outputs.corpus }}
       - uses: ./.github/actions/setup-build
         with:
           cache-key: check
+      - run: cargo xtask fetch-sources
+      - name: Save the pinned corpus
+        if: ${{ steps.corpus.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .cache/sources/cast-iron-data
+          key: ${{ steps.corpus.outputs.cache-primary-key }}
       - name: Release promotion safety checks
         run: python3 scripts/test-promote-release.py
       - name: cargo xtask check
