@@ -22,6 +22,71 @@ Local verification, 2026-11-06 (no CI or deployment claim):
 | `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `6d54314fc71e9ae9`, 11 files |
 | `npm --prefix tests/e2e test -- --project=chromium tests/journeys.spec.ts tests/relationships.spec.ts` | 9 passed |
 
+## Release `20e6a31` (corpus v0.1.2), 2026-11-06
+
+`release` was promoted from `ccbfb7c` to
+`20e6a31af342cb5f7899cdb7e039022f5bae5de8` with `scripts/promote-release.py --push`. The release
+serves content `v377b3e08a8a0692a` (schema 3, 31,106 entries) with shell
+`6d54314fc71e9ae9`. `release` and `origin/main` both point at `20e6a31`, and nothing has merged
+after it.
+
+| Field | Value |
+|---|---|
+| Release commit | `20e6a31af342cb5f7899cdb7e039022f5bae5de8` |
+| Previous release | `ccbfb7c`, content `vc01cc1c20a652c37`, shell `501943363e34b0fb` |
+| Content | `v377b3e08a8a0692a`, schema 3, 31,106 entries |
+| Shell | `6d54314fc71e9ae9` |
+| Corpus pin | `phynics/cast-iron-data` tag `v0.1.2`, commit `7739e7a` |
+| Included changes | [#185](https://github.com/phynics/cast-iron/pull/185) Home density, [#186](https://github.com/phynics/cast-iron/pull/186) two-step release record, [#190](https://github.com/phynics/cast-iron/pull/190) Books tab speed, [#181](https://github.com/phynics/cast-iron/pull/181) Quick search, [#200](https://github.com/phynics/cast-iron/pull/200) status drift fixes, [#187](https://github.com/phynics/cast-iron/pull/187) feat field drift check, [#201](https://github.com/phynics/cast-iron/pull/201) corpus v0.1.2 pin |
+
+**Deployment.** Pages run
+[42288829788](https://github.com/phynics/cast-iron/actions/runs/42288829788) succeeded (build and
+deploy) for `headBranch: release` at `20e6a31`. The live `content/manifest.json` reads
+`content_version: v377b3e08a8a0692a`, `schema_version: 3`, `entry_count: 31106`. A local
+`cargo xtask content` reproduces the same version.
+
+**CI.** Main full CI run
+[42281880993](https://github.com/phynics/cast-iron/actions/runs/42281880993) succeeded at
+`20e6a31`.
+
+**Local upgrade check, 2026-11-06.** From an installed profile on the previous release (library
+`vc01cc1c20a652c37`, shell `501943363e34b0fb`) to this one (library `v377b3e08a8a0692a`, shell
+`6d54314fc71e9ae9`), in Chromium and WebKit:
+
+| Check | Result |
+|---|---|
+| App update and library update | Both offered and applied |
+| Stars | Survived |
+| Active-book choice | Survived |
+| Point-Blank Shot requirements | No longer names Precise Shot |
+| Offline reload | Passed |
+| Console errors / third-party requests | 0 / 0 |
+| `update.spec`, `shell-update.spec`, `canonical-cutover.spec` | 6 of 6 passed |
+
+**Live check, fresh profile, headless Chromium** against
+https://phynics.github.io/cast-iron/ on 2026-11-06:
+
+| Check | Result |
+|---|---|
+| App shell loads; every asset path is under `/cast-iron/` | PASS |
+| Download installs the library: `v377b3e08a8a0692a`, schema 3, 31,106 entries | PASS (29.9 s) |
+| `ref/feat/power-attack` renders "Str 13, base attack bonus +1" | PASS |
+| `ref/feat/point-blank-shot` has no Requirements section or prerequisite chain naming Precise Shot | PASS |
+| Offline reload still renders the entry | PASS |
+| Every request goes to `phynics.github.io` | PASS |
+| Console errors, page errors, failed requests | PASS: 0, 0, 0 |
+
+One earlier attempt logged a single transient 503 from Pages for a static asset and read the
+Power Attack body before it finished rendering; the rerun above was clean.
+
+**Published ids.** `cargo xtask published-ids` added 0 ids; `sources/published-ids.txt` stays at
+41,074 ids (9,968 PSRD ids and 31,106 `ref/` ids). The v0.1.2 corpus introduced no new permanent
+ids.
+
+**Not verified.** Physical devices and the accessibility check
+([#12](https://github.com/phynics/cast-iron/issues/12)) are still not done. Firefox and WebKit
+were not run against the live site.
+
 ## Two-step release, 2026-11-06
 
 Pages now serves the canonical corpus library. Both steps followed `docs/releasing.md`, and the
@@ -33,11 +98,8 @@ owner approved them in [#127](https://github.com/phynics/cast-iron/issues/127).
 | 1. Alias-capable shell, PSRD library | `ae032ba` (one-time fast-forward push) | tag `psrd-last-buildable` plus `--psrd` | `vcdd730994d863e50`, 9,990 entries | [42200932251](https://github.com/phynics/cast-iron/actions/runs/42200932251): build and deploy succeeded |
 | 2. Canonical corpus library | `ccbfb7c` (`promote-release.py --push`) | `main` `ccbfb7c` (#177, #179, #184) | `vc01cc1c20a652c37` | [42206465391](https://github.com/phynics/cast-iron/actions/runs/42206465391): build and deploy succeeded |
 
-**Main is ahead of release.** `release` is at `ccbfb7c`. Merged on `main` since then, and not
-released: [#185](https://github.com/phynics/cast-iron/pull/185) Home density,
-[#190](https://github.com/phynics/cast-iron/pull/190) Books tab speed, and
-[#181](https://github.com/phynics/cast-iron/pull/181) Quick search. None of these has a Pages
-deployment.
+**Superseded.** These changes shipped in the `20e6a31` release above. `release` and `main` both
+point at `20e6a31`, so nothing is ahead of `release`.
 
 **CI**
 - Prep commit `ae032ba`: [42190040210](https://github.com/phynics/cast-iron/actions/runs/42190040210)
