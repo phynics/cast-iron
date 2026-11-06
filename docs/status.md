@@ -2,6 +2,26 @@
 
 Updated 2026-11-06.
 
+## Corpus pinned to v0.1.2, 2026-11-06
+
+`sources/corpus.toml` now pins `phynics/cast-iron-data` tag `v0.1.2`, commit
+`7739e7add3f2a6ccd1c5232377bd910d38278992`, tree hash
+`44f014cb44d2ab033d9069cbfd4c30bad28bfc3e99dae6cd4f3e1e63e16de29f`
+(`cargo xtask corpus-tree-hash` on the extracted archive; `cargo xtask fetch-sources`
+verified it). Drift between typed fields and body text is now an error rather than a
+warning, so `corpus-check` and `cargo xtask content` fail on any disagreement
+([#180](https://github.com/phynics/cast-iron/issues/180)).
+
+Local verification, 2026-11-06 (no CI or deployment claim):
+
+| Check | Result |
+|---|---|
+| `generated/content` | Content version `v377b3e08a8a0692a`, 31,106 entries (was `vc01cc1c20a652c37`, 31,106 entries) |
+| `cargo xtask corpus-check .cache/sources/cast-iron-data` | Exit 0: 31,106 entries, 439 publications, 449 books; 0 drift disagreements |
+| `cargo xtask check` | Passed |
+| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `6d54314fc71e9ae9`, 11 files |
+| `npm --prefix tests/e2e test -- --project=chromium tests/journeys.spec.ts tests/relationships.spec.ts` | 9 passed |
+
 ## Two-step release, 2026-11-06
 
 Pages now serves the canonical corpus library. Both steps followed `docs/releasing.md`, and the
@@ -112,7 +132,8 @@ release procedure in `docs/releasing.md`. Local verification, no CI or deploymen
 
 `cargo xtask content` now compiles the canonical library from the pinned corpus
 (`phynics/cast-iron-data` tag `v0.1.0`, commit `0e7c3abe620b80293e0a6382e2ab7a4b3372f8e4`,
-pin in `sources/corpus.toml`). `--from-upstream` keeps the previous build for comparison.
+pin in `sources/corpus.toml`). The pin has since moved to `v0.1.2`; the measurements in
+this section are from `v0.1.0`. `--from-upstream` keeps the previous build for comparison.
 Decision: [the pinned corpus is the source of truth](decisions.md).
 
 Local verification, 2026-11-06 (no CI or deployment claim):
