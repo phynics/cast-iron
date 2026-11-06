@@ -1,6 +1,7 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
+use crate::fmt;
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
@@ -9,8 +10,8 @@ use crate::views::categories::{self, Lens};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
-    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, local_resource,
-    section_label, set_title, sort_key,
+    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, kind_name,
+    local_resource, section_label, set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
@@ -104,7 +105,7 @@ fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
         <li>
             <a class="cat" href=Route::browse_kind(kind).href()>
                 <span class="cat-name">{kind.label()}</span>
-                <span class="cat-count">{n}</span>
+                <span class="cat-count">{fmt::count(n)}</span>
                 <span class="cat-blurb">{categories::blurb(kind)}</span>
             </a>
         </li>
@@ -700,7 +701,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
         view! {
             <li>
                 <a class="lens-chip" href=route.href()>
-                    {facet_label(field, &value)}<small>{n}</small>
+                    {facet_label(field, &value)}<small>{fmt::count(n)}</small>
                 </a>
             </li>
         }
@@ -722,7 +723,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
                         let rest = rest.iter().cloned().map(chip).collect_view();
                         view! {
                             <details class="lens-more">
-                                <summary>{format!("{n} more")}</summary>
+                                <summary>{format!("{} more", fmt::count(n))}</summary>
                                 <ul class="lens-chips">{rest}</ul>
                             </details>
                         }
@@ -796,11 +797,22 @@ fn Lenses(kind: EntryKind) -> impl IntoView {
 /// plain list.
 const GROUP_THRESHOLD: usize = 200;
 
+/// The count line under a list page's title: `3583 feats`, `1 feat`. It names the kind, so it
+/// reads as the size of this list. The counts are totals for the active books.
+pub fn kind_count_line(kind: EntryKind, n: usize) -> String {
+    let noun = if n == 1 {
+        kind_name(kind).to_lowercase()
+    } else {
+        kind.label().to_lowercase()
+    };
+    format!("{} {noun}", fmt::count(n))
+}
+
 fn entry_count(n: usize) -> String {
     if n == 1 {
         "1 entry".to_string()
     } else {
-        format!("{n} entries")
+        format!("{} entries", fmt::count(n))
     }
 }
 
@@ -1070,29 +1082,17 @@ pub fn BrowseKind(kind: EntryKind, letter: Option<char>) -> impl IntoView {
         .into_any()
     };
 
-    let search_href = Route::Search {
-        q: String::new(),
-        kinds: vec![kind],
-        sources: vec![],
-        facets: vec![],
-    }
-    .href();
+    // The list-page template (DESIGN.md): title, count, the filters, the letter bar, the rows.
+    // No breadcrumb, lede or search link: the tab bar and the brand lead home, the category
+    // cards on Home carry the blurb, and the header search icon opens Quick search scoped to
+    // this list.
     view! {
-        <div class="wide">
-        <nav class="crumbs" aria-label="Breadcrumb">
-            <ol><li><a href=Route::Home.href()>"Home"</a></li></ol>
-        </nav>
+        <div class="wide list-page">
         <h1>{kind.label()}</h1>
-        <p class="lede-line">{categories::blurb(kind)}</p>
-        <p class="muted">
-            {format!("{count} entries in your active books")}" · "
-            <a href=search_href>
-                {format!("Search {}", kind.label().to_lowercase())}
-            </a>
-        </p>
-        {jump}
+        <p class="muted list-count" role="status" aria-live="polite">{kind_count_line(kind, count)}</p>
         <Lenses kind />
-        <h2 class="sub-head az-head">"All, A to Z"</h2>
+        {jump}
+        <h2 class="sr-only">"All, A to Z"</h2>
         {body}
         </div>
     }
@@ -1213,6 +1213,19 @@ mod tests {
 
     fn id(s: &str) -> EntryId {
         EntryId::parse(s).unwrap()
+    }
+
+    #[test]
+    fn the_count_line_names_the_kind() {
+        assert_eq!(kind_count_line(EntryKind::Feat, 3583), "3,583 feats");
+        assert_eq!(kind_count_line(EntryKind::Feat, 999), "999 feats");
+        assert_eq!(kind_count_line(EntryKind::Feat, 1), "1 feat");
+        assert_eq!(kind_count_line(EntryKind::Feat, 0), "0 feats");
+        assert_eq!(
+            kind_count_line(EntryKind::PrestigeClass, 40),
+            "40 prestige classes"
+        );
+        assert_eq!(kind_count_line(EntryKind::Class, 1), "1 class");
     }
 
     #[test]

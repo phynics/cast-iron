@@ -398,3 +398,47 @@ installedTest("Home at 390 px: twelve recents take five rows and a Show more con
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+installedTest("Feats list at 390 px: title, count, filters and a sticky 48 px letter bar, with rows after them", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Feats" })).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(/^[\d,]+ feats$/);
+  await expect(main.locator("nav.crumbs")).toHaveCount(0);
+  await expect(main.locator(".lede-line")).toHaveCount(0);
+  const nav = main.getByRole("navigation", { name: "Jump to letter" });
+  await expect(nav).toBeVisible();
+  expect(Math.round((await nav.boundingBox())!.height)).toBe(48);
+  // The bar sticks under the 60 px masthead once the page scrolls past it, and nothing else
+  // below the masthead sticks.
+  await page.evaluate(() => window.scrollTo(0, 1200));
+  const header = (await page.locator("header.app-header").boundingBox())!;
+  // (The masthead is 60 px plus its 1 px rule; the bar sits at 60 px, under the rule.)
+  await expect.poll(async () => Math.abs((await nav.boundingBox())!.y - (header.y + header.height))).toBeLessThanOrEqual(1);
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+installedTest("Scoped Quick search at 390 px: the scope pill is a 44 px target and fits, also for a long kind name", async ({ page }) => {
+  await installLibrary(page);
+  const viewport = page.viewportSize()!;
+  for (const [hash, name] of [["#/browse/kind/feat", "Feats"], ["#/browse/kind/prestige_class", "Prestige classes"]] as const) {
+    await page.goto(hash);
+    const layer = await openQuickSearch(page);
+    const pill = layer.getByRole("button", { name: `Remove scope: ${name}`, exact: true });
+    await expect(pill).toBeVisible();
+    await expect(quickField(page)).toHaveAttribute("placeholder", `Search ${name.toLowerCase()}`);
+    const box = (await pill.boundingBox())!;
+    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await pill.click();
+    await expect(pill).toHaveCount(0);
+    await expect(quickField(page)).toBeFocused();
+    await layer.getByRole("button", { name: "Cancel" }).click();
+    await expect(layer).toBeHidden();
+  }
+});

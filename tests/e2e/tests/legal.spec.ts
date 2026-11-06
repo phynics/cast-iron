@@ -31,7 +31,7 @@ function reasonGroup(reason: string) {
 async function tableTotals(page: import("@playwright/test").Page, caption: string) {
   const table = page.locator("table", { has: page.locator("caption", { hasText: caption }) });
   return table.locator("tbody tr").evaluateAll((rows) =>
-    rows.map((row) => [...row.children].slice(1).map((cell) => Number(cell.textContent ?? "0"))),
+    rows.map((row) => [...row.children].slice(1).map((cell) => Number((cell.textContent ?? "0").replace(/,/g, "")))),
   );
 }
 

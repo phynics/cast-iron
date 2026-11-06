@@ -5,6 +5,7 @@
 //! panel opens a shard. A library of schema 1 or 2 has neither file; its entries then get no
 //! panel, and nothing around them breaks.
 
+use crate::fmt;
 use crate::graph::{
     Relations, is_alternate_racial_trait, level_counts, list_of_class_entry, list_total,
     requirements_blocks,
@@ -206,7 +207,7 @@ fn race_panel(library: &Library, id: &EntryId, relations: &Relations) -> Option<
     Some(
         view! {
             <section class="rel" aria-labelledby="rel-traits">
-                <h2 id="rel-traits">"Racial traits "<span class="rel-count">{total}</span></h2>
+                <h2 id="rel-traits">"Racial traits "<span class="rel-count">{fmt::count(total)}</span></h2>
                 {groups}
             </section>
         }
@@ -291,9 +292,9 @@ fn class_panels(
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-archetypes">
-                        <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{total}</span></h2>
+                        <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
-                            <summary>{format!("Show {total} archetypes")}</summary>
+                            <summary>{format!("Show {} archetypes", fmt::count(total))}</summary>
                             {groups}
                         </details>
                     </section>
