@@ -456,26 +456,18 @@ pub fn Books() -> impl IntoView {
         Route::BooksSorted(sort) => Some(sort),
         _ => None,
     };
+    // One cached pass over the catalog gives every row its count. Counting per row rescanned
+    // the whole catalog for each publication and stalled the page for seconds.
+    let counts = library.source_entry_counts();
     let rows: Vec<BookListEntry> = library
         .sources()
         .iter()
-        .map(|source| {
-            let id = source.id.clone();
-            let count = library
-                .catalog()
-                .entries
-                .iter()
-                .filter(|stub| {
-                    library.canonical_source_for_entry(&stub.id).as_deref() == Some(id.as_str())
-                })
-                .count();
-            BookListEntry {
-                id,
-                title: source.title.clone(),
-                category: source.category.clone(),
-                publication_date: source.publication_date.clone(),
-                count,
-            }
+        .map(|source| BookListEntry {
+            id: source.id.clone(),
+            title: source.title.clone(),
+            category: source.category.clone(),
+            publication_date: source.publication_date.clone(),
+            count: counts.get(&source.id).copied().unwrap_or(0),
         })
         .collect();
     let apply = BulkApply {

@@ -28,6 +28,11 @@ pub async fn record(id: EntryId, title: String) {
     let _ = store::set_meta(KEY, &list).await;
 }
 
+/// Empties the history. The empty list is stored, so the clear survives a reload.
+pub async fn clear() {
+    let _ = store::set_meta(KEY, &Vec::<Recent>::new()).await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

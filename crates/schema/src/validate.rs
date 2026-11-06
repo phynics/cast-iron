@@ -117,6 +117,12 @@ pub fn validate_derived(
     if lists.spells.windows(2).any(|w| w[0].0 >= w[1].0) {
         errors.push(problem("<lists>", "spells are not sorted by id".into()));
     }
+    if !lists.details.is_empty() && lists.details.len() != positions {
+        errors.push(problem(
+            "<lists>",
+            "details do not match the spell table".into(),
+        ));
+    }
     for spell in &lists.spells {
         if kinds.get(&spell.0) != Some(&EntryKind::Spell) {
             errors.push(problem(spell.0.as_str(), "list names a non-spell".into()));
@@ -652,6 +658,7 @@ mod tests {
                     spells: vec![5],
                 }],
             }],
+            details: vec![],
         };
         let found = validate_derived(&entries, &good_edges, &books(vec![]), &bad_lists);
         assert!(found.iter().any(|e| e.problem == "list names a non-spell"));
@@ -659,6 +666,15 @@ mod tests {
             found
                 .iter()
                 .any(|e| e.problem == "spell position out of range")
+        );
+
+        let mut uneven = bad_lists.clone();
+        uneven.details = vec![crate::SpellListDetail::default(); 2];
+        let found = validate_derived(&entries, &good_edges, &books(vec![]), &uneven);
+        assert!(
+            found
+                .iter()
+                .any(|e| e.problem == "details do not match the spell table")
         );
     }
 }
