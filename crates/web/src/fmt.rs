@@ -18,9 +18,37 @@ pub fn bytes(value: u64) -> String {
     }
 }
 
+/// Groups the digits of a count with commas: `3583` becomes `3,583`. Every count the reader sees
+/// goes through here, so the app writes numbers one way. There is no locale setting, so the
+/// separator is always a comma.
+pub fn count(n: impl TryInto<u64>) -> String {
+    let digits = n
+        .try_into()
+        .map_or_else(|_| String::new(), |n| n.to_string());
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
+    for (i, digit) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    grouped
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn groups_digits_by_three() {
+        assert_eq!(count(0usize), "0");
+        assert_eq!(count(7usize), "7");
+        assert_eq!(count(999usize), "999");
+        assert_eq!(count(1000usize), "1,000");
+        assert_eq!(count(3583usize), "3,583");
+        assert_eq!(count(29_412u32), "29,412");
+        assert_eq!(count(1_234_567u64), "1,234,567");
+    }
 
     #[test]
     fn formats_sizes() {

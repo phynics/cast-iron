@@ -21,6 +21,7 @@ pub mod recent;
 pub mod recent_searches;
 pub mod related;
 pub mod rich;
+pub mod scope;
 pub mod search;
 pub mod settings;
 pub mod source_variants;

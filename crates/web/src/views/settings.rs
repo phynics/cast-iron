@@ -150,7 +150,7 @@ pub fn Settings() -> impl IntoView {
             <h2 id="set-library">"Library"</h2>
             <dl class="facts" data-testid="library-facts">
                 <div><dt>"Version"</dt><dd data-testid="library-version">{active.content_version.clone()}</dd></div>
-                <div><dt>"Entries"</dt><dd data-testid="library-entries">{active.entry_count}</dd></div>
+                <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
                 <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
                 <div><dt>"Content format"</dt><dd>{active.schema_version}</dd></div>
                 <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>

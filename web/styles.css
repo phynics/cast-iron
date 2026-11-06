@@ -3762,6 +3762,79 @@ html:has(.quick-search[open]) {
   height: 1.1rem;
 }
 
+/* The scope of a search: Quick search under its field, the results page under its field. */
+.quick-search-scope,
+.search-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.quick-search-scope {
+  flex: none;
+  padding: var(--space-2) max(var(--space-3), env(safe-area-inset-right)) var(--space-2)
+    max(var(--space-3), env(safe-area-inset-left));
+  background: var(--surface);
+  border-bottom: var(--border);
+}
+
+/* The bar draws no rule of its own while the scope row follows it. */
+.quick-search-bar:has(+ .quick-search-scope) {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.search-scope {
+  margin-top: var(--space-3);
+}
+
+.quick-search-scope-label {
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+/* Filter role: a pill, filled while the filter is on. It shows a cross instead of a check,
+   because pressing it turns the filter off. */
+.scope-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scope-pill span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scope-pill svg {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
+
+.scope-pill:hover {
+  filter: brightness(1.08);
+}
+
+/* A list page's count sits right under its title. */
+.list-count {
+  margin-top: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (min-width: 48rem) {
   .quick-search {
     inset: 8vh 0 auto 0;
