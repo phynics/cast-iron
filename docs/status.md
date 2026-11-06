@@ -21,13 +21,14 @@ Local verification, 2026-11-06 (no CI or deployment claim):
 | `dist/content` after `cargo xtask build-site` | Same tree hash as `generated/content` (`2c6005d6...`) |
 | `python3 scripts/check-publication.py` | Exit 0. The registry comparison is replaced by a check that the sixteen core books are present |
 | `npm --prefix tests/e2e test -- reference search install books legal --project=chromium` | 45 passed (a sample, not the full suite) |
-| `cargo xtask check` | Passed: 184 compiler-adjacent and crate unit tests, the new corpus build integration tests, and the WASM build |
+| `cargo xtask check` | Passed: formatting, clippy, all workspace tests (including the new corpus build integration test), and the WASM build |
 | Build from the tag | `cargo xtask fetch-sources && cargo xtask content --psrd` in a checkout of `psrd-last-buildable` gives the PSRD library `vcdd730994d863e50`, unchanged from the step 3 entry |
 | `check-library-upgrade.py` from the tag against this branch's `generated/content` | Exit 0: 9,968 old ids, 0 missing, 0 unresolvable, 0 alias problems, 0 dangling references, 0 class-category errors |
 
 Removed: 125 files and about 36,600 lines of Rust, 3,900 lines of Python, and the upstream inputs
 and fixtures under `sources/`, `reports/`, and the compiler's test fixtures. Added: about 500 lines of
-Rust (mostly the new corpus build integration test and the relocated tests).
+Rust (the corpus build integration test, the relocated facet, markup, and shard tests, and the
+rewritten report writer).
 
 Limitations: this is local evidence. CI has not run the changed content job, and nothing is
 deployed. The PSRD release step needs a release commit whose Pages workflow builds with `--psrd`;
