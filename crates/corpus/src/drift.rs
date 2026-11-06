@@ -26,11 +26,23 @@ pub struct Disagreement {
     pub source: String,
     pub source_line: usize,
     pub source_value: String,
+    /// The field has no statement of its label in the normal part at all.
+    pub missing: bool,
 }
 
 impl Disagreement {
     /// `path:line: [fields] range = "A" disagrees with the stat block row `Range`: "B" (line 36)`
     pub fn describe(&self) -> String {
+        if self.missing {
+            return format!(
+                "{}:{}: [fields] {} = {:?} has no {} statement in the normal part",
+                self.path.display(),
+                self.field_line,
+                self.field,
+                self.field_value,
+                self.source
+            );
+        }
         format!(
             "{}:{}: [fields] {} = {:?} disagrees with the {} = {:?} (line {})",
             self.path.display(),
@@ -198,11 +210,21 @@ fn stat_rows(body: &[Block]) -> Vec<&StatRow> {
 }
 
 /// The text after each bold `**Label:**` in the top-level paragraphs, up to the next break,
-/// in document order. The normal part of a feat may state the same label more than once.
+/// in document order. The normal part of a feat may state the same label more than once,
+/// and a sidebar or variant list may carry the statement inside a quote.
 fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
     let wanted = format!("{label}:");
     let mut found = Vec::new();
+    collect_labelled(body, &wanted, &mut found);
+    found
+}
+
+fn collect_labelled(body: &[Block], wanted: &str, found: &mut Vec<String>) {
     for block in body {
+        if let Block::Quote { content } = block {
+            collect_labelled(content, wanted, found);
+            continue;
+        }
         let Block::Paragraph { content, .. } = block else {
             continue;
         };
@@ -218,7 +240,6 @@ fn labelled_texts(body: &[Block], label: &str) -> Vec<String> {
             found.push(comparison_text(&rest[..end]).trim().to_string());
         }
     }
-    found
 }
 
 /// Whether `block` is a paragraph whose first inline is the bold `**Sources:**` label.
@@ -232,13 +253,27 @@ fn is_sources_line(block: &Block) -> bool {
     )
 }
 
-/// The normal feat's part of the body: everything before the first level-3 heading that
-/// starts a source subsection. Such a heading introduces another publication's version of
-/// the feat (a `### Mythic` or `### Stamina` block, an Elephant-in-the-Room replacement,
-/// …) and always carries its own `**Sources:**` line, which is what marks it. A base feat's
-/// `[fields]` describe the normal feat, so those subsections are never compared.
+/// The normal feat's part of the body: everything before the first block that starts a
+/// second source. A source block starts at a level-3 heading that carries its own
+/// `**Sources:**` line, or at any later bare `**Sources:**` line (an Elephant-in-the-Room
+/// tail, a second printing). Those blocks hold another publication's version of the feat
+/// (a `### Mythic` or `### Stamina` block, an Elephant-in-the-Room replacement, …). A base
+/// feat's `[fields]` describe the normal feat, so those blocks are never compared.
+///
+/// A `###` heading without its own `**Sources:**` line organizes the normal feat's own
+/// text (options, examples, a table) and stays in the comparison.
 fn normal_part(body: &[Block]) -> &[Block] {
+    let mut seen_sources = false;
     for (index, block) in body.iter().enumerate() {
+        if is_sources_line(block) {
+            // The entry's first `**Sources:**` line opens the normal part. A later bare
+            // one starts another source's block.
+            if seen_sources {
+                return &body[..index];
+            }
+            seen_sources = true;
+            continue;
+        }
         let is_subsection = matches!(block, Block::Heading { level: 3, .. });
         if is_subsection && body.get(index + 1).is_some_and(is_sources_line) {
             return &body[..index];
@@ -284,6 +319,7 @@ struct Pair {
     source_line: usize,
     source_value: String,
     agree: bool,
+    missing: bool,
 }
 
 fn row_pair(
@@ -308,6 +344,7 @@ fn row_pair(
         source_line: body_line(text, |line| line.to_lowercase().starts_with(&prefix)),
         agree: normalize(value) == normalize(&source_value),
         source_value,
+        missing: false,
     })
 }
 
@@ -333,6 +370,7 @@ fn text_pair(
         source_line: body_line(text, |line| line.contains(&marker)),
         agree,
         source_value,
+        missing: false,
     })
 }
 
@@ -436,6 +474,7 @@ fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
             source_line: body_line(text, |line| line.to_lowercase().starts_with("level:")),
             source_value: describe_levels(&stated),
             agree: typed == stated,
+            missing: false,
         });
     }
     for (field, value, labels) in [
@@ -494,6 +533,7 @@ fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
                 }),
                 source_value: show(&stated),
                 agree: typed == stated,
+                missing: false,
             });
         }
     }
@@ -576,6 +616,7 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
                 .iter()
                 .map(|value| normalize(value))
                 .eq(stated.iter().map(|value| normalize(value))),
+            missing: false,
         });
     }
     pairs
@@ -614,7 +655,23 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         ("special", &fields.special, "Special"),
     ] {
         if let Some(value) = value {
-            pairs.extend(text_pair(text, body, field, value, label));
+            match text_pair(text, body, field, value, label) {
+                Some(pair) => pairs.push(pair),
+                // The normal part states no such label, so nothing compares the field.
+                // Report it when another block in the body does state the label: the
+                // field can only have come from there. A body that never uses the label
+                // (the carried heading-and-statline style) is outside this check.
+                None if !labelled_texts(&entry.body, label).is_empty() => pairs.push(Pair {
+                    field,
+                    field_value: value.to_string(),
+                    source: format!("`**{label}:**`"),
+                    source_line: 1,
+                    source_value: String::new(),
+                    agree: false,
+                    missing: true,
+                }),
+                None => {}
+            }
         }
     }
     pairs
@@ -644,6 +701,7 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
             source: pair.source,
             source_line: pair.source_line,
             source_value: pair.source_value,
+            missing: pair.missing,
         })
         .collect()
 }
@@ -927,6 +985,123 @@ mod tests {
     #[test]
     fn a_field_that_matches_the_normal_benefit_is_not_drift() {
         assert!(find_drift(&mythic_feat("Normal wording.")).is_empty());
+    }
+
+    fn paragraph(content: Vec<Inline>) -> Block {
+        Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content,
+        }
+    }
+
+    fn sources(text: &str) -> Block {
+        paragraph(vec![
+            Inline::Strong {
+                c: vec![Inline::text("Sources:")],
+            },
+            Inline::text(format!(" {text}")),
+        ])
+    }
+
+    #[test]
+    fn a_heading_without_its_own_sources_line_stays_compared() {
+        // `### Options` organizes the normal feat's own text; it is not a source block.
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some("Variant wording.".into()),
+                ..Default::default()
+            }),
+            vec![
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Heading {
+                    level: 3,
+                    anchor: None,
+                    content: vec![Inline::text("Options")],
+                },
+                paragraph(labelled("Benefit", "Variant wording.")),
+            ],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn an_eitr_tail_after_a_bare_sources_line_is_cut() {
+        // A bare `**Sources:**` line starts another source's block, here the
+        // Elephant-in-the-Room tail that follows the normal feat.
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some("Tail wording.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                sources("The Elephant in the Room: Feat Taxes in Pathfinder"),
+                paragraph(labelled("Benefit", "Tail wording.")),
+            ],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "benefit");
+        assert_eq!(drift[0].source_value, "Normal wording.");
+    }
+
+    #[test]
+    fn a_labelled_statement_inside_a_quote_still_counts() {
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                normal: Some("A normal choice.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Quote {
+                    content: vec![paragraph(labelled("Normal", "A normal choice."))],
+                },
+            ],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn a_field_with_no_statement_in_the_normal_part_is_drift() {
+        // Prerequisites appear only in the mythic subsection, so the normal part has no
+        // line to compare; the field must not pass silently.
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some("Mythic Test.".into()),
+                ..Default::default()
+            }),
+            vec![
+                sources("Core Rulebook pg 1"),
+                paragraph(labelled("Benefit", "Normal wording.")),
+                Block::Heading {
+                    level: 3,
+                    anchor: None,
+                    content: vec![Inline::text("Mythic Test")],
+                },
+                sources("Mythic Adventures pg 1"),
+                paragraph(labelled("Prerequisites", "Mythic Test.")),
+            ],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "prerequisites");
+        assert!(drift[0].missing);
+        assert!(
+            drift[0]
+                .describe()
+                .contains("has no `**Prerequisites:**` statement in the normal part")
+        );
     }
 
     fn footnote_feat(field: &str, body: Vec<Inline>) -> Stored {
