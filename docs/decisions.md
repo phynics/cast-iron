@@ -10,6 +10,18 @@ Refs [#127](https://github.com/phynics/cast-iron/issues/127). The owner approved
 - **The release history reaches `main` through an `ours` merge.** #184 merged `release` into `main` with `-s ours`, so `main`'s tree did not change and the `--psrd` line never reached `main`. That merge commit makes `release` an ancestor of `main`, so the canonical promotion (`ccbfb7c`) was a normal fast-forward with the helper.
 - **The owner's hand check before the canonical step was done by the agent alone.** On 2026-11-06 the owner chose "agent checks, then promotes": a local walk of the corpus-built app and a Chromium e2e sample on `ccbfb7c`, then promotion without waiting for the owner. Physical devices (#12) remain open.
 
+## Drift between typed fields and body text is an error, 2026-11-06
+
+Refs [#180](https://github.com/phynics/cast-iron/issues/180). The checker is
+`crates/corpus/src/drift.rs`; `corpus-check` runs it.
+
+- **A disagreement fails the check.** `corpus-check` and `cargo xtask content` exit non-zero and
+  list every disagreement, so a value cannot disagree in `[fields]` and the body without failing
+  the build. The pinned corpus `v0.1.2` has 0 disagreements.
+- **The report stays available.** `--drift-report FILE` still writes the count per kind and one
+  line per disagreement, whether the check passes or fails. It no longer needs a warning to pass:
+  drift was a warning only while the freeze data still held disagreements.
+
 ## Plain-text corpus, step 1, 2026-11-06
 
 Refs [#127](https://github.com/phynics/cast-iron/issues/127). The corpus becomes the hand-edited source of truth in a public data repository, and upstream is never re-imported. Two design reviews shaped the format below.
@@ -21,7 +33,7 @@ Refs [#127](https://github.com/phynics/cast-iron/issues/127). The corpus becomes
 - **Defaults are declared once.** `license_refs` is written only when it differs from `corpus.toml`. A feat's prerequisite relations are derived from `prerequisite_feats`; the 174 relations labelled `or` stay stored because the list cannot state a label. `provenance` stays optional and is frozen history for new entries to leave out. `validate_library` still requires provenance, so the step that compiles from the corpus must relax that rule for entries without it.
 - **One canonical form, enforced.** `fmt` rewrites every file; `fmt --check` prints the first differing line of each file that `write(read(file))` would change. The reader rejects HTML comments, raw HTML, and carriage returns. TOML files carry no comments, because the tool rewrites them.
 - **The format has a version and a migration rule.** The reader refuses an unknown `format` and names `cast-iron-corpus migrate`. A format change ships a migration step and is applied as one mechanical pull request, then `fmt`.
-- **Fields and body are not unified yet.** Some values live twice, in the typed fields and in the body stat block or labelled lines. `corpus-check` compares the pairs and lists disagreements as warnings (80 today: 79 feats, 1 creature; print the full list with `--drift-report`). It stays a warning so the freeze can proceed.
+- **Fields and body are not unified yet.** Some values live twice, in the typed fields and in the body stat block or labelled lines. `corpus-check` compares the pairs and fails on every disagreement (0 in corpus `v0.1.2`; print the full list with `--drift-report`). It was a warning only while the freeze data still held disagreements.
 - **Contributors need only Rust and a text editor.** `corpus-kit/` is copied into the data repository: a README with one recipe per common edit, one annotated example per entry kind, a workflow, and a pull request template. The `cast-iron-corpus` binary depends on the corpus and schema crates only.
 - **Step 1 does not switch the build.** `corpus-export` reads the compiled library and writes the text; the compiled library changes only where the format required it (adjacent text nodes in three entries, one explicit heading anchor). Populating the data repository and pinning it in the build stay in later steps.
 
@@ -679,7 +691,7 @@ Refs [#180](https://github.com/phynics/cast-iron/issues/180). The checker is `cr
 - **The multiple-statement rule stays inside the normal part.** When the normal part states a label more than once (a variant statement), the field agrees with any of those statements. Subsections are never candidates.
 - **Footnote markers do not decide a comparison.** The field writes `[^P]` or `[^X]`, the body carries `^1^` or the flattened `ranks.1`, and neither is rule text. The checker drops the markers and the footnote superscripts before it compares.
 - **Measurement on corpus `v0.1.0`.** The previous checker reported 4 disagreements, all footnote-only (`conceal-scent`, `heightened-trap-sense`, `improved-day-job`, `religious-pilgrim`). The stricter checker reports 272 disagreements across 160 feats: 198 in base fields that hold a mythic subsection's wording, 74 that hold the Elephant-in-the-Room tail's wording, and none that hold plain Stamina wording; by field, 140 `benefit`, 120 `prerequisites`, 10 `special`, and 2 `normal`. A field is attributed to the source block that actually states the matched text, not to the nearest `###` heading: 44 of the Elephant-in-the-Room rows sit under a `### Mythic …` heading whose subsection ends with a bare `**Sources:** The Elephant in the Room…` line. The companion change in `phynics/cast-iron-data` (#3) corrects every one and brings the report to 0.
-- **A field with no statement in the normal part is drift.** Some fields exist only because another block states them. `text_pair` returned nothing when the normal part had no `**Label:**` line, so nothing compared them and no warning appeared. When the label is stated elsewhere in the body (a source subsection), the field now counts as drift too, with a message that names the missing label. That is still a warning, like every other drift. A body that never uses the bold label — the carried heading-and-statline entries — stays outside this check, as it was before.
+- **A field with no statement in the normal part is drift.** Some fields exist only because another block states them. `text_pair` returned nothing when the normal part had no `**Label:**` line, so nothing compared them and no warning appeared. When the label is stated elsewhere in the body (a source subsection), the field now counts as drift too, with a message that names the missing label. That is an error, like every other drift. A body that never uses the bold label — the carried heading-and-statline entries — stays outside this check, as it was before.
 - **A statement inside a quote counts.** A sidebar or variant list may carry a `**Normal:**` or `**Special:**` line inside a blockquote; it is still a statement of the normal feat, so the checker reads quoted paragraphs too.
 ## Search is a header icon that opens Quick search, 2026-11-06
 

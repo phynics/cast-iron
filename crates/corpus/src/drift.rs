@@ -1191,11 +1191,16 @@ mod tests {
     }
 
     #[test]
-    fn the_check_lists_drift_as_warnings_with_counts_and_a_report() {
+    fn the_check_fails_on_drift_with_counts_and_a_report() {
         let drifting = spell("close (25 ft.)", "medium (100 ft.)");
         let report = crate::check(&crate::testkit::corpus(vec![drifting.entry]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains("stat block row `Range`"),
+            "{}",
+            report.problems[0]
+        );
+        assert_eq!(report.drift.len(), 1);
         assert_eq!(report.drift_by_kind().get("spell"), Some(&1));
         let text = report.drift_report();
         assert!(text.contains("| spell | 1 |"), "{text}");

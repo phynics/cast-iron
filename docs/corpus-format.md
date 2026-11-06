@@ -494,23 +494,23 @@ file and line, when:
 ## Drift between fields and body
 
 Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`
-compares each pair that states a value in both places and lists every disagreement
-as a **warning** that names both places:
+compares each pair that states a value in both places and **fails** on every
+disagreement, which names both places:
 
 ```text
 entries/feat/accursed-hex.md:12: [fields] prerequisites = "Accursed Hex." disagrees with the `**Prerequisites:**` line = "Hex class feature." (line 20)
 ```
 
-It prints the count per kind and the first warnings. The full list is not stored in the
+It prints the count per kind and every disagreement. The full list is not stored in the
 repository; print it with `--drift-report`:
 
 ```sh
 cargo xtask corpus-check .cache/sources/cast-iron-data --drift-report /tmp/corpus-drift.md
 ```
 
-The file holds the count per kind, then one line per disagreement. The check is a
-warning, not an error, because the freeze data already holds disagreements (80 in
-corpus `v0.1.0`: 79 feats, 1 creature). Fix the wrong copy, or leave it.
+The file holds the count per kind, then one line per disagreement. The check is an
+error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
+`cargo xtask content` exit non-zero on the first new one. Fix the wrong copy.
 
 | Kind | Typed field | Body |
 |---|---|---|
