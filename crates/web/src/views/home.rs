@@ -5,13 +5,73 @@ use crate::route::Route;
 use crate::store::{self, Bookmark};
 use crate::views::browse::CategoryDirectory;
 use crate::views::recent;
-use crate::views::util::set_title;
-use cast_iron_schema::EntryId;
+use crate::views::util::{kind_name, set_title};
+use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::collections::BTreeSet;
 
 /// Starred rows shown before the reader asks for the rest.
 const STARRED_PREVIEW: usize = 5;
+/// Recent rows shown before the reader asks for the rest of the stored history.
+const RECENT_PREVIEW: usize = 5;
+
+/// What one Home row shows. Starred and Recently viewed share it.
+struct RowData {
+    id: EntryId,
+    title: String,
+    kind: Option<EntryKind>,
+    book: Option<String>,
+    /// False for a starred entry the installed library no longer holds.
+    in_library: bool,
+}
+
+/// Lower-cased titles that occur more than once, so those rows can also name their book.
+fn duplicate_titles<'a>(titles: impl Iterator<Item = &'a str>) -> BTreeSet<String> {
+    let mut seen = BTreeSet::new();
+    let mut duplicates = BTreeSet::new();
+    for title in titles {
+        let key = title.to_lowercase();
+        if !seen.insert(key.clone()) {
+            duplicates.insert(key);
+        }
+    }
+    duplicates
+}
+
+/// One line: a link (title that truncates, then a muted kind and, when titles collide, the
+/// book), and an optional trailing action.
+fn entry_row(row: &RowData, show_book: bool, action: Option<AnyView>) -> AnyView {
+    let meta = if row.in_library {
+        let kind = row.kind.map(kind_name);
+        let book = show_book.then(|| row.book.clone()).flatten();
+        match (kind, book) {
+            (Some(kind), Some(book)) => format!("{kind} · {book}"),
+            (Some(kind), None) => kind.to_string(),
+            (None, Some(book)) => book,
+            (None, None) => String::new(),
+        }
+    } else {
+        "Not in this library".to_string()
+    };
+    // The name is the bare title, except when titles collide: then it carries the kind and
+    // book, so a screen reader can tell the rows apart as a sighted reader does.
+    let name = if show_book && row.in_library {
+        format!("{}, {}", row.title, meta.replace(" · ", ", "))
+    } else {
+        row.title.clone()
+    };
+    let body = view! {
+        <span class="home-row-title">{row.title.clone()}</span>
+        <span class="home-row-meta">{meta}</span>
+    };
+    let main = if row.in_library {
+        view! { <a class="home-row-link" aria-label=name href=Route::entry(row.id.clone()).href()>{body}</a> }.into_any()
+    } else {
+        view! { <span class="home-row-link home-bookmark-missing">{body}</span> }.into_any()
+    };
+    view! { <li class="home-row">{main}{action}</li> }.into_any()
+}
 
 #[component]
 pub fn Home() -> impl IntoView {
@@ -35,48 +95,49 @@ pub fn Home() -> impl IntoView {
     let star_error = RwSignal::new(None::<String>);
     let unstarring = RwSignal::new(false);
     let expanded = RwSignal::new(false);
+    let recent_expanded = RwSignal::new(false);
+    let starred_library = library.clone();
+    let title_ref = NodeRef::<leptos::html::H1>::new();
 
     view! {
         <div class="wide home-page">
-            <h1 id="home-title">"Your rules reference"</h1>
+            <h1 id="home-title" tabindex="-1" node_ref=title_ref>"Your rules reference"</h1>
             <Show when=move || use_library().discovery().entries().next().is_none()>
                 <p class="notice">"No books are active. "<a href=Route::Books.href()>"Open Books"</a>" to choose your sources."</p>
             </Show>
-            <section aria-labelledby="home-bookmarks">
-                <div class="home-section-heading"><h2 id="home-bookmarks">"Starred"</h2></div>
-                {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
-                {move || match bookmarks.get() {
-                    None => view! { <p class="muted" role="status">"Loading starred entries…"</p> }.into_any(),
-                    Some(Err(_)) => view! { <p class="error" role="alert">"Could not load starred entries."</p> }.into_any(),
-                    Some(Ok(items)) if items.is_empty() => view! {
-                        <p class="muted">"No starred entries yet. Open an entry and choose Star to save it here."</p>
-                    }.into_any(),
-                    Some(Ok(items)) => {
-                        // One row per saved item: legacy rows that resolve to a canonical id
-                        // join it instead of appearing twice after a refused migration.
-                        let shown = crate::views::bookmarks::shown_items(&items, |id| {
-                            library.canonical_target(id)
-                        });
-                        let total = shown.len();
-                        let visible: Vec<Bookmark> = if expanded.get() {
-                            shown
-                        } else {
-                            shown.into_iter().take(STARRED_PREVIEW).collect()
-                        };
-                        let rows = visible.into_iter().map(|item| {
-                            let stub = library.stub(&item.entry_id);
-                            let title = stub.map_or_else(|| item.title_snapshot.clone(), |s| s.title.clone());
-                            let kind = stub.map_or(item.kind, |s| s.kind);
-                            let id = item.entry_id.clone();
-                            let title_for_error = title.clone();
+            {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
+            {move || match bookmarks.get() {
+                // Nothing while loading and nothing when empty: the section appears with the first star.
+                None => ().into_any(),
+                Some(Err(_)) => view! { <p class="error" role="alert">"Could not load starred entries."</p> }.into_any(),
+                Some(Ok(items)) if items.is_empty() => ().into_any(),
+                Some(Ok(items)) => {
+                    let library = starred_library.clone();
+                    // One row per saved item: legacy rows that resolve to a canonical id
+                    // join it instead of appearing twice after a refused migration.
+                    let shown = crate::views::bookmarks::shown_items(&items, |id| {
+                        library.canonical_target(id)
+                    });
+                    let total = shown.len();
+                    let rows: Vec<RowData> = shown.iter().map(|item| {
+                        let stub = library.stub(&item.entry_id);
+                        RowData {
+                            id: item.entry_id.clone(),
+                            title: stub.map_or_else(|| item.title_snapshot.clone(), |s| s.title.clone()),
+                            kind: Some(stub.map_or(item.kind, |s| s.kind)),
+                            book: stub.and_then(|s| library.source(&s.source)).map(|s| s.title.clone()),
+                            in_library: stub.is_some(),
+                        }
+                    }).collect();
+                    let ambiguous = duplicate_titles(rows.iter().map(|r| r.title.as_str()));
+                    let visible = move || {
+                        let take = if expanded.get() { usize::MAX } else { STARRED_PREVIEW };
+                        rows.iter().take(take).map(|row| {
+                            let id = row.id.clone();
+                            let unstar_name = format!("Unstar {}", row.title);
                             let library = library.clone();
-                            view! { <li class="home-bookmark-row">
-                                {if stub.is_some() {
-                                    view! { <a aria-label=title.clone() href=Route::entry(id.clone()).href()><span>{title.clone()}</span><span class="muted">{kind.label()}</span></a> }.into_any()
-                                } else {
-                                    view! { <span class="home-bookmark-missing"><span>{title}</span><span class="muted">"Not in this library"</span></span> }.into_any()
-                                }}
-                                <button class="btn star-btn is-on" type="button" aria-label=format!("Unstar {title_for_error}") disabled=move || unstarring.get() on:click=move |_| {
+                            let button = view! {
+                                <button class="btn star-btn is-on" type="button" aria-label=unstar_name disabled=move || unstarring.get() on:click=move |_| {
                                     if unstarring.get_untracked() { return; }
                                     unstarring.set(true);
                                     let id = id.clone();
@@ -88,7 +149,13 @@ pub fn Home() -> impl IntoView {
                                         match store::delete_bookmarks_matching(matches).await {
                                             Ok(_) => {
                                                 star_error.set(None);
-                                                bookmarks.set(Some(store::list_bookmarks().await.map_err(|e| e.to_string())));
+                                                let list = store::list_bookmarks().await.map_err(|e| e.to_string());
+                                                // The section goes with the last star; keep focus on the page.
+                                                let emptied = matches!(&list, Ok(items) if items.is_empty());
+                                                bookmarks.set(Some(list));
+                                                if emptied && let Some(title) = title_ref.get_untracked() {
+                                                    let _ = title.focus();
+                                                }
                                             }
                                             Err(error) => star_error.set(Some(format!("Could not unstar this entry: {error}"))),
                                         }
@@ -97,41 +164,101 @@ pub fn Home() -> impl IntoView {
                                 }>
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
                                 </button>
-                            </li> }.into_any()
+                            }.into_any();
+                            entry_row(row, ambiguous.contains(&row.title.to_lowercase()), Some(button))
+                        }).collect_view()
+                    };
+                    let more = (total > STARRED_PREVIEW).then(|| view! {
+                        <button
+                            class="btn btn-quiet home-list-more"
+                            type="button"
+                            aria-controls="home-bookmarks-list"
+                            aria-expanded=move || if expanded.get() { "true" } else { "false" }
+                            on:click=move |_| expanded.update(|open| *open = !*open)
+                        >
+                            {move || if expanded.get() { "Show fewer".to_string() } else { format!("See all ({total})") }}
+                        </button>
+                    });
+                    view! {
+                        <section aria-labelledby="home-bookmarks">
+                            <h2 id="home-bookmarks">"Starred"</h2>
+                            <ul class="home-list home-bookmarks" id="home-bookmarks-list">{visible}</ul>
+                            <p class="sr-only" role="status">{move || if expanded.get() { format!("Showing all {total} starred entries") } else { String::new() }}</p>
+                            {more}
+                        </section>
+                    }.into_any()
+                }
+            }}
+            <Show when=move || !recents.with(|r| r.is_empty())>
+                <section aria-labelledby="home-recent">
+                    <div class="home-section-heading">
+                        <h2 id="home-recent">"Recently viewed"</h2>
+                        <button class="btn btn-quiet" type="button" on:click=move |_| {
+                            recents.set(Vec::new());
+                            recent_expanded.set(false);
+                            if let Some(title) = title_ref.get_untracked() {
+                                let _ = title.focus();
+                            }
+                            spawn_local(async move { recent::clear().await; });
+                        }>"Clear"</button>
+                    </div>
+                    {move || {
+                        let library = use_library();
+                        let all = recents.get();
+                        let total = all.len();
+                        // Resolve every title first: collisions are judged on what is shown, over the
+                        // whole history, so a row does not change when "Show more" opens.
+                        let resolved: Vec<RowData> = all.iter().map(|item| {
+                            let stub = library.stub(&item.id);
+                            RowData {
+                                id: item.id.clone(),
+                                title: stub.map_or_else(|| item.title.clone(), |s| s.title.clone()),
+                                kind: stub.map(|s| s.kind),
+                                book: stub.and_then(|s| library.source(&s.source)).map(|s| s.title.clone()),
+                                in_library: stub.is_some(),
+                            }
+                        }).collect();
+                        let ambiguous = duplicate_titles(resolved.iter().map(|r| r.title.as_str()));
+                        let take = if recent_expanded.get() { total } else { RECENT_PREVIEW };
+                        let rows = resolved.iter().take(take).map(|row| {
+                            entry_row(row, ambiguous.contains(&row.title.to_lowercase()), None)
                         }).collect_view();
-                        let more = (total > STARRED_PREVIEW).then(|| view! {
+                        let more = (total > RECENT_PREVIEW).then(|| view! {
                             <button
-                                class="btn home-bookmarks-more"
+                                class="btn btn-quiet home-list-more"
                                 type="button"
-                                aria-controls="home-bookmarks-list"
-                                aria-expanded=move || if expanded.get() { "true" } else { "false" }
-                                on:click=move |_| expanded.update(|open| *open = !*open)
+                                aria-controls="home-recent-list"
+                                aria-expanded=move || if recent_expanded.get() { "true" } else { "false" }
+                                on:click=move |_| recent_expanded.update(|open| *open = !*open)
                             >
-                                {move || if expanded.get() {
-                                    "Show fewer".to_string()
-                                } else {
-                                    format!("Show all {total} starred entries")
-                                }}
+                                {move || if recent_expanded.get() { "Show fewer".to_string() } else { format!("Show more ({})", total - RECENT_PREVIEW) }}
                             </button>
                         });
                         view! {
-                            <ul class="home-bookmarks" id="home-bookmarks-list">{rows}</ul>
+                            <ul class="home-list home-recent" id="home-recent-list">{rows}</ul>
+                            <p class="sr-only" role="status">{if recent_expanded.get() { format!("Showing all {total} recent entries") } else { String::new() }}</p>
                             {more}
-                        }.into_any()
-                    }
-                }}
-            </section>
-            <Show when=move || !recents.with(|r| r.is_empty())>
-                <section aria-labelledby="home-recent">
-                    <h2 id="home-recent">"Recently viewed"</h2>
-                    <ul class="jump-list">
-                        <For each=move || recents.get() key=|r| r.id.clone() let:item>
-                            <li><a class="jump" href=Route::entry(item.id.clone()).href()>{item.title.clone()}</a></li>
-                        </For>
-                    </ul>
+                        }
+                    }}
                 </section>
+            </Show>
+            // Teaches the star until the first one exists.
+            <Show when=move || matches!(bookmarks.get(), Some(Ok(ref items)) if items.is_empty())>
+                <p class="muted home-hint">"Tap "<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg><span class="sr-only">"the star"</span>" on an entry to keep it here."</p>
             </Show>
             <CategoryDirectory note=true />
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::duplicate_titles;
+
+    #[test]
+    fn equal_titles_are_flagged_regardless_of_case() {
+        let found = duplicate_titles(["Dragon, Red", "Fireball", "dragon, red"].into_iter());
+        assert_eq!(found.into_iter().collect::<Vec<_>>(), ["dragon, red"]);
+        assert!(duplicate_titles(["A", "B"].into_iter()).is_empty());
     }
 }

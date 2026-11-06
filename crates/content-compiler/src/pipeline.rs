@@ -649,7 +649,7 @@ fn markup_leaks(text: &str) -> Vec<String> {
 ///
 /// Only the school field carries these notes. Do not use this for other facets, where a
 /// bracket or parenthesis can be part of the value.
-fn school_facet(school: &str) -> String {
+pub(crate) fn school_facet(school: &str) -> String {
     let end = school.find(['[', '(']).unwrap_or(school.len());
     school[..end]
         .split_whitespace()

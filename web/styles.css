@@ -2449,58 +2449,173 @@ main,
   color: inherit;
 }
 
-.spell-classes {
+/* Class picker on #/spells: navigation rectangles, common classes first. */
+.class-picker {
+  margin: 0 0 var(--space-3);
+}
+
+.class-jump {
+  gap: var(--space-2);
+}
+
+.class-jump small {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Spell rows: the name and school over a muted fact line. The link wraps the name; its
+   overlay makes the whole row the tap target. */
+.spell-rows {
   list-style: none;
   padding: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  margin: 0 0 var(--space-4);
+}
+
+.spell-row {
+  position: relative;
+  min-height: var(--touch);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border);
+}
+
+.spell-row:has(.spell-name:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+.spell-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-3);
 }
 
-.spell-class {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  border: var(--border);
-  border-top: 3px solid var(--accent);
-  border-radius: var(--radius);
+.spell-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
 }
 
-.spell-class-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 var(--space-3);
-  margin-bottom: var(--space-2);
+.spell-name:focus-visible {
+  outline: none;
 }
 
-.spell-class-head h3 {
+.spell-name::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.spell-school {
+  flex: none;
+  padding: 0;
+}
+
+.spell-row-meta {
   margin: 0;
-  font-size: var(--step-1);
-}
-
-.spell-class-head h3 a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--touch);
-}
-
-.spell-class-page {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--touch);
+  color: var(--ink-muted);
   font-size: var(--step--1);
+  white-space: nowrap;
 }
 
+/* The dots are drawn here, not in the markup, so the two layouts can order the parts
+   differently. They carry an empty alternative text and stay out of the accessible name. */
+.spell-row-meta .spell-fact {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spell-row-meta .spell-fact.sep-narrow::before {
+  content: "·" / "";
+  margin: 0 var(--space-2);
+}
+
+/* Narrow: the facts keep to one line (the save gives way first, then the book) and a long
+   entry ends in an ellipsis; the casting time is never cut. */
+.spell-row-meta .spell-facts {
+  display: flex;
+}
+
+.spell-row-meta .spell-fact {
+  flex: 0 1 auto;
+}
+
+.spell-row-meta .spell-fact:first-child {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+/* Density "wide" (the only one for now, issue #182 adds a compact one): on a phone the gist
+   stands alone under the facts, so a row is three lines. Another density sets its own rules
+   under its own value of data-density. */
+.spell-list[data-density="wide"] .spell-row-meta .spell-gist {
+  display: block;
+}
+
+/* Wide: one line in reading order, casting time · save · gist · book. The gist gives way
+   first; the book keeps up to 40% of the line. */
 @media (min-width: 40rem) {
-  .spell-classes {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .spell-row-meta {
+    display: flex;
+  }
+
+  .spell-row-meta .spell-facts {
+    display: contents;
+  }
+
+  .spell-row-meta .spell-fact.sep-narrow::before {
+    content: none;
+  }
+
+  .spell-row-meta .spell-fact.sep::before {
+    content: "·" / "";
+    margin: 0 var(--space-2);
+  }
+
+  .spell-row-meta .spell-fact {
+    flex: 0 0 auto;
+  }
+
+  .spell-list[data-density="wide"] .spell-row-meta .spell-gist,
+  .spell-row-meta .spell-gist {
+    display: inline;
+    order: 1;
+    flex: 0 4 auto;
+  }
+
+  .spell-row-meta .spell-book {
+    order: 2;
+    flex: 0 1 auto;
+    max-width: 40%;
   }
 }
 
-@media (min-width: 64rem) {
-  .spell-classes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.tier-head {
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-text);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.school-filter {
+  margin-bottom: var(--space-3);
+}
+
+.school-filter > summary .muted {
+  margin-left: auto;
+  font-size: var(--step--1);
+  font-weight: 400;
+}
+
+@media (min-width: 48rem) {
+  .spell-rows {
+    max-width: 48rem;
   }
 }
 
@@ -3089,14 +3204,22 @@ main,
 .nav-icon { display: flex; }
 .home-page > h1 { margin: var(--space-4) 0 var(--space-5); }
 .home-page section { margin-block: var(--space-5); }
-.home-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-.home-section-heading h2 { margin-bottom: var(--space-2); }
-.home-section-heading > a { flex-shrink: 0; }
-.home-bookmarks { list-style: none; padding: 0; margin: var(--space-2) 0 0; border-top: var(--border); }
-.home-bookmarks a, .home-bookmark-missing { display: flex; justify-content: space-between; gap: var(--space-3); align-items: center; min-height: var(--touch); padding: var(--space-2) 0; border-bottom: var(--border); text-decoration: none; }
-.home-bookmarks a:hover span:first-child { text-decoration: underline; }
-.home-bookmarks .muted { font-size: var(--step--1); }
-.home-bookmarks-more { margin-top: var(--space-2); }
+.home-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.home-section-heading h2 { margin-block: 0; }
+.home-section-heading > a, .home-section-heading > button { flex-shrink: 0; }
+.home-page h2 { margin-bottom: var(--space-1); }
+/* One compact list for Starred and Recently viewed: plain rows, one line each, hairline
+   separators. The title truncates; the kind (and, for equal titles, the book) follows it. */
+.home-list { list-style: none; padding: 0; margin: var(--space-1) 0 0; border-top: var(--border); }
+.home-row { display: flex; align-items: center; border-bottom: var(--border); min-height: var(--touch); }
+.home-row-link { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: var(--space-3); min-height: var(--touch); padding-block: var(--space-2); text-decoration: none; }
+.home-row-title { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+a.home-row-link:hover .home-row-title { text-decoration: underline; }
+.home-row-meta { flex: 0 1 auto; max-width: 45%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-muted); font-size: var(--step--1); }
+.home-row .star-btn { flex: none; }
+.home-list-more { margin-top: var(--space-1); }
+.home-hint { margin-block: var(--space-3); font-size: var(--step--1); }
+.home-hint svg { width: 1em; height: 1em; vertical-align: -0.12em; }
 .cats-note { font-size: var(--step--1); margin: 0 0 var(--space-3); }
 .home-books p { margin-block: var(--space-2); }
 @media (max-width: 47.99rem) {
