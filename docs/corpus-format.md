@@ -461,9 +461,12 @@ is also an error.
 
 ## Readers and errors
 
-`read_entry(path, text)`:
+`read_entry(path, text, config)`:
 
 - rejects a file that does not start with `+++` or does not close it;
+- rejects a carriage return anywhere in the file (a Windows line end);
+- rejects an HTML comment (`<!--`) and any raw HTML tag, such as `<b>`; write a
+  literal `<` as `\<`;
 - rejects an unknown or missing front-matter key;
 - rejects an unknown typed-fields key for the declared `kind`;
 - rejects an entry kind that disagrees with the typed-fields kind;
@@ -471,8 +474,8 @@ is also an error.
 - rejects invalid ids, kinds, challenge ratings, and link targets;
 - reports the file path and a 1-based line for every error.
 
-`cargo xtask corpus-check <dir>` reads every entry and stored file and fails,
-naming the file and line, when:
+`corpus-check <dir>` reads every entry and stored file and fails, naming the
+file and line, when:
 
 - an id is duplicated or a path does not match its id;
 - an entry `kind` does not match its `[fields]` kind;
@@ -484,6 +487,31 @@ naming the file and line, when:
   (the message names the linking file, the target file and its headings, and
   the fix);
 - `exclusions.toml` repeats a row.
+
+## Formatting
+
+`corpus-fmt <dir>` rewrites every file into its one canonical form, and
+`corpus-fmt <dir> --check` lists the files that are not canonical. For each file
+the check prints the first line that differs, as `path:line: expected X, found
+Y`, and fails. The rule is `write(read(file)) == file`.
+
+The reader accepts some spellings that the writer never produces. `fmt`
+normalizes them:
+
+| You wrote | `fmt` writes |
+|---|---|
+| `\| a  \|  b \|` (blanks around a table cell) | `\|a\|b\|` |
+| `2.`, `3.` list numbers | `1.` |
+| two or more blank lines between blocks | one |
+| text on one very long line | wrapped at about 100 columns |
+| `*emphasis*` at the top level | `_emphasis_` |
+| no newline at the end of the file | one newline |
+| a link to a heading that has no `{#anchor}` | the heading gets `{#its-key}` |
+| blanks at the end of a line | none |
+
+A TOML file (`corpus.toml`, `publications.toml`, `books.toml`, `legal.toml`,
+`exclusions.toml`, `history.toml`, `aliases.toml`) is read and written back by
+the tool, so a comment in it does not survive `fmt` and fails `--check`.
 
 ## Determinism
 

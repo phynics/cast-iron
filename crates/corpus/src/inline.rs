@@ -46,6 +46,38 @@ pub fn write_inlines(inlines: &[Inline], out: &mut String) {
     out.push_str(&writer.finish_single());
 }
 
+/// Writes inline text for a place the reader trims, a heading or a pipe table
+/// cell: the blanks at either end are escaped so they survive the trim.
+pub fn write_trimmed(inlines: &[Inline]) -> String {
+    let mut text = String::new();
+    write_inlines(inlines, &mut text);
+    let leading = text.chars().take_while(|ch| is_blank_char(*ch)).count();
+    let rest = &text[leading..];
+    let trailing = rest
+        .chars()
+        .rev()
+        .take_while(|ch| is_blank_char(*ch))
+        .count();
+    let keep = rest.len() - trailing;
+    let mut out = String::with_capacity(text.len() + leading + trailing);
+    for ch in text.chars().take(leading) {
+        out.push('\\');
+        out.push(ch);
+    }
+    out.push_str(&rest[..keep]);
+    for ch in rest[keep..].chars() {
+        out.push('\\');
+        out.push(ch);
+    }
+    out
+}
+
+/// Parses text that the writer escaped with [`write_trimmed`]: the blanks at
+/// either end are layout, not content.
+pub fn parse_trimmed(text: &str) -> Result<Vec<Inline>, String> {
+    parse_inlines(trim_line_end(text.trim_start_matches([' ', '\t'])))
+}
+
 /// Writes a paragraph-like run over several physical lines: each
 /// [`Inline::Break`] ends a line with a backslash, and text wraps at
 /// `flow.width`. Never breaks inside a link, an escape, or at a space that the
@@ -390,6 +422,27 @@ fn parse_seq(
                         return Err(format!(
                             "unknown escape `\\{other}`; a backslash escapes punctuation, a digit, or a space"
                         ));
+                    }
+                }
+            }
+            '<' => {
+                // The writer escapes every `<`, so an unescaped one that opens a
+                // tag or a comment is raw HTML, which the corpus never accepts.
+                match chars.get(*position + 1) {
+                    Some('!') if chars.get(*position + 2) == Some(&'-') => {
+                        return Err(
+                            "an HTML comment is not allowed in the corpus; remove it, or write `\\<` for a literal `<`"
+                                .to_string(),
+                        );
+                    }
+                    Some(next) if next.is_ascii_alphabetic() || matches!(next, '/' | '!' | '?') => {
+                        return Err(format!(
+                            "raw HTML (`<{next}...`) is not allowed in the corpus; write `\\<` for a literal `<`"
+                        ));
+                    }
+                    _ => {
+                        buffer.push('<');
+                        *position += 1;
                     }
                 }
             }
@@ -807,6 +860,39 @@ mod tests {
             for width in [6, 17, 100] {
                 flow_round_trip(inlines.clone(), width);
             }
+        }
+    }
+
+    #[test]
+    fn raw_html_and_comments_are_rejected() {
+        for text in [
+            "<b>bold</b>",
+            "a <!-- note --> b",
+            "x </i>",
+            "<?php",
+            "<!DOCTYPE>",
+        ] {
+            let error = parse_inlines(text).unwrap_err();
+            assert!(error.contains("HTML"), "{text}: {error}");
+        }
+        assert!(parse_inlines("<!-- c -->").unwrap_err().contains("comment"));
+        // An escaped bracket and a bare one that opens nothing are text.
+        assert_eq!(
+            parse_inlines("a \\<b> c").unwrap(),
+            vec![Inline::text("a <b> c")]
+        );
+        assert_eq!(parse_inlines("1 < 2").unwrap(), vec![Inline::text("1 < 2")]);
+    }
+
+    #[test]
+    fn trimmed_text_keeps_escaped_edge_blanks() {
+        for text in [" lead", "trail ", "  both  ", " ", "a b"] {
+            let inlines = vec![Inline::text(text)];
+            let written = write_trimmed(&inlines);
+            assert_eq!(parse_trimmed(&written).unwrap(), inlines, "{written:?}");
+            // Extra blanks around the written form are layout.
+            let padded = format!("  {written}   ");
+            assert_eq!(parse_trimmed(&padded).unwrap(), inlines, "{padded:?}");
         }
     }
 }

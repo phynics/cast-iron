@@ -352,6 +352,17 @@ struct RawFront {
 }
 
 pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntry> {
+    if let Some(index) = source.find('\r') {
+        let line = 1 + source[..index]
+            .bytes()
+            .filter(|byte| *byte == b'\n')
+            .count();
+        return Err(Error::new(
+            path,
+            line,
+            "the file holds a carriage return (a Windows line end); save it with LF line ends. A literal carriage return in text is written `\\R`",
+        ));
+    }
     let lines: Vec<&str> = source.lines().collect();
     if lines.first().map(|line| line.trim_end()) != Some("+++") {
         return Err(Error::new(path, 1, "an entry file must start with `+++`"));

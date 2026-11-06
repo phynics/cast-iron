@@ -2,8 +2,8 @@
 
 use crate::error::{Error, Result};
 use crate::inline::{
-    Flow, WRAP_WIDTH, ends_with_break, parse_flow, parse_inlines, trim_line_end, write_flow,
-    write_inlines,
+    Flow, WRAP_WIDTH, ends_with_break, parse_flow, parse_inlines, parse_trimmed, trim_line_end,
+    write_flow, write_inlines, write_trimmed,
 };
 use crate::tomlutil;
 use cast_iron_schema::{
@@ -60,7 +60,7 @@ fn write_block(block: &Block, width: usize) -> String {
             let mut out = format!("{} ", "#".repeat(usize::from(*level)));
             // Inline text escapes `{` and `}`, so a literal `{#...}` suffix in
             // the heading text cannot be read back as an anchor.
-            write_inlines(content, &mut out);
+            out.push_str(&write_trimmed(content));
             if let Some(anchor) = anchor {
                 out.push_str(" {#");
                 out.push_str(anchor);
@@ -219,9 +219,7 @@ fn write_table(table: &Table) -> String {
 fn write_pipe_row(out: &mut String, row: &TableRow) {
     out.push('|');
     for cell in &row.cells {
-        let mut text = String::new();
-        write_inlines(&cell.content, &mut text);
-        out.push_str(&text);
+        out.push_str(&write_trimmed(&cell.content));
         out.push('|');
     }
 }
@@ -392,7 +390,7 @@ fn parse_heading(path: &Path, lines: &[Line], index: usize) -> Result<(Block, us
         anchor = Some(candidate.to_string());
         rest = rest[..start].trim_end();
     }
-    let content = parse_inlines(rest)
+    let content = parse_trimmed(rest)
         .map_err(|e| Error::new(path, lines[index].number, format!("heading: {e}")))?;
     Ok((
         Block::Heading {
@@ -556,7 +554,7 @@ fn parse_pipe_table(path: &Path, lines: &[Line], index: usize) -> Result<(Block,
     let header_cells = header
         .iter()
         .map(|cell| {
-            let content = parse_inlines(cell)
+            let content = parse_trimmed(cell)
                 .map_err(|e| Error::new(path, header_line.number, format!("table header: {e}")))?;
             Ok(TableCell {
                 header: true,
@@ -585,7 +583,7 @@ fn parse_pipe_table(path: &Path, lines: &[Line], index: usize) -> Result<(Block,
         let cells = cells
             .iter()
             .map(|cell| {
-                let content = parse_inlines(cell)
+                let content = parse_trimmed(cell)
                     .map_err(|e| Error::new(path, row_line.number, format!("table cell: {e}")))?;
                 Ok(TableCell {
                     header: false,

@@ -59,7 +59,13 @@ pub struct PublicationsFile {
 }
 
 pub fn write_publications(sources: &[SourceInfo]) -> String {
-    let mut publications: Vec<Publication> = sources.iter().map(Publication::from_source).collect();
+    let publications: Vec<Publication> = sources.iter().map(Publication::from_source).collect();
+    write_publication_list(&publications)
+}
+
+/// The canonical `publications.toml`: sorted by id.
+pub fn write_publication_list(publications: &[Publication]) -> String {
+    let mut publications = publications.to_vec();
     publications.sort_by(|a, b| a.id.cmp(&b.id));
     let file = PublicationsFile {
         publication: publications,

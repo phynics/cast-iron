@@ -837,7 +837,8 @@ pub fn build_canonical(opts: &CanonicalOptions) -> Result<Library, Failure> {
     );
     // Every heading that a body link or a book node names gets that key as an explicit
     // anchor, so editing its text cannot break the link. The key string is unchanged.
-    let anchor_report = crate::anchors::anchor_linked_headings(&mut entries, &books.index);
+    let anchor_report =
+        cast_iron_schema::headings::anchor_linked_headings(&mut entries, &books.index);
     let spell_lists = crate::lists::build(&entries);
     let relations = crate::relations::index_over(&entries, pf_relations.coverage);
     let relation_coverage = relations.coverage.clone();

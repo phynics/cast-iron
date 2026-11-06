@@ -26,6 +26,7 @@ mod config;
 mod entry;
 mod error;
 mod files;
+mod fmt;
 mod inline;
 mod load;
 #[cfg(test)]
@@ -41,6 +42,7 @@ pub use error::{Error, Result};
 pub use files::{
     Exclusions, Publication, PublicationsFile, read_aliases, read_books, read_exclusions,
     read_history, read_legal, read_publications, write_aliases, write_books, write_exclusions,
-    write_history, write_legal, write_publications,
+    write_history, write_legal, write_publication_list, write_publications,
 };
+pub use fmt::{Change, FmtReport, format_corpus};
 pub use load::{Corpus, Stored, list_files};

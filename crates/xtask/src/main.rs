@@ -2,9 +2,9 @@
 
 use cast_iron_content_compiler::corpus_coverage;
 use cast_iron_corpus::{
-    Config, Corpus, Exclusions, check as check_corpus, entry_path, read_aliases, read_books,
-    read_legal, read_publications, write_aliases, write_books, write_config, write_entry,
-    write_exclusions, write_history, write_legal, write_publications,
+    Config, Corpus, Exclusions, check as check_corpus, entry_path, format_corpus, read_aliases,
+    read_books, read_legal, read_publications, write_aliases, write_books, write_config,
+    write_entry, write_exclusions, write_history, write_legal, write_publications,
 };
 use cast_iron_schema::{
     AliasIndex, BookIndex, Catalog, ContentManifest, CoverageReport, LegalNotices, RuleEntry,
@@ -48,6 +48,8 @@ cargo xtask <command>
                              (default generated/content)
   corpus-check <dir>         Read a plain-text corpus and validate ids, paths, sources,
                              and licences; exits non-zero and names the file and line
+  corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
+                             list the first differing line of each file that is not canonical
   corpus-roundtrip <dir> [--content <dir>]
                              Compare every corpus file with the compiled library
   check                      Run fmt, clippy, tests, and the WASM build
@@ -76,6 +78,7 @@ fn main() -> ExitCode {
         Some("corpus-export") => corpus_export(&args[1..]),
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-roundtrip") => corpus_roundtrip(&args[1..]),
+        Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("check") => check(),
         Some("help") | None => {
             print!("{HELP}");
@@ -938,6 +941,48 @@ fn corpus_check(args: &[String]) -> Result {
         corpus.publications.len(),
         corpus.books.books.len(),
         corpus.legal.licenses.len()
+    );
+    Ok(())
+}
+
+fn corpus_fmt(args: &[String]) -> Result {
+    let mut dir = None;
+    let mut check = false;
+    for argument in args {
+        match argument.as_str() {
+            "--check" => check = true,
+            other if other.starts_with('-') => {
+                return Err(format!("unknown argument {other:?} for corpus-fmt"));
+            }
+            other => {
+                if dir.replace(PathBuf::from(other)).is_some() {
+                    return Err("corpus-fmt takes one corpus directory".into());
+                }
+            }
+        }
+    }
+    let dir = dir.ok_or("usage: corpus-fmt <dir> [--check]")?;
+    let report = format_corpus(&dir, !check).map_err(|errors| {
+        for error in &errors {
+            eprintln!("{error}");
+        }
+        format!("corpus fmt could not read {} file(s)", errors.len())
+    })?;
+    if check && !report.changes.is_empty() {
+        for change in report.changes.iter().take(20) {
+            eprintln!("{}", change.describe());
+        }
+        return Err(format!(
+            "{} of {} files are not formatted; run corpus-fmt",
+            report.changes.len(),
+            report.files
+        ));
+    }
+    println!(
+        "corpus fmt: {} files, {} {}",
+        report.files,
+        report.changes.len(),
+        if check { "unformatted" } else { "rewritten" }
     );
     Ok(())
 }
