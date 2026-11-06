@@ -32,14 +32,14 @@ jobs:
           # Same key as the CI site job, so a release build reuses compiled dependencies.
           cache-key: site
           trunk: "true"
-      # build-site fetches both datasets and compiles the canonical default when
-      # generated/content is missing.
+      # build-site fetches the pinned sources and compiles the PSRD library (--psrd)
+      # into generated/psrd when it is missing.
       - name: Build the site
         run: |
           trunk --version
           # Trunk fetches wasm-bindgen and wasm-opt from GitHub on a cold tools cache.
           for attempt in 1 2 3; do
-            cargo xtask build-site --public-url /cast-iron/ && exit 0
+            cargo xtask build-site --psrd --public-url /cast-iron/ && exit 0
             echo "::warning::build-site attempt $attempt failed"
             sleep 10
           done
