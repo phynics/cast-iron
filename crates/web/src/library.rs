@@ -307,6 +307,12 @@ impl Library {
         !self.0.disabled_books.borrow().contains(canonical_id)
     }
 
+    /// True when the reader has turned off at least one book. Search uses it to skip the
+    /// hidden-match count when every book is active.
+    pub fn has_inactive_books(&self) -> bool {
+        !self.0.disabled_books.borrow().is_empty()
+    }
+
     pub fn is_entry_active(&self, id: &EntryId) -> bool {
         let Some(stub) = self.stub(id) else {
             return false;
