@@ -297,14 +297,14 @@ mod tests {
             publication_date: None,
             suffix: Some("teitr".into()),
         };
-        let text = write_publication_list(&[publication.clone()]);
+        let text = write_publication_list(std::slice::from_ref(&publication));
         assert!(text.contains("suffix = \"teitr\""), "{text}");
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read, vec![publication.clone()]);
 
         let mut without = publication;
         without.suffix = None;
-        let text = write_publication_list(&[without.clone()]);
+        let text = write_publication_list(std::slice::from_ref(&without));
         assert!(!text.contains("suffix"), "{text}");
         assert_eq!(
             read_publications(Path::new("publications.toml"), &text).unwrap(),
