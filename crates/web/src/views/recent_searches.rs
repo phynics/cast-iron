@@ -72,6 +72,7 @@ fn same_scope(a: &Option<Scope>, b: &Option<Scope>) -> bool {
         (None, None) => true,
         (Some(a), Some(b)) => {
             a.kind == b.kind
+                && a.source == b.source
                 && a.facets.len() == b.facets.len()
                 && a.facets.iter().all(|(field, value)| {
                     b.facets.iter().any(|(other_field, other_value)| {
@@ -168,6 +169,8 @@ mod tests {
         Some(Scope {
             kind: EntryKind::Feat,
             facets: Vec::new(),
+            source: None,
+            source_title: None,
         })
     }
 
@@ -175,6 +178,8 @@ mod tests {
         Some(Scope {
             kind: EntryKind::Feat,
             facets: vec![("feat_type".into(), "Combat".into())],
+            source: None,
+            source_title: None,
         })
     }
 
@@ -233,6 +238,35 @@ mod tests {
         push_search(&mut list, "grapple", Some(lower));
         assert_eq!(list.len(), 3);
         assert_eq!(list[0].scope_label().as_deref(), Some("Combat feats"));
+    }
+
+    #[test]
+    fn a_book_scope_is_another_scope_and_keeps_its_book_name() {
+        let mut book = feats().unwrap();
+        book.source = Some("core-rulebook".into());
+        book.source_title = Some("Core Rulebook".into());
+        let mut list = Vec::new();
+        push_search(&mut list, "grapple", feats());
+        push_search(&mut list, "grapple", Some(book.clone()));
+        assert_eq!(list.len(), 2);
+        assert_eq!(
+            list[0].scope_label().as_deref(),
+            Some("Feats in Core Rulebook")
+        );
+        assert_eq!(list[0].name(), "grapple in Feats in Core Rulebook");
+        assert_eq!(
+            list[0].route().href(),
+            "#/search?q=grapple&kind=feat&source=core-rulebook"
+        );
+        // The display title does not make a second search: the book id does.
+        let mut same = book.clone();
+        same.source_title = Some("Core Rulebook (2009)".into());
+        push_search(&mut list, "grapple", Some(same));
+        assert_eq!(list.len(), 2);
+        // A book without a recorded title still names the book in the scope label (by kind).
+        let mut bare = book;
+        bare.source_title = None;
+        assert_eq!(bare.label(), "Feats");
     }
 
     #[test]
