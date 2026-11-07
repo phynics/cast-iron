@@ -47,7 +47,10 @@ pub fn needs_find(options: usize) -> bool {
 
 /// The option for the route's value. The index compares values without regard to case, so a
 /// shared link with `combat` finds `Combat`.
-pub fn current_option<'a>(options: &'a [MenuOption], value: Option<&str>) -> Option<&'a MenuOption> {
+pub fn current_option<'a>(
+    options: &'a [MenuOption],
+    value: Option<&str>,
+) -> Option<&'a MenuOption> {
     let value = value?;
     options
         .iter()
@@ -80,7 +83,11 @@ pub fn find_status(spec: &MenuSpec, shown: usize, query: &str) -> String {
         format!(
             "{} {}",
             fmt::count(shown),
-            if shown == 1 { spec.singular } else { spec.plural }
+            if shown == 1 {
+                spec.singular
+            } else {
+                spec.plural
+            }
         )
     }
 }

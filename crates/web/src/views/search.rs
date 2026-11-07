@@ -1275,18 +1275,21 @@ pub fn Search() -> impl IntoView {
     // A facet narrows the scope below its kind: `Show all feats` widens it back to the kind and
     // keeps the text. A scope of the kind alone has nothing to widen; "All entries" does that.
     let show_all = move || {
-        page_scope.get().filter(|scope| !scope.facets.is_empty()).map(|scope| {
-            view! {
-                <span aria-hidden="true">" · "</span>
-                <button type="button" class="count-action"
-                    on:click=move |_| change_filters(&|s| {
-                        s.facets.clear();
-                        s.sources.clear();
-                    })>
-                    {scope.show_all_label()}
-                </button>
-            }
-        })
+        page_scope
+            .get()
+            .filter(|scope| !scope.facets.is_empty())
+            .map(|scope| {
+                view! {
+                    <span aria-hidden="true">" · "</span>
+                    <button type="button" class="count-action"
+                        on:click=move |_| change_filters(&|s| {
+                            s.facets.clear();
+                            s.sources.clear();
+                        })>
+                        {scope.show_all_label()}
+                    </button>
+                }
+            })
     };
 
     // Removing the scope searches everything again. Focus moves to "All entries", which now

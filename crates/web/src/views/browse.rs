@@ -11,8 +11,8 @@ use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, current_option,
     take_focus_request, trigger_text,
 };
-use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::scope::Scope;
+use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, kind_name,
@@ -113,8 +113,7 @@ pub const CHAIN_MARK_MIN: usize = 5;
 /// How many feats each marked feat leads to, once the relations have loaded. The outer `None`
 /// is "loading"; the inner `None` is a library with no relations. Rows read it, so the list
 /// shows at once and the markers appear when the numbers are ready.
-pub type ChainMarks =
-    ReadSignal<Option<Option<Shared<HashMap<EntryId, usize>>>>, LocalStorage>;
+pub type ChainMarks = ReadSignal<Option<Option<Shared<HashMap<EntryId, usize>>>>, LocalStorage>;
 
 /// The accessible suffix of a marked row: `, leads to 93 feats`.
 pub fn chain_mark_suffix(leads_to: usize) -> String {
@@ -141,11 +140,7 @@ fn chain_mark(leads_to: usize) -> impl IntoView {
 }
 
 /// A feat row. The marker follows the title inside the link, so the row stays one target.
-fn feat_row(
-    stub: &EntryStub,
-    source: Option<String>,
-    marks: ChainMarks,
-) -> impl IntoView + use<> {
+fn feat_row(stub: &EntryStub, source: Option<String>, marks: ChainMarks) -> impl IntoView + use<> {
     let id = stub.id.clone();
     let mark = move || {
         marks.with(|loaded| {
@@ -1408,13 +1403,14 @@ fn BrowseList(
 
     // Feats that open a long chain carry a marker. The numbers come from the relations graph,
     // read once for the page; the rows do not wait for them.
-    let marks: Option<ChainMarks> = (kind == EntryKind::Feat && library.has_relations()).then(|| {
-        let library = library.clone();
-        local_resource(async move {
-            let relations = library.discovery().relations().await.ok().flatten()?;
-            Some(Shared::new(relations.long_chains(CHAIN_MARK_MIN)))
-        })
-    });
+    let marks: Option<ChainMarks> =
+        (kind == EntryKind::Feat && library.has_relations()).then(|| {
+            let library = library.clone();
+            local_resource(async move {
+                let relations = library.discovery().relations().await.ok().flatten()?;
+                Some(Shared::new(relations.long_chains(CHAIN_MARK_MIN)))
+            })
+        });
 
     let body = if count == 0 {
         // The value is not in the active books. Say so, and offer the two ways out.
@@ -1629,7 +1625,10 @@ mod tests {
             narrowed_count_line(EntryKind::Feat, 1324, 3583),
             "1,324 of 3,583 feats"
         );
-        assert_eq!(narrowed_count_line(EntryKind::Feat, 0, 3583), "0 of 3,583 feats");
+        assert_eq!(
+            narrowed_count_line(EntryKind::Feat, 0, 3583),
+            "0 of 3,583 feats"
+        );
         assert_eq!(narrowed_count_line(EntryKind::Feat, 1, 1), "1 of 1 feat");
         assert_eq!(
             empty_filter_line(EntryKind::Feat, &[facet("feat_type", "Combat")]),
@@ -1668,10 +1667,7 @@ mod tests {
         assert_eq!(options[0].label, "Combat");
         assert_eq!(options[0].count, 1324);
         // No `l=`: choosing a value resets the letter.
-        assert_eq!(
-            options[0].href,
-            "#/browse/kind/feat?facet=feat_type:Combat"
-        );
+        assert_eq!(options[0].href, "#/browse/kind/feat?facet=feat_type:Combat");
         // The href parses back to the route the page then renders.
         assert_eq!(
             Route::parse(&options[1].href),

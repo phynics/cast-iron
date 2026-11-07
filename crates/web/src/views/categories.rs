@@ -98,10 +98,7 @@ pub enum Lens {
     /// A facet too large for a row of pills: one filter menu that narrows the list in place.
     Menu(MenuSpec),
     /// A related page, as a plain link in the filter row.
-    Link {
-        label: &'static str,
-        route: Route,
-    },
+    Link { label: &'static str, route: Route },
 }
 
 /// The feat type menu. About 40 types, so it has a find field.

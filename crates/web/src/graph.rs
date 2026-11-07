@@ -846,7 +846,7 @@ mod tests {
         assert!(r.long_chains(5).is_empty());
         // `b` and `c` unlock two and two (e once each), below any limit above 1.
         assert_eq!(r.long_chains(1).len(), 3);
-        assert!(r.long_chains(2).get(&id("c/b")).is_none());
+        assert!(!r.long_chains(2).contains_key(&id("c/b")));
         // A cycle terminates and a feat never counts itself.
         let cyclic = relations(&[
             ("c/b", Prerequisite, "c/a"),
@@ -855,7 +855,7 @@ mod tests {
         ]);
         assert!(cyclic.long_chains(1).is_empty());
         assert_eq!(cyclic.long_chains(0)[&id("c/a")], 1);
-        assert!(cyclic.long_chains(0).get(&id("c/s")).is_none());
+        assert!(!cyclic.long_chains(0).contains_key(&id("c/s")));
     }
 
     #[test]

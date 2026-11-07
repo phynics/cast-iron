@@ -217,7 +217,9 @@ mod tests {
         push_search(&mut list, "grapple", combat_feats());
         assert_eq!(list.len(), 3);
         assert_eq!(
-            list.iter().map(RecentSearch::scope_label).collect::<Vec<_>>(),
+            list.iter()
+                .map(RecentSearch::scope_label)
+                .collect::<Vec<_>>(),
             [Some("Combat feats".into()), Some("Feats".into()), None]
         );
         // A repeat in the same scope moves that entry to the front and leaves the others.

@@ -185,8 +185,22 @@ fn eligible_facets_exclude_disabled_documents() {
 #[test]
 fn facet_ids_list_the_eligible_documents_with_a_value_ignoring_case() {
     let idx = build(vec![
-        doc("feat:a", "Alpha", "feat", "core", "", &[("feat_type", "Combat")]),
-        doc("feat:b", "Beta", "feat", "core", "", &[("feat_type", "General")]),
+        doc(
+            "feat:a",
+            "Alpha",
+            "feat",
+            "core",
+            "",
+            &[("feat_type", "Combat")],
+        ),
+        doc(
+            "feat:b",
+            "Beta",
+            "feat",
+            "core",
+            "",
+            &[("feat_type", "General")],
+        ),
         doc(
             "feat:c",
             "Gamma",
@@ -195,7 +209,14 @@ fn facet_ids_list_the_eligible_documents_with_a_value_ignoring_case() {
             "",
             &[("feat_type", "Combat"), ("feat_type", "Teamwork")],
         ),
-        doc("feat:d", "Delta", "feat", "ugc", "", &[("feat_type", "combat")]),
+        doc(
+            "feat:d",
+            "Delta",
+            "feat",
+            "ugc",
+            "",
+            &[("feat_type", "combat")],
+        ),
     ]);
     let all = |_: &str| true;
     assert_eq!(
@@ -211,7 +232,10 @@ fn facet_ids_list_the_eligible_documents_with_a_value_ignoring_case() {
         idx.facet_ids_eligible("feat_type", "Combat", |id| id != "feat:d"),
         ["feat:a", "feat:c"]
     );
-    assert!(idx.facet_ids_eligible("feat_type", "Missing", all).is_empty());
+    assert!(
+        idx.facet_ids_eligible("feat_type", "Missing", all)
+            .is_empty()
+    );
     assert!(idx.facet_ids_eligible("school", "Combat", all).is_empty());
 }
 

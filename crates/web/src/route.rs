@@ -401,11 +401,7 @@ fn parse_search(query: Option<&str>) -> Route {
 
 /// `facet=field:value` as it appears in a URL.
 fn facet_pair((field, value): &(String, String)) -> String {
-    format!(
-        "facet={}:{}",
-        percent_encode(field),
-        percent_encode(value)
-    )
+    format!("facet={}:{}", percent_encode(field), percent_encode(value))
 }
 
 /// The `facet=field:value` pairs of a query string, in order. Search and a list page read them
@@ -648,10 +644,8 @@ mod tests {
 
     #[test]
     fn kind_routes_carry_facets_in_the_url_and_keep_them_with_a_letter() {
-        let combat = Route::browse_kind_facets(
-            EntryKind::Feat,
-            vec![("feat_type".into(), "Combat".into())],
-        );
+        let combat =
+            Route::browse_kind_facets(EntryKind::Feat, vec![("feat_type".into(), "Combat".into())]);
         assert_eq!(combat.href(), "#/browse/kind/feat?facet=feat_type:Combat");
         round_trip(combat.clone());
         let lettered = combat.with_letter('B');
