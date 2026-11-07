@@ -942,6 +942,22 @@ mod tests {
         assert!(drift.is_empty(), "{drift:?}");
     }
 
+    #[test]
+    fn a_different_creature_type_still_drifts() {
+        let entry = base(
+            "ref/monster/wrong",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                creature_type: Some("dragon".into()),
+                ..Default::default()
+            })),
+            vec![statblock(vec![row("Type", "Outsider")])],
+        );
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "creature_type");
+    }
+
     fn creature_with_rating(cr: &str, line: &str) -> Stored {
         stored(base(
             "ref/monster/test",
