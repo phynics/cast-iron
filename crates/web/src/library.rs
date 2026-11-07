@@ -108,6 +108,9 @@ struct Inner {
     /// Catalog entries per canonical source, counted once on first use. The catalog and the book
     /// placements do not change for a loaded library.
     source_counts: OnceCell<BTreeMap<String, usize>>,
+    /// The eligible id set of the current selection revision, shared by every `discovery()` call
+    /// until the reader changes the active books or a new library is installed.
+    discovery: crate::discovery::DiscoveryCache,
     selection_revision: RwSignal<u64>,
     selection_write_in_flight: RefCell<bool>,
     /// Set when IndexedDB refused the id rewrite. The library still reads correctly through
@@ -222,6 +225,7 @@ impl Library {
             backlink_shards: RefCell::new(Lru::new(BACKLINK_SHARD_CACHE)),
             disabled_books: RefCell::new(disabled_books),
             source_counts: OnceCell::new(),
+            discovery: crate::discovery::DiscoveryCache::default(),
             selection_revision: RwSignal::new(0),
             selection_write_in_flight: RefCell::new(false),
             migration_refused: RwSignal::new(false),
@@ -323,24 +327,24 @@ impl Library {
     /// The active-book test for a catalog stub, without a second id lookup. Discovery asks this
     /// for every entry in the catalog.
     pub(crate) fn is_stub_active(&self, stub: &EntryStub) -> bool {
+        let disabled = self.0.disabled_books.borrow();
+        self.with_books(|books| {
+            let source = canonical_book_source(books, &stub.id, &stub.source);
+            !is_book_disabled(&disabled, source)
+        })
+    }
+
+    /// Runs `f` with the book lookup, or `None` for a library without `books.json`. The closure
+    /// form keeps the `RefCell` borrow alive for the call without cloning the lookup.
+    pub(crate) fn with_books<R>(&self, f: impl FnOnce(Option<&BookLookup>) -> R) -> R {
         let books = self.0.books.borrow();
-        let source = canonical_book_source(
-            books.as_ref().and_then(Option::as_deref),
-            &stub.id,
-            &stub.source,
-        );
-        !is_book_disabled(&self.0.disabled_books.borrow(), source)
+        f(books.as_ref().and_then(Option::as_deref))
     }
 
     /// True when the catalog stub belongs to `source` under the canonical-source rule. It
     /// allocates nothing, unlike comparing [`Self::canonical_source_for_entry`].
     pub(crate) fn stub_is_in_source(&self, stub: &EntryStub, source: &str) -> bool {
-        let books = self.0.books.borrow();
-        canonical_book_source(
-            books.as_ref().and_then(Option::as_deref),
-            &stub.id,
-            &stub.source,
-        ) == source
+        self.with_books(|books| canonical_book_source(books, &stub.id, &stub.source) == source)
     }
 
     /// How many catalog entries each canonical source holds, whether or not the book is active.
@@ -348,20 +352,16 @@ impl Library {
     /// calls reuse the result.
     pub fn source_entry_counts(&self) -> &BTreeMap<String, usize> {
         self.0.source_counts.get_or_init(|| {
-            let books = self.0.books.borrow();
-            count_by_source(
-                &self.0.catalog.entries,
-                books.as_ref().and_then(Option::as_deref),
-            )
+            self.with_books(|books| count_by_source(&self.0.catalog.entries, books))
         })
     }
 
     pub fn canonical_source_for_entry(&self, id: &EntryId) -> Option<String> {
         let stub = self.stub(id)?;
-        let books = self.0.books.borrow();
         Some(
-            canonical_book_source(books.as_ref().and_then(Option::as_deref), id, &stub.source)
-                .to_owned(),
+            self.with_books(|books| {
+                canonical_book_source(books, &stub.id, &stub.source).to_owned()
+            }),
         )
     }
 
@@ -439,8 +439,21 @@ impl Library {
         Ok(change)
     }
 
+    /// The eligibility snapshot for the current active-book selection. Every call at the same
+    /// `selection_revision` shares one eligible id set, so a page that asks per entry kind does
+    /// not rebuild the 31k-id set each time. A new revision, or a new library, rebuilds it.
     pub fn discovery(&self) -> crate::discovery::Discovery {
-        crate::discovery::Discovery::new(self.clone())
+        let revision = self.0.selection_revision.get_untracked();
+        let eligible = self.0.discovery.ids(revision, || {
+            self.with_books(|books| {
+                crate::discovery::eligible_ids(
+                    &self.0.catalog.entries,
+                    books,
+                    &self.0.disabled_books.borrow(),
+                )
+            })
+        });
+        crate::discovery::Discovery::new(self.clone(), eligible)
     }
 
     pub fn source(&self, id: &str) -> Option<&SourceInfo> {
@@ -727,7 +740,7 @@ fn canonical_target_in(catalog: &Catalog, aliases: &AliasIndex, stored: &EntryId
 
 /// Placement in a newer library is authoritative; catalog source is the explicit legacy and
 /// unplaced-entry fallback. The schema has no separate stable source field to consult.
-fn canonical_book_source<'a>(
+pub(crate) fn canonical_book_source<'a>(
     books: Option<&'a BookLookup>,
     id: &EntryId,
     catalog_source: &'a str,
@@ -737,9 +750,13 @@ fn canonical_book_source<'a>(
         .unwrap_or(catalog_source)
 }
 
-/// One pass over the catalog: entries per canonical source. A source's key is allocated once,
-/// when its first entry arrives.
-fn count_by_source(entries: &[EntryStub], books: Option<&BookLookup>) -> BTreeMap<String, usize> {
+/// One pass over `entries`: entries per canonical source. A source's key is allocated once,
+/// when its first entry arrives. Both the whole-catalog count and the eligible-entry count of
+/// a discovery snapshot use this.
+pub(crate) fn count_by_source<'a, 'b>(
+    entries: impl IntoIterator<Item = &'a EntryStub>,
+    books: Option<&'b BookLookup>,
+) -> BTreeMap<String, usize> {
     let mut counts = BTreeMap::<String, usize>::new();
     for stub in entries {
         let source = canonical_book_source(books, &stub.id, &stub.source);
