@@ -388,6 +388,50 @@ test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show schoo
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
+test("Spell list density at 390 px: Compact is two lines, toggles without a reload and survives one", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
+  const list = page.locator(".spell-list");
+  // Wide is the default: the gist sits under the facts on a phone, so the fact line has two rows.
+  await expect(list).toHaveAttribute("data-density", "wide");
+  const row = page.locator(".spell-row:has(.spell-gist)").first();
+  const meta = row.locator(".spell-row-meta");
+  await expect(meta).toBeVisible();
+  const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await meta.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
+
+  // Both choices are 44 px Filter-role targets in one named group.
+  const toggle = page.getByRole("group", { name: "Spell row density" });
+  await expect(toggle).toBeVisible();
+  for (const choice of await toggle.getByRole("radio").all()) {
+    const box = (await choice.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  // A marker that a reload would clear proves the toggle does not navigate.
+  await page.evaluate(() => ((window as any).__densityMarker = "kept"));
+
+  await page.getByRole("radio", { name: "Compact" }).check();
+  await expect(list).toHaveAttribute("data-density", "compact");
+  expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 1.5);
+  expect(await page.evaluate(() => (window as any).__densityMarker)).toBe("kept");
+
+  // Rows stay at least 44 px tall and the name never wraps in either mode.
+  const heights = await page.locator(".spell-rows .spell-row").evaluateAll((nodes) =>
+    nodes.map((n) => n.getBoundingClientRect().height));
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  const names = await page.locator(".spell-name").evaluateAll((nodes) =>
+    nodes.map((n) => n.getClientRects().length === 1 && n.getBoundingClientRect().height < 30));
+  expect(names.every(Boolean)).toBe(true);
+
+  // The choice is stored, not just held in the page.
+  await page.reload();
+  await expect(list).toHaveAttribute("data-density", "compact", { timeout: 30000 });
+  const metaAfter = page.locator(".spell-row:has(.spell-gist) .spell-row-meta").first();
+  await expect(metaAfter).toBeVisible();
+  const lineHeightAfter = await metaAfter.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await metaAfter.boundingBox())!.height).toBeLessThan(lineHeightAfter * 1.5);
+});
+
 const homeSpells = entries.filter((entry) => entry.kind === "spell")
   .filter((entry, i, all) => all.findIndex((c) => c.title === entry.title) === i)
   .map((entry) => ({ id: entry.id as string, title: entry.title as string }));

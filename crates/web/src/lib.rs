@@ -14,6 +14,7 @@
 pub mod app;
 pub mod book_presets;
 pub mod content_cache;
+pub mod density;
 pub mod discovery;
 pub mod fmt;
 pub mod graph;

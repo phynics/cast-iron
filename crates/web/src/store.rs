@@ -2,7 +2,7 @@
 //!
 //! Database `cast-iron`, version 1:
 //! - `meta`: out-of-line string keys. `active_library`, `pending_install`, `theme`,
-//!   `update_check`, `auto_update_check`.
+//!   `spell_density`, `update_check`, `auto_update_check`.
 //! - `bookmarks`: key path `entry_id`.
 //! - `collections`: key path `id`.
 //!
@@ -30,6 +30,7 @@ pub const COLLECTIONS: &str = "collections";
 pub const KEY_ACTIVE_LIBRARY: &str = "active_library";
 pub const KEY_PENDING_INSTALL: &str = "pending_install";
 pub const KEY_THEME: &str = "theme";
+pub const KEY_SPELL_DENSITY: &str = "spell_density";
 pub const KEY_DISABLED_BOOKS: &str = "disabled_books";
 pub const KEY_BOOK_DEFAULTS: &str = crate::book_presets::DEFAULTS_KEY;
 pub const KEY_RECENT: &str = "recent";
@@ -424,6 +425,15 @@ pub async fn theme_preference() -> Result<Option<String>> {
 
 pub async fn set_theme_preference(theme: &str) -> Result<()> {
     set_meta(KEY_THEME, &theme).await
+}
+
+/// The reader's spell-row density: `compact` or `wide`. Absent means `wide`.
+pub async fn spell_density() -> Result<Option<String>> {
+    get_meta(KEY_SPELL_DENSITY).await
+}
+
+pub async fn set_spell_density(density: &str) -> Result<()> {
+    set_meta(KEY_SPELL_DENSITY, &density).await
 }
 
 /// Canonical book IDs hidden from discovery, or `None` when no choice was ever stored. Absent
