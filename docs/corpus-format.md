@@ -1,7 +1,7 @@
 # Corpus format
 
 The corpus is a plain-text form of the compiled rules library. One file holds
-each entry, and four small files hold the reviewed source data that the entries
+each entry, and a few small files hold the reviewed source data that the entries
 cannot derive. A human can edit an entry without touching Rust, and a compiler
 can rebuild the library from the corpus.
 
@@ -20,6 +20,7 @@ legal.toml                      licences, Product Identity, Section 15, dataset 
 exclusions.toml                 what the import left out and why; rows are only appended
 history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
+option-groups.toml              class-option vocabulary (optional, schema 4)
 ```
 
 The path is derived from the permanent id. `ref/spell/fog-cloud` is
@@ -86,7 +87,7 @@ class level and the full body below.
 | Key | Type | Rule |
 |---|---|---|
 | `id` | string | Permanent `ref/` id. Required. |
-| `kind` | string | `EntryKind` slug: `rule`, `spell`, `feat`, `creature`, `item`, `class`, `prestige_class`, `race`, `skill`, `affliction`, `trap`, `trait`, `racial_trait`, `archetype`. Required. |
+| `kind` | string | `EntryKind` slug: `rule`, `spell`, `feat`, `creature`, `item`, `class`, `prestige_class`, `race`, `skill`, `affliction`, `trap`, `trait`, `racial_trait`, `archetype`, `class_option`. Required. |
 | `title` | string | Display title. Required. |
 | `source_ids` | array of strings | Publication ids. Every one must exist in `publications.toml`. |
 | `section` | array of strings | Breadcrumb inside the rules hierarchy. |
@@ -94,7 +95,7 @@ class level and the full body below.
 | `tags` | array of strings | Stable labels such as `standard_race`. |
 | `provenance` | array of tables | Optional. `dataset`, `record`, `path` of the upstream record the entry came from. **Frozen history: do not edit it, and leave it out of a new entry.** |
 | `license_refs` | array of strings | Omitted when it equals `[defaults] license_refs` in `corpus.toml` (today `["ogl-1.0a", "legal#community-use"]`). Written only for an entry that differs; an empty list is written as `license_refs = []`. Each value is a licence id from `legal.toml`, or `legal#community-use`. |
-| `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`), `target`, and optional `label` (`or`, `alternate`). A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
+| `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`, `variant`, `addon`, `revision`), `target`, and an optional `label`. Labels are closed per kind: `or` on `prerequisite`; `alternate` on `part`; exactly one of `mythic`, `stamina`, `changes` on `addon`; none, `removed`, or `merged` on `revision`; none on `variant` and `archetype`. A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
 
 ### Typed fields
 
@@ -110,6 +111,8 @@ order:
 | `class` | `class_type`, `hit_die`, `skill_ranks`, `class_skills` |
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
+| `archetype` | `replaces`, `alters` (printed feature names, in print order) |
+| `class_option` | `group` (required slug from `option-groups.toml`), `replaces` (printed feature names) |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
@@ -144,6 +147,40 @@ that an old reader would reject also counts. A format change always ships with:
 Never mix a migration with an edit to content. Reviewers can then check the
 migration PR by running the step and comparing.
 
+## `publications.toml`
+
+Each `[[publication]]` row names a book. A row may carry `suffix`, the id segment that new
+add-on and revision entries from that publication take:
+
+```toml
+[[publication]]
+id = "the-elephant-in-the-room"
+title = "The Elephant in the Room"
+copyright = "…"
+suffix = "teitr"
+```
+
+A suffix is one id segment (lowercase letters, digits, and hyphens) and must be unique across
+the corpus. `corpus-check` rejects a duplicate or an invalid one, and an add-on or revision
+that cannot name its publication's suffix.
+
+## `option-groups.toml`
+
+The class-option vocabulary is optional. A missing file means no groups. Each table is a slug
+that a `class_option` entry's `group` names:
+
+```toml
+[groups.arcane-discovery]
+label = "Arcane discoveries"
+singular = "Arcane discovery"
+classes = ["ref/class/wizard"]
+```
+
+`label` is the plural display label, `singular` the label for one option, and `classes` the
+class entries that take the group. Every id must resolve, and a declared group must hold at
+least one `class_option` entry; `corpus-check` reports both failures. The compiler writes the
+same data, plus the group's entries, to `option-groups.json`.
+
 ## Stored and derived data
 
 The compiler rebuilds everything it can. A stored file exists only when it is
@@ -156,7 +193,9 @@ reviewed source material that an entry cannot express.
 | `books.json` | **Stored** as `books.toml` | Chapter order is a curated decision, not a function of the body text. |
 | `legal.json` | **Stored** as `legal.toml` | Licences and notices are reviewed legal text. |
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
-| `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. |
+| `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. Each edge is `[source, kind, target]`, or `[source, kind, target, label]` when it carries a label. |
+| `option-groups.json` | **Derived** | It joins `option-groups.toml` with the `class_option` entries that name each group. |
+| `replaces.json` | **Derived** | It indexes the typed `replaces` items of archetypes and class options. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
 | `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion and rejection rows, and a few results of the import, are stored. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
@@ -481,6 +520,19 @@ file and line, when:
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
 - a parent, body link, prerequisite feat, relation target, book node, or alias
   target names an unknown entry;
+- a relation carries a label outside its kind's closed vocabulary, a `variant` is
+  not spell to spell, an entry holds more than one `variant`, or `variant` edges
+  form a cycle;
+- a `revision` points at a revision or at another kind, shares a book with its
+  target, repeats a target in one publication, is named by a body link or
+  `prerequisite_feats`, or is `removed`/`merged` with non-empty fields or a
+  `merged` body that links no feat;
+- a `mythic` add-on is not a feat whose `feat_types` include `Mythic`;
+- a `class_option` names a group missing from `option-groups.toml`, a declared
+  group names a class that does not resolve, or a group holds no option;
+- an add-on or revision does not take the id suffix its publication declares, or
+  an id under an existing entry ends in a known suffix but holds no matching edge;
+- two publications share a suffix, or a suffix is not one id segment;
 - a body link or a `books.toml` anchor is not a heading key of the target entry
   (the message names the linking file, the target file and its headings, and
   the fix);
@@ -518,6 +570,8 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | creature | `cr`, `creature_type`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR`, `Type`, `Size`, `AC`, `hp`, `Fort`, ... rows |
 | item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot`, `Aura`, `CL` rows |
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
+| archetype | `replaces`, `alters` | the bold `**Replaces:**` and `**Alters:**` lines |
+| class_option | `replaces` | the bold `**Replaces:**` line |
 
 The comparison reads both sides as words: it ignores case, repeated blanks, an
 end period, `*` and `[label](target)` markers, and a few entities (`&times;`). A
@@ -548,7 +602,7 @@ normalizes them:
 | a link to a heading that has no `{#anchor}` | the heading gets `{#its-key}` |
 | blanks at the end of a line | none |
 
-A TOML file (`corpus.toml`, `publications.toml`, `books.toml`, `legal.toml`,
+A TOML file (`corpus.toml`, `publications.toml`, `option-groups.toml`, `books.toml`, `legal.toml`,
 `exclusions.toml`, `history.toml`, `aliases.toml`) is read and written back by
 the tool, so a comment in it does not survive `fmt` and fails `--check`.
 
