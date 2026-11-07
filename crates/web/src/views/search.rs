@@ -1888,7 +1888,12 @@ mod tests {
         assert_eq!(counts.get("bestiary"), Some(&2));
         assert_eq!(counts.get("um"), Some(&1));
         assert_eq!(
-            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone(), |_| Tier::Other),
+            inactive_matches(
+                &hits,
+                |id| id == "a",
+                |hit| hit.source.clone(),
+                |_| Tier::Other
+            ),
             Some((3, "bestiary".to_string()))
         );
         // With every entry eligible there is nothing to say.
