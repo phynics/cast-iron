@@ -112,11 +112,11 @@ test("Chips keep one form per role", async ({ page }) => {
   });
   expect(selected.background).not.toBe("rgba(0, 0, 0, 0)");
 
-  // Browse facets are pills too.
+  // A list page filters through a menu button, not a pill: 6 px corners and the page flow.
   await page.goto("#/browse/kind/creature");
-  const lens = page.locator(".lens-chip").first();
-  await expect(lens).toBeVisible();
-  expect(await lens.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
+  const menu = page.getByRole("button", { name: /^Type: / });
+  await expect(menu).toBeVisible();
+  expect(await menu.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("6px");
   expect(corpus.catalog.entries.length).toBeGreaterThan(0);
 });
 

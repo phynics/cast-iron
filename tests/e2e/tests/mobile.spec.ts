@@ -603,3 +603,47 @@ installedTest("Classes at 390 px: the group headings are one line and the last g
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();
 });
+
+installedTest("Creatures at 390 px: two filter menus and the first row in the first viewport", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/creature");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Creatures" })).toBeVisible();
+  const typeButton = main.getByRole("button", { name: /^Type: / });
+  const crButton = main.getByRole("button", { name: /^CR: / });
+  await expect(typeButton).toBeEnabled();
+  await expect(crButton).toBeEnabled();
+  // Both menus share the filter row and are full touch targets inside the screen.
+  for (const button of [typeButton, crButton]) {
+    const box = (await button.boundingBox())!;
+    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
+  expect(Math.abs((await typeButton.boundingBox())!.y - (await crButton.boundingBox())!.y)).toBeLessThan(8);
+
+  const first = main.locator(".letter-group .entry-list > li").first();
+  await expect(first).toBeVisible();
+  const viewport = page.viewportSize()!;
+  const tabBar = (await page.getByRole("navigation", { name: "Primary" }).boundingBox())!;
+  const y = (await first.boundingBox())!.y;
+  console.log(`first creature row y at 390 px: ${Math.round(y)}`);
+  expect(y).toBeLessThan(tabBar.y - 44);
+  expect(y).toBeLessThan(viewport.height / 2);
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  // The type panel opens in the page and its rows are 44 px targets.
+  await typeButton.click();
+  const panel = page.locator(`#${await typeButton.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  expect(box.height).toBeLessThanOrEqual(viewport.height * 0.5 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  const rows = await panel.locator(".choice-row").evaluateAll((els) => els.slice(0, 8).map((el) => el.getBoundingClientRect().height));
+  expect(rows.filter((height) => height < 43.5)).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(typeButton).toBeFocused();
+});

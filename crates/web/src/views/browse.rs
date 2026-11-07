@@ -645,15 +645,15 @@ fn filter_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. Races and creatures keep their pills
-/// (the old lens) until the library has the data or their pull request moves them to this row.
+/// links on the right, and each menu's panel under the row. Races keep their pills (the old
+/// lens) until the library has group data (#196).
 #[component]
 fn Lenses(
     kind: EntryKind,
     /// The facets that narrow the list now.
     applied: Vec<(String, String)>,
-    /// True when a choice just opened this page.
-    focus: bool,
+    /// The field of the menu whose choice just opened this page, if any.
+    focus: Option<&'static str>,
 ) -> impl IntoView {
     let all = categories::lenses(kind);
     if all.is_empty() {
@@ -668,7 +668,8 @@ fn Lenses(
         match lens {
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
-                let (button, panel) = filter_menu(&library, kind, spec, &applied, focus);
+                let menu_focus = focus == Some(spec.field);
+                let (button, panel) = filter_menu(&library, kind, spec, &applied, menu_focus);
                 buttons.push(button);
                 panels.push(panel);
             }
@@ -1073,7 +1074,7 @@ pub fn BrowseKind(
 #[component]
 fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>) -> impl IntoView {
     let library = use_library();
-    let focus_menu = false;
+    let focus_menu = None;
     let total = all.len();
     let groups = {
         let library = library.clone();
@@ -1168,7 +1169,8 @@ fn BrowseList(
     stubs: Vec<EntryStub>,
     /// The size of the whole kind, before the filter.
     total: usize,
-    focus_menu: bool,
+    /// The field of the menu whose choice opened this page, if any.
+    focus_menu: Option<&'static str>,
     /// A short list under headings, in order: `(heading, entries)`. Without it the list is one
     /// A to Z list.
     #[prop(optional)]
@@ -1256,7 +1258,7 @@ fn BrowseList(
         view! {
             <AzList kind facets=applied.clone() marks groups stubs=stubs.clone() source_titles
                 show_source=multi_source selected=selected
-                focus=requested.is_some() && !focus_menu />
+                focus=requested.is_some() && focus_menu.is_none() />
         }
         .into_any()
     };

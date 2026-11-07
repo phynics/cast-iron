@@ -467,3 +467,127 @@ test("Classes are listed under their data group headings, without pills or a men
   await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
 });
+
+// ---- Creatures: type and challenge rating menus (#193 PR 4) ----
+
+const creatures = [...corpus.entries.values()].filter((entry) => entry.kind === "creature");
+const creatureCount = corpus.catalog.entries.filter((stub) => stub.kind === "creature").length;
+const crOf = (entry: { fields?: Record<string, any> }): string | null => {
+  const twentyFourths = entry.fields?.cr?.twenty_fourths;
+  if (typeof twentyFourths !== "number") return null;
+  return ({ 3: "1/8", 4: "1/6", 6: "1/4", 8: "1/3", 12: "1/2" } as Record<number, string>)[twentyFourths] ?? String(twentyFourths / 24);
+};
+const dragons = creatures.filter((entry) => entry.fields?.creature_type === "dragon");
+const creaturesAtCr10 = creatures.filter((entry) => crOf(entry) === "10");
+const dragonsAtCr10 = dragons.filter((entry) => crOf(entry) === "10");
+const creatureTypeButton = (page: Page) => page.locator("main").getByRole("button", { name: /^Type: / });
+const creatureCrButton = (page: Page) => page.locator("main").getByRole("button", { name: /^CR: / });
+
+test("The creature type menu filters to Dragon, the CR menu narrows it further, and Back steps through both", async ({ page }) => {
+  await installLibrary(page);
+  expect(creatureCount).toBeGreaterThan(1000);
+  expect(dragons.length).toBeGreaterThan(0);
+  expect(dragonsAtCr10.length).toBeGreaterThan(0);
+  await page.goto("#/browse/kind/creature");
+  const main = page.locator("main");
+
+  // The old pill lens is gone: the filter row holds the two menus.
+  const typeButton = creatureTypeButton(page);
+  const crButton = creatureCrButton(page);
+  await expect(typeButton).toHaveText("Type: All types");
+  await expect(crButton).toHaveText("CR: All CRs");
+  await expect(typeButton).toBeEnabled();
+  await expect(crButton).toBeEnabled();
+  await expect(main.locator(".lens-chip, .lens-chips, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  await expect(main.getByText("By type")).toHaveCount(0);
+  await expect(main.locator(".list-count")).toHaveText(`${count(creatureCount)} creatures`);
+
+  // The type menu has a find field (13 types) and every label reads as a title, not the index value.
+  await typeButton.click();
+  const typePanel = page.locator(`#${await typeButton.getAttribute("aria-controls")}`);
+  const find = typePanel.getByRole("searchbox", { name: "Find a type" });
+  await expect(find).toBeFocused();
+  const typeList = typePanel.getByRole("list", { name: "Creature type" });
+  const typeLabels = (await typeList.locator(".choice-label").allInnerTexts()).filter((label) => label !== "All types");
+  expect(typeLabels.length).toBe(13);
+  expect(typeLabels.every((label) => /^[A-Z]/.test(label))).toBe(true);
+  expect(typeLabels).toEqual(expect.arrayContaining(["Aberration", "Dragon", "Magical Beast", "Monstrous Humanoid", "Ooze"]));
+  await expect(typePanel.getByRole("status")).toHaveText("13 types");
+  await find.fill("dragon");
+  await typeList.getByRole("link", { name: `Dragon, ${count(dragons.length)}` }).click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature?facet=creature_type:dragon");
+  await expect(typeButton).toHaveText("Type: Dragon");
+  await expect(crButton).toHaveText("CR: All CRs");
+  await expect(main.locator(".list-count")).toHaveText(`${count(dragons.length)} of ${count(creatureCount)} creatures · Show all`);
+  await expect(typeButton).toBeFocused();
+
+  // The CR menu lists the ratings numerically, with a find field, and narrows the same list.
+  await crButton.click();
+  const crPanel = page.locator(`#${await crButton.getAttribute("aria-controls")}`);
+  const crList = crPanel.getByRole("list", { name: "Challenge rating" });
+  await expect(crPanel.getByRole("searchbox", { name: "Find a CR" })).toBeFocused();
+  const crLabels = (await crList.locator(".choice-label").allInnerTexts()).filter((label) => label !== "All CRs");
+  expect(crLabels.slice(0, 6)).toEqual(["1/8", "1/6", "1/4", "1/3", "1/2", "1"]);
+  expect(crLabels.at(-1)).toBe("30");
+  await expect(crPanel.getByRole("status")).toHaveText("35 ratings");
+  await crPanel.getByRole("searchbox").fill("10");
+  // A menu counts its whole group, not the other menu's selection: CR 10 is the whole library's.
+  await crList.getByRole("link", { name: `10, ${count(creaturesAtCr10.length)}` }).click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature?facet=creature_type:dragon&facet=cr:10");
+  await expect(typeButton).toHaveText("Type: Dragon");
+  await expect(crButton).toHaveText("CR: 10");
+  await expect(main.locator(".list-count")).toHaveText(`${count(dragonsAtCr10.length)} of ${count(creatureCount)} creatures · Show all`);
+  await expect(crButton).toBeFocused();
+  await expect(main.locator(".entry-list a").first()).toBeVisible();
+
+  // Back undoes one menu at a time, and Forward replays them.
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature?facet=creature_type:dragon");
+  await expect(crButton).toHaveText("CR: All CRs");
+  await expect(main.locator(".list-count")).toHaveText(`${count(dragons.length)} of ${count(creatureCount)} creatures · Show all`);
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");
+  await expect(typeButton).toHaveText("Type: All types");
+  await expect(main.locator(".list-count")).toHaveText(`${count(creatureCount)} creatures`);
+  await page.goForward();
+  await expect(typeButton).toHaveText("Type: Dragon");
+  await page.goForward();
+  await expect(crButton).toHaveText("CR: 10");
+
+  // Show all clears both fields at once.
+  await main.getByRole("link", { name: "Show all creatures" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");
+  await expect(typeButton).toHaveText("Type: All types");
+  await expect(crButton).toHaveText("CR: All CRs");
+});
+
+test("Escape closes the creature CR menu and returns focus to its button without changing the route", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/creature");
+  const button = creatureCrButton(page);
+  await expect(button).toBeEnabled();
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel.getByRole("searchbox", { name: "Find a CR" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await expect(button).toBeFocused();
+  expect(new URL(page.url()).hash).toBe("#/browse/kind/creature");
+});
+
+test("A creature combination no active book holds shows the empty state and both values stay in their buttons", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/creature?facet=creature_type:dragon&facet=cr:1/8");
+  const main = page.locator("main");
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(creatureCount)} creatures · Show all`);
+  await expect(creatureTypeButton(page)).toHaveText("Type: Dragon");
+  await expect(creatureCrButton(page)).toHaveText("CR: 1/8");
+  await expect(main.getByText("No Dragon 1/8 creatures in your active books.")).toBeVisible();
+  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await main.locator("p.empty-actions").getByRole("link", { name: "Show all creatures" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");
+  await expect(main.locator(".list-count")).toHaveText(`${count(creatureCount)} creatures`);
+});
