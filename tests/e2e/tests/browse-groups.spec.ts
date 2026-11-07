@@ -684,7 +684,7 @@ test("A creature combination no active book holds shows the empty state and both
   await expect(main.locator(".list-count")).toHaveText(`0 of ${count(creatureCount)} creatures · Show all`);
   await expect(creatureTypeButton(page)).toHaveText("Type: Dragon");
   await expect(creatureCrButton(page)).toHaveText("CR: 1/8");
-  await expect(main.getByText("No Dragon 1/8 creatures in your active books.")).toBeVisible();
+  await expect(main.getByText("No CR 1/8 Dragon creatures in your active books.")).toBeVisible();
   await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all creatures" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");

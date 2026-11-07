@@ -1706,6 +1706,17 @@ mod tests {
             empty_filter_line(EntryKind::Feat, &[facet("feat_type", "armor mastery")]),
             "No Armor mastery feats in your active books."
         );
+        assert_eq!(
+            empty_filter_line(
+                EntryKind::Creature,
+                &[facet("creature_type", "dragon"), facet("cr", "1/8")]
+            ),
+            "No CR 1/8 Dragon creatures in your active books."
+        );
+        assert_eq!(
+            empty_filter_line(EntryKind::Spell, &[facet("spell_level", "5")]),
+            "No Level 5 spells in your active books."
+        );
     }
 
     #[test]
