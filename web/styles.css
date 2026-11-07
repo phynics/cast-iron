@@ -2599,6 +2599,40 @@ main,
   }
 }
 
+/* Compact / Wide is one Filter-role choice in two pills. The reader picks it once for every
+   spell list; the group sits beside the school filter. */
+.density-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Density "compact": name and school, then one fact line at every width. The line ends in an
+   ellipsis when it overflows, and no part takes a flex share. */
+.spell-list[data-density="compact"] .spell-row-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-facts,
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact {
+  display: inline;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact.sep-narrow::before {
+  content: none;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact.sep::before {
+  content: "·" / "";
+  margin: 0 var(--space-2);
+}
+
 .tier-head {
   margin: var(--space-4) 0 0;
   font-family: var(--font-text);

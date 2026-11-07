@@ -927,3 +927,11 @@ Refs [#97](https://github.com/phynics/cast-iron/issues/97).
   `6:4:3`, which puts 96, 47 and 41 tests in shards 1, 2 and 3 instead of 67, 63 and 54.
   The measured durations are in the pull request that added the weights. WebKit keeps equal
   weights: it is informational and its shards have a different mix.
+
+## Spell row density: Compact and Wide, 2026-11-07
+
+Refs [#182](https://github.com/phynics/cast-iron/issues/182). The owner decision keeps this on spell-list pages only: search results (#167) and Books (#153) are separate issues, and Home rows stay one line (#185).
+
+- **Two densities, one hook.** Wide is the #179 default: name and school, then casting time · save · gist · book, with the gist on its own line under the facts on a phone (three lines) and one line from 40 rem. Compact is two lines at every width: name and school, then one fact line that includes the gist and the book and ends in an ellipsis when it overflows. The list container carries `data-density`, and CSS selects the layout under each value; the rendering logic does not fork.
+- **The choice is a device preference.** `spell_density` in the `meta` store holds `compact` or `wide`, next to the theme. Absent or unknown means Wide, the layout every existing profile already had. The app context holds the live value, so a toggle on one spell list changes the next one and the Settings row without another read.
+- **Two Filter-role pills, 44 px.** Compact and Wide are radio inputs inside `.chip` labels, so the selected one is filled and carries a check (the state never relies on colour alone). The group sits beside the school filter and is named "Spell row density". Settings repeats the same choice as an Appearance radio group so a reader can set it before opening a list.

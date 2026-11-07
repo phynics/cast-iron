@@ -32,6 +32,35 @@ function choosePair() {
   return undefined;
 }
 
+test("Show all builds its rows only when it opens", async ({ page }) => {
+  const target = [...backlinks.entries()].find(
+    ([targetId, sources]) => sources.length > 8 && corpus.entries.has(targetId),
+  )?.[0];
+  expect(target, "the corpus has an entry with a long backlink group").toBeTruthy();
+
+  await installLibrary(page);
+  await page.goto(`#/entry/${target}`);
+  const section = page.locator("#entry-backlinks");
+  await expect(section).toBeVisible();
+
+  // A long group starts closed; open it so "Show all" is on screen.
+  const group = section.locator("details.backlink-group:has(details.backlink-more)").first();
+  await expect(group).toBeAttached();
+  await group.locator("summary").first().click();
+  await expect(group).toHaveAttribute("open", "");
+
+  const more = group.locator("details.backlink-more").first();
+  await expect(more).toBeVisible();
+  await expect(more).not.toHaveAttribute("open", "");
+  // The closed disclosure holds no rows: the preview above it is the only built list.
+  await expect(more.locator("li")).toHaveCount(0);
+
+  await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+  await expect(more.locator("li").first()).toBeVisible();
+  expect(await more.locator("li").count()).toBeGreaterThan(0);
+});
+
 test("Referenced by lists a body link's source and returns to it offline", async ({
   page,
   context,

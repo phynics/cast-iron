@@ -1,6 +1,8 @@
 //! Spell lists: every class with its levels (the hub), and the list of one class, whole or by
 //! level. The data is `lists.json`, an index of `SpellFields::levels`.
 
+use crate::app::use_app;
+use crate::density::{self, Density};
 use crate::fmt;
 use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};
@@ -10,6 +12,7 @@ use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{EntryKind, SpellListClass, SpellListDetail, SpellLists};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 /// The classes that most players look for, in the order that the picker lists them. Names
 /// compare without regard to case.
@@ -372,6 +375,31 @@ fn spell_row(row: SpellRow) -> impl IntoView {
     }
 }
 
+/// The Compact / Wide choice, as two Filter-role pills with a hidden radio each. The state
+/// lives in the app context, so Settings and every spell list show the same choice.
+fn density_toggle() -> impl IntoView {
+    let app = use_app();
+    view! {
+        <div class="density-toggle" role="group" aria-label="Spell row density">
+            {Density::ALL.into_iter().map(|choice| view! {
+                <label class="chip">
+                    <input
+                        type="radio"
+                        name="spell-density"
+                        value=choice.slug()
+                        prop:checked=move || app.density.get() == choice
+                        on:change=move |_| {
+                            app.density.set(choice);
+                            spawn_local(density::set(choice));
+                        }
+                    />
+                    <span>{choice.label()}</span>
+                </label>
+            }).collect_view()}
+        </div>
+    }
+}
+
 #[component]
 fn ListPage(
     lists: Shared<SpellLists>,
@@ -381,6 +409,7 @@ fn ListPage(
     schools: RwSignal<Vec<String>>,
     library: Library,
 ) -> impl IntoView {
+    let app = use_app();
     let Some(list) = find_list(&lists, &class) else {
         return view! {
             <div class="wide">
@@ -526,11 +555,11 @@ fn ListPage(
                 }
             })
             .collect_view();
-        // `data-density` is the reader's choice of row layout. "wide" is the only value for
-        // now: casting time, save and book on one line and the gist under them on a phone.
+        // `data-density` is the reader's choice of row layout: "wide" keeps three lines on a
+        // phone, "compact" always shows two. The CSS under each value selects the layout.
         view! {
             <p class="muted" role="status" data-testid="list-count">{spells_noun(shown)}</p>
-            <div class="spell-list" data-density="wide">{sections}</div>
+            <div class="spell-list" data-density=move || app.density.get().slug()>{sections}</div>
         }
         .into_any()
     };
@@ -617,6 +646,7 @@ fn ListPage(
                 />
             </form>
             {school_filter}
+            {density_toggle()}
             {body}
         </div>
     }
