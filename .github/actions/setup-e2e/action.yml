@@ -1,12 +1,8 @@
 name: Set up the Playwright browser tests
 description: >-
-  Node with the npm cache, the test dependencies, one Playwright browser
-  restored from the Actions cache, and that browser's system libraries.
-
-inputs:
-  browser:
-    description: Playwright browser to install ("chromium" or "webkit").
-    required: true
+  Node with the npm cache and the test dependencies. The browser binary and its
+  system libraries come from the Playwright container that the job runs in, so
+  this action installs neither.
 
 runs:
   using: composite
@@ -18,36 +14,3 @@ runs:
         cache-dependency-path: tests/e2e/package-lock.json
     - run: npm --prefix tests/e2e ci
       shell: bash
-    - name: Read the Playwright version
-      id: playwright
-      shell: bash
-      run: |
-        version=$(jq -er '.packages["node_modules/@playwright/test"].version' tests/e2e/package-lock.json)
-        echo "version=$version" >> "$GITHUB_OUTPUT"
-    # The browser build is chosen by the Playwright version, so the key carries it.
-    - name: Restore the ${{ inputs.browser }} browser
-      id: browser
-      uses: actions/cache/restore@v6
-      with:
-        path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ inputs.browser }}
-    - name: Download ${{ inputs.browser }}
-      if: ${{ steps.browser.outputs.cache-hit != 'true' }}
-      shell: bash
-      run: npx --prefix tests/e2e playwright install ${{ inputs.browser }}
-    # Save right after the download, before any test runs. A plain actions/cache
-    # saves only when the whole job succeeds, so a failing suite would never fill it.
-    # Every shard of a browser uses this one key; the first to finish saves it.
-    - name: Save the ${{ inputs.browser }} browser
-      if: ${{ steps.browser.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v6
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ steps.browser.outputs.cache-primary-key }}
-    # System libraries live outside the cached browser directory, so install them every run.
-    # This step is apt, so a stalled mirror or lock can otherwise hang. Composite
-    # action steps do not support `timeout-minutes`, so the calling job's
-    # `timeout-minutes` is the ceiling here (see .github/workflows/ci.yml).
-    - name: Install ${{ inputs.browser }} system dependencies
-      shell: bash
-      run: npx --prefix tests/e2e playwright install-deps ${{ inputs.browser }}

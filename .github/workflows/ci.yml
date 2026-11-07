@@ -27,6 +27,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # The browser jobs run in a container whose tag repeats the Playwright version.
+      # A lock-file bump that leaves the tag behind would test a different browser
+      # build than the package the suite runs, so fail before anything else.
+      - name: Playwright image tag matches the lock file
+        shell: bash
+        run: |
+          lock=$(jq -er '.packages["node_modules/@playwright/test"].version' tests/e2e/package-lock.json)
+          image=$(sed -n 's|.*mcr\.microsoft\.com/playwright:v\([0-9][0-9.]*\)-noble.*|\1|p' .github/workflows/ci.yml | sort -u)
+          echo "lock file: $lock"
+          echo "image tag: $image"
+          test -n "$image" && test "$image" = "$lock"
       # The tests read the pinned corpus (the Books tier table is checked against its
       # categories), and the test fails in CI when it is missing. The cache is keyed on the
       # pinned commit, like the content job's.
@@ -187,8 +198,11 @@ jobs:
     name: Chromium shard ${{ matrix.shard }}/3 (required)
     needs: [site]
     runs-on: ubuntu-latest
-    # Longest recent successful shard: 12m27s. A stalled apt step is bounded by
-    # this ceiling (composite steps cannot take their own timeout).
+    # The image carries the Playwright version's browsers and system libraries, so
+    # the job installs neither. Keep its tag equal to the lock file (checked by the
+    # Rust job). Longest recent successful shard: 6m30s.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     timeout-minutes: 20
     strategy:
       # Let every shard finish, so the merged report shows all failures.
@@ -206,8 +220,6 @@ jobs:
           name: dist
           path: .
       - uses: ./.github/actions/setup-e2e
-        with:
-          browser: chromium
       # Chromium and the 390 px mobile project gate CI. Every shard is required.
       - name: Tests on Chromium (required)
         env:
@@ -236,8 +248,11 @@ jobs:
     # failing the workflow run, which scripts/promote-release.py reads. Firefox is
     # disabled in CI after repeated installer timeouts; see docs/decisions.md.
     continue-on-error: true
-    # Longest normal successful shard: 7m16s. Two runs stalled in the apt step
-    # for 60+ minutes; this ceiling now bounds that wait.
+    # Same container as the Chromium jobs: the image carries the browser and its
+    # system libraries, which removes the apt step that used to stall.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+    # Longest normal successful shard: 7m16s.
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -254,8 +269,6 @@ jobs:
           name: dist
           path: .
       - uses: ./.github/actions/setup-e2e
-        with:
-          browser: webkit
       - name: Tests on WebKit (informational)
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
