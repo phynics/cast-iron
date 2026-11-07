@@ -33,10 +33,12 @@ pub enum Route {
     },
     /// A kind's A to Z list. `letter` selects one letter group; `None` shows the first group.
     /// `facets` narrow the list in place, with the same `facet=field:value` pairs as search.
+    /// `source` limits the list to one publication, so a book page can link its kinds.
     BrowseKind {
         kind: EntryKind,
         letter: Option<char>,
         facets: Vec<(String, String)>,
+        source: Option<String>,
     },
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
@@ -94,6 +96,7 @@ impl Route {
             kind,
             letter: None,
             facets: Vec::new(),
+            source: None,
         }
     }
 
@@ -103,6 +106,7 @@ impl Route {
             kind,
             letter: Some(letter),
             facets: Vec::new(),
+            source: None,
         }
     }
 
@@ -112,16 +116,42 @@ impl Route {
             kind,
             letter: None,
             facets,
+            source: None,
         }
     }
 
-    /// The same list with a letter group open, keeping the facets.
+    /// The same list with a letter group open, keeping the facets and the source.
     pub fn with_letter(&self, letter: char) -> Self {
         match self {
-            Route::BrowseKind { kind, facets, .. } => Route::BrowseKind {
+            Route::BrowseKind {
+                kind,
+                facets,
+                source,
+                ..
+            } => Route::BrowseKind {
                 kind: *kind,
                 letter: Some(letter),
                 facets: facets.clone(),
+                source: source.clone(),
+            },
+            other => other.clone(),
+        }
+    }
+
+    /// The same list limited to `source`, keeping the letter group and the facets. `None` removes
+    /// the book filter and keeps the rest, which is what the pill on the list does.
+    pub fn with_source(&self, source: Option<String>) -> Self {
+        match self {
+            Route::BrowseKind {
+                kind,
+                letter,
+                facets,
+                ..
+            } => Route::BrowseKind {
+                kind: *kind,
+                letter: *letter,
+                facets: facets.clone(),
+                source,
             },
             other => other.clone(),
         }
@@ -159,6 +189,7 @@ impl Route {
                                 .and_then(|q| query_pairs(q).find(|(key, _)| key == "l"))
                                 .and_then(|(_, value)| parse_letter(&value)),
                             facets: parse_facets(query),
+                            source: parse_source(query),
                         }
                     }
                 }),
@@ -246,8 +277,13 @@ impl Route {
                 kind,
                 letter,
                 facets,
+                source,
             } => {
-                let mut pairs: Vec<String> = facets.iter().map(facet_pair).collect();
+                let mut pairs: Vec<String> = Vec::new();
+                if let Some(source) = source {
+                    pairs.push(format!("source={}", percent_encode(source)));
+                }
+                pairs.extend(facets.iter().map(facet_pair));
                 if let Some(letter) = letter {
                     pairs.push(format!("l={}", percent_encode(&letter.to_string())));
                 }
@@ -365,6 +401,14 @@ fn parse_search(query: Option<&str>) -> Route {
 /// `facet=field:value` as it appears in a URL.
 fn facet_pair((field, value): &(String, String)) -> String {
     format!("facet={}:{}", percent_encode(field), percent_encode(value))
+}
+
+/// The `source=<id>` of a list page's query, when it has one.
+fn parse_source(query: Option<&str>) -> Option<String> {
+    query
+        .and_then(|q| query_pairs(q).find(|(key, _)| key == "source"))
+        .map(|(_, value)| value)
+        .filter(|value| !value.is_empty())
 }
 
 /// The `facet=field:value` pairs of a query string, in order. Search and a list page read them
@@ -778,6 +822,69 @@ mod tests {
     }
 
     #[test]
+    fn kind_routes_carry_a_source_with_letter_and_facets_in_every_combination() {
+        let facets = vec![("feat_type".to_string(), "Combat".to_string())];
+        for source in [None, Some("core-rulebook".to_string())] {
+            for letter in [None, Some('B')] {
+                for facets in [Vec::new(), facets.clone()] {
+                    let route = Route::BrowseKind {
+                        kind: EntryKind::Feat,
+                        letter,
+                        facets,
+                        source: source.clone(),
+                    };
+                    round_trip(route);
+                }
+            }
+        }
+        let source = Route::browse_kind(EntryKind::Spell).with_source(Some("core-rulebook".into()));
+        assert_eq!(source.href(), "#/browse/kind/spell?source=core-rulebook");
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?source=core-rulebook"),
+            source
+        );
+        // A source and a facet keep each other, in either parameter order.
+        let both = Route::browse_kind_facets(
+            EntryKind::Spell,
+            vec![("school".into(), "evocation".into())],
+        )
+        .with_source(Some("core-rulebook".into()));
+        assert_eq!(
+            both.href(),
+            "#/browse/kind/spell?source=core-rulebook&facet=school:evocation"
+        );
+        round_trip(both.clone());
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?facet=school:evocation&source=core-rulebook"),
+            both
+        );
+        // Removing the book filter keeps the letter and the facets.
+        assert_eq!(
+            both.with_letter('C').with_source(None).href(),
+            "#/browse/kind/spell?facet=school:evocation&l=C"
+        );
+        // An empty or undecodable source is no filter, never an error.
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?source="),
+            Route::browse_kind(EntryKind::Spell)
+        );
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?source=%FF"),
+            Route::browse_kind(EntryKind::Spell)
+        );
+        // An unknown book is still the kind list, not a missing page.
+        assert_eq!(
+            Route::parse("#/browse/kind/spell?source=no-such-book"),
+            Route::BrowseKind {
+                kind: EntryKind::Spell,
+                letter: None,
+                facets: Vec::new(),
+                source: Some("no-such-book".into()),
+            }
+        );
+    }
+
+    #[test]
     fn kind_routes_carry_facets_in_the_url_and_keep_them_with_a_letter() {
         let combat =
             Route::browse_kind_facets(EntryKind::Feat, vec![("feat_type".into(), "Combat".into())]);
@@ -806,6 +913,7 @@ mod tests {
                 kind: EntryKind::Feat,
                 letter: Some('B'),
                 facets: vec![("feat_type".into(), "combat".into())],
+                source: None,
             }
         );
         // Search keeps its own href with the same pairs.

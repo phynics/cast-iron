@@ -603,3 +603,50 @@ installedTest("Classes at 390 px: the group headings are one line and the last g
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();
 });
+
+installedTest("Book kind links stay rectangles at 390 px and become plain 44 px rows at 320 px", async ({ page }) => {
+  await installLibrary(page);
+  const book = bookTrees().find((candidate) => candidate.source === "core-rulebook") ?? bookTrees()[0];
+  await page.goto(`#/browse/book/${book.source}`);
+  const links = page.locator(".book-in-this-book .jump");
+  await expect(links.first()).toBeVisible();
+  const style = (locator: ReturnType<typeof links.first>) =>
+    locator.evaluate((element) => {
+      const css = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return {
+        radius: css.borderTopLeftRadius,
+        background: css.backgroundColor,
+        borderTop: css.borderTopWidth,
+        borderBottom: css.borderBottomWidth,
+        height: box.height,
+        width: box.width,
+      };
+    });
+
+  // 390 px: the navigation rectangles, with a surface fill and a card radius.
+  const wide = await style(links.first());
+  expect(wide.radius).toBe("6px");
+  expect(wide.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(wide.borderTop).toBe("1px");
+  expect(wide.height).toBeGreaterThanOrEqual(44);
+
+  // 320 px: plain rows, each with a hairline separator, the label left and the count right.
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(links.first()).toBeVisible();
+  const narrow = await style(links.first());
+  expect(narrow.radius).toBe("0px");
+  expect(narrow.background).toBe("rgba(0, 0, 0, 0)");
+  expect(narrow.borderTop).toBe("0px");
+  expect(narrow.borderBottom).toBe("1px");
+  expect(narrow.height).toBeGreaterThanOrEqual(44);
+  const label = (await links.first().locator(".book-kind-label").boundingBox())!;
+  const tally = (await links.first().locator(".book-kind-count").boundingBox())!;
+  expect(label.x).toBeLessThan(tally.x);
+  expect(tally.x + tally.width).toBeLessThanOrEqual(320);
+  expect(narrow.width).toBeLessThanOrEqual(320);
+  const overflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});

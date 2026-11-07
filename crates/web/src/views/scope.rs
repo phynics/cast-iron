@@ -14,11 +14,17 @@ use cast_iron_search::Filters;
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-/// What a search is limited to. Always one kind; a list page that filters by facet adds them.
+/// What a search is limited to. Always one kind; a list page that filters by facet adds them,
+/// and a book-filtered list adds the publication. `source_title` is the book's display name; it
+/// is stored with a recent search so the pill still names the book after a reload.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scope {
     pub kind: EntryKind,
     pub facets: Vec<(String, String)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_title: Option<String>,
 }
 
 /// `combat` becomes `Combat`.
@@ -32,33 +38,60 @@ fn upper_first(text: &str) -> String {
 
 impl Scope {
     /// The scope that Quick search takes from the page that is open: a kind's list page limits
-    /// the search to that kind, and to the facet value that narrows the list. Every other page
-    /// has none. Rules are read through Books, so they have no list page to scope from.
+    /// the search to that kind, to the facet value that narrows the list, and to the book that a
+    /// book page chose. Every other page has none. Rules are read through Books, so they have no
+    /// list page to scope from.
     pub fn of_page(route: &Route) -> Option<Self> {
         match route {
-            Route::BrowseKind { kind, facets, .. } if *kind != EntryKind::Rule => Some(Self {
+            Route::BrowseKind {
+                kind,
+                facets,
+                source,
+                ..
+            } if *kind != EntryKind::Rule => Some(Self {
                 kind: *kind,
                 facets: applied_facets(*kind, facets),
+                source: source.clone(),
+                source_title: None,
             }),
             _ => None,
         }
     }
 
-    /// The scope that a results page shows: a search limited to exactly one kind. Several kinds
-    /// are a choice the Kind filter already shows.
-    pub fn of_search(kinds: &[EntryKind], facets: &[(String, String)]) -> Option<Self> {
-        match kinds {
-            [kind] => Some(Self {
+    /// The scope that a results page shows: a search limited to exactly one kind and, at most,
+    /// one publication. Several kinds are a choice the Kind filter already shows.
+    pub fn of_search(
+        kinds: &[EntryKind],
+        facets: &[(String, String)],
+        sources: &[String],
+    ) -> Option<Self> {
+        match (kinds, sources) {
+            ([kind], []) => Some(Self {
                 kind: *kind,
                 facets: facets.to_vec(),
+                source: None,
+                source_title: None,
+            }),
+            ([kind], [source]) => Some(Self {
+                kind: *kind,
+                facets: facets.to_vec(),
+                source: Some(source.clone()),
+                source_title: None,
             }),
             _ => None,
         }
+    }
+
+    /// The same scope with the book's display name, which Quick search reads from the library.
+    pub fn with_source_title(mut self, title: Option<String>) -> Self {
+        self.source_title = title;
+        self
     }
 
     /// `feats`, or `Combat feats` when a facet narrows it. The facet comes first and keeps its
     /// capital, so the phrase reads after "Search". An item category is already a plural noun
-    /// (`Wondrous Items`, `Rods`), so it stands without the kind: `Search Rods`.
+    /// (`Wondrous Items`, `Rods`), so it stands without the kind: `Search Rods`. A book filter
+    /// appends the book's name: `feats in Core Rulebook`.
     fn phrase(&self) -> String {
         let noun = self.kind.label().to_lowercase();
         let facets: Vec<String> = self
@@ -66,7 +99,7 @@ impl Scope {
             .iter()
             .map(|(field, value)| upper_first(&facet_label(field, value)))
             .collect();
-        if facets.is_empty() {
+        let mut phrase = if facets.is_empty() {
             noun
         } else if self.kind == EntryKind::Item
             && self
@@ -77,7 +110,11 @@ impl Scope {
             facets.join(" ")
         } else {
             format!("{} {noun}", facets.join(" "))
+        };
+        if let Some(title) = &self.source_title {
+            phrase = format!("{phrase} in {title}");
         }
+        phrase
     }
 
     /// The field's placeholder and accessible name: `Search feats`, `Search Combat feats`.
@@ -110,7 +147,7 @@ impl Scope {
     pub fn filters(&self) -> Filters {
         Filters {
             kinds: vec![self.kind.slug().to_string()],
-            sources: Vec::new(),
+            sources: self.source.iter().cloned().collect(),
             facets: self.facets.clone(),
         }
     }
@@ -120,7 +157,7 @@ impl Scope {
         Route::Search {
             q: q.into(),
             kinds: vec![self.kind],
-            sources: Vec::new(),
+            sources: self.source.iter().cloned().collect(),
             facets: self.facets.clone(),
         }
     }
@@ -130,8 +167,16 @@ impl Scope {
 /// the visible text and the cross are one target and one accessible name.
 #[component]
 pub fn ScopePill(scope: Scope, on_remove: Callback<()>) -> impl IntoView {
-    let label = scope.label();
-    let name = scope.remove_label();
+    view! {
+        <FilterPill label=scope.label() name=scope.remove_label() on_remove=on_remove />
+    }
+}
+
+/// One Filter-role pill. `label` is what the reader sees and `name` is the accessible name, which
+/// must contain it. The list page's book filter uses it with `Remove filter: {Book}`; search's
+/// scope uses [`ScopePill`].
+#[component]
+pub fn FilterPill(label: String, name: String, on_remove: Callback<()>) -> impl IntoView {
     view! {
         <button class="scope-pill" type="button" aria-label=name on:click=move |_| on_remove.run(())>
             <span>{label}</span>
@@ -147,25 +192,32 @@ pub fn ScopePill(scope: Scope, on_remove: Callback<()>) -> impl IntoView {
 mod tests {
     use super::*;
 
-    fn feats() -> Scope {
+    fn scope(kind: EntryKind, facets: Vec<(String, String)>) -> Scope {
         Scope {
-            kind: EntryKind::Feat,
-            facets: Vec::new(),
+            kind,
+            facets,
+            source: None,
+            source_title: None,
         }
+    }
+
+    fn feats() -> Scope {
+        scope(EntryKind::Feat, Vec::new())
     }
 
     fn combat_feats() -> Scope {
-        Scope {
-            kind: EntryKind::Feat,
-            facets: vec![("feat_type".into(), "combat".into())],
-        }
+        scope(EntryKind::Feat, vec![("feat_type".into(), "combat".into())])
     }
 
     fn combat_feats_cased() -> Scope {
-        Scope {
-            kind: EntryKind::Feat,
-            facets: vec![("feat_type".into(), "Combat".into())],
-        }
+        scope(EntryKind::Feat, vec![("feat_type".into(), "Combat".into())])
+    }
+
+    fn core_feats() -> Scope {
+        let mut scope = scope(EntryKind::Feat, Vec::new());
+        scope.source = Some("core-rulebook".into());
+        scope.source_title = Some("Core Rulebook".into());
+        scope
     }
 
     #[test]
@@ -228,9 +280,8 @@ mod tests {
 
     #[test]
     fn a_menu_value_reads_after_search_for_every_kind() {
-        let scope = |kind, field: &str, value: &str| Scope {
-            kind,
-            facets: vec![(field.to_string(), value.to_string())],
+        let scope = |kind, field: &str, value: &str| {
+            self::scope(kind, vec![(field.to_string(), value.to_string())])
         };
         assert_eq!(
             scope(EntryKind::Spell, "school", "evocation").placeholder(),
@@ -302,14 +353,36 @@ mod tests {
 
     #[test]
     fn a_results_page_shows_a_scope_only_for_exactly_one_kind() {
-        assert_eq!(Scope::of_search(&[EntryKind::Feat], &[]), Some(feats()));
         assert_eq!(
-            Scope::of_search(&[EntryKind::Feat], &[("feat_type".into(), "combat".into())]),
+            Scope::of_search(&[EntryKind::Feat], &[], &[]),
+            Some(feats())
+        );
+        assert_eq!(
+            Scope::of_search(
+                &[EntryKind::Feat],
+                &[("feat_type".into(), "combat".into())],
+                &[]
+            ),
             Some(combat_feats())
         );
-        assert_eq!(Scope::of_search(&[], &[]), None);
+        assert_eq!(Scope::of_search(&[], &[], &[]), None);
         assert_eq!(
-            Scope::of_search(&[EntryKind::Feat, EntryKind::Spell], &[]),
+            Scope::of_search(&[EntryKind::Feat, EntryKind::Spell], &[], &[]),
+            None
+        );
+        // One publication narrows the scope too; several do not.
+        let mut book = feats();
+        book.source = Some("core-rulebook".into());
+        assert_eq!(
+            Scope::of_search(&[EntryKind::Feat], &[], &["core-rulebook".into()]),
+            Some(book)
+        );
+        assert_eq!(
+            Scope::of_search(
+                &[EntryKind::Feat],
+                &[],
+                &["core-rulebook".into(), "bestiary".into()]
+            ),
             None
         );
     }
@@ -317,9 +390,36 @@ mod tests {
     #[test]
     fn the_route_a_scope_makes_gives_the_same_scope_back() {
         let route = combat_feats().route("x");
-        let Route::Search { kinds, facets, .. } = Route::parse(&route.href()) else {
+        let Route::Search {
+            kinds,
+            facets,
+            sources,
+            ..
+        } = Route::parse(&route.href())
+        else {
             panic!("not a search route");
         };
-        assert_eq!(Scope::of_search(&kinds, &facets), Some(combat_feats()));
+        assert_eq!(
+            Scope::of_search(&kinds, &facets, &sources),
+            Some(combat_feats())
+        );
+    }
+
+    #[test]
+    fn a_book_filter_scopes_quick_search_to_the_kind_and_the_book() {
+        let route = Route::browse_kind(EntryKind::Feat).with_source(Some("core-rulebook".into()));
+        let page = Scope::of_page(&route).unwrap();
+        assert_eq!(page.source.as_deref(), Some("core-rulebook"));
+        // Quick search fills the title from the library; the pill then names the book.
+        let named = page.with_source_title(Some("Core Rulebook".into()));
+        assert_eq!(named, core_feats());
+        assert_eq!(named.label(), "Feats in Core Rulebook");
+        assert_eq!(named.placeholder(), "Search feats in Core Rulebook");
+        assert_eq!(named.remove_label(), "Remove scope: Feats in Core Rulebook");
+        assert_eq!(named.filters().sources, ["core-rulebook"]);
+        assert_eq!(
+            named.route("grapple").href(),
+            "#/search?q=grapple&kind=feat&source=core-rulebook"
+        );
     }
 }

@@ -4,7 +4,7 @@
 use crate::book_presets;
 use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
-use crate::route::{Route, replace};
+use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
     ACTIVE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
 };
@@ -14,7 +14,7 @@ use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, current_option,
     take_focus_request, trigger_text,
 };
-use crate::views::scope::Scope;
+use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
@@ -92,6 +92,18 @@ pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode>
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
+    list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+    list
+}
+
+/// A book's entries of one kind, sorted by title. It reads the catalog, not the active
+/// snapshot, so a disabled book still lists what it holds.
+fn sorted_of_kind_in_source(library: &Library, kind: EntryKind, source: &str) -> Vec<EntryStub> {
+    let mut list: Vec<EntryStub> = library
+        .entries_of_kind(kind)
+        .filter(|stub| library.stub_is_in_source(stub, source))
+        .cloned()
+        .collect();
     list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
     list
 }
@@ -544,6 +556,7 @@ fn menu_options(
     kind: EntryKind,
     spec: &MenuSpec,
     current: &[(String, String)],
+    source: Option<String>,
     values: &[(String, u32)],
 ) -> Vec<MenuOption> {
     values
@@ -553,6 +566,7 @@ fn menu_options(
             label: facet_label(spec.field, value),
             count: *count,
             href: Route::browse_kind_facets(kind, facets_with(current, spec.field, Some(value)))
+                .with_source(source.clone())
                 .href(),
         })
         .collect()
@@ -567,6 +581,7 @@ fn filter_menu(
     kind: EntryKind,
     spec: MenuSpec,
     applied: &[(String, String)],
+    source: Option<String>,
     focus: bool,
 ) -> (AnyView, AnyView) {
     let values: FacetValues = {
@@ -589,12 +604,19 @@ fn filter_menu(
         .map(|(_, value)| value.clone());
     let applied_for_text = applied.to_vec();
     let value_for_text = value.clone();
+    let source_for_text = source.clone();
     let text = Signal::derive(move || {
         values.with(|loaded| match loaded {
             None => None,
             Some(Err(_)) => Some(trigger_text(&spec, None)),
             Some(Ok(values)) => {
-                let options = menu_options(kind, &spec, &applied_for_text, values);
+                let options = menu_options(
+                    kind,
+                    &spec,
+                    &applied_for_text,
+                    source_for_text.clone(),
+                    values,
+                );
                 Some(trigger_text(
                     &spec,
                     current_option(&options, value_for_text.as_deref()),
@@ -604,17 +626,27 @@ fn filter_menu(
     });
     let value_for_narrowed = value.clone();
     let applied_for_narrowed = applied.to_vec();
+    let source_for_narrowed = source.clone();
     let narrowed = Signal::derive(move || {
         values.with(|loaded| match loaded {
             Some(Ok(values)) => {
-                let options = menu_options(kind, &spec, &applied_for_narrowed, values);
+                let options = menu_options(
+                    kind,
+                    &spec,
+                    &applied_for_narrowed,
+                    source_for_narrowed.clone(),
+                    values,
+                );
                 current_option(&options, value_for_narrowed.as_deref()).is_some()
             }
             _ => false,
         })
     });
     let applied_for_panel = applied.to_vec();
-    let all_href = Route::browse_kind_facets(kind, facets_with(applied, spec.field, None)).href();
+    let source_for_panel = source.clone();
+    let all_href = Route::browse_kind_facets(kind, facets_with(applied, spec.field, None))
+        .with_source(source.clone())
+        .href();
     let button = move || {
         values.with(|loaded| match loaded {
             // The filters could not be loaded: the hint under the row says so.
@@ -626,7 +658,13 @@ fn filter_menu(
     let panel = move || {
         values.with(|loaded| match loaded {
             Some(Ok(values)) if !values.is_empty() => {
-                let options = menu_options(kind, &spec, &applied_for_panel, values);
+                let options = menu_options(
+                    kind,
+                    &spec,
+                    &applied_for_panel,
+                    source_for_panel.clone(),
+                    values,
+                );
                 Some(view! {
                     <FilterMenuPanel spec state options current=value.clone() all_href=all_href.clone() />
                 }.into_any())
@@ -652,6 +690,8 @@ fn Lenses(
     kind: EntryKind,
     /// The facets that narrow the list now.
     applied: Vec<(String, String)>,
+    /// The book the list is limited to, kept by every filter link.
+    source: Option<String>,
     /// True when a choice just opened this page.
     focus: bool,
 ) -> impl IntoView {
@@ -668,7 +708,8 @@ fn Lenses(
         match lens {
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
-                let (button, panel) = filter_menu(&library, kind, spec, &applied, focus);
+                let (button, panel) =
+                    filter_menu(&library, kind, spec, &applied, source.clone(), focus);
                 buttons.push(button);
                 panels.push(panel);
             }
@@ -721,6 +762,72 @@ fn Lenses(
 /// plain list.
 const GROUP_THRESHOLD: usize = 200;
 
+thread_local! {
+    /// Set when the book pill is removed, so the rebuilt list puts focus on its first filter
+    /// control. The page is rebuilt for the new route, so the request has to outlive it.
+    static FOCUS_FILTER_NEXT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn request_filter_focus() {
+    FOCUS_FILTER_NEXT.with(|flag| flag.set(true));
+}
+
+/// Reads and clears the request left by the book pill. Called once while a list page is built.
+fn take_filter_focus() -> bool {
+    FOCUS_FILTER_NEXT.with(|flag| flag.replace(false))
+}
+
+fn focus_element(element: &web_sys::Element) {
+    let Some(element) = element.clone().dyn_into::<web_sys::HtmlElement>().ok() else {
+        return;
+    };
+    let options = web_sys::FocusOptions::new();
+    options.set_prevent_scroll(true);
+    let _ = element.focus_with_options(&options);
+}
+
+/// Focuses the first filter control, or the H1 when the page has none. A filter button is
+/// disabled until its choices load, so wait while one is present, then fall back to the H1.
+fn focus_first_filter(tries: u32) {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        return;
+    };
+    if let Some(control) = document
+        .query_selector(".filter-btn:not([disabled]), .lens-chip")
+        .ok()
+        .flatten()
+    {
+        focus_element(&control);
+        return;
+    }
+    let pending = document
+        .query_selector(".filter-btn")
+        .ok()
+        .flatten()
+        .is_some();
+    if pending && tries > 0 {
+        request_animation_frame(move || focus_first_filter(tries - 1));
+        return;
+    }
+    if let Some(heading) = document.query_selector("main h1").ok().flatten() {
+        focus_element(&heading);
+    }
+}
+
+fn focus_heading_later() {
+    request_animation_frame(|| {
+        request_animation_frame(|| {
+            let Some(heading) = web_sys::window()
+                .and_then(|window| window.document())
+                .and_then(|document| document.query_selector("main h1").ok().flatten())
+            else {
+                return;
+            };
+            focus_element(&heading);
+        });
+    });
+}
+
 /// The count line under a list page's title: `3,583 feats`, `1 feat`. It names the kind, so it
 /// reads as the size of this list. The counts are totals for the active books.
 pub fn kind_count_line(kind: EntryKind, n: usize) -> String {
@@ -746,6 +853,7 @@ fn entry_count(n: usize) -> String {
 fn LetterNav(
     kind: EntryKind,
     facets: Vec<(String, String)>,
+    source: Option<String>,
     letters: Vec<char>,
     selected: Option<char>,
 ) -> impl IntoView {
@@ -780,6 +888,7 @@ fn LetterNav(
             let label = letter.to_string();
             let jump_label = label.clone();
             let href = Route::browse_kind_facets(kind, facets.clone())
+                .with_source(source.clone())
                 .with_letter(*letter)
                 .href();
             let current = Some(*letter) == selected;
@@ -821,6 +930,7 @@ fn LetterNav(
 fn AzList(
     kind: EntryKind,
     facets: Vec<(String, String)>,
+    source: Option<String>,
     marks: Option<ChainMarks>,
     groups: Vec<(char, Vec<usize>)>,
     stubs: Vec<EntryStub>,
@@ -956,6 +1066,7 @@ fn AzList(
                 .into_any()
             } else {
                 let href = Route::browse_kind_facets(kind, facets.clone())
+                    .with_source(source.clone())
                     .with_letter(*group_letter)
                     .href();
                 let group_name = format!("{label}, {count}");
@@ -988,44 +1099,120 @@ pub fn empty_filter_line(kind: EntryKind, applied: &[(String, String)]) -> Strin
     let scope = Scope {
         kind,
         facets: applied.to_vec(),
+        source: None,
+        source_title: None,
     };
     format!("No {} in your active books.", scope.label())
 }
 
-/// A kind's A to Z list. The URL may narrow it by a facet (`?facet=feat_type:Combat`); the
-/// index then names the entries that carry the value, and the list, its letters and its count
-/// all follow. Without a facet the list is built at once.
+/// The count line of a book-filtered list. It counts the book's set and never repeats the book
+/// name: `626 spells` for the book alone, `48 of 626 spells` once a facet narrows that set.
+pub fn book_count_line(
+    kind: EntryKind,
+    shown: usize,
+    total: usize,
+    facet_narrowed: bool,
+) -> String {
+    if facet_narrowed {
+        narrowed_count_line(kind, shown, total)
+    } else {
+        kind_count_line(kind, total)
+    }
+}
+
+/// What a book-filtered list says when the book has none of the kind: `No spells in Core
+/// Rulebook.`
+pub fn book_empty_line(kind: EntryKind, book: &str) -> String {
+    format!("No {} in {book}.", kind.label().to_lowercase())
+}
+
+/// The way out of a book's empty kind list: `Browse all spells`.
+pub fn browse_all_label(kind: EntryKind) -> String {
+    format!("Browse all {}", kind.label().to_lowercase())
+}
+
+/// The notice for a source id that the library does not publish. It is never a missing page, so
+/// a bookmark survives a renamed book.
+pub fn unknown_source_notice(kind: EntryKind, source: &str) -> String {
+    format!(
+        "Unknown book \"{source}\". Showing all {}.",
+        kind.label().to_lowercase()
+    )
+}
+
+/// A kind's A to Z list. The URL may narrow it by a facet (`?facet=feat_type:Combat`) and by a
+/// publication (`?source=core-rulebook`); the index then names the entries that carry the value,
+/// and the list, its letters and its count all follow. Without a facet the list is built at
+/// once. An unknown source is the plain list with a notice, never a missing page.
 #[component]
 pub fn BrowseKind(
     kind: EntryKind,
     letter: Option<char>,
     #[prop(optional)] facets: Vec<(String, String)>,
+    source: Option<String>,
 ) -> impl IntoView {
     set_title(kind.label());
     let library = use_library();
-    // A choice in a filter menu asks the page it opens to focus the menu's button.
+    // A choice in a filter menu asks the page it opens to focus the menu's button. Removing the
+    // book pill asks the same page to focus its first filter control.
     let focus_menu = take_focus_request();
+    let focus_first = take_filter_focus();
     let applied = applied_facets(kind, &facets);
-    let all = Shared::new(sorted_of_kind(&library, kind));
-    if let Some(field) = categories::grouped_by(kind) {
+    let known = source.as_deref().and_then(|id| {
+        library
+            .source(id)
+            .map(|source| (id.to_string(), source.title.clone()))
+    });
+    let unknown = source
+        .as_deref()
+        .filter(|id| library.source(id).is_none())
+        .map(str::to_owned);
+    let source_id = known.as_ref().map(|(id, _)| id.clone());
+    let source_title = known.as_ref().map(|(_, title)| title.clone());
+    // A book's set comes from the whole catalog, so a disabled book still lists what it holds.
+    let all = Shared::new(match &source_id {
+        Some(source) => sorted_of_kind_in_source(&library, kind, source),
+        None => sorted_of_kind(&library, kind),
+    });
+    if source_id.is_none()
+        && let Some(field) = categories::grouped_by(kind)
+    {
+        if focus_first {
+            focus_heading_later();
+        }
         return view! { <GroupedKind kind field all /> }.into_any();
     }
     if applied.is_empty() {
         let stubs = all.to_vec();
         return view! {
-            <BrowseList kind letter applied=applied stubs total=all.len() focus_menu />
+            <BrowseList kind letter applied=applied source=source_id source_title
+                unknown stubs total=all.len() focus_menu focus_first />
         }
         .into_any();
     }
 
     let ids = {
-        let (library, applied) = (library.clone(), applied.clone());
+        let (library, applied, source) = (library.clone(), applied.clone(), source_id.clone());
         local_resource(async move {
-            // Several facets narrow together: a feat has to carry every value.
+            // Several facets narrow together: a feat has to carry every value. A book filter
+            // reads the whole index, because the book may be disabled and its entries are then
+            // not eligible; a plain list keeps the active-book snapshot.
+            let index = if source.is_some() {
+                Some(library.search_index().await?)
+            } else {
+                None
+            };
             let discovery = library.discovery();
             let mut ids: Option<HashSet<String>> = None;
             for (field, value) in &applied {
-                let found = discovery.facet_entry_ids(field, value).await?;
+                let found: HashSet<String> = match &index {
+                    Some(index) => index
+                        .facet_ids_eligible(field, value, |_| true)
+                        .into_iter()
+                        .map(str::to_owned)
+                        .collect(),
+                    None => discovery.facet_entry_ids(field, value).await?,
+                };
                 ids = Some(match ids {
                     None => found,
                     Some(earlier) => earlier.intersection(&found).cloned().collect(),
@@ -1057,7 +1244,9 @@ pub fn BrowseKind(
                     .cloned()
                     .collect();
                 view! {
-                    <BrowseList kind letter applied=applied.clone() stubs total=all.len() focus_menu />
+                    <BrowseList kind letter applied=applied.clone() source=source_id.clone()
+                        source_title=source_title.clone() unknown=unknown.clone() stubs
+                        total=all.len() focus_menu focus_first />
                 }
                 .into_any()
             }
@@ -1105,7 +1294,8 @@ fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>
             Some(Err(_)) => {
                 let stubs = all.to_vec();
                 view! {
-                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu />
+                    <BrowseList kind letter=None applied=Vec::new() source=None source_title=None
+                        unknown=None stubs total focus_menu focus_first=false />
                 }
                 .into_any()
             }
@@ -1113,8 +1303,8 @@ fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>
                 let sections = sections_by_group(field, &all, found);
                 let stubs = all.to_vec();
                 view! {
-                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu
-                        sections />
+                    <BrowseList kind letter=None applied=Vec::new() source=None source_title=None
+                        unknown=None stubs total focus_menu focus_first=false sections />
                 }
                 .into_any()
             }
@@ -1165,10 +1355,19 @@ fn BrowseList(
     kind: EntryKind,
     letter: Option<char>,
     applied: Vec<(String, String)>,
+    /// The book the list is limited to, if any.
+    source: Option<String>,
+    /// The book's display name, so the pill can name it.
+    source_title: Option<String>,
+    /// A source id the library does not publish: the list stays whole and says so.
+    unknown: Option<String>,
     stubs: Vec<EntryStub>,
-    /// The size of the whole kind, before the filter.
+    /// The size of the whole kind before a facet filter. With a book, the book's size.
     total: usize,
     focus_menu: bool,
+    /// True when the book pill was just removed: focus the first filter control.
+    #[prop(optional)]
+    focus_first: bool,
     /// A short list under headings, in order: `(heading, entries)`. Without it the list is one
     /// A to Z list.
     #[prop(optional)]
@@ -1177,6 +1376,7 @@ fn BrowseList(
     let library = use_library();
     let count = stubs.len();
     let narrowed = !applied.is_empty();
+    let book = source_title.is_some();
     let multi_source = stubs.iter().any(|s| s.source != stubs[0].source);
     let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
     let groups = group_by_letter(&titles);
@@ -1184,12 +1384,19 @@ fn BrowseList(
     let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
     // A letter the list does not have still renders the first group; make the URL match it.
     if letter.is_some() && requested.is_none() {
-        let route = Route::browse_kind_facets(kind, applied.clone());
+        let route = Route::browse_kind_facets(kind, applied.clone()).with_source(source.clone());
         Effect::new(move |_| replace(&route));
+    }
+    // Removing the book pill rebuilds this page; take focus after the route frame has moved it.
+    if focus_first {
+        request_animation_frame(|| focus_first_filter(120));
     }
     let letters: Vec<char> = groups.iter().map(|(letter, _)| *letter).collect();
     let jump = (count > GROUP_THRESHOLD).then(|| {
-        view! { <LetterNav kind facets=applied.clone() letters=letters selected=selected /> }
+        view! {
+            <LetterNav kind facets=applied.clone() source=source.clone() letters=letters
+                selected=selected />
+        }
     });
 
     // Feats that open a long chain carry a marker. The numbers come from the relations graph,
@@ -1204,7 +1411,21 @@ fn BrowseList(
         });
 
     let sectioned = sections.is_some();
-    let body = if count == 0 {
+    let body = if count == 0
+        && total == 0
+        && let Some(title) = &source_title
+    {
+        // The book holds none of this kind.
+        view! {
+            <p>{book_empty_line(kind, title)}</p>
+            <p class="empty-actions">
+                <a class="count-action" href=Route::browse_kind(kind).href()>
+                    {browse_all_label(kind)}
+                </a>
+            </p>
+        }
+        .into_any()
+    } else if count == 0 {
         // The value is not in the active books. Say so, and offer the two ways out.
         view! {
             <p>{empty_filter_line(kind, &applied)}</p>
@@ -1234,8 +1455,9 @@ fn BrowseList(
                         <h2 class="letter-head" id=heading_id>
                             {label}<span class="letter-count">{fmt::count(n)}</span>
                         </h2>
-                        <AzList kind facets=Vec::new() marks=None groups=Vec::new() stubs=group
-                            source_titles show_source=multi_source selected=None focus=false />
+                        <AzList kind facets=Vec::new() source=None marks=None groups=Vec::new()
+                            stubs=group source_titles show_source=multi_source selected=None
+                            focus=false />
                     </section>
                 }
             })
@@ -1254,31 +1476,59 @@ fn BrowseList(
             .map(|s| library.source(&s.source).map(|src| src.title.clone()))
             .collect();
         view! {
-            <AzList kind facets=applied.clone() marks groups stubs=stubs.clone() source_titles
-                show_source=multi_source selected=selected
-                focus=requested.is_some() && !focus_menu />
+            <AzList kind facets=applied.clone() source=source.clone() marks groups
+                stubs=stubs.clone() source_titles show_source=multi_source selected=selected
+                focus=requested.is_some() && !focus_menu && !focus_first />
         }
         .into_any()
     };
 
-    let count_line = if narrowed {
+    let count_line = if book {
+        book_count_line(kind, count, total, narrowed)
+    } else if narrowed {
         narrowed_count_line(kind, count, total)
     } else {
         kind_count_line(kind, total)
     };
+    // A facet widens back to the book's whole kind when a book filter is on. Without a book it
+    // widens to the whole kind, as before.
+    let show_all_route = Route::browse_kind(kind).with_source(source.clone());
     let show_all = narrowed.then(|| {
         view! {
             " · "
-            <a class="count-action" href=Route::browse_kind(kind).href()
+            <a class="count-action" href=show_all_route.href()
                 aria-label=format!("Show all {}", kind.label().to_lowercase())>"Show all"</a>
         }
     });
+    let remove_route = Route::BrowseKind {
+        kind,
+        letter,
+        facets: applied.clone(),
+        source: None,
+    };
+    let pill = source_title.clone().map(|title| {
+        let route = remove_route.clone();
+        view! {
+            <div class="book-filter">
+                <FilterPill label=title.clone() name=format!("Remove filter: {title}")
+                    on_remove=Callback::new(move |()| {
+                        request_filter_focus();
+                        navigate(&route);
+                    }) />
+            </div>
+        }
+    });
+    let notice = unknown
+        .as_deref()
+        .map(|id| view! { <p class="notice" role="status">{unknown_source_notice(kind, id)}</p> });
 
     view! {
         <div class="wide list-page">
         <h1>{kind.label()}</h1>
+        {notice}
+        {pill}
         <p class="muted list-count" role="status" aria-live="polite">{count_line}{show_all}</p>
-        <Lenses kind applied=applied.clone() focus=focus_menu />
+        <Lenses kind applied=applied.clone() source=source.clone() focus=focus_menu />
         {jump}
         {(!sectioned).then(|| view! { <h2 class="sr-only">"All, A to Z"</h2> })}
         {body}
@@ -1457,6 +1707,37 @@ mod tests {
     }
 
     #[test]
+    fn a_book_count_line_counts_the_book_and_never_repeats_its_name() {
+        assert_eq!(
+            book_count_line(EntryKind::Spell, 626, 626, false),
+            "626 spells"
+        );
+        assert_eq!(
+            book_count_line(EntryKind::Spell, 48, 626, true),
+            "48 of 626 spells"
+        );
+        assert_eq!(book_count_line(EntryKind::Spell, 1, 1, false), "1 spell");
+        assert_eq!(book_count_line(EntryKind::Spell, 0, 0, false), "0 spells");
+        assert_eq!(
+            book_empty_line(EntryKind::Spell, "Core Rulebook"),
+            "No spells in Core Rulebook."
+        );
+        assert_eq!(
+            book_empty_line(EntryKind::PrestigeClass, "Core Rulebook"),
+            "No prestige classes in Core Rulebook."
+        );
+        assert_eq!(browse_all_label(EntryKind::Spell), "Browse all spells");
+        assert_eq!(
+            unknown_source_notice(EntryKind::Spell, "no-such-book"),
+            "Unknown book \"no-such-book\". Showing all spells."
+        );
+        assert_eq!(
+            unknown_source_notice(EntryKind::PrestigeClass, "gone"),
+            "Unknown book \"gone\". Showing all prestige classes."
+        );
+    }
+
+    #[test]
     fn choosing_a_value_replaces_that_field_and_keeps_the_others() {
         let current = [facet("feat_type", "Combat"), facet("cr", "5")];
         assert_eq!(
@@ -1477,6 +1758,7 @@ mod tests {
             EntryKind::Feat,
             &crate::views::categories::FEAT_TYPE_MENU,
             &[facet("feat_type", "General")],
+            None,
             &values,
         );
         assert_eq!(options.len(), 2);
@@ -1484,6 +1766,18 @@ mod tests {
         assert_eq!(options[0].count, 1324);
         // No `l=`: choosing a value resets the letter.
         assert_eq!(options[0].href, "#/browse/kind/feat?facet=feat_type:Combat");
+        // A book filter survives a choice.
+        let in_book = menu_options(
+            EntryKind::Feat,
+            &crate::views::categories::FEAT_TYPE_MENU,
+            &[],
+            Some("core-rulebook".into()),
+            &values,
+        );
+        assert_eq!(
+            in_book[0].href,
+            "#/browse/kind/feat?source=core-rulebook&facet=feat_type:Combat"
+        );
         // The href parses back to the route the page then renders.
         assert_eq!(
             Route::parse(&options[1].href),
