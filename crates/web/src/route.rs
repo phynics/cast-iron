@@ -16,7 +16,7 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>
 //! #/bookmarks                        #/collection/<id>
-//! #/settings                         #/legal
+//! #/settings[?section=updates]       #/legal
 //! ```
 
 use cast_iron_schema::{EntryId, EntryKind};
@@ -538,11 +538,35 @@ pub fn current_hash() -> String {
         .unwrap_or_default()
 }
 
+/// The DOM id of the Updates section on Settings.
+pub const UPDATES_SECTION_ID: &str = "set-updates";
+
+/// Settings, opened on its Updates section. The section is not a route of its own, so the query
+/// names the place on the screen that the header action opens. [`Route::parse`] reads it as
+/// [`Route::Settings`], which keeps every link, the history, and the route signal the same.
+pub fn settings_updates_href() -> &'static str {
+    "#/settings?section=updates"
+}
+
+/// Whether a Settings hash asks for the Updates section.
+pub fn wants_updates_section(hash: &str) -> bool {
+    Route::parse(hash) == Route::Settings
+        && hash
+            .split_once('?')
+            .is_some_and(|(_, query)| query.split('&').any(|pair| pair == "section=updates"))
+}
+
+/// Pushes a history entry for a hash that [`Route`] does not fully describe, such as
+/// [`settings_updates_href`].
+pub fn navigate_hash(hash: &str) {
+    if let Some(window) = web_sys::window() {
+        let _ = window.location().set_hash(hash);
+    }
+}
+
 /// Pushes a history entry, like clicking an anchor with `route.href()`.
 pub fn navigate(route: &Route) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_hash(&route.href());
-    }
+    navigate_hash(&route.href());
 }
 
 /// Replaces the current history entry, such as while a search box types.
@@ -955,6 +979,21 @@ mod tests {
     #[test]
     fn trailing_slashes_are_tolerated() {
         assert_eq!(Route::parse("#/settings/"), Route::Settings);
+    }
+
+    #[test]
+    fn the_updates_query_lands_on_settings_and_names_the_section() {
+        assert_eq!(Route::parse(settings_updates_href()), Route::Settings);
+        assert!(wants_updates_section(settings_updates_href()));
+        assert!(wants_updates_section("#/settings?section=updates&x=1"));
+        for hash in [
+            "#/settings",
+            "#/legal?section=updates",
+            "#/settings?section=library",
+            "#/settings?section=updates#later",
+        ] {
+            assert!(!wants_updates_section(hash), "{hash}");
+        }
     }
 
     #[test]
