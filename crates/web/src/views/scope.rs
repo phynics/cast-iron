@@ -57,7 +57,8 @@ impl Scope {
     }
 
     /// `feats`, or `Combat feats` when a facet narrows it. The facet comes first and keeps its
-    /// capital, so the phrase reads after "Search".
+    /// capital, so the phrase reads after "Search". An item category is already a plural noun
+    /// (`Wondrous Items`, `Rods`), so it stands without the kind: `Search Rods`.
     fn phrase(&self) -> String {
         let noun = self.kind.label().to_lowercase();
         let facets: Vec<String> = self
@@ -67,6 +68,13 @@ impl Scope {
             .collect();
         if facets.is_empty() {
             noun
+        } else if self.kind == EntryKind::Item
+            && self
+                .facets
+                .iter()
+                .any(|(field, _)| field == "item_category")
+        {
+            facets.join(" ")
         } else {
             format!("{} {noun}", facets.join(" "))
         }
@@ -216,6 +224,32 @@ mod tests {
         assert_eq!(combat_feats().placeholder(), "Search Combat feats");
         let prestige = Scope::of_page(&Route::browse_kind(EntryKind::PrestigeClass)).unwrap();
         assert_eq!(prestige.placeholder(), "Search prestige classes");
+    }
+
+    #[test]
+    fn a_menu_value_reads_after_search_for_every_kind() {
+        let scope = |kind, field: &str, value: &str| Scope {
+            kind,
+            facets: vec![(field.to_string(), value.to_string())],
+        };
+        assert_eq!(
+            scope(EntryKind::Spell, "school", "evocation").placeholder(),
+            "Search Evocation spells"
+        );
+        assert_eq!(
+            scope(EntryKind::Trait, "trait_category", "Combat").placeholder(),
+            "Search Combat traits"
+        );
+        assert_eq!(
+            scope(EntryKind::Archetype, "archetype_class", "wizard").placeholder(),
+            "Search Wizard archetypes"
+        );
+        // A category names the items itself, so the kind is not said twice.
+        let rods = scope(EntryKind::Item, "item_category", "Rods");
+        assert_eq!(rods.placeholder(), "Search Rods");
+        assert_eq!(rods.label(), "Rods");
+        assert_eq!(rods.show_all_label(), "Show all items");
+        assert_eq!(rods.results_line("4 results"), "4 results in Rods");
     }
 
     #[test]

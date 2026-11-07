@@ -84,12 +84,6 @@ pub fn arrange(
 /// A way to look at a category besides the A to Z list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lens {
-    /// A page of its own, such as spell lists.
-    Page {
-        label: &'static str,
-        blurb: &'static str,
-        route: Route,
-    },
     /// The values of a search facet, each a link to the search results for that value.
     Facet {
         field: &'static str,
@@ -112,16 +106,100 @@ pub const FEAT_TYPE_MENU: MenuSpec = MenuSpec {
     plural: "types",
 };
 
+/// The spell school menu. Nine schools, so it has no find field.
+pub const SCHOOL_MENU: MenuSpec = MenuSpec {
+    field: "school",
+    group: "School",
+    all_label: "All schools",
+    find_label: "Find a school",
+    list_label: "Spell school",
+    singular: "school",
+    plural: "schools",
+};
+
+/// The trait category menu: Combat, Faith, Regional and the rest.
+pub const TRAIT_CATEGORY_MENU: MenuSpec = MenuSpec {
+    field: "trait_category",
+    group: "Category",
+    all_label: "All categories",
+    find_label: "Find a category",
+    list_label: "Trait category",
+    singular: "category",
+    plural: "categories",
+};
+
+/// The item category menu. About 57 categories, so the find field matters.
+pub const ITEM_CATEGORY_MENU: MenuSpec = MenuSpec {
+    field: "item_category",
+    group: "Category",
+    all_label: "All categories",
+    find_label: "Find a category",
+    list_label: "Item category",
+    singular: "category",
+    plural: "categories",
+};
+
+/// The archetype menu by the class it changes.
+pub const ARCHETYPE_CLASS_MENU: MenuSpec = MenuSpec {
+    field: "archetype_class",
+    group: "Class",
+    all_label: "All classes",
+    find_label: "Find a class",
+    list_label: "Archetype class",
+    singular: "class",
+    plural: "classes",
+};
+
+/// The facet that sorts a kind's list into headed sections instead of A to Z. A short list with
+/// a handful of well-known groups shows them all at once, so it needs no filter.
+pub const CLASS_GROUP_FIELD: &str = "class_type";
+
+/// The facet a kind's list is grouped by, if it is.
+pub fn grouped_by(kind: EntryKind) -> Option<&'static str> {
+    (kind == EntryKind::Class).then_some(CLASS_GROUP_FIELD)
+}
+
+/// The class groups in the order the books present them: the Core Rulebook classes, then the
+/// base classes of later books, the hybrids, the occult classes, the unchained revisions, the
+/// alternate classes and the non-player classes. Prestige classes are a category of their own.
+const CLASS_GROUP_ORDER: [&str; 7] = [
+    "core",
+    "base",
+    "hybrid",
+    "occult",
+    "unchained",
+    "alternate",
+    "npc",
+];
+
+/// The class group values in display order. A value that is not in the known list keeps its
+/// place after them, alphabetically, so a new group in the corpus is shown rather than lost.
+/// The values are the corpus's own and are not renamed here.
+pub fn order_class_groups(values: &[String]) -> Vec<String> {
+    let rank = |value: &str| {
+        CLASS_GROUP_ORDER
+            .iter()
+            .position(|known| known.eq_ignore_ascii_case(value))
+            .unwrap_or(CLASS_GROUP_ORDER.len())
+    };
+    let mut ordered: Vec<String> = values
+        .iter()
+        .filter(|value| !lens_skips(EntryKind::Class, CLASS_GROUP_FIELD, value))
+        .cloned()
+        .collect();
+    ordered.sort_by_key(|value| (rank(value), value.to_lowercase()));
+    ordered
+}
+
 pub fn lenses(kind: EntryKind) -> Vec<Lens> {
     let facet = |field, label| Lens::Facet { field, label };
     match kind {
         EntryKind::Spell => vec![
-            Lens::Page {
-                label: "By class and level",
-                blurb: "The spell list of each class, one level at a time",
+            Lens::Menu(SCHOOL_MENU),
+            Lens::Link {
+                label: "Spell lists",
                 route: Route::Spells,
             },
-            facet("school", "By school"),
         ],
         EntryKind::Feat => vec![
             Lens::Menu(FEAT_TYPE_MENU),
@@ -130,15 +208,16 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
                 route: Route::FeatChains,
             },
         ],
-        EntryKind::Class => vec![facet("class_type", "Core, base, and NPC")],
+        // Classes are listed under headings by `class_type`, see `grouped_by`.
+        EntryKind::Class => Vec::new(),
         EntryKind::Race => vec![facet("race_group", "By group")],
-        EntryKind::Trait => vec![facet("trait_category", "By trait category")],
-        EntryKind::Item => vec![facet("item_category", "By category")],
+        EntryKind::Trait => vec![Lens::Menu(TRAIT_CATEGORY_MENU)],
+        EntryKind::Item => vec![Lens::Menu(ITEM_CATEGORY_MENU)],
         EntryKind::Creature => vec![
             facet("creature_type", "By type"),
             facet("cr", "By challenge rating"),
         ],
-        EntryKind::Archetype => vec![facet("archetype_class", "By class")],
+        EntryKind::Archetype => vec![Lens::Menu(ARCHETYPE_CLASS_MENU)],
         EntryKind::Rule
         | EntryKind::PrestigeClass
         | EntryKind::RacialTrait
@@ -164,8 +243,7 @@ pub fn applied_facets(kind: EntryKind, facets: &[(String, String)]) -> Vec<(Stri
         .collect()
 }
 
-/// Facet values a lens leaves out. The class lens is for base, core, and NPC classes; prestige
-/// classes are a category of their own.
+/// Facet values the class groups leave out. Prestige classes are a category of their own.
 pub fn lens_skips(kind: EntryKind, field: &str, value: &str) -> bool {
     kind == EntryKind::Class && field == "class_type" && value == "prestige"
 }
@@ -232,19 +310,15 @@ mod tests {
 
     #[test]
     fn lenses_point_at_pages_and_facets_the_index_has() {
+        // Spells: a menu for the school, and a plain link to the spell lists.
         let spell = lenses(EntryKind::Spell);
-        assert!(matches!(
-            &spell[0],
-            Lens::Page {
-                route: Route::Spells,
-                ..
-            }
-        ));
+        assert_eq!(spell.len(), 2);
+        assert_eq!(spell[0], Lens::Menu(SCHOOL_MENU));
         assert!(matches!(
             &spell[1],
-            Lens::Facet {
-                field: "school",
-                ..
+            Lens::Link {
+                label: "Spell lists",
+                route: Route::Spells,
             }
         ));
         // Feats: a menu for the type (the field the index holds), and a plain link to chains.
@@ -259,7 +333,7 @@ mod tests {
                 ..
             }
         ));
-        // Only a field with a filter menu narrows a list in place. Spells have no menu yet.
+        // Only a field with a filter menu of the kind narrows its list in place.
         let facet = |f: &str, v: &str| (f.to_string(), v.to_string());
         let url = [
             facet("feat_type", "Combat"),
@@ -270,8 +344,73 @@ mod tests {
             applied_facets(EntryKind::Feat, &url),
             [facet("feat_type", "Combat")]
         );
-        assert!(applied_facets(EntryKind::Spell, &url).is_empty());
+        assert_eq!(
+            applied_facets(EntryKind::Spell, &url),
+            [facet("school", "evocation")]
+        );
         assert!(lens_skips(EntryKind::Class, "class_type", "prestige"));
         assert!(!lens_skips(EntryKind::Class, "class_type", "npc"));
+    }
+
+    #[test]
+    fn the_large_kinds_have_one_menu_each_and_classes_are_grouped_instead() {
+        let menu = |kind| match lenses(kind).as_slice() {
+            [Lens::Menu(spec), ..] => Some(*spec),
+            _ => None,
+        };
+        assert_eq!(menu(EntryKind::Item), Some(ITEM_CATEGORY_MENU));
+        assert_eq!(menu(EntryKind::Trait), Some(TRAIT_CATEGORY_MENU));
+        assert_eq!(menu(EntryKind::Archetype), Some(ARCHETYPE_CLASS_MENU));
+        assert_eq!(ITEM_CATEGORY_MENU.field, "item_category");
+        assert_eq!(TRAIT_CATEGORY_MENU.field, "trait_category");
+        assert_eq!(ARCHETYPE_CLASS_MENU.field, "archetype_class");
+        // The fields are the ones the index holds for the kind.
+        for (kind, spec) in [
+            (EntryKind::Item, ITEM_CATEGORY_MENU),
+            (EntryKind::Trait, TRAIT_CATEGORY_MENU),
+            (EntryKind::Archetype, ARCHETYPE_CLASS_MENU),
+            (EntryKind::Spell, SCHOOL_MENU),
+        ] {
+            let url = [(spec.field.to_string(), "x".to_string())];
+            assert_eq!(applied_facets(kind, &url), url, "{kind:?}");
+        }
+        // Classes: headed sections, no menu, no pills. Races keep their old lens until the
+        // library has group data.
+        assert!(lenses(EntryKind::Class).is_empty());
+        assert_eq!(grouped_by(EntryKind::Class), Some("class_type"));
+        assert_eq!(grouped_by(EntryKind::Item), None);
+        assert!(matches!(lenses(EntryKind::Race)[..], [Lens::Facet { .. }]));
+    }
+
+    #[test]
+    fn class_groups_follow_the_order_of_the_books_and_keep_unknown_ones() {
+        let values = |list: &[&str]| list.iter().map(|v| v.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            order_class_groups(&values(&[
+                "npc",
+                "alternate",
+                "prestige",
+                "unchained",
+                "occult",
+                "hybrid",
+                "base",
+                "core"
+            ])),
+            [
+                "core",
+                "base",
+                "hybrid",
+                "occult",
+                "unchained",
+                "alternate",
+                "npc"
+            ]
+        );
+        // A group the list does not know goes last, alphabetically; casing is the corpus's.
+        assert_eq!(
+            order_class_groups(&values(&["Zeta", "core", "alpha", "NPC"])),
+            ["core", "NPC", "alpha", "Zeta"]
+        );
+        assert!(order_class_groups(&[]).is_empty());
     }
 }
