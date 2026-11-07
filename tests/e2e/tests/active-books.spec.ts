@@ -548,7 +548,7 @@ installedTest("A search hint offers to include an inactive book without changing
   const { entry, book, source } = target();
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
@@ -561,7 +561,7 @@ installedTest("A search hint offers to include an inactive book without changing
   const hint = page.locator(".inactive-books-hint");
   await expect(hint).toContainText(`inactive books (${source.title})`);
   // Reading the hint changes nothing: the book is still inactive in the stored set.
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
@@ -573,7 +573,7 @@ installedTest("A search hint offers to include an inactive book without changing
   await page.locator(".inactive-books-hint")
     .getByRole("button", { name: `Include ${source.title}`, exact: true }).click();
   await expect(page.locator(`.results a[href^="#/entry/${entry.id}"]`)).toBeVisible();
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();

@@ -8,6 +8,7 @@ import {
   corpusEntry,
   firstEntry,
   firstBookPlacement,
+  listedChapterTitles,
   groupLetter,
   hasBlock,
   headingAnchors,
@@ -86,7 +87,7 @@ test("Book routes, legacy routes, and separate class categories work offline", a
     const leaf = item.querySelector("a");
     return (branch?.textContent ?? leaf?.textContent ?? "").trim();
   }));
-  expect(topTitles).toEqual(book.chapters.map((chapter) => chapter.title));
+  expect(topTitles).toEqual(listedChapterTitles(book));
   await page.locator(".toc-top > .toc-branch > .toc-details > summary").first().click();
   await expect(page.locator(".toc-top > .toc-branch > .toc-details > ul > li").first()).toBeVisible();
 });

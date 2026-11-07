@@ -601,6 +601,21 @@ export function bookTrees(): BookTree[] {
   return cachedBooks!;
 }
 
+/** Kinds that a book page's Contents leaves out: the `In this book` links reach them. */
+export const CONTENTS_HIDDEN_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+
+/** The titles the top level of Contents shows, as the page writes them. */
+export function listedChapterTitles(book: BookTree): string[] {
+  const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
+  const ids = (node: TocNode): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(ids)];
+  const listed = book.chapters.filter((chapter) => {
+    const all = ids(chapter);
+    return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
+  });
+  const rename = (title: string) => (title === "New entries (page order)" ? "More from this book" : title);
+  return listed.map((chapter) => rename(chapter.title));
+}
+
 /** The chapter path of an entry in a book tree, or null when the book does not place it. */
 export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): number[] | null {
   for (const [index, node] of nodes.entries()) {

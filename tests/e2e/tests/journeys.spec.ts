@@ -97,15 +97,11 @@ test("Home categories connect races, class options, spell levels, and reference 
   await expect(page.getByRole("heading", { level: 1, name: raceTrait.title })).toBeVisible();
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /racial trait of/i })).toBeVisible();
 
-  // Class options are reached through the Books navigation and the actual book contents.
+  // Class options are not listed in a book's Contents: they are reached from Home.
   const primary = page.getByRole("navigation", { name: "Primary" });
   const classEntry = entries.find((entry) => entry.kind === "class" && firstBookPlacement(entry.id) &&
     entries.some((candidate) => candidate.kind === "archetype" &&
       related(candidate, "archetype").some((edge: any) => edge.target === entry.id)))!;
-  const classBook = firstBookPlacement(classEntry.id)!;
-  await primary.getByRole("link", { name: "Books" }).click();
-  await openBookEntry(page, classBook, classEntry.id);
-  await expect(page.getByRole("heading", { level: 1, name: classEntry.title })).toBeVisible();
 
   const archetype = entries.find((candidate) => candidate.kind === "archetype" &&
     related(candidate, "archetype").some((edge: any) => edge.target === classEntry.id))!;

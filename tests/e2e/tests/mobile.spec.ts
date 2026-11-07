@@ -75,8 +75,6 @@ test("Book rows, the book page contents tree and the groups fit the mobile viewp
   await expect(tree).toBeVisible();
   await tree.locator(".toc-top > li > .toc-details > summary").first().click();
   expect(await overflow()).toBeLessThanOrEqual(0);
-  await page.goBack();
-  await expect(page.locator(".book-tier").first()).toBeVisible();
 
   // The book page has no breadcrumb, its first screen holds the title, the meta line, the Active
   // row and the Contents heading, and nothing overflows with a chapter open.

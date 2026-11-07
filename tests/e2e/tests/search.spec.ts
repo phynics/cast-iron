@@ -1216,7 +1216,7 @@ test("An inactive first source is replaced by the active book that still shows t
 
   // Turning off only that attribution source leaves the placement book active, so the entry
   // stays eligible and its label must name the active book instead.
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${first}"]`)
     .getByRole("checkbox", { name: `Active ${firstTitle}`, exact: true });
@@ -1240,7 +1240,7 @@ test("Search names hidden matches in an inactive book and includes it in one tap
   expect(book, "the dragon's placement book is in the catalog").toBeTruthy();
 
   await installLibrary(page);
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${bookId}"]`)
     .getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
