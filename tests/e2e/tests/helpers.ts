@@ -55,6 +55,10 @@ export async function installLibrary(page: Page, options: { freshBooks?: boolean
   // a reload or navigation that interrupts an in-flight Cache read is a page error in WebKit
   // ("Context is stopped"), and a pre-installed profile reaches this point almost at once.
   await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+  // Home also warms the search index in the background. Leaving or reloading while that read is
+  // in flight is the same WebKit page error on the next screen, and two specs (journeys and
+  // relationships) navigated away quickly enough to hit it.
+  await waitHomeIdle(page);
 }
 
 /** Writes the `book_defaults` marker as `done`, before the first library is activated. */
