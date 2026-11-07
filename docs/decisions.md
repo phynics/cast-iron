@@ -914,6 +914,23 @@ Refs [#193](https://github.com/phynics/cast-iron/issues/193), PR 4 of 5. Creatur
 - **Creature type labels are title case.** The index values stay lowercase (`dragon`, `ooze`) because routes and filters use them; `facet_label` only changes the display, so the button reads `Type: Dragon`, the scope reads `Search Dragon creatures`, and the empty state reads `No Dragon creatures in your active books.` The camelCase corpus values keep their explicit labels (`Magical Beast`, `Monstrous Humanoid`).
 - **A choice focuses only the menu that changed.** The focus request across a route change now carries the menu's field, not a bare flag, so on a page with two menus the chosen button takes focus and the other does not race it. Before, both buttons asked for focus after their data loaded and the later one won.
 
+## CI browser jobs run in the Playwright container, 2026-11-07
+
+Refs [#199](https://github.com/phynics/cast-iron/issues/199).
+
+- **One image, pinned to the lock file.** The Chromium and WebKit shards run in
+  `mcr.microsoft.com/playwright:v1.64.1-noble`. The image already contains the browser build
+  and its system libraries, so `playwright install`, `playwright install-deps` and the
+  `~/.cache/ms-playwright` cache are gone. The Rust job compares the tag in `ci.yml` with
+  `@playwright/test` in `tests/e2e/package-lock.json`; a lock-file bump that leaves the tag
+  behind fails there, on every pull request.
+- **The action keeps only Node.** `.github/actions/setup-e2e` runs `actions/setup-node` (the
+  npm cache is keyed on the lock file) and `npm ci`. Both work inside the container, which
+  runs as root and provides `git`, `bash` and the browsers. The report jobs still run on
+  `ubuntu-latest`, because merging blob reports needs no browser.
+- **No apt step remains.** The install-deps stall recorded in #199 cannot recur, and the job
+  ceilings added in #212 stay as the outer bound.
+
 ## Spell row density: Compact and Wide, 2026-11-07
 
 Refs [#182](https://github.com/phynics/cast-iron/issues/182). The owner decision keeps this on spell-list pages only: search results (#167) and Books (#153) are separate issues, and Home rows stay one line (#185).
