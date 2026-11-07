@@ -4,6 +4,7 @@
 use crate::library::{Library, use_library};
 use crate::route::{Route, navigate};
 use crate::store::{self, Bookmark, Collection};
+use crate::views::icons;
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::EntryId;
 use leptos::prelude::*;
@@ -285,7 +286,7 @@ fn BookmarksScreen(collection: Option<String>) -> impl IntoView {
                 .collect_view();
             let back = current.is_some().then(|| {
                 view! {
-                    <p><a href=Route::Bookmarks.href()>"← All bookmarks"</a></p>
+                    <p><a class="back-link" href=Route::Bookmarks.href()>{icons::arrow_left("back-link-icon")}"All bookmarks"</a></p>
                 }
             });
             view! {

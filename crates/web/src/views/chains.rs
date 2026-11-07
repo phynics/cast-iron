@@ -5,6 +5,7 @@ use crate::fmt;
 use crate::graph::{ChainHead, ChainNode, Relations};
 use crate::library::{Library, use_library};
 use crate::route::Route;
+use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
@@ -145,6 +146,7 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
                         }
                     >
                         <summary>
+                            {icons::chevron_right("disclosure-chevron")}
                             <span class="chain-name">{title}</span>
                             <span class="muted chain-count">{summary}</span>
                         </summary>

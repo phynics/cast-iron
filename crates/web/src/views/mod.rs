@@ -14,6 +14,7 @@ pub mod entry_contents;
 pub mod filter_menu;
 pub mod header_action;
 pub mod home;
+pub mod icons;
 pub mod installer;
 pub mod legal;
 pub mod not_found;
