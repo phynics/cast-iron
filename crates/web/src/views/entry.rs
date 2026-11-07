@@ -233,7 +233,7 @@ fn EntryView(
         view! {
             <span class="meta-sep" aria-hidden="true">"·"</span>
             <details class="meta-more">
-                <summary>{format!("+{n} more")}</summary>
+                <summary>{format!("+{} more", crate::fmt::count(n))}</summary>
                 <ul>{rows}</ul>
             </details>
         }

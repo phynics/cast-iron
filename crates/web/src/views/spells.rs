@@ -425,7 +425,7 @@ fn ListPage(
                         <a class="lvl" href=href aria-label=label
                             aria-current=(level == Some(l)).then_some("page")>
                             <span class="lvl-n">{l}</span>
-                            <span class="lvl-count">{n}</span>
+                            <span class="lvl-count">{fmt::count(n)}</span>
                         </a>
                     </li>
                 }
@@ -570,7 +570,7 @@ fn ListPage(
                 view! {
                     <label class="chip">
                         <input type="checkbox" prop:checked=checked aria-label=aria on:change=toggle />
-                        <span>{label}<small class="chip-count">{n}</small></span>
+                        <span>{label}<small class="chip-count">{fmt::count(n)}</small></span>
                     </label>
                 }
             })
@@ -581,7 +581,7 @@ fn ListPage(
                     "Filter by school"
                     {move || {
                         let n = schools.with(Vec::len);
-                        (n > 0).then(|| view! { <span class="muted">{format!("{n} chosen")}</span> })
+                        (n > 0).then(|| view! { <span class="muted">{format!("{} chosen", fmt::count(n))}</span> })
                     }}
                 </summary>
                 <div class="chips">{chips}</div>

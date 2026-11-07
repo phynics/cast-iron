@@ -1055,3 +1055,78 @@ installedTest("The / shortcut on a list page opens the same scoped Quick search"
   await expect(scopePill(page, "Spells")).toBeVisible();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells");
 });
+
+installedTest("On a filtered feat list Quick search is scoped to the facet, and the results line names the scope", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat?facet=feat_type:Combat");
+  await expect(page.getByRole("button", { name: "Type: Combat" })).toBeVisible();
+  const layer = await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Combat feats");
+  await expect(quickField(page)).toHaveAttribute("aria-label", "Search Combat feats");
+  await expect(scopePill(page, "Combat feats")).toBeVisible();
+  await quickField(page).fill("grapple");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  expect(new URL(page.url()).hash).toBe("#/search?q=grapple&kind=feat&facet=feat_type:Combat");
+
+  // The status line says where the results are from, and one control widens it to the kind.
+  const status = page.locator(".result-count");
+  await expect(status).toHaveText(/^(Top [\d,]+ of )?[\d,]+ results? in Combat feats.* · Show all feats/);
+  await expect(status.getByRole("button", { name: "Show all feats" })).toBeVisible();
+  await status.getByRole("button", { name: "Show all feats" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/search?q=grapple&kind=feat");
+  await waitResults(page, "grapple");
+  // A kind alone has nothing to widen: the line names the scope and offers no Show all.
+  await expect(status).toHaveText(/^(Top [\d,]+ of )?[\d,]+ results? in Feats(?!.*Show all)/);
+  await expect(status.getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Feats", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(layer).toBeHidden();
+});
+
+installedTest("A recent search remembers its scope: the row shows it, tapping restores it, and the same words in another scope are another row", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  // "grapple" in Combat feats, in Feats, and everywhere.
+  await page.goto("#/browse/kind/feat?facet=feat_type:Combat");
+  await expect(page.getByRole("button", { name: "Type: Combat" })).toBeEnabled();
+  await openQuickSearch(page);
+  await quickField(page).fill("grapple");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  await page.goto("#/browse/kind/feat");
+  await openQuickSearch(page);
+  await quickField(page).fill("grapple");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "grapple");
+  await quickSearchFor(page, "grapple");
+  await page.goto("#/");
+  await page.reload();
+  const layer = await openQuickSearch(page);
+  await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
+  await expect(quickOptions(page)).toHaveCount(3);
+  const rows = await quickOptions(page).evaluateAll((els) => els.map((el) => ({
+    name: el.querySelector(".quick-search-name")?.textContent,
+    scope: el.querySelector(".quick-search-meta")?.textContent ?? null,
+  })));
+  expect(rows).toEqual([
+    { name: "grapple", scope: null },
+    { name: "grapple", scope: "Feats" },
+    { name: "grapple", scope: "Combat feats" },
+  ]);
+
+  // Tapping the scoped row opens the results in that scope, from a page that has none.
+  await quickOptions(page).nth(2).click();
+  await waitResults(page, "grapple");
+  expect(new URL(page.url()).hash).toBe("#/search?q=grapple&kind=feat&facet=feat_type:Combat");
+  await expect(scopePill(page, "Combat feats")).toBeVisible();
+  // It moved to the front; the three rows stay three.
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await expect(quickOptions(page)).toHaveCount(3);
+  await expect(quickOptions(page).first().locator(".quick-search-meta")).toHaveText("Combat feats");
+  // Removing one takes out that scope only.
+  await layer.getByRole("button", { name: "Remove “grapple in Feats” from recent searches" }).click();
+  await expect(quickOptions(page)).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+});

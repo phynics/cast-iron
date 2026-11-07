@@ -601,7 +601,8 @@ pub struct ItemFields {
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct ClassFields {
-    /// Upstream subtype: `core`, `base`, `prestige`, or `npc`.
+    /// Upstream subtype: `core`, `base`, `hybrid`, `occult`, `unchained`, `alternate`,
+    /// `prestige`, or `npc`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class_type: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

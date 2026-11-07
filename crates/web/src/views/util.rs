@@ -120,7 +120,11 @@ pub fn book_count_line(n: usize) -> String {
 
 /// The line above a source page's kind groups. It counts the active entries those groups list.
 pub fn active_count_line(n: usize) -> String {
-    format!("{} {} in your active books", n, count_noun(n))
+    format!(
+        "{} {} in your active books",
+        crate::fmt::count(n),
+        count_noun(n)
+    )
 }
 
 #[cfg(test)]
@@ -133,6 +137,10 @@ mod tests {
         assert_eq!(book_count_line(1), "1 entry in this book");
         assert_eq!(book_count_line(0), "0 entries in this book");
         assert_eq!(active_count_line(12), "12 entries in your active books");
+        assert_eq!(
+            active_count_line(31106),
+            "31,106 entries in your active books"
+        );
         assert_eq!(active_count_line(1), "1 entry in your active books");
         assert_eq!(active_count_line(0), "0 entries in your active books");
     }
