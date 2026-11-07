@@ -13,6 +13,7 @@ use crate::graph::{
 use crate::library::Library;
 use crate::route::Route;
 use crate::views::chains::chain_tree;
+use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
 use crate::views::search::facet_label;
 use crate::views::spells::spells_noun;
@@ -134,6 +135,7 @@ fn group_view(heading: String, items: Vec<(EntryId, String)>, open_up_to: usize)
     view! {
         <details class="rel-group" open=n <= open_up_to>
             <summary>
+                {icons::chevron_right("disclosure-chevron")}
                 <span class="rel-group-name">{heading}</span>
                 <span class="rel-count">{fmt::count(n)}</span>
             </summary>

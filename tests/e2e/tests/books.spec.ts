@@ -338,15 +338,17 @@ test("A book page links each kind it holds to the kind list filtered to the book
 });
 
 test("The copyright is printed once, in the colophon at the bottom, each distinct notice once", async ({ page }) => {
-  // The Advanced Player's Guide carried the same notice three times.
-  const source = sources.find((row) => row.id === "advanced-players-guide")!;
-  expect(source.copyright.split("Jason Bulmahn").length - 1, "the corpus still repeats it").toBeGreaterThan(1);
+  // Gods and Magic carries the same notice twice, once as `Copyright 2008` with the title in
+  // front and once as `© 2008`. (The Advanced Player's Guide was the example until the corpus
+  // replaced its repeated notices with the printed one.)
+  const source = sources.find((row) => row.id === "gods-and-magic")!;
+  expect(source.copyright.split("Sean K Reynolds").length - 1, "the corpus still repeats it").toBeGreaterThan(1);
   await page.goto(`#/browse/book/${source.id}`);
   await expect(page.getByRole("heading", { level: 1, name: source.title, exact: true })).toBeVisible();
   await expect(page.locator(".copyright")).toHaveCount(1);
   const text = await page.locator(".copyright").innerText();
-  expect(text.split("© 2010").length - 1).toBe(1);
-  expect(text).toContain("Jason Bulmahn");
+  expect(text.split("2008").length - 1).toBe(1);
+  expect(text).toContain("Sean K Reynolds");
   // Nothing of it sits under the title: it is the last block, in a footer, before the page ends.
   const colophon = page.locator("footer.colophon");
   await expect(colophon).toHaveCount(1);
@@ -357,10 +359,11 @@ test("The copyright is printed once, in the colophon at the bottom, each distinc
   expect(colophonY).toBeGreaterThan((await page.locator("nav.toc, .review-line").first().boundingBox())!.y);
   await expect(page.locator(".book > .copyright")).toHaveCount(0);
 
-  // A reprint's notice has its own year: both stay.
-  const core = sources.find((row) => row.id === "core-rulebook")!;
-  await page.goto(`#/browse/book/${core.id}`);
-  await expect(page.getByRole("heading", { level: 1, name: core.title, exact: true })).toBeVisible();
+  // A notice with another year is a different notice: both stay. (The Core Rulebook was the
+  // example until the corpus replaced its notices with the single printed one.)
+  const other = sources.find((row) => row.id === "pathfinder-29-mother-of-flies")!;
+  await page.goto(`#/browse/book/${other.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: other.title, exact: true })).toBeVisible();
   const lines = await page.locator("footer.colophon .copyright").allInnerTexts();
   expect(lines.length).toBeGreaterThan(1);
   expect(new Set(lines).size).toBe(lines.length);
