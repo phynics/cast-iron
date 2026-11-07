@@ -3251,16 +3251,9 @@ input::placeholder {
 .book-sort .sort-label { font-size: var(--step--1); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
 .sort-options { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1); padding: 0; margin: 0; }
 .sort-options a[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.books-preset { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: var(--space-3) 0; }
-.books-preset .hint { margin: 0; }
-.books-status { min-height: 1.5em; margin: var(--space-1) 0; }
-/* A tier is a native disclosure. Its two controls sit outside the disclosure, so a collapsed
-   group still deactivates in one click. On a narrow screen they are an ordinary row in flow,
-   directly above the group's heading. From 40 rem up they share the summary's grid cell and
-   sit on its right, on the same edge as the book rows. */
-.book-tier { --tier-button: 9.5rem; max-width: 52rem; margin-top: var(--space-5); }
-.tier-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.tier-actions .btn { min-width: var(--tier-button); padding-inline: var(--space-2); white-space: nowrap; }
+/* A tier is a native disclosure with its heading and how many of its books are active. It has no
+   group controls: the presets on Active books are the only bulk action. */
+.book-tier { max-width: 52rem; margin-top: var(--space-5); }
 .tier-details { min-width: 0; }
 .tier-summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); min-height: var(--touch); cursor: pointer; list-style: none; }
 .tier-summary::-webkit-details-marker { display: none; }
@@ -3269,16 +3262,33 @@ input::placeholder {
 .tier-summary .book-group-head { flex: none; margin: 0; scroll-margin-top: var(--header-h); font: 600 var(--step-1)/var(--leading-tight) var(--font-display); letter-spacing: 0; text-transform: none; color: var(--ink); }
 .tier-summary .book-group-head::after { display: none; }
 .tier-active { color: var(--ink-muted); font-size: var(--step--1); }
-@media (min-width: 40.0625rem) {
-  .book-tier { display: grid; grid-template-columns: minmax(0, 1fr); }
-  .book-tier > * { grid-area: 1 / 1; }
-  .tier-actions { align-self: start; justify-self: end; flex-wrap: nowrap; z-index: 1; }
-  .tier-summary { flex-wrap: nowrap; padding-inline-end: calc(2 * var(--tier-button) + var(--space-2)); }
-}
 .book-meta { color: var(--ink-muted); }
-.book-activation { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; min-height: var(--touch); padding-inline: var(--space-3); border-inline-start: var(--border); cursor: pointer; }
-.book-activation input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
-.book-activation:has(input:disabled) { opacity: .65; cursor: wait; }
+/* Active books (#/books/active): a head row with Done, a count line, preset rows, then toggle rows.
+   A toggle row is a whole-row label that holds a native checkbox (DESIGN.md, Toggles). */
+.head-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); max-width: 52rem; }
+.head-row h1 { min-width: 0; }
+.head-row h1:focus { outline: none; }
+.books-count { max-width: 52rem; margin: 0 0 var(--space-3); font-variant-numeric: tabular-nums; }
+.text-btn { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 var(--space-2); border: 0; background: none; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.text-btn:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.head-row .text-btn { flex: none; margin-inline-end: calc(-1 * var(--space-2)); }
+.preset-list { list-style: none; padding: 0; margin: 0; max-width: 52rem; }
+.preset-list li { border-bottom: var(--border); }
+.preset-list li:first-child { border-top: var(--border); }
+.preset-row { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.preset-row:hover { background: var(--surface-2); }
+.preset-name { flex: 1; min-width: 0; }
+.preset-size { flex: none; color: var(--ink-muted); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
+.preset-mark { flex: none; display: inline-flex; width: 1.25rem; color: var(--accent); }
+.undo-line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--touch); max-width: 52rem; margin: 0; color: var(--ink-muted); font-size: var(--step--1); }
+.undo-line .text-btn { margin-inline-end: calc(-1 * var(--space-2)); font-size: var(--step-0); }
+.toggle-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; min-height: 3.5rem; padding: var(--space-2) 0; cursor: pointer; }
+.toggle-row:hover { background: var(--surface-2); }
+.toggle-row input { flex: none; width: 1.375rem; height: 1.375rem; margin: 0; accent-color: var(--accent); }
+.toggle-row .book-card-text { flex: 1; min-width: 0; }
+.toggle-row .cat-name { display: block; font: 600 var(--step-0)/var(--leading-tight) var(--font-text); }
+.toggle-row .cat-blurb { display: block; margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--step--1); }
+.book-active-row { max-width: 52rem; margin: var(--space-2) 0 var(--space-3); border-block: var(--border); }
 .home-bookmarks { max-width: var(--measure); }
 .home-bookmark-row { display: flex; align-items: center; gap: var(--space-3); border-bottom: var(--border); padding-block: var(--space-1); }
 .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex: 1; min-width: 0; border: 0; justify-content: flex-start; gap: var(--space-3); }
@@ -3296,7 +3306,6 @@ input::placeholder {
 }
 @media (max-width: 30rem) {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
-  .book-activation { padding-inline: var(--space-2); font-size: var(--step--1); }
 }
 @media (min-width: 64rem) {
   .entry:has(> .rich) {

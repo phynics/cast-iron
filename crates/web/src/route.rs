@@ -81,6 +81,9 @@ pub enum Route {
     Books,
     /// The publication directory grouped by one reviewed catalogue field.
     BooksSorted(BookSort),
+    /// Active books: the presets and one checkbox per book. It is a route, so a reload and
+    /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
+    BooksActive,
     /// One book's contents in original chapter order. `chapter` is the 0-based path of the
     /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
     Book {
@@ -202,6 +205,7 @@ impl Route {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
+            ["books", "active"] => Route::BooksActive,
             ["books"] | ["browse", "books"] => query
                 .and_then(|q| query_pairs(q).find(|(k, _)| k == "sort"))
                 .and_then(|(_, v)| BookSort::from_slug(&v))
@@ -297,6 +301,7 @@ impl Route {
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::BooksSorted(sort) => format!("#/books?sort={}", sort.slug()),
+            Route::BooksActive => "#/books/active".into(),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -778,6 +783,7 @@ mod tests {
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
+            Route::BooksActive,
             Route::BooksSorted(BookSort::Category),
             Route::BooksSorted(BookSort::Date),
             Route::BooksSorted(BookSort::Library),
@@ -897,6 +903,17 @@ mod tests {
             Route::parse("#/browse/books?sort=date"),
             Route::BooksSorted(BookSort::Date)
         );
+    }
+
+    #[test]
+    fn active_books_has_its_own_route() {
+        assert_eq!(Route::BooksActive.href(), "#/books/active");
+        assert_eq!(Route::parse("#/books/active"), Route::BooksActive);
+        assert_eq!(Route::parse("#/books/active/"), Route::BooksActive);
+        // The page takes no sort; a stray query does not change the route.
+        assert_eq!(Route::parse("#/books/active?sort=date"), Route::BooksActive);
+        // Other paths under /books are not this page.
+        assert!(matches!(Route::parse("#/books/other"), Route::NotFound(_)));
     }
 
     #[test]

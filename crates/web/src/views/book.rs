@@ -6,6 +6,7 @@
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, current_hash, replace, toc_id, use_route};
+use crate::views::active_books::save_book_active;
 use crate::views::util::{Shared, book_count_line, local_resource, set_title};
 use cast_iron_schema::{BookNode, EntryId};
 use leptos::prelude::*;
@@ -55,6 +56,45 @@ pub fn path_after_toggle(path: &[usize], opened: bool) -> Option<Vec<usize>> {
     }
 }
 
+/// The book's own Active row: a toggle row (DESIGN.md, Toggles). The whole row is a `<label>`
+/// that holds a native checkbox; the line under it says what the state means. The choice is
+/// saved at once, the same stored choice that Active books writes.
+#[component]
+fn ActiveRow(library: Library, source: String) -> impl IntoView {
+    let revision = library.selection_revision();
+    let error = RwSignal::new(None::<String>);
+    let state_library = library.clone();
+    let state_source = source.clone();
+    let is_active = move || {
+        revision.get();
+        state_library.book_active(&state_source)
+    };
+    let state = is_active.clone();
+    view! {
+        <div class="book-active-row">
+            <label class="toggle-row">
+                <input type="checkbox" aria-label="Active" aria-describedby="book-active-state"
+                    prop:checked=is_active
+                    on:change=move |event| {
+                        let input = event_target::<web_sys::HtmlInputElement>(&event);
+                        save_book_active(&library, source.clone(), input, error);
+                    } />
+                <span class="book-card-text">
+                    <span class="cat-name">"Active"</span>
+                    <span class="cat-blurb" id="book-active-state">
+                        {move || if state() {
+                            "Search and lists include this book."
+                        } else {
+                            "Search and lists leave this book out. You can still read its contents here."
+                        }}
+                    </span>
+                </span>
+            </label>
+            {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
+        </div>
+    }
+}
+
 #[component]
 pub fn BookView(source: String) -> impl IntoView {
     let library = use_library();
@@ -82,8 +122,8 @@ pub fn BookView(source: String) -> impl IntoView {
         .as_ref()
         .map_or_else(|| source.clone(), |s| s.title.clone());
     let copyright = info.as_ref().and_then(|s| s.copyright.clone());
-    let disabled = !library.book_active(&source);
     let header_source = source.clone();
+    let active_row = view! { <ActiveRow library=library.clone() source=source.clone() /> };
     view! {
         <div class="wide book">
             <nav class="crumbs" aria-label="Breadcrumb">
@@ -92,7 +132,7 @@ pub fn BookView(source: String) -> impl IntoView {
                 </ol>
             </nav>
             <h1>{title}</h1>
-            {disabled.then(|| view! { <p class="notice">"This book is disabled for search and category browsing. You can still read its contents here. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it."</p> })}
+            {active_row}
             {move || {
                 // The header waits for the same resource as the contents tree, so it counts
                 // exactly the entries the tree can show.

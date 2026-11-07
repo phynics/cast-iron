@@ -41,25 +41,18 @@ test("Books group by priority tier: Rulebooks first, Adventures collapsed with a
   }
   expect(present[0].label).toBe("Rulebooks");
 
-  // The group controls are never inside the summary (no interactive content in a summary), and
-  // on a wide screen they end on the same right edge as the book rows.
+  // Nothing interactive sits inside a summary, and there are no group controls at all: the
+  // presets on Active books are the only bulk action.
   await expect(page.locator(".tier-summary button, .tier-summary a, .tier-summary input")).toHaveCount(0);
   await expect(page.locator(".tier-summary > h2")).toHaveCount(present.length);
-  const rulebooks = page.locator('.book-tier[data-tier="Rulebooks"]');
-  const buttonsBox = (await rulebooks.locator(".tier-actions").boundingBox())!;
-  const rowBox = (await rulebooks.locator(".book-directory-item").first().boundingBox())!;
-  expect(Math.abs(buttonsBox.x + buttonsBox.width - (rowBox.x + rowBox.width))).toBeLessThanOrEqual(1);
-  const summaryBox = (await rulebooks.locator(".tier-summary").boundingBox())!;
-  const headingBox = (await rulebooks.locator(".tier-summary > .tier-active").boundingBox())!;
-  expect(headingBox.x + headingBox.width).toBeLessThanOrEqual(buttonsBox.x);
-  expect(summaryBox.height).toBeGreaterThanOrEqual(44);
+  await expect(page.getByRole("button", { name: /Activate all|Deactivate all|Only Rulebooks/ })).toHaveCount(0);
+  await expect(page.locator(".tier-actions, .books-preset")).toHaveCount(0);
+  expect((await page.locator('.book-tier[data-tier="Rulebooks"] .tier-summary').boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
-  // A collapsed group hides its rows but keeps both controls one click away.
+  // A collapsed group hides its rows until it opens.
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
   if (await adventures.count()) {
     await expect(adventures.locator(".book-directory-item").first()).toBeHidden();
-    await expect(adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true })).toBeVisible();
-    await expect(adventures.getByRole("button", { name: "Activate all Adventures", exact: true })).toBeVisible();
     await adventures.locator(".tier-summary").click();
     await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
   }
@@ -126,7 +119,7 @@ test("Books sort inside each tier, and the URL keeps the choice", async ({ page 
   await expect(page.locator(".book-tier").first()).toBeVisible();
 });
 
-test("A book row is one link to its book page, with no inline tree and no Read link", async ({ page }) => {
+test("A book row is one link to its book page, with no checkbox, no inline tree and no Read link", async ({ page }) => {
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   await page.goto("#/books");
   await openBookGroups(page);
@@ -140,33 +133,16 @@ test("A book row is one link to its book page, with no inline tree and no Read l
   await expect(page.locator(".book-tree, [data-testid=book-tree], .book-tree-root")).toHaveCount(0);
   await expect(page.locator(".book-directory-item").getByRole("link", { name: /^Read / })).toHaveCount(0);
 
-  // The switch is a sibling control, not nested in the link, and each target is 44 px tall.
-  await expect(link.locator("input")).toHaveCount(0);
+  // A row is a link and nothing else: no checkbox, no switch, one 44 px target.
+  await expect(item.locator("input")).toHaveCount(0);
+  await expect(page.locator(".book-directory-item input")).toHaveCount(0);
   const linkBox = (await link.boundingBox())!;
-  const switchBox = (await item.locator(".book-activation").boundingBox())!;
   expect(linkBox.height).toBeGreaterThanOrEqual(44);
-  expect(switchBox.height).toBeGreaterThanOrEqual(44);
-  expect(switchBox.x).toBeGreaterThanOrEqual(linkBox.x + linkBox.width - 1);
 
   await link.click();
   await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(book.source)}`));
   await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
-});
-
-test("The active switch toggles a book without leaving Books", async ({ page }) => {
-  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
-  await page.goto("#/books");
-  await openBookGroups(page);
-  const item = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
-  const toggle = item.getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
-  const before = await toggle.isChecked();
-  await toggle.click();
-  await expect(toggle).toBeChecked({ checked: !before });
-  await expect(page).toHaveURL(/#\/books$/);
-  await toggle.click();
-  await expect(toggle).toBeChecked({ checked: before });
-  await expect(page).toHaveURL(/#\/books$/);
 });
 
 test("Back from a book page returns to Books at the same scroll position", async ({ page }) => {

@@ -32,7 +32,13 @@ export function expectPreinstalled(on: boolean) {
   preinstalled = on;
 }
 
-export async function installLibrary(page: Page) {
+/**
+ * `freshBooks: true` keeps the profile new, so the first-run default (Paizo Rulebooks) applies.
+ * Without it the helper first records that the profile's book choice is settled, the state of a
+ * profile from before the default existed, so tests keep the library with every book active.
+ * That is the only way a test changes the default: the app has no switch for it.
+ */
+export async function installLibrary(page: Page, options: { freshBooks?: boolean } = {}) {
   await page.goto("./");
   const reader = page.getByRole("navigation", { name: "Primary" });
   const download = page.getByRole("button", { name: "Download", exact: true });
@@ -41,6 +47,7 @@ export async function installLibrary(page: Page) {
     if (preinstalled) {
       throw new Error("The pre-installed profile copy has no library: the profile copy did not carry the browser's site data.");
     }
+    if (!options.freshBooks) await settleBookDefaults(page);
     await download.click();
   }
   await reader.waitFor({ state: "visible", timeout: 90_000 });
@@ -48,6 +55,21 @@ export async function installLibrary(page: Page) {
   // a reload or navigation that interrupts an in-flight Cache read is a page error in WebKit
   // ("Context is stopped"), and a pre-installed profile reaches this point almost at once.
   await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+}
+
+/** Writes the `book_defaults` marker as `done`, before the first library is activated. */
+async function settleBookDefaults(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve, reject) => {
+    const request = indexedDB.open("cast-iron");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction("meta", "readwrite");
+      tx.objectStore("meta").put("done", "book_defaults");
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => reject(tx.error);
+    };
+  }));
 }
 
 export async function waitReady(page: Page) {

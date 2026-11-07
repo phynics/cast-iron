@@ -26,6 +26,7 @@ const screens: [string, string][] = [
   ["#/browse", "a.cat"],
   ["#/browse/kind/spell", ".entry-list li"],
   ["#/books", ".book-directory-row"],
+  ["#/books/active", ".preset-row"],
   [`#/browse/source/${encodeURIComponent(source)}`, ".toc"],
   [`#/spells/${encodeURIComponent(listClass)}/${listLevel}`, ".level-group"],
   ["#/feats/chains", ".chain-head"],
@@ -62,13 +63,11 @@ test("Book rows, the book page contents tree, and the sort control fit the mobil
     page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   const link = row.locator("a.book-directory-row");
-  const toggle = row.locator(".book-activation");
+  // The row is a link and nothing else: no checkbox on Books.
+  await expect(row.locator("input")).toHaveCount(0);
   const linkBox = (await link.boundingBox())!;
-  const toggleBox = (await toggle.boundingBox())!;
   expect(linkBox.height).toBeGreaterThanOrEqual(44);
-  expect(toggleBox.height).toBeGreaterThanOrEqual(44);
-  expect(toggleBox.width).toBeGreaterThanOrEqual(44);
-  expect(toggleBox.x + toggleBox.width).toBeLessThanOrEqual(390);
+  expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(390);
   expect(await overflow()).toBeLessThanOrEqual(0);
 
   await link.click();
@@ -87,7 +86,7 @@ test("Book rows, the book page contents tree, and the sort control fit the mobil
   expect(sortOverflow).toBeLessThanOrEqual(0);
 });
 
-test("Books tiers and their bulk controls fit 390 px with full-size touch targets", async ({ page }) => {
+test("Books and Active books fit 390 px with full-size touch targets", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   const groups = page.locator(".book-tier");
@@ -95,55 +94,39 @@ test("Books tiers and their bulk controls fit 390 px with full-size touch target
   await expect(groups.first().getByRole("heading", { level: 2 })).toContainText("Rulebooks");
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
   await expect(adventures.locator("details.tier-details")).not.toHaveAttribute("open", "");
-
-  for (const label of ["Rulebooks", "Adventures"]) {
-    const group = page.locator(`.book-tier[data-tier="${label}"]`);
-    const heading = group.locator(".tier-summary").boundingBox();
-    const buttons = [
-      group.getByRole("button", { name: `Activate all ${label}`, exact: true }),
-      group.getByRole("button", { name: `Deactivate all ${label}`, exact: true }),
-    ];
-    for (const button of buttons) {
-      await expect(button).toBeVisible();
-      const box = (await button.boundingBox())!;
-      expect(box.height, `${label} control height`).toBeGreaterThanOrEqual(44);
-      expect(box.width, `${label} control width`).toBeGreaterThanOrEqual(44);
-      expect(box.x + box.width).toBeLessThanOrEqual(390);
-    }
-    await heading;
-  }
-  // The controls are an ordinary row in flow: for every tier they never intersect the heading,
-  // the count text or the summary, so nothing can be covered at 390 px.
-  const intersects = (a: any, b: any) =>
-    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
-  const tierCount = await groups.count();
-  expect(tierCount).toBeGreaterThan(1);
-  for (let index = 0; index < tierCount; index++) {
-    const group = groups.nth(index);
-    const label = (await group.getAttribute("data-tier"))!;
-    const actions = (await group.locator(".tier-actions").boundingBox())!;
-    for (const part of [".tier-summary", ".tier-summary > h2", ".tier-summary > .tier-active"]) {
-      const box = (await group.locator(part).boundingBox())!;
-      expect(intersects(actions, box), `${label}: .tier-actions overlaps ${part}`).toBe(false);
-    }
-    for (const button of await group.locator(".tier-actions .btn").all()) {
-      expect((await button.evaluate((el) => el.getClientRects().length))).toBe(1);
-      expect((await button.boundingBox())!.height, `${label} button stays one line`).toBeLessThan(60);
-    }
-  }
-  const preset = page.getByRole("button", { name: "Only Rulebooks", exact: true });
-  expect((await preset.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-
   const overflow = async () =>
     page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+
+  // Books has no group controls and no Only Rulebooks; the link to Active books is a 44 px target.
+  await expect(page.getByRole("button", { name: /Activate all|Deactivate all|Only Rulebooks/ })).toHaveCount(0);
+  const link = page.getByRole("link", { name: "Active books", exact: true });
+  const linkBox = (await link.boundingBox())!;
+  expect(linkBox.height).toBeGreaterThanOrEqual(44);
+  expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(390);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  await link.click();
+  await expect(page).toHaveURL(/#\/books\/active$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Active books", exact: true })).toBeVisible();
+  const targets = [
+    page.getByRole("button", { name: "Done", exact: true }),
+    ...(await page.locator(".preset-row").all()),
+  ];
+  expect(targets.length).toBeGreaterThan(1);
+  for (const target of targets) {
+    const box = (await target.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
+  // A checkbox row is a whole-row label at least 56 px tall, and the box itself is not tiny.
+  const row = page.locator(".toggle-row").first();
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(56);
+  const box = (await row.getByRole("checkbox").boundingBox())!;
+  expect(box.width).toBeGreaterThanOrEqual(20);
   expect(await overflow()).toBeLessThanOrEqual(0);
   await adventures.locator(".tier-summary").click();
   await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
   expect(await overflow()).toBeLessThanOrEqual(0);
-
-  // One tap deactivates the whole group on a phone as well.
-  await adventures.getByRole("button", { name: "Deactivate all Adventures", exact: true }).click();
-  await expect(adventures.locator(".tier-active")).toContainText(/^0 of \d+ active$/);
 });
 
 test("Mobile header Install button is icon-only, a full touch target, and crowds nothing", async ({ page, context }) => {
@@ -251,10 +234,12 @@ installedTest("Mobile Quick search is a full-screen layer with 44 px controls", 
   expect(Math.round(icon.height)).toBeGreaterThanOrEqual(44);
 
   const layer = await openQuickSearch(page, { keyboard: true });
+  // The layer animates in; measure its resting position, not a frame of the expand.
+  await layer.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   const box = (await layer.boundingBox())!;
   const viewport = page.viewportSize()!;
-  // Sub-pixel offsets (for example -0.4 while the layer settles) round to -0, which
-  // `toBe(0)` rejects under Object.is; the layer only has to sit flush with the viewport.
+  // Sub-pixel offsets round to -0, which `toBe(0)` rejects under Object.is; the layer only
+  // has to sit flush with the viewport.
   expect(Math.abs(box.x)).toBeLessThan(1);
   expect(Math.abs(box.y)).toBeLessThan(1);
   expect(Math.round(box.width)).toBe(viewport.width);
