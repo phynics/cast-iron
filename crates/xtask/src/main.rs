@@ -38,7 +38,7 @@ fn main() -> ExitCode {
         Some("content") => content(&args[1..]),
         Some("published-ids") => published_ids(),
         Some("build-site") => build_site(&args[1..]),
-        Some("stamp-shell") => stamp_shell(&root().join("dist")),
+        Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
@@ -102,6 +102,7 @@ fn fetch_sources() -> Result {
 /// The pinned plain-text corpus: `sources/corpus.toml`.
 struct CorpusPin {
     repository: String,
+    tag: Option<String>,
     commit: String,
     tree_sha256: String,
 }
@@ -117,6 +118,7 @@ fn read_corpus_pin() -> Result<CorpusPin> {
     };
     let pin = CorpusPin {
         repository: field("repository")?,
+        tag: toml_string(&text, "tag").filter(|value| !value.is_empty()),
         commit: field("commit")?.to_ascii_lowercase(),
         tree_sha256: field("tree_sha256")?.to_ascii_lowercase(),
     };
@@ -302,6 +304,7 @@ fn content(args: &[String]) -> Result {
         ));
     }
     verify_corpus_cache()?;
+    let tag = read_corpus_pin()?.tag.unwrap_or_default();
     run(
         "cargo",
         &[
@@ -321,6 +324,8 @@ fn content(args: &[String]) -> Result {
             "generated/reports",
             "--published",
             PUBLISHED_IDS,
+            "--corpus-tag",
+            &tag,
         ],
     )
 }
@@ -438,7 +443,8 @@ fn build_site(args: &[String]) -> Result {
     copy_dir(&root().join(generated), &dist.join("content"))?;
     fs::write(dist.join(".nojekyll"), "").map_err(|e| e.to_string())?;
     content_address_snippets(&dist)?;
-    stamp_shell(&dist)
+    let date = commit_date();
+    stamp_shell(&dist, date.as_deref())
 }
 
 /// Gives every wasm-bindgen snippet directory a content-derived name.
@@ -555,7 +561,9 @@ fn list_files(dir: &Path, found: &mut Vec<PathBuf>) -> Result {
 
 /// Replaces the placeholders in `dist/sw.js`. A browser installs a new service worker
 /// only when the bytes of `sw.js` change, so the version derives from the shell's bytes.
-fn stamp_shell(dist: &Path) -> Result {
+/// `date` is the ISO date of the commit being built; `None` leaves it empty, so Settings
+/// shows the shell hash alone.
+fn stamp_shell(dist: &Path, date: Option<&str>) -> Result {
     let sw_path = dist.join("sw.js");
     let template =
         fs::read_to_string(&sw_path).map_err(|e| format!("{}: {e}", sw_path.display()))?;
@@ -585,17 +593,45 @@ fn stamp_shell(dist: &Path) -> Result {
     let version = hex(&digest.finalize())[..16].to_string();
     let names: Vec<&str> = shell.iter().map(|(path, _)| path.as_str()).collect();
     let list = serde_json::to_string(&names).map_err(|e| e.to_string())?;
-    for placeholder in ["__SHELL_VERSION__", "__SHELL_FILES__"] {
+    for placeholder in ["__SHELL_VERSION__", "__SHELL_FILES__", "__SHELL_DATE__"] {
         if !template.contains(placeholder) {
             return Err(format!("{placeholder} is missing from dist/sw.js"));
         }
     }
     let stamped = template
         .replace("__SHELL_VERSION__", &version)
-        .replace("\"__SHELL_FILES__\"", &list);
+        .replace("\"__SHELL_FILES__\"", &list)
+        .replace("__SHELL_DATE__", date.unwrap_or(""));
     fs::write(&sw_path, stamped).map_err(|e| e.to_string())?;
     println!("shell {version}: {} files", names.len());
     Ok(())
+}
+
+/// The commit date of `HEAD` as ISO `YYYY-MM-DD`, or `None` when git is unavailable (a tarball
+/// build). The date comes from the commit, never from the wall clock, so a build is reproducible.
+fn commit_date() -> Option<String> {
+    let output = Command::new("git")
+        .args(["log", "-1", "--format=%cs", "HEAD"])
+        .current_dir(root())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let date = String::from_utf8(output.stdout).ok()?;
+    let date = date.trim();
+    is_iso_date(date).then(|| date.to_string())
+}
+
+fn is_iso_date(text: &str) -> bool {
+    let bytes = text.as_bytes();
+    bytes.len() == 10
+        && bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| matches!(index, 4 | 7) || byte.is_ascii_digit())
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -714,6 +750,7 @@ mod tests {
         assert_eq!(pin.commit.len(), 40);
         assert_eq!(pin.tree_sha256.len(), 64);
         assert!(pin.repository.starts_with("https://github.com/"));
+        assert!(pin.tag.as_deref().is_some_and(|tag| tag.starts_with('v')));
     }
 
     #[test]
@@ -782,16 +819,50 @@ mod tests {
         fs::create_dir_all(dir.join("content/v1")).unwrap();
         fs::write(
             dir.join("sw.js"),
-            "v='__SHELL_VERSION__';f=\"__SHELL_FILES__\";",
+            "v='__SHELL_VERSION__';f=\"__SHELL_FILES__\";d='__SHELL_DATE__';",
         )
         .unwrap();
         fs::write(dir.join("index.html"), "x").unwrap();
         fs::write(dir.join(".trunk-lock"), "").unwrap();
         fs::write(dir.join("content/v1/a.json"), "{}").unwrap();
-        stamp_shell(&dir).unwrap();
+        stamp_shell(&dir, Some("2026-11-07")).unwrap();
         let stamped = fs::read_to_string(dir.join("sw.js")).unwrap();
         assert!(stamped.contains("f=[\"index.html\"];"), "{stamped}");
+        assert!(stamped.contains("d='2026-11-07';"), "{stamped}");
         assert!(!stamped.contains("__SHELL_VERSION__"));
+        assert!(!stamped.contains("__SHELL_DATE__"));
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn stamping_without_a_commit_date_leaves_the_date_empty() {
+        let dir = std::env::temp_dir().join(format!("xtask-stamp-nodate-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("sw.js"),
+            "v='__SHELL_VERSION__';f=\"__SHELL_FILES__\";d='__SHELL_DATE__';",
+        )
+        .unwrap();
+        fs::write(dir.join("index.html"), "x").unwrap();
+        stamp_shell(&dir, None).unwrap();
+        let stamped = fs::read_to_string(dir.join("sw.js")).unwrap();
+        assert!(stamped.contains("d='';"), "{stamped}");
+        assert!(!stamped.contains("__SHELL_DATE__"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn only_an_iso_commit_date_is_accepted() {
+        assert!(is_iso_date("2026-11-07"));
+        for bad in [
+            "",
+            "2026-1-7",
+            "2026/11/07",
+            "07 Nov 2026",
+            "2026-11-07T00:00",
+        ] {
+            assert!(!is_iso_date(bad), "{bad:?}");
+        }
     }
 }

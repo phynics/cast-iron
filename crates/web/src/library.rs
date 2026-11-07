@@ -931,6 +931,7 @@ mod tests {
                 .collect(),
             entry_count: 0,
             datasets: vec![],
+            corpus_tag: None,
         }
     }
 

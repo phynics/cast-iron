@@ -23,11 +23,30 @@ export interface Manifest {
   total_bytes: number;
   entry_count: number;
   files: ManifestFile[];
+  /** The pinned corpus tag; absent on an older library. */
+  corpus_tag?: string;
 }
 
 /** The manifest of the built site, which is what the test server hands out. */
 export function distManifest(): Manifest {
   return JSON.parse(fs.readFileSync(path.join(DIST, "content/manifest.json"), "utf8"));
+}
+
+/** The full shell version stamped into dist/sw.js. Settings shows only its first 8 characters. */
+export function distShellVersion(): string {
+  const sw = fs.readFileSync(path.join(DIST, "sw.js"), "utf8");
+  const match = /const SHELL_VERSION = "([^"]+)";/.exec(sw);
+  if (!match) throw new Error("dist/sw.js has no stamped SHELL_VERSION");
+  return match[1];
+}
+
+/** The Settings value for a library: `v0.1.6 (v48ce0901…)`, or the hash alone. */
+export function corpusLabel(manifest: Manifest): string {
+  if (!manifest.corpus_tag) return manifest.content_version;
+  const short = manifest.content_version.startsWith("v")
+    ? manifest.content_version.slice(0, 9)
+    : manifest.content_version.slice(0, 8);
+  return `${manifest.corpus_tag} (${short}…)`;
 }
 
 /** Compiled entries from GENERATED, keyed by id. The expectations come from here. */

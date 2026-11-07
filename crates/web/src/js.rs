@@ -38,8 +38,8 @@ extern "C" {
     async fn check_shell_update_js() -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = applyShellUpdate)]
     pub fn apply_shell_update();
-    #[wasm_bindgen(js_name = shellVersion, catch)]
-    async fn shell_version_js() -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_name = shellInfo, catch)]
+    async fn shell_info_js() -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = installAvailable)]
     pub fn install_available() -> bool;
     #[wasm_bindgen(js_name = promptInstall, catch)]
@@ -138,9 +138,26 @@ pub async fn check_shell_update() -> Result<(), String> {
         .map_err(|e| describe(&e))
 }
 
-/// The shell version that the controlling service worker reports.
-pub async fn shell_version() -> Option<String> {
-    shell_version_js().await.ok().and_then(|v| v.as_string())
+/// What the controlling service worker reports about the app shell.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShellInfo {
+    pub version: String,
+    /// The ISO date of the commit the shell was built from, when git was available.
+    pub date: Option<String>,
+}
+
+/// The shell version and build date that the controlling service worker reports.
+pub async fn shell_info() -> Option<ShellInfo> {
+    let value = shell_info_js().await.ok()?;
+    if value.is_null() || value.is_undefined() {
+        return None;
+    }
+    let get = |name: &str| Reflect::get(&value, &JsValue::from_str(name)).ok();
+    let version = get("version")?.as_string()?;
+    let date = get("date")
+        .and_then(|date| date.as_string())
+        .filter(|date| !date.is_empty());
+    Some(ShellInfo { version, date })
 }
 
 /// The window event that fires when the install prompt appears or goes away.

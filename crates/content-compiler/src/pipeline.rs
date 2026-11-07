@@ -93,6 +93,8 @@ pub struct Library {
     /// Search facets per entry.
     pub facets: BTreeMap<EntryId, Vec<(String, String)>>,
     pub datasets: Vec<DatasetRef>,
+    /// The pinned corpus tag, when the caller knows it. Display information only.
+    pub corpus_tag: Option<String>,
     pub sources: Vec<SourceInfo>,
     pub notes: Vec<String>,
     /// The legacy-to-canonical alias file (`aliases.json`), when the corpus has one.
@@ -119,6 +121,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         aliases,
         facets,
         datasets,
+        corpus_tag,
         sources,
         notes,
         aliases_file,
@@ -240,6 +243,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
             .collect(),
         entry_count: entries.len() as u32,
         datasets,
+        corpus_tag,
     };
 
     prepare_out(out)?;

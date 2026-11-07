@@ -1,4 +1,4 @@
-import { test, expect, goOffline } from "./fixtures";
+import { test, expect, corpusLabel, distManifest, distShellVersion, goOffline } from "./fixtures";
 import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitReady } from "./helpers";
 
 const spell = corpusEntry("spell", "Fireball");
@@ -13,7 +13,9 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await page.goto("#/settings");
   const shell = page.getByTestId("shell-version");
   await expect(shell).not.toHaveText(/Checking|Not available/);
-  const previousShell = (await shell.innerText()).trim();
+  const previousShell = distShellVersion();
+  await expect(shell).toContainText(`(${previousShell.slice(0, 8)}…)`);
+  const previousLabel = corpusLabel(distManifest());
   const library = await activeLibrary(page);
   const cachesBefore = contentCaches(await cacheContents(page));
   const nextShell = `e2e-next-${previousShell}`;
@@ -41,8 +43,8 @@ test("App update waits for reload and keeps the installed library and Home bookm
 
   // A downloaded app update must wait; reading and user data still use the current app.
   await page.goto("#/settings");
-  await expect(shell).toHaveText(previousShell);
-  await expect(page.getByTestId("library-version")).toHaveText(library.content_version);
+  await expect(shell).toContainText(`(${previousShell.slice(0, 8)}…)`);
+  await expect(page.getByTestId("library-version")).toHaveText(previousLabel);
   // Settings keeps its own reload row.
   const settingsRow = page.locator(".banner-inline");
   await expect(settingsRow).toContainText("App update ready");
@@ -62,14 +64,14 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect(page.locator("#set-updates")).toBeFocused();
   await expect(page.getByRole("heading", { name: "Updates", exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__castIronNoReload)).toBe(true);
-  await expect(shell).toHaveText(previousShell);
-  await expect(page.getByTestId("library-version")).toHaveText(library.content_version);
+  await expect(shell).toContainText(`(${previousShell.slice(0, 8)}…)`);
+  await expect(page.getByTestId("library-version")).toHaveText(previousLabel);
   await expect(page.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
 
   // Reload in Settings applies it.
   await page.getByRole("button", { name: "Reload", exact: true }).click();
   await waitReady(page);
-  await expect(page.getByTestId("shell-version")).toHaveText(nextShell);
+  await expect(page.getByTestId("shell-version")).toContainText(`(${nextShell.slice(0, 8)}…)`);
   await expect.poll(async () => Object.keys(await cacheContents(page))).not.toContain(`cast-iron-shell-${previousShell}`);
   expect(contentCaches(await cacheContents(page))).toEqual(cachesBefore);
   expect((await activeLibrary(page)).content_version).toBe(library.content_version);

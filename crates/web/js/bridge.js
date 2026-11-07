@@ -94,8 +94,8 @@ export function applyShellUpdate() {
   registration.waiting.postMessage({ type: "SKIP_WAITING" });
 }
 
-/** Resolves the shell version that the controlling worker reports, or null. */
-export function shellVersion() {
+/** Resolves `{ version, date }` that the controlling worker reports, or null. */
+export function shellInfo() {
   const worker = navigator.serviceWorker?.controller;
   if (!worker) return Promise.resolve(null);
   return new Promise((resolve) => {
@@ -103,7 +103,7 @@ export function shellVersion() {
     const timer = setTimeout(() => resolve(null), 1500);
     channel.port1.onmessage = (event) => {
       clearTimeout(timer);
-      resolve(event.data?.version ?? null);
+      resolve(event.data ?? null);
     };
     worker.postMessage({ type: "GET_VERSION" }, [channel.port2]);
   });
