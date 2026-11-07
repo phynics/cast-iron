@@ -14,6 +14,7 @@ use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, current_option,
     take_focus_request, trigger_text,
 };
+use crate::views::icons;
 use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
@@ -517,7 +518,7 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
                         let rest = rest.iter().cloned().map(chip).collect_view();
                         view! {
                             <details class="lens-more">
-                                <summary>{format!("{} more", fmt::count(n))}</summary>
+                                <summary>{icons::chevron_right("disclosure-chevron")}{format!("{} more", fmt::count(n))}</summary>
                                 <ul class="lens-chips">{rest}</ul>
                             </details>
                         }

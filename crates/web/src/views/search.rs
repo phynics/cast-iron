@@ -7,6 +7,7 @@ use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{kind_name, set_title};
@@ -1197,6 +1198,7 @@ pub fn Search() -> impl IntoView {
             <details class="publication-group publication-details" data-tier=label
                 prop:open=move || group_open(tier) on:toggle=on_toggle>
                 <summary class="publication-group-summary">
+                    {icons::chevron_right("disclosure-chevron")}
                     <span class="publication-group-title" id=title_id.clone()>
                         {move || group_heading(tier)}
                     </span>
@@ -1562,6 +1564,7 @@ pub fn Search() -> impl IntoView {
                             let n = state.with(|s| s.filter_count());
                             if n == 0 { "Filters".to_string() } else { format!("Filters ({n})") }
                         }}
+                        {icons::chevron_down("filters-toggle-icon")}
                     </button>
                     <div id="filters-panel" class="filters-panel" class:open=move || filters_open.get()>
                         <fieldset class="filter-group">

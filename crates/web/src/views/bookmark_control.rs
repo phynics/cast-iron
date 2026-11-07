@@ -3,6 +3,7 @@
 use crate::js;
 use crate::library::use_library;
 use crate::store::{self, Bookmark, Collection};
+use crate::views::icons;
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -140,7 +141,11 @@ pub fn BookmarkControl(id: EntryId, title: String, kind: EntryKind) -> impl Into
                 disabled=move || !loaded.get()
                 on:click=toggle
             >
-                <span aria-hidden="true">{move || if bookmark.with(|b| b.is_some()) { "★" } else { "☆" }}</span>
+                {move || if bookmark.with(|b| b.is_some()) {
+                    icons::star_filled().into_any()
+                } else {
+                    icons::star().into_any()
+                }}
                 {move || if bookmark.with(|b| b.is_some()) { "Bookmarked" } else { "Bookmark" }}
             </button>
             <Show when=move || bookmark.with(|b| b.is_some())>
