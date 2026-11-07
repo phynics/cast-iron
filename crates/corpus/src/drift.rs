@@ -8,7 +8,7 @@
 
 use crate::load::Stored;
 use cast_iron_schema::headings::plain_text;
-use cast_iron_schema::{Block, Inline, RuleEntry, StatRow, TypedFields};
+use cast_iron_schema::{Block, ChallengeRating, Inline, RuleEntry, StatRow, TypedFields};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -374,6 +374,35 @@ fn text_pair(
     })
 }
 
+/// A creature's `cr` field against its `**Challenge rating:**` line. Most creatures
+/// state the rating only this way, without a stat block `CR` row. Fractions compare
+/// by parsed value, so `1/2` agrees with `1/2` in either form.
+fn challenge_rating_pair(
+    text: &str,
+    body: &[Block],
+    field: &'static str,
+    value: ChallengeRating,
+) -> Option<Pair> {
+    let stated = labelled_texts(body, "Challenge rating");
+    let source_value = stated.first()?.clone();
+    let marker = "**Challenge rating:**";
+    let agree = stated
+        .iter()
+        .any(|statement| match ChallengeRating::parse(statement) {
+            Some(parsed) => parsed == value,
+            None => normalize(&value.display()) == normalize(statement),
+        });
+    Some(Pair {
+        field,
+        field_value: value.display(),
+        source: "`**Challenge rating:**` line".into(),
+        source_line: body_line(text, |line| line.contains(marker)),
+        source_value,
+        agree,
+        missing: false,
+    })
+}
+
 fn joined(values: &[String]) -> String {
     values.join(", ")
 }
@@ -560,6 +589,7 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
     let mut pairs = Vec::new();
     if let Some(cr) = fields.cr {
         pairs.extend(row_pair(text, rows, "cr", &cr.display(), &["CR"]));
+        pairs.extend(challenge_rating_pair(text, &entry.body, "cr", cr));
     }
     for (field, value, labels) in [
         ("size", &fields.size, &["Size"][..]),
@@ -859,6 +889,47 @@ mod tests {
         let drift = find_drift(&stored(entry));
         assert_eq!(drift.len(), 1, "{drift:?}");
         assert_eq!(drift[0].field, "ac");
+    }
+
+    fn creature_with_rating(cr: &str, line: &str) -> Stored {
+        stored(base(
+            "ref/monster/test",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                cr: Some(ChallengeRating::parse(cr).unwrap()),
+                ..Default::default()
+            })),
+            vec![Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content: labelled("Challenge rating", line),
+            }],
+        ))
+    }
+
+    #[test]
+    fn a_challenge_rating_line_agrees() {
+        assert!(find_drift(&creature_with_rating("5", "5")).is_empty());
+    }
+
+    #[test]
+    fn a_changed_challenge_rating_names_both_places() {
+        let drift = find_drift(&creature_with_rating("5", "6"));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "cr");
+        let text = drift[0].describe();
+        assert!(text.contains("[fields] cr = \"5\""), "{text}");
+        assert!(text.contains("`**Challenge rating:**` line"), "{text}");
+        assert!(text.contains("\"6\""), "{text}");
+    }
+
+    #[test]
+    fn challenge_rating_fractions_compare_by_value() {
+        assert!(find_drift(&creature_with_rating("1/2", "1/2")).is_empty());
+        let drift = find_drift(&creature_with_rating("1/2", "1/3"));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "cr");
+        assert_eq!(drift[0].field_value, "1/2");
+        assert_eq!(drift[0].source_value, "1/3");
     }
 
     #[test]
