@@ -45,6 +45,9 @@ runs:
         path: ~/.cache/ms-playwright
         key: ${{ steps.browser.outputs.cache-primary-key }}
     # System libraries live outside the cached browser directory, so install them every run.
+    # This step is apt, so a stalled mirror or lock can otherwise hang. Composite
+    # action steps do not support `timeout-minutes`, so the calling job's
+    # `timeout-minutes` is the ceiling here (see .github/workflows/ci.yml).
     - name: Install ${{ inputs.browser }} system dependencies
       shell: bash
       run: npx --prefix tests/e2e playwright install-deps ${{ inputs.browser }}
