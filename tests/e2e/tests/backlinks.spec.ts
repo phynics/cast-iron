@@ -61,6 +61,35 @@ test("Show all builds its rows only when it opens", async ({ page }) => {
   expect(await more.locator("li").count()).toBeGreaterThan(0);
 });
 
+test("Show all keeps its rows when it is closed and reopened", async ({ page }) => {
+  const target = [...backlinks.entries()].find(
+    ([targetId, sources]) => sources.length > 8 && corpus.entries.has(targetId),
+  )?.[0];
+  expect(target, "the corpus has an entry with a long backlink group").toBeTruthy();
+
+  await installLibrary(page);
+  await page.goto(`#/entry/${target}`);
+  const section = page.locator("#entry-backlinks");
+  await expect(section).toBeVisible();
+
+  const group = section.locator("details.backlink-group:has(details.backlink-more)").first();
+  await group.locator("summary").first().click();
+  await expect(group).toHaveAttribute("open", "");
+
+  const more = group.locator("details.backlink-more").first();
+  await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+  const opened = await more.locator("li").count();
+  expect(opened).toBeGreaterThan(0);
+
+  await more.locator("summary").click();
+  await expect(more).not.toHaveAttribute("open", "");
+
+  await more.locator("summary").click();
+  await expect(more).toHaveAttribute("open", "");
+  await expect(more.locator("li")).toHaveCount(opened);
+});
+
 test("Referenced by lists a body link's source and returns to it offline", async ({
   page,
   context,
@@ -84,6 +113,11 @@ test("Referenced by lists a body link's source and returns to it offline", async
   // The target now lists the source under "Referenced by", read from the installed cache.
   const section = page.locator("#entry-backlinks");
   await expect(section.getByRole("heading", { level: 2, name: "Referenced by" })).toBeVisible();
+  // Every row fits the preview, so there is no "Show all" and no empty list.
+  await expect(section.locator("details.backlink-more")).toHaveCount(0);
+  for (const list of await section.locator("ul.ref-list").all()) {
+    expect(await list.locator("li").count()).toBeGreaterThan(0);
+  }
   for (const summary of await section.locator("details.backlink-group:not([open]) > summary").all()) {
     await summary.click();
   }
