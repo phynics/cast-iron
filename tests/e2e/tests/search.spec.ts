@@ -1242,7 +1242,8 @@ test("An inactive first source is replaced by the active book that still shows t
 });
 
 test("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
-  const dragon = corpusEntry("creature", "Ancient Red Dragon");
+  // The corpus merged the separate "Ancient Red Dragon" into its Bestiary twin.
+  const dragon = corpusEntry("creature", "Dragon, Chromatic, Red, Ancient");
   const bookId = bookOwners().get(dragon.id) ?? dragon.source_ids[0];
   const book = corpus.catalog.sources.find((source: any) => source.id === bookId)!;
   expect(book, "the dragon's placement book is in the catalog").toBeTruthy();
