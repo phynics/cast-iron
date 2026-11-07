@@ -191,9 +191,10 @@ jobs:
 
   # Each browser runs as a matrix of shards. A shard has its own runner, test
   # server and browser state, so the suite's single worker assumption holds inside
-  # it (`workers: 1` in playwright.config.ts). Playwright splits whole spec files
-  # across shards by test count. The shard count is chosen so that every shard's
-  # test step takes about 4-5 minutes; the sizing is in docs/decisions.md.
+  # it (`workers: 1` in playwright.config.ts). Playwright splits its test groups
+  # by test count, and equal shards are not equal in time. The Chromium weights
+  # below move short tests to shard 1, whose files are the cheapest; the sizing
+  # and the measurements are in docs/decisions.md.
   e2e-chromium:
     name: Chromium shard ${{ matrix.shard }}/3 (required)
     needs: [site]
@@ -224,6 +225,10 @@ jobs:
       - name: Tests on Chromium (required)
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
+          # Playwright's shard weights, one per shard. Shard 3 carries the update
+          # suite, the mobile project and the slower search tests, so give it a
+          # smaller share and shard 1 a larger one (see docs/decisions.md).
+          PWTEST_SHARD_WEIGHTS: "6:4:3"
         run: >-
           npm --prefix tests/e2e test --
           --project=chromium --project=mobile-chromium

@@ -914,6 +914,20 @@ Refs [#193](https://github.com/phynics/cast-iron/issues/193), PR 4 of 5. Creatur
 - **Creature type labels are title case.** The index values stay lowercase (`dragon`, `ooze`) because routes and filters use them; `facet_label` only changes the display, so the button reads `Type: Dragon`, the scope reads `Search Dragon creatures`, and the empty state reads `No Dragon creatures in your active books.` The camelCase corpus values keep their explicit labels (`Magical Beast`, `Monstrous Humanoid`).
 - **A choice focuses only the menu that changed.** The focus request across a route change now carries the menu's field, not a bare flag, so on a page with two menus the chosen button takes focus and the other does not race it. Before, both buttons asked for focus after their data loaded and the later one won.
 
+## Chromium shard weights, 2026-11-07
+
+Refs [#97](https://github.com/phynics/cast-iron/issues/97).
+
+- **Equal weights left shard 3 about a third above the average.** In run 42377506682 the
+  Chromium test steps took 3m26s, 4m21s and 6m10s. Shard 3 carried `update.spec.ts` (whose
+  content-update test takes about 51 s), the mobile project and the slower half of
+  `search.spec.ts`. Playwright shards by test group and ignores duration.
+- **Weights move cheap tests to shard 1.** Playwright 1.64 reads
+  `PWTEST_SHARD_WEIGHTS` as colon-separated weights, one per shard. The Chromium job sets
+  `6:4:3`, which puts 96, 47 and 41 tests in shards 1, 2 and 3 instead of 67, 63 and 54.
+  The measured durations are in the pull request that added the weights. WebKit keeps equal
+  weights: it is informational and its shards have a different mix.
+
 ## CI browser jobs run in the Playwright container, 2026-11-07
 
 Refs [#199](https://github.com/phynics/cast-iron/issues/199).
