@@ -152,7 +152,7 @@ test("When an app update is ready, only the Update button shows", async ({ page,
   await page.goto("#/settings");
   const shell = page.getByTestId("shell-version");
   await expect(shell).not.toHaveText(/Checking|Not available/);
-  const nextShell = `e2e-both-${(await shell.innerText()).trim()}`;
+  const nextShell = "e2e-both-next";
   await server.shellVersion(nextShell);
   await page.getByRole("button", { name: "Check now", exact: true }).click();
 

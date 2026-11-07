@@ -63,7 +63,13 @@ enum VerifyState {
 
 fn format_date(ms: f64) -> String {
     let date = js_sys::Date::new(&JsValue::from_f64(ms));
-    String::from(date.to_locale_string("en-GB", &JsValue::UNDEFINED))
+    let iso = format!(
+        "{:04}-{:02}-{:02}",
+        date.get_full_year(),
+        date.get_month() + 1,
+        date.get_date()
+    );
+    fmt::day_month_year(&iso).unwrap_or(iso)
 }
 
 #[component]
@@ -93,8 +99,8 @@ pub fn Settings() -> impl IntoView {
     };
     refresh_storage();
 
-    let shell = RwSignal::new(None::<Option<String>>);
-    spawn_local(async move { shell.set(Some(js::shell_version().await)) });
+    let shell = RwSignal::new(None::<Option<js::ShellInfo>>);
+    spawn_local(async move { shell.set(Some(js::shell_info().await)) });
 
     // Settings moves the Updates section to the top while something waits. That remounts it, so
     // focus falls to <body>; remember whether it was inside and put it back on the moved section.
@@ -139,6 +145,11 @@ pub fn Settings() -> impl IntoView {
         }
         now
     });
+
+    let corpus_label = fmt::corpus_label(
+        library.manifest().corpus_tag.as_deref(),
+        &active.content_version,
+    );
 
     view! {
         <h1>"Settings"</h1>
@@ -185,14 +196,25 @@ pub fn Settings() -> impl IntoView {
             </fieldset>
         </section>
 
-        <section class="settings-section" aria-labelledby="set-library">
-            <h2 id="set-library">"Library"</h2>
+        <section class="settings-section" aria-labelledby="set-about">
+            <h2 id="set-about">"This app"</h2>
             <dl class="facts" data-testid="library-facts">
-                <div><dt>"Version"</dt><dd data-testid="library-version">{active.content_version.clone()}</dd></div>
-                <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
-                <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
+                <div><dt>"Corpus"</dt><dd data-testid="library-version">{corpus_label}</dd></div>
+                <div><dt>"App"</dt><dd data-testid="shell-version">{move || match shell.get() {
+                    None => "Checking...".to_string(),
+                    Some(Some(info)) => fmt::app_label(info.date.as_deref(), &info.version),
+                    Some(None) => "Not available until the app has been reloaded once".to_string(),
+                }}</dd></div>
                 <div><dt>"Content format"</dt><dd>{active.schema_version}</dd></div>
                 <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>
+            </dl>
+        </section>
+
+        <section class="settings-section" aria-labelledby="set-library">
+            <h2 id="set-library">"Library"</h2>
+            <dl class="facts">
+                <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
+                <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
             </dl>
             <p>
                 <button class="btn" type="button" on:click=run_verify
@@ -253,13 +275,6 @@ pub fn Settings() -> impl IntoView {
 
         <section class="settings-section" aria-labelledby="set-app">
             <h2 id="set-app">"App"</h2>
-            <dl class="facts">
-                <div><dt>"App version"</dt><dd data-testid="shell-version">{move || match shell.get() {
-                    None => "Checking...".to_string(),
-                    Some(Some(version)) => version,
-                    Some(None) => "Not available until the app has been reloaded once".to_string(),
-                }}</dd></div>
-            </dl>
             {move || if install_ctx.standalone() {
                 view! {
                     <p data-testid="app-install">

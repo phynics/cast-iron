@@ -1,17 +1,20 @@
 // Cast Iron service worker. It caches the app shell only. Library content lives in the
 // Cache API under cast-iron-content-<version> and is read by the app itself, never here.
 //
-// `xtask stamp-shell` fills in the two constants below in dist/sw.js. Do not repeat their
+// `xtask stamp-shell` fills in the constants below in dist/sw.js. Do not repeat their
 // placeholder text elsewhere in this file: the stamper replaces every occurrence.
 "use strict";
 
 const SHELL_VERSION = "__SHELL_VERSION__";
 const SHELL_FILES = "__SHELL_FILES__";
+const SHELL_DATE = "__SHELL_DATE__";
 
 // An unstamped copy (trunk serve, or a plain file server) has a string instead of a list.
 // It then caches nothing and leaves every request to the network.
 const DEV = !Array.isArray(SHELL_FILES);
 const VERSION = DEV ? "dev" : SHELL_VERSION;
+// The commit date, or null when the build had no git checkout (a tarball build).
+const DATE = DEV || !SHELL_DATE ? null : SHELL_DATE;
 const SHELL_PREFIX = "cast-iron-shell-";
 const SHELL_CACHE = SHELL_PREFIX + VERSION;
 
@@ -70,7 +73,7 @@ self.addEventListener("message", (event) => {
   if (message.type === "SKIP_WAITING") {
     self.skipWaiting();
   } else if (message.type === "GET_VERSION" && event.ports[0]) {
-    event.ports[0].postMessage({ version: VERSION });
+    event.ports[0].postMessage({ version: VERSION, date: DATE });
   }
 });
 

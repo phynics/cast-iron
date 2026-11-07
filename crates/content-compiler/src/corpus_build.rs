@@ -26,7 +26,14 @@ use std::path::Path;
 ///
 /// With `published` (`sources/published-ids.txt`), the build also fails when a listed id no
 /// longer resolves to an entry, directly or through `aliases.toml`.
-pub fn build_from_corpus(dir: &Path, published: Option<&Path>) -> Result<Library, Failure> {
+///
+/// `corpus_tag` is the tag in `sources/corpus.toml`; it is display information for Settings and
+/// never changes the content version.
+pub fn build_from_corpus(
+    dir: &Path,
+    published: Option<&Path>,
+    corpus_tag: Option<&str>,
+) -> Result<Library, Failure> {
     let corpus = Corpus::load(dir).map_err(|errors| Failure {
         lines: std::iter::once(format!(
             "cannot read the corpus {}: {} error(s)",
@@ -144,6 +151,7 @@ pub fn build_from_corpus(dir: &Path, published: Option<&Path>) -> Result<Library
         aliases,
         facets,
         datasets,
+        corpus_tag: corpus_tag.map(str::to_string),
         sources,
         notes,
         aliases_file,
@@ -176,12 +184,14 @@ fn check_published(path: &Path, corpus: &Corpus) -> Result<(), Failure> {
 }
 
 /// Builds the library from the corpus at `dir` and writes it to `out`, with reports in `reports`.
-/// `published` is the optional published-id file (see [`build_from_corpus`]).
+/// `published` is the optional published-id file (see [`build_from_corpus`]); `corpus_tag` is the
+/// pinned corpus tag, also display information only.
 pub fn compile_corpus(
     dir: &Path,
     out: &Path,
     reports: &Path,
     published: Option<&Path>,
+    corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
-    package(build_from_corpus(dir, published)?, out, reports)
+    package(build_from_corpus(dir, published, corpus_tag)?, out, reports)
 }

@@ -438,6 +438,7 @@ mod tests {
             files,
             entry_count: 7,
             datasets: vec![],
+            corpus_tag: None,
         }
     }
 

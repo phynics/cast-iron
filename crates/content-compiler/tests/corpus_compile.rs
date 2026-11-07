@@ -150,9 +150,10 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     for run in 0..2 {
         let out = temp(&format!("out{run}"));
         let reports = temp(&format!("reports{run}"));
-        let outcome = compile_corpus(&corpus, &out, &reports, None).unwrap_or_else(|f| {
-            panic!("{}", f.lines.join("\n"));
-        });
+        let outcome =
+            compile_corpus(&corpus, &out, &reports, None, Some("v0.1.6")).unwrap_or_else(|f| {
+                panic!("{}", f.lines.join("\n"));
+            });
         assert_eq!(outcome.entry_count, 2);
         assert_eq!(outcome.links.resolved, 1);
         assert_eq!(outcome.links.broken, 0);
@@ -160,6 +161,7 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
             serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
         assert_eq!(manifest.content_version, outcome.content_version);
         assert_eq!(manifest.entry_count, 2);
+        assert_eq!(manifest.corpus_tag.as_deref(), Some("v0.1.6"));
         for file in &manifest.files {
             assert!(out.join(&file.path).is_file(), "{}", file.path);
         }
@@ -282,7 +284,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
     .unwrap();
 
     let out = temp("attached-out");
-    let outcome = compile_corpus(&corpus, &out, &temp("attached-reports"), None)
+    let outcome = compile_corpus(&corpus, &out, &temp("attached-reports"), None, None)
         .unwrap_or_else(|failure| panic!("{}", failure.lines.join("\n")));
     let version = out.join(&outcome.content_version);
     let groups: serde_json::Value =
@@ -310,8 +312,14 @@ fn a_broken_link_in_the_corpus_stops_the_build_and_names_the_file() {
         write_entry(&entry, &Config::default()),
     )
     .unwrap();
-    let failure = compile_corpus(&corpus, &temp("broken-out"), &temp("broken-reports"), None)
-        .expect_err("a link to a missing entry must fail");
+    let failure = compile_corpus(
+        &corpus,
+        &temp("broken-out"),
+        &temp("broken-reports"),
+        None,
+        None,
+    )
+    .expect_err("a link to a missing entry must fail");
     let text = failure.lines.join("\n");
     assert!(text.contains("grapple"), "{text}");
 }
@@ -327,13 +335,20 @@ fn a_published_id_that_stops_resolving_fails_the_build_before_anything_is_writte
         &temp("published-ok"),
         &temp("published-ok-reports"),
         Some(&ids),
+        None,
     )
     .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
 
     fs::write(&ids, "ref/rule/combat\nref/rule/dropped\n").unwrap();
     let out = temp("published-bad");
-    let failure = compile_corpus(&corpus, &out, &temp("published-bad-reports"), Some(&ids))
-        .expect_err("a dropped published id must fail");
+    let failure = compile_corpus(
+        &corpus,
+        &out,
+        &temp("published-bad-reports"),
+        Some(&ids),
+        None,
+    )
+    .expect_err("a dropped published id must fail");
     let text = failure.lines.join("\n");
     assert!(text.contains("ref/rule/dropped"), "{text}");
     assert!(!out.join("manifest.json").exists());

@@ -57,6 +57,72 @@ pub fn month_year(date: &str) -> Option<String> {
     })
 }
 
+/// The first 8 characters of a hash, with an ellipsis when it is longer. Settings shows this
+/// shortened copy in parentheses so the full hash does not dominate the line.
+pub fn short_hash(value: &str) -> String {
+    match value.get(..8) {
+        Some(short) if short.len() < value.len() => format!("{short}…"),
+        _ => value.to_string(),
+    }
+}
+
+/// `2026-11-07` becomes `7 Nov 2026`. The month names are a fixed English table, like
+/// [`month_year`], so a device's locale never changes an app date.
+pub fn day_month_year(date: &str) -> Option<String> {
+    const MONTHS: [&str; 12] = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    let mut parts = date.trim().split('-');
+    let year = parts.next()?;
+    if year.len() != 4 || !year.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let month = parts
+        .next()?
+        .parse::<usize>()
+        .ok()
+        .filter(|month| (1..=12).contains(month))?;
+    let day = parts
+        .next()?
+        .parse::<u32>()
+        .ok()
+        .filter(|day| (1..=31).contains(day))?;
+    if parts.next().is_some() {
+        return None;
+    }
+    Some(format!("{day} {} {year}", MONTHS[month - 1]))
+}
+
+/// The first 8 hex characters of a content version, keeping its `v` prefix:
+/// `v48ce09016271a01a` becomes `v48ce0901…`.
+fn short_content_version(value: &str) -> String {
+    let (prefix, body) = match value.strip_prefix('v') {
+        Some(body) => ("v", body),
+        None => ("", value),
+    };
+    match body.char_indices().nth(8) {
+        Some((at, _)) => format!("{prefix}{}…", &body[..at]),
+        None => value.to_string(),
+    }
+}
+
+/// Settings: `Corpus v0.1.6 (v48ce0901…)`. A library without a tag shows its hash alone.
+pub fn corpus_label(tag: Option<&str>, content_version: &str) -> String {
+    match tag {
+        Some(tag) => format!("{tag} ({})", short_content_version(content_version)),
+        None => content_version.to_string(),
+    }
+}
+
+/// Settings: `Released 7 Nov 2026 (5ec392ee…)`. A build without a commit date shows the shell
+/// hash alone.
+pub fn app_label(date: Option<&str>, shell_version: &str) -> String {
+    match date.and_then(day_month_year) {
+        Some(date) => format!("Released {date} ({})", short_hash(shell_version)),
+        None => shell_version.to_string(),
+    }
+}
+
 /// The line under a book's title and on its page: `Aug 2009 · 2,994 entries`, or the count alone
 /// when the book has no usable date.
 pub fn book_meta(date: Option<&str>, entries: usize) -> String {
@@ -152,6 +218,41 @@ mod tests {
         assert_eq!(month_year("2011-00-01").as_deref(), Some("2011"));
         for bad in ["", "Aug 2009", "209-08", "20x9-08", "-"] {
             assert_eq!(month_year(bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn settings_labels_keep_the_hash_in_parentheses() {
+        assert_eq!(
+            corpus_label(Some("v0.1.6"), "v48ce09016271a01a"),
+            "v0.1.6 (v48ce0901…)"
+        );
+        assert_eq!(corpus_label(None, "v48ce09016271a01a"), "v48ce09016271a01a");
+        assert_eq!(
+            app_label(Some("2026-11-07"), "5ec392ee12345678"),
+            "Released 7 Nov 2026 (5ec392ee…)"
+        );
+        assert_eq!(app_label(None, "5ec392ee12345678"), "5ec392ee12345678");
+        assert_eq!(
+            app_label(Some("not-a-date"), "5ec392ee12345678"),
+            "5ec392ee12345678"
+        );
+    }
+
+    #[test]
+    fn day_month_year_uses_the_fixed_english_table() {
+        assert_eq!(day_month_year("2026-11-07").as_deref(), Some("7 Nov 2026"));
+        assert_eq!(day_month_year("2026-01-31").as_deref(), Some("31 Jan 2026"));
+        for bad in [
+            "",
+            "2026-11",
+            "2026-13-01",
+            "2026-11-00",
+            "2026-11-32",
+            "2026-11-07T00:00",
+            "26-11-07",
+        ] {
+            assert_eq!(day_month_year(bad), None, "{bad:?}");
         }
     }
 

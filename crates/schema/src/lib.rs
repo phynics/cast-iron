@@ -928,6 +928,11 @@ pub struct ContentManifest {
     pub files: Vec<ManifestFile>,
     pub entry_count: u32,
     pub datasets: Vec<DatasetRef>,
+    /// The corpus tag that `sources/corpus.toml` pins, such as `v0.1.6`. Additive and
+    /// optional: older libraries have no field, and older readers ignore it. It is display
+    /// information only, so it does not change [`SCHEMA_VERSION`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corpus_tag: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

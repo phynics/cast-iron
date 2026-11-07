@@ -1,4 +1,4 @@
-import { test, expect, distManifest, loadCorpus } from "./fixtures";
+import { test, expect, corpusLabel, distManifest, loadCorpus } from "./fixtures";
 import {
   activeLibrary,
   buildNewerManifest,
@@ -94,7 +94,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.
-    await expect(page.getByTestId("library-version")).toHaveText(next.version, { timeout: 120_000 });
+    await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
     expect((await activeLibrary(page)).content_version).toBe(next.version);
     await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${next.version}`]);
     const cached = new Set((await cacheContents(page))[`cast-iron-content-${next.version}`]);
