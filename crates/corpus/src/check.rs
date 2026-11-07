@@ -75,6 +75,15 @@ pub fn line_of(text: &str, needle: &str) -> usize {
         .map_or(1, |index| index + 1)
 }
 
+/// Every 1-based line of `text` that holds `needle`, in file order.
+fn lines_of(text: &str, needle: &str) -> Vec<usize> {
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| line.contains(needle))
+        .map(|(index, _)| index + 1)
+        .collect()
+}
+
 /// Every heading of an entry with its URL anchor key and plain text.
 pub fn heading_keys(entry: &RuleEntry) -> Vec<(String, String)> {
     keyed_headings(&entry.body)
@@ -237,6 +246,44 @@ fn field_display_texts(fields: &TypedFields) -> Vec<(&'static str, &str)> {
     out
 }
 
+/// A display string in an entry and the place in the file that holds it.
+enum DisplayText<'a> {
+    Title(&'a str),
+    Tag(&'a str),
+    Field(&'static str, &'a str),
+}
+
+impl<'a> DisplayText<'a> {
+    fn value(&self) -> &'a str {
+        match self {
+            DisplayText::Title(value) | DisplayText::Tag(value) => value,
+            DisplayText::Field(_, value) => value,
+        }
+    }
+
+    /// What the finding calls the place, so a title or tag does not read as `[fields]`.
+    fn place(&self) -> String {
+        match self {
+            DisplayText::Title(_) => "the entry title".into(),
+            DisplayText::Tag(_) => "the entry tags".into(),
+            DisplayText::Field(key, _) => format!("`[fields]` key `{key}`"),
+        }
+    }
+}
+
+/// Every string in an entry that a reader sees, with the place that holds it. Title, tags,
+/// and typed fields share the rule; handles and numbers stay out.
+fn entry_display_texts(entry: &RuleEntry) -> Vec<DisplayText<'_>> {
+    let mut out = vec![DisplayText::Title(&entry.title)];
+    out.extend(entry.tags.iter().map(|tag| DisplayText::Tag(tag)));
+    out.extend(
+        field_display_texts(&entry.fields)
+            .into_iter()
+            .map(|(key, value)| DisplayText::Field(key, value)),
+    );
+    out
+}
+
 pub fn fields_kind(fields: &TypedFields) -> &'static str {
     match fields {
         TypedFields::Spell(_) => "spell",
@@ -352,11 +399,29 @@ pub fn check(corpus: &Corpus) -> Report {
                 body_start + line - 1
             ));
         }
-        for (key, value) in field_display_texts(&entry.fields) {
-            for (_, token) in upstream_markup_tokens(value) {
+        // The writer puts each display string on one line. When the same value appears more
+        // than once, consume the next matching line so every occurrence reports its own
+        // place instead of the first one over and over.
+        let mut matched: BTreeMap<String, usize> = BTreeMap::new();
+        for text in entry_display_texts(entry) {
+            let value = text.value();
+            let tokens = upstream_markup_tokens(value);
+            if tokens.is_empty() {
+                continue;
+            }
+            let needle = crate::tomlutil::string(value);
+            let lines = lines_of(&stored.text, &needle);
+            let next = matched.entry(needle.clone()).or_default();
+            let line = lines
+                .get(*next)
+                .copied()
+                .unwrap_or_else(|| line_of(&stored.text, &needle));
+            *next += 1;
+            let place = text.place();
+            for (_, token) in tokens {
                 report.problems.push(format!(
-                    "{}: left-over upstream token `{token}` in `[fields]` key `{key}`. Convert it to plain text or a typed link.",
-                    at(&crate::tomlutil::string(value))
+                    "{}:{line}: left-over upstream token `{token}` in {place}. Convert it to plain text or a typed link.",
+                    path.display()
                 ));
             }
         }
@@ -529,7 +594,9 @@ fn check_book_node(
 mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
-    use cast_iron_schema::{BookIndex, BookNode, BookTree, CreatureFields, EntryId, Inline};
+    use cast_iron_schema::{
+        BookIndex, BookNode, BookTree, CreatureFields, EntryId, FeatFields, Inline,
+    };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
         let mut entry = rule(id, vec![]);
@@ -629,6 +696,62 @@ mod tests {
             ..Default::default()
         });
         assert!(check(&corpus(vec![feat])).problems.is_empty());
+    }
+
+    #[test]
+    fn a_token_in_a_title_or_tag_fails() {
+        let mut titled = rule("ref/rule/titled", vec![]);
+        titled.title = "&FN&Title".into();
+        let text = check(&corpus(vec![titled])).problems.join("\n");
+        assert!(text.contains("left-over upstream token `&FN&`"), "{text}");
+        assert!(text.contains("in the entry title"), "{text}");
+
+        let mut tagged = rule("ref/rule/tagged", vec![]);
+        tagged.tags = vec!["&Q&tag".into()];
+        let text = check(&corpus(vec![tagged])).problems.join("\n");
+        assert!(text.contains("left-over upstream token `&Q&`"), "{text}");
+        assert!(text.contains("in the entry tags"), "{text}");
+
+        let mut clean = rule("ref/rule/clean", vec![]);
+        clean.title = "&times& Title".into();
+        clean.tags = vec!["&quot& tag".into()];
+        assert!(check(&corpus(vec![clean])).problems.is_empty());
+    }
+
+    #[test]
+    fn a_repeated_token_reports_each_occurrence_line() {
+        let mut feat = rule("ref/feat/twice", vec![]);
+        feat.kind = EntryKind::Feat;
+        feat.fields = TypedFields::Feat(FeatFields {
+            benefit: Some("&FN& twice".into()),
+            special: Some("&FN& twice".into()),
+            ..Default::default()
+        });
+        let c = corpus(vec![feat]);
+        let text = &c.entries["ref/feat/twice"].text;
+        let expected = [
+            line_of(text, "benefit = \"&FN& twice\""),
+            line_of(text, "special = \"&FN& twice\""),
+        ];
+        assert_ne!(
+            expected[0], expected[1],
+            "the two fields are on separate lines"
+        );
+
+        let report = check(&c);
+        let reported: Vec<usize> = report
+            .problems
+            .iter()
+            .map(|problem| {
+                problem
+                    .split(':')
+                    .nth(1)
+                    .and_then(|line| line.parse().ok())
+                    .unwrap_or(0)
+            })
+            .collect();
+        assert_eq!(reported.len(), 2, "{:?}", report.problems);
+        assert_eq!(reported, expected, "{:?}", report.problems);
     }
 
     #[test]
