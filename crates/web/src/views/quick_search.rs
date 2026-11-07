@@ -10,6 +10,7 @@ use crate::discovery::Discovery;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{self, Route, use_route};
+use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::quick_rows::{
     MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
     valid_active,
@@ -404,9 +405,23 @@ fn watch_suggestions(quick: QuickSearch) {
                 .filter_map(|hit| {
                     let id = EntryId::parse(hit.id.clone()).ok()?;
                     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+                    // The index records one attribution source. When it is inactive, the entry's
+                    // book placement is the source that kept it eligible, so name that instead
+                    // (the same rule as the search result rows).
+                    let canonical = library.canonical_source_for_entry(&id);
+                    let source_id = preferred_source(
+                        &hit.source,
+                        canonical.as_deref(),
+                        |id| library.book_active(id),
+                        |id| {
+                            library.source(id).map_or(Tier::Other, |source| {
+                                Tier::from_category(source.category.as_deref())
+                            })
+                        },
+                    );
                     let book = library
-                        .source(&hit.source)
-                        .map_or(hit.source.as_str(), |source| source.title.as_str());
+                        .source(source_id)
+                        .map_or(source_id, |source| source.title.as_str());
                     Some(Suggestion {
                         id,
                         title: hit.title,
