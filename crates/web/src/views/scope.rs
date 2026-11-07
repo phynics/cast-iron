@@ -38,12 +38,14 @@ fn upper_first(text: &str) -> String {
 
 /// Fields whose values are a number or a fraction, and the name they keep in front of the
 /// value. A bare `10` would read like a count next to another facet, so it reads `CR 10`
-/// (`Search CR 10 Dragon creatures`). Add a row here when a kind gains another numeric facet.
+/// (`Search CR 10 Dragon creatures`), and a level reads `Level 5` (`Search Level 5 spells`).
+/// This is the one table to extend when a kind gains another numeric facet.
+const NUMERIC_FACET_NAMES: [(&str, &str); 2] = [("cr", "CR"), ("spell_level", "Level")];
+
 fn numeric_facet_name(field: &str) -> Option<&'static str> {
-    match field {
-        "cr" => Some("CR"),
-        _ => None,
-    }
+    NUMERIC_FACET_NAMES
+        .iter()
+        .find_map(|(name, prefix)| (*name == field).then_some(*prefix))
 }
 
 /// One facet as a phrase. Numeric facets say their field; every other value keeps the label
@@ -363,6 +365,22 @@ mod tests {
         );
         assert_eq!(in_book.label(), "CR 10 Dragon creatures in Bestiary");
         assert_eq!(in_book.show_all_label(), "Show all creatures");
+    }
+
+    #[test]
+    fn a_spell_level_facet_says_level() {
+        let level_5 = scope(EntryKind::Spell, vec![("spell_level".into(), "5".into())]);
+        assert_eq!(level_5.placeholder(), "Search Level 5 spells");
+        assert_eq!(level_5.label(), "Level 5 spells");
+        assert_eq!(
+            level_5.results_line("12 results"),
+            "12 results in Level 5 spells"
+        );
+
+        // The prefix table covers every numeric facet, not only CR.
+        assert_eq!(numeric_facet_name("cr"), Some("CR"));
+        assert_eq!(numeric_facet_name("spell_level"), Some("Level"));
+        assert_eq!(numeric_facet_name("school"), None);
     }
 
     #[test]
