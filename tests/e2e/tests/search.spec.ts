@@ -371,6 +371,20 @@ test("The Publication name box opens Adventures for its matches, then returns to
   await expect(box).toHaveValue("");
   await expect(adventures).toHaveAttribute("open", "");
   await expect(match).toBeVisible();
+
+  // A close click while the box forces the tier open is not a new choice: it reopens the tier,
+  // and clearing the box still returns to the reader's earlier open answer (#141).
+  await box.click();
+  await page.keyboard.type(partial);
+  await expect(adventures).toHaveAttribute("open", "");
+  await adventures.locator("summary").click();
+  await expect(adventures).toHaveAttribute("open", "");
+  await box.click();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.press("Backspace");
+  await expect(box).toHaveValue("");
+  await expect(adventures).toHaveAttribute("open", "");
+  await expect(match).toBeVisible();
 });
 
 test("Equal relevance ranks the Rulebook entry before an Adventure entry", async ({ page }) => {
