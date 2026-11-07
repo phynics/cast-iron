@@ -160,7 +160,8 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("class_type", "npc") => "NPC".into(),
         ("creature_type", "magicalBeast") => "Magical Beast".into(),
         ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
-        ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
+        ("creature_type", _)
+        | ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
             capitalize_words(value)
         }
         _ => value.to_string(),
@@ -1792,6 +1793,22 @@ mod tests {
             facet_label("creature_type", "monstrousHumanoid"),
             "Monstrous Humanoid"
         );
+        // Every lowercase creature type reads as a title, not as its index value.
+        for (value, label) in [
+            ("aberration", "Aberration"),
+            ("animal", "Animal"),
+            ("construct", "Construct"),
+            ("dragon", "Dragon"),
+            ("fey", "Fey"),
+            ("humanoid", "Humanoid"),
+            ("ooze", "Ooze"),
+            ("outsider", "Outsider"),
+            ("plant", "Plant"),
+            ("undead", "Undead"),
+            ("vermin", "Vermin"),
+        ] {
+            assert_eq!(facet_label("creature_type", value), label);
+        }
         assert_eq!(facet_label("class_type", "base"), "Base");
         assert_eq!(facet_label("trait_category", "combat"), "Combat");
         assert_eq!(
@@ -1820,6 +1837,26 @@ mod tests {
         sort_facet_pairs("cr", &mut pairs);
         assert_eq!(pairs[0], ("1/2".to_string(), 7));
         assert_eq!(pairs[2], ("10".to_string(), 1));
+    }
+
+    #[test]
+    fn challenge_ratings_sort_numerically_from_eighths_to_thirty() {
+        // The corpus order is alphabetical (1/2, 1/3, 1/4, 1/6, 1/8, 1, 10, 2), which would
+        // put a tenth above a second and every fraction before the whole numbers.
+        let mut pairs: Vec<(String, u32)> = [
+            "30", "3", "1/8", "20", "1/2", "10", "1/6", "2", "1/4", "1", "1/3", "12",
+        ]
+        .into_iter()
+        .map(|value| (value.to_string(), 1))
+        .collect();
+        sort_facet_pairs("cr", &mut pairs);
+        let order: Vec<&str> = pairs.iter().map(|(value, _)| value.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "1/8", "1/6", "1/4", "1/3", "1/2", "1", "2", "3", "10", "12", "20", "30"
+            ]
+        );
     }
 
     /// Counts for a search state over a small index, as the Search view asks for them.

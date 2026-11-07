@@ -150,6 +150,29 @@ pub const ARCHETYPE_CLASS_MENU: MenuSpec = MenuSpec {
     plural: "classes",
 };
 
+/// The creature type menu. Thirteen types, so it has a find field.
+pub const CREATURE_TYPE_MENU: MenuSpec = MenuSpec {
+    field: "creature_type",
+    group: "Type",
+    all_label: "All types",
+    find_label: "Find a type",
+    list_label: "Creature type",
+    singular: "type",
+    plural: "types",
+};
+
+/// The creature challenge rating menu. About 35 values, shown in numeric order by
+/// `sort_facet_pairs`, with a find field because there are more than ten.
+pub const CREATURE_CR_MENU: MenuSpec = MenuSpec {
+    field: "cr",
+    group: "CR",
+    all_label: "All CRs",
+    find_label: "Find a CR",
+    list_label: "Challenge rating",
+    singular: "rating",
+    plural: "ratings",
+};
+
 /// The facet that sorts a kind's list into headed sections instead of A to Z. A short list with
 /// a handful of well-known groups shows them all at once, so it needs no filter.
 pub const CLASS_GROUP_FIELD: &str = "class_type";
@@ -213,10 +236,7 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         EntryKind::Race => vec![facet("race_group", "By group")],
         EntryKind::Trait => vec![Lens::Menu(TRAIT_CATEGORY_MENU)],
         EntryKind::Item => vec![Lens::Menu(ITEM_CATEGORY_MENU)],
-        EntryKind::Creature => vec![
-            facet("creature_type", "By type"),
-            facet("cr", "By challenge rating"),
-        ],
+        EntryKind::Creature => vec![Lens::Menu(CREATURE_TYPE_MENU), Lens::Menu(CREATURE_CR_MENU)],
         EntryKind::Archetype => vec![Lens::Menu(ARCHETYPE_CLASS_MENU)],
         EntryKind::Rule
         | EntryKind::PrestigeClass
@@ -374,12 +394,45 @@ mod tests {
             let url = [(spec.field.to_string(), "x".to_string())];
             assert_eq!(applied_facets(kind, &url), url, "{kind:?}");
         }
+        // Creatures: two menus, type and challenge rating, that narrow the one list together.
+        assert_eq!(
+            lenses(EntryKind::Creature),
+            [Lens::Menu(CREATURE_TYPE_MENU), Lens::Menu(CREATURE_CR_MENU)]
+        );
+        assert_eq!(CREATURE_TYPE_MENU.field, "creature_type");
+        assert_eq!(CREATURE_CR_MENU.field, "cr");
         // Classes: headed sections, no menu, no pills. Races keep their old lens until the
         // library has group data.
         assert!(lenses(EntryKind::Class).is_empty());
         assert_eq!(grouped_by(EntryKind::Class), Some("class_type"));
         assert_eq!(grouped_by(EntryKind::Item), None);
         assert!(matches!(lenses(EntryKind::Race)[..], [Lens::Facet { .. }]));
+    }
+
+    #[test]
+    fn two_creature_facets_narrow_the_list_together_and_keep_their_url_order() {
+        let facet = |f: &str, v: &str| (f.to_string(), v.to_string());
+        let url = [facet("creature_type", "dragon"), facet("cr", "10")];
+        assert_eq!(
+            applied_facets(EntryKind::Creature, &url),
+            [facet("creature_type", "dragon"), facet("cr", "10")]
+        );
+        // A second value for one field is not a second filter: the list narrows by one value
+        // for each field, so a hand-made URL keeps the first.
+        let repeated = [
+            facet("creature_type", "dragon"),
+            facet("creature_type", "ooze"),
+            facet("cr", "10"),
+        ];
+        assert_eq!(
+            applied_facets(EntryKind::Creature, &repeated),
+            [facet("creature_type", "dragon"), facet("cr", "10")]
+        );
+        // Facets a creature menu does not own stay with search.
+        assert_eq!(
+            applied_facets(EntryKind::Creature, &[facet("size", "Large")]),
+            []
+        );
     }
 
     #[test]

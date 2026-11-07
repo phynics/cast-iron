@@ -808,6 +808,19 @@ mod tests {
                 facets: vec![("feat_type".into(), "combat".into())],
             }
         );
+        // Two fields narrow one list together, in the order they were chosen.
+        let two = Route::browse_kind_facets(
+            EntryKind::Creature,
+            vec![
+                ("creature_type".into(), "dragon".into()),
+                ("cr".into(), "10".into()),
+            ],
+        );
+        assert_eq!(
+            two.href(),
+            "#/browse/kind/creature?facet=creature_type:dragon&facet=cr:10"
+        );
+        round_trip(two);
         // Search keeps its own href with the same pairs.
         assert_eq!(
             Route::Search {
