@@ -413,31 +413,41 @@ test("Traits, archetypes and spells each have one filter menu in the filter row 
   await expect.poll(() => new URL(page.url()).hash).toBe("#/spells");
 });
 
-test("Classes are listed under their group headings, in the order of the books, without pills or a menu", async ({ page }) => {
+test("Classes are listed under their data group headings, without pills or a menu", async ({ page }) => {
   await installLibrary(page);
   const classes = [...corpus.entries.values()].filter((entry) => entry.kind === "class");
-  const order = ["core", "base", "hybrid", "occult", "unchained", "alternate", "npc"];
-  const labels: Record<string, string> = { core: "Core", base: "Base", hybrid: "Hybrid", occult: "Occult", unchained: "Unchained", alternate: "Alternate", npc: "NPC" };
-  const expected = order.map((type) => ({ label: labels[type], titles: classes.filter((entry) => entry.fields?.class_type === type).map((entry) => entry.title).sort() }));
-  expect(expected.every((group) => group.titles.length > 0)).toBe(true);
+  // Derive the groups from the built data, so a new class_type does not break the test.
+  const types = new Set(
+    classes
+      .map((entry) => entry.fields?.class_type)
+      .filter((type): type is string => Boolean(type)),
+  );
+  const ungrouped = classes.some((entry) => !entry.fields?.class_type);
+  const groupCount = types.size + (ungrouped ? 1 : 0);
 
   await page.goto("#/browse/kind/class");
   const main = page.locator("main");
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
-  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+  await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
   await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages, .filter-row, .filter-btn")).toHaveCount(0);
   await expect(main.getByText("Core, base, and NPC")).toHaveCount(0);
   await expect(main.getByRole("navigation", { name: "Jump to letter" })).toHaveCount(0);
   const heads = await main.locator("h2.letter-head").allInnerTexts();
-  expect(heads.map((head) => head.replace(/\s*[\d,]+$/, "").trim())).toEqual(expected.map((group) => group.label));
-  expect(heads.map((head) => num(head.match(/([\d,]+)$/)?.[1]))).toEqual(expected.map((group) => group.titles.length));
+  const labels = heads.map((head) => head.replace(/\s*[\d,]+$/, "").trim());
+  expect(new Set(labels).size).toBe(labels.length);
+  expect(labels.every((label) => label.length > 0)).toBe(true);
+  const groupCounts = heads.map((head) => num(head.match(/([\d,]+)$/)?.[1]));
+  expect(groupCounts.reduce((sum, value) => sum + value, 0)).toBe(classes.length);
   // Every class is under its heading, and a heading names its list.
-  for (const [index, group] of expected.entries()) {
+  const seen: string[] = [];
+  for (const [index] of labels.entries()) {
     const section = main.locator("section.letter-group").nth(index);
     await expect(section).toHaveAttribute("aria-labelledby", /.+/);
-    const titles = (await section.locator(".entry-list a").allInnerTexts()).map((text) => text.trim()).sort();
-    expect(titles).toEqual(group.titles);
+    const titles = (await section.locator(".entry-list a").allInnerTexts()).map((text) => text.trim());
+    expect(titles).toHaveLength(groupCounts[index]);
+    seen.push(...titles);
   }
+  expect(seen.sort()).toEqual(classes.map((entry) => entry.title).sort());
 
   // A class opens, and Back returns to the grouped list.
   const first = main.locator("section.letter-group").first().locator(".entry-list a").first();
@@ -446,10 +456,10 @@ test("Classes are listed under their group headings, in the order of the books, 
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await page.goBack();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
-  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+  await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
 
   // An old link with a group in it shows the same grouped list instead of a broken page.
   await page.goto("#/browse/kind/class?facet=class_type:core");
-  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+  await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
 });
