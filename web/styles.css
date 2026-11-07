@@ -60,12 +60,12 @@
 /* Dark, "seasoned iron": followed automatically unless the user chose light. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #1c1917;
-    --surface: #25211e;
-    --surface-2: #2f2a26;
+    --bg: #14110f;
+    --surface: #221e1b;
+    --surface-2: #332d27;
     --ink: #e9e2d8;
     --ink-muted: #b4a99c;
-    --line: #443c35;
+    --line: #4b433b;
     --accent: #e5864f;
     --accent-ink: #1c1917;
     --focus: #7db9f2;
@@ -86,12 +86,12 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1c1917;
-  --surface: #25211e;
-  --surface-2: #2f2a26;
+  --bg: #14110f;
+  --surface: #221e1b;
+  --surface-2: #332d27;
   --ink: #e9e2d8;
   --ink-muted: #b4a99c;
-  --line: #443c35;
+  --line: #4b433b;
   --accent: #e5864f;
   --accent-ink: #1c1917;
   --focus: #7db9f2;
@@ -417,19 +417,44 @@ progress {
 
 /* ---- Content blocks ---------------------------------------------------------------------- */
 
-.error {
+/* Callouts carry their meaning in a word as well as in colour: a 1 px border and a
+   tinted surface, never a thick one-sided rule on a rounded box. */
+.error,
+.notice {
   padding: var(--space-3) var(--space-4);
-  color: var(--error);
-  background: var(--error-bg);
-  border-left: 4px solid var(--error);
+  border: 1px solid var(--line);
   border-radius: var(--radius);
 }
 
+.error::before,
+.notice::before {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--step--1);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.error {
+  color: var(--error);
+  background: var(--error-bg);
+  border-color: color-mix(in srgb, var(--error) 45%, var(--line));
+}
+
+.error::before {
+  content: "Error";
+  color: var(--error);
+}
+
 .notice {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-2);
-  border-left: 4px solid var(--accent);
-  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+.notice::before {
+  content: "Notice";
+  color: var(--accent);
 }
 
 .status {
