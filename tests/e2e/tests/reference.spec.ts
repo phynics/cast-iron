@@ -233,6 +233,25 @@ test("Rules text search opens the matched heading and article contents link to r
   }, anchor)).toBe(true);
 });
 
+test("A class page's article contents lists sections, not its source books", async ({ page }) => {
+  const wizard = corpusEntry("class", "Wizard");
+  const publicationTitles = new Set(corpus.catalog.sources.map((source: { title: string }) => source.title));
+  await page.goto(`#/entry/${wizard.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+  const contents = page.locator(".article-contents");
+  await expect(contents).toBeVisible();
+  await contents.locator("summary").click();
+  const labels = (await contents.getByRole("link").allInnerTexts()).map((label) => label.trim());
+  expect(labels).toEqual(expect.arrayContaining([
+    "Class Features and Spells Per Day",
+    "Alternate Capstones",
+    "Archetypes",
+    "Archetypes by Feature",
+  ]));
+  // A source attribution heading is not a section of the article.
+  expect(labels.filter((label) => publicationTitles.has(label))).toEqual([]);
+});
+
 test("Rule entries preserve complex formatting: stat block", async ({ page }) => {
   const spell = firstEntry("a spell with a stat block and a school", (entry) =>
     entry.kind === "spell" && hasBlock(entry, "stat_block") && entry.fields?.school);
