@@ -851,27 +851,38 @@ fn check_variant_cycles(edges: &BTreeMap<String, Vec<String>>, report: &mut Repo
         node: &'a str,
         edges: &'a BTreeMap<String, Vec<String>>,
         state: &mut BTreeMap<&'a str, bool>,
+        path: &mut Vec<&'a str>,
         report: &mut Report,
     ) {
         match state.get(node) {
             Some(true) => {
-                report
-                    .problems
-                    .push(format!("`variant` relations form a cycle at `{node}`"));
+                // The node is already on the current path: the path from its first occurrence
+                // back to itself is the cycle, in order.
+                let start = path.iter().position(|id| *id == node).unwrap_or(0);
+                let mut cycle: Vec<&str> = path[start..].to_vec();
+                cycle.push(node);
+                let shown: Vec<String> = cycle.iter().map(|id| format!("`{id}`")).collect();
+                report.problems.push(format!(
+                    "`variant` relations form a cycle: {}; remove one variant edge",
+                    shown.join(" → ")
+                ));
                 return;
             }
             Some(false) => return,
             None => {}
         }
         state.insert(node, true);
+        path.push(node);
         for target in edges.get(node).map(Vec::as_slice).unwrap_or_default() {
-            visit(target, edges, state, report);
+            visit(target, edges, state, path, report);
         }
+        path.pop();
         state.insert(node, false);
     }
     let mut state = BTreeMap::new();
+    let mut path = Vec::new();
     for start in edges.keys() {
-        visit(start, edges, &mut state, report);
+        visit(start, edges, &mut state, &mut path, report);
     }
 }
 
@@ -1530,7 +1541,12 @@ mod tests {
             None,
         );
         let text = check(&corpus(vec![a, b, c])).problems.join("\n");
-        assert!(text.contains("`variant` relations form a cycle"), "{text}");
+        assert!(
+            text.contains(
+                "`variant` relations form a cycle: `ref/spell/a` → `ref/spell/b` → `ref/spell/c` → `ref/spell/a`; remove one variant edge"
+            ),
+            "{text}"
+        );
     }
 
     #[test]
