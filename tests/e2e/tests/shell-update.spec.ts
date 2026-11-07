@@ -26,7 +26,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   // Start the update through the app's own control, as a user would.
   await server.shellVersion(nextShell);
   await page.goto("#/settings");
-  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+  await page.getByRole("button", { name: "Check now", exact: true }).click();
   const update = page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME });
   await expect(update).toBeVisible();
   await page.goto(`#/entry/${spell.id}`);

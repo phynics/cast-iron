@@ -59,10 +59,11 @@ pub enum UpdateCheck {
     Available(ContentManifest),
 }
 
-/// Asks the network whether a newer library exists. Explicit and online only.
-pub async fn check_for_update(active: &ActiveLibrary) -> Result<UpdateCheck, Failure> {
+/// Asks the network whether a newer library exists than `active_version`. Reads only the app's
+/// own `content/manifest.json`. Used by the explicit check and the opt-out daily check (#206).
+pub async fn check_for_update(active_version: &str) -> Result<UpdateCheck, Failure> {
     let manifest = fetch_manifest().await?;
-    Ok(if manifest.content_version == active.content_version {
+    Ok(if manifest.content_version == active_version {
         UpdateCheck::UpToDate
     } else {
         UpdateCheck::Available(manifest)

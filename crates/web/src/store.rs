@@ -1,7 +1,8 @@
 //! IndexedDB: the user's own state. Library files live in the Cache API, not here.
 //!
 //! Database `cast-iron`, version 1:
-//! - `meta`: out-of-line string keys. `active_library`, `pending_install`, `theme`.
+//! - `meta`: out-of-line string keys. `active_library`, `pending_install`, `theme`,
+//!   `update_check`, `auto_update_check`.
 //! - `bookmarks`: key path `entry_id`.
 //! - `collections`: key path `id`.
 //!
@@ -33,6 +34,8 @@ pub const KEY_DISABLED_BOOKS: &str = "disabled_books";
 pub const KEY_RECENT: &str = "recent";
 pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
+pub const KEY_UPDATE_CHECK: &str = "update_check";
+pub const KEY_AUTO_UPDATE_CHECK: &str = "auto_update_check";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {
@@ -84,6 +87,21 @@ pub struct ActiveLibrary {
 pub struct PendingInstall {
     pub content_version: String,
     pub started_at: f64,
+}
+
+/// The last library update check: when it ran, and the newest manifest it saw. It survives a
+/// reload and works offline, so the header pip and the Settings row do not wait for a network
+/// answer.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UpdateCheckRecord {
+    /// Milliseconds since the Unix epoch.
+    pub last_checked: f64,
+    /// The `content_version` of the manifest the check read, when it read one.
+    #[serde(default)]
+    pub known_version: Option<String>,
+    /// The size of that manifest's library, so Settings can name it after a reload.
+    #[serde(default)]
+    pub known_bytes: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -386,6 +404,28 @@ pub async fn disabled_books() -> Result<std::collections::BTreeSet<String>> {
 
 pub async fn set_disabled_books(ids: &std::collections::BTreeSet<String>) -> Result<()> {
     set_meta(KEY_DISABLED_BOOKS, ids).await
+}
+
+pub async fn update_check() -> Result<Option<UpdateCheckRecord>> {
+    get_meta(KEY_UPDATE_CHECK).await
+}
+
+pub async fn set_update_check(record: &UpdateCheckRecord) -> Result<()> {
+    set_meta(KEY_UPDATE_CHECK, record).await
+}
+
+/// Whether the automatic update check is on. An absent value is on: that is the owner's
+/// default, and a device that never touched the switch keeps it.
+pub async fn auto_update_check_enabled() -> bool {
+    get_meta::<bool>(KEY_AUTO_UPDATE_CHECK)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or(true)
+}
+
+pub async fn set_auto_update_check(enabled: bool) -> Result<()> {
+    set_meta(KEY_AUTO_UPDATE_CHECK, &enabled).await
 }
 
 // ---- bookmarks ------------------------------------------------------------------------------
@@ -1158,5 +1198,25 @@ mod tests {
                 .collection_ids
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn update_check_records_round_trip_and_accept_an_older_shape() {
+        let record = UpdateCheckRecord {
+            last_checked: 3.0,
+            known_version: Some("vabc".into()),
+            known_bytes: 42,
+        };
+        let json = serde_json::to_string(&record).unwrap();
+        assert_eq!(
+            serde_json::from_str::<UpdateCheckRecord>(&json).unwrap(),
+            record
+        );
+        // A record written before the version was stored still reads, as a time-only check.
+        let older = r#"{"last_checked":1.5}"#;
+        let read: UpdateCheckRecord = serde_json::from_str(older).unwrap();
+        assert_eq!(read.last_checked, 1.5);
+        assert_eq!(read.known_version, None);
+        assert_eq!(read.known_bytes, 0);
     }
 }

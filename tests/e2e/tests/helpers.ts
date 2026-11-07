@@ -97,6 +97,78 @@ export async function activeLibrary(page: Page) {
   );
 }
 
+/** One `meta` record of the app's IndexedDB, or null. */
+export function storedMeta(page: Page, key: string): Promise<any> {
+  return page.evaluate(
+    (key) =>
+      new Promise((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          if (!db.objectStoreNames.contains("meta")) {
+            db.close();
+            return resolve(null);
+          }
+          const get = db.transaction("meta").objectStore("meta").get(key);
+          get.onsuccess = () => {
+            db.close();
+            resolve(get.result ?? null);
+          };
+          get.onerror = () => {
+            db.close();
+            reject(get.error);
+          };
+        };
+      }),
+    key,
+  );
+}
+
+/** Writes one `meta` record of the app's IndexedDB. */
+export function writeMeta(page: Page, key: string, value: unknown): Promise<void> {
+  return page.evaluate(
+    ({ key, value }) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction("meta", "readwrite");
+          tx.objectStore("meta").put(value, key);
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    { key, value },
+  );
+}
+
+/** Removes one `meta` record, so the next app start reads its default. */
+export function deleteMeta(page: Page, key: string): Promise<void> {
+  return page.evaluate(
+    (key) =>
+      new Promise<void>((resolve, reject) => {
+        const open = indexedDB.open("cast-iron");
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const db = open.result;
+          const tx = db.transaction("meta", "readwrite");
+          tx.objectStore("meta").delete(key);
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => reject(tx.error);
+        };
+      }),
+    key,
+  );
+}
+
 /** Cache name -> request paths relative to the app base (document-relative `content/...` keys). */
 export async function cacheContents(page: Page): Promise<Record<string, string[]>> {  return page.evaluate(async () => {
     const out: Record<string, string[]> = {};
@@ -253,6 +325,27 @@ export function buildLibraryWithoutBooks() {
   fs.mkdirSync(path.join(dir, "content"), { recursive: true });
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
+ * A manifest-only overlay with a different content version, for the automatic update check.
+ * The files are the served library's with the new version prefix, so the client accepts the
+ * manifest. None of those files exists: the check must never download anything, and the test
+ * never taps Download.
+ */
+export function buildNewerManifest() {
+  const old = distManifest();
+  const version = `vnext${Date.now().toString(36)}`;
+  const prefix = `${old.content_version}/`;
+  const files = old.files.map((file) => ({
+    ...file,
+    path: `${version}/${file.path.slice(prefix.length)}`,
+  }));
+  const manifest = { ...old, content_version: version, files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-manifest-"));
+  fs.mkdirSync(path.join(dir, "content"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
+  return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
 
 /**

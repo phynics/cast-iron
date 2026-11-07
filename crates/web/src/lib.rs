@@ -5,6 +5,7 @@
 //!   schema-3 relation, spell-list, and book files). [`graph`]: pure lookups over those files.
 //! - [`store`]: IndexedDB for bookmarks, collections, and preferences.
 //! - [`install`]: the first-run and update installer.
+//! - [`updates`]: the opt-out daily check for a newer library, and the state the header reads.
 //! - [`app`]: the shell. [`views`]: one module per screen.
 //!
 //! The crate compiles for the host too, so the pure logic has native tests. Browser calls
@@ -23,6 +24,7 @@ pub mod pwa;
 pub mod route;
 pub mod store;
 pub mod theme;
+pub mod updates;
 pub mod views;
 
 /// Entry point for the browser build.

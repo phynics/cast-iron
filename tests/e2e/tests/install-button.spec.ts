@@ -154,7 +154,7 @@ test("When an app update is ready, only the Update button shows", async ({ page,
   await expect(shell).not.toHaveText(/Checking|Not available/);
   const nextShell = `e2e-both-${(await shell.innerText()).trim()}`;
   await server.shellVersion(nextShell);
-  await page.getByRole("button", { name: "Check for updates", exact: true }).click();
+  await page.getByRole("button", { name: "Check now", exact: true }).click();
 
   // Both actions apply, but the header has one slot and the update wins.
   const update = page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME });

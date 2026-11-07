@@ -247,7 +247,9 @@ fn focus_main() {
 /// The frame around every screen once a library is ready.
 #[component]
 fn Reader(library: Library) -> impl IntoView {
+    let updates = crate::updates::UpdateCtx::provide(library.active().clone());
     provide_context(library);
+    provide_context(updates);
     let app = use_app();
     let current = use_route();
     let quick = QuickSearch::provide();

@@ -51,7 +51,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 
 ## Rules
 
-1. Offline is the product. Nothing at runtime may contact a third-party host: no CDN, no remote font, no telemetry. After installation, ordinary use makes no network request at all.
+1. Offline is the product. Nothing at runtime may contact a third-party host: no CDN, no remote font, no telemetry. After installation, ordinary use makes no network request at all. The one exception is the opt-out, same-origin daily update check that fetches only `content/manifest.json` (#206), only when online, and never downloads the library automatically.
 2. Client rendering uses typed nodes only. Never add `inner_html` or raw upstream HTML. This is the XSS defense.
 3. `EntryId` values are public, permanent identifiers, because bookmarks store them. Never edit an `id` or move an entry file in the corpus. Published ids are `ref/` ids; a legacy id resolves through `aliases.toml` in the corpus and never gets a second meaning. `sources/published-ids.txt` lists every id a published library used; `cargo xtask content` fails when one stops resolving, and the file only grows.
 4. A breaking change to serialized content must increase `SCHEMA_VERSION`. A breaking change to the search format must increase `INDEX_FORMAT_VERSION`.

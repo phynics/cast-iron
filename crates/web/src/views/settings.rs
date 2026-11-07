@@ -12,8 +12,8 @@ use crate::pwa::use_install;
 use crate::route::{self, Route};
 use crate::store::ActiveLibrary;
 use crate::theme::{self, Theme};
+use crate::updates::use_updates;
 use crate::views::installer::{InstallMode, InstallPanel};
-use cast_iron_schema::ContentManifest;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use wasm_bindgen::{JsCast, JsValue};
@@ -49,7 +49,6 @@ enum UpdateState {
     Idle,
     Checking,
     UpToDate,
-    Available(ContentManifest),
     Failed(String),
 }
 
@@ -71,6 +70,7 @@ pub fn Settings() -> impl IntoView {
     let app = use_app();
     let install_ctx = use_install();
     let library = use_library();
+    let updates = use_updates();
     let active = library.active().clone();
 
     // The header's update action asks for the Updates section. The Reader's route effect scrolls
@@ -95,25 +95,20 @@ pub fn Settings() -> impl IntoView {
     let shell = RwSignal::new(None::<Option<String>>);
     spawn_local(async move { shell.set(Some(js::shell_version().await)) });
 
-    let update = RwSignal::new(UpdateState::Idle);
-    let verify = RwSignal::new(VerifyState::Idle);
+    // Settings moves the Updates section to the top while something waits. That remounts it, so
+    // focus falls to <body>; remember whether it was inside and put it back on the moved section.
+    let focus_inside_updates = RwSignal::new(false);
+    let focus_handle = window_event_listener_untyped("focusin", move |event| {
+        let inside = event
+            .target()
+            .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+            .and_then(|element| element.closest("#set-updates").ok().flatten())
+            .is_some();
+        focus_inside_updates.set(inside);
+    });
+    on_cleanup(move || focus_handle.remove());
 
-    let check_update = {
-        let active = active.clone();
-        move |_| {
-            let active = active.clone();
-            update.set(UpdateState::Checking);
-            spawn_local(async move {
-                // Also ask for a newer app shell. A failure here changes nothing the user can act on.
-                let _ = js::check_shell_update().await;
-                update.set(match install::check_for_update(&active).await {
-                    Ok(UpdateCheck::UpToDate) => UpdateState::UpToDate,
-                    Ok(UpdateCheck::Available(manifest)) => UpdateState::Available(manifest),
-                    Err(failure) => UpdateState::Failed(failure.message),
-                });
-            });
-        }
-    };
+    let verify = RwSignal::new(VerifyState::Idle);
 
     let run_verify = {
         let library = library.clone();
@@ -131,12 +126,23 @@ pub fn Settings() -> impl IntoView {
         }
     };
 
-    let on_update_done = Callback::new(move |active: ActiveLibrary| app.activate(active));
     // The conversion is retried on the next load, so this is a notice, not an error.
     let conversion_pending = library.migration_refused();
+    // Updates come first while something waits, so the reader sees the action without scrolling.
+    let waiting =
+        Memo::new(move |_| app.shell_update_ready.get() || updates.library_update.get().is_some());
+    Effect::new(move |previous: Option<bool>| {
+        let now = waiting.get();
+        if previous == Some(false) && now && focus_inside_updates.get_untracked() {
+            request_animation_frame(|| request_animation_frame(focus_updates));
+        }
+        now
+    });
 
     view! {
         <h1>"Settings"</h1>
+
+        {move || waiting.get().then(|| view! { <UpdatesSection /> })}
 
         <section class="settings-section" aria-labelledby="set-theme">
             <h2 id="set-theme">"Appearance"</h2>
@@ -195,40 +201,7 @@ pub fn Settings() -> impl IntoView {
             <p><a href=Route::Legal.href()>"Legal and attribution, and library coverage"</a></p>
         </section>
 
-        <section class="settings-section" id="set-updates" tabindex="-1" aria-labelledby="set-updates-title">
-            <h2 id="set-updates-title">"Updates"</h2>
-            <p>"Library updates download when you ask. App updates become ready in the background; reload to apply them. Your stars stay with this app."</p>
-            <p>
-                <button class="btn" type="button" on:click=check_update
-                    prop:disabled=move || !app.online.get() || matches!(update.get(), UpdateState::Checking)>
-                    "Check for updates"
-                </button>
-            </p>
-            <Show when=move || !app.online.get()>
-                <p class="muted">"You are offline. Connect to check for updates."</p>
-            </Show>
-            <div role="status" aria-live="polite" data-testid="update-status">
-                {move || match update.get() {
-                    UpdateState::Idle => String::new(),
-                    UpdateState::Checking => "Checking...".to_string(),
-                    UpdateState::UpToDate => "The library is up to date.".to_string(),
-                    UpdateState::Available(_) => String::new(),
-                    UpdateState::Failed(message) => message,
-                }}
-            </div>
-            {move || match update.get() {
-                UpdateState::Available(manifest) => view! {
-                    <InstallPanel mode=InstallMode::Update manifest on_done=on_update_done />
-                }.into_any(),
-                _ => ().into_any(),
-            }}
-            <Show when=move || app.shell_update_ready.get()>
-                <p class="banner-inline">
-                    "App update ready. "
-                    <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
-                </p>
-            </Show>
-        </section>
+        {move || (!waiting.get()).then(|| view! { <UpdatesSection /> })}
 
         <section class="settings-section" aria-labelledby="set-storage">
             <h2 id="set-storage">"Storage"</h2>
@@ -296,6 +269,123 @@ pub fn Settings() -> impl IntoView {
                     </p>
                 }.into_any()
             }}
+        </section>
+    }
+}
+
+/// The Updates section. It lists what is waiting, each with the control that applies it, then
+/// the automatic-check switch and the explicit check. Settings renders it first while an update
+/// waits, and in its usual place otherwise.
+#[component]
+fn UpdatesSection() -> impl IntoView {
+    let app = use_app();
+    let updates = use_updates();
+    let status = RwSignal::new(UpdateState::Idle);
+    let on_done = Callback::new(move |active: ActiveLibrary| app.activate(active));
+
+    let check_now = Callback::new(move |_: ()| {
+        status.set(UpdateState::Checking);
+        spawn_local(async move {
+            // Also ask for a newer app shell. A failure here changes nothing the user can act on.
+            let _ = js::check_shell_update().await;
+            status.set(match updates.check_now().await {
+                Ok(UpdateCheck::UpToDate) => UpdateState::UpToDate,
+                Ok(UpdateCheck::Available(_)) => UpdateState::Idle,
+                Err(message) => UpdateState::Failed(message),
+            });
+        });
+    });
+
+    view! {
+        <section class="settings-section" id="set-updates" tabindex="-1" aria-labelledby="set-updates-title">
+            <h2 id="set-updates-title">"Updates"</h2>
+
+            {move || {
+                let Some(found) = updates.library_update.get() else {
+                    return ().into_any();
+                };
+                let manifest = found.manifest.clone();
+                let size = (found.bytes > 0).then(|| format!(" ({})", fmt::bytes(found.bytes)));
+                let name = format!("{}{}", found.version, size.unwrap_or_default());
+                let online = app.online.get();
+                view! {
+                    <div class="update-row" data-testid="library-update">
+                        <p><strong>"Newer rules library: "</strong>{name}</p>
+                        <p class="muted">"Your stars and book choices are kept."</p>
+                        // Only a manifest from this session may mount the panel: the panel fetches
+                        // one on mount, which would bypass the switch and the daily budget.
+                        {match (manifest, online) {
+                            (Some(manifest), true) => view! {
+                                <InstallPanel mode=InstallMode::Update manifest on_done />
+                            }.into_any(),
+                            (Some(_), false) => view! {
+                                <p class="muted">"Connect to download it."</p>
+                            }.into_any(),
+                            (None, _) => view! {
+                                <p class="update-prompt">
+                                    <button class="btn" type="button" on:click=move |_| check_now.run(())
+                                        prop:disabled=move || !app.online.get()>
+                                        "Check now"
+                                    </button>
+                                    <span class="muted">"This app reads the file list from the manifest first."</span>
+                                </p>
+                            }.into_any(),
+                        }}
+                    </div>
+                }.into_any()
+            }}
+
+            {move || app.shell_update_ready.get().then(|| view! {
+                <p class="banner-inline" data-testid="app-update">
+                    "App update ready. "
+                    <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
+                </p>
+            })}
+
+            <fieldset class="choice update-auto">
+                <legend>"Automatic checks"</legend>
+                <label class="choice-item">
+                    <input
+                        type="checkbox"
+                        prop:checked=move || updates.auto.get()
+                        on:change=move |event| {
+                            let enabled = event
+                                .target()
+                                .and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok())
+                                .is_some_and(|input| input.checked());
+                            updates.set_auto(enabled);
+                        }
+                    />
+                    <span>"Check for updates automatically"</span>
+                </label>
+            </fieldset>
+            <p class="muted">
+                "Once a day when online, reading only this app's own manifest. The library never downloads without you."
+            </p>
+
+            <p class="update-check">
+                <button class="btn" type="button" on:click=move |_| check_now.run(())
+                    prop:disabled=move || !app.online.get() || matches!(status.get(), UpdateState::Checking)>
+                    "Check now"
+                </button>
+                <span class="muted" data-testid="last-checked">
+                    {move || match updates.last_checked.get() {
+                        Some(ms) => format!("Last checked: {}", format_date(ms)),
+                        None => "Last checked: not yet".to_string(),
+                    }}
+                </span>
+            </p>
+            <Show when=move || !app.online.get()>
+                <p class="muted">"You are offline. Connect to check for updates."</p>
+            </Show>
+            <div role="status" aria-live="polite" data-testid="update-status">
+                {move || match status.get() {
+                    UpdateState::Idle => String::new(),
+                    UpdateState::Checking => "Checking...".to_string(),
+                    UpdateState::UpToDate => "The library is up to date.".to_string(),
+                    UpdateState::Failed(message) => message,
+                }}
+            </div>
         </section>
     }
 }
