@@ -596,17 +596,21 @@ fn inactive_match_counts(
     counts
 }
 
-/// The hidden count and the book to name: the one with the most hidden matches, then the first
-/// source id so a tie is deterministic. `None` when nothing is hidden.
+/// The hidden count and the book to name: the one with the most hidden matches, then the
+/// higher-priority `Tier`, then the source id ascending, so a tie is deterministic.
+/// `None` when nothing is hidden.
 fn inactive_matches(
     hits: &[HitSummary],
     is_eligible: impl Fn(&str) -> bool,
     source_of: impl Fn(&HitSummary) -> String,
+    tier_of: impl Fn(&str) -> Tier,
 ) -> Option<(usize, String)> {
     let counts = inactive_match_counts(hits, is_eligible, source_of);
-    let (source, _) = counts
-        .iter()
-        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))?;
+    let (source, _) = counts.iter().max_by(|a, b| {
+        a.1.cmp(b.1)
+            .then_with(|| tier_of(b.0).cmp(&tier_of(a.0)))
+            .then_with(|| b.0.cmp(a.0))
+    })?;
     Some((counts.values().sum(), source.clone()))
 }
 
@@ -829,6 +833,11 @@ pub fn Search() -> impl IntoView {
                                 .ok()
                                 .and_then(|id| library.canonical_source_for_entry(&id))
                                 .unwrap_or_else(|| hit.source.clone())
+                        },
+                        |id| {
+                            library.source(id).map_or(Tier::Other, |source| {
+                                Tier::from_category(source.category.as_deref())
+                            })
                         },
                     )
                 } else {
@@ -1879,13 +1888,35 @@ mod tests {
         assert_eq!(counts.get("bestiary"), Some(&2));
         assert_eq!(counts.get("um"), Some(&1));
         assert_eq!(
-            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone()),
+            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone(), |_| Tier::Other),
             Some((3, "bestiary".to_string()))
         );
         // With every entry eligible there is nothing to say.
         assert_eq!(
-            inactive_matches(&hits, |_| true, |hit| hit.source.clone()),
+            inactive_matches(&hits, |_| true, |hit| hit.source.clone(), |_| Tier::Other),
             None
+        );
+    }
+
+    #[test]
+    fn an_inactive_tie_prefers_the_higher_tier_then_the_source_id() {
+        // “core” (Rulebooks) ties “ap” (Adventures); the higher tier wins over the id order.
+        let hits = [summary("a", "ap"), summary("b", "core")];
+        let hidden = |_: &str| false;
+        let tier = |id: &str| match id {
+            "core" => Tier::Rulebooks,
+            "ap" => Tier::Adventures,
+            _ => Tier::Other,
+        };
+        assert_eq!(
+            inactive_matches(&hits, hidden, |hit| hit.source.clone(), tier),
+            Some((2, "core".to_string()))
+        );
+        // In one tier the source id ascending decides.
+        let hits = [summary("a", "zeta"), summary("b", "alpha")];
+        assert_eq!(
+            inactive_matches(&hits, hidden, |hit| hit.source.clone(), |_| Tier::Other),
+            Some((2, "alpha".to_string()))
         );
     }
 
