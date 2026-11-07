@@ -89,6 +89,23 @@ pub fn heading_keys(entry: &RuleEntry) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The body part of an entry file, with the 1-based line number it starts on.
+fn body_text(text: &str) -> (usize, &str) {
+    let mut offset = 0;
+    let mut fences = 0;
+    for line in text.split_inclusive('\n') {
+        offset += line.len();
+        if line.trim_end() == "+++" {
+            fences += 1;
+            if fences == 2 {
+                break;
+            }
+        }
+    }
+    let start = text[..offset].bytes().filter(|byte| *byte == b'\n').count() + 1;
+    (start, &text[offset..])
+}
+
 /// Upstream inline tokens the retired import left in body text: `&`, one or more ASCII
 /// uppercase letters, and `&`, so `&L&` and `&FN&` are caught. Lowercase HTML-style entities
 /// (`&times&`, `&quot&`, ...) and mixed-case markers (`&Next1&`) are deliberately not matched.
@@ -118,6 +135,104 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
             }
             _ => i += 1,
         }
+    }
+    out
+}
+
+/// Every string that `[fields]` shows to a reader, paired with the key that holds it.
+///
+/// Handles and numbers are not display text: `prerequisite_feats`, `levels[].level`, `cr`,
+/// and `alternate` stay out. Every remaining string is scanned, including pair labels and
+/// values and the `levels[].class` names.
+fn field_display_texts(fields: &TypedFields) -> Vec<(&'static str, &str)> {
+    fn optional<'a>(
+        out: &mut Vec<(&'static str, &'a str)>,
+        key: &'static str,
+        value: &'a Option<String>,
+    ) {
+        if let Some(value) = value {
+            out.push((key, value.as_str()));
+        }
+    }
+    fn list<'a>(out: &mut Vec<(&'static str, &'a str)>, key: &'static str, values: &'a [String]) {
+        out.extend(values.iter().map(|value| (key, value.as_str())));
+    }
+    fn pairs<'a>(
+        out: &mut Vec<(&'static str, &'a str)>,
+        key: &'static str,
+        values: &'a [(String, String)],
+    ) {
+        for (label, value) in values {
+            out.push((key, label.as_str()));
+            out.push((key, value.as_str()));
+        }
+    }
+
+    let mut out = Vec::new();
+    match fields {
+        TypedFields::Spell(fields) => {
+            out.push(("school", fields.school.as_str()));
+            list(&mut out, "subschools", &fields.subschools);
+            list(&mut out, "descriptors", &fields.descriptors);
+            out.extend(
+                fields
+                    .levels
+                    .iter()
+                    .map(|level| ("levels", level.class.as_str())),
+            );
+            optional(&mut out, "casting_time", &fields.casting_time);
+            optional(&mut out, "components", &fields.components);
+            optional(&mut out, "range", &fields.range);
+            pairs(&mut out, "effects", &fields.effects);
+            optional(&mut out, "duration", &fields.duration);
+            optional(&mut out, "saving_throw", &fields.saving_throw);
+            optional(&mut out, "spell_resistance", &fields.spell_resistance);
+        }
+        TypedFields::Feat(fields) => {
+            list(&mut out, "feat_types", &fields.feat_types);
+            optional(&mut out, "prerequisites", &fields.prerequisites);
+            optional(&mut out, "benefit", &fields.benefit);
+            optional(&mut out, "normal", &fields.normal);
+            optional(&mut out, "special", &fields.special);
+        }
+        TypedFields::Creature(fields) => {
+            optional(&mut out, "creature_type", &fields.creature_type);
+            list(&mut out, "subtypes", &fields.subtypes);
+            optional(&mut out, "size", &fields.size);
+            optional(&mut out, "alignment", &fields.alignment);
+            optional(&mut out, "ac", &fields.ac);
+            optional(&mut out, "hp", &fields.hp);
+            optional(&mut out, "fortitude", &fields.fortitude);
+            optional(&mut out, "reflex", &fields.reflex);
+            optional(&mut out, "will", &fields.will);
+            optional(&mut out, "melee", &fields.melee);
+            optional(&mut out, "ranged", &fields.ranged);
+            optional(&mut out, "special_attacks", &fields.special_attacks);
+            optional(&mut out, "special_qualities", &fields.special_qualities);
+            if let Some(abilities) = &fields.abilities {
+                out.extend(abilities.iter().map(|value| ("abilities", value.as_str())));
+            }
+        }
+        TypedFields::Item(fields) => {
+            optional(&mut out, "category", &fields.category);
+            optional(&mut out, "price", &fields.price);
+            optional(&mut out, "weight", &fields.weight);
+            optional(&mut out, "slot", &fields.slot);
+            optional(&mut out, "aura", &fields.aura);
+            optional(&mut out, "caster_level", &fields.caster_level);
+            pairs(&mut out, "attributes", &fields.attributes);
+        }
+        TypedFields::Class(fields) => {
+            optional(&mut out, "class_type", &fields.class_type);
+            optional(&mut out, "hit_die", &fields.hit_die);
+            optional(&mut out, "skill_ranks", &fields.skill_ranks);
+            optional(&mut out, "class_skills", &fields.class_skills);
+        }
+        TypedFields::Trait(fields) => {
+            out.push(("category", fields.category.as_str()));
+            optional(&mut out, "detail", &fields.detail);
+        }
+        TypedFields::RacialTrait(_) | TypedFields::None => {}
     }
     out
 }
@@ -229,11 +344,21 @@ pub fn check(corpus: &Corpus) -> Report {
                 fields_kind(&entry.fields)
             ));
         }
-        for (line, token) in upstream_markup_tokens(&stored.text) {
+        let (body_start, body) = body_text(&stored.text);
+        for (line, token) in upstream_markup_tokens(body) {
             report.problems.push(format!(
-                "{}:{line}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
-                path.display()
+                "{}:{}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
+                path.display(),
+                body_start + line - 1
             ));
+        }
+        for (key, value) in field_display_texts(&entry.fields) {
+            for (_, token) in upstream_markup_tokens(value) {
+                report.problems.push(format!(
+                    "{}: left-over upstream token `{token}` in `[fields]` key `{key}`. Convert it to plain text or a typed link.",
+                    at(&crate::tomlutil::string(value))
+                ));
+            }
         }
         if let TypedFields::Creature(fields) = &entry.fields
             && let Some(creature_type) = &fields.creature_type
@@ -474,6 +599,36 @@ mod tests {
             )])],
         );
         assert!(check(&corpus(vec![clean])).problems.is_empty());
+    }
+
+    #[test]
+    fn a_left_over_upstream_token_in_a_typed_field_fails() {
+        let mut feat = rule("ref/feat/a", vec![]);
+        feat.kind = EntryKind::Feat;
+        feat.fields = TypedFields::Feat(cast_iron_schema::FeatFields {
+            benefit: Some("&FN&gain a bonus".into()),
+            ..Default::default()
+        });
+        let report = check(&corpus(vec![feat]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(problem.starts_with("entries/feat/a.md:9:"), "{problem}");
+        assert!(
+            problem.contains("left-over upstream token `&FN&`"),
+            "{problem}"
+        );
+        assert!(problem.contains("`[fields]` key `benefit`"), "{problem}");
+    }
+
+    #[test]
+    fn lowercase_entities_in_a_typed_field_do_not_fail() {
+        let mut feat = rule("ref/feat/b", vec![]);
+        feat.kind = EntryKind::Feat;
+        feat.fields = TypedFields::Feat(cast_iron_schema::FeatFields {
+            benefit: Some("&times& &quot&".into()),
+            ..Default::default()
+        });
+        assert!(check(&corpus(vec![feat])).problems.is_empty());
     }
 
     #[test]
