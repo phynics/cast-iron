@@ -9,8 +9,9 @@ use cast_iron_schema::validate::{ValidationError, validate_derived, validate_lib
 use cast_iron_schema::{
     BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
     CoverageReport, DatasetRef, EntryId, EntryKind, EntryStub, LegalNotices, ManifestFile,
-    RELATIONS_FILE, Rejection, RelationIndex, RelationKind, RuleEntry, SCHEMA_VERSION,
-    SPELL_LISTS_FILE, SourceInfo, SpellLists, TypedFields,
+    OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE, Rejection, RelationIndex,
+    RelationKind, ReplacesIndex, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo,
+    SpellLists, TypedFields,
 };
 use cast_iron_search::{DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -80,6 +81,10 @@ pub struct Library {
     pub relations: RelationIndex,
     pub spell_lists: SpellLists,
     pub books: BookIndex,
+    /// The class-option vocabulary and its entries (schema 4).
+    pub option_groups: OptionGroupIndex,
+    /// The typed replacements of archetypes and class options (schema 4).
+    pub replaces: ReplacesIndex,
     pub legal: LegalNotices,
     /// The coverage report, as written to `coverage.json`.
     pub coverage: CoverageReport,
@@ -107,6 +112,8 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         relations,
         spell_lists,
         books,
+        option_groups,
+        replaces,
         legal,
         mut coverage,
         aliases,
@@ -195,6 +202,8 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         (RELATIONS_FILE, json_bytes(&relations)?),
         (SPELL_LISTS_FILE, json_bytes(&spell_lists)?),
         (BOOKS_FILE, json_bytes(&books)?),
+        (OPTION_GROUPS_FILE, json_bytes(&option_groups)?),
+        (REPLACES_FILE, json_bytes(&replaces)?),
     ] {
         derived_bytes.insert(name.to_string(), bytes.len() as u64);
         files.insert(name.into(), bytes);
@@ -324,7 +333,10 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
                 }
             }
             TypedFields::Trait(fields) => push(&mut facets, "trait_category", &fields.category),
-            TypedFields::RacialTrait(_) | TypedFields::None => {}
+            TypedFields::RacialTrait(_)
+            | TypedFields::Archetype(_)
+            | TypedFields::ClassOption(_)
+            | TypedFields::None => {}
         }
         // An archetype's class comes from its typed edge, not from a text field.
         if let Some(target) = entry
