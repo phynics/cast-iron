@@ -1,122 +1,237 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookTrees, installLibrary, openBookGroups } from "./helpers";
+import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, CONTENTS_LEAVES_OUT_LINKED_KINDS, installLibrary, LINKED_KINDS, openBookGroups } from "./helpers";
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const grouped = (n: number) => n.toLocaleString("en-US");
 
 /** The tier table, restated independently of the Rust code: this is what the page promises. */
 const tiers: { label: string; categories: string[]; open: boolean }[] = [
   { label: "Rulebooks", categories: ["RPG"], open: true },
-  { label: "Player Companions", categories: ["Player Companion"], open: true },
-  { label: "Campaign Setting", categories: ["Campaign Setting"], open: true },
+  { label: "Player Companions", categories: ["Player Companion"], open: false },
+  { label: "Campaign Setting", categories: ["Campaign Setting"], open: false },
   { label: "Adventures", categories: ["Adventure Path", "Module", "Society"], open: false },
-  { label: "Other", categories: [], open: true },
+  { label: "Other", categories: [], open: false },
 ];
 const tierOf = (source: any) =>
   tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
 const inTier = (label: string) => sources.filter((source) => tierOf(source) === label);
 
+/** `2009-08-01` as the page writes it: a fixed English month table, then the year. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthYear = (date: string | undefined) => {
+  const match = /^(\d{4})(?:-(\d{2}))?/.exec(date ?? "");
+  if (!match) return undefined;
+  const month = match[2] ? Number(match[2]) : 0;
+  return month >= 1 && month <= 12 ? `${MONTHS[month - 1]} ${match[1]}` : match[1];
+};
+/** Entries per book as Books counts them: catalog entries by their canonical source (the first book that places them). */
+const owners = bookOwners();
+const bookEntryIds = (book: any): string[] => {
+  const walk = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(walk)];
+  return book.chapters.flatMap(walk);
+};
+const entriesOf = (source: any): number =>
+  corpus.catalog.entries.filter((stub: any) => (owners.get(stub.id) ?? stub.source) === source.id).length;
+
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
-test("Books group by priority tier: Rulebooks first, Adventures collapsed with a count", async ({ page }) => {
+test("Books opens with a title, one count line and a link to Active books, with no lede or sort", async ({ page }) => {
+  await page.goto("#/books");
+  await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+  const count = page.locator(".books-count");
+  // Every book active is the Paizo Everything set.
+  await expect(count).toHaveText(`${grouped(sources.length)} of ${grouped(sources.length)} books active · Paizo Everything`);
+  await expect(count).toHaveAttribute("aria-live", "polite");
+  await expect(page.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+
+  // Nothing between the count line and the groups explains itself.
+  await expect(page.locator(".wide > p")).toHaveCount(1);
+  await expect(page.locator(".hint, .count-scope, .measure")).toHaveCount(0);
+  await expect(page.getByText(/Open a book to read|Active books appear in search|Disabling a book/)).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Sort books" })).toHaveCount(0);
+  await expect(page.locator(".book-sort, .sort-options")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Activate all|Deactivate all|Only Rulebooks/ })).toHaveCount(0);
+});
+
+test("An old ?sort= link opens Books, and the address says so", async ({ page }) => {
+  for (const sort of ["category", "date", "library", "title"]) {
+    await page.goto(`#/books?sort=${sort}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/#\/books$/);
+    await expect(page.locator(".book-tier").first()).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Sort books" })).toHaveCount(0);
+  }
+  // The redirect replaces the entry: one Back leaves Books instead of landing on the old URL.
+  await page.goto("#/settings");
+  await page.goto("#/books?sort=date");
+  await expect(page).toHaveURL(/#\/books$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/settings$/);
+});
+
+test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest closed, with a muted count", async ({ page }) => {
   await page.goto("#/books");
   const present = tiers.filter((tier) => inTier(tier.label).length > 0);
   const groups = page.locator(".book-tier");
   await expect(groups).toHaveCount(present.length);
-  await expect(page.locator(".book-directory-item")).toHaveCount(sources.length);
+  expect(present[0].label).toBe("Rulebooks");
   for (const [index, tier] of present.entries()) {
     const group = groups.nth(index);
     const members = inTier(tier.label);
-    await expect(group.getByRole("heading", { level: 2, name: `${tier.label} (${members.length})`, exact: true })).toBeVisible();
-    const ids = await group
-      .locator(".book-directory-item")
-      .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
+    const heading = group.getByRole("heading", { level: 2 });
+    await expect(heading).toContainText(tier.label);
+    const toggle = heading.getByRole("button");
+    await expect(toggle).toHaveAttribute("aria-expanded", tier.open ? "true" : "false");
+    const list = group.locator("ul.book-directory");
+    expect(await toggle.getAttribute("aria-controls")).toBe(await list.getAttribute("id"));
+    // Every book starts active, so the count is the plain number of books.
+    await expect(group.locator(".tier-active")).toHaveText(`${grouped(members.length)} ${members.length === 1 ? "book" : "books"}`);
+    await expect(group.locator(".tier-chevron")).toHaveCount(1);
+    expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // A closed group keeps its rows out of reach until it opens.
+    if (tier.open) await expect(list.locator(".book-directory-item").first()).toBeVisible();
+    else await expect(list.locator(".book-directory-item").first()).toBeHidden();
+    const ids = await list.locator(".book-directory-item").evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
     expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
-    // Every book starts active, in every tier.
-    await expect(group.locator(".tier-active")).toHaveText(`${members.length} of ${members.length} active`);
-    expect(await group.locator("details.tier-details").evaluate((el) => (el as HTMLDetailsElement).open)).toBe(tier.open);
   }
-  expect(present[0].label).toBe("Rulebooks");
+  await expect(page.locator(".book-directory-item")).toHaveCount(sources.length);
 
-  // Nothing interactive sits inside a summary, and there are no group controls at all: the
-  // presets on Active books are the only bulk action.
-  await expect(page.locator(".tier-summary button, .tier-summary a, .tier-summary input")).toHaveCount(0);
-  await expect(page.locator(".tier-summary > h2")).toHaveCount(present.length);
-  await expect(page.getByRole("button", { name: /Activate all|Deactivate all|Only Rulebooks/ })).toHaveCount(0);
-  await expect(page.locator(".tier-actions, .books-preset")).toHaveCount(0);
-  expect((await page.locator('.book-tier[data-tier="Rulebooks"] .tier-summary').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // The group heading is a heading with one button; nothing else sits in it, and no group acts.
+  await expect(page.locator(".book-group-head a, .book-group-head input, .book-group-head button")).toHaveCount(present.length);
+  await expect(page.locator("details.tier-details, .tier-summary, .tier-actions, .books-preset")).toHaveCount(0);
 
-  // A collapsed group hides its rows until it opens.
+  // Opening and closing flips aria-expanded and the rows.
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
-  if (await adventures.count()) {
-    await expect(adventures.locator(".book-directory-item").first()).toBeHidden();
-    await adventures.locator(".tier-summary").click();
-    await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
-  }
+  const toggle = adventures.getByRole("button");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
+  await toggle.press("Enter");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(adventures.locator(".book-directory-item").first()).toBeHidden();
 });
 
-test("Books sort inside each tier, and the URL keeps the choice", async ({ page }) => {
+test("A group heading looks different from a book row", async ({ page }) => {
   await page.goto("#/books");
-  const sortNav = page.getByRole("navigation", { name: "Sort books" });
-  await expect(sortNav.getByRole("link", { name: "Title", exact: true })).toHaveAttribute("aria-current", "true");
+  const heading = page.locator(".book-group-head").first();
+  const title = page.locator(".book-directory-row .cat-name").first();
+  const style = (locator: typeof heading) =>
+    locator.evaluate((el) => {
+      const css = getComputedStyle(el);
+      return { family: css.fontFamily, weight: css.fontWeight, size: parseFloat(css.fontSize), background: css.backgroundColor, border: css.borderTopWidth };
+    });
+  const group = await style(heading);
+  const row = await style(title);
+  // Serif 700 above sans 600, larger, and with no fill or box.
+  expect(group.family).not.toBe(row.family);
+  expect(Number(group.weight)).toBe(700);
+  expect(Number(row.weight)).toBe(600);
+  expect(group.size).toBeGreaterThan(row.size);
+  expect(group.background).toBe("rgba(0, 0, 0, 0)");
+  expect(group.border).toBe("0px");
+  const toggle = heading.getByRole("button");
+  expect(await toggle.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+  // The count is muted and not bold.
+  const countStyle = await page.locator(".book-tier .tier-active").first().evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { weight: css.fontWeight, color: css.color, ink: getComputedStyle(document.body).color };
+  });
+  expect(Number(countStyle.weight)).toBe(400);
+  expect(countStyle.color).not.toBe(countStyle.ink);
+  // The row is a link with a chevron and a hairline under it.
+  const rowItem = page.locator(".book-directory-item").first();
+  expect(await rowItem.evaluate((el) => getComputedStyle(el).borderBottomWidth)).toBe("1px");
+  await expect(rowItem.locator("svg.book-chevron")).toHaveCount(1);
+});
 
-  // Sort options are navigation: a 6 px rectangle, never a pill.
-  const sortLinks = page.locator(".sort-options a");
-  await expect(page.locator('.sort-options a[aria-current="true"]')).toHaveCount(1);
-  for (const link of await sortLinks.all()) {
-    const radius = await link.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
-    expect(radius).not.toBe("999px");
-    expect(parseFloat(radius)).toBeLessThan(10);
-    const box = await link.boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
-  }
-
-  await sortNav.getByRole("link", { name: "Category", exact: true }).click();
-  await expect(page).toHaveURL(/#\/books\?sort=category$/);
-  const adventureRanks = ["Adventure Path", "Module", "Society"];
-  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
-  const ids: string[] = await adventures
-    .locator(".book-directory-item")
-    .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id") as string));
-  const ranks = ids.map((id) => adventureRanks.indexOf(sources.find((source) => source.id === id)?.category));
-  expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
-
-  // Back and Forward restore the sort state.
-  await page.goBack();
-  await expect(page).toHaveURL(/#\/books$/);
-  await page.goForward();
-  await expect(page).toHaveURL(/#\/books\?sort=category$/);
-
-  await sortNav.getByRole("link", { name: "Publication date", exact: true }).click();
-  await expect(page).toHaveURL(/#\/books\?sort=date$/);
+test("Inside each tier the oldest book comes first and undated books come last", async ({ page }) => {
+  await page.goto("#/books");
+  await openBookGroups(page);
   for (const tier of tiers) {
     const group = page.locator(`.book-tier[data-tier="${tier.label}"]`);
     if (!(await group.count())) continue;
-    const dates: string[] = (
-      await group
-        .locator(".book-directory-item")
-        .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id") as string))
-    )
-      .map((id) => sources.find((source) => source.id === id)?.publication_date)
-      .filter((date): date is string => /^\d{4}-\d{2}-\d{2}$/.test(date ?? ""));
-    expect([...dates].sort().reverse(), tier.label).toEqual(dates);
-  }
-
-  await sortNav.getByRole("link", { name: "Library order", exact: true }).click();
-  await expect(page).toHaveURL(/#\/books\?sort=library$/);
-  await expect(page.locator(".book-tier")).toHaveCount(0);
-  expect(
-    await page
+    const ids: string[] = await group
       .locator(".book-directory-item")
-      .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id"))),
-  ).toEqual(sources.map((source) => source.id));
+      .evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id") as string));
+    const dated = ids
+      .map((id) => sources.find((source) => source.id === id)?.publication_date as string | undefined)
+      .map((date) => (/^\d{4}/.test(date ?? "") ? (date as string) : null));
+    const known = dated.filter((date): date is string => date !== null);
+    expect([...known].sort(), tier.label).toEqual(known);
+    // An undated book never comes before a dated one.
+    const firstUndated = dated.indexOf(null);
+    if (firstUndated >= 0) expect(dated.slice(firstUndated).every((date) => date === null), tier.label).toBe(true);
+  }
+});
 
-  await sortNav.getByRole("link", { name: "Title", exact: true }).click();
+test("A book row shows a month-year and an entry count, and the Inactive tag only on an inactive book", async ({ page }) => {
+  const source = inTier("Rulebooks").find((candidate) => /^\d{4}-\d{2}/.test(candidate.publication_date ?? ""))!;
+  await page.goto("#/books");
+  const row = page.locator(`.book-directory-item[data-book-id="${source.id}"]`);
+  const entries = entriesOf(source);
+  await expect(row.locator(".cat-blurb")).toHaveText(`${monthYear(source.publication_date)} · ${grouped(entries)} ${entries === 1 ? "entry" : "entries"}`);
+  await expect(row.locator(".tag")).toHaveCount(0);
+  await expect(page.getByText("Disabled")).toHaveCount(0);
+
+  // Deactivate it on its own page: the row on Books ends with a muted Inactive label.
+  await row.locator("a.book-directory-row").click();
+  await page.locator(".book-active-row").getByRole("checkbox", { name: "Active", exact: true }).uncheck();
+  await page.goBack();
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  const inactive = row.locator(".tag");
+  await expect(inactive).toHaveText("Inactive");
+  await expect(row.locator(".cat-blurb")).toContainText(`${grouped(entries)}`);
+  // A label has no border and no fill (the row around it is the link).
+  expect(await inactive.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return [css.borderTopWidth, css.backgroundColor];
+  })).toEqual(["0px", "rgba(0, 0, 0, 0)"]);
+  await expect(page.locator(".books-count")).toHaveText(
+    `${grouped(sources.length - 1)} of ${grouped(sources.length)} books active · Custom`,
+  );
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-active')).toHaveText(
+    `${grouped(inTier("Rulebooks").length - 1)} of ${grouped(inTier("Rulebooks").length)} active`,
+  );
+  // Every other row is untouched.
+  await expect(page.locator(".book-directory-item .tag")).toHaveCount(1);
+});
+
+test("The groups the reader opened stay open on Back, before the scroll position returns", async ({ page }) => {
+  await page.goto("#/books");
+  const adventures = page.locator('.book-tier[data-tier="Adventures"]');
+  await adventures.getByRole("button").click();
+  const items = adventures.locator(".book-directory-item");
+  const count = await items.count();
+  expect(count).toBeGreaterThan(8);
+  const target = items.nth(count - 1);
+  const id = (await target.getAttribute("data-book-id"))!;
+  await target.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 40));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  await target.locator("a.book-directory-row").click();
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(id)}`));
+  await page.goBack();
   await expect(page).toHaveURL(/#\/books$/);
   await expect(page.locator(".book-tier").first()).toBeVisible();
+  // The group is open again and the position is where it was.
+  await expect(adventures.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+  await expect(adventures.locator(".book-directory-item").last()).toBeVisible();
+  await expect
+    .poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before), { timeout: 5000 })
+    .toBeLessThanOrEqual(2);
+
+  // A group the reader closed stays closed: Rulebooks was open by default.
+  await page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button").click();
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  await page.goto("#/settings");
+  await page.goto("#/books");
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  await expect(adventures.getByRole("button")).toHaveAttribute("aria-expanded", "true");
 });
 
 test("A book row is one link to its book page, with no checkbox, no inline tree and no Read link", async ({ page }) => {
@@ -133,11 +248,11 @@ test("A book row is one link to its book page, with no checkbox, no inline tree 
   await expect(page.locator(".book-tree, [data-testid=book-tree], .book-tree-root")).toHaveCount(0);
   await expect(page.locator(".book-directory-item").getByRole("link", { name: /^Read / })).toHaveCount(0);
 
-  // A row is a link and nothing else: no checkbox, no switch, one 44 px target.
+  // A row is a link and nothing else: no checkbox, no switch, a 56 px target for two lines.
   await expect(item.locator("input")).toHaveCount(0);
   await expect(page.locator(".book-directory-item input")).toHaveCount(0);
   const linkBox = (await link.boundingBox())!;
-  expect(linkBox.height).toBeGreaterThanOrEqual(44);
+  expect(linkBox.height).toBeGreaterThanOrEqual(56);
 
   await link.click();
   await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(book.source)}`));
@@ -145,19 +260,158 @@ test("A book row is one link to its book page, with no checkbox, no inline tree 
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
 });
 
+test("A book page opens with its title, a meta line and the Active row, with no breadcrumb", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
+  const source = sources.find((row) => row.id === book.source)!;
+  await page.goto(`#/browse/book/${book.source}`);
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
+  await expect(main.locator("nav.crumbs, .crumbs")).toHaveCount(0);
+  await expect(main.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+
+  // Title, then meta, then the Active row, then Contents, in that order.
+  const entries = entriesOf(source);
+  const meta = page.getByTestId("source-count");
+  await expect(meta).toHaveText(`${monthYear(source.publication_date)} · ${grouped(entries)} ${entries === 1 ? "entry" : "entries"}`);
+  const y = async (locator: ReturnType<typeof page.locator>) => (await locator.boundingBox())!.y;
+  const order = [
+    await y(main.getByRole("heading", { level: 1 })),
+    await y(meta),
+    await y(page.locator(".book-active-row")),
+    await y(main.getByRole("heading", { level: 2, name: "Contents", exact: true })),
+  ];
+  expect([...order].sort((a, b) => a - b)).toEqual(order);
+
+  // The old explanations are gone.
+  await expect(page.locator(".order-note, .toc-flag, .toc-note")).toHaveCount(0);
+  await expect(page.getByText(/Book contents still need review|How this list was made|Position unverified|check order|New entries \(page order\)/)).toHaveCount(0);
+  // One quiet line under Contents says the order is a draft.
+  const review = page.locator(".review-line");
+  await expect(review).toHaveText("Chapter order not yet checked against the printed book");
+  expect(await review.evaluate((el) => getComputedStyle(el).fontWeight)).toBe("400");
+});
+
+test("The copyright is printed once, in the colophon at the bottom, each distinct notice once", async ({ page }) => {
+  // The Advanced Player's Guide carried the same notice three times.
+  const source = sources.find((row) => row.id === "advanced-players-guide")!;
+  expect(source.copyright.split("Jason Bulmahn").length - 1, "the corpus still repeats it").toBeGreaterThan(1);
+  await page.goto(`#/browse/book/${source.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: source.title, exact: true })).toBeVisible();
+  await expect(page.locator(".copyright")).toHaveCount(1);
+  const text = await page.locator(".copyright").innerText();
+  expect(text.split("© 2010").length - 1).toBe(1);
+  expect(text).toContain("Jason Bulmahn");
+  // Nothing of it sits under the title: it is the last block, in a footer, before the page ends.
+  const colophon = page.locator("footer.colophon");
+  await expect(colophon).toHaveCount(1);
+  await expect(colophon.locator(".copyright")).toHaveCount(1);
+  await expect(colophon.getByRole("link", { name: "Legal and attribution" })).toHaveAttribute("href", "#/legal");
+  const colophonY = (await colophon.boundingBox())!.y;
+  expect(colophonY).toBeGreaterThan((await page.locator(".book-active-row").boundingBox())!.y);
+  expect(colophonY).toBeGreaterThan((await page.locator("nav.toc, .review-line").first().boundingBox())!.y);
+  await expect(page.locator(".book > .copyright")).toHaveCount(0);
+
+  // A reprint's notice has its own year: both stay.
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  await page.goto(`#/browse/book/${core.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: core.title, exact: true })).toBeVisible();
+  const lines = await page.locator("footer.colophon .copyright").allInnerTexts();
+  expect(lines.length).toBeGreaterThan(1);
+  expect(new Set(lines).size).toBe(lines.length);
+  expect(lines.join(" ")).toContain("2009");
+  expect(lines.join(" ")).toContain("2010");
+});
+
+test("Contents lists spells, feats, class options and items until the kind links ship", async ({ page }) => {
+  // The owner wants these kinds reached through `In this book` (#158). Until that exists, leaving
+  // them out would leave them unreachable from a book page, so the page lists them and the
+  // exclusion is one switch (`LEAVE_OUT_LINKED_KINDS`) that #158 turns on.
+  const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  const hidden = CONTENTS_HIDDEN_KINDS;
+  const book = bookTrees().find((candidate) => candidate.source === "core-rulebook") ?? bookTrees()[0];
+  await page.goto(`#/browse/book/${book.source}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
+  await expect(tree).toBeVisible();
+
+  // Open every chapter and section, then no row may lead to a hidden kind.
+  for (let round = 0; round < 6; round++) {
+    const closed = tree.locator("details.toc-details:not([open]) > summary");
+    const n = await closed.count();
+    if (!n) break;
+    for (let i = n - 1; i >= 0; i--) await closed.nth(i).click().catch(() => undefined);
+  }
+  const hrefs: string[] = await tree.locator('a[href^="#/entry/"]').evaluateAll((links) => links.map((a) => a.getAttribute("href") as string));
+  expect(hrefs.length).toBeGreaterThan(0);
+  const kinds = new Set(hrefs.map((href) => kindOf.get(decodeURIComponent(href.slice("#/entry/".length).split("?")[0]))));
+  for (const kind of hidden) expect(kinds.has(kind), `${kind} appears in Contents`).toBe(false);
+  if (!CONTENTS_LEAVES_OUT_LINKED_KINDS) {
+    // Every kind that the links will reach is listed today.
+    const placed = new Set(bookEntryIds(book).map((id) => kindOf.get(id)));
+    for (const kind of LINKED_KINDS) if (placed.has(kind)) expect(kinds.has(kind), `${kind} is missing from Contents`).toBe(true);
+  }
+
+  // A top-level chapter that held only left-out kinds is not listed (none, while the switch is off).
+  const entriesOf = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(entriesOf)];
+  const onlyHidden = book.chapters.filter((chapter: any) => {
+    const ids = entriesOf(chapter);
+    return ids.length > 0 && ids.every((id) => hidden.has(kindOf.get(id) as string));
+  });
+  const titles = (await tree.locator(".toc-top > li > .toc-details > summary .toc-title, .toc-top > li.toc-leaf > a").allInnerTexts()).map((t) => t.trim());
+  for (const chapter of onlyHidden) expect(titles, chapter.title).not.toContain(chapter.title);
+  expect(titles.length).toBe(book.chapters.length - onlyHidden.length);
+});
+
+test("The catch-all chapter is renamed and is not shown when nothing is left in it", async ({ page }) => {
+  const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  const hidden = CONTENTS_HIDDEN_KINDS;
+  const withCatchAll = bookTrees().filter((book) => book.chapters.some((chapter: any) => chapter.title === "New entries (page order)"));
+  expect(withCatchAll.length).toBeGreaterThan(0);
+  const leaves = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(leaves)];
+  for (const book of withCatchAll) {
+    const catchAll = book.chapters.find((chapter: any) => chapter.title === "New entries (page order)");
+    const left = leaves(catchAll).filter((id) => !hidden.has(kindOf.get(id) as string));
+    await page.goto(`#/browse/book/${book.source}`);
+    await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
+    await expect(page.getByText("New entries (page order)")).toHaveCount(0);
+    const rows = page.locator(".toc-top > li");
+    await expect(rows.first()).toBeVisible();
+    const more = rows.filter({ hasText: "More from this book" });
+    const lone = book.chapters.filter((chapter: any) => leaves(chapter).some((id: string) => !hidden.has(kindOf.get(id) as string))).length === 1;
+    if (left.length === 0) await expect(more).toHaveCount(0);
+    else if (!lone) await expect(more).toHaveCount(1);
+  }
+});
+
+test("A book page highlights the Books tab, also from an old publication link", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
+  await page.goto(`#/browse/book/${book.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveCount(1);
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
+
+  // The old publication address is the book page: same tab, and the address becomes the book's.
+  await page.goto("#/");
+  await page.goto(`#/browse/source/${book.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(book.source)}$`));
+  await expect(page.locator('a.nav-link[href="#/"]')).not.toHaveAttribute("aria-current", "page");
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/$/);
+});
+
 test("Back from a book page returns to Books at the same scroll position", async ({ page }) => {
   await page.goto("#/books");
   await expect(page.locator(".book-tier").first()).toBeVisible();
-  // Use the groups as they open by default: a collapsed group is not part of the saved position.
-  const items = page.locator("details.tier-details[open] .book-directory-item");
+  // Use the group that is open by default.
+  const items = page.locator('.book-tier[data-tier="Rulebooks"] .book-directory-item');
   const count = await items.count();
-  expect(count).toBeGreaterThan(8);
+  expect(count).toBeGreaterThan(3);
   const target = items.nth(count - 1);
   const id = (await target.getAttribute("data-book-id"))!;
   await target.scrollIntoViewIfNeeded();
   await page.evaluate(() => window.scrollBy(0, 40));
   const before = await page.evaluate(() => Math.round(window.scrollY));
-  expect(before).toBeGreaterThan(200);
   await target.locator("a.book-directory-row").click();
   await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(id)}`));
   await page.goBack();
@@ -169,10 +423,17 @@ test("Back from a book page returns to Books at the same scroll position", async
 });
 
 test("A book page shows a hierarchical contents tree and builds closed branches lazily", async ({ page }) => {
+  const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  const hidden = CONTENTS_HIDDEN_KINDS;
+  const shown = (node: any): boolean => {
+    const entries = (n: any): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(entries)];
+    const all = entries(node);
+    return all.length === 0 || all.some((id) => !hidden.has(kindOf.get(id) as string));
+  };
   const book =
     bookTrees().find((candidate) =>
       candidate.chapters.some((chapter) =>
-        (chapter.children ?? []).some((child) => (child.children ?? []).length > 0),
+        (chapter.children ?? []).some((child) => (child.children ?? []).length > 0 && shown(child)) && shown(chapter),
       ),
     ) ?? bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0));
   if (!book) throw new Error("The compiled corpus has no book with nested contents.");
@@ -181,8 +442,10 @@ test("A book page shows a hierarchical contents tree and builds closed branches 
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
   await expect(tree).toBeVisible();
 
-  const chapterIndex = book.chapters.findIndex((chapter) => (chapter.children ?? []).length > 0);
-  const chapter = book.chapters[chapterIndex];
+  // A chapter with at least one listed child: the first such chapter, counted among listed rows.
+  const listedTop = book.chapters.filter((chapter: any) => shown(chapter));
+  const chapter: any = listedTop.find((candidate: any) => (candidate.children ?? []).some(shown) && (candidate.children ?? []).length > 0);
+  const chapterIndex = listedTop.indexOf(chapter);
   const chapterRow = tree.locator(".toc-top > li").nth(chapterIndex);
   const chapterSummary = chapterRow.locator(":scope > .toc-details > summary");
   await expect(chapterSummary).toContainText(chapter.title);
@@ -213,6 +476,8 @@ test("A book page shows a hierarchical contents tree and builds closed branches 
     await branch.locator(":scope > .toc-details > summary").click();
     await expect(branchChildren).toBeVisible();
   }
+  // No row on the page carries a flag or a note about its position.
+  await expect(page.locator(".toc-flag, .toc-note")).toHaveCount(0);
 });
 
 test("A chapter toggle that Back overtakes does not rewrite the Books entry", async ({ page }) => {

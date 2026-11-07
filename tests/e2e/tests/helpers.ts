@@ -371,14 +371,15 @@ export function buildNewerManifest() {
 }
 
 /**
- * Open every priority-tier group on the Books page. Adventures start collapsed, so a test that
+ * Open every priority-tier group on the Books page. Only Rulebooks start open, so a test that
  * reaches a book by title opens the groups first. Waits for the groups to be in the document.
  */
 export async function openBookGroups(page: Page) {
   await expect(page.locator(".book-tier").first()).toBeVisible();
-  await page.locator("details.tier-details").evaluateAll((groups) => {
-    for (const group of groups) (group as HTMLDetailsElement).open = true;
-  });
+  const closed = page.locator('.tier-toggle[aria-expanded="false"]');
+  // Each click removes one match, so always take the first.
+  for (let left = await closed.count(); left > 0; left--) await closed.first().click();
+  await expect(page.locator('.tier-toggle[aria-expanded="false"]')).toHaveCount(0);
 }
 
 /** Follow the publication directory through its row link to the book page. */
@@ -598,6 +599,28 @@ export function bookTrees(): BookTree[] {
     cachedBooks = file.books;
   }
   return cachedBooks!;
+}
+
+/** The kinds that the `In this book` links (#158) will reach. */
+export const LINKED_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+/**
+ * Whether Contents leaves those kinds out. Off until #158 ships the links (`LEAVE_OUT_LINKED_KINDS`
+ * in `views/book.rs`); the tests follow this one switch.
+ */
+export const CONTENTS_LEAVES_OUT_LINKED_KINDS = false;
+/** The kinds Contents leaves out right now. */
+export const CONTENTS_HIDDEN_KINDS: Set<string> = CONTENTS_LEAVES_OUT_LINKED_KINDS ? LINKED_KINDS : new Set();
+
+/** The titles the top level of Contents shows, as the page writes them. */
+export function listedChapterTitles(book: BookTree): string[] {
+  const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
+  const ids = (node: TocNode): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(ids)];
+  const listed = book.chapters.filter((chapter) => {
+    const all = ids(chapter);
+    return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
+  });
+  const rename = (title: string) => (title === "New entries (page order)" ? "More from this book" : title);
+  return listed.map((chapter) => rename(chapter.title));
 }
 
 /** The chapter path of an entry in a book tree, or null when the book does not place it. */

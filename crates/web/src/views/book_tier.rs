@@ -86,18 +86,6 @@ impl Tier {
         }
     }
 
-    /// The position of a category inside the table: the order that the Category sort uses
-    /// within a tier. Unrecognized values and `None` come last.
-    pub fn category_rank(category: Option<&str>) -> usize {
-        category
-            .and_then(|value| {
-                Self::CATEGORIES
-                    .iter()
-                    .position(|(known, _)| *known == value)
-            })
-            .unwrap_or(Self::CATEGORIES.len())
-    }
-
     /// The tie-break rank that search uses: lower sorts first on equal relevance. It is the
     /// tier's position in [`Tier::ALL`], so Rulebooks are 0. Other takes the search crate's
     /// neutral rank, so a source with no reviewed category sorts like one that search has no
@@ -128,6 +116,13 @@ impl Tier {
         self == Tier::Adventures
     }
 
+    /// On Books and Active books only Rulebooks start open: the others are one tap away, and
+    /// the first screen shows the books that matter most. A reader's choice replaces this for
+    /// the rest of the session ([`OpenGroups`]).
+    pub fn open_by_default(self) -> bool {
+        self == Tier::Rulebooks
+    }
+
     /// Every tier but Rulebooks is a disclosure in the search Publication filter. Rulebooks
     /// matter most and lead the list, so they are a plain group that is always listed.
     pub fn is_disclosure(self) -> bool {
@@ -135,9 +130,68 @@ impl Tier {
     }
 }
 
+/// Which groups on Books and Active books the reader has opened or closed. It is kept in memory
+/// for the session, so Back to Books finds the same groups open before the page restores the
+/// scroll position: a position inside an opened group would otherwise land on closed rows.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct OpenGroups {
+    chosen: std::collections::BTreeMap<Tier, bool>,
+}
+
+impl OpenGroups {
+    pub fn is_open(&self, tier: Tier) -> bool {
+        self.chosen
+            .get(&tier)
+            .copied()
+            .unwrap_or_else(|| tier.open_by_default())
+    }
+
+    pub fn set(&mut self, tier: Tier, open: bool) {
+        self.chosen.insert(tier, open);
+    }
+}
+
+thread_local! {
+    static OPEN_GROUPS: std::cell::RefCell<OpenGroups> = std::cell::RefCell::new(OpenGroups::default());
+}
+
+/// Whether a group starts open on this visit: the reader's last choice, else the default.
+pub fn group_is_open(tier: Tier) -> bool {
+    OPEN_GROUPS.with(|groups| groups.borrow().is_open(tier))
+}
+
+/// Records that the reader opened or closed a group.
+pub fn remember_group(tier: Tier, open: bool) {
+    OPEN_GROUPS.with(|groups| groups.borrow_mut().set(tier, open));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_rulebooks_start_open_and_a_choice_replaces_that() {
+        let mut groups = OpenGroups::default();
+        for tier in Tier::ALL {
+            assert_eq!(groups.is_open(tier), tier == Tier::Rulebooks, "{tier:?}");
+        }
+        groups.set(Tier::Adventures, true);
+        groups.set(Tier::Rulebooks, false);
+        assert!(groups.is_open(Tier::Adventures));
+        assert!(!groups.is_open(Tier::Rulebooks));
+        // The other groups keep their default.
+        assert!(!groups.is_open(Tier::Other));
+        groups.set(Tier::Adventures, false);
+        assert!(!groups.is_open(Tier::Adventures));
+    }
+
+    #[test]
+    fn the_session_remembers_each_group_it_was_told_about() {
+        remember_group(Tier::CampaignSetting, true);
+        assert!(group_is_open(Tier::CampaignSetting));
+        remember_group(Tier::CampaignSetting, false);
+        assert!(!group_is_open(Tier::CampaignSetting));
+    }
     use std::collections::BTreeSet;
 
     #[test]

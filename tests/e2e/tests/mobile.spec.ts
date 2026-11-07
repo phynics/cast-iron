@@ -74,7 +74,7 @@ installedTest("A creature breadcrumb is one line of working links at 390 px", as
   expect((await crumbs.boundingBox())!.height).toBeLessThanOrEqual(60);
 });
 
-test("Book rows, the book page contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
+test("Book rows, the book page contents tree and the groups fit the mobile viewport", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   await openBookGroups(page);
@@ -87,7 +87,7 @@ test("Book rows, the book page contents tree, and the sort control fit the mobil
   // The row is a link and nothing else: no checkbox on Books.
   await expect(row.locator("input")).toHaveCount(0);
   const linkBox = (await link.boundingBox())!;
-  expect(linkBox.height).toBeGreaterThanOrEqual(44);
+  expect(linkBox.height).toBeGreaterThanOrEqual(56);
   expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(390);
   expect(await overflow()).toBeLessThanOrEqual(0);
 
@@ -96,15 +96,15 @@ test("Book rows, the book page contents tree, and the sort control fit the mobil
   await expect(tree).toBeVisible();
   await tree.locator(".toc-top > li > .toc-details > summary").first().click();
   expect(await overflow()).toBeLessThanOrEqual(0);
-  await page.goBack();
-  await expect(page.locator(".book-tier").first()).toBeVisible();
 
-  await page.getByRole("navigation", { name: "Sort books" }).getByRole("link", { name: "Publication date", exact: true }).click();
-  await expect(page.locator(".book-tier").first()).toBeVisible();
-  const sortOverflow = await page.evaluate(
-    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
-  );
-  expect(sortOverflow).toBeLessThanOrEqual(0);
+  // The book page has no breadcrumb, its first screen holds the title, the meta line, the Active
+  // row and the Contents heading, and nothing overflows with a chapter open.
+  await expect(page.locator("main .crumbs")).toHaveCount(0);
+  await expect(page.getByTestId("source-count")).toBeVisible();
+  const heading = page.getByRole("heading", { level: 2, name: "Contents", exact: true });
+  await expect(heading).toBeVisible();
+  expect((await heading.boundingBox())!.y).toBeLessThan(844);
+  expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
 test("Books and Active books fit 390 px with full-size touch targets", async ({ page }) => {
@@ -114,7 +114,13 @@ test("Books and Active books fit 390 px with full-size touch targets", async ({ 
   await expect(groups.first()).toBeVisible();
   await expect(groups.first().getByRole("heading", { level: 2 })).toContainText("Rulebooks");
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
-  await expect(adventures.locator("details.tier-details")).not.toHaveAttribute("open", "");
+  await expect(adventures.getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  // Every group heading is a 44 px target that stays inside the screen.
+  for (const toggle of await page.locator(".tier-toggle").all()) {
+    const box = (await toggle.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
   const overflow = async () =>
     page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
 
@@ -145,7 +151,7 @@ test("Books and Active books fit 390 px with full-size touch targets", async ({ 
   const box = (await row.getByRole("checkbox").boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(20);
   expect(await overflow()).toBeLessThanOrEqual(0);
-  await adventures.locator(".tier-summary").click();
+  await adventures.getByRole("button").click();
   await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
   expect(await overflow()).toBeLessThanOrEqual(0);
 });

@@ -220,7 +220,9 @@ test("A shared feat type link with another case still reads as that type, and an
   await expect(main.locator(".list-count")).toHaveText(`0 of ${count(featCount)} feats · Show all`);
   await expect(typeButton(page)).toHaveText("Type: All types");
   await expect(main.getByText("No Nonesuch feats in your active books.")).toBeVisible();
-  await expect(main.getByRole("link", { name: "Choose books" })).toBeVisible();
+  // The way out is the page where the active set changes, not the read-only Books list.
+  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await expect(main.getByRole("link", { name: "Choose books" })).toHaveCount(0);
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all feats" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat");
 });
@@ -361,7 +363,9 @@ test("An item category that no active book holds shows the empty state with the 
   await expect(main.locator(".list-count")).toHaveText(`0 of ${count(itemCount)} items · Show all`);
   await expect(categoryButton(page)).toHaveText("Category: All categories");
   await expect(main.getByText("No Nonesuch in your active books.")).toBeVisible();
-  await expect(main.getByRole("link", { name: "Choose books" })).toBeVisible();
+  // The way out is the page where the active set changes, not the read-only Books list.
+  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await expect(main.getByRole("link", { name: "Choose books" })).toHaveCount(0);
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all items" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item");
 });

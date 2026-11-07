@@ -2,13 +2,17 @@
 //! the previous/next control that an entry shows for its place in a book.
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
+//! Contents can leave out the kinds that the `In this book` links will reach (see
+//! [`LEAVE_OUT_LINKED_KINDS`], off until #158); the page keeps every chapter's real path, so a
+//! chapter link, `c=3.2` in the address and the trail above an entry all mean what they meant.
 
-use crate::graph::{BookLookup, entries_under, node_at};
+use crate::fmt;
+use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, current_hash, replace, toc_id, use_route};
 use crate::views::active_books::save_book_active;
-use crate::views::util::{Shared, book_count_line, local_resource, set_title};
-use cast_iron_schema::{BookNode, EntryId};
+use crate::views::util::{Shared, local_resource, set_title};
+use cast_iron_schema::{BookNode, EntryId, EntryKind};
 use leptos::prelude::*;
 use std::collections::HashSet;
 
@@ -54,6 +58,118 @@ pub fn path_after_toggle(path: &[usize], opened: bool) -> Option<Vec<usize>> {
             .map(|(_, parent)| parent.to_vec())
             .filter(|p| !p.is_empty())
     }
+}
+
+/// Whether Contents leaves out the kinds that the `In this book` links (#158) reach.
+///
+/// **Off until #158 ships.** The owner decided on 2026-11-07 that Contents should not list
+/// spells, feats, items and class options, because a book holds thousands of them and the kind
+/// links reach them as list pages filtered to the book. Those links are not built yet, so
+/// leaving the entries out now would leave them unreachable from a book page. The logic below
+/// is complete and tested with the set on; #158 switches it on by setting this to `true`.
+pub const LEAVE_OUT_LINKED_KINDS: bool = false;
+
+/// The kinds that `In this book` will reach: spells, feats, items and the class options
+/// (classes, prestige classes and archetypes).
+pub fn linked_kind(kind: EntryKind) -> bool {
+    matches!(
+        kind,
+        EntryKind::Spell
+            | EntryKind::Feat
+            | EntryKind::Item
+            | EntryKind::Class
+            | EntryKind::PrestigeClass
+            | EntryKind::Archetype
+    )
+}
+
+/// True when Contents leaves a kind out. Always false while [`LEAVE_OUT_LINKED_KINDS`] is off.
+pub fn hidden_from_contents(kind: EntryKind) -> bool {
+    LEAVE_OUT_LINKED_KINDS && linked_kind(kind)
+}
+
+/// Says whether Contents leaves an entry out. An entry the catalog does not know is kept.
+pub type Hide<'a> = &'a dyn Fn(&EntryId) -> bool;
+
+/// True when a node still has something to list. A node whose entries are all left out has
+/// nothing; a node with no entry anywhere under it is kept as the compiler wrote it.
+pub fn shows_in_contents(node: &BookNode, hide: Hide<'_>) -> bool {
+    fn all_hidden(node: &BookNode, hide: Hide<'_>, seen: &mut bool) -> bool {
+        if let Some(entry) = &node.entry {
+            *seen = true;
+            if !hide(entry) {
+                return false;
+            }
+        }
+        node.children
+            .iter()
+            .all(|child| all_hidden(child, hide, seen))
+    }
+    let mut seen = false;
+    !(all_hidden(node, hide, &mut seen) && seen)
+}
+
+/// The indices of the children of `node` that Contents lists, in book order.
+pub fn listed_children(node: &BookNode, hide: Hide<'_>) -> Vec<usize> {
+    (0..node.children.len())
+        .filter(|&i| shows_in_contents(&node.children[i], hide))
+        .collect()
+}
+
+/// The entries under a node, itself included, that Contents lists: the number a chapter shows.
+pub fn listed_under(node: &BookNode, hide: Hide<'_>) -> usize {
+    let own = node.entry.as_ref().is_some_and(|entry| !hide(entry));
+    usize::from(own)
+        + node
+            .children
+            .iter()
+            .map(|child| listed_under(child, hide))
+            .sum::<usize>()
+}
+
+/// The title that the compiler gives the chapter of entries that no curated chapter places.
+const CATCH_ALL_TITLE: &str = "New entries (page order)";
+
+/// What a reader sees for it. The title says how the list was made, which a reader does not
+/// need; the corpus carries the old title, so the page renames it (the pin bump that renames it
+/// at the source is the corpus owner's).
+const CATCH_ALL_LABEL: &str = "More from this book";
+
+/// The label of a chapter or section row.
+pub fn chapter_label(title: &str) -> String {
+    if title == CATCH_ALL_TITLE {
+        return CATCH_ALL_LABEL.to_string();
+    }
+    crate::views::util::section_label(title)
+}
+
+/// The paths of the rows at the top of Contents. A book whose one remaining chapter is the
+/// catch-all shows that chapter's rows at the top, not a lone `More from this book` heading
+/// over them. Paths are real: they index the whole tree, not the listed rows.
+pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> {
+    let listed: Vec<usize> = (0..chapters.len())
+        .filter(|&i| shows_in_contents(&chapters[i], hide))
+        .collect();
+    if let [only] = listed[..] {
+        let node = &chapters[only];
+        if node.title == CATCH_ALL_TITLE && node.entry.is_none() {
+            return listed_children(node, hide)
+                .into_iter()
+                .map(|child| vec![only, child])
+                .collect();
+        }
+    }
+    listed.into_iter().map(|i| vec![i]).collect()
+}
+
+/// The one line under `Contents`. Every book's order is a draft until its evidence is complete
+/// (PRODUCT.md), so a book with review items says so, quietly; the long notes stay in
+/// `docs/research/book-order-evidence.md`.
+pub const REVIEW_LINE: &str = "Chapter order not yet checked against the printed book";
+
+/// The review line for a book, or `None` when the compiler recorded no open question.
+pub fn review_line(review: &[String]) -> Option<&'static str> {
+    (!review.is_empty()).then_some(REVIEW_LINE)
 }
 
 /// The book's own Active row: a toggle row (DESIGN.md, Toggles). The whole row is a `<label>`
@@ -121,67 +237,75 @@ pub fn BookView(source: String) -> impl IntoView {
     let title = info
         .as_ref()
         .map_or_else(|| source.clone(), |s| s.title.clone());
-    let copyright = info.as_ref().and_then(|s| s.copyright.clone());
-    let header_source = source.clone();
+    // The same line and the same count as the book's row on Books. The catalog count is known
+    // at once, so the line does not wait for `books.json`.
+    let meta = info.as_ref().map(|s| {
+        let entries = library
+            .source_entry_counts()
+            .get(&s.id)
+            .copied()
+            .unwrap_or(0);
+        fmt::book_meta(s.publication_date.as_deref(), entries)
+    });
+    // The notices are printed once, at the bottom, each distinct notice once.
+    let notices = info
+        .as_ref()
+        .and_then(|s| s.copyright.as_deref())
+        .map(fmt::notice_lines)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|line| view! { <p class="copyright">{line}</p> })
+        .collect_view();
     let active_row = view! { <ActiveRow library=library.clone() source=source.clone() /> };
     view! {
         <div class="wide book">
-            <nav class="crumbs" aria-label="Breadcrumb">
-                <ol>
-                    <li><a href=Route::Books.href()>"Books"</a></li>
-                </ol>
-            </nav>
             <h1>{title}</h1>
+            {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
             {active_row}
-            {move || {
-                // The header waits for the same resource as the contents tree, so it counts
-                // exactly the entries the tree can show.
-                let source = header_source.clone();
-                lookup.with(|state| match state {
-                    Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
-                        Some(index) => {
-                            let n = books.book_at(index).map_or(0, |book| book_entry_count(&book.chapters));
-                            view! { <p class="muted" data-testid="source-count">{book_count_line(n)}</p> }.into_any()
-                        }
-                        None => ().into_any(),
-                    },
-                    _ => ().into_any(),
-                })
-            }}
-            {copyright.map(|line| view! { <p class="copyright">{line}</p> })}
-            {move || {
-                let source = source.clone();
-                lookup.with(|state| match state {
-                    None => view! { <p class="status" role="status">"Loading contents…"</p> }.into_any(),
-                    Some(Err(error)) => view! {
-                        <div class="error" role="alert">
-                            <p>{error.to_string()}</p>
+            // IN THIS BOOK (#158): the kind links go here, between the Active row and Contents.
+            // When they ship, set `LEAVE_OUT_LINKED_KINDS` so Contents stops listing the kinds
+            // that they reach (spells, feats, items, class options).
+            <section class="book-contents" aria-labelledby="book-contents-head">
+                <h2 id="book-contents-head">"Contents"</h2>
+                {move || {
+                    let source = source.clone();
+                    let library = library.clone();
+                    lookup.with(|state| match state {
+                        None => view! { <p class="status" role="status">"Loading contents…"</p> }.into_any(),
+                        Some(Err(error)) => view! {
+                            <div class="error" role="alert">
+                                <p>{error.to_string()}</p>
+                                <p><a href=Route::Settings.href()>"Open Settings"</a></p>
+                            </div>
+                        }.into_any(),
+                        Some(Ok(None)) => view! {
+                            <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
                             <p><a href=Route::Settings.href()>"Open Settings"</a></p>
-                        </div>
-                    }.into_any(),
-                    Some(Ok(None)) => view! {
-                        <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
-                        <p><a href=Route::Settings.href()>"Open Settings"</a></p>
-                    }.into_any(),
-                    Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
-                        Some(index) => view! {
-                            <Contents lookup=Shared::from_rc(books.clone()) book=index source target />
                         }.into_any(),
-                        None => view! {
-                            <p class="notice">"This library has no chapter order for this book."</p>
-                        }.into_any(),
-                    },
-                })
-            }}
-            <p class="muted"><a href=Route::Legal.href()>"Legal and attribution"</a></p>
+                        Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
+                            Some(index) => view! {
+                                <Contents lookup=Shared::from_rc(books.clone()) library book=index source target />
+                            }.into_any(),
+                            None => view! {
+                                <p class="notice">"This library has no chapter order for this book."</p>
+                            }.into_any(),
+                        },
+                    })
+                }}
+            </section>
+            <footer class="colophon">
+                {notices}
+                <p class="muted"><a href=Route::Legal.href()>"Legal and attribution"</a></p>
+            </footer>
         </div>
     }
 }
 
-/// The draft notice and the contents tree of one book.
+/// The review line and the contents tree of one book.
 #[component]
 fn Contents(
     lookup: Shared<BookLookup>,
+    library: Library,
     book: usize,
     source: String,
     target: RwSignal<Option<Vec<usize>>>,
@@ -190,14 +314,27 @@ fn Contents(
         return ().into_any();
     };
     let label = format!("Contents of {}", tree.title);
-    let chapters = tree.chapters.len();
-    let items = (0..chapters)
-        .map(|i| {
-            view! { <TocNode lookup=lookup.clone() book source=source.clone() path=vec![i] target /> }
+    let roots = contents_roots(&tree.chapters, &|id| {
+        library
+            .stub(id)
+            .is_some_and(|stub| hidden_from_contents(stub.kind))
+    });
+    let review = review_line(&tree.review);
+    if roots.is_empty() {
+        return view! {
+            {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
+            <p class="muted">"This book's entries are spells, feats, items and class options. Find them from Home or Search."</p>
+        }
+        .into_any();
+    }
+    let items = roots
+        .into_iter()
+        .map(|path| {
+            view! { <TocNode lookup=lookup.clone() library=library.clone() book source=source.clone() path target /> }
         })
         .collect_view();
     view! {
-        <OrderNote basis=tree.basis.clone() review=tree.review.clone() />
+        {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
         <nav class="toc" aria-label=label>
             <ol class="toc-list toc-top">{items}</ol>
         </nav>
@@ -205,39 +342,12 @@ fn Contents(
     .into_any()
 }
 
-/// Says in plain words that the order is a draft, and how the list was made.
-#[component]
-fn OrderNote(basis: String, review: Vec<String>) -> impl IntoView {
-    let has_questions = !review.is_empty();
-    let questions = review
-        .into_iter()
-        .map(|q| view! { <li>{q}</li> })
-        .collect_view();
-    let has_basis = !basis.is_empty();
-    view! {
-        <aside class="order-note" aria-labelledby="order-note-head">
-            <h2 id="order-note-head" class="order-note-head">"Book contents still need review"</h2>
-            <p>
-                "This contents view is a draft. The source note below records what has been checked against printed contents. "
-                "Sections may still be missing, misplaced, or titled differently in print."
-            </p>
-            <details class="order-note-more">
-                <summary>"How this list was made"</summary>
-                {has_basis.then(|| view! { <p>{basis}</p> })}
-                {has_questions.then(|| view! {
-                    <p class="order-note-label">"Open questions"</p>
-                    <ul>{questions}</ul>
-                })}
-            </details>
-        </aside>
-    }
-}
-
 /// One row of the contents. A node with children is a disclosure whose children are built when
 /// it first opens, so a book of two thousand entries costs a few dozen rows at first.
 #[component]
 fn TocNode(
     lookup: Shared<BookLookup>,
+    library: Library,
     book: usize,
     source: String,
     path: Vec<usize>,
@@ -249,11 +359,17 @@ fn TocNode(
     let Some(node) = node_at(tree, &path) else {
         return ().into_any();
     };
-    let title = crate::views::util::section_label(&node.title);
+    let title = chapter_label(&node.title);
     let id = toc_id(&path);
-    let child_count = node.children.len();
-    let review = node.review.clone();
-    let under = entries_under(node);
+    let hide = |entry: &EntryId| {
+        library
+            .stub(entry)
+            .is_some_and(|stub| hidden_from_contents(stub.kind))
+    };
+    // The rows that Contents lists, as indices into the real children: a path keeps its meaning.
+    let listed = listed_children(node, &hide);
+    let child_count = listed.len();
+    let under = listed_under(node, &hide);
     let is_current = {
         let path = path.clone();
         move || target.with(|t| t.as_deref() == Some(path.as_slice()))
@@ -268,21 +384,24 @@ fn TocNode(
             Some(href) => view! {
                 <li class="toc-leaf">
                     <a id=id href=href aria-current=move || aria_current().then_some("location")>{title}</a>
-                    {review.map(|why| view! { <span class="toc-flag" title=why>"check order"</span> })}
                 </li>
             }
             .into_any(),
-            None => view! { <li class="toc-leaf"><span id=id>{title}</span>{review.map(|why| view! { <span class="toc-flag" title=why>"check order"</span> })}</li> }.into_any(),
+            None => view! { <li class="toc-leaf"><span id=id>{title}</span></li> }.into_any(),
         };
     }
 
-    let own_link = node.entry.as_ref().map(|entry| {
-        Route::Entry {
-            id: entry.clone(),
-            anchor: node.anchor.clone(),
-        }
-        .href()
-    });
+    let own_link = node
+        .entry
+        .as_ref()
+        .filter(|entry| !hide(entry))
+        .map(|entry| {
+            Route::Entry {
+                id: entry.clone(),
+                anchor: node.anchor.clone(),
+            }
+            .href()
+        });
     let opened =
         RwSignal::new(target.with_untracked(|t| t.as_deref().is_some_and(|t| on_path(&path, t))));
     {
@@ -329,15 +448,16 @@ fn TocNode(
         let path = path.clone();
         let source = source.clone();
         let title = title.clone();
-        let review = review.clone();
+        let library = library.clone();
         move || {
             opened.get().then(|| {
-                let items = (0..child_count)
-                    .map(|i| {
+                let items = listed
+                    .iter()
+                    .map(|&i| {
                         let mut child = path.clone();
                         child.push(i);
                         view! {
-                            <TocNode lookup=lookup.clone() book source=source.clone() path=child target />
+                            <TocNode lookup=lookup.clone() library=library.clone() book source=source.clone() path=child target />
                         }
                     })
                     .collect_view();
@@ -348,25 +468,16 @@ fn TocNode(
                         </li>
                     }
                 });
-                let note = review.clone().map(|why| {
-                    view! {
-                        <li class="toc-note">
-                            <strong>"Position unverified. "</strong>{why}
-                        </li>
-                    }
-                });
-                view! { <ul class="toc-list">{note}{own}{items}</ul> }
+                view! { <ul class="toc-list">{own}{items}</ul> }
             })
         }
     };
-    let flagged = review.is_some();
     view! {
         <li class="toc-branch">
             <details class="toc-details" prop:open=move || opened.get() on:toggle=on_toggle>
                 <summary id=id aria-current=move || is_current().then_some("location")>
                     <span class="toc-title">{title}</span>
-                    {flagged.then(|| view! { <span class="toc-flag">"check order"</span> })}
-                    <span class="toc-count" aria-label=crate::fmt::pluralize(under, "entry", "entries")>{under}</span>
+                    <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
                 </summary>
                 {children}
             </details>
@@ -450,6 +561,162 @@ pub fn same_book(previous: &Route, next: &Route) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn node(title: &str, entry: Option<&str>, children: Vec<BookNode>) -> BookNode {
+        BookNode {
+            title: title.to_string(),
+            entry: entry.map(|s| EntryId::parse(s).unwrap()),
+            anchor: None,
+            review: None,
+            children,
+        }
+    }
+
+    /// Kinds by the middle part of the id, as the catalog would say them.
+    fn kind_of(id: &EntryId) -> Option<EntryKind> {
+        match id.as_str().split('/').nth(1)? {
+            "spell" => Some(EntryKind::Spell),
+            "feat" => Some(EntryKind::Feat),
+            "magic-ring" | "item" => Some(EntryKind::Item),
+            "class" => Some(EntryKind::Class),
+            "prestige-class" => Some(EntryKind::PrestigeClass),
+            "archetype" => Some(EntryKind::Archetype),
+            "rule" => Some(EntryKind::Rule),
+            "race" => Some(EntryKind::Race),
+            _ => None,
+        }
+    }
+
+    /// The rule with the exclusion on, as #158 will run it.
+    fn hide(id: &EntryId) -> bool {
+        kind_of(id).is_some_and(linked_kind)
+    }
+
+    #[test]
+    fn the_exclusion_is_off_until_the_kind_links_ship() {
+        // While it is off every kind is listed, so no entry is unreachable from a book page.
+        for kind in EntryKind::ALL {
+            assert_eq!(
+                hidden_from_contents(kind),
+                LEAVE_OUT_LINKED_KINDS && linked_kind(kind),
+                "{kind:?}"
+            );
+        }
+        if !LEAVE_OUT_LINKED_KINDS {
+            assert!(
+                EntryKind::ALL
+                    .into_iter()
+                    .all(|kind| !hidden_from_contents(kind))
+            );
+        }
+    }
+
+    #[test]
+    fn contents_leaves_out_spells_feats_items_and_class_options_only() {
+        for (kind, hidden) in [
+            (EntryKind::Spell, true),
+            (EntryKind::Feat, true),
+            (EntryKind::Item, true),
+            (EntryKind::Class, true),
+            (EntryKind::PrestigeClass, true),
+            (EntryKind::Archetype, true),
+            (EntryKind::Rule, false),
+            (EntryKind::Race, false),
+            (EntryKind::Skill, false),
+            (EntryKind::Creature, false),
+            (EntryKind::Trait, false),
+            (EntryKind::RacialTrait, false),
+            (EntryKind::Affliction, false),
+            (EntryKind::Trap, false),
+        ] {
+            assert_eq!(linked_kind(kind), hidden, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn a_chapter_is_listed_unless_everything_under_it_is_a_hidden_kind() {
+        let spells = node(
+            "Spells",
+            None,
+            vec![
+                node("Acid Arrow", Some("ref/spell/acid-arrow"), vec![]),
+                node("Alarm", Some("ref/spell/alarm"), vec![]),
+            ],
+        );
+        assert!(!shows_in_contents(&spells, &hide));
+        let mixed = node(
+            "Combat",
+            None,
+            vec![
+                node("Power Attack", Some("ref/feat/power-attack"), vec![]),
+                node("Grapple", Some("ref/rule/grapple"), vec![]),
+            ],
+        );
+        assert!(shows_in_contents(&mixed, &hide));
+        assert_eq!(listed_children(&mixed, &hide), vec![1]);
+        assert_eq!(listed_under(&mixed, &hide), 1);
+        // A heading with no entry under it, and an entry the catalog does not know, stay.
+        assert!(shows_in_contents(&node("Credits", None, vec![]), &hide));
+        assert!(shows_in_contents(
+            &node("Mystery", Some("ref/unknown/thing"), vec![]),
+            &hide
+        ));
+        // A chapter with its own rule entry is listed even when its children are all hidden.
+        let own = node(
+            "Magic",
+            Some("ref/rule/magic"),
+            vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
+        );
+        assert!(shows_in_contents(&own, &hide));
+        assert!(listed_children(&own, &hide).is_empty());
+        assert_eq!(listed_under(&own, &hide), 1);
+    }
+
+    #[test]
+    fn the_catch_all_is_renamed_and_a_lone_one_shows_its_rows_at_the_top() {
+        assert_eq!(
+            chapter_label("New entries (page order)"),
+            "More from this book"
+        );
+        assert_eq!(chapter_label("Page order"), "Page order");
+        assert_eq!(chapter_label("Actions In Combat"), "Actions in Combat");
+
+        let catch_all = node(
+            "New entries (page order)",
+            None,
+            vec![
+                node("Goblin", Some("ref/race/goblin"), vec![]),
+                node("Fireball", Some("ref/spell/fireball"), vec![]),
+                node("Rules", Some("ref/rule/rules"), vec![]),
+            ],
+        );
+        let spells = node(
+            "Spells",
+            None,
+            vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
+        );
+        // Next to a listed chapter it stays a chapter, with the real index.
+        let books = vec![
+            node("Races", Some("ref/race/human"), vec![]),
+            spells.clone(),
+            catch_all.clone(),
+        ];
+        assert_eq!(contents_roots(&books, &hide), vec![vec![0], vec![2]]);
+        // Alone, its rows are the top level and keep their paths in the whole tree.
+        let alone = vec![spells, catch_all];
+        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 0], vec![1, 2]]);
+        // Nothing left to list.
+        assert!(contents_roots(&alone[..1], &hide).is_empty());
+    }
+
+    #[test]
+    fn the_review_line_is_shown_for_a_book_with_open_questions() {
+        assert_eq!(
+            review_line(&["The Classes tree is incomplete.".to_string()]),
+            Some("Chapter order not yet checked against the printed book")
+        );
+        assert_eq!(review_line(&[]), None);
+    }
 
     #[test]
     fn book_entry_count_uses_every_placement_once() {

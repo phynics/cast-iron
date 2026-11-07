@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookTrees, installLibrary, openBookContents, waitControlled } from "./helpers";
+import { bookTrees, installLibrary, listedChapterTitles, openBookContents, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -154,7 +154,7 @@ test("book contents keep their order and synchronize selection with history", as
     const leaf = item.querySelector("a");
     return (branch?.textContent ?? leaf?.textContent ?? "").trim();
   }));
-  expect(tocTitles).toEqual(book.chapters.map((chapter) => chapter.title));
+  expect(tocTitles).toEqual(listedChapterTitles(book));
   const chapter = page.locator(".toc-details").filter({ has: page.locator("summary", { hasText: first.title }) }).first();
   await chapter.locator("summary").click();
   await expect.poll(() => new URL(page.url()).hash).toContain(`#/browse/book/${book.source}?c=`);

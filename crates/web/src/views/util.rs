@@ -12,9 +12,6 @@ use std::rc::Rc;
 /// not change with a search query or filter; Search shows filter-conditional counts instead.
 pub const ACTIVE_BOOKS_SCOPE: &str = "Entries in your active books";
 
-/// What the per-book counts on Books are: the size of each book, active or not.
-pub const BOOK_TOTALS_SCOPE: &str = "Entries in each book, whether or not it is active";
-
 /// An `Rc` that reactive closures may capture. Leptos asks closures in views to be `Send + Sync`;
 /// the browser runs this app on one thread, so the wrapper never panics. `Library` does the same.
 pub struct Shared<T>(SendWrapper<Rc<T>>);
@@ -112,12 +109,6 @@ fn count_noun(n: usize) -> &'static str {
     if n == 1 { "entry" } else { "entries" }
 }
 
-/// The line under a book page's title. It counts the entries the contents tree shows, so it
-/// stays the same when the book is disabled.
-pub fn book_count_line(n: usize) -> String {
-    format!("{} {} in this book", n, count_noun(n))
-}
-
 /// The line above a source page's kind groups. It counts the active entries those groups list.
 pub fn active_count_line(n: usize) -> String {
     format!(
@@ -133,9 +124,6 @@ mod tests {
 
     #[test]
     fn count_lines_say_which_set_they_count() {
-        assert_eq!(book_count_line(12), "12 entries in this book");
-        assert_eq!(book_count_line(1), "1 entry in this book");
-        assert_eq!(book_count_line(0), "0 entries in this book");
         assert_eq!(active_count_line(12), "12 entries in your active books");
         assert_eq!(
             active_count_line(31106),
