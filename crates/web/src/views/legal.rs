@@ -7,6 +7,7 @@
 use crate::fmt;
 use crate::library::use_library;
 use crate::route::Route;
+use crate::views::icons;
 use crate::views::util::{Shared, local_resource};
 use cast_iron_schema::{
     CoverageReport, EntryId, Exclusion, LegalNotices, Rejection, RelationCoverage,
@@ -148,7 +149,7 @@ where
     };
     view! {
         <details class="coverage-more" data-detail=kind prop:open=move || opened.get() on:toggle=on_toggle>
-            <summary>{summary}</summary>
+            <summary>{icons::chevron_right("disclosure-chevron")}{summary}</summary>
             {move || built.get().then(&detail)}
         </details>
     }

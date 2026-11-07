@@ -7,6 +7,7 @@
 use crate::fmt;
 use crate::library::Library;
 use crate::route::Route;
+use crate::views::icons;
 use crate::views::rich::plain_text;
 use crate::views::util::{kind_name, local_resource, sort_key};
 use cast_iron_schema::{BacklinkSource, Block, EntryId, EntryKind, RuleEntry};
@@ -207,6 +208,7 @@ fn group_view(
     view! {
         <details class="rel-group backlink-group" open=open>
             <summary>
+                {icons::chevron_right("disclosure-chevron")}
                 <span class="rel-group-name">{heading}</span>
                 <span class="rel-count">{fmt::count(count)}</span>
             </summary>
@@ -220,7 +222,7 @@ fn group_view(
                             .is_some_and(|details| details.open()),
                     );
                 }>
-                    <summary>{format!("Show all {}", fmt::count(count))}</summary>
+                    <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show all {}", fmt::count(count))}</summary>
                     {move || show_all.get().then(|| view! {
                         <ul class="ref-list">
                             {rest.iter()

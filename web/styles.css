@@ -1242,14 +1242,16 @@ mark {
 .filters-toggle {
   width: 100%;
   justify-content: space-between;
+  gap: var(--space-2);
 }
 
-.filters-toggle::after {
-  content: "▾";
+.filters-toggle-icon {
+  flex: none;
+  transition: transform 0.12s ease;
 }
 
-.filters-toggle[aria-expanded="true"]::after {
-  content: "▴";
+.filters-toggle[aria-expanded="true"] .filters-toggle-icon {
+  transform: rotate(180deg);
 }
 
 .filters-panel {
@@ -1329,20 +1331,6 @@ mark {
 
 .publication-group-summary::-webkit-details-marker {
   display: none;
-}
-
-.publication-group-summary::before {
-  content: "›";
-  flex: none;
-  width: 1rem;
-  font-size: var(--step-1);
-  line-height: 1;
-  color: var(--accent);
-  transition: transform 0.12s ease;
-}
-
-.publication-details[open] > .publication-group-summary::before {
-  transform: rotate(90deg);
 }
 
 .publication-group-summary .publication-group-title {
@@ -1997,24 +1985,11 @@ mark {
 .backlink-more > summary {
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   min-height: var(--touch);
   cursor: pointer;
   color: var(--accent);
   font-weight: 600;
-}
-
-.backlink-more > summary::before {
-  content: "›";
-  flex: none;
-  width: 1rem;
-  font-size: var(--step-1);
-  line-height: 1;
-  color: var(--accent);
-  transition: transform 0.12s ease;
-}
-
-.backlink-more[open] > summary::before {
-  transform: rotate(90deg);
 }
 
 .backlink-more > summary::-webkit-details-marker {
@@ -2046,6 +2021,18 @@ mark {
 }
 
 /* ---- Bookmarks ----------------------------------------------------------------------------- */
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.back-link-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}
 
 .bm-list,
 .collection-list {
@@ -3024,20 +3011,6 @@ main,
   display: none;
 }
 
-.toc-details > summary::before {
-  content: "›";
-  flex: none;
-  width: 1rem;
-  font-size: var(--step-1);
-  line-height: 1;
-  color: var(--accent);
-  transition: transform 0.12s ease;
-}
-
-.toc-details[open] > summary::before {
-  transform: rotate(90deg);
-}
-
 .toc-title {
   flex: 1;
   min-width: 0;
@@ -3158,6 +3131,9 @@ main,
 }
 
 .step-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -3165,12 +3141,10 @@ main,
   color: var(--ink-muted);
 }
 
-.step-prev .step-dir::before {
-  content: "‹ ";
-}
-
-.step-next .step-dir::after {
-  content: " ›";
+.step-arrow {
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
 }
 
 .step-title {
@@ -3210,24 +3184,16 @@ main,
   .entry > .book-bar { grid-area: book; }
 }
 
-/* One disclosure arrow for every summary that is not a bare <summary>. */
-.lens-more > summary::before,
-.rel-group > summary::before,
-.chain-head > details > summary::before,
-.coverage-more > summary::before {
-  content: "›";
+/* One disclosure chevron for every summary that is not a bare <summary>. */
+.disclosure-chevron {
   flex: none;
   width: 1rem;
-  font-size: var(--step-1);
-  line-height: 1;
+  height: 1rem;
   color: var(--accent);
   transition: transform 0.12s ease;
 }
 
-.lens-more[open] > summary::before,
-.rel-group[open] > summary::before,
-.chain-head > details[open] > summary::before,
-.coverage-more[open] > summary::before {
+details[open] > summary > .disclosure-chevron {
   transform: rotate(90deg);
 }
 

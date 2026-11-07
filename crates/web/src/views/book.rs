@@ -11,6 +11,7 @@ use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, current_hash, replace, toc_id, use_route};
 use crate::views::active_books::save_book_active;
+use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{BookNode, EntryId, EntryKind};
 use leptos::prelude::*;
@@ -518,6 +519,7 @@ fn TocNode(
         <li class="toc-branch">
             <details class="toc-details" prop:open=move || opened.get() on:toggle=on_toggle>
                 <summary id=id aria-current=move || is_current().then_some("location")>
+                    {icons::chevron_right("disclosure-chevron")}
                     <span class="toc-title">{title}</span>
                     <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
                 </summary>
@@ -573,7 +575,11 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
                     };
                     view! {
                         <a class=class href=href rel=if next { "next" } else { "prev" }>
-                            <span class="step-dir">{dir}</span>
+                            <span class="step-dir">
+                                {(!next).then(|| icons::arrow_left("step-arrow"))}
+                                {dir}
+                                {next.then(|| icons::arrow_right("step-arrow"))}
+                            </span>
                             <span class="step-title">{crate::views::util::section_label(&stop.title)}</span>
                         </a>
                     }
