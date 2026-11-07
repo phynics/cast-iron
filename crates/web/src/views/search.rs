@@ -1883,10 +1883,7 @@ mod tests {
             "core"
         );
         // Without a canonical alternative the row keeps the indexed source.
-        assert_eq!(
-            preferred_source("inactive", None, active, tier),
-            "inactive"
-        );
+        assert_eq!(preferred_source("inactive", None, active, tier), "inactive");
     }
 
     #[test]
