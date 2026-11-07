@@ -49,6 +49,7 @@ pub fn blurb(kind: EntryKind) -> &'static str {
         EntryKind::Skill => "What each skill does and how to use it",
         EntryKind::Affliction => "Diseases, poisons, curses, and other lasting effects",
         EntryKind::Trap => "Traps and their mechanics",
+        EntryKind::ClassOption => "Class options are read through search for now",
     }
 }
 
@@ -74,7 +75,12 @@ pub fn arrange(
         .filter_map(|&k| count_of(k).map(|n| (k, n)))
         .collect();
     for &(kind, n) in counts {
-        if n > 0 && kind != EntryKind::Rule && !PRIMARY.contains(&kind) && !MORE.contains(&kind) {
+        if n > 0
+            && kind != EntryKind::Rule
+            && kind != EntryKind::ClassOption
+            && !PRIMARY.contains(&kind)
+            && !MORE.contains(&kind)
+        {
             more.push((kind, n));
         }
     }
@@ -243,7 +249,8 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         | EntryKind::RacialTrait
         | EntryKind::Skill
         | EntryKind::Affliction
-        | EntryKind::Trap => Vec::new(),
+        | EntryKind::Trap
+        | EntryKind::ClassOption => Vec::new(),
     }
 }
 
@@ -275,14 +282,14 @@ mod tests {
     #[test]
     fn every_browse_kind_has_one_place_and_rules_stay_in_books() {
         let mut all: Vec<EntryKind> = PRIMARY.iter().chain(MORE.iter()).copied().collect();
-        assert_eq!(all.len(), EntryKind::ALL.len() - 1);
+        assert_eq!(all.len(), EntryKind::ALL.len() - 2);
         all.sort();
         all.dedup();
-        assert_eq!(all.len(), EntryKind::ALL.len() - 1, "a kind appears twice");
+        assert_eq!(all.len(), EntryKind::ALL.len() - 2, "a kind appears twice");
         for kind in EntryKind::ALL {
             assert_eq!(
                 all.contains(&kind),
-                kind != EntryKind::Rule,
+                !matches!(kind, EntryKind::Rule | EntryKind::ClassOption),
                 "unexpected hub membership for {kind:?}"
             );
             assert!(!blurb(kind).is_empty());

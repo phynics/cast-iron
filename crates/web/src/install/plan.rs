@@ -68,9 +68,10 @@ impl std::error::Error for PlanError {}
 
 /// Checks a manifest and says what is wrong with it, before any download starts.
 pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
-    // Schema 2 adds a category and schema 3 adds kinds, relations, and the relation, spell-list,
-    // and book-order files; the reader still opens schema-1 and schema-2 libraries.
-    if ![1, 2, 3].contains(&manifest.schema_version) {
+    // Schema 4 adds attached-entry kinds, relation labels, and two derived index files. The
+    // reader still opens schema-1, schema-2, and schema-3 libraries; a newer library shows the
+    // update route instead of a parse error.
+    if ![1, 2, 3, SCHEMA_VERSION].contains(&manifest.schema_version) {
         return Err(PlanError::SchemaMismatch {
             found: manifest.schema_version,
             expected: SCHEMA_VERSION,
@@ -446,12 +447,41 @@ mod tests {
     }
 
     #[test]
-    fn schema_one_and_two_libraries_remain_readable_during_the_upgrade() {
+    fn schema_one_to_three_libraries_remain_readable_during_the_upgrade() {
         let mut old = manifest();
-        for version in [1, 2] {
+        for version in [1, 2, 3] {
             old.schema_version = version;
-            assert_eq!(validate_manifest(&old), Ok(()));
+            assert_eq!(validate_manifest(&old), Ok(()), "schema {version}");
         }
+        old.schema_version = SCHEMA_VERSION;
+        assert_eq!(validate_manifest(&old), Ok(()));
+    }
+
+    #[test]
+    fn a_schema_three_library_opens_and_offers_an_update_rather_than_crashing() {
+        // The active library a reader already installed stays usable; the update check compares
+        // the published content version and offers the schema-4 library.
+        let mut active = manifest();
+        active.schema_version = 3;
+        active.content_version = "v0000000000000003".into();
+        for file in &mut active.files {
+            file.path = file
+                .path
+                .replacen("v0123456789abcdef", &active.content_version, 1);
+        }
+        assert_eq!(validate_manifest(&active), Ok(()));
+        assert!(active.schema_version < SCHEMA_VERSION);
+
+        let mut published = active.clone();
+        published.schema_version = SCHEMA_VERSION;
+        published.content_version = "v0000000000000004".into();
+        for file in &mut published.files {
+            file.path = file
+                .path
+                .replacen(&active.content_version, &published.content_version, 1);
+        }
+        assert_eq!(validate_manifest(&published), Ok(()));
+        assert_ne!(active.content_version, published.content_version);
     }
 
     #[test]

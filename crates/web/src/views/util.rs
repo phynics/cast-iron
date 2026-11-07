@@ -66,6 +66,7 @@ pub fn kind_name(kind: EntryKind) -> &'static str {
         EntryKind::Trait => "Trait",
         EntryKind::RacialTrait => "Racial trait",
         EntryKind::Archetype => "Archetype",
+        EntryKind::ClassOption => "Class option",
     }
 }
 
