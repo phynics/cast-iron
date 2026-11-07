@@ -922,8 +922,8 @@ fn filter_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. A kind with only pills or pages
-/// (the old lenses) keeps them until its pull request moves it to this row.
+/// links on the right, and each menu's panel under the row. Races and creatures keep their pills
+/// (the old lens) until the library has the data or their pull request moves them to this row.
 #[component]
 fn Lenses(
     kind: EntryKind,
@@ -937,28 +937,12 @@ fn Lenses(
         return ().into_any();
     }
     let library = use_library();
-    let mut pages = Vec::new();
     let mut facets = Vec::new();
     let mut buttons = Vec::new();
     let mut panels = Vec::new();
     let mut links = Vec::new();
     for lens in all {
         match lens {
-            Lens::Page {
-                label,
-                blurb,
-                route,
-            } => {
-                // The spell and feat pages need the schema-3 files; an old library has none.
-                let usable = match route {
-                    Route::Spells => library.has_spell_lists(),
-                    Route::FeatChains => library.has_relations(),
-                    _ => true,
-                };
-                if usable {
-                    pages.push((label, blurb, route));
-                }
-            }
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
                 let (button, panel) = filter_menu(&library, kind, spec, &applied, focus);
@@ -966,7 +950,9 @@ fn Lenses(
                 panels.push(panel);
             }
             Lens::Link { label, route } => {
+                // The spell and feat pages need the schema-3 files; an old library has none.
                 let usable = match route {
+                    Route::Spells => library.has_spell_lists(),
                     Route::FeatChains => library.has_relations(),
                     _ => true,
                 };
@@ -976,20 +962,6 @@ fn Lenses(
             }
         }
     }
-    let has_pages = !pages.is_empty();
-    let pages = pages
-        .into_iter()
-        .map(|(label, blurb, route)| {
-            view! {
-                <li>
-                    <a class="lens-page" href=route.href()>
-                        <span class="lens-page-name">{label}</span>
-                        <span class="lens-page-note">{blurb}</span>
-                    </a>
-                </li>
-            }
-        })
-        .collect_view();
     let facets = facets
         .into_iter()
         .map(|(field, label)| view! { <FacetLens kind field label /> })
@@ -1016,7 +988,6 @@ fn Lenses(
         <div class="lenses">
             {row}
             {panels}
-            {has_pages.then(|| view! { <ul class="lens-pages">{pages}</ul> })}
             {facets}
         </div>
     }
@@ -1313,6 +1284,9 @@ pub fn BrowseKind(
     let focus_menu = take_focus_request();
     let applied = applied_facets(kind, &facets);
     let all = Shared::new(sorted_of_kind(&library, kind));
+    if let Some(field) = categories::grouped_by(kind) {
+        return view! { <GroupedKind kind field all /> }.into_any();
+    }
     if applied.is_empty() {
         let stubs = all.to_vec();
         return view! {
@@ -1369,6 +1343,96 @@ pub fn BrowseKind(
     view! { {page} }.into_any()
 }
 
+/// Entries under headings by a facet, for a short kind whose few groups are better seen than
+/// chosen: classes by type. The groups come from the search index, so they follow the active
+/// books and show a group only while one of its entries is active. Until the index answers the
+/// page shows its head alone, and if it fails the list falls back to plain A to Z.
+#[component]
+fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>) -> impl IntoView {
+    let library = use_library();
+    let focus_menu = false;
+    let total = all.len();
+    let groups = {
+        let library = library.clone();
+        local_resource(async move {
+            let discovery = library.discovery();
+            let values: Vec<String> = discovery
+                .facet_values(field)
+                .await?
+                .into_iter()
+                .map(|(value, _)| value)
+                .collect();
+            let mut found = Vec::new();
+            for value in categories::order_class_groups(&values) {
+                let ids = discovery.facet_entry_ids(field, &value).await?;
+                found.push((value, ids));
+            }
+            Ok::<_, LibraryError>(found)
+        })
+    };
+    let page = move || {
+        groups.with(|loaded| match loaded {
+            None => view! {
+                <div class="wide list-page">
+                    <h1>{kind.label()}</h1>
+                    <p class="muted list-count" role="status" aria-live="polite">"Loading…"</p>
+                </div>
+            }
+            .into_any(),
+            Some(Err(_)) => {
+                let stubs = all.to_vec();
+                view! {
+                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu />
+                }
+                .into_any()
+            }
+            Some(Ok(found)) => {
+                let sections = sections_by_group(field, &all, found);
+                let stubs = all.to_vec();
+                view! {
+                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu
+                        sections />
+                }
+                .into_any()
+            }
+        })
+    };
+    view! { {page} }
+}
+
+/// A group heading and the entries under it.
+type Section = (String, Vec<EntryStub>);
+
+/// The entries under their group headings, in the order given, then the entries no group holds
+/// under a final `Other`. A group with no entry is left out, so the page never shows an empty
+/// heading. The heading is the page's label for the value; the value itself is not changed.
+fn sections_by_group(
+    field: &str,
+    all: &[EntryStub],
+    groups: &[(String, HashSet<String>)],
+) -> Vec<Section> {
+    let mut sections = Vec::new();
+    for (value, ids) in groups {
+        let members: Vec<EntryStub> = all
+            .iter()
+            .filter(|stub| ids.contains(stub.id.as_str()))
+            .cloned()
+            .collect();
+        if !members.is_empty() {
+            sections.push((facet_label(field, value), members));
+        }
+    }
+    let rest: Vec<EntryStub> = all
+        .iter()
+        .filter(|stub| !groups.iter().any(|(_, ids)| ids.contains(stub.id.as_str())))
+        .cloned()
+        .collect();
+    if !rest.is_empty() {
+        sections.push(("Other".to_string(), rest));
+    }
+    sections
+}
+
 /// The list page itself, over the entries that are left after the filter. The list-page
 /// template (DESIGN.md): title, count, the filter row, the letter bar, the rows. No breadcrumb,
 /// lede or search link: the tab bar and the brand lead home, the category cards on Home carry
@@ -1382,6 +1446,10 @@ fn BrowseList(
     /// The size of the whole kind, before the filter.
     total: usize,
     focus_menu: bool,
+    /// A short list under headings, in order: `(heading, entries)`. Without it the list is one
+    /// A to Z list.
+    #[prop(optional)]
+    sections: Option<Vec<Section>>,
 ) -> impl IntoView {
     let library = use_library();
     let count = stubs.len();
@@ -1412,6 +1480,7 @@ fn BrowseList(
             })
         });
 
+    let sectioned = sections.is_some();
     let body = if count == 0 {
         // The value is not in the active books. Say so, and offer the two ways out.
         view! {
@@ -1425,6 +1494,30 @@ fn BrowseList(
             </p>
         }
         .into_any()
+    } else if let Some(sections) = sections {
+        let sections = sections
+            .into_iter()
+            .enumerate()
+            .map(|(i, (label, group))| {
+                let heading_id = format!("group-{i}");
+                let labelled_by = heading_id.clone();
+                let n = group.len();
+                let source_titles: Vec<Option<String>> = group
+                    .iter()
+                    .map(|s| library.source(&s.source).map(|src| src.title.clone()))
+                    .collect();
+                view! {
+                    <section class="letter-group" aria-labelledby=labelled_by>
+                        <h2 class="letter-head" id=heading_id>
+                            {label}<span class="letter-count">{fmt::count(n)}</span>
+                        </h2>
+                        <AzList kind facets=Vec::new() marks=None groups=Vec::new() stubs=group
+                            source_titles show_source=multi_source selected=None focus=false />
+                    </section>
+                }
+            })
+            .collect_view();
+        view! { {sections} }.into_any()
     } else if kind == EntryKind::Rule {
         let items: Vec<(EntryId, Option<EntryId>, String)> = stubs
             .iter()
@@ -1464,7 +1557,7 @@ fn BrowseList(
         <p class="muted list-count" role="status" aria-live="polite">{count_line}{show_all}</p>
         <Lenses kind applied=applied.clone() focus=focus_menu />
         {jump}
-        <h2 class="sr-only">"All, A to Z"</h2>
+        {(!sectioned).then(|| view! { <h2 class="sr-only">"All, A to Z"</h2> })}
         {body}
         </div>
     }
@@ -1672,6 +1765,67 @@ mod tests {
         assert_eq!(
             Route::parse(&options[1].href),
             Route::browse_kind_facets(EntryKind::Feat, vec![facet("feat_type", "General")])
+        );
+    }
+
+    fn stub(id: &str, title: &str) -> EntryStub {
+        EntryStub {
+            id: self::id(id),
+            kind: EntryKind::Class,
+            title: title.into(),
+            source: "core-rulebook".into(),
+            parent: None,
+            shard: "entries/class-000.json".into(),
+        }
+    }
+
+    fn ids(list: &[&str]) -> HashSet<String> {
+        list.iter().map(|id| id.to_string()).collect()
+    }
+
+    #[test]
+    fn classes_sit_under_their_group_headings_in_the_given_order_and_none_is_lost() {
+        let all = [
+            stub("ref/class/alchemist", "Alchemist"),
+            stub("ref/class/bard", "Bard"),
+            stub("ref/class/commoner", "Commoner"),
+            stub("ref/class/mystery", "Mystery"),
+        ];
+        let groups = [
+            ("core".to_string(), ids(&["ref/class/bard"])),
+            ("base".to_string(), ids(&["ref/class/alchemist"])),
+            // A group none of the active books holds shows no heading.
+            ("hybrid".to_string(), ids(&[])),
+            ("npc".to_string(), ids(&["ref/class/commoner"])),
+        ];
+        let sections = sections_by_group("class_type", &all, &groups);
+        let names: Vec<&str> = sections.iter().map(|(label, _)| label.as_str()).collect();
+        // An entry with no group is shown last, not dropped.
+        assert_eq!(names, ["Core", "Base", "NPC", "Other"]);
+        assert_eq!(sections[0].1[0].title, "Bard");
+        assert_eq!(sections[3].1[0].title, "Mystery");
+        let shown: usize = sections.iter().map(|(_, list)| list.len()).sum();
+        assert_eq!(shown, all.len());
+
+        // With every class in a group there is no `Other`.
+        let none = sections_by_group("class_type", &all[..2], &groups[..2]);
+        assert_eq!(none.len(), 2);
+    }
+
+    #[test]
+    fn an_item_category_count_line_and_empty_state_name_the_kind() {
+        assert_eq!(
+            narrowed_count_line(EntryKind::Item, 1324, 8151),
+            "1,324 of 8,151 items"
+        );
+        assert_eq!(kind_count_line(EntryKind::Item, 8151), "8,151 items");
+        assert_eq!(
+            empty_filter_line(EntryKind::Item, &[facet("item_category", "Rods")]),
+            "No Rods in your active books."
+        );
+        assert_eq!(
+            empty_filter_line(EntryKind::Spell, &[facet("school", "evocation")]),
+            "No Evocation spells in your active books."
         );
     }
 

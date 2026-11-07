@@ -279,3 +279,177 @@ test("Feats that lead to more than five feats carry a chain marker, and it stays
   expect(marked).toBe(leads.size);
   expect(marked / featCount).toBeLessThan(0.05);
 });
+
+// ---- The other kinds: items, traits, archetypes, spells and classes (#193 PR 3, #195) ----
+
+const itemCount = corpus.catalog.entries.filter((stub) => stub.kind === "item").length;
+const itemsIn = (category: string) => [...corpus.entries.values()].filter((entry) => entry.kind === "item" && entry.fields?.category === category).length;
+const traitsIn = (category: string) => [...corpus.entries.values()].filter((entry) => entry.kind === "trait" && entry.fields?.category === category).length;
+const categoryButton = (page: Page) => page.getByRole("button", { name: /^Category: / });
+
+test("The item category menu finds one of many categories, filters in place, and Back and Escape behave", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/item");
+  const main = page.locator("main");
+  const rods = itemsIn("Rods");
+  expect(rods).toBeGreaterThan(0);
+  expect(itemCount).toBeGreaterThan(5000);
+
+  // No pill wall, no "N more", no card; one menu.
+  const button = categoryButton(page);
+  await expect(button).toHaveText("Category: All categories");
+  await expect(button).toBeEnabled();
+  await expect(main.locator(".lens-chip, .lens-chips, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  await expect(main.getByText(/By category|\d+ more/)).toHaveCount(0);
+  await expect(main.locator(".list-count")).toHaveText(`${count(itemCount)} items`);
+  await expect(main.getByRole("navigation", { name: "Jump to letter" })).toBeVisible();
+
+  // Many categories: a find field, focused on open.
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  const find = panel.getByRole("searchbox", { name: "Find a category" });
+  await expect(find).toBeFocused();
+  expect(await panel.evaluate((el) => getComputedStyle(el).position)).toBe("static");
+  const list = panel.getByRole("list", { name: "Item category" });
+  expect(await list.getByRole("link").count()).toBeGreaterThan(40);
+  await find.fill("zzzz");
+  await expect(panel.getByRole("status")).toHaveText('No categories match "zzzz".');
+  await panel.getByRole("button", { name: "Clear" }).click();
+  await find.fill("rods");
+  await expect(panel.getByRole("status")).toHaveText("1 category");
+
+  // Escape closes the panel, keeps the route, and returns focus to the button.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(button).toBeFocused();
+  expect(new URL(page.url()).hash).toBe("#/browse/kind/item");
+  await button.click();
+  await panel.getByRole("searchbox").fill("rods");
+  await list.getByRole("link", { name: `Rods, ${count(rods)}` }).click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item?facet=item_category:Rods");
+  await expect(main.getByRole("heading", { level: 1, name: "Items" })).toBeVisible();
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(rods)} of ${count(itemCount)} items · Show all`);
+  await expect(line).not.toContainText("Rods");
+  await expect(categoryButton(page)).toHaveText("Category: Rods");
+  await expect(categoryButton(page)).toBeFocused();
+  await expect(main.locator(".letter-group .entry-list a").first()).toBeVisible();
+  const heads = await main.locator(".letter-head").allInnerTexts();
+  expect(heads.reduce((sum, head) => sum + num(head.match(/([\d,]+) (?:entries|entry)/)?.[1]), 0)).toBe(rods);
+
+  // Back returns to all items, Forward to the category, and Show all clears it.
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item");
+  await expect(categoryButton(page)).toHaveText("Category: All categories");
+  await expect(line).toHaveText(`${count(itemCount)} items`);
+  await page.goForward();
+  await expect(categoryButton(page)).toHaveText("Category: Rods");
+  await main.getByRole("link", { name: "Show all items" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item");
+
+  // The header search keeps the category, without saying "items" twice.
+  await page.goto("#/browse/kind/item?facet=item_category:Rods");
+  await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove scope: Rods", exact: true })).toBeVisible();
+});
+
+test("An item category that no active book holds shows the empty state with the way out", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/item?facet=item_category:Nonesuch");
+  const main = page.locator("main");
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(itemCount)} items · Show all`);
+  await expect(categoryButton(page)).toHaveText("Category: All categories");
+  await expect(main.getByText("No Nonesuch in your active books.")).toBeVisible();
+  await expect(main.getByRole("link", { name: "Choose books" })).toBeVisible();
+  await main.locator("p.empty-actions").getByRole("link", { name: "Show all items" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item");
+});
+
+test("Traits, archetypes and spells each have one filter menu in the filter row and no pill wall", async ({ page }) => {
+  await installLibrary(page);
+  const main = page.locator("main");
+  const combat = traitsIn("Combat");
+  const traitCount = corpus.catalog.entries.filter((stub) => stub.kind === "trait").length;
+  expect(combat).toBeGreaterThan(0);
+
+  await page.goto("#/browse/kind/trait");
+  await expect(categoryButton(page)).toHaveText("Category: All categories");
+  await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  await categoryButton(page).click();
+  const traitPanel = page.locator(`#${await categoryButton(page).getAttribute("aria-controls")}`);
+  await traitPanel.getByRole("list", { name: "Trait category" }).getByRole("link", { name: `Combat, ${count(combat)}` }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/trait?facet=trait_category:Combat");
+  await expect(main.locator(".list-count")).toHaveText(`${count(combat)} of ${count(traitCount)} traits · Show all`);
+  await expect(categoryButton(page)).toHaveText("Category: Combat");
+
+  await page.goto("#/browse/kind/archetype");
+  const classButton = main.getByRole("button", { name: /^Class: / });
+  await expect(classButton).toHaveText("Class: All classes");
+  await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  await classButton.click();
+  const archetypePanel = page.locator(`#${await classButton.getAttribute("aria-controls")}`);
+  await expect(archetypePanel.getByRole("searchbox", { name: "Find a class" })).toBeFocused();
+  await archetypePanel.getByRole("searchbox").fill("wizard");
+  await archetypePanel.getByRole("list", { name: "Archetype class" }).getByRole("link", { name: /^Wizard, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/browse\/kind\/archetype\?facet=archetype_class:wizard/i);
+  await expect(main.locator(".list-count")).toHaveText(/^[\d,]+ of [\d,]+ archetypes · Show all$/);
+  await expect(main.getByRole("button", { name: "Class: Wizard" })).toBeVisible();
+
+  // Spells: the school menu, and the spell lists as a plain link beside it, not a card.
+  await page.goto("#/browse/kind/spell");
+  const school = main.getByRole("button", { name: /^School: / });
+  await expect(school).toHaveText("School: All schools");
+  await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages")).toHaveCount(0);
+  const lists = main.locator(".filter-row").getByRole("link", { name: "Spell lists" });
+  await expect(lists).toBeVisible();
+  await school.click();
+  const schoolPanel = page.locator(`#${await school.getAttribute("aria-controls")}`);
+  await schoolPanel.getByRole("list", { name: "Spell school" }).getByRole("link", { name: /^Evocation, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/spell?facet=school:evocation");
+  await expect(main.getByRole("button", { name: "School: Evocation" })).toBeFocused();
+  await expect(main.locator(".list-count")).toHaveText(/^[\d,]+ of [\d,]+ spells · Show all$/);
+  await main.locator(".filter-row").getByRole("link", { name: "Spell lists" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells");
+});
+
+test("Classes are listed under their group headings, in the order of the books, without pills or a menu", async ({ page }) => {
+  await installLibrary(page);
+  const classes = [...corpus.entries.values()].filter((entry) => entry.kind === "class");
+  const order = ["core", "base", "hybrid", "occult", "unchained", "alternate", "npc"];
+  const labels: Record<string, string> = { core: "Core", base: "Base", hybrid: "Hybrid", occult: "Occult", unchained: "Unchained", alternate: "Alternate", npc: "NPC" };
+  const expected = order.map((type) => ({ label: labels[type], titles: classes.filter((entry) => entry.fields?.class_type === type).map((entry) => entry.title).sort() }));
+  expect(expected.every((group) => group.titles.length > 0)).toBe(true);
+
+  await page.goto("#/browse/kind/class");
+  const main = page.locator("main");
+  await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
+  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+  await expect(main.locator(".lens-chip, .lens-more, .lens-page, .lens-pages, .filter-row, .filter-btn")).toHaveCount(0);
+  await expect(main.getByText("Core, base, and NPC")).toHaveCount(0);
+  await expect(main.getByRole("navigation", { name: "Jump to letter" })).toHaveCount(0);
+  const heads = await main.locator("h2.letter-head").allInnerTexts();
+  expect(heads.map((head) => head.replace(/\s*[\d,]+$/, "").trim())).toEqual(expected.map((group) => group.label));
+  expect(heads.map((head) => num(head.match(/([\d,]+)$/)?.[1]))).toEqual(expected.map((group) => group.titles.length));
+  // Every class is under its heading, and a heading names its list.
+  for (const [index, group] of expected.entries()) {
+    const section = main.locator("section.letter-group").nth(index);
+    await expect(section).toHaveAttribute("aria-labelledby", /.+/);
+    const titles = (await section.locator(".entry-list a").allInnerTexts()).map((text) => text.trim()).sort();
+    expect(titles).toEqual(group.titles);
+  }
+
+  // A class opens, and Back returns to the grouped list.
+  const first = main.locator("section.letter-group").first().locator(".entry-list a").first();
+  const title = (await first.innerText()).trim();
+  await first.click();
+  await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
+  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+
+  // An old link with a group in it shows the same grouped list instead of a broken page.
+  await page.goto("#/browse/kind/class?facet=class_type:core");
+  await expect(main.locator("section.letter-group")).toHaveCount(expected.length);
+  await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
+});

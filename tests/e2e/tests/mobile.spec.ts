@@ -486,3 +486,89 @@ installedTest("Scoped Quick search at 390 px: the scope pill is a 44 px target a
     await expect(layer).toBeHidden();
   }
 });
+
+installedTest("Every other kind page at 390 px shows its first row in the first viewport, with no horizontal scroll", async ({ page }) => {
+  await installLibrary(page);
+  const viewport = page.viewportSize()!;
+  const main = page.locator("main");
+  const kinds: [string, string][] = [
+    ["spell", "Spells"],
+    ["trait", "Traits"],
+    ["item", "Items"],
+    ["archetype", "Archetypes"],
+    ["class", "Classes"],
+  ];
+  const report: string[] = [];
+  for (const [kind, title] of kinds) {
+    await page.goto(`#/browse/kind/${kind}`);
+    await expect(main.getByRole("heading", { level: 1, name: title })).toBeVisible();
+    const menu = main.locator(".filter-btn");
+    if (kind !== "class") await expect(menu).toBeEnabled();
+    else await expect(menu).toHaveCount(0);
+    const first = main.locator(".entry-list a").first();
+    await expect(first).toBeVisible();
+    const tabBar = (await page.getByRole("navigation", { name: "Primary" }).boundingBox())!;
+    const y = (await first.boundingBox())!.y;
+    report.push(`${kind} ${Math.round(y)}`);
+    expect(y, `${kind} first row`).toBeLessThan(tabBar.y - 44);
+    expect(y, `${kind} first row`).toBeLessThan(viewport.height / 2);
+    const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+    expect(overflow, `${kind} overflow`).toBeLessThanOrEqual(0);
+    // A menu is one 44 px button; the pages beside it share its line.
+    if (kind !== "class") expect(Math.round((await menu.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  }
+  console.log(`first row y at 390 px: ${report.join(", ")}`);
+});
+
+installedTest("Items at 390 px: the category menu opens in the page, filters, and Back and Escape return", async ({ page }) => {
+  await installLibrary(page);
+  const viewport = page.viewportSize()!;
+  await page.goto("#/browse/kind/item");
+  const main = page.locator("main");
+  const button = main.getByRole("button", { name: /^Category: / });
+  await expect(button).toBeEnabled();
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  expect(box.height).toBeLessThanOrEqual(viewport.height * 0.5 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  const rows = await panel.locator(".choice-row").evaluateAll((els) => els.slice(0, 8).map((el) => el.getBoundingClientRect().height));
+  expect(rows.filter((height) => height < 43.5)).toEqual([]);
+  // Escape closes it and returns focus to the button.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(button).toBeFocused();
+  expect(new URL(page.url()).hash).toBe("#/browse/kind/item");
+  // A choice filters, and Back undoes it.
+  await button.click();
+  await panel.getByRole("searchbox").fill("rods");
+  await panel.getByRole("link", { name: /^Rods, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item?facet=item_category:Rods");
+  await expect(main.getByRole("button", { name: "Category: Rods" })).toBeFocused();
+  const first = main.locator(".entry-list a").first();
+  await expect(first).toBeVisible();
+  const tabBar = (await page.getByRole("navigation", { name: "Primary" }).boundingBox())!;
+  const y = (await first.boundingBox())!.y;
+  console.log(`first item row y at 390 px, filtered to Rods: ${Math.round(y)}`);
+  expect(y).toBeLessThan(tabBar.y - 44);
+  await page.goBack();
+  await expect(main.getByRole("button", { name: "Category: All categories" })).toBeVisible();
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+installedTest("Classes at 390 px: the group headings are one line and the second group is reachable by scrolling", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/class");
+  const main = page.locator("main");
+  const heads = main.locator("h2.letter-head");
+  await expect(heads).toHaveCount(7);
+  const heights = await heads.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(Math.max(...heights)).toBeLessThan(48);
+  const rows = await main.locator(".entry-list li").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(Math.min(...rows)).toBeGreaterThanOrEqual(44);
+  await heads.nth(6).scrollIntoViewIfNeeded();
+  await expect(heads.nth(6)).toContainText("NPC");
+});

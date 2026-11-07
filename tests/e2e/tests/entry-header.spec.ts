@@ -113,7 +113,7 @@ test("Chips keep one form per role", async ({ page }) => {
   expect(selected.background).not.toBe("rgba(0, 0, 0, 0)");
 
   // Browse facets are pills too.
-  await page.goto("#/browse/kind/spell");
+  await page.goto("#/browse/kind/creature");
   const lens = page.locator(".lens-chip").first();
   await expect(lens).toBeVisible();
   expect(await lens.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
