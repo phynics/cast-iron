@@ -2,9 +2,9 @@
 //! the previous/next control that an entry shows for its place in a book.
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
-//! Contents leaves out the kinds that the `In this book` links will reach (see
-//! [`hidden_from_contents`]); the page keeps every chapter's real path, so a chapter link,
-//! `c=3.2` in the address and the trail above an entry all mean what they meant before.
+//! Contents can leave out the kinds that the `In this book` links will reach (see
+//! [`LEAVE_OUT_LINKED_KINDS`], off until #158); the page keeps every chapter's real path, so a
+//! chapter link, `c=3.2` in the address and the trail above an entry all mean what they meant.
 
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
@@ -60,12 +60,18 @@ pub fn path_after_toggle(path: &[usize], opened: bool) -> Option<Vec<usize>> {
     }
 }
 
-/// The kinds that Contents does not list: spells, feats, items and the class options (classes,
-/// prestige classes and archetypes). A book holds thousands of them, so listing them made a
-/// page of rows no one scrolls. Owner decision of 2026-11-07: the `In this book` links (#158) reach
-/// them as list pages filtered to the book. Until those links ship they are reached from Home,
-/// Search and the entries that mention them.
-pub fn hidden_from_contents(kind: EntryKind) -> bool {
+/// Whether Contents leaves out the kinds that the `In this book` links (#158) reach.
+///
+/// **Off until #158 ships.** The owner decided on 2026-11-07 that Contents should not list
+/// spells, feats, items and class options, because a book holds thousands of them and the kind
+/// links reach them as list pages filtered to the book. Those links are not built yet, so
+/// leaving the entries out now would leave them unreachable from a book page. The logic below
+/// is complete and tested with the set on; #158 switches it on by setting this to `true`.
+pub const LEAVE_OUT_LINKED_KINDS: bool = false;
+
+/// The kinds that `In this book` will reach: spells, feats, items and the class options
+/// (classes, prestige classes and archetypes).
+pub fn linked_kind(kind: EntryKind) -> bool {
     matches!(
         kind,
         EntryKind::Spell
@@ -77,46 +83,47 @@ pub fn hidden_from_contents(kind: EntryKind) -> bool {
     )
 }
 
-/// What the catalog says about an entry's kind. `None` for an id the catalog does not hold.
-pub type KindOf<'a> = &'a dyn Fn(&EntryId) -> Option<EntryKind>;
+/// True when Contents leaves a kind out. Always false while [`LEAVE_OUT_LINKED_KINDS`] is off.
+pub fn hidden_from_contents(kind: EntryKind) -> bool {
+    LEAVE_OUT_LINKED_KINDS && linked_kind(kind)
+}
 
-/// True when a node still has something to list. A node whose entries are all of hidden kinds
-/// has nothing; a node with no entry anywhere under it, and an entry the catalog does not know,
-/// are kept as the compiler wrote them.
-pub fn shows_in_contents(node: &BookNode, kind_of: KindOf<'_>) -> bool {
-    fn all_hidden(node: &BookNode, kind_of: KindOf<'_>, seen: &mut bool) -> bool {
+/// Says whether Contents leaves an entry out. An entry the catalog does not know is kept.
+pub type Hide<'a> = &'a dyn Fn(&EntryId) -> bool;
+
+/// True when a node still has something to list. A node whose entries are all left out has
+/// nothing; a node with no entry anywhere under it is kept as the compiler wrote it.
+pub fn shows_in_contents(node: &BookNode, hide: Hide<'_>) -> bool {
+    fn all_hidden(node: &BookNode, hide: Hide<'_>, seen: &mut bool) -> bool {
         if let Some(entry) = &node.entry {
             *seen = true;
-            if !kind_of(entry).is_some_and(hidden_from_contents) {
+            if !hide(entry) {
                 return false;
             }
         }
         node.children
             .iter()
-            .all(|child| all_hidden(child, kind_of, seen))
+            .all(|child| all_hidden(child, hide, seen))
     }
     let mut seen = false;
-    !(all_hidden(node, kind_of, &mut seen) && seen)
+    !(all_hidden(node, hide, &mut seen) && seen)
 }
 
 /// The indices of the children of `node` that Contents lists, in book order.
-pub fn listed_children(node: &BookNode, kind_of: KindOf<'_>) -> Vec<usize> {
+pub fn listed_children(node: &BookNode, hide: Hide<'_>) -> Vec<usize> {
     (0..node.children.len())
-        .filter(|&i| shows_in_contents(&node.children[i], kind_of))
+        .filter(|&i| shows_in_contents(&node.children[i], hide))
         .collect()
 }
 
 /// The entries under a node, itself included, that Contents lists: the number a chapter shows.
-pub fn listed_under(node: &BookNode, kind_of: KindOf<'_>) -> usize {
-    let own = node
-        .entry
-        .as_ref()
-        .is_some_and(|entry| !kind_of(entry).is_some_and(hidden_from_contents));
+pub fn listed_under(node: &BookNode, hide: Hide<'_>) -> usize {
+    let own = node.entry.as_ref().is_some_and(|entry| !hide(entry));
     usize::from(own)
         + node
             .children
             .iter()
-            .map(|child| listed_under(child, kind_of))
+            .map(|child| listed_under(child, hide))
             .sum::<usize>()
 }
 
@@ -139,14 +146,14 @@ pub fn chapter_label(title: &str) -> String {
 /// The paths of the rows at the top of Contents. A book whose one remaining chapter is the
 /// catch-all shows that chapter's rows at the top, not a lone `More from this book` heading
 /// over them. Paths are real: they index the whole tree, not the listed rows.
-pub fn contents_roots(chapters: &[BookNode], kind_of: KindOf<'_>) -> Vec<Vec<usize>> {
+pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> {
     let listed: Vec<usize> = (0..chapters.len())
-        .filter(|&i| shows_in_contents(&chapters[i], kind_of))
+        .filter(|&i| shows_in_contents(&chapters[i], hide))
         .collect();
     if let [only] = listed[..] {
         let node = &chapters[only];
         if node.title == CATCH_ALL_TITLE && node.entry.is_none() {
-            return listed_children(node, kind_of)
+            return listed_children(node, hide)
                 .into_iter()
                 .map(|child| vec![only, child])
                 .collect();
@@ -256,8 +263,8 @@ pub fn BookView(source: String) -> impl IntoView {
             {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
             {active_row}
             // IN THIS BOOK (#158): the kind links go here, between the Active row and Contents.
-            // Contents leaves spells, feats, class options and items out because those links
-            // reach them (`hidden_from_contents`).
+            // When they ship, set `LEAVE_OUT_LINKED_KINDS` so Contents stops listing the kinds
+            // that they reach (spells, feats, items, class options).
             <section class="book-contents" aria-labelledby="book-contents-head">
                 <h2 id="book-contents-head">"Contents"</h2>
                 {move || {
@@ -307,7 +314,11 @@ fn Contents(
         return ().into_any();
     };
     let label = format!("Contents of {}", tree.title);
-    let roots = contents_roots(&tree.chapters, &|id| library.stub(id).map(|stub| stub.kind));
+    let roots = contents_roots(&tree.chapters, &|id| {
+        library
+            .stub(id)
+            .is_some_and(|stub| hidden_from_contents(stub.kind))
+    });
     let review = review_line(&tree.review);
     if roots.is_empty() {
         return view! {
@@ -350,11 +361,15 @@ fn TocNode(
     };
     let title = chapter_label(&node.title);
     let id = toc_id(&path);
-    let kind_of = |entry: &EntryId| library.stub(entry).map(|stub| stub.kind);
+    let hide = |entry: &EntryId| {
+        library
+            .stub(entry)
+            .is_some_and(|stub| hidden_from_contents(stub.kind))
+    };
     // The rows that Contents lists, as indices into the real children: a path keeps its meaning.
-    let listed = listed_children(node, &kind_of);
+    let listed = listed_children(node, &hide);
     let child_count = listed.len();
-    let under = listed_under(node, &kind_of);
+    let under = listed_under(node, &hide);
     let is_current = {
         let path = path.clone();
         move || target.with(|t| t.as_deref() == Some(path.as_slice()))
@@ -379,7 +394,7 @@ fn TocNode(
     let own_link = node
         .entry
         .as_ref()
-        .filter(|entry| !kind_of(entry).is_some_and(hidden_from_contents))
+        .filter(|entry| !hide(entry))
         .map(|entry| {
             Route::Entry {
                 id: entry.clone(),
@@ -572,6 +587,30 @@ mod tests {
         }
     }
 
+    /// The rule with the exclusion on, as #158 will run it.
+    fn hide(id: &EntryId) -> bool {
+        kind_of(id).is_some_and(linked_kind)
+    }
+
+    #[test]
+    fn the_exclusion_is_off_until_the_kind_links_ship() {
+        // While it is off every kind is listed, so no entry is unreachable from a book page.
+        for kind in EntryKind::ALL {
+            assert_eq!(
+                hidden_from_contents(kind),
+                LEAVE_OUT_LINKED_KINDS && linked_kind(kind),
+                "{kind:?}"
+            );
+        }
+        if !LEAVE_OUT_LINKED_KINDS {
+            assert!(
+                EntryKind::ALL
+                    .into_iter()
+                    .all(|kind| !hidden_from_contents(kind))
+            );
+        }
+    }
+
     #[test]
     fn contents_leaves_out_spells_feats_items_and_class_options_only() {
         for (kind, hidden) in [
@@ -590,7 +629,7 @@ mod tests {
             (EntryKind::Affliction, false),
             (EntryKind::Trap, false),
         ] {
-            assert_eq!(hidden_from_contents(kind), hidden, "{kind:?}");
+            assert_eq!(linked_kind(kind), hidden, "{kind:?}");
         }
     }
 
@@ -604,7 +643,7 @@ mod tests {
                 node("Alarm", Some("ref/spell/alarm"), vec![]),
             ],
         );
-        assert!(!shows_in_contents(&spells, &kind_of));
+        assert!(!shows_in_contents(&spells, &hide));
         let mixed = node(
             "Combat",
             None,
@@ -613,14 +652,14 @@ mod tests {
                 node("Grapple", Some("ref/rule/grapple"), vec![]),
             ],
         );
-        assert!(shows_in_contents(&mixed, &kind_of));
-        assert_eq!(listed_children(&mixed, &kind_of), vec![1]);
-        assert_eq!(listed_under(&mixed, &kind_of), 1);
+        assert!(shows_in_contents(&mixed, &hide));
+        assert_eq!(listed_children(&mixed, &hide), vec![1]);
+        assert_eq!(listed_under(&mixed, &hide), 1);
         // A heading with no entry under it, and an entry the catalog does not know, stay.
-        assert!(shows_in_contents(&node("Credits", None, vec![]), &kind_of));
+        assert!(shows_in_contents(&node("Credits", None, vec![]), &hide));
         assert!(shows_in_contents(
             &node("Mystery", Some("ref/unknown/thing"), vec![]),
-            &kind_of
+            &hide
         ));
         // A chapter with its own rule entry is listed even when its children are all hidden.
         let own = node(
@@ -628,9 +667,9 @@ mod tests {
             Some("ref/rule/magic"),
             vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
         );
-        assert!(shows_in_contents(&own, &kind_of));
-        assert!(listed_children(&own, &kind_of).is_empty());
-        assert_eq!(listed_under(&own, &kind_of), 1);
+        assert!(shows_in_contents(&own, &hide));
+        assert!(listed_children(&own, &hide).is_empty());
+        assert_eq!(listed_under(&own, &hide), 1);
     }
 
     #[test]
@@ -662,15 +701,12 @@ mod tests {
             spells.clone(),
             catch_all.clone(),
         ];
-        assert_eq!(contents_roots(&books, &kind_of), vec![vec![0], vec![2]]);
+        assert_eq!(contents_roots(&books, &hide), vec![vec![0], vec![2]]);
         // Alone, its rows are the top level and keep their paths in the whole tree.
         let alone = vec![spells, catch_all];
-        assert_eq!(
-            contents_roots(&alone, &kind_of),
-            vec![vec![1, 0], vec![1, 2]]
-        );
+        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 0], vec![1, 2]]);
         // Nothing left to list.
-        assert!(contents_roots(&alone[..1], &kind_of).is_empty());
+        assert!(contents_roots(&alone[..1], &hide).is_empty());
     }
 
     #[test]

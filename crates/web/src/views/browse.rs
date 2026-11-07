@@ -1213,7 +1213,7 @@ fn BrowseList(
                     {format!("Show all {}", kind.label().to_lowercase())}
                 </a>
                 " · "
-                <a class="count-action" href=Route::Books.href()>"Choose books"</a>
+                <a class="count-action" href=Route::BooksActive.href()>"Active books"</a>
             </p>
         }
         .into_any()

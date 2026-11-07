@@ -601,8 +601,15 @@ export function bookTrees(): BookTree[] {
   return cachedBooks!;
 }
 
-/** Kinds that a book page's Contents leaves out: the `In this book` links reach them. */
-export const CONTENTS_HIDDEN_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+/** The kinds that the `In this book` links (#158) will reach. */
+export const LINKED_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+/**
+ * Whether Contents leaves those kinds out. Off until #158 ships the links (`LEAVE_OUT_LINKED_KINDS`
+ * in `views/book.rs`); the tests follow this one switch.
+ */
+export const CONTENTS_LEAVES_OUT_LINKED_KINDS = false;
+/** The kinds Contents leaves out right now. */
+export const CONTENTS_HIDDEN_KINDS: Set<string> = CONTENTS_LEAVES_OUT_LINKED_KINDS ? LINKED_KINDS : new Set();
 
 /** The titles the top level of Contents shows, as the page writes them. */
 export function listedChapterTitles(book: BookTree): string[] {

@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, bookTrees, installLibrary, openBookGroups } from "./helpers";
+import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, CONTENTS_LEAVES_OUT_LINKED_KINDS, installLibrary, LINKED_KINDS, openBookGroups } from "./helpers";
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
@@ -28,6 +28,10 @@ const monthYear = (date: string | undefined) => {
 };
 /** Entries per book as Books counts them: catalog entries by their canonical source (the first book that places them). */
 const owners = bookOwners();
+const bookEntryIds = (book: any): string[] => {
+  const walk = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(walk)];
+  return book.chapters.flatMap(walk);
+};
 const entriesOf = (source: any): number =>
   corpus.catalog.entries.filter((stub: any) => (owners.get(stub.id) ?? stub.source) === source.id).length;
 
@@ -318,9 +322,12 @@ test("The copyright is printed once, in the colophon at the bottom, each distinc
   expect(lines.join(" ")).toContain("2010");
 });
 
-test("Contents leaves out spells, feats, class options and items", async ({ page }) => {
+test("Contents lists spells, feats, class options and items until the kind links ship", async ({ page }) => {
+  // The owner wants these kinds reached through `In this book` (#158). Until that exists, leaving
+  // them out would leave them unreachable from a book page, so the page lists them and the
+  // exclusion is one switch (`LEAVE_OUT_LINKED_KINDS`) that #158 turns on.
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
-  const hidden = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+  const hidden = CONTENTS_HIDDEN_KINDS;
   const book = bookTrees().find((candidate) => candidate.source === "core-rulebook") ?? bookTrees()[0];
   await page.goto(`#/browse/book/${book.source}`);
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
@@ -337,8 +344,13 @@ test("Contents leaves out spells, feats, class options and items", async ({ page
   expect(hrefs.length).toBeGreaterThan(0);
   const kinds = new Set(hrefs.map((href) => kindOf.get(decodeURIComponent(href.slice("#/entry/".length).split("?")[0]))));
   for (const kind of hidden) expect(kinds.has(kind), `${kind} appears in Contents`).toBe(false);
+  if (!CONTENTS_LEAVES_OUT_LINKED_KINDS) {
+    // Every kind that the links will reach is listed today.
+    const placed = new Set(bookEntryIds(book).map((id) => kindOf.get(id)));
+    for (const kind of LINKED_KINDS) if (placed.has(kind)) expect(kinds.has(kind), `${kind} is missing from Contents`).toBe(true);
+  }
 
-  // A top-level chapter that held only hidden kinds is not listed.
+  // A top-level chapter that held only left-out kinds is not listed (none, while the switch is off).
   const entriesOf = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(entriesOf)];
   const onlyHidden = book.chapters.filter((chapter: any) => {
     const ids = entriesOf(chapter);
@@ -351,7 +363,7 @@ test("Contents leaves out spells, feats, class options and items", async ({ page
 
 test("The catch-all chapter is renamed and is not shown when nothing is left in it", async ({ page }) => {
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
-  const hidden = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+  const hidden = CONTENTS_HIDDEN_KINDS;
   const withCatchAll = bookTrees().filter((book) => book.chapters.some((chapter: any) => chapter.title === "New entries (page order)"));
   expect(withCatchAll.length).toBeGreaterThan(0);
   const leaves = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(leaves)];
@@ -412,7 +424,7 @@ test("Back from a book page returns to Books at the same scroll position", async
 
 test("A book page shows a hierarchical contents tree and builds closed branches lazily", async ({ page }) => {
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
-  const hidden = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+  const hidden = CONTENTS_HIDDEN_KINDS;
   const shown = (node: any): boolean => {
     const entries = (n: any): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(entries)];
     const all = entries(node);
