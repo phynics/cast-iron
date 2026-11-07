@@ -858,3 +858,9 @@ Refs [#193](https://github.com/phynics/cast-iron/issues/193) and [#195](https://
 - **Values are shown as the corpus has them.** The client does not rename facet values beyond the existing label rules. Oddities seen while building: the spell school menu lists `Multiple` (1 spell, from `multiple (see text)`), and 60 items have no category, so they appear only under All categories. These are corpus questions.
 - **Browse still links to search for races and creatures** (`FacetLens`), until PR 4 and #196.
 
+
+## Inactive books in search, 2026-11-07
+
+Refs [#148](https://github.com/phynics/cast-iron/issues/148), [#149](https://github.com/phynics/cast-iron/issues/149), [#221](https://github.com/phynics/cast-iron/pull/221).
+
+- **The search row and the entry header use one preferred-source rule over different data.** Both call `preferred_source`: the entry header offers every `source_ids` entry because it has the full entry, while a search row offers only the canonical book placement because the catalog stub carries one source. A search row therefore cannot name a third active book that only the full entry knows. Making it do so would need the alternatives in the index or catalog, a format change.
