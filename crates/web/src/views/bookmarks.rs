@@ -367,7 +367,7 @@ fn bookmark_rows(
                 let n = bookmark.collection_ids.len();
                 view! {
                     <details class="picker">
-                        <summary>{if n == 0 { "Collections".to_string() } else { format!("Collections ({n})") }}</summary>
+                        <summary>{if n == 0 { "Collections".to_string() } else { format!("Collections ({})", crate::fmt::count(n)) }}</summary>
                         <ul class="plain picker-body">{boxes}</ul>
                     </details>
                 }

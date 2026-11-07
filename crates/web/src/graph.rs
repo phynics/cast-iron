@@ -229,6 +229,20 @@ impl Relations {
         order
     }
 
+    /// Feats that lead to more than `more_than` other feats down their chain, with that number.
+    /// Every feat that depends on one, directly or not, counts once. A list page marks these
+    /// rows, so the work is done once for the whole graph and not per row.
+    pub fn long_chains(&self, more_than: usize) -> HashMap<EntryId, usize> {
+        self.incoming
+            .iter()
+            .filter(|(_, edges)| edges.iter().any(|(k, _)| *k == RelationKind::Prerequisite))
+            .filter_map(|(id, _)| {
+                let total = self.descendants(id).len();
+                (total > more_than).then(|| (id.clone(), total))
+            })
+            .collect()
+    }
+
     /// Where chains start: feats with dependents and no prerequisite feat. Most depended-on
     /// first, then by id.
     pub fn chain_heads(&self) -> Vec<ChainHead> {
@@ -809,6 +823,39 @@ mod tests {
             .collect();
         // `b` has dependents but needs `a`, so only `a` and `x` head a chain.
         assert_eq!(seen, [("c/a", 2, 3), ("c/x", 1, 1)]);
+    }
+
+    #[test]
+    fn a_feat_that_unlocks_more_than_the_limit_is_a_long_chain_and_each_feat_counts_once() {
+        // a -> b, c; b -> d, e; c -> e, f (e is reached twice; the count has it once).
+        let r = relations(&[
+            ("c/b", Prerequisite, "c/a"),
+            ("c/c", Prerequisite, "c/a"),
+            ("c/d", Prerequisite, "c/b"),
+            ("c/e", Prerequisite, "c/b"),
+            ("c/e", Prerequisite, "c/c"),
+            ("c/f", Prerequisite, "c/c"),
+            // Other relations never count toward a chain.
+            ("c/x", Part, "c/a"),
+            ("c/y", Archetype, "c/a"),
+        ]);
+        let long = r.long_chains(4);
+        assert_eq!(long.len(), 1);
+        assert_eq!(long[&id("c/a")], 5);
+        // The limit is exclusive: five dependents are not "more than 5".
+        assert!(r.long_chains(5).is_empty());
+        // `b` and `c` unlock two and two (e once each), below any limit above 1.
+        assert_eq!(r.long_chains(1).len(), 3);
+        assert!(!r.long_chains(2).contains_key(&id("c/b")));
+        // A cycle terminates and a feat never counts itself.
+        let cyclic = relations(&[
+            ("c/b", Prerequisite, "c/a"),
+            ("c/a", Prerequisite, "c/b"),
+            ("c/s", Prerequisite, "c/s"),
+        ]);
+        assert!(cyclic.long_chains(1).is_empty());
+        assert_eq!(cyclic.long_chains(0)[&id("c/a")], 1);
+        assert!(!cyclic.long_chains(0).contains_key(&id("c/s")));
     }
 
     #[test]

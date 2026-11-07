@@ -3817,6 +3817,243 @@ html:has(.quick-search[open]) {
   font-variant-numeric: tabular-nums;
 }
 
+/* An action inside a count line or an empty state: `Show all`. Accent text, underlined, with a
+   44 px hit area around the line. It is a link on a list page and a button on the results page. */
+.count-action {
+  position: relative;
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.count-action::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
+}
+
+/* Filter row: filter menus on the left, a related page as a plain link on the right. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-4);
+  margin: var(--space-3) 0 0;
+}
+
+.filter-menu {
+  flex: 1 1 10rem;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+/* Filter menu role: a rectangle, never a pill. The chevron stays at the right edge. */
+.filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filter-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.filter-btn:disabled {
+  color: var(--ink-muted);
+  cursor: default;
+}
+
+/* Narrowed: the border says so; there is no fill. */
+.filter-btn-on {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.filter-btn-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-btn-chevron {
+  flex: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .filter-btn-chevron {
+    transition: transform 0.15s ease-out;
+  }
+}
+
+.filter-btn[aria-expanded="true"] .filter-btn-chevron {
+  transform: rotate(180deg);
+}
+
+/* Navigation role, related page: accent text, no border. */
+.page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch);
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.page-link:hover span {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.page-link svg {
+  flex: none;
+}
+
+/* The panel sits in the page flow under the row. It is not a dialog: the page keeps its scroll
+   and a phone's keyboard cannot cover it. */
+.filter-panel {
+  position: static;
+  max-height: 50dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: var(--space-2) 0 var(--space-3);
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.filter-panel[hidden] {
+  display: none;
+}
+
+.filter-find {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border);
+  background: var(--surface);
+}
+
+.filter-find-input {
+  grid-column: 1 / -1;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.filter-find-status {
+  margin: 0;
+  min-height: 1.75rem;
+  display: flex;
+  align-items: center;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+
+.filter-find-clear {
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.choice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.choice-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.choice-row:hover {
+  background: var(--surface-2);
+}
+
+.choice-row[aria-current="true"] {
+  font-weight: 600;
+}
+
+.choice-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.choice-count {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.choice-check {
+  flex: none;
+  color: var(--accent);
+}
+
+/* The counts of a current row sit before its check mark. */
+.choice-row[aria-current="true"] .choice-label + .choice-check {
+  margin-left: auto;
+}
+
+@media (min-width: 48rem) {
+  .choice-list {
+    columns: 14rem;
+    column-gap: 0;
+  }
+
+  .choice-list li {
+    break-inside: avoid;
+  }
+}
+
+/* The chain marker: a quiet icon after the title of a feat that opens a long chain. */
+.chain-mark {
+  flex: none;
+  width: 1em;
+  height: 1em;
+  margin-left: 0.4em;
+  vertical-align: -0.12em;
+  color: var(--ink-muted);
+}
+
 @media (min-width: 48rem) {
   .quick-search {
     inset: 8vh 0 auto 0;

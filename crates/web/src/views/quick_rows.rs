@@ -1,6 +1,7 @@
 //! What the Quick search list shows: the rows, and the keyboard movement through them. No
 //! browser calls, so the rules are tested natively.
 
+use crate::views::recent_searches::RecentSearch;
 use crate::views::source_variants::normalized_title;
 use cast_iron_schema::EntryId;
 use cast_iron_search::HitSummary;
@@ -24,8 +25,10 @@ pub enum Row {
     Entry(Suggestion),
     /// "See all results for …": opens the results page for the typed text.
     SeeAll(String),
-    /// A recent or starter search: runs that search.
-    Search(String),
+    /// A recent search: runs it again in the scope it ran in.
+    Search(RecentSearch),
+    /// A starter search, offered when nothing is recent: runs in the scope the layer has.
+    Starter(String),
 }
 
 /// Which list the layer is showing.
@@ -41,7 +44,7 @@ pub enum Mode {
 pub fn rows(
     text: &str,
     suggestions: &[Suggestion],
-    recents: &[String],
+    recents: &[RecentSearch],
     starters: &[&str],
 ) -> (Mode, Vec<Row>) {
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -59,7 +62,7 @@ pub fn rows(
             Mode::Starters,
             starters
                 .iter()
-                .map(|s| Row::Search((*s).to_owned()))
+                .map(|s| Row::Starter((*s).to_owned()))
                 .collect(),
         )
     }
@@ -136,6 +139,8 @@ pub fn step(active: Option<usize>, len: usize, down: bool) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::views::scope::Scope;
+    use cast_iron_schema::EntryKind;
 
     fn hit(id: &str, title: &str, kind: &str) -> HitSummary {
         HitSummary {
@@ -161,7 +166,7 @@ mod tests {
         let (mode, list) = rows(
             "  fireb ",
             &[suggestion("Fireball")],
-            &["old".to_owned()],
+            &[RecentSearch::new("old", None)],
             &["x"],
         );
         assert_eq!(mode, Mode::Suggestions);
@@ -183,14 +188,21 @@ mod tests {
 
     #[test]
     fn an_empty_field_shows_recents_then_starters() {
-        let recents = vec!["grapple".to_owned(), "fireball".to_owned()];
+        let feats = Scope {
+            kind: EntryKind::Feat,
+            facets: Vec::new(),
+        };
+        let recents = vec![
+            RecentSearch::new("grapple", Some(feats)),
+            RecentSearch::new("fireball", None),
+        ];
         let (mode, list) = rows("", &[], &recents, &["dragon"]);
         assert_eq!(mode, Mode::Recent);
         assert_eq!(
             list,
             [
-                Row::Search("grapple".to_owned()),
-                Row::Search("fireball".to_owned())
+                Row::Search(recents[0].clone()),
+                Row::Search(recents[1].clone())
             ]
         );
         let (mode, list) = rows("   ", &[], &[], &["dragon", "fireball"]);
@@ -198,8 +210,8 @@ mod tests {
         assert_eq!(
             list,
             [
-                Row::Search("dragon".to_owned()),
-                Row::Search("fireball".to_owned())
+                Row::Starter("dragon".to_owned()),
+                Row::Starter("fireball".to_owned())
             ]
         );
     }

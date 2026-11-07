@@ -91,7 +91,7 @@ pub fn SourceVariants(group: SourceGroup) -> impl IntoView {
         .collect_view();
     view! {
         <details class="source-variants">
-            <summary>{group.title}<span class="source-variant-count">{format!(" {count} publication entries")}</span></summary>
+            <summary>{group.title}<span class="source-variant-count">{format!(" {} publication entries", crate::fmt::count(count))}</span></summary>
             <ul>{items}</ul>
         </details>
     }
