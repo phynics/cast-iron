@@ -63,7 +63,7 @@ pub fn validate_derived(
         .flat_map(|e| {
             e.relations
                 .iter()
-                .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone()))
+                .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone(), r.label.clone()))
         })
         .collect();
     let actual: BTreeSet<RelationEdge> = relations.edges.iter().cloned().collect();
@@ -84,7 +84,7 @@ pub fn validate_derived(
         ));
     }
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
-    for RelationEdge(_, kind, _) in &relations.edges {
+    for RelationEdge(_, kind, _, _) in &relations.edges {
         *counts.entry(kind.slug().to_string()).or_default() += 1;
     }
     if counts != relations.counts {
@@ -279,6 +279,8 @@ fn validate_entry(
             )
             | (TypedFields::Trait(_), EntryKind::Trait)
             | (TypedFields::RacialTrait(_), EntryKind::RacialTrait)
+            | (TypedFields::Archetype(_), EntryKind::Archetype)
+            | (TypedFields::ClassOption(_), EntryKind::ClassOption)
             | (
                 TypedFields::None,
                 EntryKind::Rule
@@ -583,7 +585,7 @@ mod tests {
         let entries = vec![related("a", RelationKind::Part, "b"), entry("b")];
         let good_edges = RelationIndex {
             counts: [("part".to_string(), 1)].into(),
-            edges: vec![RelationEdge(
+            edges: vec![RelationEdge::plain(
                 EntryId::parse("a").unwrap(),
                 RelationKind::Part,
                 EntryId::parse("b").unwrap(),

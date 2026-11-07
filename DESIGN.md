@@ -39,7 +39,7 @@ From the top, at 390 px:
 4. Notices.
 5. The filter row (not sticky): filter menus on the left, a `.page-link` on the right, and an open menu's panel under the row. Feats, spells, traits, items and archetypes have it. Classes have no filter: they sit under group headings (see below). Races and creatures keep their lens pills until their pull requests of issue #193.
 6. The letter bar (sticky, 48 px, `--letter-h`), only above 200 entries. It is the only sticky element below the masthead.
-7. The letter heading with its count, then the rows. A row is a title, plus a muted book when a title is printed in several.
+7. The letter heading with its count, then the rows. A row is a title, plus a muted book when a title is printed in several, or the revision's book when the row shows a revision.
 
 No lede, no subhead and no explanatory prose sit above the rows. The blurb that describes a category lives on its Home card. Provenance prose goes below the list.
 
@@ -106,6 +106,31 @@ Books is where a reader reads; Active books is where a reader changes which book
 - **Active books** is the route `#/books/active`, not local state: every change is saved at once, so a reload or Back stays on the page and Settings can link to it. The Books tab stays highlighted. The head is the H1 `Active books` with `Done` (accent text, weight 600, no chevron, 44 px) at its right, then a count line without the preset name (`412 of 439 books active`). Entering moves focus to the H1. `Done` goes Back when the Books link opened the page, otherwise it replaces the entry with Books; it returns focus to the `Active books ›` link.
 - **Presets** (`h2` `Presets`): 44 px button rows with the name on the left, a muted tabular count (`28 books`) and a check mark with `aria-pressed="true"` on the one that matches the active set. No fill, no bold, hairlines between rows. A preset that repeats another preset's set, or has no books, is not shown, so `Everything incl. 3rd party` stays hidden until the corpus marks third-party books (#189). Applying one writes the choice once, shows a muted status line (`Applied Paizo Everything.`, a live region) and an accent `Undo` button. Undo restores the previous set and lasts until the next change or until the reader leaves the page. A preset's change is worked out inside the write, after any earlier write, so two quick taps end on exactly the second preset.
 - **Below the presets**, Active books lists the same groups with a checkbox per book (toggle rows). There is no group control of any kind.
+
+## Attached entries
+
+An add-on (variant, mythic version, Stamina rules, a third-party change or revision) is its own entry from its own book. It appears only while that book is active. An inactive base never hides it. Search, lists, facets, backlinks, stars and Recent already work per entry, so an add-on needs no second filter model. There is no rule-set switch and no gated body block.
+
+**The add-on's own page.** The metadata line ends with one link fragment: `Variant of {base}`, `Mythic version of {base}`, `Stamina rules for {base}`, `Changes {book} makes to {base}`, or `Revision of {base}`. The last appears only on the revision entry's own page. There is no `Base …` stat row; a value appears once. Search rows read `Mythic · {book}`, `Stamina · {book}`, or `Changes · {book}`; a class option reads `{Group singular} · {book}`. No breadcrumb.
+
+**The base page,** after the body, in this order:
+
+- each mythic version: an `h2` `Mythic`, the add-on's title as an `h3` link, a muted `Sources` line, and its text, expanded;
+- third-party changes: an `h2` with the book title, in the same form;
+- Stamina: one collapsed `details.rel-disclosure` `Stamina · {book}` with a 44 px summary;
+- on a spell, `Variants`: a `.rel-list` of rows, each the title with a muted line `Bard 6, Cleric 5, Druid 6 · Core Rulebook`.
+
+No box, no tint, and no left rule; the stat block keeps the only one.
+
+**Class page.** `Class options` is a `.jump-list` of `.jump` rectangles `{Group} {count}`, each opening `#/browse/kind/class_option?facet=group:{slug}`. The list page has the H1 `Class options`, a count line, and a group filter menu; a class `.scope-pill` appears only when a group serves several classes. Archetype rows show a muted `Replaces {items}` from `replaces`. Option rows show only `{book}`, because the group is the selected filter.
+
+**A revision in force.** A `.notice` reads `Revised by {book}. Changed: {fields}.`, or `Removed by {book}.` / `Merged by {book}.` followed by the printed sentence. Each changed field row carries the Label `changed` (plain muted `.tag`, never accent or bold), then a collapsed `details.rel-disclosure` `Original text · {book}` with a 44 px summary. A list row adds the revision's book as its muted line. Removed feats leave the list, and one prose line under it states the count. When two or more revisions are in force the page shows the original plus `Revised by` and a `.rel-list`; there is no substitution and no last-writer-wins.
+
+**Lists and chains.** A mythic feat is its own row sorting right after its base (`Dodge`, `Dodge, Mythic`); there is no `+ Mythic` row tag. The `Leads to` panel and the chain marker ignore add-ons. Under a revision, the chain shows the revision's prerequisites with a revised notice. The chain-marker figures are measured again when the corpus gains add-ons.
+
+**Never:** pills (the `.scope-pill` stays the only one here), cards, coloured borders, row tags, inline diff colours, or an activation control on an entry.
+
+**Owner decisions.** A collapsed Stamina row is enough, with no switch. Druid animal companions are class options. Mythic spells become add-on entries in slice 3.
 
 ## Tokens
 

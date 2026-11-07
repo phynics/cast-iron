@@ -15,6 +15,8 @@
 //! <content_version>/relations.json RelationIndex (schema 3)
 //! <content_version>/lists.json     SpellLists (schema 3)
 //! <content_version>/books.json     BookIndex (schema 3)
+//! <content_version>/option-groups.json OptionGroupIndex (schema 4)
+//! <content_version>/replaces.json  ReplacesIndex (schema 4)
 //! <content_version>/aliases.json   AliasIndex (optional, after the canonical cutover)
 //! <content_version>/backlinks.json BacklinkIndex descriptor (optional)
 //! <content_version>/backlinks/<NN>.json   Vec<BacklinkTarget> shards (optional)
@@ -40,13 +42,17 @@ pub mod validate;
 
 /// Version of the serialized content format.
 ///
-/// 3: new kinds `trait`, `racial_trait` and `archetype`, `RuleEntry::relations`,
-/// `FeatFields::prerequisite_feats`, the typed fields of the new kinds, and the files
-/// `relations.json`, `lists.json` and `books.json`.
-pub const SCHEMA_VERSION: u32 = 3;
+/// 4: attached entries. `RelationKind::{Variant, Addon, Revision}` with an optional label on
+/// a [`RelationEdge`], `EntryKind::ClassOption`, `ClassOptionFields`, `ArchetypeFields`, and
+/// the derived files `option-groups.json` and `replaces.json`.
+pub const SCHEMA_VERSION: u32 = 4;
 
 /// Name of the relation index, relative to the version directory.
 pub const RELATIONS_FILE: &str = "relations.json";
+/// Name of the class-option group index, relative to the version directory (schema 4).
+pub const OPTION_GROUPS_FILE: &str = "option-groups.json";
+/// Name of the typed replacement index, relative to the version directory (schema 4).
+pub const REPLACES_FILE: &str = "replaces.json";
 /// Name of the spell-list index, relative to the version directory.
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
@@ -155,10 +161,12 @@ pub enum EntryKind {
     RacialTrait,
     /// A class archetype (schema 3).
     Archetype,
+    /// An option picked in place of a class feature, such as a rage power (schema 4).
+    ClassOption,
 }
 
 impl EntryKind {
-    pub const ALL: [EntryKind; 14] = [
+    pub const ALL: [EntryKind; 15] = [
         EntryKind::Rule,
         EntryKind::Spell,
         EntryKind::Feat,
@@ -173,6 +181,7 @@ impl EntryKind {
         EntryKind::Trait,
         EntryKind::RacialTrait,
         EntryKind::Archetype,
+        EntryKind::ClassOption,
     ];
 
     /// Stable slug, used in shard names, routes, and search facets.
@@ -192,6 +201,7 @@ impl EntryKind {
             EntryKind::Trait => "trait",
             EntryKind::RacialTrait => "racial_trait",
             EntryKind::Archetype => "archetype",
+            EntryKind::ClassOption => "class_option",
         }
     }
 
@@ -216,6 +226,7 @@ impl EntryKind {
             EntryKind::Trait => "Traits",
             EntryKind::RacialTrait => "Racial traits",
             EntryKind::Archetype => "Archetypes",
+            EntryKind::ClassOption => "Class options",
         }
     }
 }
@@ -265,13 +276,23 @@ pub enum RelationKind {
     /// The source requires the target, such as a feat that requires another feat.
     /// The original wording stays in [`FeatFields::prerequisites`].
     Prerequisite,
+    /// The source is a variant of the target spell (schema 4).
+    Variant,
+    /// The source is an add-on to the target entry: a mythic version, Stamina rules, or a
+    /// third-party change (schema 4).
+    Addon,
+    /// The source is a third-party revision of the target: revised, removed, or merged (schema 4).
+    Revision,
 }
 
 impl RelationKind {
-    pub const ALL: [RelationKind; 3] = [
+    pub const ALL: [RelationKind; 6] = [
         RelationKind::Part,
         RelationKind::Archetype,
         RelationKind::Prerequisite,
+        RelationKind::Variant,
+        RelationKind::Addon,
+        RelationKind::Revision,
     ];
 
     pub fn slug(self) -> &'static str {
@@ -279,6 +300,9 @@ impl RelationKind {
             RelationKind::Part => "part",
             RelationKind::Archetype => "archetype",
             RelationKind::Prerequisite => "prerequisite",
+            RelationKind::Variant => "variant",
+            RelationKind::Addon => "addon",
+            RelationKind::Revision => "revision",
         }
     }
 }
@@ -458,7 +482,11 @@ pub enum TypedFields {
     Trait(TraitFields),
     /// Racial traits (schema 3).
     RacialTrait(RacialTraitFields),
-    /// Rule, race, skill, affliction, trap, and archetype entries for now.
+    /// Archetype replacements and alterations (schema 4).
+    Archetype(ArchetypeFields),
+    /// Class options and the items they replace (schema 4).
+    ClassOption(ClassOptionFields),
+    /// Rule, race, skill, affliction, and trap entries for now.
     None,
 }
 
@@ -631,6 +659,26 @@ pub struct RacialTraitFields {
     pub alternate: bool,
 }
 
+/// Fields of an archetype: the printed class features it replaces and alters, in print order.
+/// Empty vectors are omitted from the serialized form.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ArchetypeFields {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replaces: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alters: Vec<String>,
+}
+
+/// Fields of a class option: the option group it belongs to and the printed features it
+/// replaces, in print order.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ClassOptionFields {
+    /// A slug from the corpus `option-groups.toml`.
+    pub group: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replaces: Vec<String>,
+}
+
 /// `relations.json` (schema 3): every `Relation` of every entry, flattened so that the
 /// inverse direction is a lookup over this one small file instead of a scan of all shards.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -641,9 +689,66 @@ pub struct RelationIndex {
     pub edges: Vec<RelationEdge>,
 }
 
-/// `[source, kind, target]` in JSON.
+/// `[source, kind, target]` or `[source, kind, target, label]` in JSON. The label is the
+/// optional qualifier of the relation (`or`, `alternate`, `mythic`, `stamina`, `changes`,
+/// `removed`, or `merged`); an edge without one keeps the three-element form so an unchanged
+/// library serializes byte for byte as it did before schema 4.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct RelationEdge(pub EntryId, pub RelationKind, pub EntryId);
+pub struct RelationEdge(
+    pub EntryId,
+    pub RelationKind,
+    pub EntryId,
+    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<String>,
+);
+
+impl RelationEdge {
+    /// An edge with no label, in the compact three-element form.
+    pub fn plain(source: EntryId, kind: RelationKind, target: EntryId) -> Self {
+        Self(source, kind, target, None)
+    }
+
+    pub fn label(&self) -> Option<&str> {
+        self.3.as_deref()
+    }
+}
+
+/// `option-groups.json` (schema 4): the class-option groups a corpus declares, with the
+/// `class_option` entries that belong to each. Sorted by slug; entries within a group are
+/// sorted by id. An empty index means the corpus has no `option-groups.toml`.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct OptionGroupIndex {
+    pub groups: Vec<OptionGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OptionGroup {
+    /// Slug from `option-groups.toml`, such as `arcane-discovery`.
+    pub slug: String,
+    /// Plural display label, such as `Arcane discoveries`.
+    pub label: String,
+    /// Singular display label, such as `Arcane discovery`.
+    pub singular: String,
+    /// Class entries that take the group, sorted by id.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub classes: Vec<EntryId>,
+    /// `class_option` entries in the group, sorted by id.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entries: Vec<EntryId>,
+}
+
+/// `replaces.json` (schema 4): the printed items that an archetype or class option replaces.
+/// Sorted by id. The typed value also stays on the entry; this file only indexes it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ReplacesIndex {
+    pub entries: Vec<ReplacesRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplacesRow {
+    pub id: EntryId,
+    /// Printed feature names, in print order.
+    pub replaces: Vec<String>,
+}
 
 /// `backlinks.json` (optional): the descriptor of the reverse body-link index.
 ///
@@ -1373,12 +1478,30 @@ mod tests {
             serde_json::to_string(&relation).unwrap(),
             r#"{"kind":"prerequisite","target":"core-rulebook/feats/dodge","label":"or"}"#
         );
-        let edge = RelationEdge(
+        let edge = RelationEdge::plain(
             EntryId::parse("a").unwrap(),
             RelationKind::Part,
             EntryId::parse("b").unwrap(),
         );
         assert_eq!(serde_json::to_string(&edge).unwrap(), r#"["a","part","b"]"#);
+        let labelled = RelationEdge(
+            EntryId::parse("a").unwrap(),
+            RelationKind::Addon,
+            EntryId::parse("b").unwrap(),
+            Some("mythic".into()),
+        );
+        assert_eq!(
+            serde_json::to_string(&labelled).unwrap(),
+            r#"["a","addon","b","mythic"]"#
+        );
+        assert_eq!(
+            serde_json::from_str::<RelationEdge>(r#"["a","part","b"]"#).unwrap(),
+            edge
+        );
+        assert_eq!(
+            serde_json::from_str::<RelationEdge>(r#"["a","addon","b","mythic"]"#).unwrap(),
+            labelled
+        );
     }
 
     #[test]
@@ -1387,12 +1510,35 @@ mod tests {
             (EntryKind::Trait, "trait"),
             (EntryKind::RacialTrait, "racial_trait"),
             (EntryKind::Archetype, "archetype"),
+            (EntryKind::ClassOption, "class_option"),
         ] {
             assert_eq!(kind.slug(), slug);
             assert_eq!(EntryKind::from_slug(slug), Some(kind));
             assert!(!kind.label().is_empty());
         }
-        assert_eq!(EntryKind::ALL.len(), 14);
+        assert_eq!(EntryKind::ClassOption.label(), "Class options");
+        assert_eq!(EntryKind::ALL.len(), 15);
+        for relation in RelationKind::ALL {
+            assert!(!relation.slug().is_empty());
+        }
+        assert_eq!(RelationKind::ALL.len(), 6);
+    }
+
+    #[test]
+    fn attached_fields_omit_empty_vectors() {
+        let archetype = TypedFields::Archetype(ArchetypeFields::default());
+        assert_eq!(
+            serde_json::to_string(&archetype).unwrap(),
+            r#"{"kind":"archetype"}"#
+        );
+        let option = TypedFields::ClassOption(ClassOptionFields {
+            group: "arcane-discovery".into(),
+            replaces: vec![],
+        });
+        assert_eq!(
+            serde_json::to_string(&option).unwrap(),
+            r#"{"kind":"class_option","group":"arcane-discovery"}"#
+        );
     }
 
     #[test]

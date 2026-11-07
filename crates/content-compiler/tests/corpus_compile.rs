@@ -167,11 +167,137 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
         assert!(reports.join("validation.json").is_file());
         let coverage = fs::read_to_string(reports.join("coverage.md")).unwrap();
         assert!(coverage.contains("json/example.json"), "{coverage}");
+        let derived: Vec<String> = manifest
+            .files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect();
+        for name in ["relations.json", "option-groups.json", "replaces.json"] {
+            assert!(
+                derived.iter().any(|path| path.ends_with(name)),
+                "{name} is not in the manifest: {derived:?}"
+            );
+        }
+        let version = out.join(&outcome.content_version);
+        assert_eq!(
+            fs::read_to_string(version.join("option-groups.json")).unwrap(),
+            r#"{"groups":[]}"#
+        );
+        assert_eq!(
+            fs::read_to_string(version.join("replaces.json")).unwrap(),
+            r#"{"entries":[]}"#
+        );
         versions.push(outcome.content_version);
         trees.push((tree(&out), tree(&reports)));
     }
     assert_eq!(versions[0], versions[1]);
     assert_eq!(trees[0], trees[1]);
+}
+
+#[test]
+fn attached_entry_indexes_are_derived_from_the_corpus() {
+    let corpus = temp("attached");
+    write_corpus(&corpus);
+    let class_option = RuleEntry {
+        id: EntryId::parse("ref/arcanedisc/example").unwrap(),
+        kind: EntryKind::ClassOption,
+        title: "Example Discovery".into(),
+        source_ids: vec!["core-rulebook".into()],
+        section: vec![],
+        parent: None,
+        body: vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Replaces:")],
+                },
+                Inline::text(" Arcane bond."),
+            ],
+        }],
+        fields: TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            group: "discoveries".into(),
+            replaces: vec!["Arcane bond".into()],
+        }),
+        tags: vec![],
+        links: vec![],
+        provenance: vec![],
+        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+        relations: vec![],
+    };
+    let archetype = RuleEntry {
+        id: EntryId::parse("ref/arc-fighter/example").unwrap(),
+        kind: EntryKind::Archetype,
+        title: "Example Archetype".into(),
+        source_ids: vec!["core-rulebook".into()],
+        section: vec![],
+        parent: None,
+        body: vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Replaces:")],
+                },
+                Inline::text(" Trap sense."),
+            ],
+        }],
+        fields: TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            replaces: vec!["Trap sense".into()],
+            alters: vec![],
+        }),
+        tags: vec![],
+        links: vec![],
+        provenance: vec![],
+        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+        relations: vec![cast_iron_schema::Relation {
+            kind: cast_iron_schema::RelationKind::Archetype,
+            target: EntryId::parse("ref/class/fighter").unwrap(),
+            label: None,
+        }],
+    };
+    // The archetype relation needs its class entry.
+    let fighter = RuleEntry {
+        id: EntryId::parse("ref/class/fighter").unwrap(),
+        kind: EntryKind::Class,
+        title: "Fighter".into(),
+        source_ids: vec!["core-rulebook".into()],
+        section: vec![],
+        parent: None,
+        body: vec![],
+        fields: TypedFields::Class(Default::default()),
+        tags: vec![],
+        links: vec![],
+        provenance: vec![],
+        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+        relations: vec![],
+    };
+    for entry in [class_option, archetype, fighter] {
+        let path = corpus.join(entry_path(&entry.id));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, write_entry(&entry, &Config::default())).unwrap();
+    }
+    fs::write(
+        corpus.join("option-groups.toml"),
+        "[groups.discoveries]\nlabel = \"Discoveries\"\nsingular = \"Discovery\"\nclasses = [\"ref/class/fighter\"]\n",
+    )
+    .unwrap();
+
+    let out = temp("attached-out");
+    let outcome = compile_corpus(&corpus, &out, &temp("attached-reports"), None)
+        .unwrap_or_else(|failure| panic!("{}", failure.lines.join("\n")));
+    let version = out.join(&outcome.content_version);
+    let groups: serde_json::Value =
+        serde_json::from_slice(&fs::read(version.join("option-groups.json")).unwrap()).unwrap();
+    assert_eq!(groups["groups"][0]["slug"], "discoveries");
+    assert_eq!(groups["groups"][0]["entries"][0], "ref/arcanedisc/example");
+    let replaces: serde_json::Value =
+        serde_json::from_slice(&fs::read(version.join("replaces.json")).unwrap()).unwrap();
+    assert_eq!(
+        replaces["entries"],
+        serde_json::json!([
+            {"id": "ref/arc-fighter/example", "replaces": ["Trap sense"]},
+            {"id": "ref/arcanedisc/example", "replaces": ["Arcane bond"]},
+        ])
+    );
 }
 
 #[test]

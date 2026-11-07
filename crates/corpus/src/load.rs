@@ -4,8 +4,8 @@ use crate::config::{Config, read_config};
 use crate::entry::read_entry;
 use crate::error::{Error, Result};
 use crate::files::{
-    Exclusions, Publication, read_aliases, read_books, read_exclusions, read_history, read_legal,
-    read_publications,
+    Exclusions, OptionGroups, Publication, read_aliases, read_books, read_exclusions, read_history,
+    read_legal, read_option_groups, read_publications,
 };
 use cast_iron_schema::{AliasIndex, BookIndex, CoverageHistory, LegalNotices, RuleEntry};
 use std::collections::BTreeMap;
@@ -30,6 +30,8 @@ pub struct Corpus {
     /// Entries by permanent id.
     pub entries: BTreeMap<String, Stored>,
     pub publications: Vec<Publication>,
+    /// The class-option vocabulary. Empty when the corpus has no `option-groups.toml`.
+    pub option_groups: OptionGroups,
     pub books: BookIndex,
     pub books_text: String,
     pub legal: LegalNotices,
@@ -82,6 +84,16 @@ impl Corpus {
             read_text(dir, "publications.toml")
                 .and_then(|text| read_publications(Path::new("publications.toml"), &text)),
         );
+        let option_groups = if dir.join("option-groups.toml").is_file() {
+            take(
+                &mut errors,
+                read_text(dir, "option-groups.toml")
+                    .and_then(|text| read_option_groups(Path::new("option-groups.toml"), &text)),
+            )
+            .map(Some)
+        } else {
+            Some(Some(OptionGroups::default()))
+        };
         let books_text = take(&mut errors, read_text(dir, "books.toml"));
         let books = books_text
             .as_deref()
@@ -161,6 +173,7 @@ impl Corpus {
         match (
             config,
             publications,
+            option_groups,
             books,
             books_text,
             legal,
@@ -171,6 +184,7 @@ impl Corpus {
             (
                 Some(config),
                 Some(publications),
+                Some(Some(option_groups)),
                 Some(books),
                 Some(books_text),
                 Some(legal),
@@ -182,6 +196,7 @@ impl Corpus {
                 config,
                 entries,
                 publications,
+                option_groups,
                 books,
                 books_text,
                 legal,

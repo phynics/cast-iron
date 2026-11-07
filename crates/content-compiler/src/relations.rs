@@ -21,11 +21,12 @@ pub fn index_over(entries: &[RuleEntry], mut coverage: RelationCoverage) -> Repo
                 entry.id.clone(),
                 relation.kind,
                 relation.target.clone(),
+                relation.label.clone(),
             ));
         }
     }
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
-    for RelationEdge(_, kind, _) in &edges {
+    for RelationEdge(_, kind, _, _) in &edges {
         *counts.entry(kind.slug().to_string()).or_default() += 1;
     }
     coverage.edges = counts.clone();

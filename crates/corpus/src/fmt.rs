@@ -9,7 +9,7 @@ use crate::config::write_config;
 use crate::entry::{entry_path, write_entry};
 use crate::error::Error;
 use crate::files::{
-    write_aliases, write_books, write_exclusions, write_history, write_legal,
+    write_aliases, write_books, write_exclusions, write_history, write_legal, write_option_groups,
     write_publication_list,
 };
 use crate::load::Corpus;
@@ -130,6 +130,13 @@ pub fn format_corpus(dir: &Path, write: bool) -> std::result::Result<FmtReport, 
     }
     if let Some(aliases) = &corpus.aliases {
         stored_files.push(("aliases.toml", write_aliases(aliases)));
+    }
+    // A missing vocabulary file means no groups; `fmt` never creates it.
+    if dir.join("option-groups.toml").is_file() {
+        stored_files.push((
+            "option-groups.toml",
+            write_option_groups(&corpus.option_groups),
+        ));
     }
     for (name, expected) in stored_files {
         let found = fs::read_to_string(dir.join(name))

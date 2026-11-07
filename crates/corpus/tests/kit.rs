@@ -102,7 +102,20 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
             copyright: Some("Example Book, (c) Example Publisher.".into()),
             category: None,
             publication_date: None,
+            suffix: None,
         }],
+        option_groups: {
+            let mut groups = cast_iron_corpus::OptionGroups::default();
+            groups.groups.insert(
+                "arcane-discovery".into(),
+                cast_iron_corpus::OptionGroupDef {
+                    label: "Arcane discoveries".into(),
+                    singular: "Arcane discovery".into(),
+                    classes: vec!["ref/class/example-wayfarer".into()],
+                },
+            );
+            groups
+        },
         books: BookIndex { books: vec![] },
         books_text: String::new(),
         legal: LegalNotices {

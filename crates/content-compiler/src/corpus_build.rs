@@ -97,6 +97,8 @@ pub fn build_from_corpus(dir: &Path, published: Option<&Path>) -> Result<Library
 
     let spell_lists = lists::build(&entries);
     let relations = relations::index_over(&entries, RelationCoverage::default());
+    let option_groups = crate::attached::option_groups(&corpus, &entries);
+    let replaces = crate::attached::replaces(&entries);
     let aliases = search_aliases(&entries);
     let facets = canonical_facets(&entries);
     check_no_markup_leaks(&entries, &facets, &aliases, &coverage)?;
@@ -135,6 +137,8 @@ pub fn build_from_corpus(dir: &Path, published: Option<&Path>) -> Result<Library
         relations: relations.index,
         spell_lists: spell_lists.lists,
         books: corpus.books.clone(),
+        option_groups,
+        replaces,
         legal: corpus.legal.clone(),
         coverage,
         aliases,
