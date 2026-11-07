@@ -1231,6 +1231,14 @@ test("An inactive first source is replaced by the active book that still shows t
   await expect(updated.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(ownerTitle)}$`));
   await updated.click();
   await expect(page.locator(".entry-meta .meta-link").nth(1)).toHaveText(ownerTitle);
+
+  // Quick search suggestions use the same rule as the result rows.
+  await page.goto("#/");
+  const layer = await openQuickSearch(page);
+  await layer.getByRole("combobox", { name: "Search the rules" }).fill(entry.title);
+  const metas = layer.locator('[role="option"] .quick-search-meta');
+  await expect.poll(async () => (await metas.allInnerTexts()).some((line) => line.endsWith(` · ${ownerTitle}`))).toBe(true);
+  await page.keyboard.press("Escape");
 });
 
 test("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
