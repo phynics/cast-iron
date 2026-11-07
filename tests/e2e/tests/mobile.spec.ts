@@ -242,8 +242,10 @@ installedTest("Mobile Quick search is a full-screen layer with 44 px controls", 
   const layer = await openQuickSearch(page, { keyboard: true });
   const box = (await layer.boundingBox())!;
   const viewport = page.viewportSize()!;
-  expect(Math.round(box.x)).toBe(0);
-  expect(Math.round(box.y)).toBe(0);
+  // Sub-pixel offsets (for example -0.4 while the layer settles) round to -0, which
+  // `toBe(0)` rejects under Object.is; the layer only has to sit flush with the viewport.
+  expect(Math.abs(box.x)).toBeLessThan(1);
+  expect(Math.abs(box.y)).toBeLessThan(1);
   expect(Math.round(box.width)).toBe(viewport.width);
   expect(Math.round(box.height)).toBe(viewport.height);
   const field = (await quickField(page).boundingBox())!;
