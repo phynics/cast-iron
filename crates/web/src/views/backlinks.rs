@@ -12,6 +12,7 @@ use crate::views::util::{kind_name, local_resource, sort_key};
 use cast_iron_schema::{BacklinkSource, Block, EntryId, EntryKind, RuleEntry};
 use leptos::prelude::*;
 use std::collections::BTreeMap;
+use wasm_bindgen::JsCast;
 
 /// Rows shown before a group offers "Show all".
 pub const GROUP_PREVIEW: usize = 8;
@@ -194,10 +195,14 @@ fn group_view(
         .iter()
         .map(|row| row_view(library, current, headings, row.clone()))
         .collect_view();
-    let rest_rows = rest
-        .iter()
-        .map(|row| row_view(library, current, headings, row.clone()))
-        .collect_view();
+    // The rest waits until "Show all" opens, so a heavily linked entry does not build every
+    // row inside a closed disclosure. The closure owns what it needs, so it can run after the
+    // first render.
+    let rest: Vec<BacklinkRow> = rest.to_vec();
+    let lazy_library = library.clone();
+    let lazy_current = current.clone();
+    let lazy_headings = headings.clone();
+    let show_all = RwSignal::new(false);
     let heading = group.heading;
     view! {
         <details class="rel-group backlink-group" open=open>
@@ -207,9 +212,24 @@ fn group_view(
             </summary>
             <ul class="ref-list">{preview_rows}</ul>
             {(count > GROUP_PREVIEW).then(|| view! {
-                <details class="backlink-more">
+                <details class="backlink-more" on:toggle=move |event| {
+                    show_all.set(
+                        event
+                            .target()
+                            .and_then(|target| target.dyn_into::<web_sys::HtmlDetailsElement>().ok())
+                            .is_some_and(|details| details.open()),
+                    );
+                }>
                     <summary>{format!("Show all {}", fmt::count(count))}</summary>
-                    <ul class="ref-list">{rest_rows}</ul>
+                    <ul class="ref-list">{move || {
+                        show_all.get().then(|| {
+                            rest.iter()
+                                .map(|row| {
+                                    row_view(&lazy_library, &lazy_current, &lazy_headings, row.clone())
+                                })
+                                .collect_view()
+                        })
+                    }}</ul>
                 </details>
             })}
         </details>
