@@ -1434,7 +1434,7 @@ pub fn Search() -> impl IntoView {
                                 let _ = library.set_book_active(&source, true).await;
                             });
                         }>
-                        {format!("Include {title}")}
+                        {format!("Turn on {title}")}
                     </button>
                 </p>
             }
