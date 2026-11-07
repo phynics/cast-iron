@@ -158,6 +158,8 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("race_group", "uncommon_race") => "Uncommon races".into(),
         ("race_group", "monster_race") => "Monster races".into(),
         ("class_type", "npc") => "NPC".into(),
+        ("creature_type", "magicalBeast") => "Magical Beast".into(),
+        ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
         ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
             capitalize_words(value)
         }
@@ -1782,6 +1784,14 @@ mod tests {
     fn facet_labels_read_well_and_leave_values_alone() {
         assert_eq!(facet_label("race_group", "monster_race"), "Monster races");
         assert_eq!(facet_label("class_type", "npc"), "NPC");
+        assert_eq!(
+            facet_label("creature_type", "magicalBeast"),
+            "Magical Beast"
+        );
+        assert_eq!(
+            facet_label("creature_type", "monstrousHumanoid"),
+            "Monstrous Humanoid"
+        );
         assert_eq!(facet_label("class_type", "base"), "Base");
         assert_eq!(facet_label("trait_category", "combat"), "Combat");
         assert_eq!(
