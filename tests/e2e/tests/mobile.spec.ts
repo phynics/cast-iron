@@ -52,6 +52,27 @@ installedTest("Mobile viewport shows no horizontal page scroll on key screens", 
   expect(wide).toEqual([]);
 });
 
+installedTest("A creature breadcrumb is one line of working links at 390 px", async ({ page }) => {
+  await installLibrary(page);
+  // The deepest printed taxonomy: Monsters > Dragon > Chromatic > Red.
+  const nested = firstEntry("a creature with a deep section", (entry) =>
+    entry.kind === "creature" && (entry.section?.length ?? 0) >= 4);
+  await page.goto(`#/entry/${nested.id}`);
+  await expect(page.locator(".stat-block").first()).toBeVisible();
+  const crumbs = page.locator(".crumbs");
+  await expect(crumbs).toBeVisible();
+  // Printed taxonomy has no page, so it is not rendered as a segment.
+  await expect(crumbs.locator("li > span")).toHaveCount(0);
+  const labels = await crumbs.getByRole("link").allInnerTexts();
+  expect(labels[0]).toBe("Home");
+  expect(labels).toContain("Creatures");
+  // One line: every segment shares the same top edge.
+  const tops = await crumbs.locator("li").evaluateAll((items) =>
+    items.map((item) => Math.round(item.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  expect((await crumbs.boundingBox())!.height).toBeLessThanOrEqual(60);
+});
+
 test("Book rows, the book page contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");

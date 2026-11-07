@@ -180,7 +180,14 @@ fn EntryView(
     if entry.kind == EntryKind::PrestigeClass {
         chain_titles.push("Classes");
     }
-    let sections = extra_sections(&entry.section, &chain_titles);
+    // A creature's section is printed taxonomy (Monsters > Dragon > Chromatic > Red), not a
+    // set of pages, so it cannot be a breadcrumb. Other kinds keep their section text until
+    // #193 changes entry crumbs.
+    let sections = if entry.kind == EntryKind::Creature {
+        Vec::new()
+    } else {
+        extra_sections(&entry.section, &chain_titles)
+    };
     let crumbs_chain = chain
         .iter()
         .map(|(id, title)| {
