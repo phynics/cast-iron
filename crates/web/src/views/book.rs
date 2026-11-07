@@ -5,7 +5,7 @@
 
 use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, use_library};
-use crate::route::{Route, replace, toc_id, use_route};
+use crate::route::{Route, current_hash, replace, toc_id, use_route};
 use crate::views::util::{Shared, book_count_line, local_resource, set_title};
 use cast_iron_schema::{BookNode, EntryId};
 use leptos::prelude::*;
@@ -257,6 +257,18 @@ fn TocNode(
         let path = path.clone();
         let source = source.clone();
         move |event: leptos::ev::Event| {
+            // The browser fires `toggle` in a later task than the click. A Back or a link that
+            // lands first leaves this page, and a late event must not write this book's URL over
+            // the entry that the reader is now on. Read the address bar, not the route signal:
+            // the signal follows the address a moment later.
+            // An old `#/browse/source/<id>` link shows the same page, so it counts as this book.
+            let on_this_book = matches!(
+                Route::parse(&current_hash()),
+                Route::Book { source: shown, .. } | Route::BrowseSource(shown) if shown == source
+            );
+            if !on_this_book {
+                return;
+            }
             let open = event_target::<web_sys::HtmlDetailsElement>(&event).open();
             // The page opens ancestors of the target itself; only a difference from the signal
             // is the reader's own doing.

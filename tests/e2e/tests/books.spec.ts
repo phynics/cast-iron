@@ -238,3 +238,27 @@ test("A book page shows a hierarchical contents tree and builds closed branches 
     await expect(branchChildren).toBeVisible();
   }
 });
+
+test("A chapter toggle that Back overtakes does not rewrite the Books entry", async ({ page }) => {
+  const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0))!;
+  await page.goto("#/books");
+  await openBookGroups(page);
+  // The race is a matter of task order, so repeat it.
+  for (let round = 0; round < 6; round++) {
+    await page.locator(`.book-directory-item[data-book-id="${book.source}"] a.book-directory-row`).click();
+    const summary = page.locator(".toc-top > li > .toc-details > summary").first();
+    await expect(summary).toBeVisible();
+    // The browser fires `toggle` in a task after the click. Ask for Back in the same task, so the
+    // traversal can land before the event does: the late handler must not write the book's URL
+    // over the Books entry.
+    await summary.evaluate((element) => {
+      element.click();
+      history.back();
+    });
+    await expect(page.locator(".book-tier").first()).toBeVisible();
+    // Let any deferred toggle event run, then check that Books is still what the entry shows.
+    await page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
+    await expect(page).toHaveURL(/#\/books$/);
+    await expect(page.locator(".book-tier").first()).toBeVisible();
+  }
+});
