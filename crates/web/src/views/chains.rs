@@ -156,7 +156,11 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
         })
         .collect_view();
     view! {
-        <p class="muted" role="status">{format!("{} feats start a chain", fmt::count(count))}</p>
+        <p class="muted" role="status">{format!(
+            "{} {} a chain",
+            fmt::pluralize(count, "feat", "feats"),
+            if count == 1 { "starts" } else { "start" }
+        )}</p>
         <ul class="chain-heads">{rows}</ul>
     }
 }

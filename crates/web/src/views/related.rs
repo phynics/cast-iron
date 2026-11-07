@@ -292,9 +292,9 @@ fn class_panels(
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-archetypes">
-                        <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{fmt::count(total)}</span></h2>
+                        <h2 id="rel-archetypes">"Archetypes · "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
-                            <summary>{format!("Show {} archetypes", fmt::count(total))}</summary>
+                            <summary>{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
                             {groups}
                         </details>
                     </section>

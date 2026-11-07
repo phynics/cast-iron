@@ -171,7 +171,11 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
                 view! {
                     <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
                         <h2 id="backlinks-heading">"Referenced by"</h2>
-                        <p class="muted backlink-count">{format!("{} entries link here.", fmt::count(total))}</p>
+                        <p class="muted backlink-count">{format!(
+                            "{} {} here.",
+                            fmt::pluralize(total, "entry", "entries"),
+                            if total == 1 { "links" } else { "link" }
+                        )}</p>
                         {groups_view}
                     </section>
                 }.into_any()
