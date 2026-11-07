@@ -1430,8 +1430,14 @@ pub fn Search() -> impl IntoView {
                         on:click=move |_| {
                             let library = library.clone();
                             let source = source.clone();
+                            // Keep focus in the page while the hint unmounts.
+                            focus_result_count();
                             spawn_local(async move {
                                 let _ = library.set_book_active(&source, true).await;
+                                js::sleep(0).await;
+                                // The results have re-rendered. Keep focus on the status line
+                                // instead of dropping it to <body>.
+                                focus_result_count();
                             });
                         }>
                         {format!("Turn on {title}")}
@@ -1563,7 +1569,7 @@ pub fn Search() -> impl IntoView {
                     data-index-ms=move || index_ms.get().map(|ms| format!("{ms:.1}"))
                     data-query=move || state.with(|s| s.q.clone())
                 >
-                    <p class="result-count" role="status" aria-live="polite">
+                    <p class="result-count" role="status" aria-live="polite" tabindex="-1">
                         <span>{count_text}</span>
                         {show_all}
                         {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
@@ -1618,6 +1624,18 @@ async fn ensure_index(
             }
             None
         }
+    }
+}
+
+/// Focus the results status line. The inactive-book hint unmounts after its action, so the
+/// next focus target has to be found after the render.
+fn focus_result_count() {
+    if let Some(status) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.query_selector(".result-count").ok().flatten())
+        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let _ = status.focus();
     }
 }
 
