@@ -178,8 +178,17 @@ impl QuickSearch {
         self.text.set(String::new());
         self.active.set(None);
         self.list_open.set(true);
-        // A list page hands its kind to the search; every other page searches everything.
-        self.scope.set(Scope::of_page(&self.route.get_untracked()));
+        // A list page hands its kind to the search; every other page searches everything. A
+        // book-filtered list also names its book in the pill, so read the title from the library.
+        let scope = Scope::of_page(&self.route.get_untracked()).map(|scope| {
+            let title = scope.source.as_deref().and_then(|source| {
+                crate::library::use_library()
+                    .source(source)
+                    .map(|s| s.title.clone())
+            });
+            scope.with_source_title(title)
+        });
+        self.scope.set(scope);
         self.open.set(true);
         spawn_local(async move {
             let list = recent_searches::load().await;

@@ -1371,7 +1371,8 @@ pub fn Search() -> impl IntoView {
     };
 
     // The scope the results are limited to, if exactly one kind is: the count line names it.
-    let page_scope = Memo::new(move |_| state.with(|s| Scope::of_search(&s.kinds, &s.facets)));
+    let page_scope =
+        Memo::new(move |_| state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources)));
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
         Phase::Done { total, groups, .. } => {
@@ -1465,6 +1466,7 @@ pub fn Search() -> impl IntoView {
         change_filters(&|s| {
             s.kinds.clear();
             s.facets.clear();
+            s.sources.clear();
         });
         if let Some(button) = web_sys::window()
             .and_then(|window| window.document())
@@ -1491,7 +1493,9 @@ pub fn Search() -> impl IntoView {
                 flush();
                 let submitted = text.get_untracked();
                 // A search in a scope is remembered with it: the same words mean another list.
-                let scope = state.with_untracked(|s| Scope::of_search(&s.kinds, &s.facets));
+                let scope = state.with_untracked(|s| {
+                    Scope::of_search(&s.kinds, &s.facets, &s.sources)
+                });
                 spawn_local(async move {
                     crate::views::recent_searches::record(&submitted, scope).await;
                 });
@@ -1538,7 +1542,7 @@ pub fn Search() -> impl IntoView {
                 </div>
             </form>
             // The scope that Quick search applied, or that a kind choice made: one tap removes it.
-            {move || state.with(|s| Scope::of_search(&s.kinds, &s.facets)).map(|scope| view! {
+            {move || state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources)).map(|scope| view! {
                 <div class="search-scope" role="group" aria-label="Search scope">
                     <span class="quick-search-scope-label">"Searching in"</span>
                     <ScopePill scope on_remove=Callback::new(remove_scope) />

@@ -441,7 +441,8 @@ fn RouteView() -> impl IntoView {
             kind,
             letter,
             facets,
-        } => view! { <BrowseKind kind letter=letter facets=facets /> }.into_any(),
+            source,
+        } => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books => view! { <Books /> }.into_any(),
         Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
@@ -469,6 +470,17 @@ mod tests {
         assert!(in_section(
             &Route::Home,
             &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+        ));
+        // A book-filtered kind list is still Home, not Books.
+        assert!(in_section(
+            &Route::Home,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
+        ));
+        assert!(!in_section(
+            &Route::Books,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
         ));
         assert!(in_section(
             &Route::Home,

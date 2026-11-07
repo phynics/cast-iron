@@ -2,9 +2,9 @@
 //! the previous/next control that an entry shows for its place in a book.
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
-//! Contents can leave out the kinds that the `In this book` links will reach (see
-//! [`LEAVE_OUT_LINKED_KINDS`], off until #158); the page keeps every chapter's real path, so a
-//! chapter link, `c=3.2` in the address and the trail above an entry all mean what they meant.
+//! Contents leaves out the kinds that the `In this book` links reach (see
+//! [`LEAVE_OUT_LINKED_KINDS`]); the page keeps every chapter's real path, so a chapter link,
+//! `c=3.2` in the address and the trail above an entry all mean what they meant.
 
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
@@ -30,6 +30,13 @@ pub fn book_entry_count(nodes: &[BookNode]) -> usize {
     let mut seen = HashSet::new();
     walk(nodes, &mut seen);
     seen.len()
+}
+
+/// The kinds a book holds, with their counts, in the order of Home's category directory. Empty
+/// kinds and Rules are left out: Rules have no list page, and the kind links only go to one.
+pub fn kinds_in_book(counts: &[(EntryKind, usize)]) -> Vec<(EntryKind, usize)> {
+    let (primary, more) = crate::views::categories::arrange(counts);
+    primary.into_iter().chain(more).collect()
 }
 
 /// The chapter path that a route asks for.
@@ -60,16 +67,14 @@ pub fn path_after_toggle(path: &[usize], opened: bool) -> Option<Vec<usize>> {
     }
 }
 
-/// Whether Contents leaves out the kinds that the `In this book` links (#158) reach.
+/// Whether Contents leaves out the kinds that the `In this book` links reach.
 ///
-/// **Off until #158 ships.** The owner decided on 2026-11-07 that Contents should not list
-/// spells, feats, items and class options, because a book holds thousands of them and the kind
-/// links reach them as list pages filtered to the book. Those links are not built yet, so
-/// leaving the entries out now would leave them unreachable from a book page. The logic below
-/// is complete and tested with the set on; #158 switches it on by setting this to `true`.
-pub const LEAVE_OUT_LINKED_KINDS: bool = false;
+/// The owner decided on 2026-11-07 that Contents does not list spells, feats, items and class
+/// options, because a book holds thousands of them and the kind links reach them as list pages
+/// filtered to the book. The links ship in #158, so the exclusion is on.
+pub const LEAVE_OUT_LINKED_KINDS: bool = true;
 
-/// The kinds that `In this book` will reach: spells, feats, items and the class options
+/// The kinds that `In this book` reaches: spells, feats, items and the class options
 /// (classes, prestige classes and archetypes).
 pub fn linked_kind(kind: EntryKind) -> bool {
     matches!(
@@ -257,14 +262,51 @@ pub fn BookView(source: String) -> impl IntoView {
         .map(|line| view! { <p class="copyright">{line}</p> })
         .collect_view();
     let active_row = view! { <ActiveRow library=library.clone() source=source.clone() /> };
+    // The `In this book` links count the catalog entries whose canonical book this is, so they
+    // agree with the Books row and reach that same set whether or not the book is active.
+    let kind_counts = {
+        let mut counts = Vec::with_capacity(EntryKind::ALL.len());
+        for kind in EntryKind::ALL {
+            let n = library
+                .catalog()
+                .entries
+                .iter()
+                .filter(|stub| stub.kind == kind && library.stub_is_in_source(stub, &source))
+                .count();
+            counts.push((kind, n));
+        }
+        kinds_in_book(&counts)
+    };
+    let kind_links = (!kind_counts.is_empty()).then(|| {
+        let rows = kind_counts
+            .iter()
+            .map(|&(kind, n)| {
+                let href = Route::browse_kind(kind)
+                    .with_source(Some(source.clone()))
+                    .href();
+                view! {
+                    <li>
+                        <a class="jump" href=href>
+                            <span class="book-kind-label">{kind.label()}</span>
+                            <span class="book-kind-count">{fmt::count(n)}</span>
+                        </a>
+                    </li>
+                }
+            })
+            .collect_view();
+        view! {
+            <section class="book-in-this-book" aria-labelledby="book-in-this-book-head">
+                <h2 id="book-in-this-book-head">"In this book"</h2>
+                <ul class="jump-list book-kinds">{rows}</ul>
+            </section>
+        }
+    });
     view! {
         <div class="wide book">
             <h1>{title}</h1>
             {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
             {active_row}
-            // IN THIS BOOK (#158): the kind links go here, between the Active row and Contents.
-            // When they ship, set `LEAVE_OUT_LINKED_KINDS` so Contents stops listing the kinds
-            // that they reach (spells, feats, items, class options).
+            {kind_links}
             <section class="book-contents" aria-labelledby="book-contents-head">
                 <h2 id="book-contents-head">"Contents"</h2>
                 {move || {
@@ -323,7 +365,7 @@ fn Contents(
     if roots.is_empty() {
         return view! {
             {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
-            <p class="muted">"This book's entries are spells, feats, items and class options. Find them from Home or Search."</p>
+            <p class="muted">"This book's entries are spells, feats, items and class options. Find them in In this book above."</p>
         }
         .into_any();
     }
@@ -587,28 +629,49 @@ mod tests {
         }
     }
 
-    /// The rule with the exclusion on, as #158 will run it.
+    /// The rule with the exclusion on, as #158 runs it.
     fn hide(id: &EntryId) -> bool {
         kind_of(id).is_some_and(linked_kind)
     }
 
     #[test]
-    fn the_exclusion_is_off_until_the_kind_links_ship() {
-        // While it is off every kind is listed, so no entry is unreachable from a book page.
+    fn the_exclusion_is_on_with_the_kind_links() {
         for kind in EntryKind::ALL {
-            assert_eq!(
-                hidden_from_contents(kind),
-                LEAVE_OUT_LINKED_KINDS && linked_kind(kind),
-                "{kind:?}"
-            );
+            assert_eq!(hidden_from_contents(kind), linked_kind(kind), "{kind:?}");
         }
-        if !LEAVE_OUT_LINKED_KINDS {
-            assert!(
-                EntryKind::ALL
-                    .into_iter()
-                    .all(|kind| !hidden_from_contents(kind))
-            );
-        }
+    }
+
+    #[test]
+    fn in_this_book_lists_home_order_without_rules_or_empty_kinds() {
+        let counts: Vec<(EntryKind, usize)> = EntryKind::ALL
+            .into_iter()
+            .map(|kind| (kind, if kind == EntryKind::Rule { 7 } else { 1 }))
+            .collect();
+        let listed = kinds_in_book(&counts);
+        let names: Vec<&str> = listed.iter().map(|(kind, _)| kind.label()).collect();
+        assert_eq!(
+            names,
+            [
+                "Spells",
+                "Feats",
+                "Classes",
+                "Prestige classes",
+                "Races",
+                "Traits",
+                "Items",
+                "Creatures",
+                "Archetypes",
+                "Racial traits",
+                "Skills",
+                "Afflictions",
+                "Traps"
+            ]
+        );
+        assert!(!listed.iter().any(|(kind, _)| *kind == EntryKind::Rule));
+        assert!(
+            kinds_in_book(&[(EntryKind::Spell, 0), (EntryKind::Trap, 2)])
+                == vec![(EntryKind::Trap, 2)]
+        );
     }
 
     #[test]

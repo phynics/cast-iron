@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, waitControlled } from "./helpers";
+import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -468,6 +468,105 @@ test("Classes are listed under their data group headings, without pills or a men
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
 });
 
+// ---- Book-filtered kind lists (#158) --------------------------------------------------------
+
+const owners = bookOwners();
+const stubById = new Map(corpus.catalog.entries.map((stub: any) => [stub.id, stub]));
+const ownerOf = (id: string) => owners.get(id) ?? stubById.get(id)?.source;
+const inBook = (source: string, kind: string) =>
+  corpus.catalog.entries.filter((stub: any) => stub.kind === kind && ownerOf(stub.id) === source).length;
+const inBookTotal = (source: string) =>
+  corpus.catalog.entries.filter((stub: any) => ownerOf(stub.id) === source).length;
+const bookPill = (page: Page, title: string) =>
+  page.getByRole("button", { name: `Remove filter: ${title}`, exact: true });
+
+test("A book-filtered kind list keeps the Home tab, names the book in a pill, and counts the book", async ({ page }) => {
+  await installLibrary(page);
+  const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
+  const spells = inBook(core.id, "spell");
+  expect(spells).toBeGreaterThan(0);
+
+  await page.goto(`#/browse/kind/spell?source=${core.id}`);
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Spells" })).toBeVisible();
+  await expect(bookPill(page, core.title)).toBeVisible();
+  await expect(bookPill(page, core.title)).toHaveClass(/scope-pill/);
+  // The line counts the book and never repeats its name.
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(spells)} spells`);
+  await expect(line).not.toContainText(core.title);
+  await expect(main.locator(".book-filter")).toHaveCount(1);
+
+  // The tab stays Home, and the rows are the book's spells.
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+  await expect(main.locator('.entry-list a[href^="#/entry/"]').first()).toBeVisible();
+});
+
+test("Removing the book pill keeps the letter and the facet, and moves focus to the first filter control", async ({ page }) => {
+  await installLibrary(page);
+  const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
+  const bookSpells = inBook(core.id, "spell");
+  const evocation = [...corpus.entries.values()].filter(
+    (entry: any) =>
+      entry.kind === "spell" &&
+      ownerOf(entry.id) === core.id &&
+      // The index drops a bracketed qualifier, as the old `school:conjuration (calling)` links do.
+      (entry.fields?.school ?? "").toLowerCase().split(/[[(]/)[0].trim() === "evocation",
+  );
+  expect(evocation.length).toBeGreaterThan(0);
+  const letter = groupLetter([...evocation].sort((a, b) => a.title.localeCompare(b.title))[0].title);
+  const hash = `#/browse/kind/spell?source=${core.id}&facet=school:evocation&l=${encodeURIComponent(letter)}`;
+  await page.goto(hash);
+
+  const main = page.locator("main");
+  await expect(main.locator(".list-count")).toHaveText(
+    `${count(evocation.length)} of ${count(bookSpells)} spells · Show all`,
+  );
+  await bookPill(page, core.title).click();
+  // Only the book filter goes: the letter and the facet stay.
+  await expect.poll(() => new URL(page.url()).hash).toBe(
+    `#/browse/kind/spell?facet=school:evocation&l=${encodeURIComponent(letter)}`,
+  );
+  await expect(bookPill(page, core.title)).toHaveCount(0);
+  await expect(main.getByRole("button", { name: "School: Evocation" })).toBeFocused();
+});
+
+test("A book with none of a kind says so and offers the whole list", async ({ page }) => {
+  await installLibrary(page);
+  const empty = corpus.catalog.sources.find(
+    (source: any) => inBookTotal(source.id) > 0 && inBook(source.id, "spell") === 0,
+  )!;
+  expect(empty, "a book with entries but no spells").toBeTruthy();
+  await page.goto(`#/browse/kind/spell?source=${empty.id}`);
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Spells" })).toBeVisible();
+  await expect(bookPill(page, empty.title)).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText("0 spells");
+  await expect(main.getByText(`No spells in ${empty.title}.`)).toBeVisible();
+  const browse = main.getByRole("link", { name: "Browse all spells" });
+  await expect(browse).toHaveAttribute("href", "#/browse/kind/spell");
+  await browse.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/spell");
+  await expect(main.locator(".book-filter")).toHaveCount(0);
+  await expect(main.locator(".list-count")).toHaveText(
+    `${count(corpus.catalog.entries.filter((stub: any) => stub.kind === "spell").length)} spells`,
+  );
+});
+
+test("An unknown book shows the whole kind list with a notice, not a missing page", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/spell?source=no-such-book");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Spells" })).toBeVisible();
+  await expect(main.getByText('Unknown book "no-such-book". Showing all spells.')).toBeVisible();
+  await expect(main.locator(".book-filter, .scope-pill")).toHaveCount(0);
+  await expect(main.locator(".list-count")).toHaveText(
+    `${count(corpus.catalog.entries.filter((stub: any) => stub.kind === "spell").length)} spells`,
+  );
+  await expect(page.getByRole("heading", { name: "Page not found" })).toHaveCount(0);
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+});
+
 // ---- Creatures: type and challenge rating menus (#193 PR 4) ----
 
 const creatures = [...corpus.entries.values()].filter((entry) => entry.kind === "creature");
@@ -590,4 +689,65 @@ test("A creature combination no active book holds shows the empty state and both
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all creatures" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");
   await expect(main.locator(".list-count")).toHaveText(`${count(creatureCount)} creatures`);
+});
+
+test("Removing the book pill on a class list focuses the H1", async ({ page }) => {
+  await installLibrary(page);
+  const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
+  await page.goto(`#/browse/kind/class?source=${core.id}`);
+  const heading = page.getByRole("heading", { level: 1, name: "Classes" });
+  await expect(heading).toBeVisible();
+  await bookPill(page, core.title).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
+  await expect(bookPill(page, core.title)).toHaveCount(0);
+  await expect(heading).toBeFocused();
+});
+
+test("A book-filtered creature list keeps the book when the Type menu narrows it", async ({ page }) => {
+  await installLibrary(page);
+  const bestiary = "bestiary";
+  const bookCreatures = inBook(bestiary, "creature");
+  const bookDragons = [...corpus.entries.values()].filter(
+    (entry: any) =>
+      entry.kind === "creature" &&
+      ownerOf(entry.id) === bestiary &&
+      entry.fields?.creature_type === "dragon",
+  ).length;
+  expect(bookCreatures).toBeGreaterThan(0);
+  expect(bookDragons).toBeGreaterThan(0);
+
+  await page.goto(`#/browse/kind/creature?source=${bestiary}`);
+  const main = page.locator("main");
+  await expect(main.locator(".list-count")).toHaveText(`${count(bookCreatures)} creatures`);
+  await expect(bookPill(page, corpus.catalog.sources.find((source: any) => source.id === bestiary)!.title)).toBeVisible();
+
+  const typeButton = main.getByRole("button", { name: /^Type: / });
+  await typeButton.click();
+  const panel = page.locator(`#${await typeButton.getAttribute("aria-controls")}`);
+  await panel.getByRole("link", { name: /^Dragon, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe(
+    `#/browse/kind/creature?source=${bestiary}&facet=creature_type:dragon`,
+  );
+  await expect(bookPill(page, corpus.catalog.sources.find((source: any) => source.id === bestiary)!.title)).toBeVisible();
+  await expect(typeButton).toHaveText("Type: Dragon");
+  await expect(main.locator(".list-count")).toHaveText(
+    `${count(bookDragons)} of ${count(bookCreatures)} creatures · Show all`,
+  );
+  await expect(main.locator('.entry-list a[href^="#/entry/"]').first()).toBeVisible();
+});
+
+test("An inactive book's list still shows its entries with the pill", async ({ page }) => {
+  await installLibrary(page);
+  const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
+  const spells = inBook(core.id, "spell");
+  await page.goto(`#/browse/book/${core.id}`);
+  const active = page.locator(".book-active-row").getByRole("checkbox", { name: "Active", exact: true });
+  await active.uncheck();
+  await expect(active).not.toBeChecked();
+
+  await page.goto(`#/browse/kind/spell?source=${core.id}`);
+  const main = page.locator("main");
+  await expect(bookPill(page, core.title)).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(`${count(spells)} spells`);
+  await expect(main.locator('.entry-list a[href^="#/entry/"]').first()).toBeVisible();
 });
