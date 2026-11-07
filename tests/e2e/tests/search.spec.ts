@@ -1263,8 +1263,10 @@ test("Search names hidden matches in an inactive book and includes it in one tap
   await expect(hint).toContainText(`inactive books (${book.title})`);
   await expect(hint.getByRole("button", { name: `Turn on ${book.title}`, exact: true })).toBeVisible();
 
-  // One tap includes the book and the same search now finds the dragon.
+  // One tap includes the book and the same search now finds the dragon. The hint unmounts,
+  // so focus lands on the results status line rather than falling to <body>.
   await hint.getByRole("button", { name: `Turn on ${book.title}`, exact: true }).click();
   await expect(page.locator(`.results a[href^="#/entry/${dragon.id}"]`)).toBeVisible();
   await expect(hint).toHaveCount(0);
+  await expect(page.locator(".result-count")).toBeFocused();
 });
