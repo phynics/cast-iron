@@ -22,7 +22,7 @@ section = ["Monsters"]
 kind = "creature"
 # Challenge rating as printed.
 cr = "1/2"
-creature_type = "Vermin"
+creature_type = "vermin"
 size = "Small"
 alignment = "N"
 ac = "13, touch 12, flat-footed 12 (+1 Dex, +1 natural, +1 size)"

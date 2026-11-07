@@ -571,7 +571,7 @@ installedTest("A search hint offers to include an inactive book without changing
   await page.locator("#search-input").fill(entry.title);
   await waitResults(page, entry.title);
   await page.locator(".inactive-books-hint")
-    .getByRole("button", { name: `Include ${source.title}`, exact: true }).click();
+    .getByRole("button", { name: `Turn on ${source.title}`, exact: true }).click();
   await expect(page.locator(`.results a[href^="#/entry/${entry.id}"]`)).toBeVisible();
   await page.goto("#/books/active");
   await openBookGroups(page);

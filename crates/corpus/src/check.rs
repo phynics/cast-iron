@@ -8,6 +8,26 @@ use cast_iron_schema::{Block, BookNode, EntryKind, RuleEntry, TypedFields};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+/// The creature types of Pathfinder First Edition, in the corpus spelling.
+///
+/// The client shows a `creature_type` facet value as written, so one type must have exactly one
+/// spelling. Case variants such as `Humanoid` would otherwise appear as separate filter values.
+pub const CREATURE_TYPES: [&str; 13] = [
+    "aberration",
+    "animal",
+    "construct",
+    "dragon",
+    "fey",
+    "humanoid",
+    "magicalBeast",
+    "monstrousHumanoid",
+    "ooze",
+    "outsider",
+    "plant",
+    "undead",
+    "vermin",
+];
+
 /// What a check found. Every problem fails the run; there are no warnings.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
@@ -67,6 +87,39 @@ pub fn heading_keys(entry: &RuleEntry) -> Vec<(String, String)> {
             Some((key, cast_iron_schema::headings::plain_text(content)))
         })
         .collect()
+}
+
+/// Upstream inline tokens the retired import left in body text: `&`, one or more ASCII
+/// uppercase letters, and `&`, so `&L&` and `&FN&` are caught. Lowercase HTML-style entities
+/// (`&times&`, `&quot&`, ...) and mixed-case markers (`&Next1&`) are deliberately not matched.
+fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut line = 1;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\n' => {
+                line += 1;
+                i += 1;
+            }
+            b'&' => {
+                let start = i;
+                let mut end = i + 1;
+                while end < bytes.len() && bytes[end].is_ascii_uppercase() {
+                    end += 1;
+                }
+                if end > i + 1 && end < bytes.len() && bytes[end] == b'&' {
+                    out.push((line, text[start..=end].to_string()));
+                    i = end + 1;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    out
 }
 
 pub fn fields_kind(fields: &TypedFields) -> &'static str {
@@ -174,6 +227,22 @@ pub fn check(corpus: &Corpus) -> Report {
                 at("kind"),
                 entry.kind.slug(),
                 fields_kind(&entry.fields)
+            ));
+        }
+        for (line, token) in upstream_markup_tokens(&stored.text) {
+            report.problems.push(format!(
+                "{}:{line}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
+                path.display()
+            ));
+        }
+        if let TypedFields::Creature(fields) = &entry.fields
+            && let Some(creature_type) = &fields.creature_type
+            && !CREATURE_TYPES.contains(&creature_type.as_str())
+        {
+            report.problems.push(format!(
+                "{}: creature_type `{creature_type}` is not one of the PF1e creature types: {}",
+                at(&format!("creature_type = \"{creature_type}\"")),
+                CREATURE_TYPES.join(", ")
             ));
         }
         for source in &entry.source_ids {
@@ -335,7 +404,33 @@ fn check_book_node(
 mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
-    use cast_iron_schema::{BookIndex, BookNode, BookTree, EntryId};
+    use cast_iron_schema::{BookIndex, BookNode, BookTree, CreatureFields, EntryId, Inline};
+
+    fn creature(id: &str, creature_type: &str) -> RuleEntry {
+        let mut entry = rule(id, vec![]);
+        entry.kind = EntryKind::Creature;
+        entry.fields = TypedFields::Creature(Box::new(CreatureFields {
+            creature_type: Some(creature_type.into()),
+            ..Default::default()
+        }));
+        entry
+    }
+
+    #[test]
+    fn creature_type_must_be_a_pf1e_type() {
+        let report = check(&corpus(vec![creature("ref/creature/ok", "magicalBeast")]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let report = check(&corpus(vec![creature("ref/creature/bad", "Magical Beast")]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(problem.starts_with("entries/creature/bad.md:"), "{problem}");
+        assert!(
+            problem.contains("creature_type `Magical Beast`"),
+            "{problem}"
+        );
+        assert!(problem.contains("magicalBeast"), "{problem}");
+    }
 
     #[test]
     fn a_publication_needs_a_copyright_and_a_notice_or_a_pending_decision() {
@@ -359,6 +454,26 @@ mod tests {
 
         c.legal.notice_pending = vec!["Core Rulebook".into()];
         assert!(check(&c).problems.is_empty());
+    }
+
+    #[test]
+    fn left_over_upstream_tokens_fail_and_html_entities_do_not() {
+        let dirty = rule(
+            "ref/rule/a",
+            vec![paragraph(vec![Inline::text("&L&Title&FN& and &Q&EM")])],
+        );
+        let text = check(&corpus(vec![dirty])).problems.join("\n");
+        assert!(text.contains("left-over upstream token `&L&`"), "{text}");
+        assert!(text.contains("`&FN&`"), "{text}");
+        assert!(text.contains("`&Q&`"), "{text}");
+
+        let clean = rule(
+            "ref/rule/b",
+            vec![paragraph(vec![Inline::text(
+                "&times& &quot& &mdash &S &Next1&",
+            )])],
+        );
+        assert!(check(&corpus(vec![clean])).problems.is_empty());
     }
 
     #[test]

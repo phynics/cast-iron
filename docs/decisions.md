@@ -884,3 +884,9 @@ Refs [#153](https://github.com/phynics/cast-iron/issues/153), [#155](https://git
 | Order-note box, `check order`, `Position unverified` | One review line; the evidence in `docs/research/book-order-evidence.md` |
 | Repeated copyright paragraph under the title | The colophon, once |
 | Spells, feats, items, class options in Contents | The `In this book` links of step E; until then Home, Search and entries |
+
+## Inactive books in search, 2026-11-07
+
+Refs [#148](https://github.com/phynics/cast-iron/issues/148), [#149](https://github.com/phynics/cast-iron/issues/149), [#221](https://github.com/phynics/cast-iron/pull/221).
+
+- **The search row and the entry header use one preferred-source rule over different data.** Both call `preferred_source`: the entry header offers every `source_ids` entry because it has the full entry, while a search row offers only the canonical book placement because the catalog stub carries one source. A search row therefore cannot name a third active book that only the full entry knows. Making it do so would need the alternatives in the index or catalog, a format change.
