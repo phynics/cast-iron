@@ -388,6 +388,50 @@ test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show schoo
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
+test("Spell list density at 390 px: Compact is two lines, toggles without a reload and survives one", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
+  const list = page.locator(".spell-list");
+  // Wide is the default: the gist sits under the facts on a phone, so the fact line has two rows.
+  await expect(list).toHaveAttribute("data-density", "wide");
+  const row = page.locator(".spell-row:has(.spell-gist)").first();
+  const meta = row.locator(".spell-row-meta");
+  await expect(meta).toBeVisible();
+  const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await meta.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
+
+  // Both choices are 44 px Filter-role targets in one named group.
+  const toggle = page.getByRole("group", { name: "Spell row density" });
+  await expect(toggle).toBeVisible();
+  for (const choice of await toggle.getByRole("radio").all()) {
+    const box = (await choice.boundingBox())!;
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  // A marker that a reload would clear proves the toggle does not navigate.
+  await page.evaluate(() => ((window as any).__densityMarker = "kept"));
+
+  await page.getByRole("radio", { name: "Compact" }).check();
+  await expect(list).toHaveAttribute("data-density", "compact");
+  expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 1.5);
+  expect(await page.evaluate(() => (window as any).__densityMarker)).toBe("kept");
+
+  // Rows stay at least 44 px tall and the name never wraps in either mode.
+  const heights = await page.locator(".spell-rows .spell-row").evaluateAll((nodes) =>
+    nodes.map((n) => n.getBoundingClientRect().height));
+  expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  const names = await page.locator(".spell-name").evaluateAll((nodes) =>
+    nodes.map((n) => n.getClientRects().length === 1 && n.getBoundingClientRect().height < 30));
+  expect(names.every(Boolean)).toBe(true);
+
+  // The choice is stored, not just held in the page.
+  await page.reload();
+  await expect(list).toHaveAttribute("data-density", "compact", { timeout: 30000 });
+  const metaAfter = page.locator(".spell-row:has(.spell-gist) .spell-row-meta").first();
+  await expect(metaAfter).toBeVisible();
+  const lineHeightAfter = await metaAfter.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await metaAfter.boundingBox())!.height).toBeLessThan(lineHeightAfter * 1.5);
+});
+
 const homeSpells = entries.filter((entry) => entry.kind === "spell")
   .filter((entry, i, all) => all.findIndex((c) => c.title === entry.title) === i)
   .map((entry) => ({ id: entry.id as string, title: entry.title as string }));
@@ -602,6 +646,55 @@ installedTest("Classes at 390 px: the group headings are one line and the last g
   const last = heads.nth((await heads.count()) - 1);
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();
+});
+
+// ---- Book-filtered kind lists (#158) --------------------------------------------------------
+
+installedTest("Book kind links stay rectangles at 390 px and become plain 44 px rows at 320 px", async ({ page }) => {
+  await installLibrary(page);
+  const book = bookTrees().find((candidate) => candidate.source === "core-rulebook") ?? bookTrees()[0];
+  await page.goto(`#/browse/book/${book.source}`);
+  const links = page.locator(".book-in-this-book .jump");
+  await expect(links.first()).toBeVisible();
+  const style = (locator: ReturnType<typeof links.first>) =>
+    locator.evaluate((element) => {
+      const css = getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return {
+        radius: css.borderTopLeftRadius,
+        background: css.backgroundColor,
+        borderTop: css.borderTopWidth,
+        borderBottom: css.borderBottomWidth,
+        height: box.height,
+        width: box.width,
+      };
+    });
+
+  // 390 px: the navigation rectangles, with a surface fill and a card radius.
+  const wide = await style(links.first());
+  expect(wide.radius).toBe("6px");
+  expect(wide.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(wide.borderTop).toBe("1px");
+  expect(wide.height).toBeGreaterThanOrEqual(44);
+
+  // 320 px: plain rows, each with a hairline separator, the label left and the count right.
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(links.first()).toBeVisible();
+  const narrow = await style(links.first());
+  expect(narrow.radius).toBe("0px");
+  expect(narrow.background).toBe("rgba(0, 0, 0, 0)");
+  expect(narrow.borderTop).toBe("0px");
+  expect(narrow.borderBottom).toBe("1px");
+  expect(narrow.height).toBeGreaterThanOrEqual(44);
+  const label = (await links.first().locator(".book-kind-label").boundingBox())!;
+  const tally = (await links.first().locator(".book-kind-count").boundingBox())!;
+  expect(label.x).toBeLessThan(tally.x);
+  expect(tally.x + tally.width).toBeLessThanOrEqual(320);
+  expect(narrow.width).toBeLessThanOrEqual(320);
+  const overflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
 });
 
 installedTest("Creatures at 390 px: two filter menus and the first row in the first viewport", async ({ page }) => {

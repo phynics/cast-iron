@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, CONTENTS_LEAVES_OUT_LINKED_KINDS, installLibrary, LINKED_KINDS, openBookGroups } from "./helpers";
+import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, installLibrary, openBookGroups } from "./helpers";
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
@@ -28,10 +28,6 @@ const monthYear = (date: string | undefined) => {
 };
 /** Entries per book as Books counts them: catalog entries by their canonical source (the first book that places them). */
 const owners = bookOwners();
-const bookEntryIds = (book: any): string[] => {
-  const walk = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(walk)];
-  return book.chapters.flatMap(walk);
-};
 const entriesOf = (source: any): number =>
   corpus.catalog.entries.filter((stub: any) => (owners.get(stub.id) ?? stub.source) === source.id).length;
 
@@ -291,6 +287,56 @@ test("A book page opens with its title, a meta line and the Active row, with no 
   expect(await review.evaluate((el) => getComputedStyle(el).fontWeight)).toBe("400");
 });
 
+test("A book page links each kind it holds to the kind list filtered to the book", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  // Home's category order, which is what the section promises.
+  const kindOrder: [string, string][] = [
+    ["spell", "Spells"],
+    ["feat", "Feats"],
+    ["class", "Classes"],
+    ["prestige_class", "Prestige classes"],
+    ["race", "Races"],
+    ["trait", "Traits"],
+    ["item", "Items"],
+    ["creature", "Creatures"],
+    ["archetype", "Archetypes"],
+    ["racial_trait", "Racial traits"],
+    ["skill", "Skills"],
+    ["affliction", "Afflictions"],
+    ["trap", "Traps"],
+  ];
+  const expected = kindOrder
+    .map(([kind, label]) => {
+      const n = corpus.catalog.entries.filter(
+        (stub: any) => stub.kind === kind && (owners.get(stub.id) ?? stub.source) === core.id,
+      ).length;
+      return { kind, label, n };
+    })
+    .filter((row) => row.n > 0);
+  expect(expected.length).toBeGreaterThan(1);
+
+  await page.goto(`#/browse/book/${core.id}`);
+  const section = page.locator(".book-in-this-book");
+  await expect(section.getByRole("heading", { level: 2, name: "In this book", exact: true })).toBeVisible();
+  const links = section.locator(".jump");
+  await expect(links).toHaveCount(expected.length);
+  for (const [index, row] of expected.entries()) {
+    const link = links.nth(index);
+    await expect(link.locator(".book-kind-label")).toHaveText(row.label);
+    await expect(link.locator(".book-kind-count")).toHaveText(grouped(row.n));
+    await expect(link).toHaveAttribute("href", `#/browse/kind/${row.kind}?source=${core.id}`);
+  }
+  // Rules has no list page, so it has no link.
+  await expect(section.locator(".jump", { hasText: "Rules" })).toHaveCount(0);
+
+  // The first link opens that kind filtered to the book, with the book pill on top.
+  await links.first().click();
+  const first = expected[0];
+  await expect(page).toHaveURL(new RegExp(`#/browse/kind/${first.kind}\\?source=${escape(core.id)}$`));
+  await expect(page.getByRole("heading", { level: 1, name: first.label })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Remove filter: ${core.title}`, exact: true })).toBeVisible();
+});
+
 test("The copyright is printed once, in the colophon at the bottom, each distinct notice once", async ({ page }) => {
   // The Advanced Player's Guide carried the same notice three times.
   const source = sources.find((row) => row.id === "advanced-players-guide")!;
@@ -322,10 +368,9 @@ test("The copyright is printed once, in the colophon at the bottom, each distinc
   expect(lines.join(" ")).toContain("2010");
 });
 
-test("Contents lists spells, feats, class options and items until the kind links ship", async ({ page }) => {
-  // The owner wants these kinds reached through `In this book` (#158). Until that exists, leaving
-  // them out would leave them unreachable from a book page, so the page lists them and the
-  // exclusion is one switch (`LEAVE_OUT_LINKED_KINDS`) that #158 turns on.
+test("Contents leaves out spells, feats, items and class options now that In this book links them", async ({ page }) => {
+  // The owner wants these kinds reached through `In this book` (#158). The links exist, so the
+  // exclusion is on (`LEAVE_OUT_LINKED_KINDS`) and the book page must not list them twice.
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
   const hidden = CONTENTS_HIDDEN_KINDS;
   const book = bookTrees().find((candidate) => candidate.source === "core-rulebook") ?? bookTrees()[0];
@@ -344,13 +389,10 @@ test("Contents lists spells, feats, class options and items until the kind links
   expect(hrefs.length).toBeGreaterThan(0);
   const kinds = new Set(hrefs.map((href) => kindOf.get(decodeURIComponent(href.slice("#/entry/".length).split("?")[0]))));
   for (const kind of hidden) expect(kinds.has(kind), `${kind} appears in Contents`).toBe(false);
-  if (!CONTENTS_LEAVES_OUT_LINKED_KINDS) {
-    // Every kind that the links will reach is listed today.
-    const placed = new Set(bookEntryIds(book).map((id) => kindOf.get(id)));
-    for (const kind of LINKED_KINDS) if (placed.has(kind)) expect(kinds.has(kind), `${kind} is missing from Contents`).toBe(true);
-  }
+  expect(kinds.has("spell"), "spells are reached by In this book, not Contents").toBe(false);
+  expect(kinds.has("feat"), "feats are reached by In this book, not Contents").toBe(false);
 
-  // A top-level chapter that held only left-out kinds is not listed (none, while the switch is off).
+  // A top-level chapter that held only left-out kinds is not listed.
   const entriesOf = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(entriesOf)];
   const onlyHidden = book.chapters.filter((chapter: any) => {
     const ids = entriesOf(chapter);

@@ -1,6 +1,7 @@
 //! Settings: theme, library, storage, app version, updates, verification, and a link to Legal.
 
 use crate::app::use_app;
+use crate::density::{self, Density};
 use crate::fmt;
 use crate::install::{
     self, UpdateCheck,
@@ -158,6 +159,24 @@ pub fn Settings() -> impl IntoView {
                             on:change=move |_| {
                                 app.theme.set(choice);
                                 spawn_local(theme::set(choice));
+                            }
+                        />
+                        <span>{choice.label()}</span>
+                    </label>
+                }).collect_view()}
+            </fieldset>
+            <fieldset class="choice">
+                <legend>"Spell row density"</legend>
+                {Density::ALL.into_iter().map(|choice| view! {
+                    <label class="choice-item">
+                        <input
+                            type="radio"
+                            name="spell-density"
+                            value=choice.slug()
+                            prop:checked=move || app.density.get() == choice
+                            on:change=move |_| {
+                                app.density.set(choice);
+                                spawn_local(density::set(choice));
                             }
                         />
                         <span>{choice.label()}</span>

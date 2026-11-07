@@ -2599,6 +2599,40 @@ main,
   }
 }
 
+/* Compact / Wide is one Filter-role choice in two pills. The reader picks it once for every
+   spell list; the group sits beside the school filter. */
+.density-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Density "compact": name and school, then one fact line at every width. The line ends in an
+   ellipsis when it overflows, and no part takes a flex share. */
+.spell-list[data-density="compact"] .spell-row-meta {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-facts,
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact {
+  display: inline;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact.sep-narrow::before {
+  content: none;
+}
+
+.spell-list[data-density="compact"] .spell-row-meta .spell-fact.sep::before {
+  content: "·" / "";
+  margin: 0 var(--space-2);
+}
+
 .tier-head {
   margin: var(--space-4) 0 0;
   font-family: var(--font-text);
@@ -2883,6 +2917,55 @@ main,
 
 .book-contents > h2 {
   margin-block: var(--space-5) var(--space-2);
+}
+
+/* The `In this book` kind links: navigation rectangles on the page, plain rows when the
+   container is narrow. The section is the query container, so the form follows its width and
+   not the viewport. */
+.book-in-this-book {
+  container-type: inline-size;
+  margin-top: var(--space-4);
+}
+
+.book-in-this-book > h2 {
+  margin-block: 0 var(--space-2);
+}
+
+.book-kinds .jump {
+  gap: var(--space-2);
+}
+
+.book-kind-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+}
+
+@container (max-width: 339px) {
+  .book-kinds {
+    display: block;
+    margin: 0;
+  }
+
+  .book-kinds > li {
+    margin: 0;
+  }
+
+  .book-kinds .jump {
+    display: flex;
+    width: 100%;
+    min-height: var(--touch);
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .book-kinds .jump:hover {
+    color: var(--ink);
+  }
 }
 
 .review-line {
@@ -3795,6 +3878,11 @@ html:has(.quick-search[open]) {
 .list-count {
   margin-top: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* The book filter above a list's count: one Filter-role pill. */
+.book-filter {
+  margin: var(--space-2) 0 var(--space-3);
 }
 
 /* An action inside a count line or an empty state: `Show all`. Accent text, underlined, with a

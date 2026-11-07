@@ -1,5 +1,6 @@
 //! The application shell: boot, theme, service worker, offline state, and the Reader frame.
 
+use crate::density::{self, Density};
 use crate::install;
 use crate::js;
 use crate::library::{Library, use_library};
@@ -50,6 +51,8 @@ pub enum Boot {
 pub struct AppCtx {
     pub boot: RwSignal<Boot>,
     pub theme: RwSignal<Theme>,
+    /// The reader's spell-row density. Both the spell lists and Settings read it.
+    pub density: RwSignal<Density>,
     /// A newer app shell is installed and waiting for the user to reload.
     pub shell_update_ready: RwSignal<bool>,
     pub online: RwSignal<bool>,
@@ -145,6 +148,7 @@ pub fn App() -> impl IntoView {
     let app = AppCtx {
         boot: RwSignal::new(Boot::Starting),
         theme: RwSignal::new(theme::mirrored()),
+        density: RwSignal::new(Density::default()),
         shell_update_ready: RwSignal::new(false),
         online: RwSignal::new(online),
     };
@@ -160,6 +164,9 @@ pub fn App() -> impl IntoView {
 
     spawn_local(async move {
         app.theme.set(theme::load().await);
+    });
+    spawn_local(async move {
+        app.density.set(density::load().await);
     });
     spawn_local(async move {
         let result = js::register_service_worker(move || app.shell_update_ready.set(true)).await;
@@ -441,7 +448,8 @@ fn RouteView() -> impl IntoView {
             kind,
             letter,
             facets,
-        } => view! { <BrowseKind kind letter=letter facets=facets /> }.into_any(),
+            source,
+        } => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books => view! { <Books /> }.into_any(),
         Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
@@ -469,6 +477,17 @@ mod tests {
         assert!(in_section(
             &Route::Home,
             &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+        ));
+        // A book-filtered kind list is still Home, not Books.
+        assert!(in_section(
+            &Route::Home,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
+        ));
+        assert!(!in_section(
+            &Route::Books,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
         ));
         assert!(in_section(
             &Route::Home,
