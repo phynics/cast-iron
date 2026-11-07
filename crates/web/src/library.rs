@@ -560,12 +560,6 @@ impl Library {
         .await
     }
 
-    /// Whether this library has the reverse body-link index. False for a library built
-    /// before the index existed, or with it removed.
-    pub fn has_backlinks(&self) -> bool {
-        manifest_has_file(&self.0.manifest, BACKLINKS_FILE)
-    }
-
     /// The entries whose bodies link to `target`, or `Ok(None)` when the library has no
     /// reverse index or no row for the target. Only the target's shard is read.
     pub async fn backlinks(
