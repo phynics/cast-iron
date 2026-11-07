@@ -6,6 +6,7 @@ use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
+use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::entry_contents::ArticleContents;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
@@ -194,10 +195,28 @@ fn EntryView(
 
     let has_books = library.has_books();
     // The first book shows in the metadata line; the rest open on demand, so a rule printed in
-    // many books does not wrap the header. `source_ids` order is the compiler's primary order.
-    let mut source_links = entry
-        .source_ids
-        .iter()
+    // many books does not wrap the header. `source_ids` order is the compiler's primary order,
+    // but an inactive first source is replaced by the highest-priority active source, so the line
+    // never names a book that the reader turned off while another book still shows the entry.
+    let tier_of = |id: &str| {
+        library.source(id).map_or(Tier::Other, |source| {
+            Tier::from_category(source.category.as_deref())
+        })
+    };
+    let preferred = entry.source_ids.first().map(|first| {
+        preferred_source(
+            first,
+            entry.source_ids.iter().map(String::as_str),
+            |id| library.book_active(id),
+            tier_of,
+        )
+    });
+    let mut ordered_ids: Vec<&String> = entry.source_ids.iter().collect();
+    if let Some(preferred) = preferred {
+        ordered_ids.sort_by_key(|id| id.as_str() != preferred);
+    }
+    let mut source_links = ordered_ids
+        .into_iter()
         .map(|id| {
             let title = library
                 .source(id)

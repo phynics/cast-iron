@@ -6,7 +6,7 @@ use crate::fmt;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
-use crate::views::book_tier::Tier;
+use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{kind_name, set_title};
@@ -531,6 +531,44 @@ struct SearchHit {
     variants: Vec<(Hit, Option<String>)>,
 }
 
+/// Matches the query found in inactive books: how many, and the book that holds the most.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InactiveMatches {
+    count: usize,
+    source: String,
+    title: String,
+}
+
+/// Counts the query's hits that discovery removed because their entry's book is inactive,
+/// grouped by that book. Pure data, so a native test covers the counting without a browser.
+fn inactive_match_counts(
+    hits: &[HitSummary],
+    is_eligible: impl Fn(&str) -> bool,
+    source_of: impl Fn(&HitSummary) -> String,
+) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for hit in hits {
+        if !is_eligible(&hit.id) {
+            *counts.entry(source_of(hit)).or_default() += 1;
+        }
+    }
+    counts
+}
+
+/// The hidden count and the book to name: the one with the most hidden matches, then the first
+/// source id so a tie is deterministic. `None` when nothing is hidden.
+fn inactive_matches(
+    hits: &[HitSummary],
+    is_eligible: impl Fn(&str) -> bool,
+    source_of: impl Fn(&HitSummary) -> String,
+) -> Option<(usize, String)> {
+    let counts = inactive_match_counts(hits, is_eligible, source_of);
+    let (source, _) = counts
+        .iter()
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))?;
+    Some((counts.values().sum(), source.clone()))
+}
+
 #[derive(Clone, PartialEq)]
 struct FacetGroup {
     field: &'static str,
@@ -650,6 +688,9 @@ pub fn Search() -> impl IntoView {
     // search keeps showing the previous numbers. `None` until the first result: chips then show
     // the totals for the active books, which is what an empty search counts anyway.
     let counts = RwSignal::new(None::<FilterCounts>);
+    // Matches that the active-book filter removed, with the book to name. `None` while every
+    // book is active or nothing is hidden.
+    let inactive = RwSignal::new(None::<InactiveMatches>);
     let seq = StoredValue::new(0u64);
     let filters_open = RwSignal::new(false);
     let publication_filter = RwSignal::new(String::new());
@@ -706,6 +747,7 @@ pub fn Search() -> impl IntoView {
                 if !runs {
                     phase.set(Phase::Idle);
                     search_ms.set(None);
+                    inactive.set(None);
                     // Warm the index so the first keystroke does not wait for it.
                     ensure_index(&library, index, index_ms, phase, false, &alive).await;
                     if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
@@ -725,6 +767,7 @@ pub fn Search() -> impl IntoView {
                     Ok(hits) => hits,
                     Err(error) => {
                         if alive() {
+                            inactive.set(None);
                             phase.set(Phase::Failed(error.to_string()));
                         }
                         return;
@@ -733,6 +776,35 @@ pub fn Search() -> impl IntoView {
                 if !alive() {
                     return;
                 }
+                // The index holds every book; eligibility is applied per query. Search the
+                // unfiltered index once more to say what the active-book filter removed.
+                let hidden = if library.has_inactive_books() {
+                    let every_hit = idx.search_summaries(&query);
+                    inactive_matches(
+                        &every_hit,
+                        |id| discovery.is_eligible(id),
+                        |hit| {
+                            EntryId::parse(hit.id.clone())
+                                .ok()
+                                .and_then(|id| library.canonical_source_for_entry(&id))
+                                .unwrap_or_else(|| hit.source.clone())
+                        },
+                    )
+                } else {
+                    None
+                };
+                if !alive() {
+                    return;
+                }
+                inactive.set(hidden.map(|(count, source)| {
+                    InactiveMatches {
+                        count,
+                        title: library
+                            .source(&source)
+                            .map_or_else(|| source.clone(), |s| s.title.clone()),
+                        source,
+                    }
+                }));
                 let total = all_hits.len();
                 let grouped = grouped_hits(all_hits);
                 let groups = grouped.len();
@@ -1292,6 +1364,37 @@ pub fn Search() -> impl IntoView {
             })
     };
 
+    // Matches that only an inactive book holds. The count is real, but no row shows it, so the
+    // hint names the book with the most hidden matches and includes it in one tap. Including a
+    // book changes the stored active set only because the reader asked for it here.
+    let inactive_hint = move || {
+        inactive.get().map(|hidden| {
+            let title = hidden.title.clone();
+            let source = hidden.source.clone();
+            let library = library.clone();
+            view! {
+                <p class="inactive-books-hint" role="status">
+                    <span>{format!(
+                        "{} {} in inactive books ({}).",
+                        fmt::count(hidden.count),
+                        if hidden.count == 1 { "more match" } else { "more matches" },
+                        title
+                    )}</span>
+                    <button class="btn btn-quiet" type="button"
+                        on:click=move |_| {
+                            let library = library.clone();
+                            let source = source.clone();
+                            spawn_local(async move {
+                                let _ = library.set_book_active(&source, true).await;
+                            });
+                        }>
+                        {format!("Include {title}")}
+                    </button>
+                </p>
+            }
+        })
+    };
+
     // Removing the scope searches everything again. Focus moves to "All entries", which now
     // reads as pressed; the field is left alone so a phone's keyboard does not rise.
     let remove_scope = move |()| {
@@ -1421,6 +1524,7 @@ pub fn Search() -> impl IntoView {
                             <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
                         })}
                     </p>
+                    {inactive_hint}
                     {results}
                 </section>
             </div>
@@ -1476,19 +1580,36 @@ fn hit_view(
     hit: &Hit,
     anchor: Option<&str>,
 ) -> impl IntoView + use<> {
-    let href = EntryId::parse(hit.id.clone())
+    let entry_id = EntryId::parse(hit.id.clone()).ok();
+    let href = entry_id
+        .as_ref()
         .map(|id| {
             Route::Entry {
-                id,
+                id: id.clone(),
                 anchor: anchor.map(str::to_owned),
             }
             .href()
         })
-        .unwrap_or_else(|_| Route::Home.href());
+        .unwrap_or_else(|| Route::Home.href());
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+    // The index records one attribution source. When it is inactive, the entry's book placement
+    // is the source that kept the entry eligible, so it is the one the reader should see.
+    let canonical = entry_id
+        .as_ref()
+        .and_then(|id| library.canonical_source_for_entry(id));
+    let source_id = preferred_source(
+        &hit.source,
+        canonical.as_deref(),
+        |id| library.book_active(id),
+        |id| {
+            library.source(id).map_or(Tier::Other, |source| {
+                Tier::from_category(source.category.as_deref())
+            })
+        },
+    );
     let source = library
-        .source(&hit.source)
-        .map_or_else(|| hit.source.clone(), |s| s.title.clone());
+        .source(source_id)
+        .map_or_else(|| source_id.to_string(), |s| s.title.clone());
     let title = marked(&hit.title, &hit.title_matches);
     let snippet = marked(&hit.snippet.text, &hit.snippet.matches);
     let has_snippet = !hit.snippet.text.is_empty();
@@ -1698,6 +1819,39 @@ mod tests {
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
         assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
+    }
+
+    #[test]
+    fn hidden_matches_count_only_inactive_entries_by_book() {
+        let hits = [
+            summary("a", "core"),
+            summary("b", "bestiary"),
+            summary("c", "bestiary"),
+            summary("d", "um"),
+        ];
+        let counts = inactive_match_counts(&hits, |id| id == "a", |hit| hit.source.clone());
+        assert_eq!(counts.get("bestiary"), Some(&2));
+        assert_eq!(counts.get("um"), Some(&1));
+        assert_eq!(
+            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone()),
+            Some((3, "bestiary".to_string()))
+        );
+        // With every entry eligible there is nothing to say.
+        assert_eq!(
+            inactive_matches(&hits, |_| true, |hit| hit.source.clone()),
+            None
+        );
+    }
+
+    fn summary(id: &str, source: &str) -> HitSummary {
+        HitSummary {
+            ord: 0,
+            id: id.into(),
+            title: String::new(),
+            kind: "rule".into(),
+            source: source.into(),
+            score: 0.0,
+        }
     }
 
     fn source(id: &str, title: &str) -> SourceInfo {

@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, corpusEntry, count, hitTitles, installLibrary, num, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
+import { bodyText, bookOwners, corpusEntry, count, hitTitles, installLibrary, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -1167,4 +1167,82 @@ installedTest("A recent search remembers its scope: the row shows it, tapping re
   await expect(quickOptions(page)).toHaveCount(2);
   await page.keyboard.press("Escape");
   await expect(layer).toBeHidden();
+});
+
+test("An inactive first source is replaced by the active book that still shows the entry", async ({ page }) => {
+  const owners = bookOwners();
+  const sourceTitle = (id: string) =>
+    corpus.catalog.sources.find((source: any) => source.id === id)?.title as string | undefined;
+  const candidate = entries.find((entry: any) => {
+    const owner = owners.get(entry.id);
+    return (
+      owner &&
+      entry.source_ids.length > 1 &&
+      entry.source_ids[0] !== owner &&
+      sourceTitle(entry.source_ids[0]) &&
+      sourceTitle(owner)
+    );
+  });
+  expect(candidate, "a multi-source entry whose book placement differs from its first source").toBeTruthy();
+  const entry = candidate!;
+  const owner = owners.get(entry.id)!;
+  const first = entry.source_ids[0] as string;
+  const firstTitle = sourceTitle(first)!;
+  const ownerTitle = sourceTitle(owner)!;
+
+  await installLibrary(page);
+  await page.goto("#/search");
+  await page.locator("#search-input").fill(entry.title);
+  await waitResults(page, entry.title);
+  await showAllResults(page);
+  const row = page.locator(`.results a.hit-link[href^="#/entry/${entry.id}"]`).first();
+  await expect(row).toBeVisible();
+  // With every book active the compiler's first source still names the entry.
+  await expect(row.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(firstTitle)}$`));
+
+  // Turning off only that attribution source leaves the placement book active, so the entry
+  // stays eligible and its label must name the active book instead.
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const toggle = page.locator(`.book-directory-item[data-book-id="${first}"]`)
+    .getByRole("checkbox", { name: `Active ${firstTitle}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto("#/search");
+  await page.locator("#search-input").fill(entry.title);
+  await waitResults(page, entry.title);
+  await showAllResults(page);
+  const updated = page.locator(`.results a.hit-link[href^="#/entry/${entry.id}"]`).first();
+  await expect(updated.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(ownerTitle)}$`));
+  await updated.click();
+  await expect(page.locator(".entry-meta .meta-link").nth(1)).toHaveText(ownerTitle);
+});
+
+test("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
+  const dragon = corpusEntry("creature", "Ancient Red Dragon");
+  const bookId = bookOwners().get(dragon.id) ?? dragon.source_ids[0];
+  const book = corpus.catalog.sources.find((source: any) => source.id === bookId)!;
+  expect(book, "the dragon's placement book is in the catalog").toBeTruthy();
+
+  await installLibrary(page);
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const toggle = page.locator(`.book-directory-item[data-book-id="${bookId}"]`)
+    .getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto("#/search");
+  await page.locator("#search-input").fill("ancient red dragon");
+  await waitResults(page, "ancient red dragon");
+  const hint = page.locator(".inactive-books-hint");
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText(`inactive books (${book.title})`);
+  await expect(hint.getByRole("button", { name: `Include ${book.title}`, exact: true })).toBeVisible();
+
+  // One tap includes the book and the same search now finds the dragon.
+  await hint.getByRole("button", { name: `Include ${book.title}`, exact: true }).click();
+  await expect(page.locator(`.results a[href^="#/entry/${dragon.id}"]`)).toBeVisible();
+  await expect(hint).toHaveCount(0);
 });
