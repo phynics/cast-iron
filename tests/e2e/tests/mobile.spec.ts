@@ -563,16 +563,24 @@ installedTest("Items at 390 px: the category menu opens in the page, filters, an
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-installedTest("Classes at 390 px: the group headings are one line and the second group is reachable by scrolling", async ({ page }) => {
+installedTest("Classes at 390 px: the group headings are one line and the last group is reachable by scrolling", async ({ page }) => {
   await installLibrary(page);
+  const types = new Set(
+    entries
+      .filter((entry) => entry.kind === "class")
+      .map((entry) => entry.fields?.class_type)
+      .filter((type): type is string => Boolean(type)),
+  );
+  const ungrouped = entries.some((entry) => entry.kind === "class" && !entry.fields?.class_type);
   await page.goto("#/browse/kind/class");
   const main = page.locator("main");
   const heads = main.locator("h2.letter-head");
-  await expect(heads).toHaveCount(7);
+  await expect(heads).toHaveCount(types.size + (ungrouped ? 1 : 0));
   const heights = await heads.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
   expect(Math.max(...heights)).toBeLessThan(48);
   const rows = await main.locator(".entry-list li").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
   expect(Math.min(...rows)).toBeGreaterThanOrEqual(44);
-  await heads.nth(6).scrollIntoViewIfNeeded();
-  await expect(heads.nth(6)).toContainText("NPC");
+  const last = heads.nth((await heads.count()) - 1);
+  await last.scrollIntoViewIfNeeded();
+  await expect(last).toBeInViewport();
 });

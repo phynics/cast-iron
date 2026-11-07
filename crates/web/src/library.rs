@@ -307,6 +307,12 @@ impl Library {
         !self.0.disabled_books.borrow().contains(canonical_id)
     }
 
+    /// True when the reader has turned off at least one book. Search uses it to skip the
+    /// hidden-match count when every book is active.
+    pub fn has_inactive_books(&self) -> bool {
+        !self.0.disabled_books.borrow().is_empty()
+    }
+
     pub fn is_entry_active(&self, id: &EntryId) -> bool {
         let Some(stub) = self.stub(id) else {
             return false;
@@ -577,12 +583,6 @@ impl Library {
             BookLookup::new(index)
         })
         .await
-    }
-
-    /// Whether this library has the reverse body-link index. False for a library built
-    /// before the index existed, or with it removed.
-    pub fn has_backlinks(&self) -> bool {
-        manifest_has_file(&self.0.manifest, BACKLINKS_FILE)
     }
 
     /// The entries whose bodies link to `target`, or `Ok(None)` when the library has no

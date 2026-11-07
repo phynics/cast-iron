@@ -130,6 +130,13 @@ fn notice_key(notice: &str) -> String {
         .to_string()
 }
 
+/// Writes a count with its noun: `0 entries`, `1 entry`, `2 entries`. The number goes through
+/// [`count`], so every counted label groups digits the same way.
+pub fn pluralize(n: impl TryInto<u64>, singular: &str, plural: &str) -> String {
+    let n = n.try_into().unwrap_or_default();
+    format!("{} {}", count(n), if n == 1 { singular } else { plural })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -204,6 +211,17 @@ mod tests {
         assert_eq!(count(3583usize), "3,583");
         assert_eq!(count(29_412u32), "29,412");
         assert_eq!(count(1_234_567u64), "1,234,567");
+    }
+
+    #[test]
+    fn pluralize_picks_the_singular_only_for_one() {
+        assert_eq!(pluralize(0, "entry", "entries"), "0 entries");
+        assert_eq!(pluralize(1, "entry", "entries"), "1 entry");
+        assert_eq!(pluralize(2, "entry", "entries"), "2 entries");
+        assert_eq!(
+            pluralize(1324, "publication entry", "publication entries"),
+            "1,324 publication entries"
+        );
     }
 
     #[test]

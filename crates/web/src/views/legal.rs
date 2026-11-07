@@ -326,10 +326,10 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
             <section aria-labelledby="coverage-publications">
                 <h3 id="coverage-publications">"Publications"</h3>
                 <p>{format!(
-                    "{} publications, {} upstream records, and {} included publication entries.",
-                    fmt::count(publication_count),
-                    fmt::count(upstream_records),
-                    fmt::count(included_entries),
+                    "{}, {}, and {}.",
+                    fmt::pluralize(publication_count, "publication", "publications"),
+                    fmt::pluralize(upstream_records, "upstream record", "upstream records"),
+                    fmt::pluralize(included_entries, "included publication entry", "included publication entries"),
                 )}</p>
                 {lazy_details("publications", format!("All publications ({publication_count})"), publications_detail)}
             </section>

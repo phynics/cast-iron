@@ -144,12 +144,9 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
 
     view! {
         {move || data.with(|state| match state {
-            None => view! {
-                <section class="ref-block entry-backlinks" id="entry-backlinks" aria-busy="true">
-                    <h2 id="backlinks-heading">"Referenced by"</h2>
-                    <p class="status" role="status">"Loading references…"</p>
-                </section>
-            }.into_any(),
+            // Render nothing until the index answers. A heading here flashes and then
+            // disappears for entries with no rows (#116).
+            None => ().into_any(),
             Some(Err(error)) => {
                 leptos::logging::warn!("backlinks are off: {error}");
                 ().into_any()
@@ -171,7 +168,11 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
                 view! {
                     <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
                         <h2 id="backlinks-heading">"Referenced by"</h2>
-                        <p class="muted backlink-count">{format!("{} entries link here.", fmt::count(total))}</p>
+                        <p class="muted backlink-count">{format!(
+                            "{} {} here.",
+                            fmt::pluralize(total, "entry", "entries"),
+                            if total == 1 { "links" } else { "link" }
+                        )}</p>
                         {groups_view}
                     </section>
                 }.into_any()

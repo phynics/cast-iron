@@ -462,7 +462,7 @@ fn TocNode(
             <details class="toc-details" prop:open=move || opened.get() on:toggle=on_toggle>
                 <summary id=id aria-current=move || is_current().then_some("location")>
                     <span class="toc-title">{title}</span>
-                    <span class="toc-count" aria-label=format!("{} entries", fmt::count(under))>{fmt::count(under)}</span>
+                    <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
                 </summary>
                 {children}
             </details>

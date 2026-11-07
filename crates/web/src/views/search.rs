@@ -6,7 +6,7 @@ use crate::fmt;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
-use crate::views::book_tier::Tier;
+use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{kind_name, set_title};
@@ -199,10 +199,7 @@ fn chip_count(
 
 /// The accessible name of a chip with its count.
 fn chip_name(label: &str, count: usize) -> String {
-    match count {
-        1 => format!("{label}, 1 entry"),
-        n => format!("{label}, {} entries", fmt::count(n)),
-    }
+    format!("{label}, {}", fmt::pluralize(count, "entry", "entries"))
 }
 
 /// The publications a reader can see, grouped by product-line tier, and the counts for the
@@ -290,11 +287,41 @@ impl PublicationPage {
     }
 }
 
+/// What a disclosure's toggle event does with the reader's answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ToggleAction {
+    /// The tier is forced open by a selection or the name box: reopen it, record nothing.
+    ForceOpen,
+    /// Store the reader's answer.
+    Record(bool),
+    /// The event agrees with the page already; nothing to store.
+    Ignore,
+}
+
+/// A selection or a non-empty name box forces its tier open, so a close click on such a tier is
+/// not the reader's choice: it is answered by reopening the tier and recording nothing. This
+/// keeps the answer the reader gave before the force, which clearing the box restores.
+fn publication_toggle_action(
+    holds_selected: bool,
+    name_box: bool,
+    open_now: bool,
+    open_after_click: bool,
+) -> ToggleAction {
+    if (holds_selected || name_box) && !open_after_click {
+        ToggleAction::ForceOpen
+    } else if open_after_click != open_now {
+        ToggleAction::Record(open_after_click)
+    } else {
+        ToggleAction::Ignore
+    }
+}
+
 /// `choices` holds the reader's own open (`true`) or closed (`false`) answer per tier. A
 /// selected publication forces its tier open, so a chosen filter is never hidden, and so does a
 /// non-empty name box, so its matches are seen. Otherwise the reader's answer applies, then the
 /// default: open when the tier has chips and is not collapsed by default. "Show all" opens a
-/// collapsed-by-default tier too, because it lists everything.
+/// collapsed-by-default tier too, because it lists everything. An Adventures-only page opens
+/// Adventures and spends the budget on it, because a page of closed headings looks empty (#142).
 fn publication_page(
     sources: &[SourceInfo],
     selected: &[String],
@@ -308,6 +335,13 @@ fn publication_page(
     let name_matches =
         |source: &SourceInfo| filter.is_empty() || source.title.to_lowercase().contains(&filter);
     let with_results = sources.iter().filter(|s| count_of(&s.id) > 0).count();
+    let tiers_with_results: BTreeSet<Tier> = sources
+        .iter()
+        .filter(|s| count_of(&s.id) > 0)
+        .map(|s| Tier::from_category(s.category.as_deref()))
+        .collect();
+    let adventures_only =
+        tiers_with_results.len() == 1 && tiers_with_results.contains(&Tier::Adventures);
     let matches = sources
         .iter()
         .filter(|s| count_of(&s.id) > 0 && name_matches(s))
@@ -319,6 +353,13 @@ fn publication_page(
     // one of the page-wide requests above. Rulebooks have no disclosure.
     let expanded = |tier: Tier| {
         unlimited || (tier.is_disclosure() && choices.get(&tier).copied() == Some(true))
+    };
+    // Adventures take no budget while another tier has results. Alone, they open and spend it,
+    // unless the reader closed them.
+    let adventures_default =
+        adventures_only && choices.get(&Tier::Adventures).copied() != Some(false);
+    let takes_budget = |tier: Tier| {
+        !tier.collapsed_by_default() || (tier == Tier::Adventures && adventures_default)
     };
 
     // Candidates by tier: pinned selections, plus every publication with results that the name
@@ -367,7 +408,7 @@ fn publication_page(
         let counted = count > 0 && name_matches(source);
         let listed = if pinned || expanded(tier) {
             true
-        } else if !tier.collapsed_by_default() && budget > 0 {
+        } else if takes_budget(tier) && budget > 0 {
             budget -= 1;
             true
         } else {
@@ -388,7 +429,7 @@ fn publication_page(
             || choices
                 .get(&tier)
                 .copied()
-                .unwrap_or(!group.ids.is_empty() && (show_all || !tier.collapsed_by_default()));
+                .unwrap_or(!group.ids.is_empty() && (show_all || takes_budget(tier)));
     }
     let shown_with_results = groups
         .iter()
@@ -425,14 +466,14 @@ fn publication_summary_line(page: &PublicationPage, filter: &str, show_all: bool
     }
     if show_all && page.shown_with_results == page.with_results {
         format!(
-            "Showing all {} publications with results.",
-            fmt::count(page.with_results)
+            "Showing all {} with results.",
+            fmt::pluralize(page.with_results, "publication", "publications")
         )
     } else {
         format!(
-            "Showing {} of {} publications with results.",
+            "Showing {} of {} with results.",
             fmt::count(page.shown_with_results),
-            fmt::count(page.with_results)
+            fmt::pluralize(page.with_results, "publication", "publications")
         )
     }
 }
@@ -529,6 +570,44 @@ struct SearchHit {
     hit: Hit,
     anchor: Option<String>,
     variants: Vec<(Hit, Option<String>)>,
+}
+
+/// Matches the query found in inactive books: how many, and the book that holds the most.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct InactiveMatches {
+    count: usize,
+    source: String,
+    title: String,
+}
+
+/// Counts the query's hits that discovery removed because their entry's book is inactive,
+/// grouped by that book. Pure data, so a native test covers the counting without a browser.
+fn inactive_match_counts(
+    hits: &[HitSummary],
+    is_eligible: impl Fn(&str) -> bool,
+    source_of: impl Fn(&HitSummary) -> String,
+) -> BTreeMap<String, usize> {
+    let mut counts = BTreeMap::new();
+    for hit in hits {
+        if !is_eligible(&hit.id) {
+            *counts.entry(source_of(hit)).or_default() += 1;
+        }
+    }
+    counts
+}
+
+/// The hidden count and the book to name: the one with the most hidden matches, then the first
+/// source id so a tie is deterministic. `None` when nothing is hidden.
+fn inactive_matches(
+    hits: &[HitSummary],
+    is_eligible: impl Fn(&str) -> bool,
+    source_of: impl Fn(&HitSummary) -> String,
+) -> Option<(usize, String)> {
+    let counts = inactive_match_counts(hits, is_eligible, source_of);
+    let (source, _) = counts
+        .iter()
+        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))?;
+    Some((counts.values().sum(), source.clone()))
 }
 
 #[derive(Clone, PartialEq)]
@@ -650,6 +729,9 @@ pub fn Search() -> impl IntoView {
     // search keeps showing the previous numbers. `None` until the first result: chips then show
     // the totals for the active books, which is what an empty search counts anyway.
     let counts = RwSignal::new(None::<FilterCounts>);
+    // Matches that the active-book filter removed, with the book to name. `None` while every
+    // book is active or nothing is hidden.
+    let inactive = RwSignal::new(None::<InactiveMatches>);
     let seq = StoredValue::new(0u64);
     let filters_open = RwSignal::new(false);
     let publication_filter = RwSignal::new(String::new());
@@ -706,6 +788,7 @@ pub fn Search() -> impl IntoView {
                 if !runs {
                     phase.set(Phase::Idle);
                     search_ms.set(None);
+                    inactive.set(None);
                     // Warm the index so the first keystroke does not wait for it.
                     ensure_index(&library, index, index_ms, phase, false, &alive).await;
                     if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
@@ -725,6 +808,7 @@ pub fn Search() -> impl IntoView {
                     Ok(hits) => hits,
                     Err(error) => {
                         if alive() {
+                            inactive.set(None);
                             phase.set(Phase::Failed(error.to_string()));
                         }
                         return;
@@ -733,6 +817,35 @@ pub fn Search() -> impl IntoView {
                 if !alive() {
                     return;
                 }
+                // The index holds every book; eligibility is applied per query. Search the
+                // unfiltered index once more to say what the active-book filter removed.
+                let hidden = if library.has_inactive_books() {
+                    let every_hit = idx.search_summaries(&query);
+                    inactive_matches(
+                        &every_hit,
+                        |id| discovery.is_eligible(id),
+                        |hit| {
+                            EntryId::parse(hit.id.clone())
+                                .ok()
+                                .and_then(|id| library.canonical_source_for_entry(&id))
+                                .unwrap_or_else(|| hit.source.clone())
+                        },
+                    )
+                } else {
+                    None
+                };
+                if !alive() {
+                    return;
+                }
+                inactive.set(hidden.map(|(count, source)| {
+                    InactiveMatches {
+                        count,
+                        title: library
+                            .source(&source)
+                            .map_or_else(|| source.clone(), |s| s.title.clone()),
+                        source,
+                    }
+                }));
                 let total = all_hits.len();
                 let grouped = grouped_hits(all_hits);
                 let groups = grouped.len();
@@ -1057,13 +1170,15 @@ pub fn Search() -> impl IntoView {
                 page.group(tier)
                     .map_or((false, false), |group| (group.holds_selected, group.open))
             });
-            if holds_selected && !details.open() {
-                // A selected filter is never hidden.
-                details.set_open(true);
-            } else if details.open() != open_now {
-                group_choice.update(|choices| {
-                    choices.insert(tier, details.open());
-                });
+            let name_box = publication_filter.with_untracked(|filter| !filter.trim().is_empty());
+            match publication_toggle_action(holds_selected, name_box, open_now, details.open()) {
+                ToggleAction::ForceOpen => details.set_open(true),
+                ToggleAction::Record(open) => {
+                    group_choice.update(|choices| {
+                        choices.insert(tier, open);
+                    });
+                }
+                ToggleAction::Ignore => {}
             }
         };
         view! {
@@ -1187,7 +1302,7 @@ pub fn Search() -> impl IntoView {
                 .count();
             view! {
                 <div class="empty">
-                    <p>{format!("Search {} entries by name or by any word in the text.", fmt::count(total))}</p>
+                    <p>{format!("Search {} by name or by any word in the text.", fmt::pluralize(total, "entry", "entries"))}</p>
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {STARTERS.into_iter().map(|q| {
@@ -1226,7 +1341,7 @@ pub fn Search() -> impl IntoView {
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::count(count))}</span></summary>
+                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })
@@ -1267,7 +1382,10 @@ pub fn Search() -> impl IntoView {
             if total == groups {
                 text
             } else {
-                format!("{text} · {} publication entries", fmt::count(total))
+                format!(
+                    "{text} · {}",
+                    fmt::pluralize(total, "publication entry", "publication entries")
+                )
             }
         }
         _ => String::new(),
@@ -1290,6 +1408,37 @@ pub fn Search() -> impl IntoView {
                     </button>
                 }
             })
+    };
+
+    // Matches that only an inactive book holds. The count is real, but no row shows it, so the
+    // hint names the book with the most hidden matches and includes it in one tap. Including a
+    // book changes the stored active set only because the reader asked for it here.
+    let inactive_hint = move || {
+        inactive.get().map(|hidden| {
+            let title = hidden.title.clone();
+            let source = hidden.source.clone();
+            let library = library.clone();
+            view! {
+                <p class="inactive-books-hint" role="status">
+                    <span>{format!(
+                        "{} {} in inactive books ({}).",
+                        fmt::count(hidden.count),
+                        if hidden.count == 1 { "more match" } else { "more matches" },
+                        title
+                    )}</span>
+                    <button class="btn btn-quiet" type="button"
+                        on:click=move |_| {
+                            let library = library.clone();
+                            let source = source.clone();
+                            spawn_local(async move {
+                                let _ = library.set_book_active(&source, true).await;
+                            });
+                        }>
+                        {format!("Include {title}")}
+                    </button>
+                </p>
+            }
+        })
     };
 
     // Removing the scope searches everything again. Focus moves to "All entries", which now
@@ -1421,6 +1570,7 @@ pub fn Search() -> impl IntoView {
                             <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
                         })}
                     </p>
+                    {inactive_hint}
                     {results}
                 </section>
             </div>
@@ -1476,19 +1626,36 @@ fn hit_view(
     hit: &Hit,
     anchor: Option<&str>,
 ) -> impl IntoView + use<> {
-    let href = EntryId::parse(hit.id.clone())
+    let entry_id = EntryId::parse(hit.id.clone()).ok();
+    let href = entry_id
+        .as_ref()
         .map(|id| {
             Route::Entry {
-                id,
+                id: id.clone(),
                 anchor: anchor.map(str::to_owned),
             }
             .href()
         })
-        .unwrap_or_else(|_| Route::Home.href());
+        .unwrap_or_else(|| Route::Home.href());
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+    // The index records one attribution source. When it is inactive, the entry's book placement
+    // is the source that kept the entry eligible, so it is the one the reader should see.
+    let canonical = entry_id
+        .as_ref()
+        .and_then(|id| library.canonical_source_for_entry(id));
+    let source_id = preferred_source(
+        &hit.source,
+        canonical.as_deref(),
+        |id| library.book_active(id),
+        |id| {
+            library.source(id).map_or(Tier::Other, |source| {
+                Tier::from_category(source.category.as_deref())
+            })
+        },
+    );
     let source = library
-        .source(&hit.source)
-        .map_or_else(|| hit.source.clone(), |s| s.title.clone());
+        .source(source_id)
+        .map_or_else(|| source_id.to_string(), |s| s.title.clone());
     let title = marked(&hit.title, &hit.title_matches);
     let snippet = marked(&hit.snippet.text, &hit.snippet.matches);
     let has_snippet = !hit.snippet.text.is_empty();
@@ -1698,6 +1865,39 @@ mod tests {
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
         assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
+    }
+
+    #[test]
+    fn hidden_matches_count_only_inactive_entries_by_book() {
+        let hits = [
+            summary("a", "core"),
+            summary("b", "bestiary"),
+            summary("c", "bestiary"),
+            summary("d", "um"),
+        ];
+        let counts = inactive_match_counts(&hits, |id| id == "a", |hit| hit.source.clone());
+        assert_eq!(counts.get("bestiary"), Some(&2));
+        assert_eq!(counts.get("um"), Some(&1));
+        assert_eq!(
+            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone()),
+            Some((3, "bestiary".to_string()))
+        );
+        // With every entry eligible there is nothing to say.
+        assert_eq!(
+            inactive_matches(&hits, |_| true, |hit| hit.source.clone()),
+            None
+        );
+    }
+
+    fn summary(id: &str, source: &str) -> HitSummary {
+        HitSummary {
+            ord: 0,
+            id: id.into(),
+            title: String::new(),
+            kind: "rule".into(),
+            source: source.into(),
+            score: 0.0,
+        }
     }
 
     fn source(id: &str, title: &str) -> SourceInfo {
@@ -2267,6 +2467,98 @@ mod tests {
         assert!(page.ids().len() > PUBLICATION_TOP);
         assert_eq!(page.more, 0);
         assert_eq!(page.ids().len(), page.matches);
+    }
+
+    #[test]
+    fn a_close_click_while_the_name_box_forces_a_tier_open_records_no_choice() {
+        // The steps of #141: the reader opens a tier, then the name box forces it open, then a
+        // close click is answered by reopening and must not replace the earlier answer.
+        let action = publication_toggle_action(false, true, true, false);
+        assert_eq!(action, ToggleAction::ForceOpen);
+        let sources = [
+            in_tier("core", "Core", "RPG"),
+            in_tier("pc", "Companion", "Player Companion"),
+        ];
+        let counts = [("core", 3), ("pc", 2)];
+        let opened = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::PlayerCompanions, true)],
+        );
+        assert!(opened.group(Tier::PlayerCompanions).unwrap().open);
+        // The box that forced it open is gone; the stored open answer still applies.
+        let restored = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::PlayerCompanions, true)],
+        );
+        assert!(restored.group(Tier::PlayerCompanions).unwrap().open);
+        // A close click with no force is the reader's choice and is recorded.
+        assert_eq!(
+            publication_toggle_action(false, false, true, false),
+            ToggleAction::Record(false)
+        );
+        // A selection behaves the same way as the name box.
+        assert_eq!(
+            publication_toggle_action(true, false, true, false),
+            ToggleAction::ForceOpen
+        );
+    }
+
+    #[test]
+    fn an_adventures_only_page_opens_adventures_and_spends_the_budget() {
+        let sources = many("ap", "Adventure Path", 15);
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let adventures = page.group(Tier::Adventures).expect("an adventures group");
+        assert!(adventures.open, "the only tier with results opens");
+        assert_eq!(adventures.ids.len(), PUBLICATION_TOP);
+        assert_eq!(adventures.heading(), "Adventures (12 of 15)");
+        assert_eq!(page.shown_with_results, PUBLICATION_TOP);
+        assert_eq!(page.more, 15 - PUBLICATION_TOP);
+        assert_eq!(
+            publication_summary_line(&page, "", false),
+            "Showing 12 of 15 publications with results."
+        );
+    }
+
+    #[test]
+    fn a_reader_who_closed_adventures_keeps_them_closed_on_an_adventures_only_page() {
+        let sources = many("ap", "Adventure Path", 15);
+        let counts = ranked_counts(&sources, 1);
+        let page = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::Adventures, false)],
+        );
+        let adventures = page.group(Tier::Adventures).unwrap();
+        assert!(!adventures.open);
+        assert!(adventures.ids.is_empty());
+        assert_eq!(page.shown_with_results, 0);
+        assert_eq!(page.more, 15);
+    }
+
+    #[test]
+    fn adventures_stay_collapsed_and_take_no_budget_when_another_tier_has_results() {
+        let mut sources = many("rb", "RPG", 3);
+        sources.extend(many("ap", "Adventure Path", 10));
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let adventures = page.group(Tier::Adventures).unwrap();
+        assert!(!adventures.open);
+        assert!(adventures.ids.is_empty(), "no chip sits in a closed tier");
+        // The rulebooks keep the whole budget, as before.
+        assert_eq!(group_ids(&page, Tier::Rulebooks).len(), 3);
+        assert_eq!(page.more, 10);
     }
 
     #[test]

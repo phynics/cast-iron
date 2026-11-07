@@ -20,6 +20,26 @@ pub fn source_ranks(sources: &[SourceInfo]) -> Vec<(&str, u8)> {
         .collect()
 }
 
+/// The source a reader should see first. An entry's first source wins while it is active, so the
+/// label is unchanged when every book is active. When the first source is inactive, choose an
+/// active source in the highest-priority tier ([`Tier::ALL`] order), keeping the caller's order
+/// inside a tier. With every source inactive, keep the first so the label still names one.
+pub fn preferred_source<'a>(
+    first: &'a str,
+    alternatives: impl IntoIterator<Item = &'a str>,
+    is_active: impl Fn(&str) -> bool,
+    tier_of: impl Fn(&str) -> Tier,
+) -> &'a str {
+    if is_active(first) {
+        return first;
+    }
+    alternatives
+        .into_iter()
+        .filter(|id| *id != first && is_active(id))
+        .min_by_key(|id| tier_of(id))
+        .unwrap_or(first)
+}
+
 /// A group of publications on the Books page, in display order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Tier {
@@ -232,6 +252,51 @@ mod tests {
                 ("new", NEUTRAL_SOURCE_RANK)
             ]
         );
+    }
+
+    #[test]
+    fn preferred_source_keeps_an_active_first_source() {
+        let tier_of = |id: &str| Tier::from_category(category_of(id));
+        assert_eq!(
+            preferred_source("pc", ["pc", "core"], |_| true, tier_of),
+            "pc"
+        );
+    }
+
+    #[test]
+    fn preferred_source_picks_the_highest_priority_active_source() {
+        let tier_of = |id: &str| Tier::from_category(category_of(id));
+        let active = |id: &str| matches!(id, "pc" | "core" | "ap");
+        // The first source is inactive; Core Rulebook outranks the Companion and the Adventure.
+        assert_eq!(
+            preferred_source(
+                "settings",
+                ["settings", "pc", "core", "ap"],
+                active,
+                tier_of
+            ),
+            "core"
+        );
+        // Inside one tier the caller's order decides.
+        assert_eq!(
+            preferred_source("settings", ["settings", "pc", "pc2"], active, tier_of),
+            "pc"
+        );
+        // With every source inactive, the first still names the entry.
+        assert_eq!(
+            preferred_source("settings", ["settings", "core"], |_| false, tier_of),
+            "settings"
+        );
+    }
+
+    fn category_of(id: &str) -> Option<&'static str> {
+        match id {
+            "core" => Some("RPG"),
+            "pc" | "pc2" => Some("Player Companion"),
+            "settings" => Some("Campaign Setting"),
+            "ap" => Some("Adventure Path"),
+            _ => None,
+        }
     }
 
     #[test]
