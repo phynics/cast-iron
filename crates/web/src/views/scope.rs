@@ -36,6 +36,25 @@ fn upper_first(text: &str) -> String {
     }
 }
 
+/// Fields whose values are a number or a fraction, and the name they keep in front of the
+/// value. A bare `10` would read like a count next to another facet, so it reads `CR 10`
+/// (`Search CR 10 Dragon creatures`). Add a row here when a kind gains another numeric facet.
+fn numeric_facet_name(field: &str) -> Option<&'static str> {
+    match field {
+        "cr" => Some("CR"),
+        _ => None,
+    }
+}
+
+/// One facet as a phrase. Numeric facets say their field; every other value keeps the label
+/// that its menu shows.
+fn facet_phrase(field: &str, value: &str) -> String {
+    match numeric_facet_name(field) {
+        Some(name) => format!("{name} {value}"),
+        None => upper_first(&facet_label(field, value)),
+    }
+}
+
 impl Scope {
     /// The scope that Quick search takes from the page that is open: a kind's list page limits
     /// the search to that kind, to the facet value that narrows the list, and to the book that a
@@ -88,17 +107,26 @@ impl Scope {
         self
     }
 
-    /// `feats`, or `Combat feats` when a facet narrows it. The facet comes first and keeps its
-    /// capital, so the phrase reads after "Search". An item category is already a plural noun
+    /// `feats`, or `Combat feats` when a facet narrows it. The facets come first and keep their
+    /// capital, so the phrase reads after "Search". A numeric facet goes first and keeps its
+    /// field name (`CR 10 Dragon creatures`). An item category is already a plural noun
     /// (`Wondrous Items`, `Rods`), so it stands without the kind: `Search Rods`. A book filter
     /// appends the book's name: `feats in Core Rulebook`.
     fn phrase(&self) -> String {
         let noun = self.kind.label().to_lowercase();
-        let facets: Vec<String> = self
+        let mut facets: Vec<(bool, String)> = self
             .facets
             .iter()
-            .map(|(field, value)| upper_first(&facet_label(field, value)))
+            .map(|(field, value)| {
+                (
+                    numeric_facet_name(field).is_some(),
+                    facet_phrase(field, value),
+                )
+            })
             .collect();
+        // Numbers lead so the phrase reads as a qualifier on the noun: `CR 10 Dragon creatures`.
+        facets.sort_by_key(|(numeric, _)| !numeric);
+        let facets: Vec<String> = facets.into_iter().map(|(_, text)| text).collect();
         let mut phrase = if facets.is_empty() {
             noun
         } else if self.kind == EntryKind::Item
@@ -301,6 +329,40 @@ mod tests {
         assert_eq!(rods.label(), "Rods");
         assert_eq!(rods.show_all_label(), "Show all items");
         assert_eq!(rods.results_line("4 results"), "4 results in Rods");
+    }
+
+    #[test]
+    fn a_numeric_facet_keeps_its_field_name_before_the_other_facets() {
+        // One facet: a bare `10` would read like a count, so it says CR.
+        let cr10 = scope(EntryKind::Creature, vec![("cr".into(), "10".into())]);
+        assert_eq!(cr10.placeholder(), "Search CR 10 creatures");
+        assert_eq!(cr10.label(), "CR 10 creatures");
+
+        // Two facets: the numeric one leads, the type keeps its title-case menu label.
+        let dragon_cr10 = scope(
+            EntryKind::Creature,
+            vec![
+                ("creature_type".into(), "dragon".into()),
+                ("cr".into(), "10".into()),
+            ],
+        );
+        assert_eq!(dragon_cr10.placeholder(), "Search CR 10 Dragon creatures");
+        assert_eq!(dragon_cr10.label(), "CR 10 Dragon creatures");
+        assert_eq!(
+            dragon_cr10.results_line("17 results"),
+            "17 results in CR 10 Dragon creatures"
+        );
+
+        // A book source still comes after the facets and names the book.
+        let mut in_book = dragon_cr10;
+        in_book.source = Some("bestiary".into());
+        in_book.source_title = Some("Bestiary".into());
+        assert_eq!(
+            in_book.placeholder(),
+            "Search CR 10 Dragon creatures in Bestiary"
+        );
+        assert_eq!(in_book.label(), "CR 10 Dragon creatures in Bestiary");
+        assert_eq!(in_book.show_all_label(), "Show all creatures");
     }
 
     #[test]
