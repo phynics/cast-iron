@@ -234,10 +234,12 @@ installedTest("Mobile Quick search is a full-screen layer with 44 px controls", 
   expect(Math.round(icon.height)).toBeGreaterThanOrEqual(44);
 
   const layer = await openQuickSearch(page, { keyboard: true });
+  // The layer animates in; measure its resting position, not a frame of the expand.
+  await layer.evaluate((el) => Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)));
   const box = (await layer.boundingBox())!;
   const viewport = page.viewportSize()!;
-  // Sub-pixel offsets (for example -0.4 while the layer settles) round to -0, which
-  // `toBe(0)` rejects under Object.is; the layer only has to sit flush with the viewport.
+  // Sub-pixel offsets round to -0, which `toBe(0)` rejects under Object.is; the layer only
+  // has to sit flush with the viewport.
   expect(Math.abs(box.x)).toBeLessThan(1);
   expect(Math.abs(box.y)).toBeLessThan(1);
   expect(Math.round(box.width)).toBe(viewport.width);
