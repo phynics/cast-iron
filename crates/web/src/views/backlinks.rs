@@ -211,7 +211,7 @@ fn group_view(
                 <span class="rel-count">{fmt::count(count)}</span>
             </summary>
             <ul class="ref-list">{preview_rows}</ul>
-            {(count > GROUP_PREVIEW).then(|| view! {
+            {(!rest.is_empty()).then(|| view! {
                 <details class="backlink-more" on:toggle=move |event| {
                     show_all.set(
                         event
@@ -221,15 +221,15 @@ fn group_view(
                     );
                 }>
                     <summary>{format!("Show all {}", fmt::count(count))}</summary>
-                    <ul class="ref-list">{move || {
-                        show_all.get().then(|| {
-                            rest.iter()
+                    {move || show_all.get().then(|| view! {
+                        <ul class="ref-list">
+                            {rest.iter()
                                 .map(|row| {
                                     row_view(&lazy_library, &lazy_current, &lazy_headings, row.clone())
                                 })
-                                .collect_view()
-                        })
-                    }}</ul>
+                                .collect_view()}
+                        </ul>
+                    })}
                 </details>
             })}
         </details>
@@ -340,6 +340,24 @@ mod tests {
         let (preview, rest) = split_preview(&rows);
         assert_eq!(preview.len(), GROUP_PREVIEW);
         assert_eq!(rest.len(), 12);
+    }
+
+    #[test]
+    fn a_group_that_fits_the_preview_has_no_remaining_rows() {
+        for size in 0..=GROUP_PREVIEW {
+            let rows: Vec<BacklinkRow> = (0..size)
+                .map(|i| BacklinkRow {
+                    source: EntryId::parse(format!("ref/rule/{i}")).unwrap(),
+                    title: format!("Entry {i}"),
+                    kind: EntryKind::Rule,
+                    book: "Book".into(),
+                    anchor: None,
+                })
+                .collect();
+            let (preview, rest) = split_preview(&rows);
+            assert_eq!(preview.len(), size);
+            assert!(rest.is_empty(), "no rest for a group of {size}");
+        }
     }
 
     #[test]
