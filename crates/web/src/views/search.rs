@@ -1658,6 +1658,10 @@ fn hit_view(
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
     // The index records one attribution source. When it is inactive, the entry's book placement
     // is the source that kept the entry eligible, so it is the one the reader should see.
+    // A search row only has the catalog stub, which carries one source, so its alternative set
+    // is the canonical placement. The entry header uses the same `preferred_source` rule over
+    // every `source_ids` entry because it has the full entry. The rule is one; the data differs.
+    // See docs/decisions.md, "Inactive books in search".
     let canonical = entry_id
         .as_ref()
         .and_then(|id| library.canonical_source_for_entry(id));
@@ -1883,6 +1887,21 @@ mod tests {
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
         assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
+    }
+
+    #[test]
+    fn a_search_row_names_the_canonical_book_when_the_indexed_source_is_inactive() {
+        let tier = |id: &str| match id {
+            "core" => Tier::Rulebooks,
+            _ => Tier::Other,
+        };
+        let active = |id: &str| id == "core";
+        assert_eq!(
+            preferred_source("inactive", Some("core"), active, tier),
+            "core"
+        );
+        // Without a canonical alternative the row keeps the indexed source.
+        assert_eq!(preferred_source("inactive", None, active, tier), "inactive");
     }
 
     #[test]
