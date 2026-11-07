@@ -110,6 +110,27 @@ fn normalize(text: &str) -> String {
         .to_string()
 }
 
+/// Whether a `creature_type` field agrees with the `Type` row of its stat block.
+///
+/// The field uses the corpus spelling (`magicalBeast`), while the body keeps the printed spelling
+/// (`Magical Beast`), so case, spaces, and punctuation do not decide the comparison. The
+/// Technology Guide prints `Type: Intelligence` for its sample AIs, but the book states that an
+/// artificial intelligence counts as a construct for every effect that targets creature type; the
+/// corpus records the type that the rules use, so `construct` agrees with that row.
+fn creature_type_agrees(field: &str, source: &str) -> bool {
+    let field = creature_type_key(field);
+    let source = creature_type_key(source);
+    field == source || (field == "construct" && source == "intelligence")
+}
+
+/// A creature type reduced to letters and digits, so `Magical Beast` and `magicalBeast` match.
+fn creature_type_key(text: &str) -> String {
+    normalize(text)
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .collect()
+}
+
 /// A superscript is a footnote marker when it holds only a short number: `^1^`, or the
 /// `^[1](…)` link the reader sees. Real superscripts such as `10^2^` keep their text.
 fn is_footnote_sup(items: &[Inline]) -> bool {
@@ -624,7 +645,7 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
             format!("{kind} ({})", joined(&fields.subtypes))
         };
         if let Some(mut pair) = row_pair(text, rows, "creature_type", &with_subtypes, &["Type"]) {
-            pair.agree = pair.agree || normalize(kind) == normalize(&pair.source_value);
+            pair.agree = pair.agree || creature_type_agrees(&with_subtypes, &pair.source_value);
             pairs.push(pair);
         }
     }
@@ -889,6 +910,36 @@ mod tests {
         let drift = find_drift(&stored(entry));
         assert_eq!(drift.len(), 1, "{drift:?}");
         assert_eq!(drift[0].field, "ac");
+    }
+
+    #[test]
+    fn an_artificial_intelligence_agrees_with_construct() {
+        let entry = base(
+            "ref/monster/ai",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                creature_type: Some("construct".into()),
+                ..Default::default()
+            })),
+            vec![statblock(vec![row("Type", "Intelligence")])],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn a_creature_type_agrees_across_case_and_spaces() {
+        let entry = base(
+            "ref/monster/beast",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                creature_type: Some("monstrousHumanoid".into()),
+                subtypes: vec!["mythic".into()],
+                ..Default::default()
+            })),
+            vec![statblock(vec![row("Type", "Monstrous Humanoid (mythic)")])],
+        );
+        let drift = find_drift(&stored(entry));
+        assert!(drift.is_empty(), "{drift:?}");
     }
 
     fn creature_with_rating(cr: &str, line: &str) -> Stored {
