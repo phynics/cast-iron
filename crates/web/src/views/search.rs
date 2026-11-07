@@ -290,11 +290,41 @@ impl PublicationPage {
     }
 }
 
+/// What a disclosure's toggle event does with the reader's answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ToggleAction {
+    /// The tier is forced open by a selection or the name box: reopen it, record nothing.
+    ForceOpen,
+    /// Store the reader's answer.
+    Record(bool),
+    /// The event agrees with the page already; nothing to store.
+    Ignore,
+}
+
+/// A selection or a non-empty name box forces its tier open, so a close click on such a tier is
+/// not the reader's choice: it is answered by reopening the tier and recording nothing. This
+/// keeps the answer the reader gave before the force, which clearing the box restores.
+fn publication_toggle_action(
+    holds_selected: bool,
+    name_box: bool,
+    open_now: bool,
+    open_after_click: bool,
+) -> ToggleAction {
+    if (holds_selected || name_box) && !open_after_click {
+        ToggleAction::ForceOpen
+    } else if open_after_click != open_now {
+        ToggleAction::Record(open_after_click)
+    } else {
+        ToggleAction::Ignore
+    }
+}
+
 /// `choices` holds the reader's own open (`true`) or closed (`false`) answer per tier. A
 /// selected publication forces its tier open, so a chosen filter is never hidden, and so does a
 /// non-empty name box, so its matches are seen. Otherwise the reader's answer applies, then the
 /// default: open when the tier has chips and is not collapsed by default. "Show all" opens a
-/// collapsed-by-default tier too, because it lists everything.
+/// collapsed-by-default tier too, because it lists everything. An Adventures-only page opens
+/// Adventures and spends the budget on it, because a page of closed headings looks empty (#142).
 fn publication_page(
     sources: &[SourceInfo],
     selected: &[String],
@@ -308,6 +338,13 @@ fn publication_page(
     let name_matches =
         |source: &SourceInfo| filter.is_empty() || source.title.to_lowercase().contains(&filter);
     let with_results = sources.iter().filter(|s| count_of(&s.id) > 0).count();
+    let tiers_with_results: BTreeSet<Tier> = sources
+        .iter()
+        .filter(|s| count_of(&s.id) > 0)
+        .map(|s| Tier::from_category(s.category.as_deref()))
+        .collect();
+    let adventures_only =
+        tiers_with_results.len() == 1 && tiers_with_results.contains(&Tier::Adventures);
     let matches = sources
         .iter()
         .filter(|s| count_of(&s.id) > 0 && name_matches(s))
@@ -319,6 +356,13 @@ fn publication_page(
     // one of the page-wide requests above. Rulebooks have no disclosure.
     let expanded = |tier: Tier| {
         unlimited || (tier.is_disclosure() && choices.get(&tier).copied() == Some(true))
+    };
+    // Adventures take no budget while another tier has results. Alone, they open and spend it,
+    // unless the reader closed them.
+    let adventures_default =
+        adventures_only && choices.get(&Tier::Adventures).copied() != Some(false);
+    let takes_budget = |tier: Tier| {
+        !tier.collapsed_by_default() || (tier == Tier::Adventures && adventures_default)
     };
 
     // Candidates by tier: pinned selections, plus every publication with results that the name
@@ -367,7 +411,7 @@ fn publication_page(
         let counted = count > 0 && name_matches(source);
         let listed = if pinned || expanded(tier) {
             true
-        } else if !tier.collapsed_by_default() && budget > 0 {
+        } else if takes_budget(tier) && budget > 0 {
             budget -= 1;
             true
         } else {
@@ -388,7 +432,7 @@ fn publication_page(
             || choices
                 .get(&tier)
                 .copied()
-                .unwrap_or(!group.ids.is_empty() && (show_all || !tier.collapsed_by_default()));
+                .unwrap_or(!group.ids.is_empty() && (show_all || takes_budget(tier)));
     }
     let shown_with_results = groups
         .iter()
@@ -1057,13 +1101,15 @@ pub fn Search() -> impl IntoView {
                 page.group(tier)
                     .map_or((false, false), |group| (group.holds_selected, group.open))
             });
-            if holds_selected && !details.open() {
-                // A selected filter is never hidden.
-                details.set_open(true);
-            } else if details.open() != open_now {
-                group_choice.update(|choices| {
-                    choices.insert(tier, details.open());
-                });
+            let name_box = publication_filter.with_untracked(|filter| !filter.trim().is_empty());
+            match publication_toggle_action(holds_selected, name_box, open_now, details.open()) {
+                ToggleAction::ForceOpen => details.set_open(true),
+                ToggleAction::Record(open) => {
+                    group_choice.update(|choices| {
+                        choices.insert(tier, open);
+                    });
+                }
+                ToggleAction::Ignore => {}
             }
         };
         view! {
@@ -2267,6 +2313,98 @@ mod tests {
         assert!(page.ids().len() > PUBLICATION_TOP);
         assert_eq!(page.more, 0);
         assert_eq!(page.ids().len(), page.matches);
+    }
+
+    #[test]
+    fn a_close_click_while_the_name_box_forces_a_tier_open_records_no_choice() {
+        // The steps of #141: the reader opens a tier, then the name box forces it open, then a
+        // close click is answered by reopening and must not replace the earlier answer.
+        let action = publication_toggle_action(false, true, true, false);
+        assert_eq!(action, ToggleAction::ForceOpen);
+        let sources = [
+            in_tier("core", "Core", "RPG"),
+            in_tier("pc", "Companion", "Player Companion"),
+        ];
+        let counts = [("core", 3), ("pc", 2)];
+        let opened = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::PlayerCompanions, true)],
+        );
+        assert!(opened.group(Tier::PlayerCompanions).unwrap().open);
+        // The box that forced it open is gone; the stored open answer still applies.
+        let restored = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::PlayerCompanions, true)],
+        );
+        assert!(restored.group(Tier::PlayerCompanions).unwrap().open);
+        // A close click with no force is the reader's choice and is recorded.
+        assert_eq!(
+            publication_toggle_action(false, false, true, false),
+            ToggleAction::Record(false)
+        );
+        // A selection behaves the same way as the name box.
+        assert_eq!(
+            publication_toggle_action(true, false, true, false),
+            ToggleAction::ForceOpen
+        );
+    }
+
+    #[test]
+    fn an_adventures_only_page_opens_adventures_and_spends_the_budget() {
+        let sources = many("ap", "Adventure Path", 15);
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let adventures = page.group(Tier::Adventures).expect("an adventures group");
+        assert!(adventures.open, "the only tier with results opens");
+        assert_eq!(adventures.ids.len(), PUBLICATION_TOP);
+        assert_eq!(adventures.heading(), "Adventures (12 of 15)");
+        assert_eq!(page.shown_with_results, PUBLICATION_TOP);
+        assert_eq!(page.more, 15 - PUBLICATION_TOP);
+        assert_eq!(
+            publication_summary_line(&page, "", false),
+            "Showing 12 of 15 publications with results."
+        );
+    }
+
+    #[test]
+    fn a_reader_who_closed_adventures_keeps_them_closed_on_an_adventures_only_page() {
+        let sources = many("ap", "Adventure Path", 15);
+        let counts = ranked_counts(&sources, 1);
+        let page = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::Adventures, false)],
+        );
+        let adventures = page.group(Tier::Adventures).unwrap();
+        assert!(!adventures.open);
+        assert!(adventures.ids.is_empty());
+        assert_eq!(page.shown_with_results, 0);
+        assert_eq!(page.more, 15);
+    }
+
+    #[test]
+    fn adventures_stay_collapsed_and_take_no_budget_when_another_tier_has_results() {
+        let mut sources = many("rb", "RPG", 3);
+        sources.extend(many("ap", "Adventure Path", 10));
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let adventures = page.group(Tier::Adventures).unwrap();
+        assert!(!adventures.open);
+        assert!(adventures.ids.is_empty(), "no chip sits in a closed tier");
+        // The rulebooks keep the whole budget, as before.
+        assert_eq!(group_ids(&page, Tier::Rulebooks).len(), 3);
+        assert_eq!(page.more, 10);
     }
 
     #[test]
