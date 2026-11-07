@@ -687,15 +687,19 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
                 }
                 RelationKind::Addon => {
                     if relation.label.as_deref() == Some("mythic") {
-                        let mythic = matches!(
-                            &entry.fields,
-                            TypedFields::Feat(fields)
-                                if fields.feat_types.iter().any(|kind| kind == "Mythic")
-                        );
-                        if entry.kind != EntryKind::Feat || !mythic {
-                            report.problems.push(format!(
-                                "{line}: a `mythic` add-on must be a feat whose `feat_types` include `Mythic`"
-                            ));
+                        // The rule is about feats only. A spell or rule holder (the mythic-spell
+                        // add-ons of slice 3) is not required to carry Mythic in `feat_types`.
+                        if entry.kind == EntryKind::Feat {
+                            let mythic = matches!(
+                                &entry.fields,
+                                TypedFields::Feat(fields)
+                                    if fields.feat_types.iter().any(|kind| kind == "Mythic")
+                            );
+                            if !mythic {
+                                report.problems.push(format!(
+                                    "{line}: a `mythic` add-on must be a feat whose `feat_types` include `Mythic`"
+                                ));
+                            }
                         }
                     }
                 }
@@ -1705,6 +1709,20 @@ mod tests {
             text.contains("a `mythic` add-on must be a feat whose `feat_types` include `Mythic`"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn a_non_feat_mythic_holder_passes() {
+        // The mythic-spell add-ons of slice 3 are `rule` entries under the spell they extend.
+        let base = spell("ref/spell/heal");
+        let holder = related(
+            rule("ref/spell/heal/mythic", vec![]),
+            RelationKind::Addon,
+            "ref/spell/heal",
+            Some("mythic"),
+        );
+        let report = check(&corpus(vec![base, holder]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     fn class_option(id: &str, group: &str) -> RuleEntry {
