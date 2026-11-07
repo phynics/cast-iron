@@ -9,7 +9,7 @@ use crate::install::{
 use crate::js::{self, StorageEstimate};
 use crate::library::use_library;
 use crate::pwa::use_install;
-use crate::route::Route;
+use crate::route::{self, Route};
 use crate::store::ActiveLibrary;
 use crate::theme::{self, Theme};
 use crate::views::installer::{InstallMode, InstallPanel};
@@ -17,6 +17,32 @@ use cast_iron_schema::ContentManifest;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use wasm_bindgen::{JsCast, JsValue};
+
+/// Opens Settings on its Updates section, without reloading the app. A header action must not
+/// apply an update by surprise; it brings the reader to the controls that do.
+pub fn open_updates() {
+    // On Settings already, the route does not change, so the screen is not rebuilt and nothing
+    // would move. Scroll and focus here instead.
+    if Route::parse(&route::current_hash()) == Route::Settings {
+        focus_updates();
+        return;
+    }
+    route::navigate_hash(route::settings_updates_href());
+}
+
+/// Brings the Updates section into view and moves focus to it.
+fn focus_updates() {
+    let Some(section) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id(route::UPDATES_SECTION_ID))
+    else {
+        return;
+    };
+    section.scroll_into_view();
+    if let Ok(section) = section.dyn_into::<web_sys::HtmlElement>() {
+        let _ = section.focus();
+    }
+}
 
 #[derive(Clone)]
 enum UpdateState {
@@ -46,6 +72,15 @@ pub fn Settings() -> impl IntoView {
     let install_ctx = use_install();
     let library = use_library();
     let active = library.active().clone();
+
+    // The header's update action asks for the Updates section. The Reader's route effect scrolls
+    // to the top and focuses <main> one animation frame later, so wait two frames to land on the
+    // section instead.
+    Effect::new(move |_| {
+        if route::wants_updates_section(&route::current_hash()) {
+            request_animation_frame(|| request_animation_frame(focus_updates));
+        }
+    });
 
     let estimate = RwSignal::new(None::<StorageEstimate>);
     let persisted = RwSignal::new(None::<bool>);
@@ -160,8 +195,8 @@ pub fn Settings() -> impl IntoView {
             <p><a href=Route::Legal.href()>"Legal and attribution, and library coverage"</a></p>
         </section>
 
-        <section class="settings-section" aria-labelledby="set-updates">
-            <h2 id="set-updates">"Updates"</h2>
+        <section class="settings-section" id="set-updates" tabindex="-1" aria-labelledby="set-updates-title">
+            <h2 id="set-updates-title">"Updates"</h2>
             <p>"Library updates download when you ask. App updates become ready in the background; reload to apply them. Your stars stay with this app."</p>
             <p>
                 <button class="btn" type="button" on:click=check_update

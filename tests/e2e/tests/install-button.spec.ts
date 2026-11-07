@@ -7,7 +7,7 @@ import { installLibrary, waitControlled, waitReady, afterRouteFrame } from "./he
 // before the app has started.
 
 const INSTALL_NAME = "Install Cast Iron as an app";
-const UPDATE_NAME = "App update ready. Reload to apply";
+const UPDATE_NAME = "App update ready. Open Settings";
 const IOS_SAFARI =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 

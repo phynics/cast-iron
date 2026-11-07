@@ -2,7 +2,7 @@ import { test, expect, goOffline } from "./fixtures";
 import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitReady } from "./helpers";
 
 const spell = corpusEntry("spell", "Fireball");
-const UPDATE_NAME = "App update ready. Reload to apply";
+const UPDATE_NAME = "App update ready. Open Settings";
 
 test("App update waits for reload and keeps the installed library and Home bookmarks", async ({ page, context, server }) => {
   await installLibrary(page);
@@ -33,7 +33,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect(page.getByRole("heading", { name: spell.title, exact: true, level: 1 })).toBeVisible();
   await expect(update).toBeVisible();
   await expect(update).toHaveAttribute("aria-label", UPDATE_NAME);
-  await expect(update).toContainText("Update");
+  await expect(update).toContainText("Update ready");
   await expect(page.locator("header.app-header [role=status]")).toHaveText("App update ready.");
   // No banner: the reading content stays exactly where it was.
   expect((await page.locator("main").boundingBox())!.y).toBe(mainTop);
@@ -45,13 +45,29 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect(page.getByTestId("library-version")).toHaveText(library.content_version);
   // Settings keeps its own reload row.
   const settingsRow = page.locator(".banner-inline");
-  await expect(settingsRow).toContainText("App update ready.");
+  await expect(settingsRow).toContainText("App update ready");
   await expect(settingsRow.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
   expect((await activeLibrary(page)).content_version).toBe(library.content_version);
   await expect.poll(async () => Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${nextShell}`);
   expect(Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${previousShell}`);
 
+  // The header action opens Settings → Updates, in view and focused, and does not reload.
+  await page.goto(`#/entry/${spell.id}`);
+  await expect(update).toBeVisible();
+  await page.evaluate(() => {
+    (window as any).__castIronNoReload = true;
+  });
   await update.click();
+  await expect(page.getByRole("heading", { name: "Settings", exact: true, level: 1 })).toBeVisible();
+  await expect(page.locator("#set-updates")).toBeFocused();
+  await expect(page.getByRole("heading", { name: "Updates", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__castIronNoReload)).toBe(true);
+  await expect(shell).toHaveText(previousShell);
+  await expect(page.getByTestId("library-version")).toHaveText(library.content_version);
+  await expect(page.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
+
+  // Reload in Settings applies it.
+  await page.getByRole("button", { name: "Reload", exact: true }).click();
   await waitReady(page);
   await expect(page.getByTestId("shell-version")).toHaveText(nextShell);
   await expect.poll(async () => Object.keys(await cacheContents(page))).not.toContain(`cast-iron-shell-${previousShell}`);
