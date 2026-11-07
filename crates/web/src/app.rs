@@ -471,6 +471,17 @@ mod tests {
             &Route::Home,
             &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
         ));
+        // A book-filtered kind list is still Home, not Books.
+        assert!(in_section(
+            &Route::Home,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
+        ));
+        assert!(!in_section(
+            &Route::Books,
+            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some("core-rulebook".into()))
+        ));
         assert!(in_section(
             &Route::Home,
             &Route::BrowseSource("core-rulebook".into())

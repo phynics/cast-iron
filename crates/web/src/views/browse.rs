@@ -683,8 +683,8 @@ fn filter_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. Races and creatures keep their pills
-/// (the old lens) until the library has the data or their pull request moves them to this row.
+/// links on the right, and each menu's panel under the row. Races keep their pills (the old
+/// lens) until the library has group data (#196).
 #[component]
 fn Lenses(
     kind: EntryKind,
@@ -692,8 +692,8 @@ fn Lenses(
     applied: Vec<(String, String)>,
     /// The book the list is limited to, kept by every filter link.
     source: Option<String>,
-    /// True when a choice just opened this page.
-    focus: bool,
+    /// The field of the menu whose choice just opened this page, if any.
+    focus: Option<&'static str>,
 ) -> impl IntoView {
     let all = categories::lenses(kind);
     if all.is_empty() {
@@ -708,8 +708,9 @@ fn Lenses(
         match lens {
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
+                let menu_focus = focus == Some(spec.field);
                 let (button, panel) =
-                    filter_menu(&library, kind, spec, &applied, source.clone(), focus);
+                    filter_menu(&library, kind, spec, &applied, source.clone(), menu_focus);
                 buttons.push(button);
                 panels.push(panel);
             }
@@ -809,9 +810,9 @@ fn focus_first_filter(tries: u32) {
         request_animation_frame(move || focus_first_filter(tries - 1));
         return;
     }
-    if let Some(heading) = document.query_selector("main h1").ok().flatten() {
-        focus_element(&heading);
-    }
+    // The shell focuses <main> one frame after the route change. Wait it out, as the Active
+    // books H1 does, so the heading keeps focus.
+    focus_heading_later();
 }
 
 fn focus_heading_later() {
@@ -1225,14 +1226,14 @@ pub fn BrowseKind(
         ids.with(|loaded| match loaded {
             None => view! {
                 <div class="wide list-page">
-                    <h1>{kind.label()}</h1>
+                    <h1 tabindex="-1">{kind.label()}</h1>
                     <p class="muted list-count" role="status" aria-live="polite">"Loading…"</p>
                 </div>
             }
             .into_any(),
             Some(Err(error)) => view! {
                 <div class="wide list-page">
-                    <h1>{kind.label()}</h1>
+                    <h1 tabindex="-1">{kind.label()}</h1>
                     <p class="error" role="alert">{error.to_string()}</p>
                 </div>
             }
@@ -1262,7 +1263,7 @@ pub fn BrowseKind(
 #[component]
 fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>) -> impl IntoView {
     let library = use_library();
-    let focus_menu = false;
+    let focus_menu = None;
     let total = all.len();
     let groups = {
         let library = library.clone();
@@ -1286,7 +1287,7 @@ fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>
         groups.with(|loaded| match loaded {
             None => view! {
                 <div class="wide list-page">
-                    <h1>{kind.label()}</h1>
+                    <h1 tabindex="-1">{kind.label()}</h1>
                     <p class="muted list-count" role="status" aria-live="polite">"Loading…"</p>
                 </div>
             }
@@ -1364,7 +1365,8 @@ fn BrowseList(
     stubs: Vec<EntryStub>,
     /// The size of the whole kind before a facet filter. With a book, the book's size.
     total: usize,
-    focus_menu: bool,
+    /// The field of the menu whose choice opened this page, if any.
+    focus_menu: Option<&'static str>,
     /// True when the book pill was just removed: focus the first filter control.
     #[prop(optional)]
     focus_first: bool,
@@ -1478,7 +1480,7 @@ fn BrowseList(
         view! {
             <AzList kind facets=applied.clone() source=source.clone() marks groups
                 stubs=stubs.clone() source_titles show_source=multi_source selected=selected
-                focus=requested.is_some() && !focus_menu && !focus_first />
+                focus=requested.is_some() && focus_menu.is_none() && !focus_first />
         }
         .into_any()
     };
@@ -1524,7 +1526,7 @@ fn BrowseList(
 
     view! {
         <div class="wide list-page">
-        <h1>{kind.label()}</h1>
+        <h1 tabindex="-1">{kind.label()}</h1>
         {notice}
         {pill}
         <p class="muted list-count" role="status" aria-live="polite">{count_line}{show_all}</p>

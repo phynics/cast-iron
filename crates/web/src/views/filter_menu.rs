@@ -95,19 +95,20 @@ pub fn find_status(spec: &MenuSpec, shown: usize, query: &str) -> String {
 // ---- focus after a choice ---------------------------------------------------------------
 
 thread_local! {
-    /// Set when a choice is made, so the list page that the choice opens puts focus on the
-    /// button. The page is rebuilt for the new route, so the request has to outlive the old one.
-    static FOCUS_BUTTON_NEXT: Cell<bool> = const { Cell::new(false) };
+    /// Set when a choice is made, so the list page that the choice opens puts focus on that
+    /// menu's button. The field names the menu: a page with two menus must focus only the one
+    /// that changed. The page is rebuilt for the new route, so the request has to outlive it.
+    static FOCUS_BUTTON_NEXT: Cell<Option<&'static str>> = const { Cell::new(None) };
 }
 
-/// Reads and clears the request that the last choice left. Call it once, when the list page is
-/// built, so a request that nothing used cannot reach a later page.
-pub fn take_focus_request() -> bool {
-    FOCUS_BUTTON_NEXT.with(|flag| flag.replace(false))
+/// Reads and clears the field of the menu whose choice opened the page. Call it once, when the
+/// list page is built, so a request that nothing used cannot reach a later page.
+pub fn take_focus_request() -> Option<&'static str> {
+    FOCUS_BUTTON_NEXT.with(Cell::take)
 }
 
-fn request_focus() {
-    FOCUS_BUTTON_NEXT.with(|flag| flag.set(true));
+fn request_focus(field: &'static str) {
+    FOCUS_BUTTON_NEXT.with(|slot| slot.set(Some(field)));
 }
 
 fn button_id(spec: &MenuSpec) -> String {
@@ -394,7 +395,7 @@ fn choose(event: web_sys::MouseEvent, is_current: bool, state: MenuState, spec: 
         event.prevent_default();
         state.dismiss(spec);
     } else {
-        request_focus();
+        request_focus(spec.field);
     }
 }
 
