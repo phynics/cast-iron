@@ -18,9 +18,11 @@ pub fn bytes(value: u64) -> String {
     }
 }
 
-/// Groups the digits of a count with commas: `3583` becomes `3,583`. Every count the reader sees
-/// goes through here, so the app writes numbers one way. There is no locale setting, so the
-/// separator is always a comma.
+/// Groups the digits of a count with commas: `3583` becomes `3,583`. The counts on Home, in
+/// category and filter lists, in search, on entry pages, in Settings and on the legal page go
+/// through here, so those screens write numbers one way. The Books directory, a book's contents
+/// (`toc-count`) and the book count line (`book_count_line`) still print plain numbers: the Books
+/// rows change (#154) owns them. There is no locale setting, so the separator is always a comma.
 pub fn count(n: impl TryInto<u64>) -> String {
     let digits = n
         .try_into()

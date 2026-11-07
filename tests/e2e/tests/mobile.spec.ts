@@ -431,6 +431,48 @@ installedTest("Feats list at 390 px: title, count, filters and a sticky 48 px le
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
+installedTest("Feats at 390 px: the first feat row is in the first viewport, and the type menu works beside an open panel", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const main = page.locator("main");
+  const button = main.getByRole("button", { name: /^Type: / });
+  await expect(button).toBeEnabled();
+  const viewport = page.viewportSize()!;
+  const tabBar = (await page.getByRole("navigation", { name: "Primary" }).boundingBox())!;
+  const first = main.locator(".letter-group .entry-list a").first();
+  await expect(first).toBeVisible();
+  const y = (await first.boundingBox())!.y;
+  console.log(`first feat row y at 390 px: ${Math.round(y)}`);
+  expect(y).toBeLessThan(tabBar.y - 44);
+  expect(y).toBeLessThan(viewport.height / 2);
+  // The filter row is one row: the menu and the Feat chains link share a line, inside the width.
+  const link = main.locator(".filter-row").getByRole("link", { name: "Feat chains" });
+  const menu = (await button.boundingBox())!;
+  const chains = (await link.boundingBox())!;
+  expect(Math.abs(menu.y - chains.y)).toBeLessThan(8);
+  expect(chains.x + chains.width).toBeLessThanOrEqual(viewport.width);
+  expect(Math.round(menu.height)).toBeGreaterThanOrEqual(44);
+
+  // The open panel is in the page, at most half the viewport, and its rows are 44 px.
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  expect(box.height).toBeLessThanOrEqual(viewport.height * 0.5 + 1);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  const rows = await panel.locator(".choice-row").evaluateAll((els) => els.slice(0, 8).map((el) => el.getBoundingClientRect().height));
+  expect(rows.filter((height) => height < 43.5)).toEqual([]);
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  // Choosing a type closes it, filters, and leaves the button focused.
+  await panel.getByRole("searchbox").fill("comb");
+  await panel.getByRole("link", { name: /^Combat, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat?facet=feat_type:Combat");
+  await expect(main.getByRole("button", { name: "Type: Combat" })).toBeFocused();
+  await expect(main.getByRole("button", { name: "Type: Combat" })).toHaveAttribute("aria-expanded", "false");
+});
+
 installedTest("Scoped Quick search at 390 px: the scope pill is a 44 px target and fits, also for a long kind name", async ({ page }) => {
   await installLibrary(page);
   const viewport = page.viewportSize()!;

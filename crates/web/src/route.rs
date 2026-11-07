@@ -16,7 +16,7 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>
 //! #/bookmarks                        #/collection/<id>
-//! #/settings                         #/legal
+//! #/settings[?section=updates]       #/legal
 //! ```
 
 use cast_iron_schema::{EntryId, EntryKind};
@@ -69,9 +69,11 @@ pub enum Route {
         facets: Vec<(String, String)>,
     },
     /// A kind's A to Z list. `letter` selects one letter group; `None` shows the first group.
+    /// `facets` narrow the list in place, with the same `facet=field:value` pairs as search.
     BrowseKind {
         kind: EntryKind,
         letter: Option<char>,
+        facets: Vec<(String, String)>,
     },
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
@@ -124,7 +126,11 @@ impl Route {
 
     /// A kind's A to Z list, opening its first letter group.
     pub fn browse_kind(kind: EntryKind) -> Self {
-        Route::BrowseKind { kind, letter: None }
+        Route::BrowseKind {
+            kind,
+            letter: None,
+            facets: Vec::new(),
+        }
     }
 
     /// A kind's A to Z list with one letter group open.
@@ -132,6 +138,28 @@ impl Route {
         Route::BrowseKind {
             kind,
             letter: Some(letter),
+            facets: Vec::new(),
+        }
+    }
+
+    /// A kind's A to Z list narrowed by `facets`, opening its first letter group.
+    pub fn browse_kind_facets(kind: EntryKind, facets: Vec<(String, String)>) -> Self {
+        Route::BrowseKind {
+            kind,
+            letter: None,
+            facets,
+        }
+    }
+
+    /// The same list with a letter group open, keeping the facets.
+    pub fn with_letter(&self, letter: char) -> Self {
+        match self {
+            Route::BrowseKind { kind, facets, .. } => Route::BrowseKind {
+                kind: *kind,
+                letter: Some(letter),
+                facets: facets.clone(),
+            },
+            other => other.clone(),
         }
     }
 
@@ -166,6 +194,7 @@ impl Route {
                             letter: query
                                 .and_then(|q| query_pairs(q).find(|(key, _)| key == "l"))
                                 .and_then(|(_, value)| parse_letter(&value)),
+                            facets: parse_facets(query),
                         }
                     }
                 }),
@@ -243,27 +272,28 @@ impl Route {
                 for source in sources {
                     pairs.push(format!("source={}", percent_encode(source)));
                 }
-                for (field, value) in facets {
-                    pairs.push(format!(
-                        "facet={}:{}",
-                        percent_encode(field),
-                        percent_encode(value)
-                    ));
-                }
+                pairs.extend(facets.iter().map(facet_pair));
                 if pairs.is_empty() {
                     "#/search".into()
                 } else {
                     format!("#/search?{}", pairs.join("&"))
                 }
             }
-            Route::BrowseKind { kind, letter } => match letter {
-                Some(letter) => format!(
-                    "#/browse/kind/{}?l={}",
-                    kind.slug(),
-                    percent_encode(&letter.to_string())
-                ),
-                None => format!("#/browse/kind/{}", kind.slug()),
-            },
+            Route::BrowseKind {
+                kind,
+                letter,
+                facets,
+            } => {
+                let mut pairs: Vec<String> = facets.iter().map(facet_pair).collect();
+                if let Some(letter) = letter {
+                    pairs.push(format!("l={}", percent_encode(&letter.to_string())));
+                }
+                if pairs.is_empty() {
+                    format!("#/browse/kind/{}", kind.slug())
+                } else {
+                    format!("#/browse/kind/{}?{}", kind.slug(), pairs.join("&"))
+                }
+            }
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::BooksSorted(sort) => format!("#/books?sort={}", sort.slug()),
@@ -352,8 +382,7 @@ pub fn toc_id(path: &[usize]) -> String {
 }
 
 fn parse_search(query: Option<&str>) -> Route {
-    let (mut q, mut kinds, mut sources, mut facets) =
-        (String::new(), Vec::new(), Vec::new(), Vec::new());
+    let (mut q, mut kinds, mut sources) = (String::new(), Vec::new(), Vec::new());
     for (key, value) in query.into_iter().flat_map(query_pairs) {
         match key.as_str() {
             "q" => q = value,
@@ -362,6 +391,23 @@ fn parse_search(query: Option<&str>) -> Route {
             _ => {}
         }
     }
+    Route::Search {
+        q,
+        kinds,
+        sources,
+        facets: parse_facets(query),
+    }
+}
+
+/// `facet=field:value` as it appears in a URL.
+fn facet_pair((field, value): &(String, String)) -> String {
+    format!("facet={}:{}", percent_encode(field), percent_encode(value))
+}
+
+/// The `facet=field:value` pairs of a query string, in order. Search and a list page read them
+/// the same way.
+fn parse_facets(query: Option<&str>) -> Vec<(String, String)> {
+    let mut facets = Vec::new();
     // The field and value are encoded separately, so split on the first raw ':' before decoding.
     for raw in query.into_iter().flat_map(|q| q.split('&')) {
         if let Some(raw) = raw.strip_prefix("facet=")
@@ -376,12 +422,7 @@ fn parse_search(query: Option<&str>) -> Route {
             facets.push((field, value));
         }
     }
-    Route::Search {
-        q,
-        kinds,
-        sources,
-        facets,
-    }
+    facets
 }
 
 /// A `school` facet value as the index holds it: the school word alone. Links shared before
@@ -496,11 +537,35 @@ pub fn current_hash() -> String {
         .unwrap_or_default()
 }
 
+/// The DOM id of the Updates section on Settings.
+pub const UPDATES_SECTION_ID: &str = "set-updates";
+
+/// Settings, opened on its Updates section. The section is not a route of its own, so the query
+/// names the place on the screen that the header action opens. [`Route::parse`] reads it as
+/// [`Route::Settings`], which keeps every link, the history, and the route signal the same.
+pub fn settings_updates_href() -> &'static str {
+    "#/settings?section=updates"
+}
+
+/// Whether a Settings hash asks for the Updates section.
+pub fn wants_updates_section(hash: &str) -> bool {
+    Route::parse(hash) == Route::Settings
+        && hash
+            .split_once('?')
+            .is_some_and(|(_, query)| query.split('&').any(|pair| pair == "section=updates"))
+}
+
+/// Pushes a history entry for a hash that [`Route`] does not fully describe, such as
+/// [`settings_updates_href`].
+pub fn navigate_hash(hash: &str) {
+    if let Some(window) = web_sys::window() {
+        let _ = window.location().set_hash(hash);
+    }
+}
+
 /// Pushes a history entry, like clicking an anchor with `route.href()`.
 pub fn navigate(route: &Route) {
-    if let Some(window) = web_sys::window() {
-        let _ = window.location().set_hash(&route.href());
-    }
+    navigate_hash(&route.href());
 }
 
 /// Replaces the current history entry, such as while a search box types.
@@ -746,6 +811,50 @@ mod tests {
                 "{bad:?}"
             );
         }
+    }
+
+    #[test]
+    fn kind_routes_carry_facets_in_the_url_and_keep_them_with_a_letter() {
+        let combat =
+            Route::browse_kind_facets(EntryKind::Feat, vec![("feat_type".into(), "Combat".into())]);
+        assert_eq!(combat.href(), "#/browse/kind/feat?facet=feat_type:Combat");
+        round_trip(combat.clone());
+        let lettered = combat.with_letter('B');
+        assert_eq!(
+            lettered.href(),
+            "#/browse/kind/feat?facet=feat_type:Combat&l=B"
+        );
+        round_trip(lettered);
+        // A value with a space or a symbol is encoded, and the first ':' splits the pair.
+        let spaced = Route::browse_kind_facets(
+            EntryKind::Feat,
+            vec![("feat_type".into(), "Armor Mastery: Heavy".into())],
+        );
+        assert_eq!(
+            spaced.href(),
+            "#/browse/kind/feat?facet=feat_type:Armor%20Mastery%3A%20Heavy"
+        );
+        round_trip(spaced);
+        // The parameters may come in either order, and a pair with no ':' is ignored.
+        assert_eq!(
+            Route::parse("#/browse/kind/feat?l=b&facet=feat_type:combat&facet=broken"),
+            Route::BrowseKind {
+                kind: EntryKind::Feat,
+                letter: Some('B'),
+                facets: vec![("feat_type".into(), "combat".into())],
+            }
+        );
+        // Search keeps its own href with the same pairs.
+        assert_eq!(
+            Route::Search {
+                q: "grapple".into(),
+                kinds: vec![EntryKind::Feat],
+                sources: vec!["core".into()],
+                facets: vec![("feat_type".into(), "Combat".into())],
+            }
+            .href(),
+            "#/search?q=grapple&kind=feat&source=core&facet=feat_type:Combat"
+        );
     }
 
     #[test]
@@ -1017,6 +1126,21 @@ mod tests {
     #[test]
     fn trailing_slashes_are_tolerated() {
         assert_eq!(Route::parse("#/settings/"), Route::Settings);
+    }
+
+    #[test]
+    fn the_updates_query_lands_on_settings_and_names_the_section() {
+        assert_eq!(Route::parse(settings_updates_href()), Route::Settings);
+        assert!(wants_updates_section(settings_updates_href()));
+        assert!(wants_updates_section("#/settings?section=updates&x=1"));
+        for hash in [
+            "#/settings",
+            "#/legal?section=updates",
+            "#/settings?section=library",
+            "#/settings?section=updates#later",
+        ] {
+            assert!(!wants_updates_section(hash), "{hash}");
+        }
     }
 
     #[test]

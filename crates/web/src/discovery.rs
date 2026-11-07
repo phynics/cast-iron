@@ -94,6 +94,21 @@ impl Discovery {
         Ok(index.facet_values_eligible(field, |id| self.is_eligible(id)))
     }
 
+    /// The ids of the eligible entries that carry `value` in facet `field`. A list page filters
+    /// its A to Z list with them.
+    pub async fn facet_entry_ids(
+        &self,
+        field: &str,
+        value: &str,
+    ) -> Result<std::collections::HashSet<String>, LibraryError> {
+        let index = self.library.search_index().await?;
+        Ok(index
+            .facet_ids_eligible(field, value, |id| self.is_eligible(id))
+            .into_iter()
+            .map(str::to_owned)
+            .collect())
+    }
+
     /// Relationship graph projected for ordinary discovery. Both endpoints must be active.
     pub async fn relations(&self) -> Result<Option<Rc<Relations>>, LibraryError> {
         Ok(self

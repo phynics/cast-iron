@@ -14,7 +14,7 @@ use crate::views::quick_rows::{
     MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
     valid_active,
 };
-use crate::views::recent_searches::{self, normalize};
+use crate::views::recent_searches::{self, RecentSearch, normalize};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
 use crate::views::util::kind_name;
@@ -54,7 +54,7 @@ pub struct QuickSearch {
     /// False after Escape closed the suggestion list, until the reader types or presses Down.
     list_open: RwSignal<bool>,
     suggestions: RwSignal<Vec<Suggestion>>,
-    recents: RwSignal<Vec<String>>,
+    recents: RwSignal<Vec<RecentSearch>>,
     /// Numbers the suggestion lookups, so a slow answer for an old text is dropped.
     lookup: StoredValue<u64>,
     /// The page that is open, which the scope is taken from at opening.
@@ -257,20 +257,22 @@ impl QuickSearch {
         }
     }
 
-    /// Runs a search for `text`: remembers it, then opens the results page.
+    /// Runs a search for `text` in the scope the layer has: remembers it with that scope, then
+    /// opens the results page.
     fn search(self, text: &str) {
-        let text = normalize(text);
-        if text.is_empty() {
+        self.run(RecentSearch::new(text, self.scope.get_untracked()));
+    }
+
+    /// Runs a search in the scope it carries. A recent search brings its own scope, whatever
+    /// the page the layer opened from.
+    fn run(self, search: RecentSearch) {
+        if search.text.is_empty() {
             return;
         }
-        let remembered = text.clone();
+        let route = search.route();
         spawn_local(async move {
-            recent_searches::record(&remembered).await;
+            recent_searches::record(&search.text, search.scope).await;
         });
-        let route = match self.scope.get_untracked() {
-            Some(scope) => scope.route(text),
-            None => Route::search(text),
-        };
         self.go(route);
     }
 
@@ -285,7 +287,8 @@ impl QuickSearch {
                 id: suggestion.id.clone(),
                 anchor: None,
             }),
-            Row::SeeAll(text) | Row::Search(text) => self.search(text),
+            Row::SeeAll(text) | Row::Starter(text) => self.search(text),
+            Row::Search(search) => self.run(search.clone()),
         }
     }
 
@@ -474,9 +477,9 @@ pub fn QuickSearchLayer() -> impl IntoView {
             reveal_option(index);
         }
     };
-    let remove_recent = move |query: String| {
+    let remove_recent = move |search: RecentSearch| {
         spawn_local(async move {
-            let list = recent_searches::remove(&query).await;
+            let list = recent_searches::remove(&search).await;
             quick.recents.try_set(list);
         });
         quick.focus_field();
@@ -595,10 +598,10 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                             rows.get(index).cloned().filter(|_| *mode == Mode::Recent)
                                         })
                                     });
-                                    if let Some(Row::Search(query)) = row {
+                                    if let Some(Row::Search(search)) = row {
                                         ev.prevent_default();
                                         quick.active.set(None);
-                                        remove_recent(query);
+                                        remove_recent(search);
                                     }
                                 }
                                 _ => {}
@@ -639,7 +642,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                     (typed && expanded()).then(|| match quick.suggestions.with(Vec::len) {
                         0 => "No suggestions".to_string(),
                         1 => "1 suggestion".to_string(),
-                        n => format!("{n} suggestions"),
+                        n => format!("{} suggestions", crate::fmt::count(n)),
                     })
                 }}
             </p>
@@ -669,12 +672,12 @@ pub fn QuickSearchLayer() -> impl IntoView {
                         };
                         let items = rows.into_iter().enumerate().map(|(index, row)| {
                             let remove = match (&row, mode) {
-                                (Row::Search(query), Mode::Recent) => {
-                                    let query = query.clone();
-                                    let name = format!("Remove “{query}” from recent searches");
+                                (Row::Search(search), Mode::Recent) => {
+                                    let search = search.clone();
+                                    let name = format!("Remove “{}” from recent searches", search.name());
                                     Some(view! {
                                         <button class="quick-search-remove" type="button" aria-label=name
-                                            on:click=move |_| remove_recent(query.clone())>
+                                            on:click=move |_| remove_recent(search.clone())>
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
                                                 <path d="m7 7 10 10M17 7 7 17"/>
@@ -694,7 +697,13 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                         {format!("See all results for “{text}”")}
                                     </span>
                                 }.into_any(),
-                                Row::Search(text) => view! {
+                                Row::Search(search) => view! {
+                                    <span class="quick-search-name">{search.text.clone()}</span>
+                                    {search.scope_label().map(|label| view! {
+                                        <span class="quick-search-meta">{label}</span>
+                                    })}
+                                }.into_any(),
+                                Row::Starter(text) => view! {
                                     <span class="quick-search-name">{text.clone()}</span>
                                 }.into_any(),
                             };

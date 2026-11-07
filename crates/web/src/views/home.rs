@@ -179,14 +179,14 @@ pub fn Home() -> impl IntoView {
                             aria-expanded=move || if expanded.get() { "true" } else { "false" }
                             on:click=move |_| expanded.update(|open| *open = !*open)
                         >
-                            {move || if expanded.get() { "Show fewer".to_string() } else { format!("See all ({total})") }}
+                            {move || if expanded.get() { "Show fewer".to_string() } else { format!("See all ({})", crate::fmt::count(total)) }}
                         </button>
                     });
                     view! {
                         <section aria-labelledby="home-bookmarks">
                             <h2 id="home-bookmarks">"Starred"</h2>
                             <ul class="home-list home-bookmarks" id="home-bookmarks-list">{visible}</ul>
-                            <p class="sr-only" role="status">{move || if expanded.get() { format!("Showing all {total} starred entries") } else { String::new() }}</p>
+                            <p class="sr-only" role="status">{move || if expanded.get() { format!("Showing all {} starred entries", crate::fmt::count(total)) } else { String::new() }}</p>
                             {more}
                         </section>
                     }.into_any()
@@ -234,12 +234,12 @@ pub fn Home() -> impl IntoView {
                                 aria-expanded=move || if recent_expanded.get() { "true" } else { "false" }
                                 on:click=move |_| recent_expanded.update(|open| *open = !*open)
                             >
-                                {move || if recent_expanded.get() { "Show fewer".to_string() } else { format!("Show more ({})", total - RECENT_PREVIEW) }}
+                                {move || if recent_expanded.get() { "Show fewer".to_string() } else { format!("Show more ({})", crate::fmt::count(total - RECENT_PREVIEW)) }}
                             </button>
                         });
                         view! {
                             <ul class="home-list home-recent" id="home-recent-list">{rows}</ul>
-                            <p class="sr-only" role="status">{if recent_expanded.get() { format!("Showing all {total} recent entries") } else { String::new() }}</p>
+                            <p class="sr-only" role="status">{if recent_expanded.get() { format!("Showing all {} recent entries", crate::fmt::count(total)) } else { String::new() }}</p>
                             {more}
                         }
                     }}

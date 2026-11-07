@@ -2,6 +2,34 @@
 
 Decisions that refine `docs/spec.md` and that a later reader cannot derive from the code.
 
+## Creature CR drift covers Challenge rating lines, 2026-11-06
+
+Refs [#198](https://github.com/phynics/cast-iron/issues/198). The checker is
+`crates/corpus/src/drift.rs`.
+
+- **A creature's `cr` field is compared with its `**Challenge rating:**` line, not only a
+  stat block `CR` row.** Most creatures state the rating as the bold labelled line and have no
+  fenced stat block, so 3,407 of the 3,718 creatures with a `cr` field were not compared
+  before this.
+- **The comparison parses the rating.** `ChallengeRating::parse` turns both sides into
+  24ths, so a fraction such as `1/2` agrees with the same fraction and a changed fraction is
+  reported like any other disagreement. A statement that does not parse (`variable`, a
+  template adjustment) falls back to comparing the displayed text.
+- **Several rating lines are ambiguous.** An entry with more than one line (the elementals,
+  ettercap, some vehicle and template entries) usually has no `cr` field, so nothing is
+  compared. When a field does exist, the field agrees if any of the statements does, the
+  same rule a feat uses for a repeated label.
+
+## The header update action opens Settings, 2026-11-06
+
+Refs [#205](https://github.com/phynics/cast-iron/issues/205).
+
+- **The header never reloads by surprise.** The Update action used to call `applyShellUpdate()` from the one tap, which reloaded the app mid-lookup with nothing on screen saying so. It now opens Settings on its Updates section, where **Reload** applies the app update and **Download** offers the library. Update still outranks Install in the one header slot.
+- **The label says what is ready, the accessible name says where it goes.** The visible label is "Update ready" (the icon and pip alone below 48 rem), and the accessible name is "App update ready. Open Settings". A button that names its destination is the rule from here on.
+- **The destination is `#/settings?section=updates`.** Settings has no route per section, so the query names the part of the screen to land on. `Route::parse` still returns `Route::Settings`, so links, `aria-current`, Back and the route signal are unchanged; `route::wants_updates_section` reads the query. It is shareable and survives a reload, and the destination is a normal history entry.
+- **Focus moves to the section.** The Updates section carries `id="set-updates"` and `tabindex="-1"`. After a route change the Reader's effect scrolls to the top and focuses `<main>` one animation frame later, so Settings waits two frames before it scrolls the section into view and focuses it. When Settings is already the current screen the route does not change and no rebuild happens, so the action scrolls and focuses directly.
+- **Reload keeps its own row and its own behaviour.** `js::apply_shell_update()` is reached only from that button.
+
 ## Two-step release, 2026-11-06
 
 Refs [#127](https://github.com/phynics/cast-iron/issues/127). The owner approved the release and chose how the PSRD-first prep commit reaches `release`.
@@ -778,3 +806,17 @@ Refs [#193](https://github.com/phynics/cast-iron/issues/193), PR 1 of 5. A desig
 - **Only kind pages scope the search for now.** Feat chains, the spell hub and spell lists keep an unscoped Quick search; they take a scope when their filters arrive (PRs 2 to 5). A facet in the scope is supported by the type and the labels (`Search Combat feats`), and nothing sets one until PR 2.
 - **Forward definitions in DESIGN.md.** The Filter menu and `.page-link` roles are written down now, marked "(arrives in PR 2)", so PR 2 builds to a settled form.
 - **Digits are grouped app-wide** (own commit in the same PR, so it can be reverted alone): `3,583`, not `3583`. A count of four digits or more is easier to read with a separator. The app has no locale setting, so the separator is always a comma. One helper, `fmt::count`, writes every count the reader sees: category and letter counts, the kind count line, filter and chip counts, search result counts, spell, chain and backlink counts, the library size in Settings and the installer, and the coverage figures on the legal page. Book views and the Books directory keep their ungrouped counts for now, because another change owns them (#154). This is the orchestrator's recommendation, recorded in #193 as open.
+
+## Feats filter menu, in-place filtering, chain marker and recents with scope, 2026-11-07
+
+Refs [#193](https://github.com/phynics/cast-iron/issues/193), PR 2 of 5. The council's spec (filter menu, filtering in place, Feat chains as a plain link) applies to Feats; the owner's two decisions in the issue comments are recorded here too.
+
+- **One filter menu replaces the feat-type pill wall.** A button `Type: All types` opens an in-flow panel (not a dialog) because a fixed panel with a find field would sit under the iOS keyboard. Options are links to `#/browse/kind/feat?facet=feat_type:<value>`, so the route is the state and Back and Forward walk the filter. The role is written up in DESIGN.md.
+- **Deviation from the council: opening focuses the find field.** The council kept focus on the current row so a phone's keyboard would not rise. The brief for this PR asks for the find field, and the panel is in flow, so the keyboard cannot cover it. The tradeoff is that the keyboard rises on phones at once.
+- **The class is `.choice-row`, not `.choice`.** `.choice` already styles the installer's fieldset in Settings.
+- **The list filters from the search index.** `EntryStub` has no facet data, so the page asks the index for the ids that carry the value (`SearchIndex::facet_ids_eligible`, `Discovery::facet_entry_ids`). The index format does not change (`INDEX_FORMAT_VERSION` stays 1); the lookup reads document lists the index already builds. `Route::BrowseKind` gains `facets`, parsed and written like search's `facet=` pairs. Only fields with a filter menu narrow a list; other kinds still link their facets to search until PR 3.
+- **Feat chains is a `.page-link`** in the filter row. The 124 px card and the lede are gone from Feats; Spells keep their card until PR 3.
+- **Owner decision: the chain marker.** A feat row is marked when its feat leads to more than 5 feats down its chain (`CHAIN_MARK_MIN = 5`, transitive, each feat once; any feat qualifies, not only chain heads). Measured on the pinned library: 75 of 3,583 feats (2.1 %), against 369 chain heads and 753 feats with any dependent; thresholds of 3, 5 and 8 give 113, 75 and 56. The count is computed in the client from the relations graph once per page, not per render, so no compiled data or `SCHEMA_VERSION` changes. The accessible name gains `, leads to N feats`.
+- **Owner decision: recent searches store their scope.** The stored list changes from strings to `{text, scope?}` (`scope`: kind plus facets). Old plain strings are read as searches with no scope, so nothing is lost; a list written by this version is not readable by an older client, which then shows no recents. Two recents are the same when their text (any case) and their scope match. Tapping one restores its scope even when the page that opened Quick search has another. Starter searches take the page's scope, as before.
+- **The results status line names the scope** (`12 results in Combat feats · Show all feats`, `18 results in Feats`). `Show all feats` clears facets and publications and keeps the text and the kind. Muse's advice to keep both the scope pill and the pressed `Feats` kind button stands.
+- **Digits are grouped in the remaining counts** (`See all (N)`, `+N more`, `N chosen`, `Collections (N)`, `Showing all N`, `N publication entries`, the screen-reader counts). Book views, the Books directory and `book_count_line` stay plain until the Books rows change; the `fmt::count` comment says exactly that.

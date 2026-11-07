@@ -3,6 +3,7 @@ import {
   bookEntryOrder,
   cacheContents,
   contentCaches,
+  count,
   bookOwners,
   bookTrees,
   buildLibraryWithoutBooks,
@@ -268,7 +269,7 @@ test("A source page count matches the entries its kind groups render", async ({ 
     // Without books every entry keeps its catalog source, which is what the groups show.
     const expected = corpus.catalog.entries.filter((stub) => stub.source === book.source).length;
     expect(expected).toBeGreaterThan(0);
-    await expect(page.getByTestId("source-count")).toHaveText(`${expected} ${noun(expected)} in your active books`);
+    await expect(page.getByTestId("source-count")).toHaveText(`${count(expected)} ${noun(expected)} in your active books`);
 
     for (const group of await page.locator(".kind-group").all()) {
       if (!(await group.evaluate((el) => (el as HTMLDetailsElement).open))) {

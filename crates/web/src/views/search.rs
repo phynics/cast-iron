@@ -104,6 +104,19 @@ pub fn prune_facets(facets: &[(String, String)], kinds: &[EntryKind]) -> Vec<(St
         .collect()
 }
 
+/// The facets a kind's list page applies from its URL: those the kind offers, one value for
+/// each field. A list page narrows by one value per field, so a hand-made URL with two values
+/// for one field uses the first.
+pub fn list_facets(facets: &[(String, String)], kind: EntryKind) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::new();
+    for (field, value) in prune_facets(facets, &[kind]) {
+        if !out.iter().any(|(earlier, _)| *earlier == field) {
+            out.push((field, value));
+        }
+    }
+    out
+}
+
 pub fn toggled<T: PartialEq + Clone>(list: &[T], item: &T) -> Vec<T> {
     if list.contains(item) {
         list.iter().filter(|x| *x != item).cloned().collect()
@@ -404,18 +417,22 @@ fn publication_summary_line(page: &PublicationPage, filter: &str, show_all: bool
         return match page.matches {
             0 => format!("No publication matches “{filter}”."),
             1 => "Showing the one matching publication with results.".to_string(),
-            n => format!("Showing all {n} matching publications with results."),
+            n => format!(
+                "Showing all {} matching publications with results.",
+                fmt::count(n)
+            ),
         };
     }
     if show_all && page.shown_with_results == page.with_results {
         format!(
             "Showing all {} publications with results.",
-            page.with_results
+            fmt::count(page.with_results)
         )
     } else {
         format!(
             "Showing {} of {} publications with results.",
-            page.shown_with_results, page.with_results
+            fmt::count(page.shown_with_results),
+            fmt::count(page.with_results)
         )
     }
 }
@@ -1226,6 +1243,8 @@ pub fn Search() -> impl IntoView {
         }
     };
 
+    // The scope the results are limited to, if exactly one kind is: the count line names it.
+    let page_scope = Memo::new(move |_| state.with(|s| Scope::of_search(&s.kinds, &s.facets)));
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
         Phase::Done { total, groups, .. } => {
@@ -1241,6 +1260,10 @@ pub fn Search() -> impl IntoView {
                 ),
                 _ => format!("{} results", fmt::count(n)),
             };
+            let text = match page_scope.get() {
+                Some(scope) => scope.results_line(&text),
+                None => text,
+            };
             if total == groups {
                 text
             } else {
@@ -1248,6 +1271,25 @@ pub fn Search() -> impl IntoView {
             }
         }
         _ => String::new(),
+    };
+    // A facet narrows the scope below its kind: `Show all feats` widens it back to the kind and
+    // keeps the text. A scope of the kind alone has nothing to widen; "All entries" does that.
+    let show_all = move || {
+        page_scope
+            .get()
+            .filter(|scope| !scope.facets.is_empty())
+            .map(|scope| {
+                view! {
+                    <span aria-hidden="true">" · "</span>
+                    <button type="button" class="count-action"
+                        on:click=move |_| change_filters(&|s| {
+                            s.facets.clear();
+                            s.sources.clear();
+                        })>
+                        {scope.show_all_label()}
+                    </button>
+                }
+            })
     };
 
     // Removing the scope searches everything again. Focus moves to "All entries", which now
@@ -1281,8 +1323,10 @@ pub fn Search() -> impl IntoView {
                 typing_gen.update_untracked(|g| *g += 1);
                 flush();
                 let submitted = text.get_untracked();
+                // A search in a scope is remembered with it: the same words mean another list.
+                let scope = state.with_untracked(|s| Scope::of_search(&s.kinds, &s.facets));
                 spawn_local(async move {
-                    crate::views::recent_searches::record(&submitted).await;
+                    crate::views::recent_searches::record(&submitted, scope).await;
                 });
                 if !pointer_is_fine()
                     && let Some(input) = input_ref.get()
@@ -1372,6 +1416,7 @@ pub fn Search() -> impl IntoView {
                 >
                     <p class="result-count" role="status" aria-live="polite">
                         <span>{count_text}</span>
+                        {show_all}
                         {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
                             <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
                         })}
@@ -1514,6 +1559,25 @@ mod tests {
         ] {
             assert_eq!(facet_fields_for(&[kind])[0].0, field);
         }
+    }
+
+    #[test]
+    fn a_list_page_keeps_the_facets_its_kind_offers_one_value_per_field() {
+        let facet = |f: &str, v: &str| (f.to_string(), v.to_string());
+        let url = [
+            facet("feat_type", "Combat"),
+            facet("school", "evocation"),
+            facet("feat_type", "General"),
+        ];
+        assert_eq!(
+            list_facets(&url, EntryKind::Feat),
+            [facet("feat_type", "Combat")]
+        );
+        assert_eq!(
+            list_facets(&url, EntryKind::Spell),
+            [facet("school", "evocation")]
+        );
+        assert!(list_facets(&url, EntryKind::Trap).is_empty());
     }
 
     #[test]

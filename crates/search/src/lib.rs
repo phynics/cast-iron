@@ -297,6 +297,32 @@ impl SearchIndex {
             .collect()
     }
 
+    /// The ids of the eligible documents that carry `value` in facet `field`, in index order.
+    /// The field and the value match without regard to case, like a search filter does. A list
+    /// page uses this to filter its A to Z list in place.
+    pub fn facet_ids_eligible(
+        &self,
+        field: &str,
+        value: &str,
+        eligible: impl Fn(&str) -> bool,
+    ) -> Vec<&str> {
+        let Some(values) = self.doc_lists.facets.get(&field.to_lowercase()) else {
+            return Vec::new();
+        };
+        let mut ords: Vec<u32> = values
+            .iter()
+            .filter(|(indexed, _)| indexed.eq_ignore_ascii_case(value))
+            .flat_map(|(_, ords)| ords.iter().copied())
+            .collect();
+        ords.sort_unstable();
+        ords.dedup();
+        ords.into_iter()
+            .filter_map(|ord| self.meta.docs.get(ord as usize))
+            .filter(|doc| eligible(&doc.id))
+            .map(|doc| doc.id.as_str())
+            .collect()
+    }
+
     pub fn facet_fields(&self) -> Vec<String> {
         self.facet_fields_eligible(|_| true)
     }

@@ -7,13 +7,15 @@
 //! here, so the rules are tested natively.
 
 use crate::route::Route;
+use crate::views::categories::applied_facets;
 use crate::views::search::facet_label;
 use cast_iron_schema::EntryKind;
 use cast_iron_search::Filters;
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
 /// What a search is limited to. Always one kind; a list page that filters by facet adds them.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Scope {
     pub kind: EntryKind,
     pub facets: Vec<(String, String)>,
@@ -30,13 +32,13 @@ fn upper_first(text: &str) -> String {
 
 impl Scope {
     /// The scope that Quick search takes from the page that is open: a kind's list page limits
-    /// the search to that kind. Every other page has none. Rules are read through Books, so they
-    /// have no list page to scope from.
+    /// the search to that kind, and to the facet value that narrows the list. Every other page
+    /// has none. Rules are read through Books, so they have no list page to scope from.
     pub fn of_page(route: &Route) -> Option<Self> {
         match route {
-            Route::BrowseKind { kind, .. } if *kind != EntryKind::Rule => Some(Self {
+            Route::BrowseKind { kind, facets, .. } if *kind != EntryKind::Rule => Some(Self {
                 kind: *kind,
-                facets: Vec::new(),
+                facets: applied_facets(*kind, facets),
             }),
             _ => None,
         }
@@ -78,6 +80,17 @@ impl Scope {
     /// The text of the pill: `Feats`, `Combat feats`.
     pub fn label(&self) -> String {
         upper_first(&self.phrase())
+    }
+
+    /// The results page's count line with the scope named: `12 results in Combat feats`,
+    /// `18 results in Feats`.
+    pub fn results_line(&self, results: &str) -> String {
+        format!("{results} in {}", self.label())
+    }
+
+    /// The control that widens a facet scope back to the whole kind: `Show all feats`.
+    pub fn show_all_label(&self) -> String {
+        format!("Show all {}", self.kind.label().to_lowercase())
     }
 
     /// The accessible name of the pill's remove control. It contains the visible text.
@@ -140,6 +153,13 @@ mod tests {
         }
     }
 
+    fn combat_feats_cased() -> Scope {
+        Scope {
+            kind: EntryKind::Feat,
+            facets: vec![("feat_type".into(), "Combat".into())],
+        }
+    }
+
     #[test]
     fn a_kind_page_scopes_the_search_to_its_kind_and_no_other_page_does() {
         assert_eq!(
@@ -149,6 +169,32 @@ mod tests {
         // A letter group is still the same list.
         assert_eq!(
             Scope::of_page(&Route::browse_kind_letter(EntryKind::Feat, 'B')),
+            Some(feats())
+        );
+        // A facet that narrows the list narrows the search, and a letter does not.
+        assert_eq!(
+            Scope::of_page(&Route::browse_kind_facets(
+                EntryKind::Feat,
+                vec![("feat_type".into(), "Combat".into())]
+            )),
+            Some(combat_feats_cased())
+        );
+        assert_eq!(
+            Scope::of_page(
+                &Route::browse_kind_facets(
+                    EntryKind::Feat,
+                    vec![("feat_type".into(), "Combat".into())]
+                )
+                .with_letter('C')
+            ),
+            Some(combat_feats_cased())
+        );
+        // A facet the kind does not have is not a scope.
+        assert_eq!(
+            Scope::of_page(&Route::browse_kind_facets(
+                EntryKind::Feat,
+                vec![("school".into(), "evocation".into())]
+            )),
             Some(feats())
         );
         for route in [
@@ -184,6 +230,19 @@ mod tests {
                 .remove_label()
                 .contains(&combat_feats().label())
         );
+    }
+
+    #[test]
+    fn the_results_line_names_the_scope_and_the_widening_control_names_the_kind() {
+        assert_eq!(
+            combat_feats().results_line("12 results"),
+            "12 results in Combat feats"
+        );
+        assert_eq!(feats().results_line("18 results"), "18 results in Feats");
+        assert_eq!(feats().results_line("No results"), "No results in Feats");
+        assert_eq!(combat_feats().show_all_label(), "Show all feats");
+        let prestige = Scope::of_page(&Route::browse_kind(EntryKind::PrestigeClass)).unwrap();
+        assert_eq!(prestige.show_all_label(), "Show all prestige classes");
     }
 
     #[test]
