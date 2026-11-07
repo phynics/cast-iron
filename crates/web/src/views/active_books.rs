@@ -9,7 +9,7 @@
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace};
-use crate::views::browse::{BookListEntry, book_groups, book_summary, tier_section};
+use crate::views::browse::{BookListEntry, book_groups, tier_section};
 use crate::views::util::set_title;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -115,21 +115,23 @@ impl Panel {
     }
 
     fn apply(&self, preset: Preset) {
-        let library = self.library.clone();
-        let books = book_presets::books_of(library.sources());
-        let change = book_presets::plan(preset, &books, |id| library.book_active(id));
-        if change.is_empty() {
-            return;
-        }
         self.error.set(None);
         let panel = self.clone();
         spawn_local(async move {
-            match panel
-                .library
-                .update_active_books(&change.activate, &change.deactivate)
-                .await
-            {
-                Ok(()) => {
+            // The change is worked out inside the write path, after any earlier write has
+            // landed. Two quick taps would otherwise plan the second preset from the set that
+            // the first one is still replacing, and leave a stray book on or off.
+            let library = panel.library.clone();
+            let planned = library
+                .apply_active_plan(|is_active| {
+                    let books = book_presets::books_of(library.sources());
+                    book_presets::plan(preset, &books, is_active)
+                })
+                .await;
+            match planned {
+                // The set already matched: nothing was written, so there is nothing to undo.
+                Ok(change) if change.is_empty() => {}
+                Ok(change) => {
                     panel
                         .status
                         .set(Some(format!("Applied {}.", preset.label())));
@@ -175,7 +177,7 @@ impl Panel {
 /// One book as a toggle row: the whole row is a `<label>` that holds a native checkbox. The
 /// row has no chevron and does not navigate.
 fn toggle_row(row: BookListEntry, panel: Panel) -> AnyView {
-    let meta = book_summary(&row);
+    let meta = crate::fmt::book_meta(row.publication_date.as_deref(), row.count);
     let meta_id = format!("book-meta-{}", row.id);
     let label = format!("Active {}", row.title);
     let revision = panel.library.selection_revision();
@@ -302,17 +304,17 @@ pub fn ActiveBooks() -> impl IntoView {
     let empty = active.clone();
     let line = move || book_presets::count_line(active(), total, None);
     let presets = preset_list(&panel);
-    let groups = book_groups(&rows, None)
+    let groups = book_groups(&rows)
         .into_iter()
-        .filter_map(|group| {
-            let tier = group.tier?;
+        .map(|group| {
+            let tier = group.tier;
             let ids: Vec<String> = group.books.iter().map(|&i| rows[i].id.clone()).collect();
             let items = group
                 .books
                 .into_iter()
                 .map(|i| toggle_row(rows[i].clone(), panel.clone()))
                 .collect_view();
-            Some(tier_section(tier, ids, items, library.clone()))
+            tier_section(tier, ids, items, library.clone())
         })
         .collect_view();
     let undo_panel = panel.clone();

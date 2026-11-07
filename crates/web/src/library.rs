@@ -1,7 +1,7 @@
 //! Read access to the active library. Every read goes through the Cache API under the
 //! active version. There is no network fallback: a missing file is an error to show.
 
-use crate::book_presets::{self, DefaultsAction};
+use crate::book_presets::{self, Change, DefaultsAction};
 use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
@@ -380,6 +380,25 @@ impl Library {
         activate: &[String],
         deactivate: &[String],
     ) -> Result<(), LibraryError> {
+        let (activate, deactivate) = (activate.to_vec(), deactivate.to_vec());
+        self.apply_active_plan(move |_| Change {
+            activate,
+            deactivate,
+        })
+        .await
+        .map(|_| ())
+    }
+
+    /// Like [`Self::update_active_books`], but the caller states what it wants and the change is
+    /// worked out inside the write path, after any earlier write has finished. `plan` receives
+    /// the state at that moment (`true` for an active book) and returns the change to make. A
+    /// preset must use this: a plan made from the screen's state before a second tap's earlier
+    /// write landed would keep a stray book active. Returns the change that was applied, which is
+    /// what Undo reverses.
+    pub async fn apply_active_plan<F>(&self, plan: F) -> Result<Change, LibraryError>
+    where
+        F: FnOnce(&dyn Fn(&str) -> bool) -> Change,
+    {
         // A write that arrives while another is saving waits its turn, so no control has to
         // disable itself (which would drop keyboard focus) and two quick toggles both land. The
         // new set is computed only after the earlier write has finished.
@@ -400,9 +419,9 @@ impl Library {
             }
         }
         let _reset = Reset(&self.0.selection_write_in_flight);
-        let next = next_disabled(&self.0.disabled_books.borrow(), activate, deactivate);
+        let (change, next) = commit_plan(&self.0.disabled_books.borrow(), plan);
         if next == *self.0.disabled_books.borrow() {
-            return Ok(());
+            return Ok(change);
         }
         store::set_disabled_books(&next)
             .await
@@ -411,7 +430,7 @@ impl Library {
         self.0
             .selection_revision
             .update(|revision| *revision = revision.wrapping_add(1));
-        Ok(())
+        Ok(change)
     }
 
     pub fn discovery(&self) -> crate::discovery::Discovery {
@@ -753,6 +772,18 @@ fn next_disabled(
     next
 }
 
+/// Works out one write from the stored set as it is now: what `plan` asks for, and the disabled
+/// set that results. The write path calls this after it owns the write slot, so a plan never
+/// starts from a set that an earlier write is about to change.
+fn commit_plan(
+    current: &BTreeSet<String>,
+    plan: impl FnOnce(&dyn Fn(&str) -> bool) -> Change,
+) -> (Change, BTreeSet<String>) {
+    let change = plan(&|id| !is_book_disabled(current, id));
+    let next = next_disabled(current, &change.activate, &change.deactivate);
+    (change, next)
+}
+
 async fn read_file(cache: &Cache, version: &str, relative: &str) -> Result<Vec<u8>, LibraryError> {
     let path = format!("{version}/{relative}");
     content_cache::read(cache, &path)
@@ -799,6 +830,73 @@ mod tests {
     fn a_book_in_both_lists_ends_active() {
         let next = next_disabled(&BTreeSet::new(), &ids(&["a"]), &ids(&["a", "b"]));
         assert_eq!(next.into_iter().collect::<Vec<_>>(), ids(&["b"]));
+    }
+
+    /// The books of a small shelf, in the order the presets see them.
+    fn shelf() -> Vec<book_presets::PresetBook<'static>> {
+        use crate::views::book_tier::Tier;
+        let book = |id, tier| book_presets::PresetBook {
+            id,
+            tier,
+            third_party: false,
+        };
+        vec![
+            book("core", Tier::Rulebooks),
+            book("apg", Tier::Rulebooks),
+            book("companion", Tier::PlayerCompanions),
+            book("setting", Tier::CampaignSetting),
+            book("path", Tier::Adventures),
+        ]
+    }
+
+    fn disabled(values: &[&str]) -> BTreeSet<String> {
+        values.iter().map(|value| value.to_string()).collect()
+    }
+
+    #[test]
+    fn a_second_preset_is_planned_from_the_set_the_first_left() {
+        let books = shelf();
+        let start = BTreeSet::new();
+        // Two taps in a row: Paizo Rulebooks, then Paizo Rulebooks & More.
+        let (_, after_first) = commit_plan(&start, |active| {
+            book_presets::plan(book_presets::Preset::PaizoRulebooks, &books, active)
+        });
+        assert_eq!(after_first, disabled(&["companion", "path", "setting"]));
+        let (change, after_second) = commit_plan(&after_first, |active| {
+            book_presets::plan(book_presets::Preset::PaizoRulebooksAndMore, &books, active)
+        });
+        // Exactly the second preset's books are active: nothing stray is left on or off.
+        assert_eq!(after_second, disabled(&["path"]));
+        assert_eq!(change.activate, ["companion", "setting"]);
+        assert_eq!(change.deactivate, Vec::<String>::new());
+    }
+
+    #[test]
+    fn a_plan_made_from_a_stale_set_leaves_a_stray_book() {
+        // This is the race that `apply_active_plan` closes: the second plan is made while the
+        // first write has not landed, so it sees every book active and activates nothing.
+        let books = shelf();
+        let start = BTreeSet::new();
+        let stale = book_presets::plan(book_presets::Preset::PaizoRulebooksAndMore, &books, |_| {
+            true
+        });
+        let (_, after_first) = commit_plan(&start, |active| {
+            book_presets::plan(book_presets::Preset::PaizoRulebooks, &books, active)
+        });
+        let stale_result = next_disabled(&after_first, &stale.activate, &stale.deactivate);
+        assert_ne!(stale_result, disabled(&["path"]));
+        assert!(stale_result.contains("companion"));
+    }
+
+    #[test]
+    fn a_plan_that_changes_nothing_writes_nothing() {
+        let books = shelf();
+        let current = disabled(&["companion", "path", "setting"]);
+        let (change, next) = commit_plan(&current, |active| {
+            book_presets::plan(book_presets::Preset::PaizoRulebooks, &books, active)
+        });
+        assert!(change.is_empty());
+        assert_eq!(next, current);
     }
 
     fn manifest(files: &[&str]) -> ContentManifest {

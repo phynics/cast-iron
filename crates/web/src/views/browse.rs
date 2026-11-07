@@ -4,11 +4,11 @@
 use crate::book_presets;
 use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
-use crate::route::{BookSort, Route, replace, use_route};
+use crate::route::{Route, replace};
 use crate::views::active_books::{
     ACTIVE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
 };
-use crate::views::book_tier::Tier;
+use crate::views::book_tier::{Tier, group_is_open, remember_group};
 use crate::views::categories::{self, Lens, applied_facets};
 use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, current_option,
@@ -18,8 +18,8 @@ use crate::views::scope::Scope;
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
-    ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, kind_name,
-    local_resource, set_title, sort_key,
+    ACTIVE_BOOKS_SCOPE, Shared, active_count_line, group_letter, kind_name, local_resource,
+    set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
@@ -227,17 +227,17 @@ pub struct BookListEntry {
     pub count: usize,
 }
 
-/// One displayed group of publications. `tier` is `None` for library order, which is one
-/// ungrouped list. Every other order groups by priority tier and omits empty tiers.
+/// One displayed group of publications: a priority tier and the books in it, in display order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BookGroup {
-    pub tier: Option<Tier>,
+    pub tier: Tier,
     pub books: Vec<usize>,
 }
 
-fn year_of(date: Option<&str>) -> Option<&str> {
+/// The date of a book when it starts with a four-digit year, else `None`.
+fn dated(date: Option<&str>) -> Option<&str> {
     let date = date?;
-    (date.len() >= 4 && date.as_bytes()[..4].iter().all(u8::is_ascii_digit)).then(|| &date[..4])
+    (date.len() >= 4 && date.as_bytes()[..4].iter().all(u8::is_ascii_digit)).then_some(date)
 }
 
 fn title_order(books: &[BookListEntry], a: usize, b: usize) -> std::cmp::Ordering {
@@ -246,17 +246,10 @@ fn title_order(books: &[BookListEntry], a: usize, b: usize) -> std::cmp::Orderin
         .then_with(|| books[a].id.cmp(&books[b].id))
 }
 
-/// Groups publications for the selected order. Library order is one ungrouped list in catalog
-/// order. Every other order groups by [`Tier`] in priority order and omits empty tiers. Inside
-/// a tier the default sorts by title, `Category` by reviewed product line and then title, and
-/// `Date` by publication date newest first with unknown dates last. Ties stay alphabetical.
-pub fn book_groups(books: &[BookListEntry], sort: Option<BookSort>) -> Vec<BookGroup> {
-    if sort == Some(BookSort::Library) {
-        return vec![BookGroup {
-            tier: None,
-            books: (0..books.len()).collect(),
-        }];
-    }
+/// Groups publications for the one order of Books and Active books: tiers in priority order
+/// (empty tiers are left out), and inside a tier the oldest book first. A book with no usable
+/// date comes last; ties are alphabetical.
+pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
     Tier::ALL
         .into_iter()
         .filter_map(|tier| {
@@ -266,58 +259,29 @@ pub fn book_groups(books: &[BookListEntry], sort: Option<BookSort>) -> Vec<BookG
             if indices.is_empty() {
                 return None;
             }
-            indices.sort_by(|&a, &b| match sort {
-                Some(BookSort::Category) => Tier::category_rank(books[a].category.as_deref())
-                    .cmp(&Tier::category_rank(books[b].category.as_deref()))
-                    .then_with(|| title_order(books, a, b)),
-                Some(BookSort::Date) => {
-                    let left = year_of(books[a].publication_date.as_deref())
-                        .and(books[a].publication_date.as_deref());
-                    let right = year_of(books[b].publication_date.as_deref())
-                        .and(books[b].publication_date.as_deref());
-                    // Newest first; a missing or malformed date sorts last.
-                    right
-                        .is_some()
-                        .cmp(&left.is_some())
-                        .then_with(|| right.cmp(&left))
-                        .then_with(|| title_order(books, a, b))
-                }
-                _ => title_order(books, a, b),
+            indices.sort_by(|&a, &b| {
+                let left = dated(books[a].publication_date.as_deref());
+                let right = dated(books[b].publication_date.as_deref());
+                // ISO dates compare as text. A missing or malformed date sorts after all others.
+                left.is_none()
+                    .cmp(&right.is_none())
+                    .then_with(|| left.cmp(&right))
+                    .then_with(|| title_order(books, a, b))
             });
             Some(BookGroup {
-                tier: Some(tier),
+                tier,
                 books: indices,
             })
         })
         .collect()
 }
 
-fn book_meta(row: &BookListEntry) -> Option<String> {
-    let mut parts = Vec::new();
-    if let Some(category) = &row.category {
-        parts.push(category.clone());
-    }
-    if let Some(date) = &row.publication_date {
-        parts.push(date.clone());
-    }
-    (!parts.is_empty()).then(|| parts.join(" · "))
-}
-
-/// `3 entries · Adventure Path · 2011-08`: the line under a book's title on Active books.
-pub fn book_summary(row: &BookListEntry) -> String {
-    let count = row.count;
-    let mut line = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
-    if let Some(meta) = book_meta(row) {
-        line.push_str(" · ");
-        line.push_str(&meta);
-    }
-    line
-}
-
 /// One book row: a single link to the book page, where the contents and the Active checkbox
-/// live. The row carries no checkbox; Active books and the book page change the choice.
+/// live. The row carries no checkbox; Active books and the book page change the choice. The
+/// meta line reads `Aug 2009 · 2,994 entries`, and a book that is not active ends it with the
+/// plain label `Inactive`.
 fn book_row(row: BookListEntry, library: Library) -> AnyView {
-    let meta = book_meta(&row);
+    let meta = fmt::book_meta(row.publication_date.as_deref(), row.count);
     let href = Route::Book {
         source: row.id.clone(),
         chapter: None,
@@ -325,8 +289,6 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
     .href();
     let id = row.id;
     let title = row.title;
-    let count = row.count;
-    let count_label = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
     let revision = library.selection_revision();
     let state_id = id.clone();
     let is_active = move || {
@@ -339,9 +301,11 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
                 <span class="book-card-text">
                     <span class="cat-name">{title}</span>
                     <span class="cat-blurb">
-                        {count_label}
-                        {meta.map(|line| view! { <span class="book-meta">" · "{line}</span> })}
-                        {move || (!is_active()).then_some(" · Disabled")}
+                        {meta}
+                        {move || (!is_active()).then(|| view! {
+                            <span class="book-meta-sep" aria-hidden="true">" · "</span>
+                            <span class="tag book-inactive">"Inactive"</span>
+                        })}
                     </span>
                 </span>
                 <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
@@ -351,18 +315,13 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
     .into_any()
 }
 
-/// The publication directory: one link row per book, to its book page.
-/// Books are grouped by priority tier; the sort in the URL orders books inside each tier, and
-/// library order shows one ungrouped list. The checkboxes and the presets live on Active books.
+/// The publication directory: a heading, one live count line, a link to Active books, and one
+/// link row per book in the tier groups. There is one order (tier order, oldest first) and no
+/// sort control. The checkboxes and the presets live on Active books.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
     let library = use_library();
-    let current = use_route();
-    let sort = move || match current.get() {
-        Route::BooksSorted(sort) => Some(sort),
-        _ => None,
-    };
     // Back from Active books lands here: Done asks for focus on the link it was left from.
     if take_link_focus() {
         focus_after_frame(ACTIVE_LINK_ID);
@@ -396,78 +355,60 @@ pub fn Books() -> impl IntoView {
         let preset = book_presets::matching(&books, |id| count_library.book_active(id));
         book_presets::count_line(active, total, Some(book_presets::name_or_custom(preset)))
     };
-    let sort_link = move |value: Option<BookSort>, label: &'static str| {
-        let href = value.map_or_else(
-            || Route::Books.href(),
-            |sort| Route::BooksSorted(sort).href(),
-        );
-        view! {
-            <li>
-                <a class="jump" href=href aria-current=move || (sort() == value).then_some("true")>{label}</a>
-            </li>
-        }
-    };
+    let groups = book_groups(&rows)
+        .into_iter()
+        .map(|group| {
+            let ids: Vec<String> = group
+                .books
+                .iter()
+                .map(|&index| rows[index].id.clone())
+                .collect();
+            let items = group
+                .books
+                .into_iter()
+                .map(|index| book_row(rows[index].clone(), library.clone()))
+                .collect_view();
+            tier_section(group.tier, ids, items, library.clone())
+        })
+        .collect_view();
     view! {
         <div class="wide">
             <h1>"Books"</h1>
-            <section>
-                <p class="muted measure">
-                    "Open a book to read its sections and contents. "
-                    "Each book explains which parts of its order still need checking against the printed contents."
-                </p>
-                <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
-                <p class="muted books-count" aria-live="polite">{count_line}</p>
-                <div class="filter-row">
-                    <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
-                        on:click=|_| note_opened_from_books()>
-                        <span>"Active books"</span>
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
-                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                            stroke-linejoin="round" aria-hidden="true">
-                            <path d="m9 6 6 6-6 6"/>
-                        </svg>
-                    </a>
-                </div>
-                <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
-                <nav class="book-sort" aria-label="Sort books">
-                    <span class="sort-label">"Sort"</span>
-                    <ul class="sort-options">
-                        {sort_link(None, "Title")}
-                        {sort_link(Some(BookSort::Category), BookSort::Category.label())}
-                        {sort_link(Some(BookSort::Date), BookSort::Date.label())}
-                        {sort_link(Some(BookSort::Library), BookSort::Library.label())}
-                    </ul>
-                </nav>
-                {move || {
-                    book_groups(&rows, sort())
-                        .into_iter()
-                        .map(|group| {
-                            let ids: Vec<String> = group
-                                .books
-                                .iter()
-                                .map(|&index| rows[index].id.clone())
-                                .collect();
-                            let items = group
-                                .books
-                                .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone()))
-                                .collect_view();
-                            match group.tier {
-                                Some(tier) => tier_section(tier, ids, items, library.clone()),
-                                None => view! {
-                                    <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
-                                }.into_any(),
-                            }
-                        })
-                        .collect_view()
-                }}
-            </section>
+            <p class="muted books-count" aria-live="polite">{count_line}</p>
+            <div class="filter-row">
+                <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
+                    on:click=|_| note_opened_from_books()>
+                    <span>"Active books"</span>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                        stroke-linejoin="round" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6"/>
+                    </svg>
+                </a>
+            </div>
+            {groups}
         </div>
     }
 }
 
-/// One tier: a heading inside a native disclosure, with how many of its books are active.
-/// There are no group controls; the presets on Active books are the only bulk action.
+/// The count at the right of a group heading: `31 books` when every book in it is active,
+/// otherwise `28 of 31 active` (including `0 of 151 active`).
+pub fn group_count_text(active: usize, total: usize) -> String {
+    if active == total {
+        format!(
+            "{} {}",
+            fmt::count(total),
+            if total == 1 { "book" } else { "books" }
+        )
+    } else {
+        format!("{} of {} active", fmt::count(active), fmt::count(total))
+    }
+}
+
+/// One tier: an `h2` that holds a disclosure button (a chevron, the name, and a muted count of
+/// active books), then the rows. The button is the only control; there is no group action of any
+/// kind, and the presets on Active books are the only bulk change. Rulebooks start open and the
+/// other groups closed; the reader's choice is kept for the session ([`remember_group`]).
 pub(crate) fn tier_section(
     tier: Tier,
     ids: Vec<String>,
@@ -475,27 +416,43 @@ pub(crate) fn tier_section(
     library: Library,
 ) -> AnyView {
     let label = tier.label();
-    let count = ids.len();
-    let heading_id = format!("book-tier-{}", label.to_ascii_lowercase().replace(' ', "-"));
+    let total = ids.len();
+    let slug = label.to_ascii_lowercase().replace(' ', "-");
+    let heading_id = format!("book-tier-{slug}");
+    let list_id = format!("book-tier-list-{slug}");
     let labelled_by = heading_id.clone();
+    let controls = list_id.clone();
+    let open = RwSignal::new(group_is_open(tier));
     let revision = library.selection_revision();
     let active_ids = ids;
-    let active_count = move || {
+    let count_text = move || {
         revision.get();
-        active_ids
+        let active = active_ids
             .iter()
             .filter(|id| library.book_active(id))
-            .count()
+            .count();
+        group_count_text(active, total)
     };
     view! {
         <section class="book-tier" aria-labelledby=labelled_by data-tier=label>
-            <details class="tier-details" open=!tier.collapsed_by_default()>
-                <summary class="tier-summary">
-                    <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>
-                    <span class="tier-active">{move || format!("{} of {count} active", active_count())}</span>
-                </summary>
-                <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
-            </details>
+            <h2 class="book-group-head" id=heading_id>
+                <button type="button" class="tier-toggle" aria-controls=controls
+                    aria-expanded=move || if open.get() { "true" } else { "false" }
+                    on:click=move |_| {
+                        let next = !open.get_untracked();
+                        open.set(next);
+                        remember_group(tier, next);
+                    }>
+                    <svg class="tier-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" aria-hidden="true">
+                        <path d="m9 6 6 6-6 6"/>
+                    </svg>
+                    <span class="tier-name">{label}</span>
+                    <span class="tier-active">{count_text}</span>
+                </button>
+            </h2>
+            <ul class="book-directory" id=list_id hidden=move || !open.get()>{items}</ul>
         </section>
     }
     .into_any()
@@ -1614,27 +1571,11 @@ mod tests {
     }
 
     fn tiers_of(groups: &[BookGroup]) -> Vec<Tier> {
-        groups.iter().map(|group| group.tier.unwrap()).collect()
+        groups.iter().map(|group| group.tier).collect()
     }
 
     #[test]
-    fn library_order_is_one_ungrouped_list_in_catalog_order() {
-        let books = vec![
-            book("b", "Beta", Some("RPG"), Some("2010-01-01")),
-            book("a", "Alpha", Some("Module"), None),
-        ];
-        let groups = book_groups(&books, Some(BookSort::Library));
-        assert_eq!(
-            groups,
-            vec![BookGroup {
-                tier: None,
-                books: vec![0, 1]
-            }]
-        );
-    }
-
-    #[test]
-    fn default_groups_follow_the_priority_tiers_and_omit_empty_ones() {
+    fn groups_follow_the_priority_tiers_and_omit_empty_ones() {
         let books = vec![
             book("m", "Mid", Some("Module"), None),
             book("z", "Zeta", Some("RPG"), None),
@@ -1645,7 +1586,7 @@ mod tests {
             book("o", "Other line", Some("Something new"), None),
             book("x", "Misc", Some("Miscellaneous"), None),
         ];
-        let groups = book_groups(&books, None);
+        let groups = book_groups(&books);
         assert_eq!(
             tiers_of(&groups),
             [
@@ -1656,7 +1597,11 @@ mod tests {
             ],
             "no Campaign Setting book, so no Campaign Setting group"
         );
-        assert_eq!(groups[0].books, vec![3, 1], "alphabetical inside a tier");
+        assert_eq!(
+            groups[0].books,
+            vec![3, 1],
+            "undated books are alphabetical inside a tier"
+        );
         assert_eq!(
             groups[2].books,
             vec![0, 5],
@@ -1672,20 +1617,7 @@ mod tests {
     }
 
     #[test]
-    fn category_order_orders_product_lines_inside_a_tier() {
-        let books = vec![
-            book("a", "Alpha Module", Some("Module"), None),
-            book("b", "Beta Path", Some("Adventure Path"), None),
-            book("c", "Cast Path", Some("Adventure Path"), None),
-            book("d", "Dawn Society", Some("Society"), None),
-        ];
-        let groups = book_groups(&books, Some(BookSort::Category));
-        assert_eq!(tiers_of(&groups), [Tier::Adventures]);
-        assert_eq!(groups[0].books, vec![1, 2, 0, 3]);
-    }
-
-    #[test]
-    fn date_order_is_newest_first_unknown_last_and_ties_are_alphabetical() {
+    fn inside_a_tier_the_oldest_book_comes_first_undated_last_and_ties_are_alphabetical() {
         let books = vec![
             book("a", "Alpha", Some("RPG"), Some("2009-08-01")),
             book("b", "Beta", Some("RPG"), Some("2014-08-14")),
@@ -1694,15 +1626,26 @@ mod tests {
             book("u", "Unknown", Some("RPG"), None),
             book("bad", "Bad", Some("RPG"), Some("not-a-date")),
             book("m", "Module", Some("Module"), Some("2020-01-01")),
+            book("e", "Early module", Some("Module"), Some("2008-03-01")),
         ];
-        let groups = book_groups(&books, Some(BookSort::Date));
+        let groups = book_groups(&books);
         assert_eq!(tiers_of(&groups), [Tier::Rulebooks, Tier::Adventures]);
         assert_eq!(
             groups[0].books,
-            vec![2, 1, 3, 0, 5, 4],
-            "newest date, then title for the shared date, then undated by title"
+            vec![0, 3, 2, 1, 5, 4],
+            "oldest date first, the shared date by title, then the undated by title"
         );
-        assert_eq!(groups[1].books, vec![6]);
+        assert_eq!(groups[1].books, vec![7, 6], "the order holds in every tier");
+    }
+
+    #[test]
+    fn a_group_counts_every_book_only_when_all_are_active() {
+        assert_eq!(group_count_text(31, 31), "31 books");
+        assert_eq!(group_count_text(1, 1), "1 book");
+        assert_eq!(group_count_text(28, 31), "28 of 31 active");
+        assert_eq!(group_count_text(0, 151), "0 of 151 active");
+        assert_eq!(group_count_text(1_000, 1_200), "1,000 of 1,200 active");
+        assert_eq!(group_count_text(0, 0), "0 books");
     }
 
     #[test]

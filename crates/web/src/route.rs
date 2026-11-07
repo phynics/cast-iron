@@ -22,43 +22,6 @@
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
-/// A displayed order for the publication directory. [`Route::Books`] is the default: priority
-/// tier groups with titles in order inside each. These orders change the order inside each
-/// tier, except `Library`, which shows one ungrouped list in catalog order.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum BookSort {
-    /// Inside each tier, by reviewed product line and then title.
-    Category,
-    /// Inside each tier, by publication date newest first, with unknown dates last.
-    Date,
-    /// One ungrouped list in catalog order.
-    Library,
-}
-
-impl BookSort {
-    pub const ALL: [BookSort; 3] = [BookSort::Category, BookSort::Date, BookSort::Library];
-
-    pub fn slug(self) -> &'static str {
-        match self {
-            BookSort::Category => "category",
-            BookSort::Date => "date",
-            BookSort::Library => "library",
-        }
-    }
-
-    pub fn from_slug(slug: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|sort| sort.slug() == slug)
-    }
-
-    pub fn label(self) -> &'static str {
-        match self {
-            BookSort::Category => "Category",
-            BookSort::Date => "Publication date",
-            BookSort::Library => "Library order",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     Home,
@@ -79,8 +42,6 @@ pub enum Route {
     BrowseSource(String),
     /// The publication directory, each a doorway into its contents, in priority tiers.
     Books,
-    /// The publication directory grouped by one reviewed catalogue field.
-    BooksSorted(BookSort),
     /// Active books: the presets and one checkbox per book. It is a route, so a reload and
     /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
     BooksActive,
@@ -206,10 +167,8 @@ impl Route {
                 _ => not_found(),
             },
             ["books", "active"] => Route::BooksActive,
-            ["books"] | ["browse", "books"] => query
-                .and_then(|q| query_pairs(q).find(|(k, _)| k == "sort"))
-                .and_then(|(_, v)| BookSort::from_slug(&v))
-                .map_or(Route::Books, Route::BooksSorted),
+            // There is one order. A link from when Books had sort options opens the list.
+            ["books"] | ["browse", "books"] => Route::Books,
             ["browse", "book", id] => match percent_decode(id) {
                 Some(source) if !source.is_empty() => Route::Book {
                     source,
@@ -300,7 +259,6 @@ impl Route {
             }
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
-            Route::BooksSorted(sort) => format!("#/books?sort={}", sort.slug()),
             Route::BooksActive => "#/books/active".into(),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
@@ -525,7 +483,9 @@ fn read_location_route() -> Route {
     let legacy = hash.starts_with("#/bookmarks")
         || hash.starts_with("#/collection/")
         || hash.starts_with("#/browse/kind/rule")
-        || hash == "#/browse/books";
+        || hash.starts_with("#/browse/books")
+        // Books had sort links; the one order is the list, and the address says so.
+        || hash.starts_with("#/books?");
     if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
         replace_url_keeping_state(&history, &route.href());
     }
@@ -784,9 +744,6 @@ mod tests {
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
             Route::BooksActive,
-            Route::BooksSorted(BookSort::Category),
-            Route::BooksSorted(BookSort::Date),
-            Route::BooksSorted(BookSort::Library),
             Route::Spells,
             Route::FeatChains,
         ] {
@@ -864,45 +821,24 @@ mod tests {
     }
 
     #[test]
-    fn book_sorts_round_trip_and_unknown_values_fall_back_to_the_default_tiers() {
+    fn books_has_one_order_and_old_sort_links_open_it() {
         assert_eq!(Route::Books.href(), "#/books");
-        assert_eq!(
-            Route::BooksSorted(BookSort::Category).href(),
-            "#/books?sort=category"
-        );
-        assert_eq!(
-            Route::BooksSorted(BookSort::Date).href(),
-            "#/books?sort=date"
-        );
-        assert_eq!(
-            Route::parse("#/books?sort=category"),
-            Route::BooksSorted(BookSort::Category)
-        );
-        assert_eq!(
-            Route::parse("#/books?sort=date"),
-            Route::BooksSorted(BookSort::Date)
-        );
-        assert_eq!(
-            Route::BooksSorted(BookSort::Library).href(),
-            "#/books?sort=library"
-        );
-        assert_eq!(
-            Route::parse("#/books?sort=library"),
-            Route::BooksSorted(BookSort::Library)
-        );
-        // An unknown value is the default list, not an error or a second history entry.
+        assert_eq!(Route::parse("#/books"), Route::Books);
+        // `?sort=` belonged to sort links that no longer exist. A bookmark must not break, and
+        // it must not become a second route or a second history entry.
         for hash in [
+            "#/books?sort=category",
+            "#/books?sort=date",
+            "#/books?sort=library",
             "#/books?sort=title",
             "#/books?sort=",
             "#/books?other=date",
-            "#/browse/books?sort=unknown",
+            "#/browse/books",
+            "#/browse/books?sort=date",
         ] {
             assert_eq!(Route::parse(hash), Route::Books, "{hash}");
         }
-        assert_eq!(
-            Route::parse("#/browse/books?sort=date"),
-            Route::BooksSorted(BookSort::Date)
-        );
+        assert_eq!(Route::parse("#/books?sort=date").href(), "#/books");
     }
 
     #[test]

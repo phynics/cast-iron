@@ -1,6 +1,5 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import {
-  bookEntryOrder,
   cacheContents,
   contentCaches,
   count,
@@ -315,12 +314,34 @@ test("A preset keeps downloads and stars, and changes what search finds", async 
   await page.goto("#/books/active");
   await page.getByRole("button", { name: "Paizo Everything", exact: true }).click();
   await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-active')).toHaveText(
-    `${adventureBooks.length} of ${adventureBooks.length} active`,
+    `${adventureBooks.length} books`,
   );
   await page.goto("#/search?q=fire");
   await waitResults(page, "fire");
   expect(await resultCount(page)).toBe(everything);
   expect(await cacheContents(page)).toEqual(downloads);
+});
+
+test("Two quick preset taps end on exactly the second preset", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books/active");
+  await expect(page.locator(".preset-row").first()).toBeVisible();
+  // Both taps land in one task, before the first write has finished. The second preset must be
+  // planned after the first write, or a book that the first turned off stays off.
+  await page.evaluate(() => {
+    const rows = [...document.querySelectorAll<HTMLButtonElement>(".preset-row")];
+    const named = (label: string) => rows.find((row) => row.getAttribute("aria-label") === label)!;
+    named("Paizo Rulebooks").click();
+    named("Paizo Rulebooks & More").click();
+  });
+  const second = page.getByRole("button", { name: "Paizo Rulebooks & More", exact: true });
+  await expect(second).toHaveAttribute("aria-pressed", "true");
+  // Wait for the writes to settle, then check the stored set rather than the screen alone.
+  await page.goto("#/books");
+  const more = presets[1];
+  await expect(page.locator(".books-count")).toHaveText(countLine(more.ids.length, "Paizo Rulebooks & More"));
+  await page.reload();
+  await expect(page.locator(".books-count")).toHaveText(countLine(more.ids.length, "Paizo Rulebooks & More"));
 });
 
 test("A new install starts on Paizo Rulebooks", async ({ page }) => {
@@ -329,7 +350,7 @@ test("A new install starts on Paizo Rulebooks", async ({ page }) => {
   await page.goto("#/books");
   await expect(page.locator(".books-count")).toHaveText(countLine(rulebooks.ids.length, "Paizo Rulebooks"));
   await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-active')).toHaveText(
-    `${rulebooks.ids.length} of ${rulebooks.ids.length} active`,
+    `${rulebooks.ids.length} ${rulebooks.ids.length === 1 ? "book" : "books"}`,
   );
   await page.goto("#/books/active");
   await expect(page.getByRole("button", { name: "Paizo Rulebooks", exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -476,26 +497,26 @@ test("A source page count matches the entries its kind groups render", async ({ 
   }
 });
 
-installedTest("Book page count follows its contents and survives deactivation", async ({ page }) => {
-  // Find a book whose contents tree and SourceInfo total disagree. The library has
-  // several.
-  // A header that used the publication total or the active-book set would disagree with the
-  // page, which is the property this test proves.
-  const candidate = bookTrees()
-    .map((book) => {
-      const source = corpus.catalog.sources.find((row) => row.id === book.source);
-      return source ? { book, source, distinct: new Set(bookEntryOrder(book)).size } : null;
-    })
-    .find((row) => row && row.distinct !== row.source.entry_count);
-  expect(candidate, "the test needs a book whose contents differ from its publication total").toBeTruthy();
-  const { book, source, distinct } = candidate!;
+installedTest("The book page meta line is the book's size and survives deactivation", async ({ page }) => {
+  // The line under the title is the same text as the book's row on Books: a month and year, and
+  // the entries the catalog holds for the book, whether or not the book is active.
+  const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
+  const source = corpus.catalog.sources.find((row) => row.id === book.source)!;
+  const entries = corpus.catalog.entries.filter((stub) => (owners.get(stub.id) ?? stub.source) === book.source).length;
 
   await installLibrary(page);
   await waitControlled(page);
+  await page.goto("#/books");
+  await openBookGroups(page);
+  const rowLine = (await page.locator(`.book-directory-item[data-book-id="${book.source}"] .cat-blurb`).innerText()).trim();
+  expect(rowLine).toContain(`${count(entries)} ${noun(entries)}`);
+
   await page.goto(`#/browse/source/${encodeURIComponent(book.source)}`);
   await waitReady(page);
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
-  await expect(page.getByTestId("source-count")).toHaveText(`${distinct} ${noun(distinct)} in this book`);
+  // The old publication address became the book's own.
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${book.source}$`));
+  await expect(page.getByTestId("source-count")).toHaveText(rowLine);
   await expect(page.locator(".book > .notice")).toHaveCount(0);
   await expect(page.locator(".toc-top")).toBeVisible();
 
@@ -507,7 +528,7 @@ installedTest("Book page count follows its contents and survives deactivation", 
   await expect(page.locator(".book-active-row")).toContainText(
     "Search and lists leave this book out. You can still read its contents here.",
   );
-  await expect(page.getByTestId("source-count")).toHaveText(`${distinct} ${noun(distinct)} in this book`);
+  await expect(page.getByTestId("source-count")).toHaveText(rowLine);
 
   await page.goto("#/books/active");
   await waitReady(page);
@@ -515,10 +536,10 @@ installedTest("Book page count follows its contents and survives deactivation", 
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
 
-  await page.goto(`#/browse/source/${encodeURIComponent(book.source)}`);
+  await page.goto(`#/browse/book/${encodeURIComponent(book.source)}`);
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
-  // The contents stay readable, so the count must not change when the book is disabled.
-  await expect(page.getByTestId("source-count")).toHaveText(`${distinct} ${noun(distinct)} in this book`);
+  // The contents stay readable, so the line must not change when the book is disabled.
+  await expect(page.getByTestId("source-count")).toHaveText(rowLine);
   await expect(page.locator(".book-active-row")).toContainText("Search and lists leave this book out.");
   await expect(page.locator(".toc-top")).toBeVisible();
 });

@@ -371,14 +371,15 @@ export function buildNewerManifest() {
 }
 
 /**
- * Open every priority-tier group on the Books page. Adventures start collapsed, so a test that
+ * Open every priority-tier group on the Books page. Only Rulebooks start open, so a test that
  * reaches a book by title opens the groups first. Waits for the groups to be in the document.
  */
 export async function openBookGroups(page: Page) {
   await expect(page.locator(".book-tier").first()).toBeVisible();
-  await page.locator("details.tier-details").evaluateAll((groups) => {
-    for (const group of groups) (group as HTMLDetailsElement).open = true;
-  });
+  const closed = page.locator('.tier-toggle[aria-expanded="false"]');
+  // Each click removes one match, so always take the first.
+  for (let left = await closed.count(); left > 0; left--) await closed.first().click();
+  await expect(page.locator('.tier-toggle[aria-expanded="false"]')).toHaveCount(0);
 }
 
 /** Follow the publication directory through its row link to the book page. */

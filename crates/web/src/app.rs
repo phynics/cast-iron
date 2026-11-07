@@ -4,7 +4,7 @@ use crate::install;
 use crate::js;
 use crate::library::{Library, use_library};
 use crate::pwa::InstallCtx;
-use crate::route::{self, Route, provide_route, use_route};
+use crate::route::{self, Route, provide_route, replace, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
 use crate::views::{
@@ -346,7 +346,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksSorted(_) | Route::BooksActive | Route::Book { .. },
+            Route::Books | Route::BooksActive | Route::Book { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -390,7 +390,22 @@ fn RouteView() -> impl IntoView {
     let current = use_route();
     // The Search screen reads and edits its own route, so edits must not rebuild it.
     // A book edits its own chapter in the URL when a chapter opens, and must not be rebuilt for it.
-    let revision = use_library().selection_revision();
+    let library = use_library();
+    let has_books = library.has_books();
+    let revision = library.selection_revision();
+    if has_books {
+        // The address follows the page: `#/browse/source/<id>` becomes the book's own address,
+        // so the Books tab is the one highlighted (the old route belongs to Home) and the
+        // history holds one entry for the page, not a redirect to step back through.
+        Effect::new(move |_| {
+            if let Route::BrowseSource(id) = current.get() {
+                replace(&Route::Book {
+                    source: id,
+                    chapter: None,
+                });
+            }
+        });
+    }
     let page = Memo::new(move |_| {
         let route = match current.get() {
             Route::Search { .. } => Route::search(""),
@@ -398,8 +413,11 @@ fn RouteView() -> impl IntoView {
                 source,
                 chapter: None,
             },
-            // Sorting keeps the directory mounted, like a chapter toggle keeps a book mounted.
-            Route::BooksSorted(_) => Route::Books,
+            // An old link to a publication is its book page when the library has book order.
+            Route::BrowseSource(id) if has_books => Route::Book {
+                source: id,
+                chapter: None,
+            },
             other => other,
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
@@ -424,12 +442,8 @@ fn RouteView() -> impl IntoView {
             letter,
             facets,
         } => view! { <BrowseKind kind letter=letter facets=facets /> }.into_any(),
-        // Old links to a publication land on its book when the library has book order.
-        Route::BrowseSource(id) if use_library().has_books() => {
-            view! { <BookView source=id /> }.into_any()
-        }
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
-        Route::Books | Route::BooksSorted(_) => view! { <Books /> }.into_any(),
+        Route::Books => view! { <Books /> }.into_any(),
         Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
