@@ -33,11 +33,15 @@ From the top, at 390 px:
 2. A breadcrumb, only when a real parent page exists (see Breadcrumbs).
 3. The `h1` (the kind's plural label) and, under it, the count line: `3583 feats`. They stack and never share a row. The count line names the kind, not "entries". It is a live region.
 4. Notices.
-5. The filter row (not sticky): filter menus on the left, a `.page-link` on the right, and an open menu's panel under the row. Feats have it; the other kinds keep their lens pills until their pull request of issue #193.
+5. The filter row (not sticky): filter menus on the left, a `.page-link` on the right, and an open menu's panel under the row. Feats, spells, traits, items and archetypes have it. Classes have no filter: they sit under group headings (see below). Races and creatures keep their lens pills until their pull requests of issue #193.
 6. The letter bar (sticky, 48 px, `--letter-h`), only above 200 entries. It is the only sticky element below the masthead.
 7. The letter heading with its count, then the rows. A row is a title, plus a muted book when a title is printed in several.
 
 No lede, no subhead and no explanatory prose sit above the rows. The blurb that describes a category lives on its Home card. Provenance prose goes below the list.
+
+## Grouped lists
+
+A short kind whose few groups are better seen than chosen is one list under headings, not a filter. Classes are listed under Core, Base, Hybrid, Occult, Unchained, Alternate and NPC, in the order of the books (`views/categories.rs`). A heading is an `h2.letter-head` with the count of its classes; there is no filter row and no letter bar. A group no active book holds shows no heading, and a class without a group is listed last under `Other`, so none is lost. Use a filter menu instead when the groups run to dozens.
 
 ## Filter menu
 
