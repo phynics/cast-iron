@@ -199,10 +199,7 @@ fn chip_count(
 
 /// The accessible name of a chip with its count.
 fn chip_name(label: &str, count: usize) -> String {
-    match count {
-        1 => format!("{label}, 1 entry"),
-        n => format!("{label}, {} entries", fmt::count(n)),
-    }
+    format!("{label}, {}", fmt::pluralize(count, "entry", "entries"))
 }
 
 /// The publications a reader can see, grouped by product-line tier, and the counts for the
@@ -469,14 +466,14 @@ fn publication_summary_line(page: &PublicationPage, filter: &str, show_all: bool
     }
     if show_all && page.shown_with_results == page.with_results {
         format!(
-            "Showing all {} publications with results.",
-            fmt::count(page.with_results)
+            "Showing all {} with results.",
+            fmt::pluralize(page.with_results, "publication", "publications")
         )
     } else {
         format!(
-            "Showing {} of {} publications with results.",
+            "Showing {} of {} with results.",
             fmt::count(page.shown_with_results),
-            fmt::count(page.with_results)
+            fmt::pluralize(page.with_results, "publication", "publications")
         )
     }
 }
@@ -1233,7 +1230,7 @@ pub fn Search() -> impl IntoView {
                 .count();
             view! {
                 <div class="empty">
-                    <p>{format!("Search {} entries by name or by any word in the text.", fmt::count(total))}</p>
+                    <p>{format!("Search {} by name or by any word in the text.", fmt::pluralize(total, "entry", "entries"))}</p>
                     <p class="muted">"Try one of these:"</p>
                     <p class="examples">
                         {STARTERS.into_iter().map(|q| {
@@ -1272,7 +1269,7 @@ pub fn Search() -> impl IntoView {
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {} publication entries", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::count(count))}</span></summary>
+                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })
@@ -1313,7 +1310,10 @@ pub fn Search() -> impl IntoView {
             if total == groups {
                 text
             } else {
-                format!("{text} · {} publication entries", fmt::count(total))
+                format!(
+                    "{text} · {}",
+                    fmt::pluralize(total, "publication entry", "publication entries")
+                )
             }
         }
         _ => String::new(),

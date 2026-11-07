@@ -366,7 +366,7 @@ fn TocNode(
                 <summary id=id aria-current=move || is_current().then_some("location")>
                     <span class="toc-title">{title}</span>
                     {flagged.then(|| view! { <span class="toc-flag">"check order"</span> })}
-                    <span class="toc-count" aria-label=format!("{under} entries")>{under}</span>
+                    <span class="toc-count" aria-label=crate::fmt::pluralize(under, "entry", "entries")>{under}</span>
                 </summary>
                 {children}
             </details>
