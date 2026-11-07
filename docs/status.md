@@ -1079,8 +1079,9 @@ not italic, so an italic-only pass cannot satisfy that old acceptance example.
 spell level (3,022 Pf and 113 carried); before the change all 3,022 Pf spells
 and 113 carried spells were one flat string. 346 Pf creatures carry a
 class/level spell list rendered with readable labels; 1,086 carry
-frequency-only lists. Raw `l0`..`l9`, `Cl:`, and `Con:` labels in creature
-stat blocks fell from 1,432 Pf entries to 0.
+frequency-only lists. The carried library adds 114 class/level spell lists
+and 2 frequency-only lists. Raw `l0`..`l9`, `Cl:`, and `Con:` labels in
+creature stat blocks fell from 1,432 Pf entries to 0.
 
 Local verification: `cargo xtask check` passes; two `cargo xtask content` runs
 produced the same file-hash manifest (`39cdced315f96d2de9ac12234c69f15c46b03dfc3cc1566a2908e0e2db31fb70`);

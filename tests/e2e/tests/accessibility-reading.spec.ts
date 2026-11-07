@@ -41,6 +41,11 @@ function readingTarget() {
 }
 
 test("Keyboard reading traverses a complete subsystem offline and preserves book history", async ({ page, context, server }) => {
+  // The walk visits every contents stop, then goes forward and back in the book. On the
+  // canonical library it takes about 100-115 s on a quiet machine and up to about 200 s under
+  // load, so the 120 s default is too tight.
+  // The per-step assertions still fail fast; only the whole-walk ceiling moves.
+  test.setTimeout(240_000);
   await installLibrary(page); await waitControlled(page); await goOffline(context, server);
   const { target, book } = readingTarget();
   expect(pathToEntry(book.chapters, target.id)).not.toBeNull();

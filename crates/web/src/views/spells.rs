@@ -104,11 +104,7 @@ pub fn by_tier<T>(rows: Vec<(Tier, T)>) -> Vec<(Tier, Vec<T>)> {
 
 /// `1 spell` or `22 spells`.
 pub fn spells_noun(n: usize) -> String {
-    if n == 1 {
-        "1 spell".into()
-    } else {
-        format!("{} spells", fmt::count(n))
-    }
+    fmt::pluralize(n, "spell", "spells")
 }
 
 fn level_label(level: u8) -> String {

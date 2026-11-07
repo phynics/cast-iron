@@ -81,6 +81,9 @@ pub enum Route {
     Books,
     /// The publication directory grouped by one reviewed catalogue field.
     BooksSorted(BookSort),
+    /// Active books: the presets and one checkbox per book. It is a route, so a reload and
+    /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
+    BooksActive,
     /// One book's contents in original chapter order. `chapter` is the 0-based path of the
     /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
     Book {
@@ -202,6 +205,7 @@ impl Route {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
+            ["books", "active"] => Route::BooksActive,
             ["books"] | ["browse", "books"] => query
                 .and_then(|q| query_pairs(q).find(|(k, _)| k == "sort"))
                 .and_then(|(_, v)| BookSort::from_slug(&v))
@@ -297,6 +301,7 @@ impl Route {
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::BooksSorted(sort) => format!("#/books?sort={}", sort.slug()),
+            Route::BooksActive => "#/books/active".into(),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -413,6 +418,7 @@ fn parse_facets(query: Option<&str>) -> Vec<(String, String)> {
         if let Some(raw) = raw.strip_prefix("facet=")
             && let Some((field, value)) = raw.split_once(':')
             && let (Some(field), Some(value)) = (percent_decode(field), percent_decode(value))
+            && !value.trim().is_empty()
         {
             let value = if field == "school" {
                 legacy_school(&value)
@@ -522,8 +528,7 @@ fn read_location_route() -> Route {
         || hash.starts_with("#/browse/kind/rule")
         || hash == "#/browse/books";
     if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
-        let _ =
-            history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
+        replace_url_keeping_state(&history, &route.href());
     }
     route
 }
@@ -572,12 +577,160 @@ pub fn navigate(route: &Route) {
 /// Replaces the current history entry, such as while a search box types.
 /// `replaceState` fires no `hashchange`, so this updates the route signal itself.
 pub fn replace(route: &Route) {
+    replace_with_state(route, true);
+}
+
+/// Replaces the current history entry with a different page. The entry starts clean, so the
+/// page gets its own scroll offset instead of the one of the page it replaces. Quick search
+/// uses this when it leaves its own entry for a result.
+pub fn replace_as_new_page(route: &Route) {
+    replace_with_state(route, false);
+}
+
+fn replace_with_state(route: &Route, keep_state: bool) {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return;
     };
-    let _ = history.replace_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()));
+    let state = if keep_state {
+        history.state().unwrap_or(wasm_bindgen::JsValue::NULL)
+    } else {
+        wasm_bindgen::JsValue::NULL
+    };
+    let _ = history.replace_state_with_url(&state, "", Some(&route.href()));
     if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
         write.set(read_location_route());
+    }
+}
+
+/// Rewrites the URL of the current entry and keeps its history state.
+pub fn replace_url_keeping_state(history: &web_sys::History, url: &str) {
+    let state = history.state().unwrap_or(wasm_bindgen::JsValue::NULL);
+    let _ = history.replace_state_with_url(&state, "", Some(url));
+}
+
+// ---- history state ---------------------------------------------------------------------
+//
+// One object describes every history entry the app touches. Each owner reads and writes only its
+// own field and copies the others: `scrollId` belongs to the scroll memory below, and
+// `quickSearch` marks the entry that Quick search pushes. `{ scrollId: 7, quickSearch: true }`
+// is one entry that has both.
+
+const SCROLL_ID_FIELD: &str = "scrollId";
+/// The field that marks the history entry that Quick search pushed.
+pub const QUICK_SEARCH_FIELD: &str = "quickSearch";
+/// How many history entries keep a scroll offset in memory.
+const SCROLL_MEMORY_LIMIT: usize = 100;
+
+fn state_field(state: &wasm_bindgen::JsValue, field: &str) -> Option<wasm_bindgen::JsValue> {
+    if !state.is_object() {
+        return None;
+    }
+    js_sys::Reflect::get(state, &field.into())
+        .ok()
+        .filter(|value| !value.is_undefined())
+}
+
+/// A copy of `state` with one field set. Any other field is kept; a state that is not an
+/// object (none, or a string from an older build) starts an empty object.
+fn state_with(
+    state: &wasm_bindgen::JsValue,
+    field: &str,
+    value: &wasm_bindgen::JsValue,
+) -> js_sys::Object {
+    let copy = js_sys::Object::new();
+    if let Some(source) = wasm_bindgen::JsCast::dyn_ref::<js_sys::Object>(state) {
+        let _ = js_sys::Object::assign(&copy, source);
+    }
+    let _ = js_sys::Reflect::set(&copy, &field.into(), value);
+    copy
+}
+
+fn current_state() -> wasm_bindgen::JsValue {
+    web_sys::window()
+        .and_then(|w| w.history().ok())
+        .and_then(|history| history.state().ok())
+        .unwrap_or(wasm_bindgen::JsValue::NULL)
+}
+
+/// True when the current history entry carries `field` set to true.
+pub fn current_entry_has_flag(field: &str) -> bool {
+    state_field(&current_state(), field).is_some_and(|value| value.is_truthy())
+}
+
+/// Pushes a history entry for the page that is on screen, flagged with `field`. The entry keeps
+/// the scroll id of the page, so Back to it restores the same offset. Returns false when the
+/// browser refuses the push.
+pub fn push_flagged_entry(field: &str) -> bool {
+    let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
+        return false;
+    };
+    let state = state_with(&current_state(), field, &wasm_bindgen::JsValue::TRUE);
+    history.push_state_with_url(&state, "", None).is_ok()
+}
+
+thread_local! {
+    static SCROLL_MEMORY: std::cell::RefCell<ScrollMemory> = std::cell::RefCell::new(ScrollMemory::default());
+}
+
+/// The scroll offset of the most recent history entries visited in this session. It lives in
+/// memory only: a reload starts clean, and an entry that was never visited here has no offset.
+#[derive(Default)]
+struct ScrollMemory {
+    current: Option<u32>,
+    saved: std::collections::HashMap<u32, f64>,
+    /// Ids from least to most recently reached; the oldest is dropped past the limit.
+    order: std::collections::VecDeque<u32>,
+}
+
+impl ScrollMemory {
+    fn reach(&mut self, id: u32) {
+        self.current = Some(id);
+        self.order.retain(|&known| known != id);
+        self.order.push_back(id);
+        while self.order.len() > SCROLL_MEMORY_LIMIT {
+            if let Some(oldest) = self.order.pop_front() {
+                self.saved.remove(&oldest);
+            }
+        }
+    }
+}
+
+/// Records the offset of the entry on screen. Call it from a window `scroll` listener.
+pub fn remember_scroll() {
+    let Some(y) = web_sys::window().and_then(|w| w.scroll_y().ok()) else {
+        return;
+    };
+    SCROLL_MEMORY.with(|memory| {
+        let mut memory = memory.borrow_mut();
+        if let Some(id) = memory.current {
+            memory.saved.insert(id, y);
+        }
+    });
+}
+
+/// Marks the history entry that a route change has just reached. An entry that this session
+/// visited before (Back or Forward) returns the offset it was left at. A new entry gets a
+/// scroll id in its history state, next to any other field, and returns `None`.
+pub fn arrive_at_entry() -> Option<f64> {
+    let history = web_sys::window()?.history().ok()?;
+    let state = history.state().unwrap_or(wasm_bindgen::JsValue::NULL);
+    if let Some(id) = state_field(&state, SCROLL_ID_FIELD).and_then(|value| value.as_f64()) {
+        return SCROLL_MEMORY.with(|memory| {
+            let mut memory = memory.borrow_mut();
+            memory.reach(id as u32);
+            memory.saved.get(&(id as u32)).copied()
+        });
+    }
+    let id = (js_sys::Math::random() * f64::from(u32::MAX)) as u32;
+    let state = state_with(&state, SCROLL_ID_FIELD, &f64::from(id).into());
+    let _ = history.replace_state(&state, "");
+    SCROLL_MEMORY.with(|memory| memory.borrow_mut().reach(id));
+    None
+}
+
+pub fn scroll_to_offset(y: f64) {
+    if let Some(window) = web_sys::window() {
+        window.scroll_to_with_x_and_y(0.0, y);
     }
 }
 
@@ -631,6 +784,7 @@ mod tests {
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
+            Route::BooksActive,
             Route::BooksSorted(BookSort::Category),
             Route::BooksSorted(BookSort::Date),
             Route::BooksSorted(BookSort::Library),
@@ -750,6 +904,17 @@ mod tests {
             Route::parse("#/browse/books?sort=date"),
             Route::BooksSorted(BookSort::Date)
         );
+    }
+
+    #[test]
+    fn active_books_has_its_own_route() {
+        assert_eq!(Route::BooksActive.href(), "#/books/active");
+        assert_eq!(Route::parse("#/books/active"), Route::BooksActive);
+        assert_eq!(Route::parse("#/books/active/"), Route::BooksActive);
+        // The page takes no sort; a stray query does not change the route.
+        assert_eq!(Route::parse("#/books/active?sort=date"), Route::BooksActive);
+        // Other paths under /books are not this page.
+        assert!(matches!(Route::parse("#/books/other"), Route::NotFound(_)));
     }
 
     #[test]
@@ -910,6 +1075,30 @@ mod tests {
         }
         assert_eq!(Route::NotFound("#/nope".into()).href(), "#/nope");
         assert_eq!(Route::NotFound("junk".into()).href(), "#/");
+    }
+
+    #[test]
+    fn empty_facet_values_are_dropped() {
+        // A hand-made URL must not narrow a list on an empty value and show "No  feats".
+        let Route::BrowseKind { facets, .. } =
+            Route::parse("#/browse/kind/feat?facet=feat_type:&l=b")
+        else {
+            panic!("not a kind route");
+        };
+        assert!(facets.is_empty());
+        let Route::Search { facets, .. } =
+            Route::parse("#/search?q=x&facet=feat_type:&facet=descriptor:%20")
+        else {
+            panic!("not a search route");
+        };
+        assert!(facets.is_empty());
+        // A real pair next to an empty one survives.
+        let Route::Search { facets, .. } =
+            Route::parse("#/search?facet=feat_type:&facet=school:evocation")
+        else {
+            panic!("not a search route");
+        };
+        assert_eq!(facets, [("school".to_string(), "evocation".to_string())]);
     }
 
     #[test]

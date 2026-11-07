@@ -1,10 +1,13 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
+use crate::book_presets;
 use crate::fmt;
-use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
+use crate::views::active_books::{
+    ACTIVE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
+};
 use crate::views::book_tier::Tier;
 use crate::views::categories::{self, Lens, applied_facets};
 use crate::views::filter_menu::{
@@ -16,13 +19,11 @@ use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, kind_name,
-    local_resource, section_label, set_title, sort_key,
+    local_resource, set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -302,220 +303,70 @@ fn book_meta(row: &BookListEntry) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
-type BookLookupSignal =
-    ReadSignal<Option<Result<Option<Rc<BookLookup>>, LibraryError>>, LocalStorage>;
+/// `3 entries · Adventure Path · 2011-08`: the line under a book's title on Active books.
+pub fn book_summary(row: &BookListEntry) -> String {
+    let count = row.count;
+    let mut line = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
+    if let Some(meta) = book_meta(row) {
+        line.push_str(" · ");
+        line.push_str(&meta);
+    }
+    line
+}
 
-fn book_row(
-    row: BookListEntry,
-    library: Library,
-    lookup: BookLookupSignal,
-    saving: RwSignal<bool>,
-    save_error: RwSignal<Option<String>>,
-    status: RwSignal<Option<String>>,
-) -> AnyView {
+/// One book row: a single link to the book page, where the contents and the Active checkbox
+/// live. The row carries no checkbox; Active books and the book page change the choice.
+fn book_row(row: BookListEntry, library: Library) -> AnyView {
     let meta = book_meta(&row);
+    let href = Route::Book {
+        source: row.id.clone(),
+        chapter: None,
+    }
+    .href();
     let id = row.id;
     let title = row.title;
     let count = row.count;
     let count_label = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
     let revision = library.selection_revision();
-    let state_library = library.clone();
-    let save_library = library.clone();
     let state_id = id.clone();
-    let save_id = id.clone();
-    let label = format!("Active {title}");
     let is_active = move || {
         revision.get();
-        state_library.book_active(&state_id)
-    };
-    let badge_active = is_active.clone();
-    let id_for_tree = id.clone();
-    let title_for_tree = title.clone();
-    let expanded = RwSignal::new(false);
-    let on_toggle = move |event: leptos::ev::Event| {
-        expanded.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
+        library.book_active(&state_id)
     };
     view! {
         <li class="book-directory-item" data-book-id=id>
-            <details class="book-directory-row" on:toggle=on_toggle>
-                <summary class="book-card">
-                    <span class="cat-name">{title.clone()}</span>
-                    <span class="cat-count">{count}</span>
+            <a class="book-directory-row book-card" href=href>
+                <span class="book-card-text">
+                    <span class="cat-name">{title}</span>
                     <span class="cat-blurb">
                         {count_label}
                         {meta.map(|line| view! { <span class="book-meta">" · "{line}</span> })}
-                        {move || (!badge_active()).then_some(" · Disabled")}
+                        {move || (!is_active()).then_some(" · Disabled")}
                     </span>
-                </summary>
-                <div class="book-directory-contents">
-                    {move || expanded.get().then(|| lookup.with(|state| match state {
-                        Some(Ok(Some(books))) => match books.books().iter().position(|book| book.source == id_for_tree) {
-                            Some(index) => view! {
-                                <BookTree lookup=Shared::from_rc(books.clone()) book=index title=title_for_tree.clone() />
-                            }.into_any(),
-                            None => view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any(),
-                        },
-                        Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
-                        _ => view! { <p class="muted" role="status">"Loading chapter list…"</p> }.into_any(),
-                    }))}
-                </div>
-            </details>
-            <label class="book-activation">
-                <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
-                    on:change=move |event| {
-                        let input = event_target::<web_sys::HtmlInputElement>(&event);
-                        if saving.get_untracked() {
-                            // Defensive guard: the checkbox is disabled during a save, so this
-                            // runs only for a programmatic event. Undo the change and say so.
-                            input.set_checked(save_library.book_active(&save_id));
-                            status.set(None);
-                            save_error.set(Some(SAVE_BUSY.to_string()));
-                            return;
-                        }
-                        let active = input.checked();
-                        // Discovery remains at the saved value while this control is busy.
-                        saving.set(true);
-                        save_error.set(None);
-                        // The bulk message no longer describes the selection.
-                        status.set(None);
-                        let library = save_library.clone();
-                        let id = save_id.clone();
-                        spawn_local(async move {
-                            if let Err(error) = library.set_book_active(&id, active).await {
-                                input.set_checked(library.book_active(&id));
-                                save_error.set(Some(format!("Could not save the book selection: {error}")));
-                            }
-                            saving.set(false);
-                        });
-                    } />
-                <span>"Active"</span>
-            </label>
+                </span>
+                <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
         </li>
     }
     .into_any()
 }
 
-/// The expanded book, rooted at the same `Read {book}` label as the full contents page.
-/// Chapters and sections are native disclosures; children are built only when a branch opens,
-/// so a two-thousand-entry book costs a few rows until the reader asks for more.
-#[component]
-fn BookTree(lookup: Shared<BookLookup>, book: usize, title: String) -> impl IntoView {
-    let Some(tree) = lookup.book_at(book) else {
-        return ().into_any();
-    };
-    let href = Route::Book {
-        source: tree.source.clone(),
-        chapter: None,
-    }
-    .href();
-    let nav_label = format!("Contents of {title}");
-    let read_label = format!("Read {title}");
-    let chapters = (0..tree.chapters.len())
-        .map(|index| {
-            view! {
-                <DirectoryNode lookup=lookup.clone() book path=vec![index] />
-            }
-        })
-        .collect_view();
-    view! {
-        <nav class="toc book-tree" aria-label=nav_label data-testid="book-tree">
-            <a class="book-tree-root" href=href>{read_label}</a>
-            <ul class="toc-list toc-top">{chapters}</ul>
-        </nav>
-    }
-    .into_any()
-}
-
-#[component]
-fn DirectoryNode(lookup: Shared<BookLookup>, book: usize, path: Vec<usize>) -> impl IntoView {
-    let Some(tree) = lookup.book_at(book) else {
-        return ().into_any();
-    };
-    let Some(node) = node_at(tree, &path) else {
-        return ().into_any();
-    };
-    let title = section_label(&node.title);
-    let under = entries_under(node);
-    let child_count = node.children.len();
-    let own_link = node.entry.as_ref().map(|entry| {
-        Route::Entry {
-            id: entry.clone(),
-            anchor: node.anchor.clone(),
-        }
-        .href()
-    });
-
-    if child_count == 0 {
-        return match own_link {
-            Some(href) => view! { <li class="toc-leaf"><a href=href>{title}</a></li> }.into_any(),
-            None => view! { <li class="toc-leaf"><span>{title}</span></li> }.into_any(),
-        };
-    }
-
-    let opened = RwSignal::new(false);
-    let on_toggle = move |event: leptos::ev::Event| {
-        opened.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
-    };
-    let child_title = title.clone();
-    let children = {
-        let lookup = lookup.clone();
-        let path = path.clone();
-        move || {
-            opened.get().then(|| {
-                let items = (0..child_count)
-                    .map(|index| {
-                        let mut child = path.clone();
-                        child.push(index);
-                        view! {
-                            <DirectoryNode lookup=lookup.clone() book path=child />
-                        }
-                    })
-                    .collect_view();
-                let own = own_link.clone().map(|href| {
-                    view! {
-                        <li class="toc-leaf toc-self">
-                            <a href=href>{format!("Read {child_title}")}</a>
-                        </li>
-                    }
-                });
-                view! { <ul class="toc-list">{own}{items}</ul> }
-            })
-        }
-    };
-    view! {
-        <li class="toc-branch">
-            <details class="toc-details" on:toggle=on_toggle>
-                <summary>
-                    <span class="toc-title">{title}</span>
-                    <span class="toc-count" aria-label=format!("{under} entries")>{under}</span>
-                </summary>
-                {children}
-            </details>
-        </li>
-    }
-    .into_any()
-}
-
-/// The publication directory. The same `books.json` tree as the book page, built lazily.
+/// The publication directory: one link row per book, to its book page.
 /// Books are grouped by priority tier; the sort in the URL orders books inside each tier, and
-/// library order shows one ungrouped list. Group and preset controls write the stored active
-/// set once through [`Library::update_active_books`].
+/// library order shows one ungrouped list. The checkboxes and the presets live on Active books.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
     let library = use_library();
-    let lookup = {
-        let library = library.clone();
-        local_resource(async move { library.books().await })
-    };
-    let saving = RwSignal::new(false);
-    let save_error = RwSignal::new(None::<String>);
-    let status = RwSignal::new(None::<String>);
     let current = use_route();
     let sort = move || match current.get() {
         Route::BooksSorted(sort) => Some(sort),
         _ => None,
     };
+    // Back from Active books lands here: Done asks for focus on the link it was left from.
+    if take_link_focus() {
+        focus_after_frame(ACTIVE_LINK_ID);
+    }
     // One cached pass over the catalog gives every row its count. Counting per row rescanned
     // the whole catalog for each publication and stalled the page for seconds.
     let counts = library.source_entry_counts();
@@ -530,35 +381,20 @@ pub fn Books() -> impl IntoView {
             count: counts.get(&source.id).copied().unwrap_or(0),
         })
         .collect();
-    let apply = BulkApply {
-        library: library.clone(),
-        saving,
-        save_error,
-        status,
-    };
-    let tier_ids = |tier: Tier| -> Vec<String> {
-        rows.iter()
-            .filter(|row| Tier::from_category(row.category.as_deref()) == tier)
-            .map(|row| row.id.clone())
-            .collect()
-    };
-    let rulebook_ids = tier_ids(Tier::Rulebooks);
-    let other_ids: Vec<String> = rows
-        .iter()
-        .filter(|row| Tier::from_category(row.category.as_deref()) != Tier::Rulebooks)
-        .map(|row| row.id.clone())
-        .collect();
-    let no_rulebooks = rulebook_ids.is_empty();
-    let only_rulebooks = {
-        let apply = apply.clone();
-        move |_| {
-            apply.run(
-                rulebook_ids.clone(),
-                other_ids.clone(),
-                "Only Rulebooks are active. Other books keep their downloads and your stars."
-                    .to_string(),
-            )
-        }
+    let total = rows.len();
+    // The count line names the preset that the active set matches, or Custom.
+    let revision = library.selection_revision();
+    let count_library = library.clone();
+    let count_line = move || {
+        revision.get();
+        let sources = count_library.sources();
+        let active = sources
+            .iter()
+            .filter(|source| count_library.book_active(&source.id))
+            .count();
+        let books = book_presets::books_of(sources);
+        let preset = book_presets::matching(&books, |id| count_library.book_active(id));
+        book_presets::count_line(active, total, Some(book_presets::name_or_custom(preset)))
     };
     let sort_link = move |value: Option<BookSort>, label: &'static str| {
         let href = value.map_or_else(
@@ -576,20 +412,21 @@ pub fn Books() -> impl IntoView {
             <h1>"Books"</h1>
             <section>
                 <p class="muted measure">
-                    "Browse each book through its sections and contents. "
+                    "Open a book to read its sections and contents. "
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
-                <div class="books-preset">
-                    <button type="button" class="btn" disabled=move || saving.get() || no_rulebooks
-                        on:click=only_rulebooks>"Only Rulebooks"</button>
-                    <span class="hint">
-                        {if no_rulebooks {
-                            "This library has no books that are marked as Rulebooks."
-                        } else {
-                            "Keep Rulebooks active and deactivate every other book."
-                        }}
-                    </span>
+                <p class="muted books-count" aria-live="polite">{count_line}</p>
+                <div class="filter-row">
+                    <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
+                        on:click=|_| note_opened_from_books()>
+                        <span>"Active books"</span>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round" aria-hidden="true">
+                            <path d="m9 6 6 6-6 6"/>
+                        </svg>
+                    </a>
                 </div>
                 <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
                 <nav class="book-sort" aria-label="Sort books">
@@ -601,8 +438,6 @@ pub fn Books() -> impl IntoView {
                         {sort_link(Some(BookSort::Library), BookSort::Library.label())}
                     </ul>
                 </nav>
-                {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-                <p class="hint books-status" role="status">{move || status.get()}</p>
                 {move || {
                     book_groups(&rows, sort())
                         .into_iter()
@@ -615,10 +450,10 @@ pub fn Books() -> impl IntoView {
                             let items = group
                                 .books
                                 .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error, status))
+                                .map(|index| book_row(rows[index].clone(), library.clone()))
                                 .collect_view();
                             match group.tier {
-                                Some(tier) => tier_section(tier, ids, items, library.clone(), apply.clone(), saving),
+                                Some(tier) => tier_section(tier, ids, items, library.clone()),
                                 None => view! {
                                     <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
                                 }.into_any(),
@@ -631,65 +466,20 @@ pub fn Books() -> impl IntoView {
     }
 }
 
-/// Shown when a click arrives while an earlier selection write is still being saved.
-const SAVE_BUSY: &str = "A book selection update is already being saved. Try again shortly.";
-
-/// The write path for the group and preset controls. It reuses the busy flag and the error line
-/// of the per-book checkboxes, so only one selection write runs at a time.
-#[derive(Clone)]
-struct BulkApply {
-    library: Library,
-    saving: RwSignal<bool>,
-    save_error: RwSignal<Option<String>>,
-    status: RwSignal<Option<String>>,
-}
-
-impl BulkApply {
-    fn run(&self, activate: Vec<String>, deactivate: Vec<String>, message: String) {
-        // Defensive guard: every control that calls this is disabled during a save, so this
-        // runs only for a programmatic event.
-        if self.saving.get_untracked() {
-            self.status.set(None);
-            self.save_error.set(Some(SAVE_BUSY.to_string()));
-            return;
-        }
-        self.saving.set(true);
-        self.save_error.set(None);
-        self.status.set(None);
-        let this = self.clone();
-        spawn_local(async move {
-            match this
-                .library
-                .update_active_books(&activate, &deactivate)
-                .await
-            {
-                Ok(()) => this.status.set(Some(message)),
-                Err(error) => this
-                    .save_error
-                    .set(Some(format!("Could not save the book selection: {error}"))),
-            }
-            this.saving.set(false);
-        });
-    }
-}
-
-/// One tier: a heading inside a native disclosure, and the group's two bulk controls. The
-/// controls sit outside the disclosure, so a collapsed group still deactivates in one click.
-/// Their names carry the group, such as `Deactivate all Adventures`.
-fn tier_section(
+/// One tier: a heading inside a native disclosure, with how many of its books are active.
+/// There are no group controls; the presets on Active books are the only bulk action.
+pub(crate) fn tier_section(
     tier: Tier,
     ids: Vec<String>,
     items: impl IntoView + 'static,
     library: Library,
-    apply: BulkApply,
-    saving: RwSignal<bool>,
 ) -> AnyView {
     let label = tier.label();
     let count = ids.len();
     let heading_id = format!("book-tier-{}", label.to_ascii_lowercase().replace(' ', "-"));
     let labelled_by = heading_id.clone();
     let revision = library.selection_revision();
-    let active_ids = ids.clone();
+    let active_ids = ids;
     let active_count = move || {
         revision.get();
         active_ids
@@ -697,32 +487,8 @@ fn tier_section(
             .filter(|id| library.book_active(id))
             .count()
     };
-    let activate = {
-        let apply = apply.clone();
-        let ids = ids.clone();
-        move |_| {
-            apply.run(
-                ids.clone(),
-                Vec::new(),
-                format!("{label}: all {count} books are active."),
-            )
-        }
-    };
-    let deactivate = move |_| {
-        apply.run(
-            Vec::new(),
-            ids.clone(),
-            format!("{label}: all {count} books are inactive. Downloads and your stars are kept."),
-        )
-    };
     view! {
         <section class="book-tier" aria-labelledby=labelled_by data-tier=label>
-            <div class="tier-actions" role="group" aria-label=format!("{label} activation")>
-                <button type="button" class="btn" aria-label=format!("Activate all {label}")
-                    disabled=move || saving.get() on:click=activate>"Activate all"</button>
-                <button type="button" class="btn" aria-label=format!("Deactivate all {label}")
-                    disabled=move || saving.get() on:click=deactivate>"Deactivate all"</button>
-            </div>
             <details class="tier-details" open=!tier.collapsed_by_default()>
                 <summary class="tier-summary">
                     <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>
@@ -922,8 +688,8 @@ fn filter_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. A kind with only pills or pages
-/// (the old lenses) keeps them until its pull request moves it to this row.
+/// links on the right, and each menu's panel under the row. Races and creatures keep their pills
+/// (the old lens) until the library has the data or their pull request moves them to this row.
 #[component]
 fn Lenses(
     kind: EntryKind,
@@ -937,28 +703,12 @@ fn Lenses(
         return ().into_any();
     }
     let library = use_library();
-    let mut pages = Vec::new();
     let mut facets = Vec::new();
     let mut buttons = Vec::new();
     let mut panels = Vec::new();
     let mut links = Vec::new();
     for lens in all {
         match lens {
-            Lens::Page {
-                label,
-                blurb,
-                route,
-            } => {
-                // The spell and feat pages need the schema-3 files; an old library has none.
-                let usable = match route {
-                    Route::Spells => library.has_spell_lists(),
-                    Route::FeatChains => library.has_relations(),
-                    _ => true,
-                };
-                if usable {
-                    pages.push((label, blurb, route));
-                }
-            }
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
                 let (button, panel) = filter_menu(&library, kind, spec, &applied, focus);
@@ -966,7 +716,9 @@ fn Lenses(
                 panels.push(panel);
             }
             Lens::Link { label, route } => {
+                // The spell and feat pages need the schema-3 files; an old library has none.
                 let usable = match route {
+                    Route::Spells => library.has_spell_lists(),
                     Route::FeatChains => library.has_relations(),
                     _ => true,
                 };
@@ -976,20 +728,6 @@ fn Lenses(
             }
         }
     }
-    let has_pages = !pages.is_empty();
-    let pages = pages
-        .into_iter()
-        .map(|(label, blurb, route)| {
-            view! {
-                <li>
-                    <a class="lens-page" href=route.href()>
-                        <span class="lens-page-name">{label}</span>
-                        <span class="lens-page-note">{blurb}</span>
-                    </a>
-                </li>
-            }
-        })
-        .collect_view();
     let facets = facets
         .into_iter()
         .map(|(field, label)| view! { <FacetLens kind field label /> })
@@ -1016,7 +754,6 @@ fn Lenses(
         <div class="lenses">
             {row}
             {panels}
-            {has_pages.then(|| view! { <ul class="lens-pages">{pages}</ul> })}
             {facets}
         </div>
     }
@@ -1313,6 +1050,9 @@ pub fn BrowseKind(
     let focus_menu = take_focus_request();
     let applied = applied_facets(kind, &facets);
     let all = Shared::new(sorted_of_kind(&library, kind));
+    if let Some(field) = categories::grouped_by(kind) {
+        return view! { <GroupedKind kind field all /> }.into_any();
+    }
     if applied.is_empty() {
         let stubs = all.to_vec();
         return view! {
@@ -1369,6 +1109,96 @@ pub fn BrowseKind(
     view! { {page} }.into_any()
 }
 
+/// Entries under headings by a facet, for a short kind whose few groups are better seen than
+/// chosen: classes by type. The groups come from the search index, so they follow the active
+/// books and show a group only while one of its entries is active. Until the index answers the
+/// page shows its head alone, and if it fails the list falls back to plain A to Z.
+#[component]
+fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>) -> impl IntoView {
+    let library = use_library();
+    let focus_menu = false;
+    let total = all.len();
+    let groups = {
+        let library = library.clone();
+        local_resource(async move {
+            let discovery = library.discovery();
+            let values: Vec<String> = discovery
+                .facet_values(field)
+                .await?
+                .into_iter()
+                .map(|(value, _)| value)
+                .collect();
+            let mut found = Vec::new();
+            for value in categories::order_class_groups(&values) {
+                let ids = discovery.facet_entry_ids(field, &value).await?;
+                found.push((value, ids));
+            }
+            Ok::<_, LibraryError>(found)
+        })
+    };
+    let page = move || {
+        groups.with(|loaded| match loaded {
+            None => view! {
+                <div class="wide list-page">
+                    <h1>{kind.label()}</h1>
+                    <p class="muted list-count" role="status" aria-live="polite">"Loading…"</p>
+                </div>
+            }
+            .into_any(),
+            Some(Err(_)) => {
+                let stubs = all.to_vec();
+                view! {
+                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu />
+                }
+                .into_any()
+            }
+            Some(Ok(found)) => {
+                let sections = sections_by_group(field, &all, found);
+                let stubs = all.to_vec();
+                view! {
+                    <BrowseList kind letter=None applied=Vec::new() stubs total focus_menu
+                        sections />
+                }
+                .into_any()
+            }
+        })
+    };
+    view! { {page} }
+}
+
+/// A group heading and the entries under it.
+type Section = (String, Vec<EntryStub>);
+
+/// The entries under their group headings, in the order given, then the entries no group holds
+/// under a final `Other`. A group with no entry is left out, so the page never shows an empty
+/// heading. The heading is the page's label for the value; the value itself is not changed.
+fn sections_by_group(
+    field: &str,
+    all: &[EntryStub],
+    groups: &[(String, HashSet<String>)],
+) -> Vec<Section> {
+    let mut sections = Vec::new();
+    for (value, ids) in groups {
+        let members: Vec<EntryStub> = all
+            .iter()
+            .filter(|stub| ids.contains(stub.id.as_str()))
+            .cloned()
+            .collect();
+        if !members.is_empty() {
+            sections.push((facet_label(field, value), members));
+        }
+    }
+    let rest: Vec<EntryStub> = all
+        .iter()
+        .filter(|stub| !groups.iter().any(|(_, ids)| ids.contains(stub.id.as_str())))
+        .cloned()
+        .collect();
+    if !rest.is_empty() {
+        sections.push(("Other".to_string(), rest));
+    }
+    sections
+}
+
 /// The list page itself, over the entries that are left after the filter. The list-page
 /// template (DESIGN.md): title, count, the filter row, the letter bar, the rows. No breadcrumb,
 /// lede or search link: the tab bar and the brand lead home, the category cards on Home carry
@@ -1382,6 +1212,10 @@ fn BrowseList(
     /// The size of the whole kind, before the filter.
     total: usize,
     focus_menu: bool,
+    /// A short list under headings, in order: `(heading, entries)`. Without it the list is one
+    /// A to Z list.
+    #[prop(optional)]
+    sections: Option<Vec<Section>>,
 ) -> impl IntoView {
     let library = use_library();
     let count = stubs.len();
@@ -1412,6 +1246,7 @@ fn BrowseList(
             })
         });
 
+    let sectioned = sections.is_some();
     let body = if count == 0 {
         // The value is not in the active books. Say so, and offer the two ways out.
         view! {
@@ -1425,6 +1260,30 @@ fn BrowseList(
             </p>
         }
         .into_any()
+    } else if let Some(sections) = sections {
+        let sections = sections
+            .into_iter()
+            .enumerate()
+            .map(|(i, (label, group))| {
+                let heading_id = format!("group-{i}");
+                let labelled_by = heading_id.clone();
+                let n = group.len();
+                let source_titles: Vec<Option<String>> = group
+                    .iter()
+                    .map(|s| library.source(&s.source).map(|src| src.title.clone()))
+                    .collect();
+                view! {
+                    <section class="letter-group" aria-labelledby=labelled_by>
+                        <h2 class="letter-head" id=heading_id>
+                            {label}<span class="letter-count">{fmt::count(n)}</span>
+                        </h2>
+                        <AzList kind facets=Vec::new() marks=None groups=Vec::new() stubs=group
+                            source_titles show_source=multi_source selected=None focus=false />
+                    </section>
+                }
+            })
+            .collect_view();
+        view! { {sections} }.into_any()
     } else if kind == EntryKind::Rule {
         let items: Vec<(EntryId, Option<EntryId>, String)> = stubs
             .iter()
@@ -1464,7 +1323,7 @@ fn BrowseList(
         <p class="muted list-count" role="status" aria-live="polite">{count_line}{show_all}</p>
         <Lenses kind applied=applied.clone() focus=focus_menu />
         {jump}
-        <h2 class="sr-only">"All, A to Z"</h2>
+        {(!sectioned).then(|| view! { <h2 class="sr-only">"All, A to Z"</h2> })}
         {body}
         </div>
     }
@@ -1672,6 +1531,67 @@ mod tests {
         assert_eq!(
             Route::parse(&options[1].href),
             Route::browse_kind_facets(EntryKind::Feat, vec![facet("feat_type", "General")])
+        );
+    }
+
+    fn stub(id: &str, title: &str) -> EntryStub {
+        EntryStub {
+            id: self::id(id),
+            kind: EntryKind::Class,
+            title: title.into(),
+            source: "core-rulebook".into(),
+            parent: None,
+            shard: "entries/class-000.json".into(),
+        }
+    }
+
+    fn ids(list: &[&str]) -> HashSet<String> {
+        list.iter().map(|id| id.to_string()).collect()
+    }
+
+    #[test]
+    fn classes_sit_under_their_group_headings_in_the_given_order_and_none_is_lost() {
+        let all = [
+            stub("ref/class/alchemist", "Alchemist"),
+            stub("ref/class/bard", "Bard"),
+            stub("ref/class/commoner", "Commoner"),
+            stub("ref/class/mystery", "Mystery"),
+        ];
+        let groups = [
+            ("core".to_string(), ids(&["ref/class/bard"])),
+            ("base".to_string(), ids(&["ref/class/alchemist"])),
+            // A group none of the active books holds shows no heading.
+            ("hybrid".to_string(), ids(&[])),
+            ("npc".to_string(), ids(&["ref/class/commoner"])),
+        ];
+        let sections = sections_by_group("class_type", &all, &groups);
+        let names: Vec<&str> = sections.iter().map(|(label, _)| label.as_str()).collect();
+        // An entry with no group is shown last, not dropped.
+        assert_eq!(names, ["Core", "Base", "NPC", "Other"]);
+        assert_eq!(sections[0].1[0].title, "Bard");
+        assert_eq!(sections[3].1[0].title, "Mystery");
+        let shown: usize = sections.iter().map(|(_, list)| list.len()).sum();
+        assert_eq!(shown, all.len());
+
+        // With every class in a group there is no `Other`.
+        let none = sections_by_group("class_type", &all[..2], &groups[..2]);
+        assert_eq!(none.len(), 2);
+    }
+
+    #[test]
+    fn an_item_category_count_line_and_empty_state_name_the_kind() {
+        assert_eq!(
+            narrowed_count_line(EntryKind::Item, 1324, 8151),
+            "1,324 of 8,151 items"
+        );
+        assert_eq!(kind_count_line(EntryKind::Item, 8151), "8,151 items");
+        assert_eq!(
+            empty_filter_line(EntryKind::Item, &[facet("item_category", "Rods")]),
+            "No Rods in your active books."
+        );
+        assert_eq!(
+            empty_filter_line(EntryKind::Spell, &[facet("school", "evocation")]),
+            "No Evocation spells in your active books."
         );
     }
 

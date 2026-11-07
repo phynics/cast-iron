@@ -160,15 +160,13 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.locator("section[aria-labelledby=by-kind] .cat-name", { hasText: /^Rules$/ })).toHaveCount(0);
 
-  // Each installed publication has an expandable row and a direct contents link.
+  // Each installed publication has one row that links to its book page.
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   await page.goto("#/books");
   await openBookGroups(page);
-  const row = page.locator(".book-directory-row").filter({ has: page.locator("summary", { hasText: book.title }) });
-  await row.locator("summary").click();
-  await expect(row.locator(".book-tree-root")).toHaveText(`Read ${book.title}`);
-  await expect(page.locator(".book-tree .toc-list > li").first()).toBeVisible();
-  await row.locator(".book-tree-root").click();
+  const row = page.locator("a.book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${escape(book.title)}$`) }) });
+  await expect(page.locator(".book-tree-root")).toHaveCount(0);
+  await row.click();
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
 
   // Legacy source routes still reach the book contents when directly bookmarked. One route
@@ -233,6 +231,25 @@ test("Rules text search opens the matched heading and article contents link to r
     const top = document.getElementById(`h-${value}`)?.getBoundingClientRect().top ?? -1;
     return top >= 0 && top < innerHeight / 2;
   }, anchor)).toBe(true);
+});
+
+test("A class page's article contents lists sections, not its source books", async ({ page }) => {
+  const wizard = corpusEntry("class", "Wizard");
+  const publicationTitles = new Set(corpus.catalog.sources.map((source: { title: string }) => source.title));
+  await page.goto(`#/entry/${wizard.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+  const contents = page.locator(".article-contents");
+  await expect(contents).toBeVisible();
+  await contents.locator("summary").click();
+  const labels = (await contents.getByRole("link").allInnerTexts()).map((label) => label.trim());
+  expect(labels).toEqual(expect.arrayContaining([
+    "Class Features and Spells Per Day",
+    "Alternate Capstones",
+    "Archetypes",
+    "Archetypes by Feature",
+  ]));
+  // A source attribution heading is not a section of the article.
+  expect(labels.filter((label) => publicationTitles.has(label))).toEqual([]);
 });
 
 test("Rule entries preserve complex formatting: stat block", async ({ page }) => {

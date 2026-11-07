@@ -16,6 +16,7 @@ jobs:
   build:
     if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - name: Read the pinned corpus commit
@@ -52,6 +53,7 @@ jobs:
     if: github.ref == 'refs/heads/release'
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write

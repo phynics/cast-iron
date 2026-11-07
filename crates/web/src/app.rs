@@ -9,6 +9,7 @@ use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
 use crate::views::{
     self,
+    active_books::ActiveBooks,
     book::{BookView, same_book},
     browse::{Books, BrowseKind, BrowseSource},
     chains::FeatChains,
@@ -132,11 +133,7 @@ fn normalize_location() {
     if (path != base_path || !search.is_empty())
         && let Ok(history) = window.history()
     {
-        let _ = history.replace_state_with_url(
-            &wasm_bindgen::JsValue::NULL,
-            "",
-            Some(&format!("{base_path}{hash}")),
-        );
+        route::replace_url_keeping_state(&history, &format!("{base_path}{hash}"));
     }
 }
 
@@ -272,15 +269,22 @@ fn Reader(library: Library) -> impl IntoView {
             views::util::set_title(title);
         }
         let next = route.clone();
+        // Back and Forward to an entry that was left earlier return to its scroll offset.
+        let restore = if within_search {
+            None
+        } else {
+            route::arrive_at_entry()
+        };
         request_animation_frame(move || {
             if within_search {
                 return;
             }
-            match route.anchor() {
-                Some(anchor) => {
+            match (route.anchor(), restore) {
+                (Some(anchor), _) => {
                     route::scroll_to_anchor(&anchor);
                 }
-                None => route::scroll_to_top(),
+                (None, Some(y)) => route::scroll_to_offset(y),
+                (None, None) => route::scroll_to_top(),
             }
             if !first && !to_search {
                 focus_main();
@@ -290,6 +294,7 @@ fn Reader(library: Library) -> impl IntoView {
     });
 
     views::search::install_slash_shortcut(quick);
+    window_event_listener(leptos::ev::scroll, |_| route::remember_scroll());
 
     view! {
         <div class="app">
@@ -341,7 +346,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksSorted(_) | Route::Book { .. },
+            Route::Books | Route::BooksSorted(_) | Route::BooksActive | Route::Book { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -399,7 +404,12 @@ fn RouteView() -> impl IntoView {
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
         // Other screens rebuild their discovery snapshot after a saved selection change.
-        let selection = if route == Route::Books {
+        // Active books and a book page write the selection themselves, so they stay mounted too:
+        // a rebuild after each toggle would drop focus and the scroll position.
+        let selection = if matches!(
+            route,
+            Route::Books | Route::BooksActive | Route::Book { .. }
+        ) {
             0
         } else {
             revision.get()
@@ -420,6 +430,7 @@ fn RouteView() -> impl IntoView {
         }
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books | Route::BooksSorted(_) => view! { <Books /> }.into_any(),
+        Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),

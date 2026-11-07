@@ -24,6 +24,7 @@ jobs:
   rust:
     name: Rust checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       # The tests read the pinned corpus (the Books tier table is checked against its
@@ -59,6 +60,7 @@ jobs:
     # needs this one, so they are skipped on pull requests as well.
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - name: Read the pinned corpus commit
@@ -116,6 +118,7 @@ jobs:
     # Browser signal must not disappear when formatting, clippy, or unit tests fail.
     needs: [content]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -184,6 +187,9 @@ jobs:
     name: Chromium shard ${{ matrix.shard }}/3 (required)
     needs: [site]
     runs-on: ubuntu-latest
+    # Longest recent successful shard: 12m27s. A stalled apt step is bounded by
+    # this ceiling (composite steps cannot take their own timeout).
+    timeout-minutes: 20
     strategy:
       # Let every shard finish, so the merged report shows all failures.
       fail-fast: false
@@ -230,6 +236,9 @@ jobs:
     # failing the workflow run, which scripts/promote-release.py reads. Firefox is
     # disabled in CI after repeated installer timeouts; see docs/decisions.md.
     continue-on-error: true
+    # Longest normal successful shard: 7m16s. Two runs stalled in the apt step
+    # for 60+ minutes; this ceiling now bounds that wait.
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -275,6 +284,7 @@ jobs:
     if: ${{ !cancelled() && needs.e2e-chromium.result != 'skipped' }}
     runs-on: ubuntu-latest
     continue-on-error: true
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/merge-e2e-reports
@@ -287,6 +297,7 @@ jobs:
     if: ${{ !cancelled() && needs.e2e-webkit.result != 'skipped' }}
     runs-on: ubuntu-latest
     continue-on-error: true
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/merge-e2e-reports

@@ -1,5 +1,6 @@
 //! Rule article contents and heading-aware search matching.
 
+use crate::library::use_library;
 use crate::route::Route;
 use crate::views::rich::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryId};
@@ -27,6 +28,23 @@ fn headings(body: &[Block]) -> Vec<Heading> {
                 anchor: key,
             })
         })
+        .collect()
+}
+
+/// A heading that names a publication repeats the entry's attribution, not a section.
+fn is_publication_heading(heading: &Heading, publication_titles: &[String]) -> bool {
+    let title = heading.title.trim();
+    publication_titles
+        .iter()
+        .any(|publication| publication.trim().eq_ignore_ascii_case(title))
+}
+
+/// The outline stops: body headings minus publication names. The filtered list keeps the
+/// renderer's keys, so every remaining link still reaches its heading.
+fn contents(body: &[Block], publication_titles: &[String]) -> Vec<Heading> {
+    headings(body)
+        .into_iter()
+        .filter(|heading| !is_publication_heading(heading, publication_titles))
         .collect()
 }
 
@@ -73,7 +91,13 @@ pub fn matching_heading(body: &[Block], query: &str) -> Option<String> {
 /// Show a compact disclosure only when the article has enough sections to benefit from it.
 #[component]
 pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
-    let items = headings(&body);
+    let library = use_library();
+    let publication_titles: Vec<String> = library
+        .sources()
+        .iter()
+        .map(|source| source.title.clone())
+        .collect();
+    let items = contents(&body, &publication_titles);
     if items.len() < 4 {
         return ().into_any();
     }
@@ -155,6 +179,32 @@ mod tests {
             matching_heading(&body, "duplicate").as_deref(),
             Some("other-2")
         );
+    }
+
+    #[test]
+    fn publication_titles_do_not_become_article_contents() {
+        let body = vec![
+            h(2, "Advanced Player's Guide", "apg"),
+            h(2, "Class Features", "features"),
+            h(3, "Blood of Shadows", "blood"),
+            h(2, "Archetypes", "archetypes"),
+        ];
+        let titles = [
+            "Advanced Player's Guide".to_string(),
+            "Blood of Shadows".to_string(),
+        ];
+        let found = contents(&body, &titles);
+        assert_eq!(
+            found
+                .iter()
+                .map(|heading| heading.title.as_str())
+                .collect::<Vec<_>>(),
+            ["Class Features", "Archetypes"]
+        );
+        // Matching ignores case and surrounding spaces.
+        assert!(contents(&[h(2, "  blood of shadows ", "b")], &titles).is_empty());
+        // With no publication list the outline is unchanged.
+        assert_eq!(contents(&body, &[]).len(), 4);
     }
 
     #[test]
