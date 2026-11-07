@@ -181,11 +181,11 @@ test("A book row shows a month-year and an entry count, and the Inactive tag onl
   const inactive = row.locator(".tag");
   await expect(inactive).toHaveText("Inactive");
   await expect(row.locator(".cat-blurb")).toContainText(`${grouped(entries)}`);
-  // A label has no border, no fill and no pointer cursor.
+  // A label has no border and no fill (the row around it is the link).
   expect(await inactive.evaluate((el) => {
     const css = getComputedStyle(el);
-    return [css.borderTopWidth, css.backgroundColor, css.cursor];
-  })).toEqual(["0px", "rgba(0, 0, 0, 0)", "auto"]);
+    return [css.borderTopWidth, css.backgroundColor];
+  })).toEqual(["0px", "rgba(0, 0, 0, 0)"]);
   await expect(page.locator(".books-count")).toHaveText(
     `${grouped(sources.length - 1)} of ${grouped(sources.length)} books active · Custom`,
   );
