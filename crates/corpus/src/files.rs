@@ -26,6 +26,10 @@ pub struct Publication {
     pub category: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// The id suffix that new add-on and revision entries from this publication take,
+    /// such as `teitr`. Optional; a publication without one can still hold entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suffix: Option<String>,
 }
 
 impl Publication {
@@ -36,6 +40,7 @@ impl Publication {
             copyright: source.copyright.clone(),
             category: source.category.clone(),
             publication_date: source.publication_date.clone(),
+            suffix: None,
         }
     }
 
@@ -92,6 +97,56 @@ pub fn read_publications(path: &Path, text: &str) -> Result<Vec<Publication>> {
         }
     }
     Ok(file.publication)
+}
+
+/// `option-groups.toml`: the class-option vocabulary. A missing file means no groups.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OptionGroups {
+    /// Keyed by the slug a [`cast_iron_schema::ClassOptionFields::group`] names.
+    #[serde(default)]
+    pub groups: std::collections::BTreeMap<String, OptionGroupDef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OptionGroupDef {
+    pub label: String,
+    pub singular: String,
+    /// Class entries that take the option group.
+    #[serde(default)]
+    pub classes: Vec<String>,
+}
+
+pub fn write_option_groups(groups: &OptionGroups) -> String {
+    toml::to_string(groups).expect("option groups serialize")
+}
+
+pub fn read_option_groups(path: &Path, text: &str) -> Result<OptionGroups> {
+    let groups: OptionGroups = toml::from_str(text).map_err(|error| {
+        Error::new(
+            path,
+            toml_line(&error, text),
+            format!("option-groups: {error}"),
+        )
+    })?;
+    for (slug, group) in &groups.groups {
+        if slug.is_empty() || slug.contains('/') {
+            return Err(Error::new(
+                path,
+                line_of_value(text, slug),
+                format!("option group slug {slug:?} is not a valid id segment"),
+            ));
+        }
+        if group.label.trim().is_empty() || group.singular.trim().is_empty() {
+            return Err(Error::new(
+                path,
+                line_of_value(text, slug),
+                format!("option group `{slug}` needs a label and a singular label"),
+            ));
+        }
+    }
+    Ok(groups)
 }
 
 pub fn write_books(books: &BookIndex) -> String {
@@ -229,6 +284,65 @@ mod tests {
         assert!(!text.contains("entry_count"));
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read[0].to_source(42), sources[0]);
+        assert_eq!(read[0].suffix, None);
+    }
+
+    #[test]
+    fn a_publication_suffix_round_trips_and_is_optional() {
+        let publication = Publication {
+            id: "eitr".into(),
+            title: "The Elephant in the Room".into(),
+            copyright: Some("notice".into()),
+            category: None,
+            publication_date: None,
+            suffix: Some("teitr".into()),
+        };
+        let text = write_publication_list(&[publication.clone()]);
+        assert!(text.contains("suffix = \"teitr\""), "{text}");
+        let read = read_publications(Path::new("publications.toml"), &text).unwrap();
+        assert_eq!(read, vec![publication.clone()]);
+
+        let mut without = publication;
+        without.suffix = None;
+        let text = write_publication_list(&[without.clone()]);
+        assert!(!text.contains("suffix"), "{text}");
+        assert_eq!(
+            read_publications(Path::new("publications.toml"), &text).unwrap(),
+            vec![without]
+        );
+    }
+
+    #[test]
+    fn option_groups_round_trip_in_slug_order() {
+        let mut groups = OptionGroups::default();
+        groups.groups.insert(
+            "hex".into(),
+            OptionGroupDef {
+                label: "Hexes".into(),
+                singular: "Hex".into(),
+                classes: vec!["ref/class/witch".into()],
+            },
+        );
+        groups.groups.insert(
+            "arcane-discovery".into(),
+            OptionGroupDef {
+                label: "Arcane discoveries".into(),
+                singular: "Arcane discovery".into(),
+                classes: vec!["ref/class/wizard".into()],
+            },
+        );
+        let text = write_option_groups(&groups);
+        assert!(
+            text.find("[groups.arcane-discovery]") < text.find("[groups.hex]"),
+            "{text}"
+        );
+        let path = Path::new("option-groups.toml");
+        assert_eq!(read_option_groups(path, &text).unwrap(), groups);
+        assert_eq!(
+            read_option_groups(path, "").unwrap(),
+            OptionGroups::default()
+        );
+        assert!(read_option_groups(path, "[groups.bad]\nlabel = \"L\"\n").is_err());
     }
 
     #[test]

@@ -2,7 +2,7 @@
 //!
 //! One entry file per [`RuleEntry`], plus a small set of stored source files
 //! (`corpus.toml`, `publications.toml`, `books.toml`, `legal.toml`,
-//! `exclusions.toml`, `history.toml`, `aliases.toml`). Every other compiler-derived file (relations, spell lists,
+//! `exclusions.toml`, `history.toml`, `aliases.toml`, `option-groups.toml`). Every other compiler-derived file (relations, spell lists,
 //! backlinks, catalog stubs, search index, manifest) is rebuilt by the compiler,
 //! not stored.
 //!
@@ -44,9 +44,10 @@ pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{
-    Exclusions, Publication, PublicationsFile, read_aliases, read_books, read_exclusions,
-    read_history, read_legal, read_publications, write_aliases, write_books, write_exclusions,
-    write_history, write_legal, write_publication_list, write_publications,
+    Exclusions, OptionGroupDef, OptionGroups, Publication, PublicationsFile, read_aliases,
+    read_books, read_exclusions, read_history, read_legal, read_option_groups, read_publications,
+    write_aliases, write_books, write_exclusions, write_history, write_legal, write_option_groups,
+    write_publication_list, write_publications,
 };
 pub use fmt::{Change, FmtReport, format_corpus};
 pub use load::{Corpus, Stored, list_files};
