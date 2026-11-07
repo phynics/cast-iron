@@ -2604,8 +2604,15 @@ main,
 .density-toggle {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-3);
+}
+
+/* The density pills keep the 44 px target at every pointer type. The generic fine-pointer
+   chip rule lowers the pill to 2.25rem, which can clip the check mark at this size. */
+.density-toggle .chip span {
+  min-height: var(--touch);
 }
 
 /* Density "compact": name and school, then one fact line at every width. The line ends in an

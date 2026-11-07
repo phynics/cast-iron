@@ -5,6 +5,12 @@
 
 use crate::store;
 
+/// The radio group on spell-list pages. Each group needs its own `name` so arrow-key
+/// navigation stays inside the group that holds focus.
+pub const LIST_RADIO_GROUP: &str = "spell-density-list";
+/// The radio group under Settings > Appearance.
+pub const SETTINGS_RADIO_GROUP: &str = "spell-density-settings";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Density {
     /// Two lines at every width: name and school, then one fact line that ellipsises.
@@ -70,5 +76,12 @@ mod tests {
     #[test]
     fn the_stored_key_is_the_other_reader_preferences_key() {
         assert_eq!(store::KEY_SPELL_DENSITY, "spell_density");
+    }
+
+    #[test]
+    fn the_two_radio_groups_have_distinct_names() {
+        assert_ne!(LIST_RADIO_GROUP, SETTINGS_RADIO_GROUP);
+        assert!(LIST_RADIO_GROUP.ends_with("-list"));
+        assert!(SETTINGS_RADIO_GROUP.ends_with("-settings"));
     }
 }

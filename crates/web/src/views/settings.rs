@@ -171,7 +171,7 @@ pub fn Settings() -> impl IntoView {
                     <label class="choice-item">
                         <input
                             type="radio"
-                            name="spell-density"
+                            name=density::SETTINGS_RADIO_GROUP
                             value=choice.slug()
                             prop:checked=move || app.density.get() == choice
                             on:change=move |_| {

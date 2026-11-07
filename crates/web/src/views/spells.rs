@@ -385,7 +385,7 @@ fn density_toggle() -> impl IntoView {
                 <label class="chip">
                     <input
                         type="radio"
-                        name="spell-density"
+                        name=density::LIST_RADIO_GROUP
                         value=choice.slug()
                         prop:checked=move || app.density.get() == choice
                         on:change=move |_| {
