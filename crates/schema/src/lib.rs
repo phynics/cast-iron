@@ -829,8 +829,8 @@ pub struct SpellLists {
     /// What a list row shows besides the title. **Positional:** entry `i` belongs to
     /// `spells[i]`, so the two vectors have the same order and the same length. A level's
     /// `spells` positions index both. Empty in a library built before rows carried it; the
-    /// reader then shows the title alone. Anything else fails validation. Additive, so
-    /// [`SCHEMA_VERSION`] stays 3.
+    /// reader then shows the title alone. Anything else fails validation. Additive: it
+    /// arrived under schema 3 without a [`SCHEMA_VERSION`] bump.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub details: Vec<SpellListDetail>,
 }
