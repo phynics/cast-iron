@@ -413,6 +413,7 @@ fn parse_facets(query: Option<&str>) -> Vec<(String, String)> {
         if let Some(raw) = raw.strip_prefix("facet=")
             && let Some((field, value)) = raw.split_once(':')
             && let (Some(field), Some(value)) = (percent_decode(field), percent_decode(value))
+            && !value.trim().is_empty()
         {
             let value = if field == "school" {
                 legacy_school(&value)
@@ -1057,6 +1058,33 @@ mod tests {
         }
         assert_eq!(Route::NotFound("#/nope".into()).href(), "#/nope");
         assert_eq!(Route::NotFound("junk".into()).href(), "#/");
+    }
+
+    #[test]
+    fn empty_facet_values_are_dropped() {
+        // A hand-made URL must not narrow a list on an empty value and show "No  feats".
+        let Route::BrowseKind { facets, .. } =
+            Route::parse("#/browse/kind/feat?facet=feat_type:&l=b")
+        else {
+            panic!("not a kind route");
+        };
+        assert!(facets.is_empty());
+        let Route::Search { facets, .. } =
+            Route::parse("#/search?q=x&facet=feat_type:&facet=descriptor:%20")
+        else {
+            panic!("not a search route");
+        };
+        assert!(facets.is_empty());
+        // A real pair next to an empty one survives.
+        let Route::Search { facets, .. } =
+            Route::parse("#/search?facet=feat_type:&facet=school:evocation")
+        else {
+            panic!("not a search route");
+        };
+        assert_eq!(
+            facets,
+            [("school".to_string(), "evocation".to_string())]
+        );
     }
 
     #[test]
