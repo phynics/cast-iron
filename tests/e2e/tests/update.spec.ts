@@ -13,6 +13,7 @@ import {
   storedMeta,
   waitControlled,
   waitReady,
+  writeMeta,
 } from "./helpers";
 
 const v1 = distManifest().content_version;
@@ -164,8 +165,41 @@ test("With the automatic check off, no manifest request happens at start", async
   await server.clearLog();
   await page.reload();
   await waitReady(page);
-  await page.waitForTimeout(1000);
+  // The switch renders from the stored value that the start path read before it would check.
+  await expect(page.getByRole("checkbox", { name: "Check for updates automatically" })).not.toBeChecked();
+  await expect.poll(() => storedMeta(page, "update_check")).toBeNull();
   expect((await server.requests()).filter((p) => p === "content/manifest.json")).toEqual([]);
+});
+
+test("A stored newer library mounts no installer until the reader asks", async ({ page, server }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  const library = await activeLibrary(page);
+  // A record from an earlier session: it knows the version and size, but holds no manifest.
+  await writeMeta(page, "auto_update_check", false);
+  await writeMeta(page, "update_check", {
+    last_checked: Date.now(),
+    known_version: "v0000000000000000",
+    known_bytes: library.total_bytes,
+  });
+  await server.clearLog();
+  await page.reload();
+  await waitReady(page);
+
+  // Opening Settings must not fetch the manifest just because a record names a newer library.
+  await page.goto("#/settings");
+  const row = page.getByTestId("library-update");
+  await expect(row).toContainText("Newer rules library: v0000000000000000");
+  await expect(row).toContainText("Your stars and book choices are kept.");
+  await expect(row.locator(".install-panel")).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
+  await expect
+    .poll(async () => (await server.requests()).filter((p) => p === "content/manifest.json"))
+    .toEqual([]);
+  // The stored record is untouched: no check ran and wrote a new one.
+  await expect
+    .poll(async () => (await storedMeta(page, "update_check"))?.known_version)
+    .toBe("v0000000000000000");
 });
 
 test("Offline, the automatic check asks for nothing and Settings still works", async ({ openProfile, server }) => {
@@ -181,11 +215,28 @@ test("Offline, the automatic check asks for nothing and Settings still works", a
   await server.clearLog();
   context = await openProfile({ offline: true });
   page = await context.newPage();
+  // Offline hides the request from the server, so record every attempt on the page as well.
+  await page.addInitScript(() => {
+    const original = window.fetch.bind(window);
+    (window as any).__fetches = [];
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      (window as any).__fetches.push(url);
+      return original(input, init);
+    };
+  });
   await page.goto("./");
   await waitReady(page);
   await expect(page.locator("#home-title")).toBeVisible();
   await page.goto("#/settings");
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByTestId("last-checked")).toContainText("Last checked:");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        ((window as any).__fetches as string[]).filter((url) => url.includes("content/manifest.json")),
+      ),
+    )
+    .toEqual([]);
   expect((await server.requests()).filter((p) => p === "content/manifest.json")).toEqual([]);
 });

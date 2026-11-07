@@ -95,6 +95,19 @@ pub fn Settings() -> impl IntoView {
     let shell = RwSignal::new(None::<Option<String>>);
     spawn_local(async move { shell.set(Some(js::shell_version().await)) });
 
+    // Settings moves the Updates section to the top while something waits. That remounts it, so
+    // focus falls to <body>; remember whether it was inside and put it back on the moved section.
+    let focus_inside_updates = RwSignal::new(false);
+    let focus_handle = window_event_listener_untyped("focusin", move |event| {
+        let inside = event
+            .target()
+            .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
+            .and_then(|element| element.closest("#set-updates").ok().flatten())
+            .is_some();
+        focus_inside_updates.set(inside);
+    });
+    on_cleanup(move || focus_handle.remove());
+
     let verify = RwSignal::new(VerifyState::Idle);
 
     let run_verify = {
@@ -118,6 +131,13 @@ pub fn Settings() -> impl IntoView {
     // Updates come first while something waits, so the reader sees the action without scrolling.
     let waiting =
         Memo::new(move |_| app.shell_update_ready.get() || updates.library_update.get().is_some());
+    Effect::new(move |previous: Option<bool>| {
+        let now = waiting.get();
+        if previous == Some(false) && now && focus_inside_updates.get_untracked() {
+            request_animation_frame(|| request_animation_frame(focus_updates));
+        }
+        now
+    });
 
     view! {
         <h1>"Settings"</h1>
@@ -263,7 +283,7 @@ fn UpdatesSection() -> impl IntoView {
     let status = RwSignal::new(UpdateState::Idle);
     let on_done = Callback::new(move |active: ActiveLibrary| app.activate(active));
 
-    let check_now = move |_| {
+    let check_now = Callback::new(move |_: ()| {
         status.set(UpdateState::Checking);
         spawn_local(async move {
             // Also ask for a newer app shell. A failure here changes nothing the user can act on.
@@ -274,7 +294,7 @@ fn UpdatesSection() -> impl IntoView {
                 Err(message) => UpdateState::Failed(message),
             });
         });
-    };
+    });
 
     view! {
         <section class="settings-section" id="set-updates" tabindex="-1" aria-labelledby="set-updates-title">
@@ -285,23 +305,31 @@ fn UpdatesSection() -> impl IntoView {
                     return ().into_any();
                 };
                 let manifest = found.manifest.clone();
-                let name = format!("{} ({})", found.version, fmt::bytes(found.bytes));
+                let size = (found.bytes > 0).then(|| format!(" ({})", fmt::bytes(found.bytes)));
+                let name = format!("{}{}", found.version, size.unwrap_or_default());
                 let online = app.online.get();
                 view! {
                     <div class="update-row" data-testid="library-update">
                         <p><strong>"Newer rules library: "</strong>{name}</p>
                         <p class="muted">"Your stars and book choices are kept."</p>
-                        {if online {
-                            match manifest {
-                                Some(manifest) => view! {
-                                    <InstallPanel mode=InstallMode::Update manifest on_done />
-                                }.into_any(),
-                                None => view! {
-                                    <InstallPanel mode=InstallMode::Update on_done />
-                                }.into_any(),
-                            }
-                        } else {
-                            view! { <p class="muted">"Connect to download it."</p> }.into_any()
+                        // Only a manifest from this session may mount the panel: the panel fetches
+                        // one on mount, which would bypass the switch and the daily budget.
+                        {match (manifest, online) {
+                            (Some(manifest), true) => view! {
+                                <InstallPanel mode=InstallMode::Update manifest on_done />
+                            }.into_any(),
+                            (Some(_), false) => view! {
+                                <p class="muted">"Connect to download it."</p>
+                            }.into_any(),
+                            (None, _) => view! {
+                                <p class="update-prompt">
+                                    <button class="btn" type="button" on:click=move |_| check_now.run(())
+                                        prop:disabled=move || !app.online.get()>
+                                        "Check now"
+                                    </button>
+                                    <span class="muted">"This app reads the file list from the manifest first."</span>
+                                </p>
+                            }.into_any(),
                         }}
                     </div>
                 }.into_any()
@@ -336,7 +364,7 @@ fn UpdatesSection() -> impl IntoView {
             </p>
 
             <p class="update-check">
-                <button class="btn" type="button" on:click=check_now
+                <button class="btn" type="button" on:click=move |_| check_now.run(())
                     prop:disabled=move || !app.online.get() || matches!(status.get(), UpdateState::Checking)>
                     "Check now"
                 </button>

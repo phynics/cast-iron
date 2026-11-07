@@ -44,6 +44,9 @@ pub struct UpdateCtx {
     pub last_checked: RwSignal<Option<f64>>,
     /// The Settings switch, "Check for updates automatically". On by default.
     pub auto: RwSignal<bool>,
+    /// A check is running. Guards against a start event and a visibility event, or a manual
+    /// check, from asking the network twice at once.
+    checking: RwSignal<bool>,
     /// The active library's version, which a check compares against the manifest.
     active_version: RwSignal<String>,
     online: RwSignal<bool>,
@@ -62,6 +65,7 @@ impl UpdateCtx {
             library_update: RwSignal::new(None),
             last_checked: RwSignal::new(None),
             auto: RwSignal::new(true),
+            checking: RwSignal::new(false),
             active_version: RwSignal::new(active.content_version),
             online: app.online,
         };
@@ -79,23 +83,40 @@ impl UpdateCtx {
     }
 
     /// Runs the automatic check when the rule allows it. Called at app start and whenever the
-    /// document becomes visible again.
+    /// document becomes visible again. The flag is set before the task starts, so two events in
+    /// one turn cannot both spawn a fetch.
     pub fn maybe_check(self) {
+        if self.checking.get_untracked() {
+            return;
+        }
         if should_check(
             js::now_ms(),
             self.last_checked.get_untracked(),
             self.online.get_untracked(),
             self.auto.get_untracked(),
         ) {
+            self.checking.set(true);
             spawn_local(async move {
-                let _ = self.check_now().await;
+                let _ = self.run_check().await;
+                self.checking.set(false);
             });
         }
     }
 
+    /// The explicit check. It shares the in-flight guard with the automatic one.
+    pub async fn check_now(self) -> Result<UpdateCheck, String> {
+        if self.checking.get_untracked() {
+            return Err("A check is already running.".to_string());
+        }
+        self.checking.set(true);
+        let result = self.run_check().await;
+        self.checking.set(false);
+        result
+    }
+
     /// Asks for the app's own manifest and records the answer. Never downloads the library.
     /// Errors are returned for an explicit check to show; the automatic caller ignores them.
-    pub async fn check_now(self) -> Result<UpdateCheck, String> {
+    async fn run_check(self) -> Result<UpdateCheck, String> {
         let active_version = self.active_version.get_untracked();
         let checked_at = js::now_ms();
         let result = install::check_for_update(&active_version).await;
