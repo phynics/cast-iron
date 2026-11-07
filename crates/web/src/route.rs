@@ -1081,10 +1081,7 @@ mod tests {
         else {
             panic!("not a search route");
         };
-        assert_eq!(
-            facets,
-            [("school".to_string(), "evocation".to_string())]
-        );
+        assert_eq!(facets, [("school".to_string(), "evocation".to_string())]);
     }
 
     #[test]
