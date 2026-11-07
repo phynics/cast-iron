@@ -89,6 +89,39 @@ pub fn heading_keys(entry: &RuleEntry) -> Vec<(String, String)> {
         .collect()
 }
 
+/// Upstream inline tokens the retired import left in body text: `&`, one or more ASCII
+/// uppercase letters, and `&`, so `&L&` and `&FN&` are caught. Lowercase HTML-style entities
+/// (`&times&`, `&quot&`, ...) and mixed-case markers (`&Next1&`) are deliberately not matched.
+fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut line = 1;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'\n' => {
+                line += 1;
+                i += 1;
+            }
+            b'&' => {
+                let start = i;
+                let mut end = i + 1;
+                while end < bytes.len() && bytes[end].is_ascii_uppercase() {
+                    end += 1;
+                }
+                if end > i + 1 && end < bytes.len() && bytes[end] == b'&' {
+                    out.push((line, text[start..=end].to_string()));
+                    i = end + 1;
+                } else {
+                    i += 1;
+                }
+            }
+            _ => i += 1,
+        }
+    }
+    out
+}
+
 pub fn fields_kind(fields: &TypedFields) -> &'static str {
     match fields {
         TypedFields::Spell(_) => "spell",
@@ -194,6 +227,12 @@ pub fn check(corpus: &Corpus) -> Report {
                 at("kind"),
                 entry.kind.slug(),
                 fields_kind(&entry.fields)
+            ));
+        }
+        for (line, token) in upstream_markup_tokens(&stored.text) {
+            report.problems.push(format!(
+                "{}:{line}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
+                path.display()
             ));
         }
         if let TypedFields::Creature(fields) = &entry.fields
@@ -365,7 +404,7 @@ fn check_book_node(
 mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
-    use cast_iron_schema::{BookIndex, BookNode, BookTree, CreatureFields, EntryId};
+    use cast_iron_schema::{BookIndex, BookNode, BookTree, CreatureFields, EntryId, Inline};
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
         let mut entry = rule(id, vec![]);
@@ -415,6 +454,26 @@ mod tests {
 
         c.legal.notice_pending = vec!["Core Rulebook".into()];
         assert!(check(&c).problems.is_empty());
+    }
+
+    #[test]
+    fn left_over_upstream_tokens_fail_and_html_entities_do_not() {
+        let dirty = rule(
+            "ref/rule/a",
+            vec![paragraph(vec![Inline::text("&L&Title&FN& and &Q&EM")])],
+        );
+        let text = check(&corpus(vec![dirty])).problems.join("\n");
+        assert!(text.contains("left-over upstream token `&L&`"), "{text}");
+        assert!(text.contains("`&FN&`"), "{text}");
+        assert!(text.contains("`&Q&`"), "{text}");
+
+        let clean = rule(
+            "ref/rule/b",
+            vec![paragraph(vec![Inline::text(
+                "&times& &quot& &mdash &S &Next1&",
+            )])],
+        );
+        assert!(check(&corpus(vec![clean])).problems.is_empty());
     }
 
     #[test]
