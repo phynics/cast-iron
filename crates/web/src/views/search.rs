@@ -158,6 +158,8 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("race_group", "uncommon_race") => "Uncommon races".into(),
         ("race_group", "monster_race") => "Monster races".into(),
         ("class_type", "npc") => "NPC".into(),
+        ("creature_type", "magicalBeast") => "Magical Beast".into(),
+        ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
         ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
             capitalize_words(value)
         }
@@ -596,17 +598,21 @@ fn inactive_match_counts(
     counts
 }
 
-/// The hidden count and the book to name: the one with the most hidden matches, then the first
-/// source id so a tie is deterministic. `None` when nothing is hidden.
+/// The hidden count and the book to name: the one with the most hidden matches, then the
+/// higher-priority `Tier`, then the source id ascending, so a tie is deterministic.
+/// `None` when nothing is hidden.
 fn inactive_matches(
     hits: &[HitSummary],
     is_eligible: impl Fn(&str) -> bool,
     source_of: impl Fn(&HitSummary) -> String,
+    tier_of: impl Fn(&str) -> Tier,
 ) -> Option<(usize, String)> {
     let counts = inactive_match_counts(hits, is_eligible, source_of);
-    let (source, _) = counts
-        .iter()
-        .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))?;
+    let (source, _) = counts.iter().max_by(|a, b| {
+        a.1.cmp(b.1)
+            .then_with(|| tier_of(b.0).cmp(&tier_of(a.0)))
+            .then_with(|| b.0.cmp(a.0))
+    })?;
     Some((counts.values().sum(), source.clone()))
 }
 
@@ -829,6 +835,11 @@ pub fn Search() -> impl IntoView {
                                 .ok()
                                 .and_then(|id| library.canonical_source_for_entry(&id))
                                 .unwrap_or_else(|| hit.source.clone())
+                        },
+                        |id| {
+                            library.source(id).map_or(Tier::Other, |source| {
+                                Tier::from_category(source.category.as_deref())
+                            })
                         },
                     )
                 } else {
@@ -1430,11 +1441,17 @@ pub fn Search() -> impl IntoView {
                         on:click=move |_| {
                             let library = library.clone();
                             let source = source.clone();
+                            // Keep focus in the page while the hint unmounts.
+                            focus_result_count();
                             spawn_local(async move {
                                 let _ = library.set_book_active(&source, true).await;
+                                js::sleep(0).await;
+                                // The results have re-rendered. Keep focus on the status line
+                                // instead of dropping it to <body>.
+                                focus_result_count();
                             });
                         }>
-                        {format!("Include {title}")}
+                        {format!("Turn on {title}")}
                     </button>
                 </p>
             }
@@ -1563,7 +1580,7 @@ pub fn Search() -> impl IntoView {
                     data-index-ms=move || index_ms.get().map(|ms| format!("{ms:.1}"))
                     data-query=move || state.with(|s| s.q.clone())
                 >
-                    <p class="result-count" role="status" aria-live="polite">
+                    <p class="result-count" role="status" aria-live="polite" tabindex="-1">
                         <span>{count_text}</span>
                         {show_all}
                         {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
@@ -1621,6 +1638,18 @@ async fn ensure_index(
     }
 }
 
+/// Focus the results status line. The inactive-book hint unmounts after its action, so the
+/// next focus target has to be found after the render.
+fn focus_result_count() {
+    if let Some(status) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.query_selector(".result-count").ok().flatten())
+        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+    {
+        let _ = status.focus();
+    }
+}
+
 fn hit_view(
     library: &crate::library::Library,
     hit: &Hit,
@@ -1640,6 +1669,10 @@ fn hit_view(
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
     // The index records one attribution source. When it is inactive, the entry's book placement
     // is the source that kept the entry eligible, so it is the one the reader should see.
+    // A search row only has the catalog stub, which carries one source, so its alternative set
+    // is the canonical placement. The entry header uses the same `preferred_source` rule over
+    // every `source_ids` entry because it has the full entry. The rule is one; the data differs.
+    // See docs/decisions.md, "Inactive books in search".
     let canonical = entry_id
         .as_ref()
         .and_then(|id| library.canonical_source_for_entry(id));
@@ -1751,6 +1784,14 @@ mod tests {
     fn facet_labels_read_well_and_leave_values_alone() {
         assert_eq!(facet_label("race_group", "monster_race"), "Monster races");
         assert_eq!(facet_label("class_type", "npc"), "NPC");
+        assert_eq!(
+            facet_label("creature_type", "magicalBeast"),
+            "Magical Beast"
+        );
+        assert_eq!(
+            facet_label("creature_type", "monstrousHumanoid"),
+            "Monstrous Humanoid"
+        );
         assert_eq!(facet_label("class_type", "base"), "Base");
         assert_eq!(facet_label("trait_category", "combat"), "Combat");
         assert_eq!(
@@ -1868,6 +1909,21 @@ mod tests {
     }
 
     #[test]
+    fn a_search_row_names_the_canonical_book_when_the_indexed_source_is_inactive() {
+        let tier = |id: &str| match id {
+            "core" => Tier::Rulebooks,
+            _ => Tier::Other,
+        };
+        let active = |id: &str| id == "core";
+        assert_eq!(
+            preferred_source("inactive", Some("core"), active, tier),
+            "core"
+        );
+        // Without a canonical alternative the row keeps the indexed source.
+        assert_eq!(preferred_source("inactive", None, active, tier), "inactive");
+    }
+
+    #[test]
     fn hidden_matches_count_only_inactive_entries_by_book() {
         let hits = [
             summary("a", "core"),
@@ -1879,13 +1935,40 @@ mod tests {
         assert_eq!(counts.get("bestiary"), Some(&2));
         assert_eq!(counts.get("um"), Some(&1));
         assert_eq!(
-            inactive_matches(&hits, |id| id == "a", |hit| hit.source.clone()),
+            inactive_matches(
+                &hits,
+                |id| id == "a",
+                |hit| hit.source.clone(),
+                |_| Tier::Other
+            ),
             Some((3, "bestiary".to_string()))
         );
         // With every entry eligible there is nothing to say.
         assert_eq!(
-            inactive_matches(&hits, |_| true, |hit| hit.source.clone()),
+            inactive_matches(&hits, |_| true, |hit| hit.source.clone(), |_| Tier::Other),
             None
+        );
+    }
+
+    #[test]
+    fn an_inactive_tie_prefers_the_higher_tier_then_the_source_id() {
+        // “core” (Rulebooks) ties “ap” (Adventures); the higher tier wins over the id order.
+        let hits = [summary("a", "ap"), summary("b", "core")];
+        let hidden = |_: &str| false;
+        let tier = |id: &str| match id {
+            "core" => Tier::Rulebooks,
+            "ap" => Tier::Adventures,
+            _ => Tier::Other,
+        };
+        assert_eq!(
+            inactive_matches(&hits, hidden, |hit| hit.source.clone(), tier),
+            Some((2, "core".to_string()))
+        );
+        // In one tier the source id ascending decides.
+        let hits = [summary("a", "zeta"), summary("b", "alpha")];
+        assert_eq!(
+            inactive_matches(&hits, hidden, |hit| hit.source.clone(), |_| Tier::Other),
+            Some((2, "alpha".to_string()))
         );
     }
 

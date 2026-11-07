@@ -8,6 +8,26 @@ use cast_iron_schema::{Block, BookNode, EntryKind, RuleEntry, TypedFields};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+/// The creature types of Pathfinder First Edition, in the corpus spelling.
+///
+/// The client shows a `creature_type` facet value as written, so one type must have exactly one
+/// spelling. Case variants such as `Humanoid` would otherwise appear as separate filter values.
+pub const CREATURE_TYPES: [&str; 13] = [
+    "aberration",
+    "animal",
+    "construct",
+    "dragon",
+    "fey",
+    "humanoid",
+    "magicalBeast",
+    "monstrousHumanoid",
+    "ooze",
+    "outsider",
+    "plant",
+    "undead",
+    "vermin",
+];
+
 /// What a check found. Every problem fails the run; there are no warnings.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
@@ -215,6 +235,16 @@ pub fn check(corpus: &Corpus) -> Report {
                 path.display()
             ));
         }
+        if let TypedFields::Creature(fields) = &entry.fields
+            && let Some(creature_type) = &fields.creature_type
+            && !CREATURE_TYPES.contains(&creature_type.as_str())
+        {
+            report.problems.push(format!(
+                "{}: creature_type `{creature_type}` is not one of the PF1e creature types: {}",
+                at(&format!("creature_type = \"{creature_type}\"")),
+                CREATURE_TYPES.join(", ")
+            ));
+        }
         for source in &entry.source_ids {
             if !publication_ids.contains(source.as_str()) {
                 report
@@ -374,7 +404,33 @@ fn check_book_node(
 mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
-    use cast_iron_schema::{BookIndex, BookNode, BookTree, EntryId, Inline};
+    use cast_iron_schema::{BookIndex, BookNode, BookTree, CreatureFields, EntryId, Inline};
+
+    fn creature(id: &str, creature_type: &str) -> RuleEntry {
+        let mut entry = rule(id, vec![]);
+        entry.kind = EntryKind::Creature;
+        entry.fields = TypedFields::Creature(Box::new(CreatureFields {
+            creature_type: Some(creature_type.into()),
+            ..Default::default()
+        }));
+        entry
+    }
+
+    #[test]
+    fn creature_type_must_be_a_pf1e_type() {
+        let report = check(&corpus(vec![creature("ref/creature/ok", "magicalBeast")]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let report = check(&corpus(vec![creature("ref/creature/bad", "Magical Beast")]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(problem.starts_with("entries/creature/bad.md:"), "{problem}");
+        assert!(
+            problem.contains("creature_type `Magical Beast`"),
+            "{problem}"
+        );
+        assert!(problem.contains("magicalBeast"), "{problem}");
+    }
 
     #[test]
     fn a_publication_needs_a_copyright_and_a_notice_or_a_pending_decision() {

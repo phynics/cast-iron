@@ -1216,7 +1216,7 @@ test("An inactive first source is replaced by the active book that still shows t
 
   // Turning off only that attribution source leaves the placement book active, so the entry
   // stays eligible and its label must name the active book instead.
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${first}"]`)
     .getByRole("checkbox", { name: `Active ${firstTitle}`, exact: true });
@@ -1231,6 +1231,14 @@ test("An inactive first source is replaced by the active book that still shows t
   await expect(updated.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(ownerTitle)}$`));
   await updated.click();
   await expect(page.locator(".entry-meta .meta-link").nth(1)).toHaveText(ownerTitle);
+
+  // Quick search suggestions use the same rule as the result rows.
+  await page.goto("#/");
+  const layer = await openQuickSearch(page);
+  await layer.getByRole("combobox", { name: "Search the rules" }).fill(entry.title);
+  const metas = layer.locator('[role="option"] .quick-search-meta');
+  await expect.poll(async () => (await metas.allInnerTexts()).some((line) => line.endsWith(` · ${ownerTitle}`))).toBe(true);
+  await page.keyboard.press("Escape");
 });
 
 test("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
@@ -1240,7 +1248,7 @@ test("Search names hidden matches in an inactive book and includes it in one tap
   expect(book, "the dragon's placement book is in the catalog").toBeTruthy();
 
   await installLibrary(page);
-  await page.goto("#/books");
+  await page.goto("#/books/active");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${bookId}"]`)
     .getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
@@ -1253,10 +1261,12 @@ test("Search names hidden matches in an inactive book and includes it in one tap
   const hint = page.locator(".inactive-books-hint");
   await expect(hint).toBeVisible();
   await expect(hint).toContainText(`inactive books (${book.title})`);
-  await expect(hint.getByRole("button", { name: `Include ${book.title}`, exact: true })).toBeVisible();
+  await expect(hint.getByRole("button", { name: `Turn on ${book.title}`, exact: true })).toBeVisible();
 
-  // One tap includes the book and the same search now finds the dragon.
-  await hint.getByRole("button", { name: `Include ${book.title}`, exact: true }).click();
+  // One tap includes the book and the same search now finds the dragon. The hint unmounts,
+  // so focus lands on the results status line rather than falling to <body>.
+  await hint.getByRole("button", { name: `Turn on ${book.title}`, exact: true }).click();
   await expect(page.locator(`.results a[href^="#/entry/${dragon.id}"]`)).toBeVisible();
   await expect(hint).toHaveCount(0);
+  await expect(page.locator(".result-count")).toBeFocused();
 });
