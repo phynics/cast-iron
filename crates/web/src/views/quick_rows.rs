@@ -191,6 +191,8 @@ mod tests {
         let feats = Scope {
             kind: EntryKind::Feat,
             facets: Vec::new(),
+            source: None,
+            source_title: None,
         };
         let recents = vec![
             RecentSearch::new("grapple", Some(feats)),
