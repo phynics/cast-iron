@@ -1725,6 +1725,42 @@ mod tests {
         assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
+    #[test]
+    fn a_carried_mythic_twin_is_exempt_from_the_nested_id() {
+        let base = feat("ref/feat/power-attack", &[]);
+        let twin = typed(
+            rule(
+                "ref/carried/mythic-adventures/feats/power-attack/mythic",
+                vec![],
+            ),
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                feat_types: vec!["Mythic".into()],
+                ..Default::default()
+            }),
+        );
+        let twin = related(
+            twin,
+            RelationKind::Addon,
+            "ref/feat/power-attack",
+            Some("mythic"),
+        );
+        let report = check(&corpus(vec![base.clone(), twin]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let wrong = related(
+            feat("ref/feat/elsewhere", &["Mythic"]),
+            RelationKind::Addon,
+            "ref/feat/power-attack",
+            Some("mythic"),
+        );
+        let text = check(&corpus(vec![base, wrong])).problems.join("\n");
+        assert!(
+            text.contains("needs the id `ref/feat/power-attack/mythic`, not `ref/feat/elsewhere`"),
+            "{text}"
+        );
+    }
+
     fn class_option(id: &str, group: &str) -> RuleEntry {
         typed(
             rule(id, vec![]),
