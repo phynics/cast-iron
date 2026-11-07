@@ -613,6 +613,8 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
             match relation.kind {
                 RelationKind::Variant => {
                     variants += 1;
+                    // TODO(slice 5, #143): error when a spell body holds another spell's title
+                    // as a heading.
                     if entry.kind != EntryKind::Spell || target_kind != EntryKind::Spell {
                         report.problems.push(format!(
                             "{line}: a `variant` relation must go from a spell to a spell, but `{}` is a {} and `{}` is a {}",
@@ -701,6 +703,8 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
                                 ));
                             }
                         }
+                        // TODO(slice 2, #178): error when a base still holds a `Mythic <Title>`
+                        // heading while an add-on targets it.
                     }
                 }
                 RelationKind::Part | RelationKind::Archetype | RelationKind::Prerequisite => {}
