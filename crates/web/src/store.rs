@@ -31,6 +31,7 @@ pub const KEY_ACTIVE_LIBRARY: &str = "active_library";
 pub const KEY_PENDING_INSTALL: &str = "pending_install";
 pub const KEY_THEME: &str = "theme";
 pub const KEY_DISABLED_BOOKS: &str = "disabled_books";
+pub const KEY_BOOK_DEFAULTS: &str = crate::book_presets::DEFAULTS_KEY;
 pub const KEY_RECENT: &str = "recent";
 pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
@@ -370,10 +371,38 @@ pub async fn set_pending_install(pending: &PendingInstall) -> Result<()> {
 }
 
 /// Makes a verified library the active one, and clears the pending marker, in one transaction.
+///
+/// A profile that has no active library and no book-defaults marker is new, so the same
+/// transaction marks it for the first-run book default (`book_presets::defaults_action`). A
+/// profile that already had a library, as every profile from before the default existed has,
+/// gets no marker and keeps its active set.
 pub async fn activate_library(library: &ActiveLibrary) -> Result<()> {
     let value = to_js(library)?;
     let tx = Tx::begin(&[META], true).await?;
     let store = tx.store(META)?;
+    let previous = request(
+        store
+            .get(&JsValue::from_str(KEY_ACTIVE_LIBRARY))
+            .map_err(Into::into),
+    )
+    .await?;
+    let marker = request(
+        store
+            .get(&JsValue::from_str(KEY_BOOK_DEFAULTS))
+            .map_err(Into::into),
+    )
+    .await?;
+    if previous.is_undefined() && marker.is_undefined() {
+        request(
+            store
+                .put_with_key(
+                    &JsValue::from_str(crate::book_presets::DEFAULTS_PENDING),
+                    &JsValue::from_str(KEY_BOOK_DEFAULTS),
+                )
+                .map_err(Into::into),
+        )
+        .await?;
+    }
     request(
         store
             .put_with_key(&value, &JsValue::from_str(KEY_ACTIVE_LIBRARY))
@@ -397,13 +426,47 @@ pub async fn set_theme_preference(theme: &str) -> Result<()> {
     set_meta(KEY_THEME, &theme).await
 }
 
-/// Canonical book IDs hidden from discovery. An absent value means every installed book is active.
-pub async fn disabled_books() -> Result<std::collections::BTreeSet<String>> {
-    Ok(get_meta(KEY_DISABLED_BOOKS).await?.unwrap_or_default())
+/// Canonical book IDs hidden from discovery, or `None` when no choice was ever stored. Absent
+/// means every installed book is active, except on a profile that the first-run default marks.
+pub async fn stored_disabled_books() -> Result<Option<std::collections::BTreeSet<String>>> {
+    get_meta(KEY_DISABLED_BOOKS).await
 }
 
 pub async fn set_disabled_books(ids: &std::collections::BTreeSet<String>) -> Result<()> {
     set_meta(KEY_DISABLED_BOOKS, ids).await
+}
+
+/// The first-run book default marker: `seed` on a profile that was new when its first library
+/// was activated, `done` once it has been dealt with, absent on a profile from before it existed.
+pub async fn book_defaults_marker() -> Result<Option<String>> {
+    get_meta(KEY_BOOK_DEFAULTS).await
+}
+
+/// Settles the first-run book default in one transaction: writes `disabled` when there is one,
+/// and marks the default done, so a crash between the two cannot leave a half-applied default.
+pub async fn settle_book_defaults(
+    disabled: Option<&std::collections::BTreeSet<String>>,
+) -> Result<()> {
+    let tx = Tx::begin(&[META], true).await?;
+    let store = tx.store(META)?;
+    if let Some(disabled) = disabled {
+        request(
+            store
+                .put_with_key(&to_js(disabled)?, &JsValue::from_str(KEY_DISABLED_BOOKS))
+                .map_err(Into::into),
+        )
+        .await?;
+    }
+    request(
+        store
+            .put_with_key(
+                &JsValue::from_str(crate::book_presets::DEFAULTS_SETTLED),
+                &JsValue::from_str(KEY_BOOK_DEFAULTS),
+            )
+            .map_err(Into::into),
+    )
+    .await?;
+    tx.finish().await
 }
 
 pub async fn update_check() -> Result<Option<UpdateCheckRecord>> {

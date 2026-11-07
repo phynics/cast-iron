@@ -1,0 +1,540 @@
+//! The four book presets (#157), which preset the active set matches, Undo, and the first-run
+//! default. Everything here is pure, so native tests cover it.
+//!
+//! A preset is a rule over a book's [`Tier`] and its third-party flag, not a stored list of ids:
+//! a book that a later library adds joins the preset its tier says. The stored choice stays the
+//! `disabled_books` set, and a preset writes it once through `Library::update_active_books`.
+
+use crate::fmt;
+use crate::views::book_tier::Tier;
+use cast_iron_schema::SourceInfo;
+use std::collections::BTreeSet;
+
+/// One book as the presets see it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PresetBook<'a> {
+    pub id: &'a str,
+    pub tier: Tier,
+    /// True for a book that does not come from Paizo. See [`is_third_party`].
+    pub third_party: bool,
+}
+
+impl<'a> PresetBook<'a> {
+    pub fn of(source: &'a SourceInfo) -> Self {
+        Self {
+            id: &source.id,
+            tier: Tier::from_category(source.category.as_deref()),
+            third_party: is_third_party(source),
+        }
+    }
+}
+
+/// The books of a catalog, in catalog order.
+pub fn books_of(sources: &[SourceInfo]) -> Vec<PresetBook<'_>> {
+    sources.iter().map(PresetBook::of).collect()
+}
+
+/// THE HOOK FOR THE THIRD-PARTY MARKER (#189).
+///
+/// The corpus does not yet say which publications are third party: `SourceInfo` has no such
+/// field. Until a reviewed marker exists (a `publications.toml` field, a `corpus-check` rule and
+/// a pin bump), no book is third party, so [`Preset::EverythingInclThirdParty`] has the same set
+/// as [`Preset::PaizoEverything`] and the page hides it. When the marker arrives, read it here;
+/// the presets, Undo and the first-run default need no other change.
+pub fn is_third_party(_source: &SourceInfo) -> bool {
+    false
+}
+
+/// A preset, in the order the page lists them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Preset {
+    PaizoRulebooks,
+    PaizoRulebooksAndMore,
+    PaizoEverything,
+    EverythingInclThirdParty,
+}
+
+impl Preset {
+    pub const ALL: [Preset; 4] = [
+        Preset::PaizoRulebooks,
+        Preset::PaizoRulebooksAndMore,
+        Preset::PaizoEverything,
+        Preset::EverythingInclThirdParty,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Preset::PaizoRulebooks => "Paizo Rulebooks",
+            Preset::PaizoRulebooksAndMore => "Paizo Rulebooks & More",
+            Preset::PaizoEverything => "Paizo Everything",
+            Preset::EverythingInclThirdParty => "Everything incl. 3rd party",
+        }
+    }
+
+    /// True when the preset turns this book on. Only the last preset ever includes a third-party
+    /// book.
+    pub fn includes(self, book: &PresetBook<'_>) -> bool {
+        match self {
+            Preset::EverythingInclThirdParty => true,
+            _ if book.third_party => false,
+            Preset::PaizoRulebooks => book.tier == Tier::Rulebooks,
+            Preset::PaizoRulebooksAndMore => matches!(
+                book.tier,
+                Tier::Rulebooks | Tier::PlayerCompanions | Tier::CampaignSetting
+            ),
+            Preset::PaizoEverything => true,
+        }
+    }
+
+    /// The ids of the books this preset turns on.
+    pub fn members<'a>(self, books: &[PresetBook<'a>]) -> BTreeSet<&'a str> {
+        books
+            .iter()
+            .filter(|book| self.includes(book))
+            .map(|book| book.id)
+            .collect()
+    }
+}
+
+/// The presets worth showing for a library, in order. A preset with no books is left out (a
+/// library without Rulebooks would otherwise offer "nothing"), and so is a preset whose set
+/// equals an earlier one's: two rows that do the same thing would only confuse.
+pub fn offered(books: &[PresetBook<'_>]) -> Vec<Preset> {
+    let mut seen: Vec<BTreeSet<&str>> = Vec::new();
+    let mut presets = Vec::new();
+    for preset in Preset::ALL {
+        let members = preset.members(books);
+        if members.is_empty() || seen.contains(&members) {
+            continue;
+        }
+        seen.push(members);
+        presets.push(preset);
+    }
+    presets
+}
+
+/// The offered preset whose books are exactly the active ones, or `None` ("Custom").
+pub fn matching(books: &[PresetBook<'_>], is_active: impl Fn(&str) -> bool) -> Option<Preset> {
+    let active: BTreeSet<&str> = books
+        .iter()
+        .map(|book| book.id)
+        .filter(|id| is_active(id))
+        .collect();
+    offered(books)
+        .into_iter()
+        .find(|preset| preset.members(books) == active)
+}
+
+/// How many books a preset turns on.
+pub fn size(preset: Preset, books: &[PresetBook<'_>]) -> usize {
+    preset.members(books).len()
+}
+
+/// The count line of Books and Active books: `28 of 439 books active`. `preset` is the name or
+/// `Custom` on Books and `None` on Active books, where the checked preset row says it. No active
+/// book reads `No books active`, with no preset name.
+pub fn count_line(active: usize, total: usize, preset: Option<&str>) -> String {
+    if active == 0 {
+        return "No books active".to_string();
+    }
+    let noun = if total == 1 { "book" } else { "books" };
+    let mut line = format!(
+        "{} of {} {noun} active",
+        fmt::count(active),
+        fmt::count(total)
+    );
+    if let Some(preset) = preset {
+        line.push_str(" · ");
+        line.push_str(preset);
+    }
+    line
+}
+
+/// The name that Books shows beside the count: the matching preset, or `Custom`.
+pub fn name_or_custom(preset: Option<Preset>) -> &'static str {
+    preset.map_or("Custom", Preset::label)
+}
+
+/// The books a preset changes: those it turns on that are off, and those it turns off that are on.
+/// Handing it to `Library::update_active_books` writes the preset once. The inverse is Undo.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Change {
+    pub activate: Vec<String>,
+    pub deactivate: Vec<String>,
+}
+
+impl Change {
+    pub fn is_empty(&self) -> bool {
+        self.activate.is_empty() && self.deactivate.is_empty()
+    }
+
+    /// The change that puts every touched book back as it was.
+    pub fn inverse(&self) -> Change {
+        Change {
+            activate: self.deactivate.clone(),
+            deactivate: self.activate.clone(),
+        }
+    }
+}
+
+/// What applying `preset` changes, given which books are active now.
+pub fn plan(preset: Preset, books: &[PresetBook<'_>], is_active: impl Fn(&str) -> bool) -> Change {
+    let mut change = Change::default();
+    for book in books {
+        match (preset.includes(book), is_active(book.id)) {
+            (true, false) => change.activate.push(book.id.to_string()),
+            (false, true) => change.deactivate.push(book.id.to_string()),
+            _ => {}
+        }
+    }
+    change
+}
+
+// ---- the first-run default ------------------------------------------------------------------
+
+/// The meta key that remembers whether the first-run default is still to be applied.
+pub const DEFAULTS_KEY: &str = "book_defaults";
+/// Written once, when a library is activated and the profile never had one: this install is new.
+pub const DEFAULTS_PENDING: &str = "seed";
+/// Written once the default has been applied, or found not to apply.
+pub const DEFAULTS_SETTLED: &str = "done";
+
+/// What `Library::load` does about the first-run default.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DefaultsAction {
+    /// An existing install, or one already settled. The stored choice is left as it is.
+    Nothing,
+    /// Mark the default settled and write no choice.
+    Settle,
+    /// Write this disabled set and mark the default settled.
+    Seed(BTreeSet<String>),
+}
+
+/// The disabled set of a new install: every book that is not in `Paizo Rulebooks`. `None` when
+/// the library has no such book (the retired PSRD carry-over has none), because the default must
+/// never leave a reader with no active book.
+pub fn fresh_install_disabled(books: &[PresetBook<'_>]) -> Option<BTreeSet<String>> {
+    let rulebooks = Preset::PaizoRulebooks;
+    if rulebooks.members(books).is_empty() {
+        return None;
+    }
+    Some(
+        books
+            .iter()
+            .filter(|book| !rulebooks.includes(book))
+            .map(|book| book.id.to_string())
+            .collect(),
+    )
+}
+
+/// Decides the first-run default. Only a profile that was new when its first library was
+/// activated carries the `DEFAULTS_PENDING` marker (`store::activate_library` writes it). A
+/// profile from before this change has no marker, so it keeps its active set whether or not it
+/// ever changed it: the owner's rule is that nothing a reader relies on disappears on update. A
+/// stored choice also wins over the marker, so the default never overwrites what a reader chose.
+pub fn defaults_action(
+    marker: Option<&str>,
+    stored_choice_exists: bool,
+    books: &[PresetBook<'_>],
+) -> DefaultsAction {
+    if marker != Some(DEFAULTS_PENDING) {
+        return DefaultsAction::Nothing;
+    }
+    if stored_choice_exists {
+        return DefaultsAction::Settle;
+    }
+    match fresh_install_disabled(books) {
+        Some(disabled) => DefaultsAction::Seed(disabled),
+        None => DefaultsAction::Settle,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn book(id: &str, tier: Tier) -> PresetBook<'_> {
+        PresetBook {
+            id,
+            tier,
+            third_party: false,
+        }
+    }
+
+    fn third_party(id: &str) -> PresetBook<'_> {
+        PresetBook {
+            id,
+            tier: Tier::Other,
+            third_party: true,
+        }
+    }
+
+    /// One book per tier, plus a second Rulebook and a third-party book.
+    fn shelf() -> Vec<PresetBook<'static>> {
+        vec![
+            book("core", Tier::Rulebooks),
+            book("apg", Tier::Rulebooks),
+            book("companion", Tier::PlayerCompanions),
+            book("setting", Tier::CampaignSetting),
+            book("path", Tier::Adventures),
+            book("misc", Tier::Other),
+            third_party("indie"),
+        ]
+    }
+
+    fn ids(set: BTreeSet<&str>) -> Vec<&str> {
+        set.into_iter().collect()
+    }
+
+    #[test]
+    fn each_preset_has_its_own_book_set() {
+        let books = shelf();
+        assert_eq!(ids(Preset::PaizoRulebooks.members(&books)), ["apg", "core"]);
+        assert_eq!(
+            ids(Preset::PaizoRulebooksAndMore.members(&books)),
+            ["apg", "companion", "core", "setting"]
+        );
+        assert_eq!(
+            ids(Preset::PaizoEverything.members(&books)),
+            ["apg", "companion", "core", "misc", "path", "setting"]
+        );
+        assert_eq!(
+            ids(Preset::EverythingInclThirdParty.members(&books)),
+            [
+                "apg",
+                "companion",
+                "core",
+                "indie",
+                "misc",
+                "path",
+                "setting"
+            ]
+        );
+    }
+
+    #[test]
+    fn only_the_last_preset_turns_third_party_books_on() {
+        let books = shelf();
+        for preset in Preset::ALL {
+            let includes = preset.members(&books).contains("indie");
+            assert_eq!(
+                includes,
+                preset == Preset::EverythingInclThirdParty,
+                "{}",
+                preset.label()
+            );
+        }
+    }
+
+    #[test]
+    fn presets_use_the_owner_names_in_order() {
+        let labels: Vec<_> = Preset::ALL.iter().map(|preset| preset.label()).collect();
+        assert_eq!(
+            labels,
+            [
+                "Paizo Rulebooks",
+                "Paizo Rulebooks & More",
+                "Paizo Everything",
+                "Everything incl. 3rd party"
+            ]
+        );
+    }
+
+    #[test]
+    fn the_third_party_preset_is_hidden_while_no_book_is_marked() {
+        // No marker yet (`is_third_party` is false for every source): the fourth preset equals
+        // the third and is not offered.
+        let books: Vec<_> = shelf().into_iter().filter(|b| !b.third_party).collect();
+        assert_eq!(
+            offered(&books),
+            [
+                Preset::PaizoRulebooks,
+                Preset::PaizoRulebooksAndMore,
+                Preset::PaizoEverything
+            ]
+        );
+        // With a marked book it appears.
+        assert_eq!(offered(&shelf()), Preset::ALL);
+    }
+
+    #[test]
+    fn a_preset_that_repeats_another_or_is_empty_is_not_offered() {
+        // Only Rulebooks and Adventures: "& More" repeats "Paizo Rulebooks".
+        let books = [
+            book("core", Tier::Rulebooks),
+            book("path", Tier::Adventures),
+        ];
+        assert_eq!(
+            offered(&books),
+            [Preset::PaizoRulebooks, Preset::PaizoEverything]
+        );
+        // No Rulebooks: "Paizo Rulebooks" is empty and "& More" too; only Everything stays.
+        let books = [book("path", Tier::Adventures), book("misc", Tier::Other)];
+        assert_eq!(offered(&books), [Preset::PaizoEverything]);
+        assert!(offered(&[]).is_empty());
+    }
+
+    #[test]
+    fn the_matching_preset_is_named_and_anything_else_is_custom() {
+        let books = shelf();
+        let active_in = |set: &'static [&'static str]| move |id: &str| set.contains(&id);
+        assert_eq!(
+            matching(&books, active_in(&["core", "apg"])),
+            Some(Preset::PaizoRulebooks)
+        );
+        assert_eq!(
+            matching(&books, active_in(&["core", "apg", "companion", "setting"])),
+            Some(Preset::PaizoRulebooksAndMore)
+        );
+        assert_eq!(
+            matching(
+                &books,
+                active_in(&["core", "apg", "companion", "setting", "path", "misc"])
+            ),
+            Some(Preset::PaizoEverything)
+        );
+        assert_eq!(
+            matching(&books, |_| true),
+            Some(Preset::EverythingInclThirdParty)
+        );
+        assert_eq!(matching(&books, active_in(&["core"])), None);
+        assert_eq!(matching(&books, |_| false), None);
+        assert_eq!(name_or_custom(None), "Custom");
+        assert_eq!(
+            name_or_custom(Some(Preset::PaizoEverything)),
+            "Paizo Everything"
+        );
+    }
+
+    #[test]
+    fn a_hidden_duplicate_matches_as_the_preset_that_is_shown() {
+        // Without a marked book, every book active is Paizo Everything, never the hidden fourth.
+        let books: Vec<_> = shelf().into_iter().filter(|b| !b.third_party).collect();
+        assert_eq!(matching(&books, |_| true), Some(Preset::PaizoEverything));
+    }
+
+    #[test]
+    fn the_count_line_names_the_preset_only_when_asked() {
+        assert_eq!(
+            count_line(28, 439, Some("Paizo Rulebooks")),
+            "28 of 439 books active · Paizo Rulebooks"
+        );
+        assert_eq!(
+            count_line(1234, 1500, Some("Custom")),
+            "1,234 of 1,500 books active · Custom"
+        );
+        assert_eq!(count_line(412, 439, None), "412 of 439 books active");
+        assert_eq!(count_line(1, 1, None), "1 of 1 book active");
+        assert_eq!(count_line(0, 439, Some("Custom")), "No books active");
+        assert_eq!(count_line(0, 0, None), "No books active");
+    }
+
+    #[test]
+    fn a_plan_changes_only_the_books_that_differ() {
+        let books = shelf();
+        let active = |id: &str| id != "apg" && id != "path";
+        let change = plan(Preset::PaizoRulebooks, &books, active);
+        assert_eq!(change.activate, ["apg"]);
+        assert_eq!(change.deactivate, ["companion", "setting", "misc", "indie"]);
+        // A preset that already matches changes nothing.
+        let on = |id: &str| Preset::PaizoRulebooks.members(&books).contains(id);
+        assert!(plan(Preset::PaizoRulebooks, &books, on).is_empty());
+    }
+
+    #[test]
+    fn undo_restores_the_previous_set_exactly() {
+        let books = shelf();
+        // A custom starting set.
+        let mut active: BTreeSet<String> = ["core", "path", "indie"].map(String::from).into();
+        let before = active.clone();
+        let apply = |active: &mut BTreeSet<String>, change: &Change| {
+            for id in &change.deactivate {
+                active.remove(id);
+            }
+            for id in &change.activate {
+                active.insert(id.clone());
+            }
+        };
+        for preset in Preset::ALL {
+            let change = plan(preset, &books, |id| active.contains(id));
+            apply(&mut active, &change);
+            let want: BTreeSet<String> = preset
+                .members(&books)
+                .into_iter()
+                .map(String::from)
+                .collect();
+            assert_eq!(active, want, "{}", preset.label());
+            apply(&mut active, &change.inverse());
+            assert_eq!(active, before, "undo after {}", preset.label());
+        }
+    }
+
+    #[test]
+    fn a_new_install_starts_on_paizo_rulebooks() {
+        let books = shelf();
+        let disabled = fresh_install_disabled(&books).expect("the shelf has Rulebooks");
+        let active: Vec<_> = books
+            .iter()
+            .map(|b| b.id)
+            .filter(|id| !disabled.contains(*id))
+            .collect();
+        assert_eq!(active, ["core", "apg"]);
+        // The default is the Paizo Rulebooks preset, third-party books included in the disabled set.
+        assert!(disabled.contains("indie"));
+        // A library with no Rulebooks keeps every book active.
+        let none = [book("path", Tier::Adventures)];
+        assert_eq!(fresh_install_disabled(&none), None);
+    }
+
+    #[test]
+    fn only_a_new_install_gets_the_default() {
+        let books = shelf();
+        let seeded = fresh_install_disabled(&books).unwrap();
+        // New install: marker set, nothing stored.
+        assert_eq!(
+            defaults_action(Some(DEFAULTS_PENDING), false, &books),
+            DefaultsAction::Seed(seeded)
+        );
+        // Existing install that never touched its books: no marker, nothing stored. Untouched.
+        assert_eq!(
+            defaults_action(None, false, &books),
+            DefaultsAction::Nothing
+        );
+        // Existing install with a stored choice: untouched.
+        assert_eq!(defaults_action(None, true, &books), DefaultsAction::Nothing);
+        // Already settled.
+        assert_eq!(
+            defaults_action(Some(DEFAULTS_SETTLED), false, &books),
+            DefaultsAction::Nothing
+        );
+        // Marker and a stored choice together: the choice wins, the marker is cleared.
+        assert_eq!(
+            defaults_action(Some(DEFAULTS_PENDING), true, &books),
+            DefaultsAction::Settle
+        );
+        // A new install of a library with no Rulebooks: settle without writing.
+        assert_eq!(
+            defaults_action(
+                Some(DEFAULTS_PENDING),
+                false,
+                &[book("path", Tier::Adventures)]
+            ),
+            DefaultsAction::Settle
+        );
+    }
+
+    #[test]
+    fn books_of_reads_the_tier_from_the_category() {
+        let sources = vec![SourceInfo {
+            id: "core".into(),
+            title: "Core".into(),
+            entry_count: 1,
+            copyright: None,
+            category: Some("RPG".into()),
+            publication_date: None,
+        }];
+        let books = books_of(&sources);
+        assert_eq!(books[0].tier, Tier::Rulebooks);
+        assert!(!books[0].third_party);
+    }
+}

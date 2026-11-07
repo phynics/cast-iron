@@ -12,7 +12,7 @@ A small control can mean five different things. Each role has one form, so a rea
 | Filter | A choice that narrows a list: search kinds, books and facets; browse facets; the scope of a search. Use it for a group whose options and "All" fit one row at 320 px. | The only pill: `border-radius: 999px`. A selected filter is filled with `--accent` and shows a check mark. The count stays. The scope pill shows a cross instead of the check, because pressing it turns the filter off. | `.chip` (checkbox in `search.rs`), `.lens-chip` (link), `.scope-choice`, `.scope-pill` | A pill for anything else |
 | Filter menu | A group too large for one row (feat types, schools, creature types) | A 44 px button with the card radius, a 1 px `--line` border, the text `{Group}: {value}` and a chevron-down icon. A narrowed menu has an `--accent` border and weight 600, with no fill. It opens an in-flow panel of 44 px link rows (label, tabular count, check on the current row, `aria-current`), "All {plural}" first, and a find field above 10 options. | `.filter-btn`, `.filter-panel`, `.choice-list`, `.choice-row` | A pill; a modal, a backdrop or a focus trap; ARIA `menu` |
 | Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions (Quick search rows: plain link rows with a muted `Kind · Book` line) | A rectangle with the card radius (`--radius`, 6 px) or a plain link row. It may show `aria-current` wayfinding (the current spell level). | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill; a check mark or other filter state |
-| Navigation: related page | A link from a list to a related page (Feat chains, Spell lists), in the filter row | Accent text, weight 600, a chevron-right icon, a 44 px hit area, no border. | `.page-link` | A bordered rectangle beside a filter menu: two same-looking shapes with different jobs |
+| Navigation: related page | A link from a list to a related page (Feat chains, Spell lists, `Active books ›` on Books), in the filter row | Accent text, weight 600, a chevron-right icon, a 44 px hit area, no border. | `.page-link` | A bordered rectangle beside a filter menu: two same-looking shapes with different jobs |
 | Label | A short fact about the item next to it: "or", "repeats", "not in this library" | Small muted text with no border, no background and no pointer cursor. Use `.tag-warn` for a warning (error color, heavier weight). | `.tag`, `.tag-warn` | A border, a link, anything that looks clickable |
 
 Rules that apply to every role:
@@ -65,6 +65,7 @@ A breadcrumb lists only the pages between a tab destination and the current page
 | Feat chains | `Feats` |
 | Spell hub | `Spells` |
 | Spell list | `Spells › Spell lists` |
+| Active books | none |
 
 Entry pages and a book's own pages still open with `Home` or `Books`. They change to this rule in a later pull request of issue #193; do not copy their crumbs.
 
@@ -78,13 +79,21 @@ A recent search stores the scope it ran in (the kind and any facet), not only it
 
 Focusing a field never navigates. The scope control is never a second field in the header.
 
-## Icon toggles
+## Toggles
 
-The star is an icon-only 44 by 44 button (`.star-btn`), in the title row on an entry and at the end of each starred row on Home. It keeps its accessible name (`Star {title}` or `Unstar {title}`) through `aria-label`. A starred entry shows a filled icon in `--accent`. Do not add visible text next to it.
+**Star.** The star is an icon-only 44 by 44 button (`.star-btn`), in the title row on an entry and at the end of each starred row on Home. It keeps its accessible name (`Star {title}` or `Unstar {title}`) through `aria-label`. A starred entry shows a filled icon in `--accent`. Do not add visible text next to it.
 
-## Rows with a separate control
+**Toggle row.** Use it for a stored on/off choice that is saved right away: the rows on Active books and the book page's `Active` row. The whole row is a `<label>` of at least 44 px (56 px with a meta line) that holds a native checkbox (no `role=switch`). It has no chevron and does not navigate. A row has one accessory: a chevron (it opens something) or a checkbox (it toggles something), never both. The checkbox never disables itself while it saves, because that drops keyboard focus; writes queue instead. Class: `.toggle-row`.
 
-A list row that opens a page and also carries its own control (the Books list: the book link and the Active switch) is one link plus a sibling control. The link fills the row, is at least 44 px tall and ends in a chevron, an inline `aria-hidden` SVG (`.book-chevron`). The control sits beside the link after a hairline, keeps its own 44 px target, and is never nested in the link. Do not hide content behind an inline disclosure in such a row: the page it opens holds the content.
+## Books
+
+Books is where a reader reads; Active books is where a reader changes which books count.
+
+- **A book row on Books is a link only** (`a.book-directory-row`): the title, a meta line, a trailing chevron (inline SVG, `aria-hidden`), at least 44 px. It carries no checkbox. Do not hide content behind an inline disclosure in a row: the book page holds the content.
+- **Books head.** The H1, one live count line (`aria-live=polite`) that names the matching preset or `Custom` (`28 of 439 books active · Paizo Rulebooks`; `No books active` when none), and a `.page-link` `Active books ›` in the filter-row slot. There are no group Activate or Deactivate buttons and no `Only Rulebooks`.
+- **Active books** is the route `#/books/active`, not local state: every change is saved at once, so a reload or Back stays on the page and Settings can link to it. The Books tab stays highlighted. The head is the H1 `Active books` with `Done` (accent text, weight 600, no chevron, 44 px) at its right, then a count line without the preset name (`412 of 439 books active`). Entering moves focus to the H1. `Done` goes Back when the Books link opened the page, otherwise it replaces the entry with Books; it returns focus to the `Active books ›` link.
+- **Presets** (`h2` `Presets`): 44 px button rows with the name on the left, a muted tabular count (`28 books`) and a check mark with `aria-pressed="true"` on the one that matches the active set. No fill, no bold, hairlines between rows. A preset that repeats another preset's set, or has no books, is not shown, so `Everything incl. 3rd party` stays hidden until the corpus marks third-party books (#189). Applying one writes the choice once, shows a muted status line (`Applied Paizo Everything.`, a live region) and an accent `Undo` button. Undo restores the previous set and lasts until the next change or until the reader leaves the page.
+- **Groups** below the presets are the tiers of Books with a checkbox per book (toggle rows). There is no group control of any kind.
 
 ## Tokens
 

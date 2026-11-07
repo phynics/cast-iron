@@ -1,9 +1,13 @@
 //! Category browsing and the separate publication directory, with category lenses,
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
+use crate::book_presets;
 use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
+use crate::views::active_books::{
+    ACTIVE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
+};
 use crate::views::book_tier::Tier;
 use crate::views::categories::{self, Lens, applied_facets};
 use crate::views::filter_menu::{
@@ -19,7 +23,6 @@ use crate::views::util::{
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use std::collections::{HashMap, HashSet};
 use wasm_bindgen::JsCast;
 
@@ -300,16 +303,20 @@ fn book_meta(row: &BookListEntry) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
-/// One book row. The title area is a single link to the book page, where the contents live.
-/// The active switch is a sibling of the link, never inside it, so each control keeps its own
-/// 44 px target and the two never nest.
-fn book_row(
-    row: BookListEntry,
-    library: Library,
-    saving: RwSignal<bool>,
-    save_error: RwSignal<Option<String>>,
-    status: RwSignal<Option<String>>,
-) -> AnyView {
+/// `3 entries · Adventure Path · 2011-08`: the line under a book's title on Active books.
+pub fn book_summary(row: &BookListEntry) -> String {
+    let count = row.count;
+    let mut line = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
+    if let Some(meta) = book_meta(row) {
+        line.push_str(" · ");
+        line.push_str(&meta);
+    }
+    line
+}
+
+/// One book row: a single link to the book page, where the contents and the Active checkbox
+/// live. The row carries no checkbox; Active books and the book page change the choice.
+fn book_row(row: BookListEntry, library: Library) -> AnyView {
     let meta = book_meta(&row);
     let href = Route::Book {
         source: row.id.clone(),
@@ -321,16 +328,11 @@ fn book_row(
     let count = row.count;
     let count_label = format!("{count} {}", if count == 1 { "entry" } else { "entries" });
     let revision = library.selection_revision();
-    let state_library = library.clone();
-    let save_library = library.clone();
     let state_id = id.clone();
-    let save_id = id.clone();
-    let label = format!("Active {title}");
     let is_active = move || {
         revision.get();
-        state_library.book_active(&state_id)
+        library.book_active(&state_id)
     };
-    let badge_active = is_active.clone();
     view! {
         <li class="book-directory-item" data-book-id=id>
             <a class="book-directory-row book-card" href=href>
@@ -339,41 +341,11 @@ fn book_row(
                     <span class="cat-blurb">
                         {count_label}
                         {meta.map(|line| view! { <span class="book-meta">" · "{line}</span> })}
-                        {move || (!badge_active()).then_some(" · Disabled")}
+                        {move || (!is_active()).then_some(" · Disabled")}
                     </span>
                 </span>
                 <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
             </a>
-            <label class="book-activation">
-                <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
-                    on:change=move |event| {
-                        let input = event_target::<web_sys::HtmlInputElement>(&event);
-                        if saving.get_untracked() {
-                            // Defensive guard: the checkbox is disabled during a save, so this
-                            // runs only for a programmatic event. Undo the change and say so.
-                            input.set_checked(save_library.book_active(&save_id));
-                            status.set(None);
-                            save_error.set(Some(SAVE_BUSY.to_string()));
-                            return;
-                        }
-                        let active = input.checked();
-                        // Discovery remains at the saved value while this control is busy.
-                        saving.set(true);
-                        save_error.set(None);
-                        // The bulk message no longer describes the selection.
-                        status.set(None);
-                        let library = save_library.clone();
-                        let id = save_id.clone();
-                        spawn_local(async move {
-                            if let Err(error) = library.set_book_active(&id, active).await {
-                                input.set_checked(library.book_active(&id));
-                                save_error.set(Some(format!("Could not save the book selection: {error}")));
-                            }
-                            saving.set(false);
-                        });
-                    } />
-                <span>"Active"</span>
-            </label>
         </li>
     }
     .into_any()
@@ -381,20 +353,20 @@ fn book_row(
 
 /// The publication directory: one link row per book, to its book page.
 /// Books are grouped by priority tier; the sort in the URL orders books inside each tier, and
-/// library order shows one ungrouped list. Group and preset controls write the stored active
-/// set once through [`Library::update_active_books`].
+/// library order shows one ungrouped list. The checkboxes and the presets live on Active books.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
     let library = use_library();
-    let saving = RwSignal::new(false);
-    let save_error = RwSignal::new(None::<String>);
-    let status = RwSignal::new(None::<String>);
     let current = use_route();
     let sort = move || match current.get() {
         Route::BooksSorted(sort) => Some(sort),
         _ => None,
     };
+    // Back from Active books lands here: Done asks for focus on the link it was left from.
+    if take_link_focus() {
+        focus_after_frame(ACTIVE_LINK_ID);
+    }
     // One cached pass over the catalog gives every row its count. Counting per row rescanned
     // the whole catalog for each publication and stalled the page for seconds.
     let counts = library.source_entry_counts();
@@ -409,35 +381,20 @@ pub fn Books() -> impl IntoView {
             count: counts.get(&source.id).copied().unwrap_or(0),
         })
         .collect();
-    let apply = BulkApply {
-        library: library.clone(),
-        saving,
-        save_error,
-        status,
-    };
-    let tier_ids = |tier: Tier| -> Vec<String> {
-        rows.iter()
-            .filter(|row| Tier::from_category(row.category.as_deref()) == tier)
-            .map(|row| row.id.clone())
-            .collect()
-    };
-    let rulebook_ids = tier_ids(Tier::Rulebooks);
-    let other_ids: Vec<String> = rows
-        .iter()
-        .filter(|row| Tier::from_category(row.category.as_deref()) != Tier::Rulebooks)
-        .map(|row| row.id.clone())
-        .collect();
-    let no_rulebooks = rulebook_ids.is_empty();
-    let only_rulebooks = {
-        let apply = apply.clone();
-        move |_| {
-            apply.run(
-                rulebook_ids.clone(),
-                other_ids.clone(),
-                "Only Rulebooks are active. Other books keep their downloads and your stars."
-                    .to_string(),
-            )
-        }
+    let total = rows.len();
+    // The count line names the preset that the active set matches, or Custom.
+    let revision = library.selection_revision();
+    let count_library = library.clone();
+    let count_line = move || {
+        revision.get();
+        let sources = count_library.sources();
+        let active = sources
+            .iter()
+            .filter(|source| count_library.book_active(&source.id))
+            .count();
+        let books = book_presets::books_of(sources);
+        let preset = book_presets::matching(&books, |id| count_library.book_active(id));
+        book_presets::count_line(active, total, Some(book_presets::name_or_custom(preset)))
     };
     let sort_link = move |value: Option<BookSort>, label: &'static str| {
         let href = value.map_or_else(
@@ -459,16 +416,17 @@ pub fn Books() -> impl IntoView {
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
-                <div class="books-preset">
-                    <button type="button" class="btn" disabled=move || saving.get() || no_rulebooks
-                        on:click=only_rulebooks>"Only Rulebooks"</button>
-                    <span class="hint">
-                        {if no_rulebooks {
-                            "This library has no books that are marked as Rulebooks."
-                        } else {
-                            "Keep Rulebooks active and deactivate every other book."
-                        }}
-                    </span>
+                <p class="muted books-count" aria-live="polite">{count_line}</p>
+                <div class="filter-row">
+                    <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
+                        on:click=|_| note_opened_from_books()>
+                        <span>"Active books"</span>
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round" aria-hidden="true">
+                            <path d="m9 6 6 6-6 6"/>
+                        </svg>
+                    </a>
                 </div>
                 <p id="books-scope" class="count-scope">{BOOK_TOTALS_SCOPE}</p>
                 <nav class="book-sort" aria-label="Sort books">
@@ -480,8 +438,6 @@ pub fn Books() -> impl IntoView {
                         {sort_link(Some(BookSort::Library), BookSort::Library.label())}
                     </ul>
                 </nav>
-                {move || save_error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-                <p class="hint books-status" role="status">{move || status.get()}</p>
                 {move || {
                     book_groups(&rows, sort())
                         .into_iter()
@@ -494,10 +450,10 @@ pub fn Books() -> impl IntoView {
                             let items = group
                                 .books
                                 .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone(), saving, save_error, status))
+                                .map(|index| book_row(rows[index].clone(), library.clone()))
                                 .collect_view();
                             match group.tier {
-                                Some(tier) => tier_section(tier, ids, items, library.clone(), apply.clone(), saving),
+                                Some(tier) => tier_section(tier, ids, items, library.clone()),
                                 None => view! {
                                     <ul class="book-directory" aria-describedby="books-scope">{items}</ul>
                                 }.into_any(),
@@ -510,65 +466,20 @@ pub fn Books() -> impl IntoView {
     }
 }
 
-/// Shown when a click arrives while an earlier selection write is still being saved.
-const SAVE_BUSY: &str = "A book selection update is already being saved. Try again shortly.";
-
-/// The write path for the group and preset controls. It reuses the busy flag and the error line
-/// of the per-book checkboxes, so only one selection write runs at a time.
-#[derive(Clone)]
-struct BulkApply {
-    library: Library,
-    saving: RwSignal<bool>,
-    save_error: RwSignal<Option<String>>,
-    status: RwSignal<Option<String>>,
-}
-
-impl BulkApply {
-    fn run(&self, activate: Vec<String>, deactivate: Vec<String>, message: String) {
-        // Defensive guard: every control that calls this is disabled during a save, so this
-        // runs only for a programmatic event.
-        if self.saving.get_untracked() {
-            self.status.set(None);
-            self.save_error.set(Some(SAVE_BUSY.to_string()));
-            return;
-        }
-        self.saving.set(true);
-        self.save_error.set(None);
-        self.status.set(None);
-        let this = self.clone();
-        spawn_local(async move {
-            match this
-                .library
-                .update_active_books(&activate, &deactivate)
-                .await
-            {
-                Ok(()) => this.status.set(Some(message)),
-                Err(error) => this
-                    .save_error
-                    .set(Some(format!("Could not save the book selection: {error}"))),
-            }
-            this.saving.set(false);
-        });
-    }
-}
-
-/// One tier: a heading inside a native disclosure, and the group's two bulk controls. The
-/// controls sit outside the disclosure, so a collapsed group still deactivates in one click.
-/// Their names carry the group, such as `Deactivate all Adventures`.
-fn tier_section(
+/// One tier: a heading inside a native disclosure, with how many of its books are active.
+/// There are no group controls; the presets on Active books are the only bulk action.
+pub(crate) fn tier_section(
     tier: Tier,
     ids: Vec<String>,
     items: impl IntoView + 'static,
     library: Library,
-    apply: BulkApply,
-    saving: RwSignal<bool>,
 ) -> AnyView {
     let label = tier.label();
     let count = ids.len();
     let heading_id = format!("book-tier-{}", label.to_ascii_lowercase().replace(' ', "-"));
     let labelled_by = heading_id.clone();
     let revision = library.selection_revision();
-    let active_ids = ids.clone();
+    let active_ids = ids;
     let active_count = move || {
         revision.get();
         active_ids
@@ -576,32 +487,8 @@ fn tier_section(
             .filter(|id| library.book_active(id))
             .count()
     };
-    let activate = {
-        let apply = apply.clone();
-        let ids = ids.clone();
-        move |_| {
-            apply.run(
-                ids.clone(),
-                Vec::new(),
-                format!("{label}: all {count} books are active."),
-            )
-        }
-    };
-    let deactivate = move |_| {
-        apply.run(
-            Vec::new(),
-            ids.clone(),
-            format!("{label}: all {count} books are inactive. Downloads and your stars are kept."),
-        )
-    };
     view! {
         <section class="book-tier" aria-labelledby=labelled_by data-tier=label>
-            <div class="tier-actions" role="group" aria-label=format!("{label} activation")>
-                <button type="button" class="btn" aria-label=format!("Activate all {label}")
-                    disabled=move || saving.get() on:click=activate>"Activate all"</button>
-                <button type="button" class="btn" aria-label=format!("Deactivate all {label}")
-                    disabled=move || saving.get() on:click=deactivate>"Deactivate all"</button>
-            </div>
             <details class="tier-details" open=!tier.collapsed_by_default()>
                 <summary class="tier-summary">
                     <h2 class="sub-head book-group-head" id=heading_id.clone()>{format!("{label} ({count})")}</h2>

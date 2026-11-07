@@ -12,6 +12,7 @@
 //! panic if run natively; tests only touch the pure parts.
 
 pub mod app;
+pub mod book_presets;
 pub mod content_cache;
 pub mod discovery;
 pub mod fmt;

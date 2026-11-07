@@ -1,6 +1,7 @@
 //! Read access to the active library. Every read goes through the Cache API under the
 //! active version. There is no network fallback: a missing file is an error to show.
 
+use crate::book_presets::{self, DefaultsAction};
 use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
@@ -114,6 +115,31 @@ struct Inner {
     migration_refused: RwSignal<bool>,
 }
 
+/// The stored disabled set, after the first-run book default (`book_presets::defaults_action`).
+/// A new install gets the `Paizo Rulebooks` choice written once; every other profile reads what
+/// it stored, or an empty set (every book active) when it never stored anything.
+async fn settle_first_run_defaults(
+    sources: &[SourceInfo],
+) -> Result<BTreeSet<String>, LibraryError> {
+    let selection = |e: store::StoreError| LibraryError::BookSelection(e.to_string());
+    let marker = store::book_defaults_marker().await.map_err(selection)?;
+    let stored = store::stored_disabled_books().await.map_err(selection)?;
+    let books = book_presets::books_of(sources);
+    match book_presets::defaults_action(marker.as_deref(), stored.is_some(), &books) {
+        DefaultsAction::Nothing => Ok(stored.unwrap_or_default()),
+        DefaultsAction::Settle => {
+            store::settle_book_defaults(None).await.map_err(selection)?;
+            Ok(stored.unwrap_or_default())
+        }
+        DefaultsAction::Seed(disabled) => {
+            store::settle_book_defaults(Some(&disabled))
+                .await
+                .map_err(selection)?;
+            Ok(disabled)
+        }
+    }
+}
+
 /// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2
 /// have no relation, spell-list, or book files, and every reader must treat them as absent.
 pub fn manifest_has_file(manifest: &ContentManifest, name: &str) -> bool {
@@ -177,9 +203,7 @@ impl Library {
         } else {
             (Rc::new(AliasIndex::default()), String::new())
         };
-        let disabled_books = store::disabled_books()
-            .await
-            .map_err(|e| LibraryError::BookSelection(e.to_string()))?;
+        let disabled_books = settle_first_run_defaults(&catalog.sources).await?;
         let library = Library(SendWrapper::new(Rc::new(Inner {
             active: active.clone(),
             manifest,
@@ -349,21 +373,25 @@ impl Library {
     }
 
     /// Activates and deactivates many books with one stored write and one revision bump, so a
-    /// bulk control refreshes discovery once. It changes only the disabled set: downloads and
+    /// preset refreshes discovery once. It changes only the disabled set: downloads and
     /// stars stay, and ids that are in neither list keep their state.
     pub async fn update_active_books(
         &self,
         activate: &[String],
         deactivate: &[String],
     ) -> Result<(), LibraryError> {
-        {
-            let mut busy = self.0.selection_write_in_flight.borrow_mut();
-            if *busy {
-                return Err(LibraryError::Storage(
-                    "A book selection update is already being saved. Try again shortly.".into(),
-                ));
+        // A write that arrives while another is saving waits its turn, so no control has to
+        // disable itself (which would drop keyboard focus) and two quick toggles both land. The
+        // new set is computed only after the earlier write has finished.
+        loop {
+            {
+                let mut busy = self.0.selection_write_in_flight.borrow_mut();
+                if !*busy {
+                    *busy = true;
+                    break;
+                }
             }
-            *busy = true;
+            crate::js::sleep(5).await;
         }
         struct Reset<'a>(&'a RefCell<bool>);
         impl Drop for Reset<'_> {

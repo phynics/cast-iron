@@ -9,6 +9,7 @@ use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
 use crate::views::{
     self,
+    active_books::ActiveBooks,
     book::{BookView, same_book},
     browse::{Books, BrowseKind, BrowseSource},
     chains::FeatChains,
@@ -345,7 +346,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksSorted(_) | Route::Book { .. },
+            Route::Books | Route::BooksSorted(_) | Route::BooksActive | Route::Book { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -403,7 +404,12 @@ fn RouteView() -> impl IntoView {
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
         // Other screens rebuild their discovery snapshot after a saved selection change.
-        let selection = if route == Route::Books {
+        // Active books and a book page write the selection themselves, so they stay mounted too:
+        // a rebuild after each toggle would drop focus and the scroll position.
+        let selection = if matches!(
+            route,
+            Route::Books | Route::BooksActive | Route::Book { .. }
+        ) {
             0
         } else {
             revision.get()
@@ -424,6 +430,7 @@ fn RouteView() -> impl IntoView {
         }
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books | Route::BooksSorted(_) => view! { <Books /> }.into_any(),
+        Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
