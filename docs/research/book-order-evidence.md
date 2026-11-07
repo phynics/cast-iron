@@ -6,7 +6,7 @@ This record distinguishes publisher evidence from the order present in the PSRD 
 
 ## Core Rulebook
 
-Paizo's [Pathfinder Roleplaying Game Preview #1](https://cdn.paizo.com/blog/pathfinder-roleplaying-game-preview-1), dated May 13, 2009, links a contents PDF. The printed contents page of the Core Rulebook was also checked in this review. Both agree on the following main chapter sequence. No PDF or artwork is included in Cast Iron.
+Paizo's [Pathfinder Roleplaying Game Preview #1](https://cdn.paizo.com/blog/pathfinder-roleplaying-game-preview-1), dated May 13, 2009, links a contents PDF. The printed contents page of the Core Rulebook was also checked in this review. Both give the same main chapter sequence. They differ on one first page: the preview contents put Combat at p. 176, the printed contents page puts it at p. 178. The table follows the printed page. No PDF or artwork is included in Cast Iron.
 
 | Chapter | Title | First page |
 |---|---|---|
