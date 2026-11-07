@@ -2,7 +2,7 @@
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
 use crate::fmt;
-use crate::library::{Library, use_library};
+use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::categories::{self, Lens, applied_facets};
@@ -21,7 +21,6 @@ use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
