@@ -359,13 +359,12 @@ export async function openBookGroups(page: Page) {
   });
 }
 
-/** Follow the publication directory through its actual disclosure and contents link. */
+/** Follow the publication directory through its row link to the book page. */
 export async function openBookContents(page: Page, title: string) {
   await page.goto("#/books");
   await openBookGroups(page);
-  const row = page.locator(".book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
-  await row.locator("summary").click();
-  await row.locator(".book-tree-root").click();
+  const row = page.locator("a.book-directory-row").filter({ has: page.locator(".cat-name", { hasText: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`) }) });
+  await row.click();
   // A route change moves focus to <main> on the next animation frame so screen readers announce the
   // page. A key pressed on a contents control before that move lands on <main> instead, and the
   // control never reacts. Wait for the move rather than racing it.

@@ -52,21 +52,32 @@ installedTest("Mobile viewport shows no horizontal page scroll on key screens", 
   expect(wide).toEqual([]);
 });
 
-test("Expanded books, their contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
+test("Book rows, the book page contents tree, and the sort control fit the mobile viewport", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   await openBookGroups(page);
   const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => (chapter.children ?? []).length > 0));
   if (!book) throw new Error("The compiled corpus has no book with contents.");
+  const overflow = () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
-  await row.locator(".book-directory-row > summary").click();
-  const tree = row.getByTestId("book-tree");
+  const link = row.locator("a.book-directory-row");
+  const toggle = row.locator(".book-activation");
+  const linkBox = (await link.boundingBox())!;
+  const toggleBox = (await toggle.boundingBox())!;
+  expect(linkBox.height).toBeGreaterThanOrEqual(44);
+  expect(toggleBox.height).toBeGreaterThanOrEqual(44);
+  expect(toggleBox.width).toBeGreaterThanOrEqual(44);
+  expect(toggleBox.x + toggleBox.width).toBeLessThanOrEqual(390);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  await link.click();
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of `) });
   await expect(tree).toBeVisible();
   await tree.locator(".toc-top > li > .toc-details > summary").first().click();
-  const treeOverflow = await page.evaluate(
-    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
-  );
-  expect(treeOverflow).toBeLessThanOrEqual(0);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  await page.goBack();
+  await expect(page.locator(".book-tier").first()).toBeVisible();
 
   await page.getByRole("navigation", { name: "Sort books" }).getByRole("link", { name: "Publication date", exact: true }).click();
   await expect(page.locator(".book-tier").first()).toBeVisible();

@@ -132,11 +132,7 @@ fn normalize_location() {
     if (path != base_path || !search.is_empty())
         && let Ok(history) = window.history()
     {
-        let _ = history.replace_state_with_url(
-            &wasm_bindgen::JsValue::NULL,
-            "",
-            Some(&format!("{base_path}{hash}")),
-        );
+        route::replace_url_keeping_state(&history, &format!("{base_path}{hash}"));
     }
 }
 
@@ -272,15 +268,22 @@ fn Reader(library: Library) -> impl IntoView {
             views::util::set_title(title);
         }
         let next = route.clone();
+        // Back and Forward to an entry that was left earlier return to its scroll offset.
+        let restore = if within_search {
+            None
+        } else {
+            route::arrive_at_entry()
+        };
         request_animation_frame(move || {
             if within_search {
                 return;
             }
-            match route.anchor() {
-                Some(anchor) => {
+            match (route.anchor(), restore) {
+                (Some(anchor), _) => {
                     route::scroll_to_anchor(&anchor);
                 }
-                None => route::scroll_to_top(),
+                (None, Some(y)) => route::scroll_to_offset(y),
+                (None, None) => route::scroll_to_top(),
             }
             if !first && !to_search {
                 focus_main();
@@ -290,6 +293,7 @@ fn Reader(library: Library) -> impl IntoView {
     });
 
     views::search::install_slash_shortcut(quick);
+    window_event_listener(leptos::ev::scroll, |_| route::remember_scroll());
 
     view! {
         <div class="app">

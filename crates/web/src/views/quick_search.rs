@@ -25,8 +25,6 @@ use leptos::task::spawn_local;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
-/// The history state of the entry that Quick search pushes.
-const HISTORY_MARKER: &str = "cast-iron:quick-search";
 /// The id of the header button, which receives focus when the layer closes.
 pub const OPEN_BUTTON_ID: &str = "quick-search-open";
 /// The pause after the last keystroke before the suggestions are looked up.
@@ -70,15 +68,9 @@ pub fn use_quick_search() -> QuickSearch {
     expect_context::<QuickSearch>()
 }
 
-fn history() -> Option<web_sys::History> {
-    web_sys::window()?.history().ok()
-}
-
 fn marker_is_current() -> bool {
-    history()
-        .and_then(|history| history.state().ok())
-        .and_then(|state| state.as_string())
-        .is_some_and(|state| state == HISTORY_MARKER)
+    // The entry's state is shared with the scroll memory; only the `quickSearch` field is ours.
+    route::current_entry_has_flag(route::QUICK_SEARCH_FIELD)
 }
 
 /// Keeps Tab and Shift+Tab inside the layer. A modal dialog already blocks the page behind it,
@@ -179,11 +171,7 @@ impl QuickSearch {
             window.scroll_x().unwrap_or(0.0),
             window.scroll_y().unwrap_or(0.0),
         ));
-        let pushed = history().is_some_and(|history| {
-            history
-                .push_state_with_url(&wasm_bindgen::JsValue::from_str(HISTORY_MARKER), "", None)
-                .is_ok()
-        });
+        let pushed = route::push_flagged_entry(route::QUICK_SEARCH_FIELD);
         self.pushed.set_value(pushed);
         self.session.update_value(|session| *session += 1);
         self.text.set(String::new());
@@ -262,7 +250,8 @@ impl QuickSearch {
         let replace = self.pushed.get_value() && marker_is_current();
         self.finish_close(false);
         if replace {
-            route::replace(&to);
+            // The layer's entry becomes another page, so it starts without the old page's state.
+            route::replace_as_new_page(&to);
         } else {
             route::navigate(&to);
         }

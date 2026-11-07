@@ -2,7 +2,6 @@
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
 use crate::fmt;
-use crate::graph::{BookLookup, entries_under, node_at};
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{BookSort, Route, replace, use_route};
 use crate::views::book_tier::Tier;
@@ -16,13 +15,12 @@ use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, BOOK_TOTALS_SCOPE, Shared, active_count_line, group_letter, kind_name,
-    local_resource, section_label, set_title, sort_key,
+    local_resource, set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -302,18 +300,22 @@ fn book_meta(row: &BookListEntry) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(" · "))
 }
 
-type BookLookupSignal =
-    ReadSignal<Option<Result<Option<Rc<BookLookup>>, LibraryError>>, LocalStorage>;
-
+/// One book row. The title area is a single link to the book page, where the contents live.
+/// The active switch is a sibling of the link, never inside it, so each control keeps its own
+/// 44 px target and the two never nest.
 fn book_row(
     row: BookListEntry,
     library: Library,
-    lookup: BookLookupSignal,
     saving: RwSignal<bool>,
     save_error: RwSignal<Option<String>>,
     status: RwSignal<Option<String>>,
 ) -> AnyView {
     let meta = book_meta(&row);
+    let href = Route::Book {
+        source: row.id.clone(),
+        chapter: None,
+    }
+    .href();
     let id = row.id;
     let title = row.title;
     let count = row.count;
@@ -329,37 +331,19 @@ fn book_row(
         state_library.book_active(&state_id)
     };
     let badge_active = is_active.clone();
-    let id_for_tree = id.clone();
-    let title_for_tree = title.clone();
-    let expanded = RwSignal::new(false);
-    let on_toggle = move |event: leptos::ev::Event| {
-        expanded.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
-    };
     view! {
         <li class="book-directory-item" data-book-id=id>
-            <details class="book-directory-row" on:toggle=on_toggle>
-                <summary class="book-card">
-                    <span class="cat-name">{title.clone()}</span>
-                    <span class="cat-count">{count}</span>
+            <a class="book-directory-row book-card" href=href>
+                <span class="book-card-text">
+                    <span class="cat-name">{title}</span>
                     <span class="cat-blurb">
                         {count_label}
                         {meta.map(|line| view! { <span class="book-meta">" · "{line}</span> })}
                         {move || (!badge_active()).then_some(" · Disabled")}
                     </span>
-                </summary>
-                <div class="book-directory-contents">
-                    {move || expanded.get().then(|| lookup.with(|state| match state {
-                        Some(Ok(Some(books))) => match books.books().iter().position(|book| book.source == id_for_tree) {
-                            Some(index) => view! {
-                                <BookTree lookup=Shared::from_rc(books.clone()) book=index title=title_for_tree.clone() />
-                            }.into_any(),
-                            None => view! { <p class="muted">"No ordered contents are available for this book."</p> }.into_any(),
-                        },
-                        Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
-                        _ => view! { <p class="muted" role="status">"Loading chapter list…"</p> }.into_any(),
-                    }))}
-                </div>
-            </details>
+                </span>
+                <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </a>
             <label class="book-activation">
                 <input type="checkbox" aria-label=label prop:checked=is_active disabled=move || saving.get()
                     on:change=move |event| {
@@ -395,108 +379,7 @@ fn book_row(
     .into_any()
 }
 
-/// The expanded book, rooted at the same `Read {book}` label as the full contents page.
-/// Chapters and sections are native disclosures; children are built only when a branch opens,
-/// so a two-thousand-entry book costs a few rows until the reader asks for more.
-#[component]
-fn BookTree(lookup: Shared<BookLookup>, book: usize, title: String) -> impl IntoView {
-    let Some(tree) = lookup.book_at(book) else {
-        return ().into_any();
-    };
-    let href = Route::Book {
-        source: tree.source.clone(),
-        chapter: None,
-    }
-    .href();
-    let nav_label = format!("Contents of {title}");
-    let read_label = format!("Read {title}");
-    let chapters = (0..tree.chapters.len())
-        .map(|index| {
-            view! {
-                <DirectoryNode lookup=lookup.clone() book path=vec![index] />
-            }
-        })
-        .collect_view();
-    view! {
-        <nav class="toc book-tree" aria-label=nav_label data-testid="book-tree">
-            <a class="book-tree-root" href=href>{read_label}</a>
-            <ul class="toc-list toc-top">{chapters}</ul>
-        </nav>
-    }
-    .into_any()
-}
-
-#[component]
-fn DirectoryNode(lookup: Shared<BookLookup>, book: usize, path: Vec<usize>) -> impl IntoView {
-    let Some(tree) = lookup.book_at(book) else {
-        return ().into_any();
-    };
-    let Some(node) = node_at(tree, &path) else {
-        return ().into_any();
-    };
-    let title = section_label(&node.title);
-    let under = entries_under(node);
-    let child_count = node.children.len();
-    let own_link = node.entry.as_ref().map(|entry| {
-        Route::Entry {
-            id: entry.clone(),
-            anchor: node.anchor.clone(),
-        }
-        .href()
-    });
-
-    if child_count == 0 {
-        return match own_link {
-            Some(href) => view! { <li class="toc-leaf"><a href=href>{title}</a></li> }.into_any(),
-            None => view! { <li class="toc-leaf"><span>{title}</span></li> }.into_any(),
-        };
-    }
-
-    let opened = RwSignal::new(false);
-    let on_toggle = move |event: leptos::ev::Event| {
-        opened.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
-    };
-    let child_title = title.clone();
-    let children = {
-        let lookup = lookup.clone();
-        let path = path.clone();
-        move || {
-            opened.get().then(|| {
-                let items = (0..child_count)
-                    .map(|index| {
-                        let mut child = path.clone();
-                        child.push(index);
-                        view! {
-                            <DirectoryNode lookup=lookup.clone() book path=child />
-                        }
-                    })
-                    .collect_view();
-                let own = own_link.clone().map(|href| {
-                    view! {
-                        <li class="toc-leaf toc-self">
-                            <a href=href>{format!("Read {child_title}")}</a>
-                        </li>
-                    }
-                });
-                view! { <ul class="toc-list">{own}{items}</ul> }
-            })
-        }
-    };
-    view! {
-        <li class="toc-branch">
-            <details class="toc-details" on:toggle=on_toggle>
-                <summary>
-                    <span class="toc-title">{title}</span>
-                    <span class="toc-count" aria-label=format!("{under} entries")>{under}</span>
-                </summary>
-                {children}
-            </details>
-        </li>
-    }
-    .into_any()
-}
-
-/// The publication directory. The same `books.json` tree as the book page, built lazily.
+/// The publication directory: one link row per book, to its book page.
 /// Books are grouped by priority tier; the sort in the URL orders books inside each tier, and
 /// library order shows one ungrouped list. Group and preset controls write the stored active
 /// set once through [`Library::update_active_books`].
@@ -504,10 +387,6 @@ fn DirectoryNode(lookup: Shared<BookLookup>, book: usize, path: Vec<usize>) -> i
 pub fn Books() -> impl IntoView {
     set_title("Books");
     let library = use_library();
-    let lookup = {
-        let library = library.clone();
-        local_resource(async move { library.books().await })
-    };
     let saving = RwSignal::new(false);
     let save_error = RwSignal::new(None::<String>);
     let status = RwSignal::new(None::<String>);
@@ -576,7 +455,7 @@ pub fn Books() -> impl IntoView {
             <h1>"Books"</h1>
             <section>
                 <p class="muted measure">
-                    "Browse each book through its sections and contents. "
+                    "Open a book to read its sections and contents. "
                     "Each book explains which parts of its order still need checking against the printed contents."
                 </p>
                 <p class="hint">"Active books appear in search and category browsing. Disabling a book keeps its download and your stars."</p>
@@ -615,7 +494,7 @@ pub fn Books() -> impl IntoView {
                             let items = group
                                 .books
                                 .into_iter()
-                                .map(|index| book_row(rows[index].clone(), library.clone(), lookup, saving, save_error, status))
+                                .map(|index| book_row(rows[index].clone(), library.clone(), saving, save_error, status))
                                 .collect_view();
                             match group.tier {
                                 Some(tier) => tier_section(tier, ids, items, library.clone(), apply.clone(), saving),

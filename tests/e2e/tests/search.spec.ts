@@ -645,6 +645,44 @@ installedTest("Cancel, Escape and Back close Quick search on the same page, scro
   expect(page.url()).not.toBe(url);
 });
 
+installedTest("A typed address closes Quick search, and Back restores the scroll offset and keeps both history fields", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await expect(page.locator(".book-directory-row").first()).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 600));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  const booksUrl = page.url();
+  const state = () => page.evaluate(() => history.state as { scrollId?: number; quickSearch?: boolean } | null);
+
+  // One entry for Books carries only the scroll id; the entry that Quick search pushes copies it
+  // and adds its own flag.
+  const first = await state();
+  expect(typeof first?.scrollId).toBe("number");
+  const layer = await openQuickSearch(page, { keyboard: true });
+  const pushed = await state();
+  expect(pushed).toEqual({ scrollId: first!.scrollId, quickSearch: true });
+
+  // A typed address (a hash change the layer did not make) closes the layer on the new page.
+  await page.evaluate(() => { location.hash = "#/settings"; });
+  await expect(page.locator("[data-testid=library-facts]")).toBeVisible();
+  await expect(layer).toBeHidden();
+
+  // Back returns to the entry Quick search pushed: Books, at the saved offset, with both fields.
+  await page.goBack();
+  await expect(page.locator(".book-directory-row").first()).toBeVisible();
+  expect(page.url()).toBe(booksUrl);
+  await expect(layer).toBeHidden();
+  await expect.poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before)).toBeLessThanOrEqual(2);
+  expect(await state()).toEqual({ scrollId: first!.scrollId, quickSearch: true });
+
+  // Back once more is the Books entry under it, with its own field untouched.
+  await page.goBack();
+  expect(page.url()).toBe(booksUrl);
+  expect(await state()).toEqual({ scrollId: first!.scrollId });
+  await expect.poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before)).toBeLessThanOrEqual(2);
+});
+
 installedTest("Quick search keeps Tab inside the layer and honors reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installLibrary(page);
