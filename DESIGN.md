@@ -23,6 +23,10 @@ Rules that apply to every role:
 - Use `aria-pressed` for a toggle that keeps its place (the star), and `aria-current` for a link to the current page.
 - A selected value appears once, in its control. Filter state is route state. Icons are inline SVG with `aria-hidden="true"`, never text glyphs.
 
+## Glyphs
+
+Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs (and in the book trail). A bare `<summary>` with no drawn icon keeps the platform's own disclosure marker.
+
 ## List pages
 
 A list page is a kind's A to Z list (`#/browse/kind/<kind>`). Feat chains, the spell hub and the spell lists follow the same head. Home, entries, Search, Settings, Legal, the Books directory and the book reader are not list pages.

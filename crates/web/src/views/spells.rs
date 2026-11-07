@@ -8,6 +8,7 @@ use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schoo
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::Route;
 use crate::views::book_tier::Tier;
+use crate::views::icons;
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{EntryKind, SpellListClass, SpellListDetail, SpellLists};
@@ -603,6 +604,7 @@ fn ListPage(
         view! {
             <details class="lens-more school-filter">
                 <summary>
+                    {icons::chevron_right("disclosure-chevron")}
                     "Filter by school"
                     {move || {
                         let n = schools.with(Vec::len);
