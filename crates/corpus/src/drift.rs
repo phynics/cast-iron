@@ -728,6 +728,44 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
     pairs
 }
 
+/// The printed `**Replaces:**` and `**Alters:**` lines against the typed item lists, in print
+/// order. A typed list and its printed line must state the same items; one side alone is drift.
+fn replaces_alters_pairs(
+    entry: &RuleEntry,
+    text: &str,
+    replaces: &[String],
+    alters: &[String],
+) -> Vec<Pair> {
+    let body = normal_part(&entry.body);
+    let mut pairs = Vec::new();
+    for (field, values, label) in [
+        ("replaces", replaces, "Replaces"),
+        ("alters", alters, "Alters"),
+    ] {
+        let stated = labelled_texts(body, label);
+        if values.is_empty() && stated.is_empty() {
+            continue;
+        }
+        let field_value = joined(values);
+        let source_value = stated.first().cloned().unwrap_or_default();
+        let agree = !values.is_empty()
+            && stated
+                .iter()
+                .any(|statement| normalize(&field_value) == normalize(statement));
+        let marker = format!("**{label}:**");
+        pairs.push(Pair {
+            field,
+            field_value,
+            source: format!("`**{label}:**` line"),
+            source_line: body_line(text, |line| line.contains(&marker)),
+            source_value,
+            agree,
+            missing: values.is_empty(),
+        });
+    }
+    pairs
+}
+
 /// Every pair in the entry that states a value in both places and disagrees.
 pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
     let entry = &stored.entry;
@@ -737,6 +775,12 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
         TypedFields::Creature(_) => creature_pairs(entry, &stored.text, &rows),
         TypedFields::Item(_) => item_pairs(entry, &stored.text, &rows),
         TypedFields::Feat(_) => feat_pairs(entry, &stored.text),
+        TypedFields::Archetype(fields) => {
+            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &fields.alters)
+        }
+        TypedFields::ClassOption(fields) => {
+            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &[])
+        }
         _ => vec![],
     };
     pairs

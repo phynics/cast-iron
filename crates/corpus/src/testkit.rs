@@ -79,7 +79,9 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
+            suffix: None,
         }],
+        option_groups: Default::default(),
         books: BookIndex { books: vec![] },
         books_text: String::new(),
         legal: LegalNotices {

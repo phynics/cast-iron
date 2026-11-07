@@ -55,7 +55,8 @@ pub fn needs(kind: EntryKind) -> Needs {
         | EntryKind::Trap
         | EntryKind::Trait
         | EntryKind::RacialTrait
-        | EntryKind::Archetype => Needs::default(),
+        | EntryKind::Archetype
+        | EntryKind::ClassOption => Needs::default(),
     }
 }
 
@@ -672,7 +673,8 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         | EntryKind::Item
         | EntryKind::Skill
         | EntryKind::Affliction
-        | EntryKind::Trap => {}
+        | EntryKind::Trap
+        | EntryKind::ClassOption => {}
     }
     (!panels.is_empty()).then(|| view! { <div class="entry-rel">{panels}</div> })
 }

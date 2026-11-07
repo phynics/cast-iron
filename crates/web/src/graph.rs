@@ -16,8 +16,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 /// states it; this adds the inverse lookup that the entry screens need.
 #[derive(Debug, Clone, Default)]
 pub struct Relations {
-    outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId)>>,
-    incoming: HashMap<EntryId, Vec<(RelationKind, EntryId)>>,
+    outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>>,
+    incoming: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>>,
     /// Edge count per kind slug, as the compiler wrote it.
     pub counts: BTreeMap<String, u32>,
 }
@@ -50,15 +50,20 @@ const MAX_NODES: usize = 200;
 
 impl Relations {
     pub fn new(index: RelationIndex) -> Self {
-        let mut outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId)>> = HashMap::new();
-        let mut incoming: HashMap<EntryId, Vec<(RelationKind, EntryId)>> = HashMap::new();
+        let mut outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>> =
+            HashMap::new();
+        let mut incoming: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>> =
+            HashMap::new();
         for edge in index.edges {
-            let cast_iron_schema::RelationEdge(source, kind, target) = edge;
+            let cast_iron_schema::RelationEdge(source, kind, target, label) = edge;
             outgoing
                 .entry(source.clone())
                 .or_default()
-                .push((kind, target.clone()));
-            incoming.entry(target).or_default().push((kind, source));
+                .push((kind, target.clone(), label.clone()));
+            incoming
+                .entry(target)
+                .or_default()
+                .push((kind, source, label));
         }
         Self {
             outgoing,
@@ -77,18 +82,18 @@ impl Relations {
             if !eligible(source) {
                 continue;
             }
-            for (kind, target) in edges {
+            for (kind, target, label) in edges {
                 if !eligible(target) {
                     continue;
                 }
                 outgoing
                     .entry(source.clone())
                     .or_insert_with(Vec::new)
-                    .push((*kind, target.clone()));
+                    .push((*kind, target.clone(), label.clone()));
                 incoming
                     .entry(target.clone())
                     .or_insert_with(Vec::new)
-                    .push((*kind, source.clone()));
+                    .push((*kind, source.clone(), label.clone()));
                 *counts.entry(kind.slug().to_owned()).or_default() += 1;
             }
         }
@@ -106,8 +111,8 @@ impl Relations {
             .get(target)
             .into_iter()
             .flatten()
-            .filter(|(k, _)| *k == kind)
-            .map(|(_, id)| id)
+            .filter(|(k, _, _)| *k == kind)
+            .map(|(_, id, _)| id)
             .collect()
     }
 
@@ -117,8 +122,8 @@ impl Relations {
             .get(source)
             .into_iter()
             .flatten()
-            .filter(|(k, _)| *k == kind)
-            .map(|(_, id)| id)
+            .filter(|(k, _, _)| *k == kind)
+            .map(|(_, id, _)| id)
             .collect()
     }
 
@@ -235,7 +240,11 @@ impl Relations {
     pub fn long_chains(&self, more_than: usize) -> HashMap<EntryId, usize> {
         self.incoming
             .iter()
-            .filter(|(_, edges)| edges.iter().any(|(k, _)| *k == RelationKind::Prerequisite))
+            .filter(|(_, edges)| {
+                edges
+                    .iter()
+                    .any(|(k, _, _)| *k == RelationKind::Prerequisite)
+            })
             .filter_map(|(id, _)| {
                 let total = self.descendants(id).len();
                 (total > more_than).then(|| (id.clone(), total))
@@ -246,24 +255,24 @@ impl Relations {
     /// Where chains start: feats with dependents and no prerequisite feat. Most depended-on
     /// first, then by id.
     pub fn chain_heads(&self) -> Vec<ChainHead> {
-        let mut heads: Vec<ChainHead> =
-            self.incoming
-                .iter()
-                .filter_map(|(id, edges)| {
-                    let direct = edges
-                        .iter()
-                        .filter(|(k, _)| *k == RelationKind::Prerequisite)
-                        .count();
-                    let has_prerequisite = self.outgoing.get(id).is_some_and(|out| {
-                        out.iter().any(|(k, _)| *k == RelationKind::Prerequisite)
-                    });
-                    (direct > 0 && !has_prerequisite).then(|| ChainHead {
-                        id: id.clone(),
-                        direct,
-                        total: self.descendants(id).len(),
-                    })
+        let mut heads: Vec<ChainHead> = self
+            .incoming
+            .iter()
+            .filter_map(|(id, edges)| {
+                let direct = edges
+                    .iter()
+                    .filter(|(k, _, _)| *k == RelationKind::Prerequisite)
+                    .count();
+                let has_prerequisite = self.outgoing.get(id).is_some_and(|out| {
+                    out.iter().any(|(k, _, _)| *k == RelationKind::Prerequisite)
+                });
+                (direct > 0 && !has_prerequisite).then(|| ChainHead {
+                    id: id.clone(),
+                    direct,
+                    total: self.descendants(id).len(),
                 })
-                .collect();
+            })
+            .collect();
         heads.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.id.cmp(&b.id)));
         heads
     }
@@ -651,12 +660,27 @@ mod tests {
             counts: BTreeMap::new(),
             edges: edges
                 .iter()
-                .map(|(s, k, t)| RelationEdge(id(s), *k, id(t)))
+                .map(|(s, k, t)| RelationEdge::plain(id(s), *k, id(t)))
                 .collect(),
         })
     }
 
     use RelationKind::{Archetype, Part, Prerequisite};
+
+    #[test]
+    fn a_labelled_edge_is_parsed_and_still_answers_kind_lookups() {
+        let r = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: vec![RelationEdge(
+                id("c/a"),
+                RelationKind::Addon,
+                id("c/b"),
+                Some("mythic".into()),
+            )],
+        });
+        assert_eq!(r.targets_of(&id("c/a"), RelationKind::Addon), [&id("c/b")]);
+        assert_eq!(r.sources_of(&id("c/b"), RelationKind::Addon), [&id("c/a")]);
+    }
 
     #[test]
     fn inverse_lookups_find_children_of_a_race_a_class_and_a_feat() {
@@ -798,7 +822,7 @@ mod tests {
             counts: BTreeMap::new(),
             edges: edges
                 .iter()
-                .map(|(s, k, t)| RelationEdge(id(s), *k, id(t)))
+                .map(|(s, k, t)| RelationEdge::plain(id(s), *k, id(t)))
                 .collect(),
         });
         fn count(n: &ChainNode) -> usize {

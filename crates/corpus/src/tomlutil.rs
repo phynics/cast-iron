@@ -48,6 +48,9 @@ pub fn relation(relation: &Relation) -> String {
         RelationKind::Part => "part",
         RelationKind::Archetype => "archetype",
         RelationKind::Prerequisite => "prerequisite",
+        RelationKind::Variant => "variant",
+        RelationKind::Addon => "addon",
+        RelationKind::Revision => "revision",
     }));
     out.push_str(", target = ");
     out.push_str(&string(relation.target.as_str()));
