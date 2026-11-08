@@ -1675,7 +1675,6 @@ mark {
 .star-btn svg {
   width: 1.4rem;
   height: 1.4rem;
-  stroke-width: 2.2;
 }
 
 .star-btn:hover:not(:disabled) {

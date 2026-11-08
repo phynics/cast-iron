@@ -64,7 +64,7 @@ pub fn chevron_right_large() -> impl IntoView {
 pub fn book_chevron() -> impl IntoView {
     view! {
         <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="m9 6 6 6-6 6"/>
         </svg>
     }
@@ -74,7 +74,7 @@ pub fn book_chevron() -> impl IntoView {
 pub fn tier_chevron() -> impl IntoView {
     view! {
         <svg class="tier-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
             <path d="m9 6 6 6-6 6"/>
         </svg>
@@ -117,7 +117,7 @@ pub fn check() -> impl IntoView {
 pub fn preset_check() -> impl IntoView {
     view! {
         <svg class="preset-check" viewBox="0 0 24 24" width="20" height="20" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
             <path d="m5 12.5 4.5 4.5L19 7.5"/>
         </svg>
@@ -128,7 +128,7 @@ pub fn preset_check() -> impl IntoView {
 pub fn choice_check() -> impl IntoView {
     view! {
         <svg class="choice-check" viewBox="0 0 24 24" width="20" height="20" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
             <path d="m5 12.5 4.5 4.5L19 7.5"/>
         </svg>
@@ -204,7 +204,7 @@ pub fn install_add_home() -> impl IntoView {
 pub fn header_action(update: bool) -> impl IntoView {
     view! {
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             {if update {
                 view! {
                     <path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/>
