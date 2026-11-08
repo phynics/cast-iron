@@ -754,12 +754,10 @@ mod tests {
         // An add-on is not a follower: only prerequisite edges make a chain.
         assert_eq!(r.leads_to(&id("c/base")), [&id("c/follower")]);
         assert_eq!(r.descendants(&id("c/base")), [id("c/follower")]);
-        assert!(!r.long_chains(0).contains_key(&id("c/base/mythic")));
-        assert!(
-            !r.chain_heads()
-                .iter()
-                .any(|head| head.id == id("c/base/mythic"))
-        );
+        for addon in ["c/base/mythic", "c/base/stamina"] {
+            assert!(!r.long_chains(0).contains_key(&id(addon)));
+            assert!(!r.chain_heads().iter().any(|head| head.id == id(addon)));
+        }
     }
 
     #[test]

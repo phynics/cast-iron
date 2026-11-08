@@ -436,15 +436,17 @@ fn archetype_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
     )
 }
 
-/// The mythic add-ons that a base page stacks: the edge label picks them, and the add-on's own
-/// book decides whether one appears. The base's own book never hides an add-on.
-pub fn mythic_addons(
+/// The add-ons that attach to `base` with `label` and pass `eligible`, in index order. The
+/// edge's label picks the kind; the add-on's own entry decides eligibility, so the base's book
+/// never hides an add-on.
+pub fn addons_of_label(
     relations: &Relations,
     base: &EntryId,
+    label: &str,
     eligible: impl Fn(&EntryId) -> bool,
 ) -> Vec<EntryId> {
     relations
-        .addons_of(base, "mythic")
+        .addons_of(base, label)
         .into_iter()
         .filter(|id| eligible(id))
         .cloned()
@@ -461,6 +463,27 @@ pub fn attached_body(body: &[Block]) -> Vec<Block> {
         .collect()
 }
 
+/// The shard-backed rules text of one attached add-on: a status line while it loads, the
+/// error if the shard fails, then the body that [`attached_body`] prepared.
+#[component]
+fn AddonBody(library: Library, id: EntryId, loading: &'static str) -> impl IntoView {
+    let load = library.clone();
+    let body = local_resource(async move { load.entry(&id).await });
+    view! {
+        {move || {
+            body.with(|state| match state {
+                None => view! { <p class="status" role="status">{loading}</p> }.into_any(),
+                Some(Err(error)) => view! {
+                    <p class="error" role="alert">{error.to_string()}</p>
+                }.into_any(),
+                Some(Ok(entry)) => view! {
+                    <div class="rich">{blocks(&attached_body(&entry.body))}</div>
+                }.into_any(),
+            })
+        }}
+    }
+}
+
 /// One mythic version inside a base page's `Mythic` section. The title and the source line
 /// arrive with the page; only the rules text waits for the add-on's shard.
 #[component]
@@ -468,23 +491,11 @@ fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
     let href = Route::entry(id.clone()).href();
     let title = title_of(&library, &id);
     let book = source_title(&library, &id);
-    let load = library.clone();
-    let body = local_resource(async move { load.entry(&id).await });
     view! {
         <div class="attached-addon">
             <h3><a href=href>{title}</a></h3>
             <p class="sources-line">{format!("Sources: {book}")}</p>
-            {move || {
-                body.with(|state| match state {
-                    None => view! { <p class="status" role="status">"Loading the mythic rules…"</p> }.into_any(),
-                    Some(Err(error)) => view! {
-                        <p class="error" role="alert">{error.to_string()}</p>
-                    }.into_any(),
-                    Some(Ok(entry)) => view! {
-                        <div class="rich">{blocks(&attached_body(&entry.body))}</div>
-                    }.into_any(),
-                })
-            }}
+            <AddonBody library=library id=id loading="Loading the mythic rules…" />
         </div>
     }
 }
@@ -492,7 +503,9 @@ fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
 fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Option<AnyView> {
     let relations = all?;
     let discovery = library.discovery();
-    let addons = mythic_addons(relations, id, |addon| discovery.is_eligible(addon.as_str()));
+    let addons = addons_of_label(relations, id, "mythic", |addon| {
+        discovery.is_eligible(addon.as_str())
+    });
     if addons.is_empty() {
         return None;
     }
@@ -509,42 +522,6 @@ fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Opt
         }
         .into_any(),
     )
-}
-
-/// The Stamina add-ons that a base page folds: the edge label picks them, and the add-on's own
-/// book decides whether one appears. The base's own book never hides an add-on.
-pub fn stamina_addons(
-    relations: &Relations,
-    base: &EntryId,
-    eligible: impl Fn(&EntryId) -> bool,
-) -> Vec<EntryId> {
-    relations
-        .addons_of(base, "stamina")
-        .into_iter()
-        .filter(|id| eligible(id))
-        .cloned()
-        .collect()
-}
-
-/// The shard-backed rules text of one Stamina add-on: a status line while it loads, the error
-/// if the shard fails, then the body that [`attached_body`] prepared.
-#[component]
-fn StaminaBody(library: Library, id: EntryId) -> impl IntoView {
-    let load = library.clone();
-    let body = local_resource(async move { load.entry(&id).await });
-    view! {
-        {move || {
-            body.with(|state| match state {
-                None => view! { <p class="status" role="status">"Loading the Stamina rules…"</p> }.into_any(),
-                Some(Err(error)) => view! {
-                    <p class="error" role="alert">{error.to_string()}</p>
-                }.into_any(),
-                Some(Ok(entry)) => view! {
-                    <div class="rich">{blocks(&attached_body(&entry.body))}</div>
-                }.into_any(),
-            })
-        }}
-    }
 }
 
 /// One collapsed Stamina disclosure on a base page. The summary names the add-on's book; the
@@ -564,7 +541,7 @@ fn StaminaAddon(library: Library, id: EntryId) -> impl IntoView {
         <details class="rel-disclosure rel-stamina" on:toggle=on_toggle>
             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Stamina · {book}")}</summary>
             {move || opened.get().then(|| view! {
-                <StaminaBody library=library.clone() id=id.clone() />
+                <AddonBody library=library.clone() id=id.clone() loading="Loading the Stamina rules…" />
             })}
         </details>
     }
@@ -577,10 +554,12 @@ fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
         return Vec::new();
     };
     let discovery = library.discovery();
-    stamina_addons(relations, id, |addon| discovery.is_eligible(addon.as_str()))
-        .into_iter()
-        .map(|addon| view! { <StaminaAddon library=library.clone() id=addon /> }.into_any())
-        .collect()
+    addons_of_label(relations, id, "stamina", |addon| {
+        discovery.is_eligible(addon.as_str())
+    })
+    .into_iter()
+    .map(|addon| view! { <StaminaAddon library=library.clone() id=addon /> }.into_any())
+    .collect()
 }
 
 fn feat_panels(
@@ -1096,17 +1075,17 @@ mod tests {
             ("c/other/stamina", "addon", "c/other", Some("stamina")),
         ]);
         assert_eq!(
-            mythic_addons(&relations, &id("c/base"), |_| true),
+            addons_of_label(&relations, &id("c/base"), "mythic", |_| true),
             [id("c/base/mythic")]
         );
         // The add-on's book is what gates the section; the base's book never does.
         assert_eq!(
-            mythic_addons(&relations, &id("c/base"), |addon| addon.as_str()
+            addons_of_label(&relations, &id("c/base"), "mythic", |addon| addon.as_str()
                 != "c/base/mythic"),
             Vec::<EntryId>::new()
         );
         // A Stamina add-on is not a mythic version.
-        assert!(mythic_addons(&relations, &id("c/other"), |_| true).is_empty());
+        assert!(addons_of_label(&relations, &id("c/other"), "mythic", |_| true).is_empty());
     }
 
     #[test]
@@ -1116,23 +1095,23 @@ mod tests {
             ("c/base/stamina", "addon", "c/base", Some("stamina")),
         ]);
         assert_eq!(
-            stamina_addons(&relations, &id("c/base"), |_| true),
+            addons_of_label(&relations, &id("c/base"), "stamina", |_| true),
             [id("c/base/stamina")]
         );
         // The add-on's own book gates the row; the base's book never does.
         assert_eq!(
-            stamina_addons(&relations, &id("c/base"), |addon| addon.as_str()
+            addons_of_label(&relations, &id("c/base"), "stamina", |addon| addon.as_str()
                 != "c/base/stamina"),
             Vec::<EntryId>::new()
         );
         // A mythic version is not a Stamina row.
         assert!(
-            stamina_addons(&relations, &id("c/base"), |addon| addon.as_str()
+            addons_of_label(&relations, &id("c/base"), "stamina", |addon| addon.as_str()
                 == "c/base/mythic")
             .is_empty()
         );
         // A base with no add-on gets no row.
-        assert!(stamina_addons(&relations, &id("c/none"), |_| true).is_empty());
+        assert!(addons_of_label(&relations, &id("c/none"), "stamina", |_| true).is_empty());
     }
 
     #[test]
