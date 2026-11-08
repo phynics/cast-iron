@@ -7,6 +7,7 @@
 //! undoes it. The rules for the labels and the find field are plain functions, tested natively.
 
 use crate::fmt;
+use crate::views::icons;
 use leptos::prelude::*;
 use std::cell::Cell;
 use wasm_bindgen::JsCast;
@@ -174,16 +175,6 @@ impl Default for MenuState {
     }
 }
 
-fn chevron() -> impl IntoView {
-    view! {
-        <svg class="filter-btn-chevron" viewBox="0 0 24 24" width="20" height="20" fill="none"
-            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
-            aria-hidden="true">
-            <path d="m6 9 6 6 6-6"/>
-        </svg>
-    }
-}
-
 /// The button. Its visible text is its accessible name. `text` is `None` while the choices
 /// load, which disables it.
 #[component]
@@ -235,7 +226,7 @@ pub fn FilterMenuButton(
             <span class="filter-btn-text">
                 {move || text.get().unwrap_or_else(|| format!("{}: Loading…", spec.group))}
             </span>
-            {chevron()}
+            {icons::chevron_down("filter-btn-chevron")}
         </button>
     }
 }
@@ -272,15 +263,7 @@ pub fn FilterMenuPanel(
 
     // A value the library lacks leaves no row current: the list is empty, not "all".
     let all_current = current.is_none();
-    let check = || {
-        view! {
-            <svg class="choice-check" viewBox="0 0 24 24" width="20" height="20" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" aria-hidden="true">
-                <path d="m5 12.5 4.5 4.5L19 7.5"/>
-            </svg>
-        }
-    };
+    let check = icons::choice_check;
     let row = {
         let current_value = current_value.clone();
         move |option: &MenuOption| {

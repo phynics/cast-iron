@@ -10,6 +10,7 @@ use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace};
 use crate::views::browse::{BookListEntry, book_groups, tier_section};
+use crate::views::icons;
 use crate::views::util::set_title;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -213,17 +214,6 @@ fn toggle_row(row: BookListEntry, panel: Panel) -> AnyView {
     .into_any()
 }
 
-/// The check mark of the preset that matches the active set.
-fn check_mark() -> impl IntoView {
-    view! {
-        <svg class="preset-check" viewBox="0 0 24 24" width="20" height="20" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <path d="m5 12.5 4.5 4.5L19 7.5"/>
-        </svg>
-    }
-}
-
 /// The presets: 44 px button rows, one pressed when it matches the active set.
 fn preset_list(panel: &Panel) -> impl IntoView + use<> {
     let library = &panel.library;
@@ -254,7 +244,7 @@ fn preset_list(panel: &Panel) -> impl IntoView + use<> {
                         on:click=move |_| apply.apply(preset)>
                         <span class="preset-name">{preset.label()}</span>
                         <span class="preset-size" id=size_id>{format!("{} {noun}", crate::fmt::count(size))}</span>
-                        <span class="preset-mark">{move || check().then(check_mark)}</span>
+                        <span class="preset-mark">{move || check().then(icons::preset_check)}</span>
                     </button>
                 </li>
             }

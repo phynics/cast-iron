@@ -8,6 +8,7 @@
 
 use crate::route::Route;
 use crate::views::categories::applied_facets;
+use crate::views::icons;
 use crate::views::search::facet_label;
 use cast_iron_schema::EntryKind;
 use cast_iron_search::Filters;
@@ -210,10 +211,7 @@ pub fn FilterPill(label: String, name: String, on_remove: Callback<()>) -> impl 
     view! {
         <button class="scope-pill" type="button" aria-label=name on:click=move |_| on_remove.run(())>
             <span>{label}</span>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" aria-hidden="true">
-                <path d="m7 7 10 10M17 7 7 17"/>
-            </svg>
+            {icons::close()}
         </button>
     }
 }
