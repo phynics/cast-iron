@@ -8,9 +8,65 @@ use crate::store;
 pub use crate::store::Recent;
 use cast_iron_schema::EntryId;
 use leptos::prelude::*;
+use std::cell::RefCell;
 
 pub const KEY: &str = store::KEY_RECENT;
 pub const MAX_RECENT: usize = 12;
+
+/// The write queue. At most one store write runs at a time. A visit or a clear that lands while
+/// that write is in flight marks the write stale; the writer then writes the signal's newer
+/// value, so a later operation supersedes an earlier one instead of racing it.
+///
+/// The stored list is always the signal's current value. Reading the store back would give two
+/// writes the same old list, and the last writer would drop the other visit.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct Flush {
+    in_flight: bool,
+    stale: bool,
+}
+
+impl Flush {
+    /// Starts a write when none is in flight. When one is, marks it stale and lets that writer
+    /// pick up this call's value; the caller then has nothing more to do.
+    fn request(&mut self) -> bool {
+        if self.in_flight {
+            self.stale = true;
+            false
+        } else {
+            self.in_flight = true;
+            true
+        }
+    }
+
+    /// Ends one write. True when the list changed during it, so another write is needed.
+    fn finished(&mut self) -> bool {
+        if self.stale {
+            self.stale = false;
+            true
+        } else {
+            self.in_flight = false;
+            false
+        }
+    }
+}
+
+thread_local! {
+    static FLUSH: RefCell<Flush> = RefCell::new(Flush::default());
+}
+
+/// Writes the signal's current list, once, or again when a mutation landed during the write.
+async fn persist(recents: RwSignal<Vec<Recent>>) {
+    if !FLUSH.with(|flush| flush.borrow_mut().request()) {
+        return;
+    }
+    loop {
+        let list = recents.get_untracked();
+        let _ = store::set_meta(KEY, &list).await;
+        if !FLUSH.with(|flush| flush.borrow_mut().finished()) {
+            return;
+        }
+    }
+}
 
 /// Puts `item` first, drops an older copy of it, and keeps at most [`MAX_RECENT`].
 pub fn push_recent(list: &mut Vec<Recent>, item: Recent) {
@@ -44,20 +100,19 @@ pub async fn load_into(recents: RwSignal<Vec<Recent>>) {
     recents.update(|current| merge_stored(current, stored));
 }
 
-/// Records a visit in the store and in `recents`. The signal update comes after the write, so a
-/// screen that mounted while the write was in flight renders the row without a reload.
+/// Records a visit in `recents`, then writes that list. A visit that lands during the write is
+/// merged in the signal first, so the next write includes both, and a screen that mounted while
+/// a write was in flight renders the row without a reload.
 pub async fn record(recents: RwSignal<Vec<Recent>>, id: EntryId, title: String) {
-    let item = Recent { id, title };
-    let mut list = load().await;
-    push_recent(&mut list, item.clone());
-    let _ = store::set_meta(KEY, &list).await;
-    recents.update(|current| push_recent(current, item));
+    recents.update(|current| push_recent(current, Recent { id, title }));
+    persist(recents).await;
 }
 
-/// Empties the history. The empty list is stored, so the clear survives a reload.
+/// Empties the history and writes the empty list, so the clear survives a reload. A visit that
+/// follows the clear is recorded after it and is what the store receives.
 pub async fn clear(recents: RwSignal<Vec<Recent>>) {
-    let _ = store::set_meta(KEY, &Vec::<Recent>::new()).await;
     recents.set(Vec::new());
+    persist(recents).await;
 }
 
 #[cfg(test)]
@@ -106,5 +161,90 @@ mod tests {
         merge_stored(&mut current, (0..MAX_RECENT + 5).rev().map(r).collect());
         assert_eq!(current.len(), MAX_RECENT);
         assert_eq!(current[0], r(100));
+    }
+
+    /// What a mutation does to the signal list.
+    #[derive(Clone, Copy)]
+    enum Act {
+        Visit(usize),
+        Clear,
+    }
+
+    /// Models the async split: the signal changes at once, while the store write finishes later.
+    /// `finish` completes the one write in flight; the writer then starts another only when a
+    /// mutation landed during it, exactly as [`persist`] does.
+    struct Sim {
+        list: Vec<Recent>,
+        flush: Flush,
+        pending: Option<Vec<Recent>>,
+        written: Vec<Vec<Recent>>,
+    }
+
+    impl Sim {
+        fn new() -> Self {
+            Self {
+                list: Vec::new(),
+                flush: Flush::default(),
+                pending: None,
+                written: Vec::new(),
+            }
+        }
+
+        fn apply(&mut self, act: Act) {
+            match act {
+                Act::Visit(n) => push_recent(&mut self.list, r(n)),
+                Act::Clear => self.list.clear(),
+            }
+            if self.flush.request() {
+                self.pending = Some(self.list.clone());
+            }
+        }
+
+        fn finish(&mut self) {
+            let snapshot = self.pending.take().expect("a write is in flight");
+            self.written.push(snapshot);
+            if self.flush.finished() {
+                self.pending = Some(self.list.clone());
+            }
+        }
+
+        fn last_written(&self) -> &[Recent] {
+            self.written.last().expect("at least one write")
+        }
+    }
+
+    #[test]
+    fn two_quick_visits_are_both_persisted() {
+        let mut sim = Sim::new();
+        sim.apply(Act::Visit(1));
+        // The second visit lands while the first write is in flight.
+        sim.apply(Act::Visit(2));
+        sim.finish();
+        sim.finish();
+        assert_eq!(sim.last_written(), [r(2), r(1)]);
+        assert_eq!(sim.list, [r(2), r(1)]);
+    }
+
+    #[test]
+    fn a_clear_then_a_visit_persists_the_visit_and_not_the_cleared_one() {
+        let mut sim = Sim::new();
+        sim.apply(Act::Visit(1));
+        // Both land before the first write completes.
+        sim.apply(Act::Clear);
+        sim.apply(Act::Visit(2));
+        sim.finish();
+        sim.finish();
+        assert_eq!(sim.last_written(), [r(2)]);
+        assert_eq!(sim.list, [r(2)]);
+    }
+
+    #[test]
+    fn a_visit_then_a_clear_leaves_the_store_empty() {
+        let mut sim = Sim::new();
+        sim.apply(Act::Visit(1));
+        sim.apply(Act::Clear);
+        sim.finish();
+        sim.finish();
+        assert!(sim.last_written().is_empty());
     }
 }
