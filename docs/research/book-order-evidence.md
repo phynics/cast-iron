@@ -67,7 +67,11 @@ The printed contents page of the Advanced Race Guide was checked in this review.
 | Appendix 2 | Height and Weight | 250 |
 | Appendix 3 | Spells | 251 |
 
-`books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group. Main chapter order and titles are verified; nested placement remains unverified.
+`books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group.
+
+Main chapter order and nested placement are verified against the printed Advanced Race Guide. Each entry in the curated chapters sits in its printed chapter and section, and the tree follows the printed page order: the Core Races run Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 10-79); each race keeps Alternate Racial Traits before its New Racial Rules, whose Equipment, Feats, Magic Items, and Spells subsections follow print (for example Catfolk pp. 91-95); and the Race Builder keeps the racial-quality and racial-trait descriptions inside Step 2 (p. 215) and Step 3 (p. 220). Entries that share a printed page keep the dataset order inside that page.
+
+The page-ordered list of entries that the curated tree does not place is not a printed chapter position. It keeps its entries in page order and is outside this check.
 
 ## Bestiary
 
@@ -92,7 +96,13 @@ The printed contents page of the Bestiary was checked in this review. It verifie
 | Appendix 13 | Monster Roles | 323 |
 | Appendix 14 | Encounter Tables | 324 |
 
-`books.toml` follows this sequence: Monsters A to Z, then the appendices. Universal Monster Rules, whose rules sit inside the printed Monsters A to Z section, is kept as a separate dataset appendix after it. The printed Appendices 4 and 6 are separate top-level groups, Monsters as PCs and Monster Cohorts; the dataset's Miscellaneous Monster Rules aggregate opens Monsters as PCs. The dataset's Creature Types appendix uses the printed Appendix 8 title, Monsters by Type. Printed Appendix 3 Glossary (297), Appendix 7 Animal Companions (316), and Appendices 9-12 (Monsters by CR, Monsters by Terrain, Variant Monster Index, Ability Index) have no corpus entries, so they have no groups. Main chapter order is verified; nested placement remains incomplete.
+`books.toml` follows this sequence: Monsters A to Z, then the appendices. Universal Monster Rules, whose rules sit inside the printed Monsters A to Z section, is kept as a separate dataset appendix after it. The printed Appendices 4 and 6 are separate top-level groups, Monsters as PCs and Monster Cohorts; the dataset's Miscellaneous Monster Rules aggregate opens Monsters as PCs. The dataset's Creature Types appendix uses the printed Appendix 8 title, Monsters by Type. Printed Appendix 3 Glossary (297), Appendix 7 Animal Companions (316), and Appendices 9-12 (Monsters by CR, Monsters by Terrain, Variant Monster Index, Ability Index) have no corpus entries, so they have no groups.
+
+Main chapter order and nested placement are verified against the printed Bestiary. Inside Monsters A to Z, each printed family heading holds its own monsters in page order: Angel (p. 9; astral deva p. 10, planetar p. 11, solar p. 12), Archon (p. 18), Azata (p. 23), Demon (p. 56), Devil (p. 71), Dragon (p. 90; chromatic black p. 92, blue p. 94, green p. 96, red p. 98, white p. 100; metallic brass p. 102, bronze p. 104, copper p. 106, gold p. 108, silver p. 110), Elemental (stat blocks pp. 120-127), Familiar (p. 131), Golem with the Shield Guardian subsection (p. 158), and Lycanthrope (p. 197). Each template heading keeps its example creatures: Ghost (p. 144), Half-Celestial (p. 169), Half-Dragon and Dracolisk (p. 170), Half-Fiend (p. 171), Lich (p. 188), Skeleton (p. 250), Skeletal Champion (p. 252), Vampire (p. 270), and Zombie (p. 288).
+
+The appendices hold their printed sections. The Introduction keeps the Monster Rules and Stat Block text (p. 5). Monster Creation keeps its steps (pp. 290-293). Monster Advancement keeps the simple templates and the class-level steps (pp. 294-297). The Glossary creature types and subtypes sit under Monsters by Type (pp. 306-310; the group title is the printed Appendix 8 title, p. 317). Monster Feats keeps Damage Die Adjustments (pp. 314-316). The encounter tables keep their printed regions (pp. 324-327). Animal companion stat blocks, diseases, poisons, and variant stat blocks sit inside the monster that prints them. The alphabetical order follows the printed pages; entries that share a printed page keep the dataset order.
+
+Four entries remain in the residual `New entries (page order)` chapter because their Bestiary attribution is a cross-book hub or a split of another book's entry, not a printed Bestiary section: Gamemastery, Rare Races, Slimes, Molds, and Fungi, and a skaveling affliction from Bestiary 2.
 
 ## Bestiary 2
 
