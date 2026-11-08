@@ -23,7 +23,7 @@ impl<'a> PresetBook<'a> {
     pub fn of(source: &'a SourceInfo) -> Self {
         Self {
             id: &source.id,
-            tier: Tier::from_category(source.category.as_deref()),
+            tier: Tier::of(source),
             third_party: is_third_party(source),
         }
     }
@@ -34,15 +34,11 @@ pub fn books_of(sources: &[SourceInfo]) -> Vec<PresetBook<'_>> {
     sources.iter().map(PresetBook::of).collect()
 }
 
-/// THE HOOK FOR THE THIRD-PARTY MARKER (#189).
-///
-/// The corpus does not yet say which publications are third party: `SourceInfo` has no such
-/// field. Until a reviewed marker exists (a `publications.toml` field, a `corpus-check` rule and
-/// a pin bump), no book is third party, so [`Preset::EverythingInclThirdParty`] has the same set
-/// as [`Preset::PaizoEverything`] and the page hides it. When the marker arrives, read it here;
-/// the presets, Undo and the first-run default need no other change.
-pub fn is_third_party(_source: &SourceInfo) -> bool {
-    false
+/// The third-party marker (#189), read from the corpus `publications.toml` field through
+/// [`SourceInfo::third_party`]. The compiler copies the reviewed marker into `catalog.json`, so
+/// the presets, Undo and the first-run default all follow the same flag.
+pub fn is_third_party(source: &SourceInfo) -> bool {
+    source.third_party
 }
 
 /// A preset, in the order the page lists them.
@@ -225,6 +221,43 @@ pub fn fresh_install_disabled(books: &[PresetBook<'_>]) -> Option<BTreeSet<Strin
             .map(|book| book.id.to_string())
             .collect(),
     )
+}
+
+/// The third-party books of a catalog. The first-run default and the arrival rule use it.
+pub fn third_party_ids(books: &[PresetBook<'_>]) -> BTreeSet<String> {
+    books
+        .iter()
+        .filter(|book| book.third_party)
+        .map(|book| book.id.to_string())
+        .collect()
+}
+
+/// The third-party books that a library update added since `known`, and that therefore start
+/// disabled. `known` is the set the profile saw last time. With no remembered set, every
+/// third-party book counts as new: the profile has never seen a marked book, and #189 makes
+/// third-party books opt-in even on an existing install. The caller stores the current set
+/// after this, so the next arrival is caught.
+pub fn newly_third_party(
+    known: Option<&BTreeSet<String>>,
+    books: &[PresetBook<'_>],
+) -> BTreeSet<String> {
+    let current = third_party_ids(books);
+    match known {
+        Some(known) => current.difference(known).cloned().collect(),
+        None => current,
+    }
+}
+
+/// The remembered set after a load: every third-party book the profile saw before, plus every
+/// one the catalog holds now. A book that a later library drops stays remembered, so the
+/// reader's choice survives a downgrade and a later re-add.
+pub fn remembered_third_party(
+    known: Option<&BTreeSet<String>>,
+    books: &[PresetBook<'_>],
+) -> BTreeSet<String> {
+    let mut seen = known.cloned().unwrap_or_default();
+    seen.extend(third_party_ids(books));
+    seen
 }
 
 /// Decides the first-run default. Only a profile that was new when its first library was
@@ -524,17 +557,89 @@ mod tests {
     }
 
     #[test]
+    fn a_library_update_that_adds_a_third_party_book_keeps_it_off() {
+        let first = shelf();
+        let known = third_party_ids(&first);
+        assert_eq!(ids(known.iter().map(String::as_str).collect()), ["indie"]);
+        // The same catalog plus a new third-party book.
+        let mut next = shelf();
+        next.push(third_party("indie2"));
+        let arrived = newly_third_party(Some(&known), &next);
+        assert_eq!(
+            ids(arrived.iter().map(String::as_str).collect()),
+            ["indie2"]
+        );
+        // The arrival joins the stored disabled set, so the reader keeps every other choice.
+        let mut disabled = fresh_install_disabled(&first).expect("Rulebooks");
+        // The reader had turned the first third-party book on.
+        disabled.remove("indie");
+        assert!(!disabled.contains("indie2"));
+        disabled.extend(arrived.clone());
+        assert!(disabled.contains("indie2"));
+        assert!(!disabled.contains("indie"), "an enabled choice stays on");
+        // A later load remembers the arrival and adds nothing.
+        let current = third_party_ids(&next);
+        assert!(newly_third_party(Some(&current), &next).is_empty());
+    }
+
+    #[test]
+    fn the_first_marked_library_turns_every_third_party_book_off() {
+        // No remembered set: the profile has never seen a marked book, so each one is new.
+        let arrived = newly_third_party(None, &shelf());
+        assert_eq!(ids(arrived.iter().map(String::as_str).collect()), ["indie"]);
+        // A profile whose library had no third-party book only records the empty set.
+        let paizo: Vec<_> = shelf().into_iter().filter(|b| !b.third_party).collect();
+        assert!(newly_third_party(None, &paizo).is_empty());
+    }
+
+    #[test]
+    fn the_remembered_set_only_grows() {
+        let shelf = shelf();
+        let known = third_party_ids(&shelf);
+        assert_eq!(
+            ids(remembered_third_party(None, &shelf)
+                .iter()
+                .map(String::as_str)
+                .collect()),
+            ["indie"]
+        );
+        // A library without the book keeps it remembered, so a later re-add is not "new".
+        let paizo: Vec<_> = shelf.iter().copied().filter(|b| !b.third_party).collect();
+        let remembered = remembered_third_party(Some(&known), &paizo);
+        assert_eq!(
+            ids(remembered.iter().map(String::as_str).collect()),
+            ["indie"]
+        );
+        assert!(newly_third_party(Some(&remembered), &shelf).is_empty());
+    }
+
+    #[test]
     fn books_of_reads_the_tier_from_the_category() {
-        let sources = vec![SourceInfo {
-            id: "core".into(),
-            title: "Core".into(),
-            entry_count: 1,
-            copyright: None,
-            category: Some("RPG".into()),
-            publication_date: None,
-        }];
+        let sources = vec![
+            SourceInfo {
+                id: "core".into(),
+                title: "Core".into(),
+                entry_count: 1,
+                copyright: None,
+                category: Some("RPG".into()),
+                publication_date: None,
+                third_party: false,
+            },
+            SourceInfo {
+                id: "indie".into(),
+                title: "Indie".into(),
+                entry_count: 1,
+                copyright: None,
+                category: Some("RPG".into()),
+                publication_date: None,
+                third_party: true,
+            },
+        ];
         let books = books_of(&sources);
         assert_eq!(books[0].tier, Tier::Rulebooks);
         assert!(!books[0].third_party);
+        // The marker wins over the category: a third-party book is Third party, not Rulebooks.
+        assert_eq!(books[1].tier, Tier::ThirdParty);
+        assert!(books[1].third_party);
     }
 }

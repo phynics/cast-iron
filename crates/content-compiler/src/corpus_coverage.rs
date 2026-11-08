@@ -152,6 +152,7 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            third_party: false,
         }
     }
 

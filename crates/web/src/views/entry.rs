@@ -366,11 +366,7 @@ fn EntryView(
     // many books does not wrap the header. `source_ids` order is the compiler's primary order,
     // but an inactive first source is replaced by the highest-priority active source, so the line
     // never names a book that the reader turned off while another book still shows the entry.
-    let tier_of = |id: &str| {
-        library.source(id).map_or(Tier::Other, |source| {
-            Tier::from_category(source.category.as_deref())
-        })
-    };
+    let tier_of = |id: &str| library.source(id).map_or(Tier::Other, Tier::of);
     let preferred = entry.source_ids.first().map(|first| {
         preferred_source(
             first,

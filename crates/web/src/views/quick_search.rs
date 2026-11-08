@@ -438,11 +438,7 @@ fn watch_suggestions(quick: QuickSearch) {
                         &hit.source,
                         canonical.as_deref(),
                         |id| library.book_active(id),
-                        |id| {
-                            library.source(id).map_or(Tier::Other, |source| {
-                                Tier::from_category(source.category.as_deref())
-                            })
-                        },
+                        |id| library.source(id).map_or(Tier::Other, Tier::of),
                     );
                     let book = library
                         .source(source_id)

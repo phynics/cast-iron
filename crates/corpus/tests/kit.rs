@@ -102,6 +102,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
             copyright: Some("Example Book, (c) Example Publisher.".into()),
             category: None,
             publication_date: None,
+            third_party: false,
             suffix: None,
         }],
         option_groups: {

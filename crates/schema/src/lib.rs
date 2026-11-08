@@ -1165,6 +1165,13 @@ pub struct SourceInfo {
     /// text, so no timestamp or locale parsing is needed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// True when the publication is not published by Paizo, from the corpus
+    /// `third_party` marker in `publications.toml`.
+    ///
+    /// Optional and additive, like [`Self::category`]: an older catalog has no field, and
+    /// a source without it is a Paizo book. Serialized only when true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub third_party: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1635,10 +1642,22 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            third_party: false,
         };
         let json = serde_json::to_string(&empty).unwrap();
         assert!(!json.contains("category"));
         assert!(!json.contains("publication_date"));
+        assert!(!json.contains("third_party"));
+
+        // A marked source round-trips.
+        let marked = SourceInfo {
+            third_party: true,
+            ..empty
+        };
+        let json = serde_json::to_string(&marked).unwrap();
+        assert!(json.contains(r#""third_party":true"#), "{json}");
+        let read: SourceInfo = serde_json::from_str(&json).unwrap();
+        assert!(read.third_party);
     }
 
     #[test]

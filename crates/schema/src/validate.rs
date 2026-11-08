@@ -453,6 +453,7 @@ mod tests {
                 title: "CR".into(),
                 entry_count: entries.len() as u32,
                 copyright: None,
+                third_party: false,
             }],
             entries: entries
                 .iter()

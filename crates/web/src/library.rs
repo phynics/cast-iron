@@ -124,29 +124,49 @@ struct Inner {
     migration_refused: RwSignal<bool>,
 }
 
-/// The stored disabled set, after the first-run book default (`book_presets::defaults_action`).
+/// The stored disabled set, after the first-run book default (`book_presets::defaults_action`)
+/// and the third-party arrival rule.
 /// A new install gets the `Paizo Rulebooks` choice written once; every other profile reads what
-/// it stored, or an empty set (every book active) when it never stored anything.
+/// it stored, or an empty set (every book active) when it never stored anything. A third-party
+/// book that the profile has not seen before (#189) starts disabled, and the profile's set of
+/// seen third-party books is recorded so a later update can tell an arrival from a choice.
 async fn settle_first_run_defaults(
     sources: &[SourceInfo],
 ) -> Result<BTreeSet<String>, LibraryError> {
     let selection = |e: store::StoreError| LibraryError::BookSelection(e.to_string());
     let marker = store::book_defaults_marker().await.map_err(selection)?;
     let stored = store::stored_disabled_books().await.map_err(selection)?;
+    let known_third_party = store::known_third_party().await.map_err(selection)?;
     let books = book_presets::books_of(sources);
-    match book_presets::defaults_action(marker.as_deref(), stored.is_some(), &books) {
-        DefaultsAction::Nothing => Ok(stored.unwrap_or_default()),
-        DefaultsAction::Settle => {
-            store::settle_book_defaults(None).await.map_err(selection)?;
-            Ok(stored.unwrap_or_default())
-        }
-        DefaultsAction::Seed(disabled) => {
-            store::settle_book_defaults(Some(&disabled))
-                .await
-                .map_err(selection)?;
-            Ok(disabled)
-        }
+    let arrived = book_presets::newly_third_party(known_third_party.as_ref(), &books);
+    let mut disabled =
+        match book_presets::defaults_action(marker.as_deref(), stored.is_some(), &books) {
+            DefaultsAction::Nothing => stored.unwrap_or_default(),
+            DefaultsAction::Settle => {
+                store::settle_book_defaults(None).await.map_err(selection)?;
+                stored.unwrap_or_default()
+            }
+            DefaultsAction::Seed(disabled) => {
+                store::settle_book_defaults(Some(&disabled))
+                    .await
+                    .map_err(selection)?;
+                disabled
+            }
+        };
+    let before = disabled.len();
+    disabled.extend(arrived);
+    if disabled.len() != before {
+        store::set_disabled_books(&disabled)
+            .await
+            .map_err(selection)?;
     }
+    let remembered = book_presets::remembered_third_party(known_third_party.as_ref(), &books);
+    if known_third_party.as_ref() != Some(&remembered) {
+        store::set_known_third_party(&remembered)
+            .await
+            .map_err(selection)?;
+    }
+    Ok(disabled)
 }
 
 /// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2
