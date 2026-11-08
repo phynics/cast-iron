@@ -161,6 +161,8 @@ fn facet_sort_key(field: &str, value: &str) -> (u32, String) {
 /// routes and filters use it. Most values read well as they are; the ones below do not.
 pub fn facet_label(field: &str, value: &str) -> String {
     match (field, value) {
+        // The stored value stays `0`; the reader sees the word that creature spell lists use.
+        ("spell_level", "0") => fmt::spell_level(0),
         ("race_group", "standard_race") => "Core Rulebook races".into(),
         ("race_group", "core_race") => "Core races (Advanced Race Guide)".into(),
         ("race_group", "featured_race") => "Featured races".into(),
@@ -1886,6 +1888,9 @@ mod tests {
         assert_eq!(facet_label("school", "evocation"), "Evocation");
         assert_eq!(facet_label("cr", "1/2"), "1/2");
         assert_eq!(facet_label("race_group", "unheard_of"), "unheard_of");
+        // Spell level 0 reads as the word the rest of the app uses; other values stay numeric.
+        assert_eq!(facet_label("spell_level", "0"), "Cantrips");
+        assert_eq!(facet_label("spell_level", "5"), "5");
     }
 
     #[test]

@@ -203,6 +203,15 @@ pub fn pluralize(n: impl TryInto<u64>, singular: &str, plural: &str) -> String {
     format!("{} {}", count(n), if n == 1 { singular } else { plural })
 }
 
+/// A spell level as a reader sees it: `Cantrips` for 0, `Level 5` otherwise. The stored value
+/// stays the number, because routes, the corpus, and search facets use it.
+pub fn spell_level(level: u8) -> String {
+    match level {
+        0 => "Cantrips".into(),
+        n => format!("Level {n}"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,6 +332,13 @@ mod tests {
             pluralize(1324, "publication entry", "publication entries"),
             "1,324 publication entries"
         );
+    }
+
+    #[test]
+    fn spell_level_zero_reads_as_cantrips() {
+        assert_eq!(spell_level(0), "Cantrips");
+        assert_eq!(spell_level(1), "Level 1");
+        assert_eq!(spell_level(10), "Level 10");
     }
 
     #[test]
