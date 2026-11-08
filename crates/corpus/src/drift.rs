@@ -1548,6 +1548,67 @@ mod tests {
     }
 
     #[test]
+    fn one_comma_separated_line_splits_into_items() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Trap sense", "Uncanny dodge"], &[]),
+            &[("Replaces", "Trap sense, Uncanny dodge")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn several_alters_lines_concatenate_in_body_order() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &["Divine bond", "Aura of resolve"]),
+            &[("Alters", "Divine bond"), ("Alters", "Aura of resolve")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn several_alters_lines_compare_in_body_order() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &["Aura of resolve", "Divine bond"]),
+            &[("Alters", "Divine bond"), ("Alters", "Aura of resolve")],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "alters");
+    }
+
+    #[test]
+    fn an_entry_with_no_typed_and_no_printed_items_has_no_pair() {
+        let stored = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &[]),
+            &[],
+        );
+        assert!(replaces_alters_pairs(&stored.entry, &stored.text, &[], &[]).is_empty());
+    }
+
+    #[test]
+    fn an_extra_typed_replaces_item_is_drift() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Trap sense", "Uncanny dodge"], &[]),
+            &[("Replaces", "Trap sense")],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "replaces");
+        assert_eq!(drift[0].field_value, "Trap sense, Uncanny dodge");
+        assert_eq!(drift[0].source_value, "Trap sense");
+    }
+
+    #[test]
     fn the_check_fails_on_drift_with_counts_and_a_report() {
         let drifting = spell("close (25 ft.)", "medium (100 ft.)");
         let report = crate::check(&crate::testkit::corpus(vec![drifting.entry]));
