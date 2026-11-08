@@ -310,6 +310,7 @@ fn write_fields(out: &mut String, fields: &TypedFields) {
             out.push_str(&tomlutil::string(&fields.group));
             out.push('\n');
             write_string_array(out, "replaces", &fields.replaces);
+            write_string_array(out, "alters", &fields.alters);
         }
         TypedFields::None => out.push_str("kind = \"none\"\n"),
     }
@@ -530,7 +531,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
         "trait" => &["kind", "category", "detail"],
         "racial_trait" => &["kind", "alternate"],
         "archetype" => &["kind", "replaces", "alters"],
-        "class_option" => &["kind", "group", "replaces"],
+        "class_option" => &["kind", "group", "replaces", "alters"],
         "none" => &["kind"],
         other => {
             return Err(Error::new(
@@ -651,6 +652,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
         "class_option" => TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: string("group")?,
             replaces: list("replaces")?,
+            alters: list("alters")?,
         }),
         "none" => TypedFields::None,
         _ => unreachable!("kind was checked above"),
@@ -1119,6 +1121,7 @@ mod tests {
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "arcane-discovery".into(),
                 replaces: vec!["Arcane bond".into()],
+                alters: vec!["Arcane school".into()],
             }),
             TypedFields::None,
         ];
