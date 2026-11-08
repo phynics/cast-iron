@@ -19,8 +19,8 @@ use crate::views::search::facet_label;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, Relation, RelationKind, RuleEntry, SpellListClass, SpellLists,
-    TypedFields,
+    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, ReplacesIndex, RuleEntry,
+    SpellListClass, SpellLists, TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -30,6 +30,8 @@ use std::rc::Rc;
 pub struct Needs {
     pub relations: bool,
     pub spell_lists: bool,
+    pub option_groups: bool,
+    pub replaces: bool,
 }
 
 pub fn needs(kind: EntryKind) -> Needs {
@@ -37,14 +39,28 @@ pub fn needs(kind: EntryKind) -> Needs {
         EntryKind::Race | EntryKind::Feat => Needs {
             relations: true,
             spell_lists: false,
+            option_groups: false,
+            replaces: false,
         },
         EntryKind::Class => Needs {
             relations: true,
             spell_lists: true,
+            option_groups: true,
+            replaces: true,
         },
         EntryKind::Spell => Needs {
             relations: false,
             spell_lists: true,
+            option_groups: false,
+            replaces: false,
+        },
+        // The metadata line of an option names its group and, when the group has one class,
+        // links that class.
+        EntryKind::ClassOption => Needs {
+            relations: false,
+            spell_lists: false,
+            option_groups: true,
+            replaces: false,
         },
         EntryKind::Rule
         | EntryKind::Creature
@@ -55,8 +71,7 @@ pub fn needs(kind: EntryKind) -> Needs {
         | EntryKind::Trap
         | EntryKind::Trait
         | EntryKind::RacialTrait
-        | EntryKind::Archetype
-        | EntryKind::ClassOption => Needs::default(),
+        | EntryKind::Archetype => Needs::default(),
     }
 }
 
@@ -69,6 +84,11 @@ pub struct Indexes {
     /// and a base page shows an add-on by the add-on's own book alone.
     pub all_relations: Option<Rc<Relations>>,
     pub spell_lists: Option<Rc<SpellLists>>,
+    /// The class-option group vocabulary, for the class page's jump list and an option's
+    /// metadata line.
+    pub option_groups: Option<Rc<OptionGroupIndex>>,
+    /// The printed replacements of archetypes and class options.
+    pub replaces: Option<Rc<ReplacesIndex>>,
 }
 
 /// Items grouped under a heading, headings in name order and items in name order. Used to group
@@ -131,10 +151,29 @@ fn link(library: &Library, id: &EntryId) -> impl IntoView + use<> {
 
 /// A group of links that opens by default when it is short.
 fn group_view(heading: String, items: Vec<(EntryId, String)>, open_up_to: usize) -> impl IntoView {
+    group_view_meta(heading, items, open_up_to, None)
+}
+
+/// A group of links, each with an optional muted line such as an archetype's `Replaces …`.
+fn group_view_meta(
+    heading: String,
+    items: Vec<(EntryId, String)>,
+    open_up_to: usize,
+    meta: Option<&std::collections::BTreeMap<EntryId, String>>,
+) -> impl IntoView {
     let n = items.len();
     let rows = items
         .into_iter()
-        .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
+        .map(|(id, title)| {
+            let detail = meta.and_then(|meta| meta.get(&id)).cloned();
+            let href = Route::entry(id).href();
+            view! {
+                <li>
+                    <a href=href>{title}</a>
+                    {detail.map(|detail| view! { <span class="muted rel-meta">{detail}</span> })}
+                </li>
+            }
+        })
         .collect_view();
     view! {
         <details class="rel-group" open=n <= open_up_to>
@@ -261,6 +300,8 @@ fn class_panels(
     id: &EntryId,
     relations: Option<&Relations>,
     lists: Option<&SpellLists>,
+    option_groups: Option<&OptionGroupIndex>,
+    replaces: Option<&ReplacesIndex>,
 ) -> Vec<AnyView> {
     let mut out = Vec::new();
     if let Some(list) = lists.and_then(|l| list_of_class_entry(l, id)) {
@@ -283,10 +324,63 @@ fn class_panels(
             .into_any(),
         );
     }
+    // Class options: one navigation rectangle per group this class takes, with the number of
+    // options the active books keep. A shared group carries the class scope in the URL, so the
+    // list page can name the class it came from.
+    if let Some(index) = option_groups {
+        let discovery = library.discovery();
+        let groups = crate::class_options::groups_for_class(index, id, |option| {
+            discovery.is_eligible(option.as_str())
+        });
+        if !groups.is_empty() {
+            let rows = groups
+                .into_iter()
+                .map(|(group, count)| {
+                    let mut facets = vec![("group".to_string(), group.slug.clone())];
+                    if crate::class_options::serves_several_classes(group) {
+                        facets.push(("class_scope".to_string(), id.to_string()));
+                    }
+                    let href = Route::browse_kind_facets(EntryKind::ClassOption, facets).href();
+                    view! {
+                        <li>
+                            <a class="jump" href=href>
+                                {group.label.clone()}
+                                <span class="jump-count">{fmt::count(count)}</span>
+                            </a>
+                        </li>
+                    }
+                })
+                .collect_view();
+            out.push(
+                view! {
+                    <section class="rel" aria-labelledby="rel-class-options">
+                        <h2 id="rel-class-options">"Class options"</h2>
+                        <ul class="jump-list">{rows}</ul>
+                    </section>
+                }
+                .into_any(),
+            );
+        }
+    }
     if let Some(relations) = relations {
         let archetypes = relations.sources_of(id, RelationKind::Archetype);
         if !archetypes.is_empty() {
             let total = archetypes.len();
+            let replaces_by_id: std::collections::BTreeMap<EntryId, String> = replaces
+                .map(|index| {
+                    index
+                        .entries
+                        .iter()
+                        .filter(|row| !row.replaces.is_empty())
+                        .map(|row| {
+                            (
+                                row.id.clone(),
+                                format!("Replaces {}", row.replaces.join(", ")),
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             let groups = group_sorted(
                 archetypes
                     .into_iter()
@@ -294,7 +388,7 @@ fn class_panels(
                     .collect(),
             )
             .into_iter()
-            .map(|(heading, items)| group_view(heading, items, 16))
+            .map(|(heading, items)| group_view_meta(heading, items, 16, Some(&replaces_by_id)))
             .collect_view();
             out.push(
                 view! {
@@ -742,7 +836,14 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
             panels.extend(relations.and_then(|r| race_panel(&library, &entry.id, r)))
         }
         EntryKind::RacialTrait => panels.extend(racial_trait_panel(&library, &entry)),
-        EntryKind::Class => panels.extend(class_panels(&library, &entry.id, relations, lists)),
+        EntryKind::Class => panels.extend(class_panels(
+            &library,
+            &entry.id,
+            relations,
+            lists,
+            indexes.option_groups.as_deref(),
+            indexes.replaces.as_deref(),
+        )),
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
         EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
         EntryKind::Feat => {

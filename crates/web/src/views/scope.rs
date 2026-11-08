@@ -72,7 +72,13 @@ impl Scope {
                 ..
             } if *kind != EntryKind::Rule => Some(Self {
                 kind: *kind,
-                facets: applied_facets(*kind, facets),
+                // A group narrows the list through `option-groups.json`, which the search index
+                // does not carry, so a class-option search scopes to its kind alone rather than
+                // to a facet that would match nothing.
+                facets: applied_facets(*kind, facets)
+                    .into_iter()
+                    .filter(|(field, _)| !(*kind == EntryKind::ClassOption && field == "group"))
+                    .collect(),
                 source: source.clone(),
                 source_title: None,
             }),

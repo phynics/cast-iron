@@ -115,6 +115,14 @@ pub fn list_facets(facets: &[(String, String)], kind: EntryKind) -> Vec<(String,
             out.push((field, value));
         }
     }
+    // A class option's group is a list filter, not a search facet: `option-groups.json` holds
+    // the groups, and the search index has no `group` field to scope a query with.
+    if kind == EntryKind::ClassOption
+        && !out.iter().any(|(field, _)| field == "group")
+        && let Some((_, value)) = facets.iter().find(|(field, _)| field == "group")
+    {
+        out.push(("group".to_string(), value.clone()));
+    }
     out
 }
 
@@ -165,6 +173,9 @@ pub fn facet_label(field: &str, value: &str) -> String {
         | ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
             capitalize_words(value)
         }
+        // The class-option list prints the group's own label; this is only the fallback for a
+        // screen that has the slug without the index (an old shared link, for example).
+        ("group", _) => capitalize_words(&value.replace('-', " ")),
         _ => value.to_string(),
     }
 }
@@ -738,6 +749,11 @@ pub fn Search() -> impl IntoView {
     let addon_labels = {
         let library = library.clone();
         local_resource(async move { library.relations().await.ok().flatten() })
+    };
+    // A class-option row names its group's singular label, which lives in `option-groups.json`.
+    let option_groups = {
+        let library = library.clone();
+        local_resource(async move { library.option_groups().await.ok().flatten() })
     };
     // Counts for the chips. They change only when a result arrives, so a debounced or running
     // search keeps showing the previous numbers. `None` until the first result: chips then show
@@ -1351,30 +1367,41 @@ pub fn Search() -> impl IntoView {
         Phase::Done { hits, groups, .. } => {
             let full = hits.len() < groups;
             let all_relations = addon_labels.with(|state| state.clone().flatten());
+            let all_groups = option_groups.with(|state| state.clone().flatten());
             let addon_of = |hit: &Hit| -> Option<String> {
                 let id = EntryId::parse(hit.id.clone()).ok()?;
                 all_relations.as_ref()?.addon_label(&id).map(str::to_owned)
+            };
+            let group_of = |hit: &Hit| -> Option<String> {
+                let id = EntryId::parse(hit.id.clone()).ok()?;
+                crate::class_options::group_of(all_groups.as_ref()?, &id)
+                    .map(|group| group.singular.clone())
             };
             let items = hits
                 .iter()
                 .map(|result| {
                     if result.variants.is_empty() {
                         let addon = addon_of(&result.hit);
-                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon.as_deref()).into_any();
+                        let group = group_of(&result.hit);
+                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon.as_deref(), group.as_deref()).into_any();
                     }
                     let title = marked(&result.hit.title, &result.hit.title_matches);
                     let count = result.variants.len() + 1;
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| {
                             let addon = addon_of(hit);
-                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon.as_deref())
+                            let group = group_of(hit);
+                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon.as_deref(), group.as_deref())
                         }).collect_view();
+                    let summary_kind = group_of(&result.hit).unwrap_or_else(|| {
+                        EntryKind::from_slug(&result.hit.kind).map_or("", kind_name).to_string()
+                    });
                     view! { <li class="hit hit-group"><details class="source-variants">
                         <summary>
                             {icons::chevron_right("disclosure-chevron")}
                             <span class="hit-text">
                                 <span class="hit-title">{title}</span>
-                                <span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span>
+                                <span class="hit-meta">{format!("{summary_kind} · {}", fmt::pluralize(count, "publication entry", "publication entries"))}</span>
                             </span>
                         </summary>
                         <ul>{variants}</ul>
@@ -1678,6 +1705,7 @@ fn hit_view(
     hit: &Hit,
     anchor: Option<&str>,
     addon: Option<&str>,
+    group: Option<&str>,
 ) -> impl IntoView + use<> {
     let entry_id = EntryId::parse(hit.id.clone()).ok();
     let href = entry_id
@@ -1692,7 +1720,12 @@ fn hit_view(
         .unwrap_or_else(|| Route::Home.href());
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
     // An add-on row names its label where the kind would stand: `Mythic · Mythic Adventures`.
-    let row_kind = addon.map_or(kind, addon_name);
+    // A class option names its group: `Arcane discovery · Ultimate Magic`.
+    let row_kind = match (addon, group) {
+        (Some(label), _) => addon_name(label).to_string(),
+        (None, Some(group)) => group.to_string(),
+        (None, None) => kind.to_string(),
+    };
     // The index records one attribution source. When it is inactive, the entry's book placement
     // is the source that kept the entry eligible, so it is the one the reader should see.
     // A search row only has the catalog stub, which carries one source, so its alternative set

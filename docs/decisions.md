@@ -1025,3 +1025,33 @@ Refs [#121](https://github.com/phynics/cast-iron/issues/121).
   the signal updates, instead of showing an empty "Recently viewed" until a reload. The stored
   list stays the durable source; `merge_stored` keeps a visit that arrived during the startup
   read from being overwritten by that read's older answer.
+
+## Class options in the app, 2026-11-08
+
+Refs [#146](https://github.com/phynics/cast-iron/issues/146),
+[#246](https://github.com/phynics/cast-iron/issues/246). The app half of slice 4; corpus
+v0.1.8 holds the 2,802 entries in 49 groups.
+
+- **Groups come from `option-groups.json`, not the search index.** The search index has no
+  `group` field, so the list page's group menu and its filtering read the derived index and the
+  active-book snapshot. `?facet=group:<slug>` stays the route. Search and Quick search read the
+  same file to print `{Group singular} · {book}`; the result scope keeps the kind and drops the
+  group, because a group facet would match nothing in the index. No index or serialized format
+  changed.
+- **A shared group carries `?facet=class_scope:<class id>`.** The class page adds it only when
+  the group's `classes` list has more than one class. The list page shows it as the only
+  `.scope-pill` there, and removing the pill keeps the group. The value does not narrow the
+  entries: a group's options are shared by every class it serves.
+- **Class options are a Home category after Prestige classes.** They are character-building
+  material, so they sit with Classes rather than in More categories. Books lists them in
+  `In this book` at the same position, and Contents leaves them out like the other linked kinds
+  (#158).
+- **The star kind snapshot follows the library.** `Library::load` rewrites a bookmark's stored
+  `kind` when the catalog disagrees, so a star made while class options were `rule` moves to
+  `class_option`. The snapshot remains the fallback for an entry the library no longer holds.
+- **Existing labels stay.** The list page rows read `{book}` under a group filter and
+  `{Group singular} · {book}` in the whole list; an option's own page names its group and links
+  its class only when the group has exactly one. Archetype rows read `Replaces {items}` from
+  `replaces.json`; the file is empty for archetypes until slice 6.
+
+Refs #146, #246.

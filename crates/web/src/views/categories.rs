@@ -11,11 +11,12 @@ use crate::views::search::list_facets;
 use cast_iron_schema::EntryKind;
 
 /// The categories that `PRODUCT.md` names, in the order of the hub.
-pub const PRIMARY: [EntryKind; 8] = [
+pub const PRIMARY: [EntryKind; 9] = [
     EntryKind::Spell,
     EntryKind::Feat,
     EntryKind::Class,
     EntryKind::PrestigeClass,
+    EntryKind::ClassOption,
     EntryKind::Race,
     EntryKind::Trait,
     EntryKind::Item,
@@ -49,7 +50,7 @@ pub fn blurb(kind: EntryKind) -> &'static str {
         EntryKind::Skill => "What each skill does and how to use it",
         EntryKind::Affliction => "Diseases, poisons, curses, and other lasting effects",
         EntryKind::Trap => "Traps and their mechanics",
-        EntryKind::ClassOption => "Class options are read through search for now",
+        EntryKind::ClassOption => "Options chosen in place of a class feature",
     }
 }
 
@@ -75,12 +76,7 @@ pub fn arrange(
         .filter_map(|&k| count_of(k).map(|n| (k, n)))
         .collect();
     for &(kind, n) in counts {
-        if n > 0
-            && kind != EntryKind::Rule
-            && kind != EntryKind::ClassOption
-            && !PRIMARY.contains(&kind)
-            && !MORE.contains(&kind)
-        {
+        if n > 0 && kind != EntryKind::Rule && !PRIMARY.contains(&kind) && !MORE.contains(&kind) {
             more.push((kind, n));
         }
     }
@@ -143,6 +139,18 @@ pub const ITEM_CATEGORY_MENU: MenuSpec = MenuSpec {
     list_label: "Item category",
     singular: "category",
     plural: "categories",
+};
+
+/// The class-option group menu. The labels come from `option-groups.json`, not from the facet
+/// value, because a slug such as `arcane-discovery` does not print as `Arcane discoveries`.
+pub const CLASS_OPTION_GROUP_MENU: MenuSpec = MenuSpec {
+    field: "group",
+    group: "Group",
+    all_label: "All groups",
+    find_label: "Find a group",
+    list_label: "Class option group",
+    singular: "group",
+    plural: "groups",
 };
 
 /// The archetype menu by the class it changes.
@@ -244,13 +252,13 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         EntryKind::Item => vec![Lens::Menu(ITEM_CATEGORY_MENU)],
         EntryKind::Creature => vec![Lens::Menu(CREATURE_TYPE_MENU), Lens::Menu(CREATURE_CR_MENU)],
         EntryKind::Archetype => vec![Lens::Menu(ARCHETYPE_CLASS_MENU)],
+        EntryKind::ClassOption => vec![Lens::Menu(CLASS_OPTION_GROUP_MENU)],
         EntryKind::Rule
         | EntryKind::PrestigeClass
         | EntryKind::RacialTrait
         | EntryKind::Skill
         | EntryKind::Affliction
-        | EntryKind::Trap
-        | EntryKind::ClassOption => Vec::new(),
+        | EntryKind::Trap => Vec::new(),
     }
 }
 
@@ -282,14 +290,14 @@ mod tests {
     #[test]
     fn every_browse_kind_has_one_place_and_rules_stay_in_books() {
         let mut all: Vec<EntryKind> = PRIMARY.iter().chain(MORE.iter()).copied().collect();
-        assert_eq!(all.len(), EntryKind::ALL.len() - 2);
+        assert_eq!(all.len(), EntryKind::ALL.len() - 1);
         all.sort();
         all.dedup();
-        assert_eq!(all.len(), EntryKind::ALL.len() - 2, "a kind appears twice");
+        assert_eq!(all.len(), EntryKind::ALL.len() - 1, "a kind appears twice");
         for kind in EntryKind::ALL {
             assert_eq!(
                 all.contains(&kind),
-                !matches!(kind, EntryKind::Rule | EntryKind::ClassOption),
+                kind != EntryKind::Rule,
                 "unexpected hub membership for {kind:?}"
             );
             assert!(!blurb(kind).is_empty());
@@ -309,6 +317,7 @@ mod tests {
                 "Feats",
                 "Classes",
                 "Prestige classes",
+                "Class options",
                 "Races",
                 "Traits",
                 "Items",
@@ -388,6 +397,7 @@ mod tests {
         assert_eq!(menu(EntryKind::Item), Some(ITEM_CATEGORY_MENU));
         assert_eq!(menu(EntryKind::Trait), Some(TRAIT_CATEGORY_MENU));
         assert_eq!(menu(EntryKind::Archetype), Some(ARCHETYPE_CLASS_MENU));
+        assert_eq!(menu(EntryKind::ClassOption), Some(CLASS_OPTION_GROUP_MENU));
         assert_eq!(ITEM_CATEGORY_MENU.field, "item_category");
         assert_eq!(TRAIT_CATEGORY_MENU.field, "trait_category");
         assert_eq!(ARCHETYPE_CLASS_MENU.field, "archetype_class");
@@ -408,6 +418,12 @@ mod tests {
         );
         assert_eq!(CREATURE_TYPE_MENU.field, "creature_type");
         assert_eq!(CREATURE_CR_MENU.field, "cr");
+        // A class option's group is a list filter, so its URL survives into the list.
+        let group = [(
+            CLASS_OPTION_GROUP_MENU.field.to_string(),
+            "arcane-discovery".to_string(),
+        )];
+        assert_eq!(applied_facets(EntryKind::ClassOption, &group), group);
         // Classes: headed sections, no menu, no pills. Races keep their old lens until the
         // library has group data.
         assert!(lenses(EntryKind::Class).is_empty());

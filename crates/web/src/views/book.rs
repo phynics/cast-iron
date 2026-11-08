@@ -86,6 +86,7 @@ pub fn linked_kind(kind: EntryKind) -> bool {
             | EntryKind::Class
             | EntryKind::PrestigeClass
             | EntryKind::Archetype
+            | EntryKind::ClassOption
     )
 }
 
@@ -662,6 +663,7 @@ mod tests {
                 "Feats",
                 "Classes",
                 "Prestige classes",
+                "Class options",
                 "Races",
                 "Traits",
                 "Items",
@@ -689,6 +691,7 @@ mod tests {
             (EntryKind::Class, true),
             (EntryKind::PrestigeClass, true),
             (EntryKind::Archetype, true),
+            (EntryKind::ClassOption, true),
             (EntryKind::Rule, false),
             (EntryKind::Race, false),
             (EntryKind::Skill, false),

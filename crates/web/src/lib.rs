@@ -13,6 +13,7 @@
 
 pub mod app;
 pub mod book_presets;
+pub mod class_options;
 pub mod content_cache;
 pub mod density;
 pub mod discovery;

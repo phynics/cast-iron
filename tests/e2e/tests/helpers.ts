@@ -624,7 +624,7 @@ export function bookTrees(): BookTree[] {
 }
 
 /** The kinds that the `In this book` links (#158) will reach. */
-export const LINKED_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype"]);
+export const LINKED_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype", "class_option"]);
 /**
  * Whether Contents leaves those kinds out. On since #158 shipped the links (`LEAVE_OUT_LINKED_KINDS`
  * in `views/book.rs`); the tests follow this one switch.
