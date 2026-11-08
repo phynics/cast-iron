@@ -11,6 +11,7 @@ use crate::js;
 use crate::library::use_library;
 use crate::route::{self, Route, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::icons;
 use crate::views::quick_rows::{
     MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
     valid_active,
@@ -339,10 +340,7 @@ pub fn QuickSearchButton() -> impl IntoView {
                 }
             }
         >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
-            </svg>
+            {icons::search()}
         </button>
     }
 }
@@ -555,10 +553,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                 quick.submit();
             }>
                 <div class="search-field">
-                    <svg class="search-field-icon" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
-                    </svg>
+                    {icons::search_field()}
                     <input
                         id="quick-search-input"
                         node_ref=quick.input
@@ -638,10 +633,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                 quick.text.set(String::new());
                                 quick.focus_field();
                             }>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                                <path d="m7 7 10 10M17 7 7 17"/>
-                            </svg>
+                            {icons::close()}
                         </button>
                     </Show>
                 </div>
@@ -702,10 +694,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                     Some(view! {
                                         <button class="quick-search-remove" type="button" aria-label=name
                                             on:click=move |_| remove_recent(search.clone())>
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                                                <path d="m7 7 10 10M17 7 7 17"/>
-                                            </svg>
+                                            {icons::close()}
                                         </button>
                                     })
                                 }

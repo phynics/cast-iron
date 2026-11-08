@@ -141,15 +141,10 @@ pub fn chain_mark_suffix(leads_to: usize) -> String {
 /// The marker: a root joined to two feats. The text is for screen readers, the icon for the rest.
 fn chain_mark(leads_to: usize) -> impl IntoView {
     let suffix = chain_mark_suffix(leads_to);
+    let icon = icons::chain_mark(&suffix);
     view! {
         <span class="sr-only">{suffix.clone()}</span>
-        <svg class="chain-mark" viewBox="0 0 24 24" width="16" height="16" fill="none"
-            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <title>{suffix.trim_start_matches(", ").to_string()}</title>
-            <circle cx="5.5" cy="12" r="2.2"/><circle cx="18.5" cy="6" r="2.2"/>
-            <circle cx="18.5" cy="18" r="2.2"/><path d="M7.7 12H11l3.4-4.5M11 12l3.4 4.5"/>
-        </svg>
+        {icon}
     }
 }
 
@@ -321,7 +316,7 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
                         })}
                     </span>
                 </span>
-                <svg class="book-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                {icons::book_chevron()}
             </a>
         </li>
     }
@@ -392,11 +387,7 @@ pub fn Books() -> impl IntoView {
                 <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
                     on:click=|_| note_opened_from_books()>
                     <span>"Active books"</span>
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
-                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                        stroke-linejoin="round" aria-hidden="true">
-                        <path d="m9 6 6 6-6 6"/>
-                    </svg>
+                    {icons::chevron_right_large()}
                 </a>
             </div>
             {groups}
@@ -456,11 +447,7 @@ pub(crate) fn tier_section(
                         open.set(next);
                         remember_group(tier, next);
                     }>
-                    <svg class="tier-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round" aria-hidden="true">
-                        <path d="m9 6 6 6-6 6"/>
-                    </svg>
+                    {icons::tier_chevron()}
                     <span class="tier-name">{label}</span>
                     <span class="tier-active">{count_text}</span>
                 </button>
@@ -739,11 +726,7 @@ fn Lenses(
                 view! {
                     <a class="page-link" href=route.href()>
                         <span>{label}</span>
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"
-                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-                            stroke-linejoin="round" aria-hidden="true">
-                            <path d="m9 6 6 6-6 6"/>
-                        </svg>
+                        {icons::chevron_right_large()}
                     </a>
                 }
             })
