@@ -249,6 +249,7 @@ fn field_display_texts(fields: &TypedFields) -> Vec<(&'static str, &str)> {
         }
         TypedFields::ClassOption(fields) => {
             list(&mut out, "replaces", &fields.replaces);
+            list(&mut out, "alters", &fields.alters);
         }
         TypedFields::RacialTrait(_) | TypedFields::None => {}
     }
@@ -841,7 +842,9 @@ fn fields_are_empty(fields: &TypedFields) -> bool {
         TypedFields::Trait(fields) => fields.category.is_empty() && fields.detail.is_none(),
         TypedFields::RacialTrait(fields) => !fields.alternate,
         TypedFields::Archetype(fields) => fields.replaces.is_empty() && fields.alters.is_empty(),
-        TypedFields::ClassOption(fields) => fields.group.is_empty() && fields.replaces.is_empty(),
+        TypedFields::ClassOption(fields) => {
+            fields.group.is_empty() && fields.replaces.is_empty() && fields.alters.is_empty()
+        }
         TypedFields::None => true,
     }
 }
@@ -1372,6 +1375,7 @@ mod tests {
         let option = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "hex".into(),
             replaces: vec![],
+            alters: vec![],
         });
         assert!(fields_match(EntryKind::ClassOption, &option));
         assert!(!fields_match(EntryKind::Archetype, &option));
@@ -1788,6 +1792,7 @@ mod tests {
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: group.into(),
                 replaces: vec![],
+                alters: vec![],
             }),
         )
     }
@@ -1963,6 +1968,7 @@ mod tests {
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "discoveries".into(),
                 replaces: vec!["Arcane school".into()],
+                alters: vec![],
             }),
         );
         let mut c = corpus(vec![option]);
