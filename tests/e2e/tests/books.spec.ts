@@ -3,6 +3,8 @@ import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, installLibrary, listedCha
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
+/** The corpus marks two books third party (#189); they are opt-in, so a settled profile starts with the rest. */
+const paizo = sources.filter((source) => !source.third_party);
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const grouped = (n: number) => n.toLocaleString("en-US");
 
@@ -13,9 +15,12 @@ const tiers: { label: string; categories: string[]; open: boolean }[] = [
   { label: "Campaign Setting", categories: ["Campaign Setting"], open: false },
   { label: "Adventures", categories: ["Adventure Path", "Module", "Society"], open: false },
   { label: "Other", categories: [], open: false },
+  { label: "Third party", categories: [], open: false },
 ];
 const tierOf = (source: any) =>
-  tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
+  source.third_party
+    ? "Third party"
+    : tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
 const inTier = (label: string) => sources.filter((source) => tierOf(source) === label);
 
 /** `2009-08-01` as the page writes it: a fixed English month table, then the year. */
@@ -39,8 +44,8 @@ test("Books opens with a title, one count line and a link to Manage books, with 
   await page.goto("#/books");
   await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
   const count = page.locator(".books-count");
-  // Every book active is the Paizo Everything set.
-  await expect(count).toHaveText(`${grouped(sources.length)} of ${grouped(sources.length)} books active · Paizo Everything`);
+  // Every Paizo book active is the Paizo Everything set; the marked third-party books stay off.
+  await expect(count).toHaveText(`${grouped(paizo.length)} of ${grouped(sources.length)} books active · Paizo Everything`);
   await expect(count).toHaveAttribute("aria-live", "polite");
   await expect(page.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
 
@@ -84,8 +89,12 @@ test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest c
     await expect(toggle).toHaveAttribute("aria-expanded", tier.open ? "true" : "false");
     const list = group.locator("ul.book-directory");
     expect(await toggle.getAttribute("aria-controls")).toBe(await list.getAttribute("id"));
-    // Every book starts active, so the count is the plain number of books.
-    await expect(group.locator(".tier-active")).toHaveText(`${grouped(members.length)} ${members.length === 1 ? "book" : "books"}`);
+    // Every Paizo book starts active; the third-party group starts with none.
+    const active = tier.label === "Third party" ? 0 : members.length;
+    const tierCount = active === members.length
+      ? `${grouped(members.length)} ${members.length === 1 ? "book" : "books"}`
+      : `${grouped(active)} of ${grouped(members.length)} active`;
+    await expect(group.locator(".tier-active")).toHaveText(tierCount);
     await expect(group.locator(".tier-chevron")).toHaveCount(1);
     expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     // A closed group builds no rows: its list is empty until the reader opens it. The open
@@ -219,13 +228,15 @@ test("A book row shows a month-year and an entry count, and the Inactive tag onl
     return [css.borderTopWidth, css.backgroundColor];
   })).toEqual(["0px", "rgba(0, 0, 0, 0)"]);
   await expect(page.locator(".books-count")).toHaveText(
-    `${grouped(sources.length - 1)} of ${grouped(sources.length)} books active · Custom`,
+    `${grouped(paizo.length - 1)} of ${grouped(sources.length)} books active · Custom`,
   );
   await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-active')).toHaveText(
     `${grouped(inTier("Rulebooks").length - 1)} of ${grouped(inTier("Rulebooks").length)} active`,
   );
-  // Every other row is untouched.
-  await expect(page.locator(".book-directory-item .tag")).toHaveCount(1);
+  // Every other row is untouched: only the row this test turned off joins the third-party rows
+  // that are inactive by default.
+  const thirdPartyCount = sources.filter((source) => source.third_party).length;
+  await expect(page.locator(".book-directory-item .tag")).toHaveCount(1 + thirdPartyCount);
 });
 
 test("The groups the reader opened stay open on Back, before the scroll position returns", async ({ page }) => {
