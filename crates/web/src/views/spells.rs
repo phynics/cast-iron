@@ -496,14 +496,21 @@ fn ListPage(
         if groups.is_empty() {
             let text = filter.get();
             let narrowed = !chosen.is_empty();
+            // A level page names its own category: a list of cantrips has no "spells" on it.
+            let empty_level = if level == Some(0) {
+                "No cantrips on this list.".to_string()
+            } else {
+                "No spells at this level.".to_string()
+            };
+            let noun = if level == Some(0) { "cantrip" } else { "spell" };
             return view! {
                 <p class="empty" role="status">
                     {if text.trim().is_empty() && !narrowed {
-                        "No spells at this level.".to_string()
+                        empty_level
                     } else if text.trim().is_empty() {
-                        "No spell on this list is in the chosen schools.".to_string()
+                        format!("No {noun} on this list is in the chosen schools.")
                     } else {
-                        format!("No spell on this list matches {:?}.", text.trim())
+                        format!("No {noun} on this list matches {:?}.", text.trim())
                     }}
                 </p>
             }

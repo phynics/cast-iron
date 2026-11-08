@@ -313,6 +313,15 @@ test("Level 0 spells read as Cantrips on the spell page and the Wizard list", as
   await expect(tab.locator(".lvl-n")).toHaveText("Cantrips");
   // The group keeps its numeric value for CSS and links.
   await expect(page.locator(".level-group")).toHaveAttribute("data-level", "0");
+
+  // A class without cantrips says what the empty level is, in the same word.
+  const classNames = [...new Set(entries.flatMap((entry) =>
+    (entry.fields?.levels ?? []).map((level: any) => level.class as string)))];
+  const noCantrips = classNames.find((name) => !entries.some((entry) =>
+    entry.kind === "spell" && entry.fields?.levels?.some((level: any) => level.class === name && level.level === 0)));
+  expect(noCantrips, "a spell list with no level 0").toBeTruthy();
+  await page.goto(`#/spells/${encodeURIComponent(noCantrips!)}/0`);
+  await expect(page.getByRole("status").filter({ hasText: "No cantrips on this list." })).toBeVisible();
 });
 
 test("Rule entries preserve complex formatting: creature spell lists use readable level labels", async ({ page }) => {
