@@ -670,13 +670,15 @@ pub struct ArchetypeFields {
 }
 
 /// Fields of a class option: the option group it belongs to and the printed features it
-/// replaces, in print order.
+/// replaces and alters, in print order.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ClassOptionFields {
     /// A slug from the corpus `option-groups.toml`.
     pub group: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alters: Vec<String>,
 }
 
 /// `relations.json` (schema 3): every `Relation` of every entry, flattened so that the
@@ -1539,10 +1541,20 @@ mod tests {
         let option = TypedFields::ClassOption(ClassOptionFields {
             group: "arcane-discovery".into(),
             replaces: vec![],
+            alters: vec![],
         });
         assert_eq!(
             serde_json::to_string(&option).unwrap(),
             r#"{"kind":"class_option","group":"arcane-discovery"}"#
+        );
+        let option = TypedFields::ClassOption(ClassOptionFields {
+            group: "arcane-discovery".into(),
+            replaces: vec!["Arcane bond".into()],
+            alters: vec!["Arcane school".into()],
+        });
+        assert_eq!(
+            serde_json::to_string(&option).unwrap(),
+            r#"{"kind":"class_option","group":"arcane-discovery","replaces":["Arcane bond"],"alters":["Arcane school"]}"#
         );
     }
 

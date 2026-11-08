@@ -728,8 +728,22 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
     pairs
 }
 
+/// The items of every printed `**Replaces:**` or `**Alters:**` line in the normal part, in
+/// body order. One line may state several comma-separated items, and an entry may print
+/// several lines (oaths and medium spirits trade one power at a time), so the typed list is
+/// the concatenation of them all.
+fn printed_items(lines: &[String]) -> Vec<String> {
+    lines
+        .iter()
+        .flat_map(|line| line.split(','))
+        .map(|item| item.trim().to_string())
+        .filter(|item| !item.is_empty())
+        .collect()
+}
+
 /// The printed `**Replaces:**` and `**Alters:**` lines against the typed item lists, in print
-/// order. A typed list and its printed line must state the same items; one side alone is drift.
+/// order. A typed list and its printed lines must state the same items; one side alone is
+/// drift.
 fn replaces_alters_pairs(
     entry: &RuleEntry,
     text: &str,
@@ -742,16 +756,15 @@ fn replaces_alters_pairs(
         ("replaces", replaces, "Replaces"),
         ("alters", alters, "Alters"),
     ] {
-        let stated = labelled_texts(body, label);
+        let stated = printed_items(&labelled_texts(body, label));
         if values.is_empty() && stated.is_empty() {
             continue;
         }
         let field_value = joined(values);
-        let source_value = stated.first().cloned().unwrap_or_default();
+        let source_value = joined(&stated);
         let agree = !values.is_empty()
-            && stated
-                .iter()
-                .any(|statement| normalize(&field_value) == normalize(statement));
+            && !stated.is_empty()
+            && normalize(&field_value) == normalize(&source_value);
         let marker = format!("**{label}:**");
         pairs.push(Pair {
             field,
@@ -779,7 +792,7 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
             replaces_alters_pairs(entry, &stored.text, &fields.replaces, &fields.alters)
         }
         TypedFields::ClassOption(fields) => {
-            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &[])
+            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &fields.alters)
         }
         _ => vec![],
     };
@@ -1370,6 +1383,143 @@ mod tests {
         assert!(find_drift(&stored_spell).is_empty());
         set_school(&mut stored_spell, "necromancy [death]");
         assert_eq!(find_drift(&stored_spell).len(), 1);
+    }
+
+    fn attached(id: &str, kind: EntryKind, fields: TypedFields, labels: &[(&str, &str)]) -> Stored {
+        let body = labels
+            .iter()
+            .map(|(label, text)| paragraph(labelled(label, text)))
+            .collect();
+        stored(base(id, kind, fields, body))
+    }
+
+    fn archetype(replaces: &[&str], alters: &[&str]) -> TypedFields {
+        TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            replaces: replaces.iter().map(|value| value.to_string()).collect(),
+            alters: alters.iter().map(|value| value.to_string()).collect(),
+        })
+    }
+
+    fn class_option(replaces: &[&str], alters: &[&str]) -> TypedFields {
+        TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            group: "paladin-oath".into(),
+            replaces: replaces.iter().map(|value| value.to_string()).collect(),
+            alters: alters.iter().map(|value| value.to_string()).collect(),
+        })
+    }
+
+    #[test]
+    fn several_replaces_lines_concatenate_in_body_order() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(
+                &["Detect evil", "Smite evil", "Channel positive energy"],
+                &[],
+            ),
+            &[
+                ("Replaces", "Detect evil"),
+                ("Replaces", "Smite evil"),
+                ("Replaces", "Channel positive energy"),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn several_replaces_lines_must_all_be_typed() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Detect evil", "Smite evil"], &[]),
+            &[
+                ("Replaces", "Detect evil"),
+                ("Replaces", "Smite evil"),
+                ("Replaces", "Channel positive energy"),
+            ],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "replaces");
+        assert_eq!(drift[0].field_value, "Detect evil, Smite evil");
+        assert_eq!(
+            drift[0].source_value,
+            "Detect evil, Smite evil, Channel positive energy"
+        );
+    }
+
+    #[test]
+    fn several_replaces_lines_compare_in_body_order() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Smite evil", "Detect evil"], &[]),
+            &[("Replaces", "Detect evil"), ("Replaces", "Smite evil")],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "replaces");
+    }
+
+    #[test]
+    fn a_single_replaces_line_still_compares_as_one_statement() {
+        let entry = attached(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Trap sense"], &["Uncanny dodge"]),
+            &[("Replaces", "Trap sense."), ("Alters", "Uncanny dodge.")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn a_class_option_concatenates_its_replaces_lines() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&["Detect evil", "Smite evil"], &[]),
+            &[("Replaces", "Detect evil"), ("Replaces", "Smite evil")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn class_option_alters_agree_with_the_printed_line() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &["Divine bond"]),
+            &[("Alters", "Divine bond")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn a_printed_class_option_alters_line_must_be_typed() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &[]),
+            &[("Alters", "Divine bond")],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "alters");
+        assert!(drift[0].missing);
+    }
+
+    #[test]
+    fn a_typed_class_option_alters_item_must_be_printed() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &["Divine bond", "Aura of resolve"]),
+            &[("Alters", "Divine bond")],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "alters");
+        assert_eq!(drift[0].source_value, "Divine bond");
     }
 
     #[test]
