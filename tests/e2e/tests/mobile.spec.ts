@@ -74,7 +74,7 @@ installedTest("A creature breadcrumb is one line of working links at 390 px", as
   expect((await crumbs.boundingBox())!.height).toBeLessThanOrEqual(60);
 });
 
-test("Book rows, the book page contents tree and the groups fit the mobile viewport", async ({ page }) => {
+installedTest("Book rows, the book page contents tree and the groups fit the mobile viewport", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   await openBookGroups(page);
@@ -107,7 +107,7 @@ test("Book rows, the book page contents tree and the groups fit the mobile viewp
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
-test("Books and Active books fit 390 px with full-size touch targets", async ({ page }) => {
+installedTest("Books and Active books fit 390 px with full-size touch targets", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   const groups = page.locator(".book-tier");
@@ -197,7 +197,7 @@ installedTest("Mobile entry header is compact: one metadata line and an icon sta
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 2.6);
 });
 
-test("Publication groups fit 390 px with full-size targets", async ({ page }) => {
+installedTest("Publication groups fit 390 px with full-size targets", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -312,7 +312,7 @@ installedTest("Mobile Quick search rows are full-size touch targets", async ({ p
   expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
 });
 
-test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show school, facts and rulebooks first", async ({ page }) => {
+installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows show school, facts and rulebooks first", async ({ page }) => {
   await installLibrary(page);
   const overflow = () =>
     page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
@@ -388,7 +388,7 @@ test("Spell lists at 390 px: Wizard is one tap from the hub, and rows show schoo
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
-test("Spell list density at 390 px: Compact is two lines, toggles without a reload and survives one", async ({ page }) => {
+installedTest("Spell list density at 390 px: Compact is two lines, toggles without a reload and survives one", async ({ page }) => {
   await installLibrary(page);
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
   const list = page.locator(".spell-list");

@@ -67,7 +67,7 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   }
 });
 
-test("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
+installedTest("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -166,7 +166,7 @@ test("Publication filter hides empty books, pages the rest, and keeps selections
   await expect.poll(() => chips.count()).toBe(0);
 });
 
-test("Publication filter groups publications by product line with Adventures collapsed", async ({ page }) => {
+installedTest("Publication filter groups publications by product line with Adventures collapsed", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -253,7 +253,7 @@ test("Publication filter groups publications by product line with Adventures col
   expect(new URLSearchParams(hash.split("?")[1] ?? "").getAll("source")).toContain(source.id);
 });
 
-test("Publication filter keeps a closed heading with a count for every tier the budget skipped", async ({ page }) => {
+installedTest("Publication filter keeps a closed heading with a count for every tier the budget skipped", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -323,7 +323,7 @@ test("Publication filter keeps a closed heading with a count for every tier the 
   }
 });
 
-test("The Publication name box opens Adventures for its matches, then returns to the reader's choice", async ({ page }) => {
+installedTest("The Publication name box opens Adventures for its matches, then returns to the reader's choice", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
   await page.locator("#search-input").fill("fire");
@@ -387,7 +387,7 @@ test("The Publication name box opens Adventures for its matches, then returns to
   await expect(match).toBeVisible();
 });
 
-test("Equal relevance ranks the Rulebook entry before an Adventure entry", async ({ page }) => {
+installedTest("Equal relevance ranks the Rulebook entry before an Adventure entry", async ({ page }) => {
   // Two entries whose titles share the query word score exactly the same in the compiled
   // library. Their alphabetical order would put the Adventure Path entry first; the product-line
   // tier puts the Rulebook entry first.
@@ -1188,7 +1188,7 @@ installedTest("A recent search remembers its scope: the row shows it, tapping re
   await expect(layer).toBeHidden();
 });
 
-test("An inactive first source is replaced by the active book that still shows the entry", async ({ page }) => {
+installedTest("An inactive first source is replaced by the active book that still shows the entry", async ({ page }) => {
   const owners = bookOwners();
   const sourceTitle = (id: string) =>
     corpus.catalog.sources.find((source: any) => source.id === id)?.title as string | undefined;
@@ -1246,7 +1246,7 @@ test("An inactive first source is replaced by the active book that still shows t
   await page.keyboard.press("Escape");
 });
 
-test("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
+installedTest("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
   // The corpus merged the separate "Ancient Red Dragon" into its Bestiary twin.
   const dragon = corpusEntry("creature", "Dragon, Chromatic, Red, Ancient");
   const bookId = bookOwners().get(dragon.id) ?? dragon.source_ids[0];
