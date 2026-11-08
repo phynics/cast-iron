@@ -43,8 +43,9 @@ pub mod validate;
 /// Version of the serialized content format.
 ///
 /// 4: attached entries. `RelationKind::{Variant, Addon, Revision}` with an optional label on
-/// a [`RelationEdge`], `EntryKind::ClassOption`, `ClassOptionFields`, `ArchetypeFields`, and
-/// the derived files `option-groups.json` and `replaces.json`.
+/// a [`RelationEdge`], `EntryKind::ClassOption`, `ClassOptionFields` and `ArchetypeFields`
+/// (each carrying `replaces` and `alters`), and the derived files `option-groups.json` and
+/// `replaces.json`.
 pub const SCHEMA_VERSION: u32 = 4;
 
 /// Name of the relation index, relative to the version directory.

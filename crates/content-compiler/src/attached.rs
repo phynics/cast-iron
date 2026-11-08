@@ -44,7 +44,8 @@ pub fn option_groups(corpus: &Corpus, entries: &[RuleEntry]) -> OptionGroupIndex
 
 /// `replaces.json`: the printed items that each archetype or class option replaces. Sorted by
 /// id. An entry with no `replaces` items is left out, so the file stays empty until slice 6
-/// types the printed lines.
+/// types the printed lines. The index covers `replaces` only for now; indexing `alters` comes
+/// later.
 pub fn replaces(entries: &[RuleEntry]) -> ReplacesIndex {
     let mut rows: BTreeMap<EntryId, Vec<String>> = BTreeMap::new();
     for entry in entries {
