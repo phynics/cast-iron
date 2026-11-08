@@ -115,6 +115,28 @@ test("A group shared by several classes names the class it was opened from", asy
   );
 });
 
+test("Letter navigation keeps a shared group's class scope", async ({ page }) => {
+  await installLibrary(page);
+  const shared = groups.groups.find(
+    (group) => group.classes.length > 1 && group.entries.length > 200,
+  )!;
+  const classId = shared.classes[0];
+  const classEntry = corpus.entries.get(classId)!;
+
+  await page.goto(`#/entry/${classId}`);
+  await groupLink(page, shared.label).click();
+  await expect(page.locator(".scope-pill")).toHaveText(classEntry.title);
+
+  const next = page.locator('.letter-btn:not([aria-current="true"])').first();
+  await expect(next).toBeVisible();
+  expect(await next.getAttribute("href")).toContain(
+    `facet=class_scope:${encodeURIComponent(classId)}`,
+  );
+  await next.click();
+  await expect.poll(() => new URL(page.url()).hash).toContain("facet=class_scope:");
+  await expect(page.locator(".scope-pill")).toHaveText(classEntry.title);
+});
+
 test("The group menu filters the class-option list in place", async ({ page }) => {
   await installLibrary(page);
   await page.goto(`#/browse/kind/class_option?facet=group:${discoveries.slug}`);

@@ -1646,9 +1646,20 @@ fn BrowseList(
     let groups = group_by_letter(&titles);
     let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
     let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
+    // A class scope is part of the URL but not an applied facet, so the letter links and the
+    // letter-mismatch rewrite have to put it back beside the facets that narrow the list.
+    let mut letter_facets = applied.clone();
+    if !class_scope.is_empty()
+        && !letter_facets
+            .iter()
+            .any(|(field, _)| field == "class_scope")
+    {
+        letter_facets.push(("class_scope".to_string(), class_scope.clone()));
+    }
     // A letter the list does not have still renders the first group; make the URL match it.
     if letter.is_some() && requested.is_none() {
-        let route = Route::browse_kind_facets(kind, applied.clone()).with_source(source.clone());
+        let route =
+            Route::browse_kind_facets(kind, letter_facets.clone()).with_source(source.clone());
         Effect::new(move |_| replace(&route));
     }
     // Removing the book pill rebuilds this page; take focus after the route frame has moved it.
@@ -1658,7 +1669,7 @@ fn BrowseList(
     let letters: Vec<char> = groups.iter().map(|(letter, _)| *letter).collect();
     let jump = (count > GROUP_THRESHOLD).then(|| {
         view! {
-            <LetterNav kind facets=applied.clone() source=source.clone() letters=letters
+            <LetterNav kind facets=letter_facets.clone() source=source.clone() letters=letters
                 selected=selected />
         }
     });
@@ -1787,7 +1798,7 @@ fn BrowseList(
     let remove_route = Route::BrowseKind {
         kind,
         letter,
-        facets: applied.clone(),
+        facets: letter_facets,
         source: None,
     };
     let pill = source_title.clone().map(|title| {
