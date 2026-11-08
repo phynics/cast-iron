@@ -132,6 +132,47 @@ impl Relations {
         self.sources_of(feat, RelationKind::Prerequisite)
     }
 
+    /// The add-ons that attach to `target` with `label` (`mythic`, `stamina`, `changes`), in
+    /// index order. The ids are the add-ons' own entries, not their bases.
+    pub fn addons_of(&self, target: &EntryId, label: &str) -> Vec<&EntryId> {
+        self.incoming
+            .get(target)
+            .into_iter()
+            .flatten()
+            .filter(|(kind, _, found)| {
+                *kind == RelationKind::Addon && found.as_deref() == Some(label)
+            })
+            .map(|(_, id, _)| id)
+            .collect()
+    }
+
+    /// The label of the add-on relation that `id` holds, when it is an add-on: `mythic`,
+    /// `stamina` or `changes`. An add-on attaches to one base, so the first edge answers.
+    pub fn addon_label(&self, id: &EntryId) -> Option<&str> {
+        self.outgoing
+            .get(id)
+            .into_iter()
+            .flatten()
+            .find(|(kind, _, _)| *kind == RelationKind::Addon)
+            .and_then(|(_, _, label)| label.as_deref())
+    }
+
+    /// Every add-on entry and the label of the edge it holds, for rows that name their kind
+    /// without opening the add-on's shard. The graph's edges decide the label; an id never does.
+    pub fn addon_labels(&self) -> HashMap<EntryId, String> {
+        self.outgoing
+            .iter()
+            .filter_map(|(id, edges)| {
+                let label = edges.iter().find_map(|(kind, _, label)| {
+                    (*kind == RelationKind::Addon)
+                        .then(|| label.clone())
+                        .flatten()
+                })?;
+                Some((id.clone(), label))
+            })
+            .collect()
+    }
+
     /// The prerequisite tree above `feat`. The root is `feat` itself. A feat reached twice by
     /// different routes appears twice, which shows the diamond; a feat that is its own ancestor
     /// stops with `cycle` set. The walk ends at [`MAX_DEPTH`] or after [`MAX_NODES`] nodes, and
@@ -453,7 +494,7 @@ pub fn requirements_blocks(body: &[Block]) -> Vec<Block> {
 }
 
 /// A copy of `block` in which every heading, at any depth, is a bold paragraph.
-fn demote_headings(block: &Block) -> Block {
+pub(crate) fn demote_headings(block: &Block) -> Block {
     match block {
         Block::Heading { content, .. } => Block::Paragraph {
             style: cast_iron_schema::ParagraphStyle::Normal,
@@ -665,7 +706,7 @@ mod tests {
         })
     }
 
-    use RelationKind::{Archetype, Part, Prerequisite};
+    use RelationKind::{Addon, Archetype, Part, Prerequisite};
 
     #[test]
     fn a_labelled_edge_is_parsed_and_still_answers_kind_lookups() {
@@ -680,6 +721,45 @@ mod tests {
         });
         assert_eq!(r.targets_of(&id("c/a"), RelationKind::Addon), [&id("c/b")]);
         assert_eq!(r.sources_of(&id("c/b"), RelationKind::Addon), [&id("c/a")]);
+    }
+
+    #[test]
+    fn add_ons_are_found_by_label_and_never_count_as_chain_followers() {
+        let edge = |source: &str, kind, target: &str, label: Option<&str>| {
+            RelationEdge(id(source), kind, id(target), label.map(String::from))
+        };
+        let r = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: vec![
+                edge("c/base/mythic", Addon, "c/base", Some("mythic")),
+                edge("c/base/stamina", Addon, "c/base", Some("stamina")),
+                edge("c/other/change", Addon, "c/other", Some("changes")),
+                edge("c/follower", Prerequisite, "c/base", None),
+            ],
+        });
+        // The label selects the edge; source and target keep their directions.
+        assert_eq!(r.addons_of(&id("c/base"), "mythic"), [&id("c/base/mythic")]);
+        assert_eq!(
+            r.addons_of(&id("c/base"), "stamina"),
+            [&id("c/base/stamina")]
+        );
+        assert!(r.addons_of(&id("c/base"), "changes").is_empty());
+        assert_eq!(r.addon_label(&id("c/base/mythic")), Some("mythic"));
+        assert_eq!(r.addon_label(&id("c/base")), None);
+        let labels = r.addon_labels();
+        assert_eq!(
+            labels.get(&id("c/other/change")).map(String::as_str),
+            Some("changes")
+        );
+        // An add-on is not a follower: only prerequisite edges make a chain.
+        assert_eq!(r.leads_to(&id("c/base")), [&id("c/follower")]);
+        assert_eq!(r.descendants(&id("c/base")), [id("c/follower")]);
+        assert!(!r.long_chains(0).contains_key(&id("c/base/mythic")));
+        assert!(
+            !r.chain_heads()
+                .iter()
+                .any(|head| head.id == id("c/base/mythic"))
+        );
     }
 
     #[test]
@@ -720,6 +800,45 @@ mod tests {
         assert!(scoped.targets_of(&id("c/a"), Prerequisite).is_empty());
         assert!(scoped.leads_to(&id("c/c")).is_empty());
         assert!(scoped.counts.is_empty());
+    }
+
+    #[test]
+    fn a_scoped_graph_keeps_an_add_on_only_while_both_ends_are_eligible() {
+        let all = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: vec![
+                RelationEdge(
+                    id("c/base/mythic"),
+                    Addon,
+                    id("c/base"),
+                    Some("mythic".into()),
+                ),
+                RelationEdge(
+                    id("c/base/stamina"),
+                    Addon,
+                    id("c/base"),
+                    Some("stamina".into()),
+                ),
+            ],
+        });
+        // The add-on's own book carries the row: the raw graph keeps its label, and the base's
+        // page filters only the add-on's eligibility.
+        assert!(all.addon_label(&id("c/base/mythic")).is_some());
+        assert_eq!(
+            all.addons_of(&id("c/base"), "mythic"),
+            [&id("c/base/mythic")]
+        );
+        // A graph projected both ways drops the edge once either end is inactive.
+        let base_off = all.filtered(|id| id.as_str() != "c/base");
+        assert!(base_off.addon_label(&id("c/base/mythic")).is_none());
+        assert!(base_off.addons_of(&id("c/base"), "mythic").is_empty());
+        // Disabling the add-on's book removes the edge, so the base page shows nothing.
+        let holder_off = all.filtered(|id| id.as_str() != "c/base/mythic");
+        assert_eq!(
+            holder_off.addons_of(&id("c/base"), "stamina"),
+            [&id("c/base/stamina")]
+        );
+        assert!(holder_off.addons_of(&id("c/base"), "mythic").is_empty());
     }
 
     #[test]

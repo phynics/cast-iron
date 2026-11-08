@@ -10,7 +10,7 @@ use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
-use crate::views::util::{kind_name, set_title};
+use crate::views::util::{addon_name, kind_name, local_resource, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
 use leptos::prelude::*;
@@ -733,6 +733,12 @@ pub fn Search() -> impl IntoView {
     // rescan every indexed document for every field on every search.
     let facet_values_cache = StoredValue::new(None::<(u64, BTreeMap<String, Vec<String>>)>);
     let discovery_cache = StoredValue::new_local(None::<(u64, Rc<crate::discovery::Discovery>)>);
+    // The add-on labels of result rows. The whole graph, so a mythic row keeps its label while
+    // its base's book is inactive; a hit is only shown when its own book is active.
+    let addon_labels = {
+        let library = library.clone();
+        local_resource(async move { library.relations().await.ok().flatten() })
+    };
     // Counts for the chips. They change only when a result arrives, so a debounced or running
     // search keeps showing the previous numbers. `None` until the first result: chips then show
     // the totals for the active books, which is what an empty search counts anyway.
@@ -1344,16 +1350,25 @@ pub fn Search() -> impl IntoView {
         .into_any(),
         Phase::Done { hits, groups, .. } => {
             let full = hits.len() < groups;
+            let all_relations = addon_labels.with(|state| state.clone().flatten());
+            let addon_of = |hit: &Hit| -> Option<String> {
+                let id = EntryId::parse(hit.id.clone()).ok()?;
+                all_relations.as_ref()?.addon_label(&id).map(str::to_owned)
+            };
             let items = hits
                 .iter()
                 .map(|result| {
                     if result.variants.is_empty() {
-                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref()).into_any();
+                        let addon = addon_of(&result.hit);
+                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon.as_deref()).into_any();
                     }
                     let title = marked(&result.hit.title, &result.hit.title_matches);
                     let count = result.variants.len() + 1;
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
-                        .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
+                        .map(|(hit, anchor)| {
+                            let addon = addon_of(hit);
+                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon.as_deref())
+                        }).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
                         <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
                         <ul>{variants}</ul>
@@ -1662,6 +1677,7 @@ fn hit_view(
     library: &crate::library::Library,
     hit: &Hit,
     anchor: Option<&str>,
+    addon: Option<&str>,
 ) -> impl IntoView + use<> {
     let entry_id = EntryId::parse(hit.id.clone()).ok();
     let href = entry_id
@@ -1675,6 +1691,8 @@ fn hit_view(
         })
         .unwrap_or_else(|| Route::Home.href());
     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+    // An add-on row names its label where the kind would stand: `Mythic · Mythic Adventures`.
+    let row_kind = addon.map_or(kind, addon_name);
     // The index records one attribution source. When it is inactive, the entry's book placement
     // is the source that kept the entry eligible, so it is the one the reader should see.
     // A search row only has the catalog stub, which carries one source, so its alternative set
@@ -1704,7 +1722,7 @@ fn hit_view(
         <li class="hit">
             <a class="hit-link" href=href>
                 <span class="hit-title">{title}</span>
-                <span class="hit-meta">{kind}" · "{source}</span>
+                <span class="hit-meta">{row_kind}" · "{source}</span>
                 {has_snippet.then(|| view! { <span class="hit-snippet">{snippet}</span> })}
             </a>
         </li>
