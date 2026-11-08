@@ -4,6 +4,9 @@ import {
   hitTitles,
   installLibrary,
   openBookGroups,
+  openQuickSearch,
+  quickField,
+  quickOptions,
   waitControlled,
   waitHomeIdle,
   waitReady,
@@ -50,6 +53,15 @@ test("Core only: a base feat shows no Mythic section, row or result", async ({ p
   await waitResults(page, "power attack");
   const titles = await hitTitles(page);
   expect(titles.some((title) => title.endsWith(", Mythic"))).toBe(false);
+
+  // Typing the same words in Quick search offers no mythic suggestion either.
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await quickField(page).fill("power attack");
+  await expect(quickOptions(page).last()).toHaveText("See all results for “power attack”");
+  await expect(
+    quickOptions(page).filter({ has: page.locator(".quick-search-name", { hasText: "Power Attack, Mythic" }) }),
+  ).toHaveCount(0);
 });
 
 test("Mythic Adventures active: the base stacks one expanded version", async ({ page }) => {
@@ -111,6 +123,16 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
     .locator(".results .hit")
     .filter({ has: page.locator(".hit-title", { hasText: "Dodge, Mythic" }) });
   await expect(mythicRow.locator(".hit-meta")).toHaveText("Mythic · Mythic Adventures");
+
+  // Quick search names the same label without leaving the page.
+  await page.goto("#/");
+  await openQuickSearch(page);
+  await quickField(page).fill("power attack");
+  const suggestion = quickOptions(page).filter({
+    has: page.locator(".quick-search-name", { hasText: "Power Attack, Mythic" }),
+  });
+  await expect(suggestion).toHaveCount(1);
+  await expect(suggestion.locator(".quick-search-meta")).toHaveText("Mythic · Mythic Adventures");
 });
 
 test("Mythic active, base inactive: the add-on stays listed and names the base", async ({ page }) => {
