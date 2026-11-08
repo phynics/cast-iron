@@ -3443,7 +3443,7 @@ input::placeholder {
 .toggle-row .book-card-text { flex: 1; min-width: 0; }
 .toggle-row .cat-name { display: block; font: 600 var(--step-0)/var(--leading-tight) var(--font-text); }
 .toggle-row .cat-blurb { display: block; margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--step--1); }
-.book-active-row { max-width: 52rem; margin: var(--space-2) 0 var(--space-3); border-block: var(--border); }
+.book-off-line { max-width: 52rem; margin: var(--space-2) 0 var(--space-3); }
 .home-bookmarks { max-width: var(--measure); }
 .home-bookmark-row { display: flex; align-items: center; gap: var(--space-3); border-bottom: var(--border); padding-block: var(--space-1); }
 .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex: 1; min-width: 0; border: 0; justify-content: flex-start; gap: var(--space-3); }

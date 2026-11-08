@@ -10,7 +10,6 @@ use crate::fmt;
 use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, current_hash, replace, toc_id, use_route};
-use crate::views::active_books::save_book_active;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{BookNode, EntryId, EntryKind};
@@ -179,44 +178,10 @@ pub fn review_line(review: &[String]) -> Option<&'static str> {
     (!review.is_empty()).then_some(REVIEW_LINE)
 }
 
-/// The book's own Active row: a toggle row (DESIGN.md, Toggles). The whole row is a `<label>`
-/// that holds a native checkbox; the line under it says what the state means. The choice is
-/// saved at once, the same stored choice that Active books writes.
-#[component]
-fn ActiveRow(library: Library, source: String) -> impl IntoView {
-    let revision = library.selection_revision();
-    let error = RwSignal::new(None::<String>);
-    let state_library = library.clone();
-    let state_source = source.clone();
-    let is_active = move || {
-        revision.get();
-        state_library.book_active(&state_source)
-    };
-    let state = is_active.clone();
-    view! {
-        <div class="book-active-row">
-            <label class="toggle-row">
-                <input type="checkbox" aria-label="Active" aria-describedby="book-active-state"
-                    prop:checked=is_active
-                    on:change=move |event| {
-                        let input = event_target::<web_sys::HtmlInputElement>(&event);
-                        save_book_active(&library, source.clone(), input, error);
-                    } />
-                <span class="book-card-text">
-                    <span class="cat-name">"Active"</span>
-                    <span class="cat-blurb" id="book-active-state">
-                        {move || if state() {
-                            "Search and lists include this book."
-                        } else {
-                            "Search and lists leave this book out. You can still read its contents here."
-                        }}
-                    </span>
-                </span>
-            </label>
-            {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-        </div>
-    }
-}
+/// The one line that a book page shows while the book is turned off. It states what the reader
+/// loses, and nothing else: the choice itself lives on Manage books.
+pub const BOOK_OFF_LINE: &str =
+    "This book is turned off. Its entries don't appear in search or lists.";
 
 #[component]
 pub fn BookView(source: String) -> impl IntoView {
@@ -263,7 +228,15 @@ pub fn BookView(source: String) -> impl IntoView {
         .into_iter()
         .map(|line| view! { <p class="copyright">{line}</p> })
         .collect_view();
-    let active_row = view! { <ActiveRow library=library.clone() source=source.clone() /> };
+    // The page shows one plain line while the book is off, and nothing when it is on. The
+    // selection is read reactively so a change written elsewhere reaches this page too.
+    let revision = library.selection_revision();
+    let state_library = library.clone();
+    let state_source = source.clone();
+    let book_off = move || {
+        revision.get();
+        !state_library.book_active(&state_source)
+    };
     // The `In this book` links count the catalog entries whose canonical book this is, so they
     // agree with the Books row and reach that same set whether or not the book is active.
     let kind_counts = {
@@ -307,7 +280,9 @@ pub fn BookView(source: String) -> impl IntoView {
         <div class="wide book">
             <h1>{title}</h1>
             {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
-            {active_row}
+            {move || book_off().then(|| view! {
+                <p class="muted book-off-line" data-testid="book-off-line">{BOOK_OFF_LINE}</p>
+            })}
             {kind_links}
             <section class="book-contents" aria-labelledby="book-contents-head">
                 <h2 id="book-contents-head">"Contents"</h2>
