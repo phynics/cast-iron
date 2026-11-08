@@ -104,9 +104,9 @@ test("Recently viewed shows five rows, Show more reveals the stored history, Cle
   // The click empties the list at once, so the section and its Clear button are gone before the
   // write lands; focus is already on the title, not lost to the body.
   await expect(page.locator("#home-title")).toBeFocused();
-  // The list leaves the screen before its write finishes, and Home is still reading the search
-  // index. Reloading under either stops the page mid-operation, which WebKit reports as
-  // "Context is stopped"; wait for both.
+  // The list leaves the screen before its write finishes. Reloading under that write stops the
+  // page mid-operation, which WebKit reports as "Context is stopped"; wait for it, and for Home's
+  // index read, before reloading.
   await expect.poll(() => storedRecentCount(page)).toBe(0);
   await waitHomeIdle(page);
   await page.reload();

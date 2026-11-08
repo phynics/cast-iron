@@ -1,5 +1,5 @@
 import { test, expect, corpusLabel, distManifest, distShellVersion, goOffline } from "./fixtures";
-import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitReady } from "./helpers";
+import { activeLibrary, cacheContents, contentCaches, corpusEntry, installLibrary, waitControlled, waitHomeIdle, waitReady } from "./helpers";
 
 const spell = corpusEntry("spell", "Fireball");
 const UPDATE_NAME = "App update ready. Open Settings";
@@ -77,6 +77,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   expect((await activeLibrary(page)).content_version).toBe(library.content_version);
   await goOffline(context, server);
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
+  await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
   await page.locator(".home-bookmarks").getByRole("link", { name: new RegExp(spell.title) }).click();

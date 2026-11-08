@@ -12,6 +12,7 @@ import {
   openBookGroups,
   storedMeta,
   waitControlled,
+  waitHomeIdle,
   waitReady,
   writeMeta,
 } from "./helpers";
@@ -123,6 +124,7 @@ test("The daily check surfaces a newer library, and Settings puts Updates first"
     // Forget the check the installation made, so the next start asks again at once.
     await deleteMeta(page, "update_check");
     await server.overlay(next.dir);
+    await waitHomeIdle(page);
     await page.reload();
     await waitReady(page);
 
@@ -183,6 +185,7 @@ test("A stored newer library mounts no installer until the reader asks", async (
     known_bytes: library.total_bytes,
   });
   await server.clearLog();
+  await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
 
