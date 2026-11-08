@@ -976,7 +976,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
         .into_iter()
         .map(|l| {
             let text = if l.level == 0 {
-                format!("{} cantrip", l.class)
+                format!("{} {}", l.class, fmt::spell_level(0))
             } else {
                 format!("{} {}", l.class, l.level)
             };
