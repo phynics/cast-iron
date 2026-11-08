@@ -74,10 +74,16 @@ impl Tier {
 
     /// The tier for a publication: the third-party marker first, else its category.
     pub fn of(source: &SourceInfo) -> Tier {
-        if source.third_party {
+        Self::of_parts(source.third_party, source.category.as_deref())
+    }
+
+    /// [`Tier::of`] over the fields a list row keeps, so the Books and Manage books rows group
+    /// a marked book without holding a whole [`SourceInfo`].
+    pub fn of_parts(third_party: bool, category: Option<&str>) -> Tier {
+        if third_party {
             Tier::ThirdParty
         } else {
-            Self::from_category(source.category.as_deref())
+            Self::from_category(category)
         }
     }
 

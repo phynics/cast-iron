@@ -1163,9 +1163,10 @@ waits for that pin.
   `book_presets::is_third_party` now reads the flag, so only `Everything incl. 3rd party`
   includes a marked book; the other three presets, the first-run default and Undo follow from the
   same rule.
-- **Books and Active books grouping waits for #287.** Those pages build their groups from a
-  category-only `BookListEntry`; the preset and search code is done here, and the tier is ready
-  for the Books change to pass the flag through.
+- **Grouping follows the marker.** Books and Manage books build their groups from
+  `BookListEntry`, which now carries the flag, so a marked book shows under `Third party` even
+  when its reviewed category is a Paizo one. The arrival rule above leaves the group collapsed
+  and empty until the reader turns a book on.
 - **An arrival starts off.** The app stores `known_third_party`, the set of marked books the
   profile has seen. A marked book that is not in that set is added to `disabled_books` on load;
   the first library that carries the marker therefore turns every third-party book off, and a

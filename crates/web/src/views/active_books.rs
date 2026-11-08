@@ -279,6 +279,7 @@ pub fn ActiveBooks() -> impl IntoView {
             category: source.category.clone(),
             publication_date: source.publication_date.clone(),
             count: counts.get(&source.id).copied().unwrap_or(0),
+            third_party: source.third_party,
         })
         .collect();
     let total = rows.len();
