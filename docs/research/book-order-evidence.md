@@ -210,6 +210,19 @@ The printed contents page of the NPC Codex was checked in this review. It verifi
 
 The dataset uses the printed chapter titles for Chapters 1-3 and has no chapter for Chapter 4. Main chapter order and titles are verified; nested placement remains unverified.
 
+## Technology Guide
+
+The printed contents page of Technology Guide was checked in this review. It verifies the following sequence.
+
+| Chapter | Title | First page |
+|---|---|---|
+| Introduction | Introduction | 2 |
+| — | Technology in the World | 4 |
+| — | Technological Equipment | 18 |
+| — | Technological Hazards and Artifacts | 54 |
+
+The corpus already has this order. The printed Introduction has no corpus chapter. Two top-level chapters are renamed to the printed titles: `Equipment` to `Technological Equipment`, and `Hazards and Artifacts` to `Technological Hazards and Artifacts`. The final `New entries (page order)` chapter holds canonical entries the curated tree does not place; it is page-ordered and is not a printed chapter. No entry moves between chapters, and the entry set is unchanged.
+
 ## Ultimate Campaign
 
 The printed contents page of Ultimate Campaign was checked in this review. It verifies the following sequence.
@@ -277,7 +290,7 @@ The dataset splits the printed Mastering Magic chapter into Mastering Magic and 
 
 ## Other books in the curated list
 
-No printed contents page was available in this review for the Technology Guide, so its proposed chapter order and labels remain provisional upstream grouping, not verified printed order. The Game Mastery Guide printed chapter order is recorded above, but its dataset structure remains a topic tree rather than the printed chapters.
+The Game Mastery Guide printed chapter order is recorded above, but its dataset structure remains a topic tree rather than the printed chapters.
 
 No publisher contents listing was located for any publication outside the sixteen curated books. Those titles keep the page-ordered `Page order` and `Unpaged` lists rather than a chapter structure.
 
@@ -289,10 +302,10 @@ It is not chapter evidence. A page number does not name a chapter, prove that tw
 
 ## Curation rule
 
-Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The curated `books.toml` now records main chapter order from a printed contents page for the books listed above. The Technology Guide, the Game Mastery Guide topic structure, and all nested placement remain provisional and must not be described as complete printed chapter fidelity.
+Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The curated `books.toml` now records main chapter order from a printed contents page for the books listed above. The Game Mastery Guide topic structure and all nested placement remain provisional and must not be described as complete printed chapter fidelity.
 
 ## Canonical library
 
 The canonical library (the default `cargo xtask content`) keeps this curated chapter list and order for the same sixteen publications. It does not add, remove, reorder, or rename a PSRD chapter. Instead it re-addresses each placed entry through the reviewed legacy alias map, so the reviewed tree decides the chapter and the canonical id decides the entry. A shared canonical target appears once in a book, at the first placement; a legacy id whose canonical target is not installed is dropped and listed in coverage.
 
-Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the Core Rulebook and thirteen other publications have their main chapter order checked against a printed contents page, the Game Mastery Guide records its printed chapters but keeps a topic tree, and the Technology Guide remains unverified.
+Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the Core Rulebook and fourteen other publications have their main chapter order checked against a printed contents page, and the Game Mastery Guide records its printed chapters but keeps a topic tree.
