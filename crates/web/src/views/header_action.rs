@@ -7,6 +7,7 @@
 use crate::app::use_app;
 use crate::pwa::{InstallCtx, restore_focus, use_install};
 use crate::updates::use_updates;
+use crate::views::icons;
 use crate::views::settings::open_updates;
 use leptos::prelude::*;
 use wasm_bindgen::JsCast;
@@ -61,19 +62,6 @@ impl HeaderActionKind {
                 library: true,
             } => Some("Library update ready."),
             Self::Update { .. } => Some("Updates ready."),
-        }
-    }
-
-    fn icon(self) -> AnyView {
-        match self {
-            Self::Install => view! {
-                <path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/>
-            }
-            .into_any(),
-            Self::Update { .. } => view! {
-                <path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v6h-6"/>
-            }
-            .into_any(),
         }
     }
 
@@ -146,10 +134,7 @@ fn ActionButton(kind: HeaderActionKind) -> impl IntoView {
             }
         >
             <span class="header-action-icon">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    {kind.icon()}
-                </svg>
+                {icons::header_action(matches!(kind, HeaderActionKind::Update { .. }))}
                 {kind.has_pip().then(|| view! {
                     <span class="header-action-pip" aria-hidden="true"></span>
                 })}
@@ -239,24 +224,15 @@ pub fn InstallGuide() -> impl IntoView {
             <h2 id="install-sheet-title">"Add Cast Iron to your Home Screen"</h2>
             <ol class="install-steps">
                 <li>
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M12 15V4"/><path d="m8 8 4-4 4 4"/><path d="M7 11H5.5v9h13v-9H17"/>
-                    </svg>
+                    {icons::install_share()}
                     <span>"Tap Share in Safari's toolbar."</span>
                 </li>
                 <li>
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8M8 12h8"/>
-                    </svg>
+                    {icons::install_add_home()}
                     <span>"Choose Add to Home Screen."</span>
                 </li>
                 <li>
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="m5 12.5 4.5 4.5L19 7.5"/>
-                    </svg>
+                    {icons::check()}
                     <span>"Tap Add to finish."</span>
                 </li>
             </ol>

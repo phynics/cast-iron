@@ -1370,7 +1370,13 @@ pub fn Search() -> impl IntoView {
                             hit_view(&lib_for_hits, hit, anchor.as_deref(), addon.as_deref())
                         }).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
+                        <summary>
+                            {icons::chevron_right("disclosure-chevron")}
+                            <span class="hit-text">
+                                <span class="hit-title">{title}</span>
+                                <span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span>
+                            </span>
+                        </summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })
@@ -1524,10 +1530,7 @@ pub fn Search() -> impl IntoView {
             }>
                 <label class="sr-only" for="search-input">"Search the rules"</label>
                 <div class="search-field">
-                    <svg class="search-field-icon" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
-                    </svg>
+                    {icons::search_field()}
                     <input
                         id="search-input"
                         node_ref=input_ref
@@ -1550,10 +1553,7 @@ pub fn Search() -> impl IntoView {
                                     let _ = input.focus();
                                 }
                             }>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                                <path d="m7 7 10 10M17 7 7 17"/>
-                            </svg>
+                            {icons::close()}
                         </button>
                     </Show>
                 </div>
