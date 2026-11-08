@@ -1,4 +1,4 @@
-import { installedTest as test, expect, type Page } from "./fixtures";
+import { installedTest as test, expect, loadCorpus, type Page } from "./fixtures";
 import {
   bookTrees,
   hitTitles,
@@ -20,6 +20,7 @@ const STAMINA = "ref/feat/power-attack/stamina";
 const STAMINA_SUMMARY = "Stamina · Pathfinder Unchained";
 
 const allBooks = bookTrees().map((book) => book.source);
+const staminaShard = loadCorpus().catalog.entries.find((entry) => entry.id === STAMINA)!.shard;
 
 /** Writes the active set directly, then reloads. Turning off 400 books one row at a time is
  * not what this spec is about; the one book it turns on afterwards still goes through Active
@@ -58,19 +59,23 @@ test("Core only: a base feat shows no Stamina row", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("Pathfinder Unchained active: the base folds one collapsed Stamina row", async ({ page }) => {
+test("Pathfinder Unchained active: the base folds one collapsed Stamina row", async ({ page, server }) => {
   await installLibrary(page);
   await waitControlled(page);
   await onlyBooks(page, [CORE, UNCHAINED]);
+  await server.clearLog();
 
   await page.goto(`#/entry/${BASE}`);
   const row = page.locator("details.rel-stamina");
   await expect(row).toHaveCount(1);
   const summary = row.locator("summary");
   await expect(summary).toHaveText(STAMINA_SUMMARY);
-  // Collapsed by default: the rules text waits behind the summary.
+  // Collapsed by default: no body, no status line, and no shard request.
   await expect(row).not.toHaveAttribute("open", "");
-  await expect(row.getByText("spend 2 stamina points")).toBeHidden();
+  await expect(row.locator(".rich")).toHaveCount(0);
+  await expect(row.locator(".status")).toHaveCount(0);
+  await page.waitForTimeout(500);
+  expect((await server.requests()).filter((path) => path.endsWith(staminaShard))).toEqual([]);
 
   // The summary is a full touch target and wraps nothing at 390 px.
   expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -86,6 +91,8 @@ test("Pathfinder Unchained active: the base folds one collapsed Stamina row", as
   await expect(row).not.toHaveAttribute("open", "");
   await page.keyboard.press("Space");
   await expect(row).toHaveAttribute("open", "");
+  // The body stays mounted through close and reopen: one load, not one per open.
+  await expect(row.locator(".rich")).toHaveCount(1);
 
   // The folded body carries no second stat block.
   await expect(row.locator(".stat-block")).toHaveCount(0);

@@ -526,27 +526,46 @@ pub fn stamina_addons(
         .collect()
 }
 
-/// One collapsed Stamina disclosure on a base page. The summary names the add-on's book; the
-/// rules text waits for the add-on's shard. No title, box or tint: the summary is the heading.
+/// The shard-backed rules text of one Stamina add-on: a status line while it loads, the error
+/// if the shard fails, then the body that [`attached_body`] prepared.
 #[component]
-fn StaminaAddon(library: Library, id: EntryId) -> impl IntoView {
-    let book = source_title(&library, &id);
+fn StaminaBody(library: Library, id: EntryId) -> impl IntoView {
     let load = library.clone();
     let body = local_resource(async move { load.entry(&id).await });
     view! {
-        <details class="rel-disclosure rel-stamina">
+        {move || {
+            body.with(|state| match state {
+                None => view! { <p class="status" role="status">"Loading the Stamina rules…"</p> }.into_any(),
+                Some(Err(error)) => view! {
+                    <p class="error" role="alert">{error.to_string()}</p>
+                }.into_any(),
+                Some(Ok(entry)) => view! {
+                    <div class="rich">{blocks(&attached_body(&entry.body))}</div>
+                }.into_any(),
+            })
+        }}
+    }
+}
+
+/// One collapsed Stamina disclosure on a base page. The summary names the add-on's book; the
+/// shard-backed rules text is created on the first open and kept through close and reopen, so
+/// a closed row reads nothing. No title, box or tint: the summary is the heading.
+#[component]
+fn StaminaAddon(library: Library, id: EntryId) -> impl IntoView {
+    let book = source_title(&library, &id);
+    let opened = RwSignal::new(false);
+    let on_toggle = move |event: leptos::ev::Event| {
+        if opened.get_untracked() {
+            return;
+        }
+        opened.set(event_target::<web_sys::HtmlDetailsElement>(&event).open());
+    };
+    view! {
+        <details class="rel-disclosure rel-stamina" on:toggle=on_toggle>
             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Stamina · {book}")}</summary>
-            {move || {
-                body.with(|state| match state {
-                    None => view! { <p class="status" role="status">"Loading the Stamina rules…"</p> }.into_any(),
-                    Some(Err(error)) => view! {
-                        <p class="error" role="alert">{error.to_string()}</p>
-                    }.into_any(),
-                    Some(Ok(entry)) => view! {
-                        <div class="rich">{blocks(&attached_body(&entry.body))}</div>
-                    }.into_any(),
-                })
-            }}
+            {move || opened.get().then(|| view! {
+                <StaminaBody library=library.clone() id=id.clone() />
+            })}
         </details>
     }
 }
