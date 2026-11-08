@@ -197,6 +197,8 @@ pub fn Home() -> impl IntoView {
                     <div class="home-section-heading">
                         <h2 id="home-recent">"Recently viewed"</h2>
                         <button class="btn btn-quiet" type="button" on:click=move |_| {
+                            // Empty the screen now; the write below is the durable copy.
+                            recents.set(Vec::new());
                             recent_expanded.set(false);
                             if let Some(title) = title_ref.get_untracked() {
                                 let _ = title.focus();

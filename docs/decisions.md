@@ -1014,8 +1014,9 @@ Refs [#121](https://github.com/phynics/cast-iron/issues/121).
   reloaded or left while that read is in flight, WebKit stops its context and reports
   `pageerror: Context is stopped` (from `DOMCacheEngine`). No JavaScript handler receives the
   rejection, so the app cannot catch it and the promise cannot be cancelled. Chromium reports
-  nothing. Tests that reload Home wait for `.home-page[data-index-ready=true]`, which the app
-  sets when the read ends; that signal exists for this wait and is not a timeout or a retry.
+  nothing. Home already marks the end of the read with `.home-page[data-index-ready=true]`, and
+  `installLibrary` waited on it before this change; this change only extends that wait to the
+  offline recent-searches test. It is a signal from the app, not a timeout or a retry.
 - **Recently viewed is one app-wide signal.** The visit is recorded by the entry screen and the
   list is shown by Home. The `recents` signal in `AppCtx` is the single source for both, loaded
   once at startup (`recent::load_into`) and updated after the store write
