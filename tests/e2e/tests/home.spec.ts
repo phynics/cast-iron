@@ -9,7 +9,8 @@ const pick = (from: number, n: number) =>
   distinct.slice(from, from + n).map((e) => ({ id: e.id as string, title: e.title as string, kind: e.kind as string }));
 const twins = (() => {
   for (const entry of corpus.catalog.entries) {
-    const other = corpus.catalog.entries.find((c) => c.title === entry.title && c.id !== entry.id && c.kind === entry.kind);
+    // Twins from different books: the book is what tells them apart.
+    const other = corpus.catalog.entries.find((c) => c.title === entry.title && c.id !== entry.id && c.kind === entry.kind && c.source !== entry.source);
     if (other) return [entry, other];
   }
   throw new Error("The compiled library holds no two entries with the same title");
