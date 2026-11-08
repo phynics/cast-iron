@@ -166,3 +166,33 @@ The [legacy PRD license page](https://legacy.aonprd.com/openGameLicense.html) su
 `content-policy.toml` removes named NPC stories, suggested character names, two deity-named items, deity descriptions and religious traits, and identified setting-specific commentary. The same policy applies to standalone records and copies nested in rules trees. The coverage report records each omitted source path and reason, including partial-body omissions. There are 432 omission occurrences across duplicated upstream representations, not 432 missing entries. Artwork remains stripped by the HTML adapter. All 16 catalog publications resolve to a copyright notice.
 
 The publication screen examines every built entry and found no match for its explicit list of named setting material. This remains a finite screen, not a sentence-by-sentence legal clearance. The selection preserves generic mechanics and descriptive rules material under the existing OGL and Community Use approach. A new source pin or additional book requires another scope and notice review.
+
+## The Elephant in the Room: Feat Taxes in Pathfinder, 2026-11-08
+
+Reviewed from the licence page of the PDF supplied by the owner and the public distribution pages. This resolves the open question in [#192](https://github.com/phynics/cast-iron/issues/192): the earlier web sources carried no licence statement, so the PDF itself had to be read.
+
+- **Publisher and authors:** Matthew Iantorno and Michael Iantorno. The corpus states the copyright as "© 2012, Matthew Iantorno and Michael Iantorno."
+- **Distribution:** it began as the blog post "Feat Taxes in Pathfinder" on michaeliantorno.com on 5 September 2012. The rules document is now a free (pay-what-you-want) PDF on itch.io (Mammoth Island).
+- **Edition checked:** third printing (v2.2), April 2021.
+- **Licence:** Open Game License version 1.0a.
+
+**Open Content declaration (verbatim):**
+
+> "Except for material designated as Product Identity (see above), the game mechanics of this game product are Open Game Content, as defined in the Open Gaming License version 1.0a Section 1(d)."
+
+**Product Identity declaration (verbatim):**
+
+> "All trademarks, registered trademarks, proper names (characters, deities, etc.), dialogue, plots, storylines, locations, characters, artwork, and trade dress."
+
+**Section 15 chain of the PDF:**
+
+- Open Game License v 1.0a Copyright 2000, Wizards of the Coast, Inc.
+- System Reference Document. Copyright 2000, Wizards of the Coast, Inc.; Authors Jonathan Tweet, Monte Cook, Skip Williams, based on material by E. Gary Gygax and Dave Arneson.
+- Pathfinder Roleplaying Game Core Rulebook. © 2011, Paizo Publishing, LLC; Author: Jason Bulmahn, based on material by Jonathan Tweet, Monte Cook, and Skip Williams.
+- The Book of Experimental Might. © 2008, Monte J. Cook. All rights reserved.
+- Tome of Horrors. © 2002, Necromancer Games, Inc.; Authors: Scott Greene, with Clark Peterson, Erica Balsley, Kevin Baase, Casey Christofferson, Lance Hawvermale, Travis Hawvermale, Patrick Lawinger, and Bill Webb; Based on original content from TSR.
+- The Elephant in the Room: Feat Taxes in Pathfinder. © 2012, Matthew Iantorno and Michael Iantorno.
+
+The PDF's own Section 15 omits the last line. OGL 1.0a Section 6 requires adding the title, copyright date, and copyright holder of original Open Game Content that we distribute, so the corpus adds it. `legal.toml` carries the whole chain as Section 15 notices, and `publications.toml` states the Elephant publication's `copyright` as the printed line above.
+
+**Conclusion:** the revised and new feat rules are game mechanics and therefore Open Game Content. Presenting them, including revisions and new feats, is permitted under OGL 1.0a, provided the legal page carries the Section 15 chain above. Character names, setting prose, artwork, and trade dress remain Product Identity and are not copied.
