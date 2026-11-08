@@ -170,6 +170,24 @@ test("The group menu filters the class-option list in place", async ({ page }) =
   await expect(page.locator(".entry-list .row-source").first()).toContainText(" · ");
 });
 
+test("An option's metadata line names its group and links its only class", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto(`#/entry/${arcaneBuilder.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: arcaneBuilder.title })).toBeVisible();
+  const meta = page.locator(".entry-meta");
+  await expect(
+    meta.getByRole("link", { name: discoveries.singular, exact: true }),
+  ).toHaveAttribute(
+    "href",
+    `#/browse/kind/class_option?facet=group:${discoveries.slug}`,
+  );
+  // Arcane discoveries serve the Wizard alone, so the group links its one class.
+  await expect(meta.getByRole("link", { name: wizard.title, exact: true })).toHaveAttribute(
+    "href",
+    `#/entry/${wizard.id}`,
+  );
+});
+
 test("Search and Quick search label a class option with its group", async ({ page }) => {
   await installLibrary(page);
   await page.goto(`#/search?q=${encodeURIComponent(arcaneBuilder.title)}`);
