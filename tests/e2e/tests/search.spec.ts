@@ -1218,7 +1218,8 @@ installedTest("An inactive first source is replaced by the active book that stil
   await page.locator("#search-input").fill(entry.title);
   await waitResults(page, entry.title);
   await showAllResults(page);
-  const row = page.locator(`.results a.hit-link[href^="#/entry/${entry.id}"]`).first();
+  // Exact id (or id plus an anchor): a nested add-on such as `<id>/mythic` shares the prefix.
+  const row = page.locator(`.results a.hit-link[href="#/entry/${entry.id}"], .results a.hit-link[href^="#/entry/${entry.id}#"]`).first();
   await expect(row).toBeVisible();
   // With every book active the compiler's first source still names the entry.
   await expect(row.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(firstTitle)}$`));

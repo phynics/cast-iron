@@ -588,7 +588,8 @@ installedTest("A search hint offers to include an inactive book without changing
   await waitResults(page, entry.title);
   await page.locator(".inactive-books-hint")
     .getByRole("button", { name: `Turn on ${source.title}`, exact: true }).click();
-  await expect(page.locator(`.results a[href^="#/entry/${entry.id}"]`)).toBeVisible();
+  // Exact id (or id plus an anchor): a nested add-on such as `<id>/mythic` shares the prefix.
+  await expect(page.locator(`.results a[href="#/entry/${entry.id}"], .results a[href^="#/entry/${entry.id}#"]`)).toBeVisible();
   await page.goto("#/books/manage");
   await openBookGroups(page);
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
