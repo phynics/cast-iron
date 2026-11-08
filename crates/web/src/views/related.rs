@@ -49,7 +49,7 @@ pub fn needs(kind: EntryKind) -> Needs {
             replaces: true,
         },
         EntryKind::Spell => Needs {
-            relations: false,
+            relations: true,
             spell_lists: true,
             option_groups: false,
             replaces: false,
@@ -462,6 +462,67 @@ pub fn addons_of_label(
         .collect()
 }
 
+/// The direct variants of `base` whose own book is active, in index order. A variant of a
+/// variant names its direct base only, so a chain is walked one page at a time rather than
+/// flattened here.
+pub fn variants_of(
+    relations: &Relations,
+    base: &EntryId,
+    eligible: impl Fn(&EntryId) -> bool,
+) -> Vec<EntryId> {
+    relations
+        .sources_of(base, RelationKind::Variant)
+        .into_iter()
+        .filter(|id| eligible(id))
+        .cloned()
+        .collect()
+}
+
+/// One spell's class and level rows from the spell-list index, sorted as the page shows them:
+/// class name, then level. Empty when the index does not list the spell. The index is already
+/// in memory, so a variants row never opens the spell's shard.
+fn spell_level_rows(lists: &SpellLists, id: &EntryId) -> Vec<(String, u8)> {
+    let Some(position) = lists.spells.iter().position(|spell| &spell.0 == id) else {
+        return Vec::new();
+    };
+    let position = position as u32;
+    let mut rows = Vec::new();
+    for class in &lists.classes {
+        for level in &class.levels {
+            if level.spells.contains(&position) {
+                rows.push((class.name.clone(), level.level));
+            }
+        }
+    }
+    rows.sort_by(|a, b| {
+        a.0.to_lowercase()
+            .cmp(&b.0.to_lowercase())
+            .then(a.1.cmp(&b.1))
+    });
+    rows
+}
+
+/// The muted levels line of a variants row: `Bard 6, Cleric 5, Druid 6`, with level 0 reading
+/// as `Cantrips` through the shared formatter. `None` when the index lists no class for the
+/// spell, so the row falls back to its book alone.
+fn levels_line(rows: &[(String, u8)]) -> Option<String> {
+    if rows.is_empty() {
+        return None;
+    }
+    Some(
+        rows.iter()
+            .map(|(class, level)| {
+                if *level == 0 {
+                    format!("{class} {}", fmt::spell_level(0))
+                } else {
+                    format!("{class} {level}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", "),
+    )
+}
+
 /// The add-on's body as the base page shows it: no stat block, because the entry's own stat
 /// block keeps the page's only accent rule, and every heading as a bold paragraph, so the
 /// section's `h2` and the add-on's `h3` title stay its only headings.
@@ -834,6 +895,60 @@ fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
     )
 }
 
+/// The direct variants of a base spell, after the body. Each row links the variant and names
+/// its levels and book from the indexes already in memory, so the panel opens no shard. The
+/// variant's own book alone gates the row; the base's book never does.
+fn variants_panel(
+    library: &Library,
+    id: &EntryId,
+    all: Option<&Relations>,
+    lists: Option<&SpellLists>,
+) -> Option<AnyView> {
+    let relations = all?;
+    let discovery = library.discovery();
+    let mut variants = variants_of(relations, id, |variant| {
+        discovery.is_eligible(variant.as_str())
+    })
+    .into_iter()
+    .map(|variant| (variant.clone(), title_of(library, &variant)))
+    .collect::<Vec<_>>();
+    if variants.is_empty() {
+        return None;
+    }
+    variants.sort_by(|(a_id, a_title), (b_id, b_title)| {
+        (sort_key(a_title), a_id.clone()).cmp(&(sort_key(b_title), b_id.clone()))
+    });
+    let rows = variants
+        .into_iter()
+        .map(|(variant, title)| {
+            let href = Route::entry(variant.clone()).href();
+            let book = source_title(library, &variant);
+            let levels = lists
+                .map(|lists| spell_level_rows(lists, &variant))
+                .unwrap_or_default();
+            let meta = match levels_line(&levels) {
+                Some(levels) => format!("{levels} · {book}"),
+                None => book,
+            };
+            view! {
+                <li>
+                    <a href=href>{title}</a>
+                    <span class="muted rel-meta">{meta}</span>
+                </li>
+            }
+        })
+        .collect_view();
+    Some(
+        view! {
+            <section class="rel-variants" aria-labelledby="rel-variants">
+                <h2 id="rel-variants">"Variants"</h2>
+                <ul class="rel-list">{rows}</ul>
+            </section>
+        }
+        .into_any(),
+    )
+}
+
 fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView> {
     let TypedFields::Spell(fields) = &entry.fields else {
         return None;
@@ -916,7 +1031,11 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
             panels.extend(feat_panels(&library, &entry, relations));
         }
         EntryKind::Trait => panels.extend(trait_panel(&entry)),
-        EntryKind::Spell => panels.extend(spell_panel(&entry, lists)),
+        EntryKind::Spell => {
+            panels.extend(mythic_panel(&library, &entry.id, all_relations));
+            panels.extend(spell_panel(&entry, lists));
+            panels.extend(variants_panel(&library, &entry.id, all_relations, lists));
+        }
         EntryKind::Rule
         | EntryKind::Creature
         | EntryKind::Item
@@ -1068,6 +1187,7 @@ mod tests {
                 .map(|(source, kind, target, label)| {
                     let kind = match *kind {
                         "addon" => RelationKind::Addon,
+                        "variant" => RelationKind::Variant,
                         _ => RelationKind::Prerequisite,
                     };
                     cast_iron_schema::RelationEdge(
@@ -1125,6 +1245,144 @@ mod tests {
         );
         // A base with no add-on gets no row.
         assert!(addons_of_label(&relations, &id("c/none"), "stamina", |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_spell_base_lists_only_its_direct_variants_and_only_while_their_books_are_active() {
+        let relations = labelled_edges(&[
+            ("c/spell/base/mass", "variant", "c/spell/base", None),
+            (
+                "c/spell/base/mass/modified",
+                "variant",
+                "c/spell/base/mass",
+                None,
+            ),
+            ("c/spell/other", "variant", "c/spell/other-base", None),
+        ]);
+        assert_eq!(
+            variants_of(&relations, &id("c/spell/base"), |_| true),
+            [id("c/spell/base/mass")]
+        );
+        // A chain is not flattened: the mass spell names its own direct variant only.
+        assert_eq!(
+            variants_of(&relations, &id("c/spell/base/mass"), |_| true),
+            [id("c/spell/base/mass/modified")]
+        );
+        // The variant's own book gates the row; a missing base has no row either.
+        assert!(variants_of(&relations, &id("c/spell/base"), |_| false).is_empty());
+        assert!(variants_of(&relations, &id("c/spell/none"), |_| true).is_empty());
+        assert!(
+            variants_of(&relations, &id("c/spell/base"), |variant| variant.as_str()
+                != "c/spell/base/mass")
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_variants_row_reads_its_levels_from_the_spell_list_index() {
+        let lists = SpellLists {
+            spells: vec![
+                cast_iron_schema::SpellListSpell(id("c/spell/base"), "Base".into()),
+                cast_iron_schema::SpellListSpell(id("c/spell/variant"), "Variant".into()),
+            ],
+            classes: vec![
+                SpellListClass {
+                    name: "Druid".into(),
+                    class: None,
+                    levels: vec![cast_iron_schema::SpellListLevel {
+                        level: 6,
+                        spells: vec![1],
+                    }],
+                },
+                SpellListClass {
+                    name: "Bard".into(),
+                    class: None,
+                    levels: vec![cast_iron_schema::SpellListLevel {
+                        level: 5,
+                        spells: vec![1],
+                    }],
+                },
+                SpellListClass {
+                    name: "Cleric".into(),
+                    class: None,
+                    levels: vec![cast_iron_schema::SpellListLevel {
+                        level: 5,
+                        spells: vec![1],
+                    }],
+                },
+                SpellListClass {
+                    name: "Wizard".into(),
+                    class: None,
+                    levels: vec![cast_iron_schema::SpellListLevel {
+                        level: 0,
+                        spells: vec![1],
+                    }],
+                },
+            ],
+            details: vec![],
+        };
+        let rows = spell_level_rows(&lists, &id("c/spell/variant"));
+        assert_eq!(
+            rows,
+            vec![
+                ("Bard".into(), 5),
+                ("Cleric".into(), 5),
+                ("Druid".into(), 6),
+                ("Wizard".into(), 0),
+            ]
+        );
+        assert_eq!(
+            levels_line(&rows).as_deref(),
+            Some("Bard 5, Cleric 5, Druid 6, Wizard Cantrips")
+        );
+        assert!(spell_level_rows(&lists, &id("c/spell/missing")).is_empty());
+        assert_eq!(levels_line(&[]), None);
+    }
+
+    #[test]
+    fn a_variant_edge_never_joins_a_feat_chain() {
+        let relations = labelled_edges(&[
+            ("c/spell/variant", "variant", "c/spell/base", None),
+            ("c/feat/follower", "prerequisite", "c/feat/base", None),
+        ]);
+        assert!(relations.leads_to(&id("c/spell/base")).is_empty());
+        assert!(
+            relations
+                .prerequisite_chain(&id("c/spell/base"))
+                .next
+                .is_empty()
+        );
+        assert_eq!(
+            relations.leads_to(&id("c/feat/base")),
+            vec![&id("c/feat/follower")]
+        );
+    }
+
+    #[test]
+    fn a_spell_base_stacks_its_mythic_add_on_exactly_as_a_feat_does() {
+        let relations = labelled_edges(&[
+            (
+                "c/spell/base/mythic",
+                "addon",
+                "c/spell/base",
+                Some("mythic"),
+            ),
+            (
+                "c/spell/base/stamina",
+                "addon",
+                "c/spell/base",
+                Some("stamina"),
+            ),
+        ]);
+        assert_eq!(
+            addons_of_label(&relations, &id("c/spell/base"), "mythic", |_| true),
+            [id("c/spell/base/mythic")]
+        );
+        // The panel reads the raw graph and tests only the add-on's id, as the feat page does.
+        assert!(addons_of_label(&relations, &id("c/spell/base"), "mythic", |_| false).is_empty());
+        // A spell page now loads the relation index that the mythic panel and Variants row need.
+        assert!(needs(EntryKind::Spell).relations);
+        assert!(needs(EntryKind::Spell).spell_lists);
     }
 
     #[test]
