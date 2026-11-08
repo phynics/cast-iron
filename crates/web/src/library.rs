@@ -635,11 +635,6 @@ impl Library {
         .await
     }
 
-    /// True when this library carries the schema-4 class-option group index.
-    pub fn has_option_groups(&self) -> bool {
-        manifest_has_file(&self.0.manifest, OPTION_GROUPS_FILE)
-    }
-
     /// The entries whose bodies link to `target`, or `Ok(None)` when the library has no
     /// reverse index or no row for the target. Only the target's shard is read.
     pub async fn backlinks(

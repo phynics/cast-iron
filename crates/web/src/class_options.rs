@@ -5,26 +5,11 @@
 //! active books keep. They live here so the rules are tested without a browser.
 
 use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex, ReplacesIndex};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
 /// The group that holds `id`, if the index has one.
 pub fn group_of<'a>(index: &'a OptionGroupIndex, id: &EntryId) -> Option<&'a OptionGroup> {
     index.groups.iter().find(|group| group.entries.contains(id))
-}
-
-/// A map from each option id to its group's singular label, for row rendering. Built once per
-/// page, because a row would otherwise scan every group.
-pub fn singular_by_id(index: &OptionGroupIndex) -> BTreeMap<EntryId, String> {
-    index
-        .groups
-        .iter()
-        .flat_map(|group| {
-            group
-                .entries
-                .iter()
-                .map(move |id| (id.clone(), group.singular.clone()))
-        })
-        .collect()
 }
 
 /// The groups a class takes, with the number of entries that `eligible` accepts. Empty groups
@@ -140,12 +125,6 @@ mod tests {
             Some("Arcane discovery")
         );
         assert!(group_of(&index, &id("ref/unknown/x")).is_none());
-        let labels = singular_by_id(&index);
-        assert_eq!(
-            labels.get(&id("ref/alchemist/a")).map(String::as_str),
-            Some("Alchemist discovery")
-        );
-        assert_eq!(labels.len(), 3);
     }
 
     #[test]
