@@ -2759,6 +2759,22 @@ main,
   margin-bottom: 0;
 }
 
+/* A Stamina add-on folds under its base as one row: no box, tint or left rule, and the
+   summary is a full touch target. */
+.rel-disclosure.rel-stamina > summary {
+  min-height: var(--touch);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.rel-stamina .rich {
+  padding-top: var(--space-2);
+}
+
+.rel-stamina .rich > :first-child {
+  margin-top: 0;
+}
+
 .rel-count {
   display: inline-block;
   min-width: 1.75rem;

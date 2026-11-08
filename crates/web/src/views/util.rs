@@ -81,6 +81,16 @@ pub fn addon_name(label: &str) -> &'static str {
     }
 }
 
+/// How an add-on's own page names its base in the metadata line. `None` for a label this app
+/// does not yet phrase, so the line never invents a sentence.
+pub fn addon_base_phrase(label: &str) -> Option<&'static str> {
+    match label {
+        "mythic" => Some("Mythic version of"),
+        "stamina" => Some("Stamina rules for"),
+        _ => None,
+    }
+}
+
 /// Reviewed navigation labels. Canonical titles and rich rule content remain verbatim.
 pub fn section_label(title: &str) -> String {
     match title {
@@ -152,5 +162,16 @@ mod tests {
         assert_eq!(group_letter("1st Level"), '#');
         assert_eq!(group_letter("(Special)"), 'S');
         assert_eq!(group_letter("Éclair"), '#');
+    }
+
+    #[test]
+    fn an_add_on_names_its_label_and_its_base_phrase() {
+        assert_eq!(addon_name("stamina"), "Stamina");
+        assert_eq!(addon_name("mythic"), "Mythic");
+        assert_eq!(addon_base_phrase("stamina"), Some("Stamina rules for"));
+        assert_eq!(addon_base_phrase("mythic"), Some("Mythic version of"));
+        // A label this app cannot phrase leaves the metadata line alone.
+        assert_eq!(addon_base_phrase("changes"), None);
+        assert_eq!(addon_base_phrase("unknown"), None);
     }
 }
