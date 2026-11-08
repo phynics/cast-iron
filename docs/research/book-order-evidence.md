@@ -65,7 +65,11 @@ The printed contents page of the Advanced Race Guide was checked in this review.
 | Appendix 2 | Height and Weight | 250 |
 | Appendix 3 | Spells | 251 |
 
-`books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group. Main chapter order and titles are verified; nested placement remains unverified.
+`books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group.
+
+Main chapter order and nested placement are verified against the printed Advanced Race Guide. Each entry in the curated chapters sits in its printed chapter and section, and the tree follows the printed page order: the Core Races run Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 10-79); each race keeps Alternate Racial Traits before its New Racial Rules, whose Equipment, Feats, Magic Items, and Spells subsections follow print (for example Catfolk pp. 91-95); and the Race Builder keeps the racial-quality and racial-trait descriptions inside Step 2 (p. 215) and Step 3 (p. 220). Entries that share a printed page keep the dataset order inside that page.
+
+The page-ordered list of entries that the curated tree does not place is not a printed chapter position. It keeps its entries in page order and is outside this check.
 
 ## Bestiary
 
