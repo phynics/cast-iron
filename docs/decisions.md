@@ -1023,8 +1023,9 @@ Refs [#121](https://github.com/phynics/cast-iron/issues/121).
   once at startup (`recent::load_into`) and updated by `recent::record` before it writes the
   store. A Home that read the store before that write landed renders the row when the signal
   updates, instead of showing an empty "Recently viewed" until a reload. The stored list stays
-  the durable source; `merge_stored` keeps a visit that arrived during the startup read from
-  being overwritten by that read's older answer.
+  the durable source. `merge_stored` orders the in-memory startup merge, and `load_into` marks a
+  running write stale so that writer persists the merged list; together they keep a visit and
+  the stored history when the two overlap.
 
 ## Recents writes are serialised, 2026-11-08
 
@@ -1040,8 +1041,13 @@ Refs [#273](https://github.com/phynics/cast-iron/issues/273), [#269](https://git
   when a visit or clear lands during it, and the writer then writes the signal again. A single
   visit still causes one write; a burst coalesces into the next one instead of racing. The queue
   is the durable-copy rule, not a second source of truth.
+- **The startup read joins the queue.** `load_into` merges the stored history into the signal.
+  It marks a running write stale so that writer takes the merged list, and when the write
+  already finished it writes the merged list itself. Either way a write cannot leave the store
+  without that history. This replaces the old read-modify-write guarantee on a deep link or
+  reload on an entry URL.
 - **Every Home reload in the e2e suite waits for the index read.** `seedHome` now ends with
   `waitHomeIdle`, and every flow that navigates to Home and reloads at once waits before the
-  reload: two in `search.spec.ts`, one each in `shell-update`, `offline`, `update`, and `mythic`.
-  Leaving Home while the search-index `Cache` read is in flight is the uncatchable WebKit
-  `Context is stopped` above.
+  reload: three in `search.spec.ts`, two in `update.spec.ts`, and one each in `shell-update`,
+  `offline`, and `mythic`. Leaving Home while the search-index `Cache` read is in flight is the
+  uncatchable WebKit `Context is stopped` above.

@@ -23,12 +23,16 @@ pub const MAX_RECENT: usize = 12;
 struct Flush {
     in_flight: bool,
     stale: bool,
+    /// A write has been requested on this page. The startup read uses it to tell whether the
+    /// store may already hold a list that predates its merge.
+    wrote: bool,
 }
 
 impl Flush {
     /// Starts a write when none is in flight. When one is, marks it stale and lets that writer
     /// pick up this call's value; the caller then has nothing more to do.
     fn request(&mut self) -> bool {
+        self.wrote = true;
         if self.in_flight {
             self.stale = true;
             false
@@ -46,6 +50,19 @@ impl Flush {
         } else {
             self.in_flight = false;
             false
+        }
+    }
+
+    /// The startup read merged the stored history into the signal. A write that is still running
+    /// snapshotted the list before that merge, so make it take the merged value. A write that
+    /// already finished cannot be corrected that way, so the caller writes the merged list again.
+    /// Returns true only in that second case, because a running writer drains it on its own.
+    fn merged(&mut self) -> bool {
+        if self.in_flight {
+            self.stale = true;
+            false
+        } else {
+            self.wrote
         }
     }
 }
@@ -94,15 +111,22 @@ pub async fn load() -> Vec<Recent> {
         .unwrap_or_default()
 }
 
-/// Reads the stored history into `recents`. The app calls this once, at startup.
+/// Reads the stored history into `recents`. The app calls this once, at startup. A visit that
+/// was recorded while the read was in flight makes the running writer take the merged list, and
+/// a write that already finished makes this function write the merged list, so the store keeps
+/// both the visit and the stored history either way.
 pub async fn load_into(recents: RwSignal<Vec<Recent>>) {
     let stored = load().await;
     recents.update(|current| merge_stored(current, stored));
+    if FLUSH.with(|flush| flush.borrow_mut().merged()) {
+        persist(recents).await;
+    }
 }
 
-/// Records a visit in `recents`, then writes that list. A visit that lands during the write is
-/// merged in the signal first, so the next write includes both, and a screen that mounted while
-/// a write was in flight renders the row without a reload.
+/// Records a visit in `recents` and asks for the list to be written. A visit that lands while
+/// another write is in flight marks that writer stale and returns before its own visit is
+/// durably written; the running writer persists it on its next pass, so the row still appears
+/// without a reload.
 pub async fn record(recents: RwSignal<Vec<Recent>>, id: EntryId, title: String) {
     recents.update(|current| push_recent(current, Recent { id, title }));
     persist(recents).await;
@@ -190,21 +214,43 @@ mod tests {
             }
         }
 
-        fn apply(&mut self, act: Act) {
-            match act {
-                Act::Visit(n) => push_recent(&mut self.list, r(n)),
-                Act::Clear => self.list.clear(),
-            }
+        fn start_write(&mut self) {
             if self.flush.request() {
                 self.pending = Some(self.list.clone());
             }
         }
 
-        fn finish(&mut self) {
+        fn apply(&mut self, act: Act) {
+            match act {
+                Act::Visit(n) => push_recent(&mut self.list, r(n)),
+                Act::Clear => self.list.clear(),
+            }
+            self.start_write();
+        }
+
+        /// The store receives the snapshot the writer took.
+        fn commit(&mut self) {
             let snapshot = self.pending.take().expect("a write is in flight");
             self.written.push(snapshot);
+        }
+
+        /// The write finishes and the writer takes another pass when the list changed during it.
+        fn end(&mut self) {
             if self.flush.finished() {
                 self.pending = Some(self.list.clone());
+            }
+        }
+
+        fn finish(&mut self) {
+            self.commit();
+            self.end();
+        }
+
+        /// Models [`load_into`]: the startup read answers with `stored`.
+        fn load_into(&mut self, stored: Vec<Recent>) {
+            merge_stored(&mut self.list, stored);
+            if self.flush.merged() {
+                self.start_write();
             }
         }
 
@@ -246,5 +292,29 @@ mod tests {
         sim.finish();
         sim.finish();
         assert!(sim.last_written().is_empty());
+    }
+
+    #[test]
+    fn a_visit_written_before_the_startup_merge_keeps_the_stored_history() {
+        let mut sim = Sim::new();
+        // The visit's write reaches the store and finishes before the startup read answers.
+        sim.apply(Act::Visit(1));
+        sim.finish();
+        sim.load_into(vec![r(2), r(3)]);
+        // The merge must write itself, because no running writer is left to correct.
+        sim.finish();
+        assert_eq!(sim.last_written(), [r(1), r(2), r(3)]);
+        assert_eq!(sim.list, [r(1), r(2), r(3)]);
+    }
+
+    #[test]
+    fn a_running_visit_write_takes_the_startup_history_on_its_next_pass() {
+        let mut sim = Sim::new();
+        sim.apply(Act::Visit(1));
+        sim.commit();
+        sim.load_into(vec![r(2)]);
+        sim.end();
+        sim.finish();
+        assert_eq!(sim.last_written(), [r(1), r(2)]);
     }
 }
