@@ -8,6 +8,7 @@ use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::entry_contents::ArticleContents;
+use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody};
@@ -408,7 +409,7 @@ fn EntryView(
             </p>
             {has_provenance.then(|| view! {
                 <details class="provenance">
-                    <summary>"Provenance"</summary>
+                    <summary>{icons::chevron_right("disclosure-chevron")}"Provenance"</summary>
                     <dl class="facts">{provenance}</dl>
                 </details>
             })}
@@ -480,7 +481,7 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
                 aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
                 aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
                 disabled=move || !loaded.get() || writing.get() on:click=toggle>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
+                {icons::star()}
             </button>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
         </div>

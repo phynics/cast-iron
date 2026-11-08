@@ -621,10 +621,8 @@ impl Library {
         }
         let loaded = if manifest_has_file(&self.0.manifest, BACKLINKS_FILE) {
             let path = format!("{}/{BACKLINKS_FILE}", self.version());
-            let index: BacklinkIndex =
-                read_json(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
-            index
-                .validate()
+            let bytes = read_file(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
+            let index = parse_backlink_index(&bytes)
                 .map_err(|message| LibraryError::Corrupt { path, message })?;
             Some(Rc::new(index))
         } else {
@@ -807,6 +805,15 @@ async fn read_file(cache: &Cache, version: &str, relative: &str) -> Result<Vec<u
         .await
         .map_err(LibraryError::Storage)?
         .ok_or(LibraryError::Missing(path))
+}
+
+/// Reads the reverse-index descriptor: valid JSON that names the format this client reads and
+/// an addressable shard count. A descriptor this client cannot read is an error, and the entry
+/// screen answers an error by showing no "Referenced by" panel, so the entry stays readable.
+fn parse_backlink_index(bytes: &[u8]) -> Result<BacklinkIndex, String> {
+    let index: BacklinkIndex = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+    index.validate()?;
+    Ok(index)
 }
 
 async fn read_json<T: DeserializeOwned>(
@@ -1027,6 +1034,33 @@ mod tests {
         let mut unsorted = aliases();
         unsorted.entries.swap(0, 1);
         assert!(unsorted.validate().is_err());
+    }
+
+    #[test]
+    fn a_corrupt_backlink_descriptor_is_rejected_so_the_panel_stays_hidden() {
+        let good = br#"{"format":1,"shards":16,"links":3,"targets":2}"#;
+        assert_eq!(parse_backlink_index(good).unwrap().shards, 16);
+
+        // Each of these makes the loader return an error, which the entry screen turns into
+        // an absent panel rather than a broken page. Unparsable JSON has no path in
+        // `BacklinkIndex::validate`, so the loader's parse step owns that case.
+        for (case, bytes) in [
+            (
+                "wrong format",
+                br#"{"format":2,"shards":16,"links":0,"targets":0}"#.as_slice(),
+            ),
+            (
+                "zero shards",
+                br#"{"format":1,"shards":0,"links":0,"targets":0}"#.as_slice(),
+            ),
+            (
+                "too many shards",
+                br#"{"format":1,"shards":101,"links":0,"targets":0}"#.as_slice(),
+            ),
+            ("unparsable json", b"{not json".as_slice()),
+        ] {
+            assert!(parse_backlink_index(bytes).is_err(), "{case}");
+        }
     }
 
     #[test]

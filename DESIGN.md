@@ -25,7 +25,7 @@ Rules that apply to every role:
 
 ## Glyphs
 
-Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs (and in the book trail). A bare `<summary>` with no drawn icon keeps the platform's own disclosure marker.
+Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Every `<summary>` that opens a disclosure draws the same chevron and hides the platform's own marker. The exceptions are the two Collections pickers, which keep the platform marker, and the `+N more` link in a metadata line, which is text. All icons share the 24 px grid and a 1.8 px round stroke. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs (and in the book trail).
 
 ## List pages
 

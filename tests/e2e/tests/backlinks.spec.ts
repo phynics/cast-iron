@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus, loadBacklinks } from "./fixtures";
-import { bodyLinks, installLibrary, waitControlled } from "./helpers";
+import { bodyLinks, buildLibraryWithoutBacklinks, installLibrary, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const backlinks = loadBacklinks();
@@ -88,6 +88,34 @@ test("Show all keeps its rows when it is closed and reopened", async ({ page }) 
   await more.locator("summary").click();
   await expect(more).toHaveAttribute("open", "");
   await expect(more.locator("li")).toHaveCount(opened);
+});
+
+test("A library without the reverse index shows no Referenced by panel", async ({ page, server }) => {
+  const pair = choosePair();
+  expect(pair, "the compiled corpus has a body link with a reverse-index row").toBeTruthy();
+  const { target } = pair!;
+
+  // The same library as an older one: schema 3, with neither the descriptor nor its shards.
+  const variant = buildLibraryWithoutBacklinks();
+  try {
+    await server.overlay(variant.dir);
+    await installLibrary(page);
+    await waitControlled(page);
+    await server.clearLog();
+
+    await page.goto(`#/entry/${target.id}`);
+    // The entry itself is intact; only the optional panel is missing.
+    await expect(page.getByRole("heading", { level: 1, name: target.title })).toBeVisible();
+    await expect(page.locator(".rich")).toBeVisible();
+    // Give the optional resource the same chance the installed library would give it.
+    await page.waitForTimeout(500);
+    await expect(page.locator("#entry-backlinks")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "Referenced by" })).toHaveCount(0);
+    // Nothing asks for the index that the manifest does not list.
+    expect((await server.requests()).filter((p) => p.includes("backlinks"))).toEqual([]);
+  } finally {
+    variant.cleanup();
+  }
 });
 
 test("Referenced by lists a body link's source and returns to it offline", async ({

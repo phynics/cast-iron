@@ -51,7 +51,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
         .map(|license| {
             view! {
                 <details class="legal-license" open>
-                    <summary>{license.title.clone()}</summary>
+                    <summary>{icons::chevron_right("disclosure-chevron")}{license.title.clone()}</summary>
                     <pre class="legal-text">{license.text.clone()}</pre>
                 </details>
             }
