@@ -78,10 +78,9 @@ fn entry_row(row: &RowData, show_book: bool, action: Option<AnyView>) -> AnyView
 pub fn Home() -> impl IntoView {
     set_title("");
     let library = use_library();
-    let recents = RwSignal::new(Vec::<recent::Recent>::new());
+    let recents = crate::app::use_app().recents;
     let bookmarks = RwSignal::new(None::<Result<Vec<Bookmark>, String>>);
     spawn_local(async move {
-        recents.set(recent::load().await);
         bookmarks.set(Some(
             store::list_bookmarks().await.map_err(|e| e.to_string()),
         ));
@@ -198,12 +197,13 @@ pub fn Home() -> impl IntoView {
                     <div class="home-section-heading">
                         <h2 id="home-recent">"Recently viewed"</h2>
                         <button class="btn btn-quiet" type="button" on:click=move |_| {
+                            // Empty the screen now; the write below is the durable copy.
                             recents.set(Vec::new());
                             recent_expanded.set(false);
                             if let Some(title) = title_ref.get_untracked() {
                                 let _ = title.focus();
                             }
-                            spawn_local(async move { recent::clear().await; });
+                            spawn_local(async move { recent::clear(recents).await; });
                         }>"Clear"</button>
                     </div>
                     {move || {

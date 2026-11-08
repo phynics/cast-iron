@@ -9,7 +9,8 @@ const pick = (from: number, n: number) =>
   distinct.slice(from, from + n).map((e) => ({ id: e.id as string, title: e.title as string, kind: e.kind as string }));
 const twins = (() => {
   for (const entry of corpus.catalog.entries) {
-    const other = corpus.catalog.entries.find((c) => c.title === entry.title && c.id !== entry.id && c.kind === entry.kind);
+    // Twins from different books: the book is what tells them apart.
+    const other = corpus.catalog.entries.find((c) => c.title === entry.title && c.id !== entry.id && c.kind === entry.kind && c.source !== entry.source);
     if (other) return [entry, other];
   }
   throw new Error("The compiled library holds no two entries with the same title");
@@ -100,6 +101,9 @@ test("Recently viewed shows five rows, Show more reveals the stored history, Cle
 
   await page.getByRole("button", { name: "Clear", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  // The click empties the list at once, so the section and its Clear button are gone before the
+  // write lands; focus is already on the title, not lost to the body.
+  await expect(page.locator("#home-title")).toBeFocused();
   // The list leaves the screen before its write finishes, and Home is still reading the search
   // index. Reloading under either stops the page mid-operation, which WebKit reports as
   // "Context is stopped"; wait for both.

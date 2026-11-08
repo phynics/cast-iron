@@ -183,7 +183,8 @@ fn EntryView(
     set_title(&entry.title);
     {
         let (id, title) = (entry.id.clone(), entry.title.clone());
-        spawn_local(async move { recent::record(id, title).await });
+        let recents = crate::app::use_app().recents;
+        spawn_local(async move { recent::record(recents, id, title).await });
     }
 
     let chain = parent_chain(&library, &entry.id);
