@@ -1044,8 +1044,10 @@ Refs [#273](https://github.com/phynics/cast-iron/issues/273), [#269](https://git
 - **The startup read joins the queue.** `load_into` merges the stored history into the signal.
   It marks a running write stale so that writer takes the merged list, and when the write
   already finished it writes the merged list itself. Either way a write cannot leave the store
-  without that history. This replaces the old read-modify-write guarantee on a deep link or
-  reload on an entry URL.
+  without that history. A clear wins over a read that was already in flight: the clear bumps a
+  generation, and `load_into` discards an answer whose read began before that generation, so a
+  cleared history is never merged back. This replaces the old read-modify-write guarantee on a
+  deep link or reload on an entry URL.
 - **Every Home reload in the e2e suite waits for the index read.** `seedHome` now ends with
   `waitHomeIdle`, and every flow that navigates to Home and reloads at once waits before the
   reload: three in `search.spec.ts`, two in `update.spec.ts`, and one each in `shell-update`,

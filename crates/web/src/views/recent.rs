@@ -17,8 +17,8 @@ pub const MAX_RECENT: usize = 12;
 /// that write is in flight marks the write stale; the writer then writes the signal's newer
 /// value, so a later operation supersedes an earlier one instead of racing it.
 ///
-/// The stored list is always the signal's current value. Reading the store back would give two
-/// writes the same old list, and the last writer would drop the other visit.
+/// Once writes settle, the stored list is the signal's current value. Reading the store back
+/// would give two writes the same old list, and the last writer would drop the other visit.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Flush {
     in_flight: bool,
@@ -26,6 +26,9 @@ struct Flush {
     /// A write has been requested on this page. The startup read uses it to tell whether the
     /// store may already hold a list that predates its merge.
     wrote: bool,
+    /// Bumped by every clear. The startup read captures it before it reads, so history that the
+    /// read answers with cannot come back after a clear that landed during that read.
+    clear_epoch: u64,
 }
 
 impl Flush {
@@ -64,6 +67,17 @@ impl Flush {
         } else {
             self.wrote
         }
+    }
+
+    /// The epoch a startup read must capture before it reads.
+    fn clear_epoch(&self) -> u64 {
+        self.clear_epoch
+    }
+
+    /// A clear starts. A startup read that began earlier must not merge the history it answers
+    /// with, because that history is older than this clear.
+    fn cleared(&mut self) {
+        self.clear_epoch = self.clear_epoch.wrapping_add(1);
     }
 }
 
@@ -114,10 +128,19 @@ pub async fn load() -> Vec<Recent> {
 /// Reads the stored history into `recents`. The app calls this once, at startup. A visit that
 /// was recorded while the read was in flight makes the running writer take the merged list, and
 /// a write that already finished makes this function write the merged list, so the store keeps
-/// both the visit and the stored history either way.
+/// both the visit and the stored history either way. A clear that lands during the read wins:
+/// the history the read answers with is not merged back after it.
 pub async fn load_into(recents: RwSignal<Vec<Recent>>) {
+    let epoch = FLUSH.with(|flush| flush.borrow().clear_epoch());
     let stored = load().await;
+    if FLUSH.with(|flush| flush.borrow().clear_epoch()) != epoch {
+        return;
+    }
+    let before = recents.get_untracked();
     recents.update(|current| merge_stored(current, stored));
+    if recents.get_untracked() == before {
+        return;
+    }
     if FLUSH.with(|flush| flush.borrow_mut().merged()) {
         persist(recents).await;
     }
@@ -135,6 +158,7 @@ pub async fn record(recents: RwSignal<Vec<Recent>>, id: EntryId, title: String) 
 /// Empties the history and writes the empty list, so the clear survives a reload. A visit that
 /// follows the clear is recorded after it and is what the store receives.
 pub async fn clear(recents: RwSignal<Vec<Recent>>) {
+    FLUSH.with(|flush| flush.borrow_mut().cleared());
     recents.set(Vec::new());
     persist(recents).await;
 }
@@ -223,7 +247,10 @@ mod tests {
         fn apply(&mut self, act: Act) {
             match act {
                 Act::Visit(n) => push_recent(&mut self.list, r(n)),
-                Act::Clear => self.list.clear(),
+                Act::Clear => {
+                    self.flush.cleared();
+                    self.list.clear();
+                }
             }
             self.start_write();
         }
@@ -246,9 +273,21 @@ mod tests {
             self.end();
         }
 
-        /// Models [`load_into`]: the startup read answers with `stored`.
-        fn load_into(&mut self, stored: Vec<Recent>) {
+        fn clear_epoch(&self) -> u64 {
+            self.flush.clear_epoch()
+        }
+
+        /// Models [`load_into`]: `epoch` is the clear generation captured before the read, and
+        /// `stored` is the answer to that read.
+        fn load_into(&mut self, epoch: u64, stored: Vec<Recent>) {
+            if self.flush.clear_epoch() != epoch {
+                return;
+            }
+            let before = self.list.clone();
             merge_stored(&mut self.list, stored);
+            if self.list == before {
+                return;
+            }
             if self.flush.merged() {
                 self.start_write();
             }
@@ -297,10 +336,11 @@ mod tests {
     #[test]
     fn a_visit_written_before_the_startup_merge_keeps_the_stored_history() {
         let mut sim = Sim::new();
+        let epoch = sim.clear_epoch();
         // The visit's write reaches the store and finishes before the startup read answers.
         sim.apply(Act::Visit(1));
         sim.finish();
-        sim.load_into(vec![r(2), r(3)]);
+        sim.load_into(epoch, vec![r(2), r(3)]);
         // The merge must write itself, because no running writer is left to correct.
         sim.finish();
         assert_eq!(sim.last_written(), [r(1), r(2), r(3)]);
@@ -310,11 +350,49 @@ mod tests {
     #[test]
     fn a_running_visit_write_takes_the_startup_history_on_its_next_pass() {
         let mut sim = Sim::new();
+        let epoch = sim.clear_epoch();
         sim.apply(Act::Visit(1));
         sim.commit();
-        sim.load_into(vec![r(2)]);
+        sim.load_into(epoch, vec![r(2)]);
         sim.end();
         sim.finish();
         assert_eq!(sim.last_written(), [r(1), r(2)]);
+    }
+
+    #[test]
+    fn a_clear_during_the_startup_read_is_not_undone_by_the_answer() {
+        let mut sim = Sim::new();
+        let epoch = sim.clear_epoch();
+        sim.apply(Act::Clear);
+        sim.load_into(epoch, vec![r(2)]);
+        sim.finish();
+        assert!(sim.last_written().is_empty());
+        assert!(sim.list.is_empty());
+    }
+
+    #[test]
+    fn a_visit_and_then_a_clear_during_the_startup_read_stay_empty() {
+        let mut sim = Sim::new();
+        let epoch = sim.clear_epoch();
+        sim.apply(Act::Visit(1));
+        sim.apply(Act::Clear);
+        sim.load_into(epoch, vec![r(2)]);
+        sim.finish();
+        sim.finish();
+        assert!(sim.last_written().is_empty());
+        assert!(sim.list.is_empty());
+    }
+
+    #[test]
+    fn a_visit_after_a_clear_during_the_startup_read_keeps_only_that_visit() {
+        let mut sim = Sim::new();
+        let epoch = sim.clear_epoch();
+        sim.apply(Act::Clear);
+        sim.apply(Act::Visit(1));
+        sim.load_into(epoch, vec![r(2)]);
+        sim.finish();
+        sim.finish();
+        assert_eq!(sim.last_written(), [r(1)]);
+        assert_eq!(sim.list, [r(1)]);
     }
 }
