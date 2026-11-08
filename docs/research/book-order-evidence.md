@@ -28,7 +28,9 @@ Paizo's [Pathfinder Roleplaying Game Preview #1](https://cdn.paizo.com/blog/path
 
 The printed contents page lists the appendices Special Abilities (554), Conditions (565), Inspiring Reading (568), and Game Aids (569), followed by the license, character sheet, and index.
 
-`books.toml` now has the 15 printed chapters followed by two appendix groups, Special Abilities and Conditions. The upstream `Glossary` aggregate holds only links to those two appendices, so it opens the Special Abilities group instead of standing as a chapter of its own. Printed Appendix 3 Inspiring Reading (568) and Appendix 4 Game Aids (569) have no corpus entries, so they have no group. Main chapter order is verified; nested placement remains incomplete. The dataset still places some Creating NPCs text inside Gamemastering and the prestige-class introduction inside Classes.
+`books.toml` now has the 15 printed chapters followed by two appendix groups, Special Abilities and Conditions. The upstream `Glossary` aggregate holds only links to those two appendices, so it opens the Special Abilities group instead of standing as a chapter of its own. Printed Appendix 3 Inspiring Reading (568) and Appendix 4 Game Aids (569) have no corpus entries, so they have no group.
+
+Main chapter order and nested placement are verified against the printed Core Rulebook. Each entry sits in its printed chapter and section, and the tree follows the printed page order: Races runs Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 21-27); the Prestige Classes introduction opens Chapter 11 (p. 374), not Classes; the Creating NPCs introduction opens Chapter 14 (p. 448), not Gamemastering; the Magic and Spellcasting introduction opens Chapter 9 (p. 206); and the spell descriptions follow the alphabetical order stated on p. 224 (pp. 239-371). Entries that share a printed page keep the dataset order inside that page.
 
 ## Advanced Player's Guide
 
