@@ -112,7 +112,7 @@ order:
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
 | `archetype` | `replaces`, `alters` (printed feature names, in print order) |
-| `class_option` | `group` (required slug from `option-groups.toml`), `replaces` (printed feature names) |
+| `class_option` | `group` (required slug from `option-groups.toml`), `replaces`, `alters` (printed feature names, in print order) |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
@@ -570,16 +570,19 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | creature | `cr`, `creature_type`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR`, `Type`, `Size`, `AC`, `hp`, `Fort`, ... rows |
 | item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot`, `Aura`, `CL` rows |
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
-| archetype | `replaces`, `alters` | the bold `**Replaces:**` and `**Alters:**` lines |
-| class_option | `replaces` | the bold `**Replaces:**` line |
+| archetype | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
+| class_option | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
 
 The comparison reads both sides as words: it ignores case, repeated blanks, an
 end period, `*` and `[label](target)` markers, and a few entities (`&times;`). A
 spell's `School` row may add the subschool and descriptors. A feat field agrees
 when any `**Label:**` line in the body says the same, because a feat with a
-mythic variant states the label twice. A value stated in only one place is not
-drift. The two copies are not unified: the typed fields feed search and facets,
-and the body is what a reader sees.
+mythic variant states the label twice. For `replaces` and `alters`, an entry may
+print several lines, one per traded power; the typed list is the concatenation
+of every line in body order, and a comma-separated line contributes one item per
+part. A value stated in only one place is not drift. The two copies are not
+unified: the typed fields feed search and facets, and the body is what a reader
+sees.
 
 ## Formatting
 

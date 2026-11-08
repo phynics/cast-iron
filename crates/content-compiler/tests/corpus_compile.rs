@@ -219,6 +219,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         fields: TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "discoveries".into(),
             replaces: vec!["Arcane bond".into()],
+            alters: vec![],
         }),
         tags: vec![],
         links: vec![],
