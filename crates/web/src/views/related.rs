@@ -204,7 +204,7 @@ fn level_pills(list: &SpellListClass) -> impl IntoView + use<> {
                 spells_noun(n)
             );
             let shown = if level == 0 {
-                "Cantrips".to_string()
+                fmt::spell_level(level)
             } else {
                 level.to_string()
             };

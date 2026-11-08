@@ -118,7 +118,7 @@ fn level_label(level: u8) -> String {
 /// The compact text inside a level-number tab on a spell page: `Cantrips`, or the numeral.
 fn level_tab(level: u8) -> String {
     if level == 0 {
-        "Cantrips".to_string()
+        fmt::spell_level(level)
     } else {
         level.to_string()
     }
