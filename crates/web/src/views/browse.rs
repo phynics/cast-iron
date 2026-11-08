@@ -19,8 +19,8 @@ use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
-    ACTIVE_BOOKS_SCOPE, Shared, active_count_line, group_letter, kind_name, local_resource,
-    set_title, sort_key,
+    ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
+    local_resource, set_title, sort_key,
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
@@ -93,7 +93,7 @@ pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode>
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
-    list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+    sort_rows(&mut list, kind);
     list
 }
 
@@ -105,8 +105,33 @@ fn sorted_of_kind_in_source(library: &Library, kind: EntryKind, source: &str) ->
         .filter(|stub| library.stub_is_in_source(stub, source))
         .cloned()
         .collect();
-    list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+    sort_rows(&mut list, kind);
     list
+}
+
+/// Order key for a feat row. A mythic version (`Dodge, Mythic`) sits directly after its base
+/// (`Dodge`), before titles such as `Dodge Anything` that sort between the two strings. The
+/// corpus titles every mythic version `{base}, Mythic`; the relation graph supplies the row's
+/// label, and this supplies only its place.
+fn feat_sort_key(title: &str) -> (String, u8) {
+    const MYTHIC: &str = ", mythic";
+    let lower = sort_key(title);
+    match lower.strip_suffix(MYTHIC) {
+        Some(base) if !base.is_empty() => (base.to_string(), 1),
+        _ => (lower, 0),
+    }
+}
+
+fn sort_rows(list: &mut [EntryStub], kind: EntryKind) {
+    if kind == EntryKind::Feat {
+        list.sort_by(|a, b| {
+            feat_sort_key(&a.title)
+                .cmp(&feat_sort_key(&b.title))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+    } else {
+        list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+    }
 }
 
 // ---- views ------------------------------------------------------------------------------
@@ -127,7 +152,16 @@ pub const CHAIN_MARK_MIN: usize = 5;
 /// How many feats each marked feat leads to, once the relations have loaded. The outer `None`
 /// is "loading"; the inner `None` is a library with no relations. Rows read it, so the list
 /// shows at once and the markers appear when the numbers are ready.
-pub type ChainMarks = ReadSignal<Option<Option<Shared<HashMap<EntryId, usize>>>>, LocalStorage>;
+///
+/// The add-on labels come from the same load: a mythic row reads `Mythic · {book}` and keeps
+/// its label even while its base's book is inactive.
+#[derive(Debug, Clone, Default)]
+pub struct FeatRowInfo {
+    pub marks: HashMap<EntryId, usize>,
+    pub addons: HashMap<EntryId, String>,
+}
+
+pub type ChainMarks = ReadSignal<Option<Option<Shared<FeatRowInfo>>>, LocalStorage>;
 
 /// The accessible suffix of a marked row: `, leads to 93 feats`.
 pub fn chain_mark_suffix(leads_to: usize) -> String {
@@ -148,22 +182,40 @@ fn chain_mark(leads_to: usize) -> impl IntoView {
     }
 }
 
-/// A feat row. The marker follows the title inside the link, so the row stays one target.
-fn feat_row(stub: &EntryStub, source: Option<String>, marks: ChainMarks) -> impl IntoView + use<> {
+/// A feat row. The marker follows the title inside the link, so the row stays one target. A
+/// mythic version's muted line names its label before the book (`Mythic · Mythic Adventures`),
+/// whatever the list's rule for showing a book.
+fn feat_row(
+    stub: &EntryStub,
+    source: Option<String>,
+    show_source: bool,
+    info: ChainMarks,
+) -> impl IntoView + use<> {
     let id = stub.id.clone();
+    let mark_id = id.clone();
     let mark = move || {
-        marks.with(|loaded| {
+        info.with(|loaded| {
             loaded
                 .as_ref()
                 .and_then(Option::as_ref)
-                .and_then(|marks| marks.get(&id).copied())
+                .and_then(|info| info.marks.get(&mark_id).copied())
                 .map(chain_mark)
+        })
+    };
+    let detail = move || {
+        info.with(|loaded| {
+            let loaded = loaded.as_ref().and_then(Option::as_ref)?;
+            if let Some(label) = loaded.addons.get(&id) {
+                let book = source.clone().unwrap_or_else(|| "Other".to_string());
+                return Some(format!("{} · {book}", addon_name(label)));
+            }
+            show_source.then(|| source.clone()).flatten()
         })
     };
     view! {
         <li>
             <a href=Route::entry(stub.id.clone()).href()>{stub.title.clone()}{mark}</a>
-            {source.map(|s| view! { <span class="muted row-source">{s}</span> })}
+            {move || detail().map(|text| view! { <span class="muted row-source">{text}</span> })}
         </li>
     }
 }
@@ -986,10 +1038,10 @@ fn AzList(
                     rendered
                         .push(view! { <li><SourceVariants group=group.clone() /></li> }.into_any());
                 } else {
-                    let source = show_source.then(|| source_titles[i].clone()).flatten();
+                    let source = source_titles[i].clone();
                     rendered.push(match marks {
-                        Some(marks) => feat_row(stub, source, marks).into_any(),
-                        None => entry_row(stub, source).into_any(),
+                        Some(marks) => feat_row(stub, source, show_source, marks).into_any(),
+                        None => entry_row(stub, show_source.then_some(source).flatten()).into_any(),
                     });
                 }
             }
@@ -1391,8 +1443,16 @@ fn BrowseList(
         (kind == EntryKind::Feat && library.has_relations()).then(|| {
             let library = library.clone();
             local_resource(async move {
-                let relations = library.discovery().relations().await.ok().flatten()?;
-                Some(Shared::new(relations.long_chains(CHAIN_MARK_MIN)))
+                // The labels read the whole graph: an add-on's row names its own label even
+                // while its base's book is inactive. The markers read the discovery projection,
+                // so a disabled feat never inflates a visible row's count.
+                let all = library.relations().await.ok().flatten()?;
+                let discovery = library.discovery();
+                let scoped = all.filtered(|id| discovery.is_eligible(id.as_str()));
+                Some(Shared::new(FeatRowInfo {
+                    marks: scoped.long_chains(CHAIN_MARK_MIN),
+                    addons: all.addon_labels(),
+                }))
             })
         });
 
@@ -1850,6 +1910,20 @@ mod tests {
         assert_eq!(chain_mark_suffix(1234), ", leads to 1,234 feats");
         assert_eq!(chain_mark_suffix(1), ", leads to 1 feat");
         assert_eq!(CHAIN_MARK_MIN, 5);
+    }
+
+    #[test]
+    fn a_mythic_version_sits_directly_after_its_base_in_a_feat_list() {
+        let mut titles = ["Acrobatic Spellcaster", "Acrobatic, Mythic", "Acrobatic"];
+        titles.sort_by_key(|title| feat_sort_key(title));
+        assert_eq!(
+            titles,
+            ["Acrobatic", "Acrobatic, Mythic", "Acrobatic Spellcaster"]
+        );
+        assert_eq!(feat_sort_key("Dodge"), ("dodge".to_string(), 0));
+        assert_eq!(feat_sort_key("Dodge, Mythic"), ("dodge".to_string(), 1));
+        // A title that only looks like a suffix keeps its own place.
+        assert_eq!(feat_sort_key(", Mythic"), (", mythic".to_string(), 0));
     }
 
     fn book(id: &str, title: &str, category: Option<&str>, date: Option<&str>) -> BookListEntry {

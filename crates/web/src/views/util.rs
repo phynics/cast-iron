@@ -70,6 +70,17 @@ pub fn kind_name(kind: EntryKind) -> &'static str {
     }
 }
 
+/// The `Kind · Book` line of a row that is an add-on: the add-on's label stands where the
+/// entry's kind would. Unknown labels cannot come from a validated library.
+pub fn addon_name(label: &str) -> &'static str {
+    match label {
+        "mythic" => "Mythic",
+        "stamina" => "Stamina",
+        "changes" => "Changes",
+        _ => "Add-on",
+    }
+}
+
 /// Reviewed navigation labels. Canonical titles and rich rule content remain verbatim.
 pub fn section_label(title: &str) -> String {
     match title {

@@ -19,7 +19,7 @@ use crate::views::quick_rows::{
 use crate::views::recent_searches::{self, RecentSearch, normalize};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
-use crate::views::util::kind_name;
+use crate::views::util::{addon_name, kind_name};
 use cast_iron_schema::{EntryId, EntryKind};
 use cast_iron_search::Query;
 use leptos::prelude::*;
@@ -406,12 +406,19 @@ fn watch_suggestions(quick: QuickSearch) {
             let Ok(hits) = discovery.search_summaries(&query).await else {
                 return;
             };
+            // A mythic suggestion names its label instead of the kind while its base's book may
+            // be inactive, so the labels read the whole graph.
+            let relations = library.relations().await.ok().flatten();
             let hits = shortest_completion_first(hits, &typed);
             let list: Vec<Suggestion> = dedupe_hits(hits, MAX_SUGGESTIONS)
                 .into_iter()
                 .filter_map(|hit| {
                     let id = EntryId::parse(hit.id.clone()).ok()?;
                     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+                    let row_kind = relations
+                        .as_ref()
+                        .and_then(|relations| relations.addon_label(&id))
+                        .map_or(kind, addon_name);
                     // The index records one attribution source. When it is inactive, the entry's
                     // book placement is the source that kept it eligible, so name that instead
                     // (the same rule as the search result rows).
@@ -432,7 +439,7 @@ fn watch_suggestions(quick: QuickSearch) {
                     Some(Suggestion {
                         id,
                         title: hit.title,
-                        detail: format!("{kind} · {book}"),
+                        detail: format!("{row_kind} · {book}"),
                     })
                 })
                 .collect();
