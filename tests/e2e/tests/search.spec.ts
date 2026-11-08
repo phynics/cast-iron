@@ -467,6 +467,7 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await installLibrary(page);
   await waitControlled(page);
   await goOffline(context, server);
+  await waitHomeIdle(page);
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
   await expect(page.locator(".badge")).toBeVisible(); // the offline badge
@@ -864,6 +865,7 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
 
   await goOffline(context, server);
   await page.goto("#/");
+  await waitHomeIdle(page);
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
   // Home warms the search index in the background. Reloading while that cache read is in flight
@@ -1157,6 +1159,7 @@ installedTest("A recent search remembers its scope: the row shows it, tapping re
   await waitResults(page, "grapple");
   await quickSearchFor(page, "grapple");
   await page.goto("#/");
+  await waitHomeIdle(page);
   await page.reload();
   const layer = await openQuickSearch(page);
   await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
