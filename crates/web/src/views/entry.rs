@@ -377,7 +377,7 @@ fn EntryView(
             </p>
             {has_provenance.then(|| view! {
                 <details class="provenance">
-                    <summary>"Provenance"</summary>
+                    <summary>{icons::chevron_right("disclosure-chevron")}"Provenance"</summary>
                     <dl class="facts">{provenance}</dl>
                 </details>
             })}

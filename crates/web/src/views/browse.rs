@@ -1597,6 +1597,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
                     }
                 >
                     <summary>
+                        {icons::chevron_right("disclosure-chevron")}
                         <span class="tile-name">{kind.label()}</span>
                         <span class="tile-count">{fmt::count(n)}</span>
                     </summary>

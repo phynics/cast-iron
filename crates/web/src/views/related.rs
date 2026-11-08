@@ -297,7 +297,7 @@ fn class_panels(
                     <section class="rel" aria-labelledby="rel-archetypes">
                         <h2 id="rel-archetypes">"Archetypes · "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
-                            <summary>{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
+                            <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
                             {groups}
                         </details>
                     </section>

@@ -1355,7 +1355,13 @@ pub fn Search() -> impl IntoView {
                     let variants = std::iter::once((&result.hit, &result.anchor)).chain(result.variants.iter().map(|(hit, anchor)| (hit, anchor)))
                         .map(|(hit, anchor)| hit_view(&lib_for_hits, hit, anchor.as_deref())).collect_view();
                     view! { <li class="hit hit-group"><details class="source-variants">
-                        <summary><span class="hit-title">{title}</span><span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
+                        <summary>
+                            {icons::chevron_right("disclosure-chevron")}
+                            <span class="hit-text">
+                                <span class="hit-title">{title}</span>
+                                <span class="hit-meta">{format!("{} · {}", EntryKind::from_slug(&result.hit.kind).map_or("", kind_name), fmt::pluralize(count, "publication entry", "publication entries"))}</span>
+                            </span>
+                        </summary>
                         <ul>{variants}</ul>
                     </details></li> }.into_any()
                 })

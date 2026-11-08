@@ -2,6 +2,7 @@
 //!
 //! Records remain independent: every variant keeps its permanent entry id and publication.
 use crate::route::Route;
+use crate::views::icons;
 use cast_iron_schema::{EntryId, EntryKind, EntryStub};
 use leptos::prelude::*;
 
@@ -91,7 +92,7 @@ pub fn SourceVariants(group: SourceGroup) -> impl IntoView {
         .collect_view();
     view! {
         <details class="source-variants">
-            <summary>{group.title}<span class="source-variant-count">{format!(" {}", crate::fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
+            <summary>{icons::chevron_right("disclosure-chevron")}{group.title}<span class="source-variant-count">{format!(" {}", crate::fmt::pluralize(count, "publication entry", "publication entries"))}</span></summary>
             <ul>{items}</ul>
         </details>
     }
