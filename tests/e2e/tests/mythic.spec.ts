@@ -160,3 +160,27 @@ test("Mythic active, base inactive: the add-on stays listed and names the base",
     .filter({ has: page.locator(".hit-title", { hasText: "Power Attack, Mythic" }) });
   await expect(mythicRow.locator(".hit-meta")).toHaveText("Mythic · Mythic Adventures");
 });
+
+test("A base spell stacks its mythic version only while Mythic Adventures is active", async ({ page }) => {
+  const spell = "ref/spell/magic-missile";
+  const mythic = `${spell}/mythic`;
+  await installLibrary(page);
+  await waitControlled(page);
+
+  await onlyBooks(page, [CORE]);
+  await page.goto(`#/entry/${spell}`);
+  await expect(page.getByRole("heading", { name: "Magic Missile", level: 1 })).toBeVisible();
+  await expect(page.locator(".entry-rel").getByRole("heading", { name: "Mythic", level: 2 })).toHaveCount(0);
+
+  // onlyBooks waits for Home's idle signal before it reloads, so go back to Home first.
+  await page.goto("#/");
+  await onlyBooks(page, [CORE, MYTHIC_BOOK]);
+  await page.goto(`#/entry/${spell}`);
+  const rel = page.locator(".entry-rel");
+  await expect(rel.getByRole("heading", { name: "Mythic", level: 2 })).toBeVisible();
+  await expect(rel.locator(`a[href="#/entry/${mythic}"]`)).toBeVisible();
+
+  // The mythic version's own page names its base.
+  await page.goto(`#/entry/${mythic}`);
+  await expect(page.getByRole("link", { name: "Mythic version of Magic Missile", exact: true })).toBeVisible();
+});
