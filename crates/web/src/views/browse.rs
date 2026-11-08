@@ -231,15 +231,21 @@ type OptionGroups = ReadSignal<Option<Option<Rc<OptionGroupIndex>>>, LocalStorag
 fn class_option_row(
     stub: &EntryStub,
     book: Option<String>,
+    show_source: bool,
     groups: OptionGroups,
     group_selected: bool,
 ) -> impl IntoView + use<> {
     let id = stub.id.clone();
     let detail_id = id.clone();
     let detail = move || {
+        // Like every other row, the book line appears only when the list spans books. A
+        // book-filtered list already names its book once, in the pill.
+        if !show_source {
+            return None;
+        }
         let book = book.clone().unwrap_or_else(|| "Other".to_string());
         if group_selected {
-            return book;
+            return Some(book);
         }
         groups.with(|loaded| {
             let singular = loaded
@@ -248,15 +254,15 @@ fn class_option_row(
                 .and_then(|index| class_options::group_of(index, &detail_id))
                 .map(|group| group.singular.clone());
             match singular {
-                Some(singular) => format!("{singular} · {book}"),
-                None => book,
+                Some(singular) => Some(format!("{singular} · {book}")),
+                None => Some(book),
             }
         })
     };
     view! {
         <li>
             <a href=Route::entry(id).href()>{stub.title.clone()}</a>
-            <span class="muted row-source">{detail}</span>
+            {move || detail().map(|text| view! { <span class="muted row-source">{text}</span> })}
         </li>
     }
 }
@@ -1221,10 +1227,14 @@ fn AzList(
                     let source = source_titles[i].clone();
                     rendered.push(match (marks, class_option_groups) {
                         (Some(marks), _) => feat_row(stub, source, show_source, marks).into_any(),
-                        (None, Some(groups)) => {
-                            class_option_row(stub, source, groups, class_option_group_selected)
-                                .into_any()
-                        }
+                        (None, Some(groups)) => class_option_row(
+                            stub,
+                            source,
+                            show_source,
+                            groups,
+                            class_option_group_selected,
+                        )
+                        .into_any(),
                         (None, None) => {
                             entry_row(stub, show_source.then_some(source).flatten()).into_any()
                         }
