@@ -338,17 +338,18 @@ test("A book page links each kind it holds to the kind list filtered to the book
 });
 
 test("The copyright is printed once, in the colophon at the bottom, each distinct notice once", async ({ page }) => {
-  // Gods and Magic carries the same notice twice, once as `Copyright 2008` with the title in
-  // front and once as `© 2008`. (The Advanced Player's Guide was the example until the corpus
-  // replaced its repeated notices with the printed one.)
-  const source = sources.find((row) => row.id === "gods-and-magic")!;
-  expect(source.copyright.split("Sean K Reynolds").length - 1, "the corpus still repeats it").toBeGreaterThan(1);
+  // The Council of Thieves Player's Guide carries the same notice twice, once as `© 2009` and
+  // once as `Copyright 2009` with the title in front. The book set has no printed copy of it,
+  // so the corpus keeps the import's joined notice. (Gods and Magic and the Advanced Player's
+  // Guide were the examples until the corpus replaced their notices with the printed one.)
+  const source = sources.find((row) => row.id === "council-of-thieves-players-guide")!;
+  expect(source.copyright.split("Hank Woon").length - 1, "the corpus still repeats it").toBeGreaterThan(1);
   await page.goto(`#/browse/book/${source.id}`);
   await expect(page.getByRole("heading", { level: 1, name: source.title, exact: true })).toBeVisible();
   await expect(page.locator(".copyright")).toHaveCount(1);
   const text = await page.locator(".copyright").innerText();
-  expect(text.split("2008").length - 1).toBe(1);
-  expect(text).toContain("Sean K Reynolds");
+  expect(text.split("2009").length - 1).toBe(1);
+  expect(text).toContain("Hank Woon");
   // Nothing of it sits under the title: it is the last block, in a footer, before the page ends.
   const colophon = page.locator("footer.colophon");
   await expect(colophon).toHaveCount(1);
