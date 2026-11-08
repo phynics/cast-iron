@@ -1,5 +1,5 @@
-//! The book view: one publication's chapters in the order of the book, as a contents tree, and
-//! the previous/next control that an entry shows for its place in a book.
+//! The book view: one publication's chapters in the order of the book, as an expanded contents
+//! list, and the previous/next control that an entry shows for its place in a book.
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
 //! Contents leaves out the kinds that the `In this book` links reach (see
@@ -9,7 +9,7 @@
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
-use crate::route::{Route, current_hash, replace, toc_id, use_route};
+use crate::route::{Route, toc_id, use_route};
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{BookNode, EntryId, EntryKind};
@@ -303,7 +303,7 @@ pub fn BookView(source: String) -> impl IntoView {
                         }.into_any(),
                         Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
                             Some(index) => view! {
-                                <Contents lookup=Shared::from_rc(books.clone()) library book=index source target />
+                                <Contents lookup=Shared::from_rc(books.clone()) library book=index target />
                             }.into_any(),
                             None => view! {
                                 <p class="notice">"This library has no chapter order for this book."</p>
@@ -320,13 +320,12 @@ pub fn BookView(source: String) -> impl IntoView {
     }
 }
 
-/// The review line and the contents tree of one book.
+/// The review line and the expanded contents list of one book.
 #[component]
 fn Contents(
     lookup: Shared<BookLookup>,
     library: Library,
     book: usize,
-    source: String,
     target: RwSignal<Option<Vec<usize>>>,
 ) -> impl IntoView {
     let Some(tree) = lookup.book_at(book) else {
@@ -342,14 +341,14 @@ fn Contents(
     if roots.is_empty() {
         return view! {
             {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
-            <p class="muted">"This book's entries are spells, feats, items and class options. Find them in In this book above."</p>
+            <p class="muted">"This book has no rules chapters to show. Find its entries in In this book above."</p>
         }
         .into_any();
     }
     let items = roots
         .into_iter()
         .map(|path| {
-            view! { <TocNode lookup=lookup.clone() library=library.clone() book source=source.clone() path target /> }
+            view! { <TocNode lookup=lookup.clone() library=library.clone() book path target /> }
         })
         .collect_view();
     view! {
@@ -361,14 +360,13 @@ fn Contents(
     .into_any()
 }
 
-/// One row of the contents. A node with children is a disclosure whose children are built when
-/// it first opens, so a book of two thousand entries costs a few dozen rows at first.
+/// One row of the contents. Every chapter and section is expanded: a nested list carries its
+/// children, so the reader sees the whole book at once and no row is a disclosure.
 #[component]
 fn TocNode(
     lookup: Shared<BookLookup>,
     library: Library,
     book: usize,
-    source: String,
     path: Vec<usize>,
     target: RwSignal<Option<Vec<usize>>>,
 ) -> impl IntoView {
@@ -387,14 +385,13 @@ fn TocNode(
     };
     // The rows that Contents lists, as indices into the real children: a path keeps its meaning.
     let listed = listed_children(node, &hide);
-    let child_count = listed.len();
     let under = listed_under(node, &hide);
     let is_current = {
         let path = path.clone();
         move || target.with(|t| t.as_deref() == Some(path.as_slice()))
     };
 
-    if child_count == 0 {
+    if listed.is_empty() {
         let link = lookup
             .target_of(tree, &path)
             .map(|(entry, anchor)| Route::Entry { id: entry, anchor }.href());
@@ -410,6 +407,7 @@ fn TocNode(
         };
     }
 
+    // A chapter that is itself an entry links to that entry; a bare heading is a plain row.
     let own_link = node
         .entry
         .as_ref()
@@ -421,86 +419,43 @@ fn TocNode(
             }
             .href()
         });
-    let opened =
-        RwSignal::new(target.with_untracked(|t| t.as_deref().is_some_and(|t| on_path(&path, t))));
-    {
-        let path = path.clone();
-        Effect::new(move |_| {
-            if target.with(|t| t.as_deref().is_some_and(|t| on_path(&path, t))) {
-                opened.set(true);
-            }
-        });
-    }
-    let on_toggle = {
-        let path = path.clone();
-        let source = source.clone();
-        move |event: leptos::ev::Event| {
-            // The browser fires `toggle` in a later task than the click. A Back or a link that
-            // lands first leaves this page, and a late event must not write this book's URL over
-            // the entry that the reader is now on. Read the address bar, not the route signal:
-            // the signal follows the address a moment later.
-            // An old `#/browse/source/<id>` link shows the same page, so it counts as this book.
-            let on_this_book = matches!(
-                Route::parse(&current_hash()),
-                Route::Book { source: shown, .. } | Route::BrowseSource(shown) if shown == source
-            );
-            if !on_this_book {
-                return;
-            }
-            let open = event_target::<web_sys::HtmlDetailsElement>(&event).open();
-            // The page opens ancestors of the target itself; only a difference from the signal
-            // is the reader's own doing.
-            if open == opened.get_untracked() {
-                return;
-            }
-            opened.set(open);
-            let chapter = path_after_toggle(&path, open);
-            target.set(chapter.clone());
-            replace(&Route::Book {
-                source: source.clone(),
-                chapter,
-            });
-        }
-    };
     let children = {
         let lookup = lookup.clone();
-        let path = path.clone();
-        let source = source.clone();
-        let title = title.clone();
         let library = library.clone();
         move || {
-            opened.get().then(|| {
-                let items = listed
-                    .iter()
-                    .map(|&i| {
-                        let mut child = path.clone();
-                        child.push(i);
-                        view! {
-                            <TocNode lookup=lookup.clone() library=library.clone() book source=source.clone() path=child target />
-                        }
-                    })
-                    .collect_view();
-                let own = own_link.clone().map(|href| {
+            listed
+                .iter()
+                .map(|&i| {
+                    let mut child = path.clone();
+                    child.push(i);
                     view! {
-                        <li class="toc-leaf toc-self">
-                            <a href=href>{format!("Read {title}")}</a>
-                        </li>
+                        <TocNode lookup=lookup.clone() library=library.clone() book path=child target />
                     }
-                });
-                view! { <ul class="toc-list">{own}{items}</ul> }
-            })
+                })
+                .collect_view()
         }
+    };
+    let row = match own_link {
+        Some(href) => view! {
+            <a id=id href=href aria-current=move || is_current().then_some("location")>
+                <span class="toc-title">{title}</span>
+            </a>
+        }
+        .into_any(),
+        None => view! {
+            <span id=id aria-current=move || is_current().then_some("location")>
+                <span class="toc-title">{title}</span>
+            </span>
+        }
+        .into_any(),
     };
     view! {
         <li class="toc-branch">
-            <details class="toc-details" prop:open=move || opened.get() on:toggle=on_toggle>
-                <summary id=id aria-current=move || is_current().then_some("location")>
-                    {icons::chevron_right("disclosure-chevron")}
-                    <span class="toc-title">{title}</span>
-                    <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
-                </summary>
-                {children}
-            </details>
+            <div class="toc-row">
+                {row}
+                <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
+            </div>
+            <ol class="toc-list">{children}</ol>
         </li>
     }
     .into_any()

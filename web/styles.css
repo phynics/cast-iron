@@ -3078,18 +3078,22 @@ main,
   padding-inline: var(--space-3);
 }
 
-.toc-details > summary {
+.toc-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 3rem;
+  min-height: var(--touch);
   padding: 0 var(--space-3);
-  cursor: pointer;
-  list-style: none;
 }
 
-.toc-details > summary::-webkit-details-marker {
-  display: none;
+.toc-row > a,
+.toc-row > span {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  min-height: var(--touch);
+  border-radius: var(--radius);
 }
 
 .toc-title {
@@ -3098,7 +3102,7 @@ main,
   overflow-wrap: anywhere;
 }
 
-.toc-top > li > .toc-details > summary .toc-title {
+.toc-top > li > .toc-row .toc-title {
   font-family: var(--font-display);
   font-size: var(--step-1);
   font-weight: 600;
@@ -3126,25 +3130,14 @@ main,
   border-radius: var(--radius);
 }
 
-.toc-self > a {
-  color: var(--ink-muted);
-  font-size: var(--step--1);
-}
-
 .toc [aria-current="location"] {
   background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-.toc-leaf > a[aria-current="location"] {
+.toc-leaf > a[aria-current="location"],
+.toc-row > [aria-current="location"] {
   padding-left: var(--space-2);
-}
-
-@media (pointer: fine) {
-  .toc-leaf > a,
-  .toc-leaf > span {
-    min-height: 2.25rem;
-  }
 }
 
 /* Position in the book, under an entry. */
