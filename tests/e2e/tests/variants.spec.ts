@@ -56,6 +56,10 @@ function levelsLine(id: string) {
 /** Writes the active set directly, then reloads. Turning off 400 books one row at a time is
  * not what this spec is about. */
 async function onlyBooks(page: Page, active: string[]) {
+  // Leaving Home while it warms up the search index makes WebKit raise an uncatchable
+  // "Context is stopped" page error, so show Home and wait for it to go idle first (#273).
+  await page.goto("#/");
+  await waitHomeIdle(page);
   await writeMeta(
     page,
     "disabled_books",
