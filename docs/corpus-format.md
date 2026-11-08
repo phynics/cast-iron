@@ -157,12 +157,21 @@ add-on and revision entries from that publication take:
 id = "the-elephant-in-the-room"
 title = "The Elephant in the Room"
 copyright = "…"
+third_party = true
 suffix = "teitr"
 ```
 
 A suffix is one id segment (lowercase letters, digits, and hyphens) and must be unique across
 the corpus. `corpus-check` rejects a duplicate or an invalid one, and an add-on or revision
 that cannot name its publication's suffix.
+
+`third_party = true` marks a publication that Paizo did not publish. Absent means a Paizo
+book, and the canonical writer omits the field when it is false. The marker decides the
+"Third party" book tier and keeps the book out of every preset except
+"Everything incl. 3rd party". `corpus-check` rejects `third_party = true` beside a copyright
+line that names Paizo, because the two contradict each other. It does not require the marker
+when a copyright line omits Paizo: several Paizo books still have a pending Section 15
+notice, so absence is not evidence of a third-party publisher.
 
 ## `option-groups.toml`
 
@@ -533,6 +542,7 @@ file and line, when:
 - an add-on or revision does not take the id suffix its publication declares, or
   an id under an existing entry ends in a known suffix but holds no matching edge;
 - two publications share a suffix, or a suffix is not one id segment;
+- a publication is marked `third_party = true` but its copyright line names Paizo;
 - a body link or a `books.toml` anchor is not a heading key of the target entry
   (the message names the linking file, the target file and its headings, and
   the fix);

@@ -353,6 +353,16 @@ fn check_publication_notices(corpus: &Corpus, report: &mut Report) {
             ));
             continue;
         }
+        // Contradiction check only: a third-party marker beside a copyright line that names
+        // Paizo cannot be right. The corpus still has Paizo books whose notice is pending
+        // (#34) and whose copyright does not name Paizo, so a missing marker is not a
+        // problem: requiring one is a later change, after those notices are settled.
+        if publication.third_party && copyright.to_lowercase().contains("paizo") {
+            report.problems.push(format!(
+                "{at}: publication `{}` is marked `third_party = true` but its copyright names Paizo",
+                publication.id
+            ));
+        }
         let pending = corpus.legal.notice_pending.contains(&publication.title);
         let noticed = corpus.legal.section_15.iter().any(|notice| {
             let notice = notice.notice.trim();
@@ -1172,6 +1182,41 @@ mod tests {
     }
 
     #[test]
+    fn a_third_party_marker_is_rejected_beside_a_paizo_copyright() {
+        let mut c = corpus(vec![]);
+        c.publications[0].third_party = true;
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains(
+                "publication `core-rulebook` is marked `third_party = true` but its copyright names Paizo"
+            ),
+            "{text}"
+        );
+
+        // The name is matched regardless of case.
+        let mut c = corpus(vec![]);
+        c.publications[0].third_party = true;
+        c.publications[0].copyright = Some("Core Rulebook, (c) PAIZO Inc.".into());
+        c.legal.section_15[0].notice = "Core Rulebook, (c) PAIZO Inc.".into();
+        let text = check(&c).problems.join("\n");
+        assert!(text.contains("but its copyright names Paizo"), "{text}");
+
+        // A non-Paizo copyright with the marker is clean.
+        let mut c = corpus(vec![]);
+        c.publications[0].third_party = true;
+        c.publications[0].copyright = Some("Necromancer Games, (c) 2011".into());
+        c.legal.section_15[0].notice = "Necromancer Games, (c) 2011".into();
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+
+        // A copyright that does not name Paizo is not a problem without the marker: some
+        // Paizo books still have a pending notice.
+        let mut c = corpus(vec![]);
+        c.publications[0].copyright = Some("Necromancer Games, (c) 2011".into());
+        c.legal.section_15[0].notice = "Necromancer Games, (c) 2011".into();
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+    }
+
+    #[test]
     fn left_over_upstream_tokens_fail_and_html_entities_do_not() {
         let dirty = rule(
             "ref/rule/a",
@@ -1444,6 +1489,7 @@ mod tests {
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
+            third_party: false,
             suffix: suffix.map(str::to_string),
         });
     }

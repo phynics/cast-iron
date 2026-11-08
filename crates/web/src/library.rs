@@ -1,7 +1,7 @@
 //! Read access to the active library. Every read goes through the Cache API under the
 //! active version. There is no network fallback: a missing file is an error to show.
 
-use crate::book_presets::{self, Change, DefaultsAction};
+use crate::book_presets::{self, Change};
 use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
@@ -124,29 +124,56 @@ struct Inner {
     migration_refused: RwSignal<bool>,
 }
 
-/// The stored disabled set, after the first-run book default (`book_presets::defaults_action`).
+/// The stored disabled set, after the first-run book default (`book_presets::defaults_action`)
+/// and the third-party arrival rule.
 /// A new install gets the `Paizo Rulebooks` choice written once; every other profile reads what
-/// it stored, or an empty set (every book active) when it never stored anything.
+/// it stored, or an empty set (every book active) when it never stored anything. A third-party
+/// book that the profile has not seen before (#189) starts disabled, and the profile's set of
+/// seen third-party books is recorded so a later update can tell an arrival from a choice.
 async fn settle_first_run_defaults(
     sources: &[SourceInfo],
 ) -> Result<BTreeSet<String>, LibraryError> {
     let selection = |e: store::StoreError| LibraryError::BookSelection(e.to_string());
     let marker = store::book_defaults_marker().await.map_err(selection)?;
     let stored = store::stored_disabled_books().await.map_err(selection)?;
+    let known_third_party = store::known_third_party().await.map_err(selection)?;
     let books = book_presets::books_of(sources);
-    match book_presets::defaults_action(marker.as_deref(), stored.is_some(), &books) {
-        DefaultsAction::Nothing => Ok(stored.unwrap_or_default()),
-        DefaultsAction::Settle => {
-            store::settle_book_defaults(None).await.map_err(selection)?;
-            Ok(stored.unwrap_or_default())
-        }
-        DefaultsAction::Seed(disabled) => {
-            store::settle_book_defaults(Some(&disabled))
+    let settled = book_presets::settle_books(
+        marker.as_deref(),
+        stored.as_ref(),
+        known_third_party.as_ref(),
+        &books,
+    );
+    // This runs inside `Library::load`, before the `Library` handle exists, so no selection
+    // write from the UI can overlap it. `apply_active_plan`'s in-flight flag guards writes
+    // that the reader starts; there is nothing to guard here. Two tabs that load at once can
+    // still race on `disabled_books`, exactly as the first-run seed already could: both
+    // compute the same set for the same catalog, so the last write is the same choice.
+    if settled.settle_marker {
+        store::settle_book_defaults(Some(&settled.disabled))
+            .await
+            .map_err(selection)?;
+    } else {
+        let changed = stored
+            .as_ref()
+            .map_or(!settled.disabled.is_empty(), |stored| {
+                stored != &settled.disabled
+            });
+        if changed {
+            store::set_disabled_books(&settled.disabled)
                 .await
                 .map_err(selection)?;
-            Ok(disabled)
         }
     }
+    if known_third_party.as_ref() != Some(&settled.known_third_party) {
+        store::set_known_third_party(&settled.known_third_party)
+            .await
+            .map_err(selection)?;
+    }
+    if settled.notice {
+        store::queue_third_party_notice().await.map_err(selection)?;
+    }
+    Ok(settled.disabled)
 }
 
 /// True when the manifest lists `name` in the version directory. Libraries of schema 1 and 2

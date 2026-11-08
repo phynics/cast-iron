@@ -79,6 +79,7 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
+            third_party: false,
             suffix: None,
         }],
         option_groups: Default::default(),

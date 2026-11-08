@@ -11,12 +11,7 @@ use cast_iron_search::NEUTRAL_SOURCE_RANK;
 pub fn source_ranks(sources: &[SourceInfo]) -> Vec<(&str, u8)> {
     sources
         .iter()
-        .map(|source| {
-            (
-                source.id.as_str(),
-                Tier::from_category(source.category.as_deref()).search_rank(),
-            )
-        })
+        .map(|source| (source.id.as_str(), Tier::of(source).search_rank()))
         .collect()
 }
 
@@ -50,15 +45,18 @@ pub enum Tier {
     /// `Miscellaneous`, any category this table does not know, and a publication with no
     /// reviewed category.
     Other,
+    /// A publication the corpus marks `third_party = true` (#189), whatever its category.
+    ThirdParty,
 }
 
 impl Tier {
-    pub const ALL: [Tier; 5] = [
+    pub const ALL: [Tier; 6] = [
         Tier::Rulebooks,
         Tier::PlayerCompanions,
         Tier::CampaignSetting,
         Tier::Adventures,
         Tier::Other,
+        Tier::ThirdParty,
     ];
 
     /// Every category value the table knows, with the tier that it belongs to. A value missing
@@ -74,8 +72,24 @@ impl Tier {
         ("Miscellaneous", Tier::Other),
     ];
 
+    /// The tier for a publication: the third-party marker first, else its category.
+    pub fn of(source: &SourceInfo) -> Tier {
+        Self::of_parts(source.third_party, source.category.as_deref())
+    }
+
+    /// [`Tier::of`] over the fields a list row keeps, so the Books and Manage books rows group
+    /// a marked book without holding a whole [`SourceInfo`].
+    pub fn of_parts(third_party: bool, category: Option<&str>) -> Tier {
+        if third_party {
+            Tier::ThirdParty
+        } else {
+            Self::from_category(category)
+        }
+    }
+
     /// The tier for a publication's category. `None` (no reviewed category) and any value that
-    /// is not in [`Tier::CATEGORIES`] are Other.
+    /// is not in [`Tier::CATEGORIES`] are Other. This ignores the third-party marker; use
+    /// [`Tier::of`] for a whole source.
     pub fn from_category(category: Option<&str>) -> Tier {
         match category {
             Some(value) => Self::CATEGORIES
@@ -86,17 +100,18 @@ impl Tier {
         }
     }
 
-    /// The tie-break rank that search uses: lower sorts first on equal relevance. It is the
-    /// tier's position in [`Tier::ALL`], so Rulebooks are 0. Other takes the search crate's
-    /// neutral rank, so a source with no reviewed category sorts like one that search has no
-    /// rank for. Search receives this number as plain data and never sees `Tier`.
+    /// The tie-break rank that search uses: lower sorts first on equal relevance. Rulebooks are
+    /// 0, and third-party books follow every Paizo tier. Other takes the search crate's neutral
+    /// rank, so a source with no reviewed category sorts like one that search has no rank for.
+    /// Search receives this number as plain data and never sees `Tier`.
     pub fn search_rank(self) -> u8 {
         match self {
+            Tier::Rulebooks => 0,
+            Tier::PlayerCompanions => 1,
+            Tier::CampaignSetting => 2,
+            Tier::Adventures => 3,
+            Tier::ThirdParty => 4,
             Tier::Other => NEUTRAL_SOURCE_RANK,
-            tier => Self::ALL
-                .iter()
-                .position(|known| *known == tier)
-                .map_or(NEUTRAL_SOURCE_RANK, |position| position as u8),
         }
     }
 
@@ -107,13 +122,14 @@ impl Tier {
             Tier::CampaignSetting => "Campaign Setting",
             Tier::Adventures => "Adventures",
             Tier::Other => "Other",
+            Tier::ThirdParty => "Third party",
         }
     }
 
-    /// Adventures start closed: there are many of them and they matter least. Every book in
-    /// every tier still starts active.
+    /// Adventures and third-party books start closed in the search Publication filter: there
+    /// are many adventures and they matter least, and third-party books are opt-in (#189).
     pub fn collapsed_by_default(self) -> bool {
-        self == Tier::Adventures
+        matches!(self, Tier::Adventures | Tier::ThirdParty)
     }
 
     /// On Books and Manage books only Rulebooks start open: the others are one tap away, and
@@ -216,21 +232,50 @@ mod tests {
             copyright: None,
             category: category.map(String::from),
             publication_date: None,
+            third_party: false,
         }
     }
 
-    /// Search ranks follow the tier order, with Other neutral. This ties the search tie-break
-    /// to the Books grouping: one table, `Tier::CATEGORIES`, feeds both.
+    /// Search ranks follow the tier order, with Other neutral and third-party last of the
+    /// ranked tiers. This ties the search tie-break to the Books grouping: one table,
+    /// `Tier::CATEGORIES`, feeds both.
     #[test]
     fn search_ranks_follow_the_tier_order_and_other_is_neutral() {
-        let ranks: Vec<u8> = Tier::ALL.iter().map(|tier| tier.search_rank()).collect();
-        assert_eq!(ranks, [0, 1, 2, 3, NEUTRAL_SOURCE_RANK]);
-        assert!(ranks.windows(2).all(|pair| pair[0] < pair[1]));
+        assert_eq!(
+            [
+                Tier::Rulebooks.search_rank(),
+                Tier::PlayerCompanions.search_rank(),
+                Tier::CampaignSetting.search_rank(),
+                Tier::Adventures.search_rank(),
+                Tier::ThirdParty.search_rank(),
+            ],
+            [0, 1, 2, 3, 4]
+        );
+        assert_eq!(Tier::Other.search_rank(), NEUTRAL_SOURCE_RANK);
+        assert_eq!(
+            Tier::ALL,
+            [
+                Tier::Rulebooks,
+                Tier::PlayerCompanions,
+                Tier::CampaignSetting,
+                Tier::Adventures,
+                Tier::Other,
+                Tier::ThirdParty
+            ]
+        );
         // Every category value in the table agrees with its tier.
         for (category, tier) in Tier::CATEGORIES {
             let sources = [source("x", Some(category))];
             assert_eq!(source_ranks(&sources), [("x", tier.search_rank())]);
         }
+        // The third-party marker wins over the category, and it is its own group.
+        let mut marked = source("indie", Some("RPG"));
+        marked.third_party = true;
+        assert_eq!(Tier::of(&marked), Tier::ThirdParty);
+        assert_eq!(source_ranks(&[marked]), [("indie", 4)]);
+        assert_eq!(Tier::ThirdParty.label(), "Third party");
+        assert!(Tier::ThirdParty.collapsed_by_default());
+        assert!(Tier::ThirdParty.is_disclosure());
     }
 
     #[test]
@@ -312,16 +357,18 @@ mod tests {
                 "Player Companions",
                 "Campaign Setting",
                 "Adventures",
-                "Other"
+                "Other",
+                "Third party"
             ]
         );
         assert!(Tier::Adventures.collapsed_by_default());
-        assert!(
+        assert!(Tier::ThirdParty.collapsed_by_default());
+        assert_eq!(
             Tier::ALL
                 .iter()
                 .filter(|tier| tier.collapsed_by_default())
-                .count()
-                == 1
+                .count(),
+            2
         );
     }
 

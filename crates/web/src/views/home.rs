@@ -101,12 +101,36 @@ pub fn Home() -> impl IntoView {
     let recent_expanded = RwSignal::new(false);
     let starred_library = library.clone();
     let title_ref = NodeRef::<leptos::html::H1>::new();
+    // The load that turns third-party books off for an existing profile queues this once
+    // (#189). Showing it retires the flag, so a reload does not repeat it.
+    let third_party_notice = RwSignal::new(false);
+    spawn_local(async move {
+        let pending = store::third_party_notice().await.ok().flatten().as_deref()
+            == Some(store::THIRD_PARTY_NOTICE_PENDING);
+        if pending {
+            third_party_notice.set(true);
+            let _ = store::settle_third_party_notice().await;
+        }
+    });
 
     view! {
         <div class="wide home-page" data-index-ready=move || index_ready.get().then_some("true")>
             <h1 id="home-title" tabindex="-1" node_ref=title_ref>"Your rules reference"</h1>
             <Show when=move || use_library().discovery().entries().next().is_none()>
                 <p class="notice">"No books are active. "<a href=Route::BooksManage.href()>"Open Manage books"</a>" to turn some on."</p>
+            </Show>
+            <Show when=move || third_party_notice.get()>
+                <p class="notice third-party-notice" role="status">
+                    "Third-party books are now off by default. Turn them on in "
+                    <a href=Route::BooksManage.href()>"Manage books"</a>". "
+                    <button
+                        class="btn btn-quiet"
+                        type="button"
+                        on:click=move |_| third_party_notice.set(false)
+                    >
+                        "Dismiss"
+                    </button>
+                </p>
             </Show>
             {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
             {move || match bookmarks.get() {

@@ -337,8 +337,9 @@ fn publication_toggle_action(
 /// selected publication forces its tier open, so a chosen filter is never hidden, and so does a
 /// non-empty name box, so its matches are seen. Otherwise the reader's answer applies, then the
 /// default: open when the tier has chips and is not collapsed by default. "Show all" opens a
-/// collapsed-by-default tier too, because it lists everything. An Adventures-only page opens
-/// Adventures and spends the budget on it, because a page of closed headings looks empty (#142).
+/// collapsed-by-default tier too, because it lists everything. A page whose only results are in
+/// one collapsed tier opens that tier and spends the budget on it, because a page of closed
+/// headings looks empty (#142). Adventures and third-party books are the collapsed tiers.
 fn publication_page(
     sources: &[SourceInfo],
     selected: &[String],
@@ -355,10 +356,13 @@ fn publication_page(
     let tiers_with_results: BTreeSet<Tier> = sources
         .iter()
         .filter(|s| count_of(&s.id) > 0)
-        .map(|s| Tier::from_category(s.category.as_deref()))
+        .map(Tier::of)
         .collect();
-    let adventures_only =
-        tiers_with_results.len() == 1 && tiers_with_results.contains(&Tier::Adventures);
+    let only_tier = if tiers_with_results.len() == 1 {
+        tiers_with_results.iter().next().copied()
+    } else {
+        None
+    };
     let matches = sources
         .iter()
         .filter(|s| count_of(&s.id) > 0 && name_matches(s))
@@ -371,13 +375,12 @@ fn publication_page(
     let expanded = |tier: Tier| {
         unlimited || (tier.is_disclosure() && choices.get(&tier).copied() == Some(true))
     };
-    // Adventures take no budget while another tier has results. Alone, they open and spend it,
-    // unless the reader closed them.
-    let adventures_default =
-        adventures_only && choices.get(&Tier::Adventures).copied() != Some(false);
-    let takes_budget = |tier: Tier| {
-        !tier.collapsed_by_default() || (tier == Tier::Adventures && adventures_default)
-    };
+    // A single collapsed tier with results opens and spends the budget, unless the reader
+    // closed it.
+    let one_tier_default = only_tier
+        .filter(|tier| tier.collapsed_by_default())
+        .filter(|tier| choices.get(tier).copied() != Some(false));
+    let takes_budget = |tier: Tier| !tier.collapsed_by_default() || Some(tier) == one_tier_default;
 
     // Candidates by tier: pinned selections, plus every publication with results that the name
     // box matches. Selected first, then count, then title.
@@ -387,7 +390,7 @@ fn publication_page(
             let count = count_of(&source.id);
             let pinned = selected_set.contains(source.id.as_str());
             (pinned || (count > 0 && name_matches(source))).then(|| {
-                let tier = Tier::from_category(source.category.as_deref());
+                let tier = Tier::of(source);
                 (tier, source, count, pinned)
             })
         })
@@ -862,11 +865,7 @@ pub fn Search() -> impl IntoView {
                                 .and_then(|id| library.canonical_source_for_entry(&id))
                                 .unwrap_or_else(|| hit.source.clone())
                         },
-                        |id| {
-                            library.source(id).map_or(Tier::Other, |source| {
-                                Tier::from_category(source.category.as_deref())
-                            })
-                        },
+                        |id| library.source(id).map_or(Tier::Other, Tier::of),
                     )
                 } else {
                     None
@@ -1741,11 +1740,7 @@ fn hit_view(
         &hit.source,
         canonical.as_deref(),
         |id| library.book_active(id),
-        |id| {
-            library.source(id).map_or(Tier::Other, |source| {
-                Tier::from_category(source.category.as_deref())
-            })
-        },
+        |id| library.source(id).map_or(Tier::Other, Tier::of),
     );
     let source = library
         .source(source_id)
@@ -2091,6 +2086,7 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            third_party: false,
         }
     }
 
@@ -2324,6 +2320,32 @@ mod tests {
     }
 
     #[test]
+    fn a_marked_book_is_its_own_group_after_every_paizo_tier() {
+        let sources = [
+            in_tier("core", "Core", "RPG"),
+            SourceInfo {
+                id: "indie".into(),
+                title: "Indie".into(),
+                entry_count: 0,
+                copyright: None,
+                // The marker wins over a Paizo category.
+                category: Some("RPG".into()),
+                publication_date: None,
+                third_party: true,
+            },
+        ];
+        let counts = [("core", 3), ("indie", 2)];
+        let page = page_of(&sources, &counts, &[], "", true);
+        let tiers: Vec<Tier> = page.groups.iter().map(|group| group.tier).collect();
+        assert_eq!(tiers, [Tier::Rulebooks, Tier::ThirdParty]);
+        assert_eq!(group_ids(&page, Tier::ThirdParty), ["indie"]);
+        assert_eq!(
+            page.group(Tier::ThirdParty).unwrap().heading(),
+            "Third party (1)"
+        );
+    }
+
+    #[test]
     fn a_selected_publication_leads_its_own_tier_only() {
         let sources = [
             in_tier("big", "Big Rulebook", "RPG"),
@@ -2467,7 +2489,8 @@ mod tests {
     fn a_broad_query_shows_rulebook_chips_and_a_closed_heading_for_every_other_tier() {
         let page = broad_page(&[], "", false, &[]);
         let tiers: Vec<Tier> = page.groups.iter().map(|group| group.tier).collect();
-        assert_eq!(tiers, Tier::ALL);
+        // This library has no third-party book, so that group is absent.
+        assert_eq!(tiers, Tier::ALL[..5].to_vec());
         let headings: Vec<String> = page.groups.iter().map(PublicationGroup::heading).collect();
         assert_eq!(
             headings,
@@ -2480,7 +2503,7 @@ mod tests {
             ]
         );
         assert_eq!(group_ids(&page, Tier::Rulebooks).len(), PUBLICATION_TOP);
-        for tier in &Tier::ALL[1..] {
+        for tier in &Tier::ALL[1..5] {
             let group = page.group(*tier).unwrap();
             assert!(group.ids.is_empty(), "{tier:?} has no chip");
             assert!(!group.open, "{tier:?} starts closed");
@@ -2728,6 +2751,33 @@ mod tests {
         assert!(adventures.ids.is_empty());
         assert_eq!(page.shown_with_results, 0);
         assert_eq!(page.more, 15);
+    }
+
+    #[test]
+    fn a_third_party_only_page_opens_third_party_and_spends_the_budget() {
+        let mut sources = many("tp", "RPG", 15);
+        for source in &mut sources {
+            source.third_party = true;
+        }
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let third_party = page.group(Tier::ThirdParty).expect("a third-party group");
+        assert!(third_party.open, "the only tier with results opens");
+        assert_eq!(third_party.ids.len(), PUBLICATION_TOP);
+        assert_eq!(third_party.heading(), "Third party (12 of 15)");
+        assert_eq!(page.shown_with_results, PUBLICATION_TOP);
+        // A reader who closed the group keeps it closed.
+        let page = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::ThirdParty, false)],
+        );
+        let third_party = page.group(Tier::ThirdParty).unwrap();
+        assert!(!third_party.open);
+        assert!(third_party.ids.is_empty());
     }
 
     #[test]

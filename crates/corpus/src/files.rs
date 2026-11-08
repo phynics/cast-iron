@@ -26,6 +26,10 @@ pub struct Publication {
     pub category: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// True when the publication is not published by Paizo. Absent means a Paizo book.
+    /// `corpus-check` rejects it beside a copyright line that names Paizo.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub third_party: bool,
     /// The id suffix that new add-on and revision entries from this publication take,
     /// such as `teitr`. Optional; a publication without one can still hold entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -40,6 +44,7 @@ impl Publication {
             copyright: source.copyright.clone(),
             category: source.category.clone(),
             publication_date: source.publication_date.clone(),
+            third_party: source.third_party,
             suffix: None,
         }
     }
@@ -52,6 +57,7 @@ impl Publication {
             copyright: self.copyright.clone(),
             category: self.category.clone(),
             publication_date: self.publication_date.clone(),
+            third_party: self.third_party,
         }
     }
 }
@@ -279,12 +285,51 @@ mod tests {
             copyright: Some("notice".into()),
             category: Some("RPG".into()),
             publication_date: Some("2009-08-01".into()),
+            third_party: false,
         }];
         let text = write_publications(&sources);
         assert!(!text.contains("entry_count"));
+        assert!(!text.contains("third_party"), "{text}");
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read[0].to_source(42), sources[0]);
         assert_eq!(read[0].suffix, None);
+        assert!(!read[0].third_party, "an absent marker means a Paizo book");
+    }
+
+    #[test]
+    fn the_third_party_marker_round_trips_in_canonical_order() {
+        let publication = Publication {
+            id: "tome-of-horrors".into(),
+            title: "Tome of Horrors".into(),
+            copyright: Some("Necromancer Games, (c) 2011".into()),
+            category: None,
+            publication_date: Some("2011-01-01".into()),
+            third_party: true,
+            suffix: Some("toh".into()),
+        };
+        let text = write_publication_list(std::slice::from_ref(&publication));
+        assert!(text.contains("third_party = true"), "{text}");
+        // The marker sits after the reviewed metadata and before the suffix.
+        let order = |key: &str| {
+            text.find(key)
+                .unwrap_or_else(|| panic!("no {key} in {text}"))
+        };
+        assert!(order("publication_date") < order("third_party"), "{text}");
+        assert!(order("third_party") < order("suffix"), "{text}");
+        let read = read_publications(Path::new("publications.toml"), &text).unwrap();
+        assert_eq!(read, vec![publication.clone()]);
+        assert_eq!(
+            read[0].to_source(0),
+            SourceInfo {
+                id: "tome-of-horrors".into(),
+                title: "Tome of Horrors".into(),
+                entry_count: 0,
+                copyright: Some("Necromancer Games, (c) 2011".into()),
+                category: None,
+                publication_date: Some("2011-01-01".into()),
+                third_party: true,
+            }
+        );
     }
 
     #[test]
@@ -295,6 +340,7 @@ mod tests {
             copyright: Some("notice".into()),
             category: None,
             publication_date: None,
+            third_party: false,
             suffix: Some("teitr".into()),
         };
         let text = write_publication_list(std::slice::from_ref(&publication));

@@ -1165,6 +1165,13 @@ pub struct SourceInfo {
     /// text, so no timestamp or locale parsing is needed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// True when the publication is not published by Paizo, from the corpus
+    /// `third_party` marker in `publications.toml`.
+    ///
+    /// Optional and additive, like [`Self::category`]: an older catalog has no field, and
+    /// a source without it is a Paizo book. Serialized only when true.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub third_party: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1615,6 +1622,10 @@ mod tests {
         let catalog: Catalog = serde_json::from_str(old).unwrap();
         assert_eq!(catalog.sources[0].category, None);
         assert_eq!(catalog.sources[0].publication_date, None);
+        assert!(
+            !catalog.sources[0].third_party,
+            "an absent marker means a Paizo book"
+        );
 
         // A newer catalog carries the fields, and an older reader ignores them because
         // neither Catalog nor SourceInfo denies unknown fields.
@@ -1635,10 +1646,32 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            third_party: false,
         };
         let json = serde_json::to_string(&empty).unwrap();
         assert!(!json.contains("category"));
         assert!(!json.contains("publication_date"));
+        assert!(!json.contains("\"third_party\""), "{json}");
+        let parsed: SourceInfo = serde_json::from_str(&json).unwrap();
+        assert!(!parsed.third_party);
+
+        // A marked source round-trips, and the field keeps the documented order: after the
+        // reviewed metadata.
+        let marked = SourceInfo {
+            category: Some("RPG".into()),
+            publication_date: Some("2011-01-01".into()),
+            third_party: true,
+            ..empty
+        };
+        let json = serde_json::to_string(&marked).unwrap();
+        assert!(json.contains(r#""third_party":true"#), "{json}");
+        let order = |key: &str| {
+            json.find(key)
+                .unwrap_or_else(|| panic!("no {key} in {json}"))
+        };
+        assert!(order("publication_date") < order("third_party"), "{json}");
+        let read: SourceInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(read, marked);
     }
 
     #[test]

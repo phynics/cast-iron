@@ -332,7 +332,7 @@ impl SpellRow {
         let source = library
             .canonical_source_for_entry(spell.id)
             .and_then(|id| library.source(&id).cloned());
-        let tier = Tier::from_category(source.as_ref().and_then(|s| s.category.as_deref()));
+        let tier = source.as_ref().map_or(Tier::Other, Tier::of);
         let book = source.as_ref().map(|s| s.title.as_str());
         Self {
             id: spell.id.clone(),

@@ -332,6 +332,8 @@ pub struct BookListEntry {
     pub category: Option<String>,
     pub publication_date: Option<String>,
     pub count: usize,
+    /// The corpus third-party marker (#189). It outweighs the category when grouping.
+    pub third_party: bool,
 }
 
 /// One displayed group of publications: a priority tier and the books in it, in display order.
@@ -361,7 +363,10 @@ pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
         .into_iter()
         .filter_map(|tier| {
             let mut indices: Vec<usize> = (0..books.len())
-                .filter(|&index| Tier::from_category(books[index].category.as_deref()) == tier)
+                .filter(|&index| {
+                    Tier::of_parts(books[index].third_party, books[index].category.as_deref())
+                        == tier
+                })
                 .collect();
             if indices.is_empty() {
                 return None;
@@ -445,6 +450,7 @@ pub fn Books() -> impl IntoView {
             category: source.category.clone(),
             publication_date: source.publication_date.clone(),
             count: counts.get(&source.id).copied().unwrap_or(0),
+            third_party: source.third_party,
         })
         .collect();
     let total = rows.len();
@@ -2219,6 +2225,7 @@ mod tests {
             category: category.map(str::to_string),
             publication_date: date.map(str::to_string),
             count: 0,
+            third_party: false,
         }
     }
 
@@ -2266,6 +2273,21 @@ mod tests {
         );
         let all: usize = groups.iter().map(|group| group.books.len()).sum();
         assert_eq!(all, books.len(), "no book is dropped");
+    }
+
+    #[test]
+    fn a_marked_book_groups_last_whatever_its_category() {
+        let mut indie = book("indie", "Indie", Some("RPG"), None);
+        indie.third_party = true;
+        let books = vec![book("core", "Core", Some("RPG"), None), indie];
+        let groups = book_groups(&books);
+        assert_eq!(tiers_of(&groups), [Tier::Rulebooks, Tier::ThirdParty]);
+        assert_eq!(
+            groups[1].books,
+            vec![1],
+            "the marker outweighs the category"
+        );
+        assert!(Tier::ThirdParty.collapsed_by_default());
     }
 
     #[test]
