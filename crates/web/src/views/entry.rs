@@ -1,5 +1,6 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
+use crate::class_options;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::route::{self, Route};
@@ -136,6 +137,18 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
             match fetch_library.discovery().spell_lists().await {
                 Ok(found) => indexes.spell_lists = found,
                 Err(error) => leptos::logging::warn!("spell list panel is off: {error}"),
+            }
+        }
+        if wanted.option_groups {
+            match fetch_library.option_groups().await {
+                Ok(found) => indexes.option_groups = found,
+                Err(error) => leptos::logging::warn!("class-option groups are off: {error}"),
+            }
+        }
+        if wanted.replaces {
+            match fetch_library.replaces().await {
+                Ok(found) => indexes.replaces = found,
+                Err(error) => leptos::logging::warn!("replacement lines are off: {error}"),
             }
         }
         Ok::<_, crate::library::LibraryError>((entry, indexes))
@@ -367,6 +380,42 @@ fn EntryView(
     } else {
         Route::browse_kind(kind)
     };
+    // A class option's metadata line names its group, and links the class when the group has
+    // exactly one. A group shared by several classes has no single class to link.
+    let class_option_group = indexes
+        .option_groups
+        .as_ref()
+        .and_then(|index| class_options::group_of(index, &entry.id))
+        .cloned();
+    let kind_meta = match &class_option_group {
+        Some(group) => {
+            let route = Route::browse_kind_facets(
+                EntryKind::ClassOption,
+                vec![("group".to_string(), group.slug.clone())],
+            );
+            let class_link = (group.classes.len() == 1)
+                .then(|| {
+                    let class = group.classes.first()?;
+                    let title = library
+                        .stub(class)
+                        .map_or_else(|| class.to_string(), |stub| stub.title.clone());
+                    Some(view! {
+                        <span class="meta-sep" aria-hidden="true">"·"</span>
+                        <a class="meta-link" href=Route::entry(class.clone()).href()>{title}</a>
+                    })
+                })
+                .flatten();
+            view! {
+                <a class="meta-link" href=route.href()>{group.singular.clone()}</a>
+                {class_link}
+            }
+            .into_any()
+        }
+        None => view! {
+            <a class="meta-link" href=category_route.href()>{kind_name(kind)}</a>
+        }
+        .into_any(),
+    };
     let disabled_book = !library.is_entry_active(&entry.id);
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
@@ -383,7 +432,7 @@ fn EntryView(
                 <EntryStar id=entry.id.clone() title=plain_title kind />
             </div>
             <div class="entry-meta">
-                <a class="meta-link" href=category_route.href()>{kind_name(kind)}</a>
+                {kind_meta}
                 {first_source}
                 {more_sources}
                 {mythic_version}

@@ -407,18 +407,29 @@ fn watch_suggestions(quick: QuickSearch) {
                 return;
             };
             // A mythic suggestion names its label instead of the kind while its base's book may
-            // be inactive, so the labels read the whole graph.
+            // be inactive, so the labels read the whole graph. A class option names its group,
+            // which comes from the small derived index.
             let relations = library.relations().await.ok().flatten();
+            let option_groups = library.option_groups().await.ok().flatten();
             let hits = shortest_completion_first(hits, &typed);
             let list: Vec<Suggestion> = dedupe_hits(hits, MAX_SUGGESTIONS)
                 .into_iter()
                 .filter_map(|hit| {
                     let id = EntryId::parse(hit.id.clone()).ok()?;
                     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
-                    let row_kind = relations
+                    let addon = relations
                         .as_ref()
                         .and_then(|relations| relations.addon_label(&id))
-                        .map_or(kind, addon_name);
+                        .map(addon_name);
+                    let group = option_groups
+                        .as_ref()
+                        .and_then(|index| crate::class_options::group_of(index, &id))
+                        .map(|group| group.singular.as_str());
+                    let row_kind = match (addon, group) {
+                        (Some(label), _) => label,
+                        (None, Some(group)) => group,
+                        (None, None) => kind,
+                    };
                     // The index records one attribution source. When it is inactive, the entry's
                     // book placement is the source that kept it eligible, so name that instead
                     // (the same rule as the search result rows).

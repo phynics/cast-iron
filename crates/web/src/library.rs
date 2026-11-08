@@ -11,8 +11,9 @@ use crate::views::book_tier::source_ranks;
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
-    EntryStub, LegalNotices, RELATIONS_FILE, RelationIndex, RetirementReason, RuleEntry,
-    SPELL_LISTS_FILE, SourceInfo, SpellLists, backlink_shard, backlink_shard_path,
+    EntryStub, LegalNotices, OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE,
+    RelationIndex, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
+    SpellLists, backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -100,6 +101,11 @@ struct Inner {
     relations: RefCell<Option<Option<Rc<Relations>>>>,
     spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
     books: RefCell<Option<Option<Rc<BookLookup>>>>,
+    /// Schema-4 class-option groups. The outer `Option` is "not loaded yet"; the inner one is
+    /// "this library has no such file".
+    option_groups: RefCell<Option<Option<Rc<OptionGroupIndex>>>>,
+    /// Schema-4 typed replacements for archetypes and class options.
+    replaces: RefCell<Option<Option<Rc<ReplacesIndex>>>>,
     /// The optional reverse body-link descriptor. The outer `Option` is "not loaded yet";
     /// the inner one is "this library has no such file".
     backlinks: RefCell<Option<Option<Rc<BacklinkIndex>>>>,
@@ -221,6 +227,8 @@ impl Library {
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
             books: RefCell::new(Some(books)),
+            option_groups: RefCell::new(None),
+            replaces: RefCell::new(None),
             backlinks: RefCell::new(None),
             backlink_shards: RefCell::new(Lru::new(BACKLINK_SHARD_CACHE)),
             disabled_books: RefCell::new(disabled_books),
@@ -238,6 +246,15 @@ impl Library {
                 leptos::logging::warn!("the saved-item id conversion was refused: {error}");
             }
             library.0.migration_refused.set(true);
+        }
+        // A kind can change between library versions (class options were `rule` before schema
+        // 4). The stored snapshot is only a fallback for an entry the library no longer holds,
+        // but keep it true while the entry is here.
+        let kinds = library.clone();
+        if let Err(error) =
+            store::refresh_bookmark_kinds(|id| kinds.stub(id).map(|stub| stub.kind)).await
+        {
+            leptos::logging::warn!("the bookmark kind snapshots were not refreshed: {error}");
         }
         Ok(library)
     }
@@ -594,6 +611,26 @@ impl Library {
     pub async fn books(&self) -> Result<Option<Rc<BookLookup>>, LibraryError> {
         self.lazy(&self.0.books, BOOKS_FILE, |index: BookIndex| {
             BookLookup::new(index)
+        })
+        .await
+    }
+
+    /// The declared class-option groups and the entries each holds. `Ok(None)` for a library
+    /// without `option-groups.json`, which is every schema-3 library.
+    pub async fn option_groups(&self) -> Result<Option<Rc<OptionGroupIndex>>, LibraryError> {
+        self.lazy(
+            &self.0.option_groups,
+            OPTION_GROUPS_FILE,
+            |index: OptionGroupIndex| index,
+        )
+        .await
+    }
+
+    /// The printed items that archetypes and class options replace. `Ok(None)` for a library
+    /// without `replaces.json`.
+    pub async fn replaces(&self) -> Result<Option<Rc<ReplacesIndex>>, LibraryError> {
+        self.lazy(&self.0.replaces, REPLACES_FILE, |index: ReplacesIndex| {
+            index
         })
         .await
     }

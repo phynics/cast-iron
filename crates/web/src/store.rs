@@ -535,6 +535,44 @@ pub async fn put_bookmark(bookmark: &Bookmark) -> Result<()> {
     tx.finish().await
 }
 
+/// The rows whose stored kind no longer matches the library. An entry the catalog lacks, or a
+/// row whose kind already matches, is left alone.
+fn refreshed_kinds(
+    bookmarks: &[Bookmark],
+    kind_of: impl Fn(&EntryId) -> Option<EntryKind>,
+) -> Vec<Bookmark> {
+    bookmarks
+        .iter()
+        .filter_map(|bookmark| {
+            let kind = kind_of(&bookmark.entry_id)?;
+            if kind == bookmark.kind {
+                return None;
+            }
+            let mut updated = bookmark.clone();
+            updated.kind = kind;
+            Some(updated)
+        })
+        .collect()
+}
+
+/// Rewrites the stored kind snapshot of every bookmark whose entry's kind changed. A kind is
+/// not a permanent contract (class options were `rule` before schema 4), so a star made by an
+/// older library would otherwise keep the old label after its entry went missing.
+pub async fn refresh_bookmark_kinds(
+    kind_of: impl Fn(&EntryId) -> Option<EntryKind>,
+) -> Result<usize> {
+    let tx = Tx::begin(&[BOOKMARKS], true).await?;
+    let store = tx.store(BOOKMARKS)?;
+    let all = request(store.get_all().map_err(Into::into)).await?;
+    let bookmarks = from_js_all::<Bookmark>(all);
+    let updates = refreshed_kinds(&bookmarks, kind_of);
+    for bookmark in &updates {
+        request(store.put(&to_js(bookmark)?).map_err(Into::into)).await?;
+    }
+    tx.finish().await?;
+    Ok(updates.len())
+}
+
 /// Atomically merges a previously validated batch; existing records are never replaced.
 pub async fn merge_bookmarks(incoming: &[Bookmark]) -> Result<usize> {
     let tx = Tx::begin(&[BOOKMARKS], true).await?;
@@ -1010,6 +1048,29 @@ mod tests {
 
     fn bookmark(id: &str, at: f64) -> Bookmark {
         Bookmark::new(EntryId::parse(id).unwrap(), id, EntryKind::Spell, at)
+    }
+
+    #[test]
+    fn a_kind_snapshot_refreshes_only_where_the_library_disagrees() {
+        let mut option = bookmark("ref/arcanedisc/arcane-builder", 2.0);
+        option.kind = EntryKind::Rule;
+        let spell = bookmark("ref/spell/fireball", 1.0);
+        let gone = bookmark("ref/rule/missing", 3.0);
+        let rows = [option.clone(), spell.clone(), gone.clone()];
+        let updates = refreshed_kinds(&rows, |id| match id.as_str() {
+            "ref/arcanedisc/arcane-builder" => Some(EntryKind::ClassOption),
+            "ref/spell/fireball" => Some(EntryKind::Spell),
+            _ => None,
+        });
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].entry_id, option.entry_id);
+        assert_eq!(updates[0].kind, EntryKind::ClassOption);
+        // The stored title and time are not a kind question.
+        assert_eq!(updates[0].title_snapshot, option.title_snapshot);
+        assert_eq!(updates[0].added_at, option.added_at);
+        // A row the library lacks and a row that already agrees stay untouched.
+        assert!(refreshed_kinds(&rows, |_| None).is_empty());
+        assert!(refreshed_kinds(&[spell], |_| Some(EntryKind::Spell)).is_empty());
     }
 
     #[test]

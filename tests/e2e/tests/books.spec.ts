@@ -325,6 +325,7 @@ test("A book page links each kind it holds to the kind list filtered to the book
     ["feat", "Feats"],
     ["class", "Classes"],
     ["prestige_class", "Prestige classes"],
+    ["class_option", "Class options"],
     ["race", "Races"],
     ["trait", "Traits"],
     ["item", "Items"],

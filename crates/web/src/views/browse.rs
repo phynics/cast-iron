@@ -2,6 +2,7 @@
 //! A to Z lists, the rules hierarchy, and the old publication page for libraries without books.
 
 use crate::book_presets;
+use crate::class_options;
 use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{Route, navigate, replace};
@@ -22,9 +23,10 @@ use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
     local_resource, set_title, sort_key,
 };
-use cast_iron_schema::{EntryId, EntryKind, EntryStub};
+use cast_iron_schema::{EntryId, EntryKind, EntryStub, OptionGroupIndex};
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -215,6 +217,51 @@ fn feat_row(
     view! {
         <li>
             <a href=Route::entry(stub.id.clone()).href()>{stub.title.clone()}{mark}</a>
+            {move || detail().map(|text| view! { <span class="muted row-source">{text}</span> })}
+        </li>
+    }
+}
+
+/// The class-option group index while it loads. The outer `Option` is "not loaded yet"; the
+/// inner one is "this library has no `option-groups.json`".
+type OptionGroups = ReadSignal<Option<Option<Rc<OptionGroupIndex>>>, LocalStorage>;
+
+/// A class-option row: the title, then `{book}` while the group filter is on, or
+/// `{Group singular} · {book}` in the whole list.
+fn class_option_row(
+    stub: &EntryStub,
+    book: Option<String>,
+    show_source: bool,
+    groups: OptionGroups,
+    group_selected: bool,
+) -> impl IntoView + use<> {
+    let id = stub.id.clone();
+    let detail_id = id.clone();
+    let detail = move || {
+        // Like every other row, the book line appears only when the list spans books. A
+        // book-filtered list already names its book once, in the pill.
+        if !show_source {
+            return None;
+        }
+        let book = book.clone().unwrap_or_else(|| "Other".to_string());
+        if group_selected {
+            return Some(book);
+        }
+        groups.with(|loaded| {
+            let singular = loaded
+                .as_ref()
+                .and_then(|index| index.as_ref())
+                .and_then(|index| class_options::group_of(index, &detail_id))
+                .map(|group| group.singular.clone());
+            match singular {
+                Some(singular) => Some(format!("{singular} · {book}")),
+                None => Some(book),
+            }
+        })
+    };
+    view! {
+        <li>
+            <a href=Route::entry(id).href()>{stub.title.clone()}</a>
             {move || detail().map(|text| view! { <span class="muted row-source">{text}</span> })}
         </li>
     }
@@ -743,6 +790,114 @@ fn filter_menu(
     )
 }
 
+/// The class-option group menu. Its choices and labels come from `option-groups.json`, because
+/// the search index has no `group` field: a slug such as `arcane-discovery` does not print as
+/// `Arcane discoveries`. A group with no option in the active books is left out, except the one
+/// the URL selects, so the button can still name it.
+fn class_option_menu(
+    library: &Library,
+    kind: EntryKind,
+    spec: MenuSpec,
+    applied: &[(String, String)],
+    source: Option<String>,
+    focus: bool,
+) -> (AnyView, AnyView) {
+    let wanted = applied
+        .iter()
+        .find(|(field, _)| field == spec.field)
+        .map(|(_, value)| value.clone());
+    let applied_for_values = applied.to_vec();
+    let source_for_values = source.clone();
+    let wanted_for_values = wanted.clone();
+    let values: ReadSignal<Option<Result<Vec<MenuOption>, LibraryError>>, LocalStorage> = {
+        let library = library.clone();
+        local_resource(async move {
+            let Some(index) = library.option_groups().await? else {
+                return Ok(Vec::new());
+            };
+            let discovery = library.discovery();
+            let mut options: Vec<MenuOption> = index
+                .groups
+                .iter()
+                .filter_map(|group| {
+                    let count = group
+                        .entries
+                        .iter()
+                        .filter(|id| discovery.is_eligible(id.as_str()))
+                        .count();
+                    if count == 0 && wanted_for_values.as_deref() != Some(group.slug.as_str()) {
+                        return None;
+                    }
+                    Some(MenuOption {
+                        value: group.slug.clone(),
+                        label: group.label.clone(),
+                        count: u32::try_from(count).unwrap_or(u32::MAX),
+                        href: Route::browse_kind_facets(
+                            kind,
+                            facets_with(&applied_for_values, spec.field, Some(group.slug.as_str())),
+                        )
+                        .with_source(source_for_values.clone())
+                        .href(),
+                    })
+                })
+                .collect();
+            options.sort_by_key(|option| option.label.to_lowercase());
+            Ok(options)
+        })
+    };
+    let state = MenuState::new();
+    let value_for_text = wanted.clone();
+    let text = Signal::derive(move || {
+        values.with(|loaded| match loaded {
+            None => None,
+            Some(Err(_)) => Some(trigger_text(&spec, None)),
+            Some(Ok(options)) => Some(trigger_text(
+                &spec,
+                current_option(options, value_for_text.as_deref()),
+            )),
+        })
+    });
+    let value_for_narrowed = wanted.clone();
+    let narrowed = Signal::derive(move || {
+        values.with(|loaded| match loaded {
+            Some(Ok(options)) => current_option(options, value_for_narrowed.as_deref()).is_some(),
+            _ => false,
+        })
+    });
+    let all_href = Route::browse_kind_facets(kind, facets_with(applied, spec.field, None))
+        .with_source(source)
+        .href();
+    let button = move || {
+        values.with(|loaded| match loaded {
+            Some(Err(_)) => None,
+            Some(Ok(options)) if options.is_empty() => None,
+            _ => Some(view! { <FilterMenuButton spec state text narrowed focus /> }),
+        })
+    };
+    let panel = move || {
+        values.with(|loaded| {
+            match loaded {
+            Some(Ok(options)) if !options.is_empty() => Some(
+                view! {
+                    <FilterMenuPanel spec state options=options.clone() current=wanted.clone()
+                        all_href=all_href.clone() />
+                }
+                .into_any(),
+            ),
+            Some(Err(_)) => Some(
+                view! { <p class="hint">"The filters could not be loaded. Search still works."</p> }
+                    .into_any(),
+            ),
+            _ => None,
+        }
+        })
+    };
+    (
+        view! { <div class="filter-menu">{button}</div> }.into_any(),
+        panel.into_any(),
+    )
+}
+
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
 /// links on the right, and each menu's panel under the row. Races keep their pills (the old
 /// lens) until the library has group data (#196).
@@ -770,8 +925,13 @@ fn Lenses(
             Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
                 let menu_focus = focus == Some(spec.field);
-                let (button, panel) =
-                    filter_menu(&library, kind, spec, &applied, source.clone(), menu_focus);
+                let (button, panel) = if kind == EntryKind::ClassOption
+                    && spec.field == categories::CLASS_OPTION_GROUP_MENU.field
+                {
+                    class_option_menu(&library, kind, spec, &applied, source.clone(), menu_focus)
+                } else {
+                    filter_menu(&library, kind, spec, &applied, source.clone(), menu_focus)
+                };
                 buttons.push(button);
                 panels.push(panel);
             }
@@ -994,6 +1154,11 @@ fn AzList(
     stubs: Vec<EntryStub>,
     source_titles: Vec<Option<String>>,
     show_source: bool,
+    /// The class-option groups, so a row can name its group when the list is not filtered.
+    /// `None` for every other kind.
+    class_option_groups: Option<OptionGroups>,
+    /// True while a group filter is on: each option row then shows only its book.
+    class_option_group_selected: bool,
     selected: Option<char>,
     focus: bool,
 ) -> impl IntoView {
@@ -1060,9 +1225,19 @@ fn AzList(
                         .push(view! { <li><SourceVariants group=group.clone() /></li> }.into_any());
                 } else {
                     let source = source_titles[i].clone();
-                    rendered.push(match marks {
-                        Some(marks) => feat_row(stub, source, show_source, marks).into_any(),
-                        None => entry_row(stub, show_source.then_some(source).flatten()).into_any(),
+                    rendered.push(match (marks, class_option_groups) {
+                        (Some(marks), _) => feat_row(stub, source, show_source, marks).into_any(),
+                        (None, Some(groups)) => class_option_row(
+                            stub,
+                            source,
+                            show_source,
+                            groups,
+                            class_option_group_selected,
+                        )
+                        .into_any(),
+                        (None, None) => {
+                            entry_row(stub, show_source.then_some(source).flatten()).into_any()
+                        }
                     });
                 }
             }
@@ -1227,6 +1402,16 @@ pub fn BrowseKind(
         .map(str::to_owned);
     let source_id = known.as_ref().map(|(id, _)| id.clone());
     let source_title = known.as_ref().map(|(_, title)| title.clone());
+    // A class page names itself when it opens a group that serves several classes. The value
+    // is a scope only: the group's options already apply to every class it serves.
+    let class_scope = (kind == EntryKind::ClassOption)
+        .then(|| {
+            facets
+                .iter()
+                .find(|(field, _)| field == "class_scope")
+                .map(|(_, value)| value.clone())
+        })
+        .flatten();
     // A book's set comes from the whole catalog, so a disabled book still lists what it holds.
     let all = Shared::new(match &source_id {
         Some(source) => sorted_of_kind_in_source(&library, kind, source),
@@ -1244,7 +1429,8 @@ pub fn BrowseKind(
         let stubs = all.to_vec();
         return view! {
             <BrowseList kind letter applied=applied source=source_id source_title
-                unknown stubs total=all.len() focus_menu focus_first />
+                unknown stubs total=all.len() focus_menu focus_first
+                class_scope=class_scope.clone().unwrap_or_default() />
         }
         .into_any();
     }
@@ -1261,6 +1447,29 @@ pub fn BrowseKind(
                 None
             };
             let discovery = library.discovery();
+            // A class option's group comes from `option-groups.json`, not the search index.
+            // A book filter keeps the book's whole set, so it reads the catalog, not the
+            // active-book snapshot.
+            if kind == EntryKind::ClassOption {
+                let groups = library.option_groups().await?.unwrap_or_default();
+                let mut ids: Option<HashSet<String>> = None;
+                for (field, value) in &applied {
+                    if field != "group" {
+                        continue;
+                    }
+                    let found = class_options::group_ids(&groups, value, |id| match &source {
+                        Some(source) => library
+                            .stub(id)
+                            .is_some_and(|stub| library.stub_is_in_source(stub, source)),
+                        None => discovery.is_eligible(id.as_str()),
+                    });
+                    ids = Some(match ids {
+                        None => found,
+                        Some(earlier) => earlier.intersection(&found).cloned().collect(),
+                    });
+                }
+                return Ok(ids.unwrap_or_default());
+            }
             let mut ids: Option<HashSet<String>> = None;
             for (field, value) in &applied {
                 let found: HashSet<String> = match &index {
@@ -1304,7 +1513,8 @@ pub fn BrowseKind(
                 view! {
                     <BrowseList kind letter applied=applied.clone() source=source_id.clone()
                         source_title=source_title.clone() unknown=unknown.clone() stubs
-                        total=all.len() focus_menu focus_first />
+                        total=all.len() focus_menu focus_first
+                        class_scope=class_scope.clone().unwrap_or_default() />
                 }
                 .into_any()
             }
@@ -1427,6 +1637,11 @@ fn BrowseList(
     /// True when the book pill was just removed: focus the first filter control.
     #[prop(optional)]
     focus_first: bool,
+    /// The class that opened a shared option group, named by a scope pill. It does not narrow
+    /// the group's options, which are the same for every class the group serves. Empty when the
+    /// list has no class context.
+    #[prop(optional)]
+    class_scope: String,
     /// A short list under headings, in order: `(heading, entries)`. Without it the list is one
     /// A to Z list.
     #[prop(optional)]
@@ -1441,9 +1656,20 @@ fn BrowseList(
     let groups = group_by_letter(&titles);
     let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
     let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
+    // A class scope is part of the URL but not an applied facet, so the letter links and the
+    // letter-mismatch rewrite have to put it back beside the facets that narrow the list.
+    let mut letter_facets = applied.clone();
+    if !class_scope.is_empty()
+        && !letter_facets
+            .iter()
+            .any(|(field, _)| field == "class_scope")
+    {
+        letter_facets.push(("class_scope".to_string(), class_scope.clone()));
+    }
     // A letter the list does not have still renders the first group; make the URL match it.
     if letter.is_some() && requested.is_none() {
-        let route = Route::browse_kind_facets(kind, applied.clone()).with_source(source.clone());
+        let route =
+            Route::browse_kind_facets(kind, letter_facets.clone()).with_source(source.clone());
         Effect::new(move |_| replace(&route));
     }
     // Removing the book pill rebuilds this page; take focus after the route frame has moved it.
@@ -1453,7 +1679,7 @@ fn BrowseList(
     let letters: Vec<char> = groups.iter().map(|(letter, _)| *letter).collect();
     let jump = (count > GROUP_THRESHOLD).then(|| {
         view! {
-            <LetterNav kind facets=applied.clone() source=source.clone() letters=letters
+            <LetterNav kind facets=letter_facets.clone() source=source.clone() letters=letters
                 selected=selected />
         }
     });
@@ -1476,6 +1702,14 @@ fn BrowseList(
                 }))
             })
         });
+
+    // Class options carry their group on the entry, but the list page reads the small derived
+    // index so a row can name the group without opening a shard.
+    let class_option_groups: Option<OptionGroups> = (kind == EntryKind::ClassOption).then(|| {
+        let library = library.clone();
+        local_resource(async move { library.option_groups().await.ok().flatten() })
+    });
+    let class_option_group_selected = applied.iter().any(|(field, _)| field == "group");
 
     let sectioned = sections.is_some();
     let body = if count == 0
@@ -1523,8 +1757,9 @@ fn BrowseList(
                             {label}<span class="letter-count">{fmt::count(n)}</span>
                         </h2>
                         <AzList kind facets=Vec::new() source=None marks=None groups=Vec::new()
-                            stubs=group source_titles show_source=multi_source selected=None
-                            focus=false />
+                            stubs=group source_titles show_source=multi_source
+                            class_option_groups=None class_option_group_selected=false
+                            selected=None focus=false />
                     </section>
                 }
             })
@@ -1544,7 +1779,10 @@ fn BrowseList(
             .collect();
         view! {
             <AzList kind facets=applied.clone() source=source.clone() marks groups
-                stubs=stubs.clone() source_titles show_source=multi_source selected=selected
+                stubs=stubs.clone() source_titles show_source=multi_source
+                class_option_groups=class_option_groups
+                class_option_group_selected=class_option_group_selected
+                selected=selected
                 focus=requested.is_some() && focus_menu.is_none() && !focus_first />
         }
         .into_any()
@@ -1570,11 +1808,33 @@ fn BrowseList(
     let remove_route = Route::BrowseKind {
         kind,
         letter,
-        facets: applied.clone(),
+        facets: letter_facets,
         source: None,
     };
     let pill = source_title.clone().map(|title| {
         let route = remove_route.clone();
+        view! {
+            <div class="book-filter">
+                <FilterPill label=title.clone() name=format!("Remove filter: {title}")
+                    on_remove=Callback::new(move |()| {
+                        request_filter_focus();
+                        navigate(&route);
+                    }) />
+            </div>
+        }
+    });
+    // A shared class-option group opened from a class page names that class. Removing the pill
+    // keeps the group and drops the class context.
+    let class_pill = EntryId::parse(&class_scope).ok().map(|class| {
+        let title = library
+            .stub(&class)
+            .map_or_else(|| class.to_string(), |stub| stub.title.clone());
+        let route = Route::BrowseKind {
+            kind,
+            letter,
+            facets: applied.clone(),
+            source: source.clone(),
+        };
         view! {
             <div class="book-filter">
                 <FilterPill label=title.clone() name=format!("Remove filter: {title}")
@@ -1594,6 +1854,7 @@ fn BrowseList(
         <h1 tabindex="-1">{kind.label()}</h1>
         {notice}
         {pill}
+        {class_pill}
         <p class="muted list-count" role="status" aria-live="polite">{count_line}{show_all}</p>
         <Lenses kind applied=applied.clone() source=source.clone() focus=focus_menu />
         {jump}
