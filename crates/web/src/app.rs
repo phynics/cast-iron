@@ -360,7 +360,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksActive | Route::Book { .. },
+            Route::Books | Route::BooksManage | Route::Book { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -428,11 +428,11 @@ fn RouteView() -> impl IntoView {
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
         // Other screens rebuild their discovery snapshot after a saved selection change.
-        // Active books and a book page write the selection themselves, so they stay mounted too:
+        // Manage books and a book page write the selection themselves, so they stay mounted too:
         // a rebuild after each toggle would drop focus and the scroll position.
         let selection = if matches!(
             route,
-            Route::Books | Route::BooksActive | Route::Book { .. }
+            Route::Books | Route::BooksManage | Route::Book { .. }
         ) {
             0
         } else {
@@ -451,7 +451,7 @@ fn RouteView() -> impl IntoView {
         } => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books => view! { <Books /> }.into_any(),
-        Route::BooksActive => view! { <ActiveBooks /> }.into_any(),
+        Route::BooksManage => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),

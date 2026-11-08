@@ -10,7 +10,8 @@
 //! #/books                            the books in priority tiers, oldest first inside each tier
 //!                                    (one order; `#/books?sort=..` and `#/browse/books` are
 //!                                    legacy addresses that the router replaces with `#/books`)
-//! #/books/active                     Active books: the presets and one checkbox per book
+//! #/books/manage                     Manage books: the presets and one checkbox per book
+//!                                    (`#/books/active` is the old address and still parses)
 //! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
@@ -44,9 +45,9 @@ pub enum Route {
     BrowseSource(String),
     /// The publication directory, each a doorway into its contents, in priority tiers.
     Books,
-    /// Active books: the presets and one checkbox per book. It is a route, so a reload and
+    /// Manage books: the presets and one checkbox per book. It is a route, so a reload and
     /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
-    BooksActive,
+    BooksManage,
     /// One book's contents in original chapter order. `chapter` is the 0-based path of the
     /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
     Book {
@@ -197,7 +198,8 @@ impl Route {
                 Some(id) if !id.is_empty() => Route::BrowseSource(id),
                 _ => not_found(),
             },
-            ["books", "active"] => Route::BooksActive,
+            // `active` is the old address of the page; both parse to the same route.
+            ["books", "manage"] | ["books", "active"] => Route::BooksManage,
             // There is one order. A link from when Books had sort options opens the list.
             ["books"] | ["browse", "books"] => Route::Books,
             ["browse", "book", id] => match percent_decode(id) {
@@ -295,7 +297,7 @@ impl Route {
             }
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
-            Route::BooksActive => "#/books/active".into(),
+            Route::BooksManage => "#/books/manage".into(),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -529,6 +531,8 @@ fn read_location_route() -> Route {
         || hash.starts_with("#/collection/")
         || hash.starts_with("#/browse/kind/rule")
         || hash.starts_with("#/browse/books")
+        // The page that manages books used to live at `#/books/active`.
+        || hash.starts_with("#/books/active")
         // Books had sort links; the one order is the list, and the address says so.
         || hash.starts_with("#/books?");
     if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
@@ -788,7 +792,7 @@ mod tests {
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
             Route::Books,
-            Route::BooksActive,
+            Route::BooksManage,
             Route::Spells,
             Route::FeatChains,
         ] {
@@ -964,12 +968,18 @@ mod tests {
     }
 
     #[test]
-    fn active_books_has_its_own_route() {
-        assert_eq!(Route::BooksActive.href(), "#/books/active");
-        assert_eq!(Route::parse("#/books/active"), Route::BooksActive);
-        assert_eq!(Route::parse("#/books/active/"), Route::BooksActive);
+    fn manage_books_has_its_own_route_and_keeps_the_old_address() {
+        assert_eq!(Route::BooksManage.href(), "#/books/manage");
+        round_trip(Route::BooksManage);
+        assert_eq!(Route::parse("#/books/manage"), Route::BooksManage);
+        assert_eq!(Route::parse("#/books/manage/"), Route::BooksManage);
+        // The old address still opens the same page.
+        assert_eq!(Route::parse("#/books/active"), Route::BooksManage);
+        assert_eq!(Route::parse("#/books/active/"), Route::BooksManage);
+        assert_eq!(Route::parse("#/books/active").href(), "#/books/manage");
         // The page takes no sort; a stray query does not change the route.
-        assert_eq!(Route::parse("#/books/active?sort=date"), Route::BooksActive);
+        assert_eq!(Route::parse("#/books/manage?sort=date"), Route::BooksManage);
+        assert_eq!(Route::parse("#/books/active?sort=date"), Route::BooksManage);
         // Other paths under /books are not this page.
         assert!(matches!(Route::parse("#/books/other"), Route::NotFound(_)));
     }

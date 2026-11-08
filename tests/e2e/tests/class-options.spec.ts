@@ -211,7 +211,7 @@ test("Search and Quick search label a class option with its group", async ({ pag
 test("With Ultimate Magic inactive, its discoveries leave the class page and the list", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page
     .locator(`.book-directory-item[data-book-id="${ultimateMagic}"]`)

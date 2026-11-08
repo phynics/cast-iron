@@ -116,7 +116,7 @@ impl Tier {
         self == Tier::Adventures
     }
 
-    /// On Books and Active books only Rulebooks start open: the others are one tap away, and
+    /// On Books and Manage books only Rulebooks start open: the others are one tap away, and
     /// the first screen shows the books that matter most. A reader's choice replaces this for
     /// the rest of the session ([`OpenGroups`]).
     pub fn open_by_default(self) -> bool {
@@ -130,7 +130,7 @@ impl Tier {
     }
 }
 
-/// Which groups on Books and Active books the reader has opened or closed. It is kept in memory
+/// Which groups on Books and Manage books the reader has opened or closed. It is kept in memory
 /// for the session, so Back to Books finds the same groups open before the page restores the
 /// scroll position: a position inside an opened group would otherwise land on closed rows.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]

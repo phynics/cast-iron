@@ -42,7 +42,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await page.goto(`#/entry/${entry.id}`);
     await page.locator(".bookmark-toggle").click();
     await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
-    await page.goto("#/books/active");
+    await page.goto("#/books/manage");
     await openBookGroups(page);
     await page.getByRole("checkbox", { name: `Active ${otherSource!.title}`, exact: true }).uncheck();
     await expect(page.getByRole("checkbox", { name: `Active ${otherSource!.title}`, exact: true })).toBeEnabled();
@@ -106,7 +106,7 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await page.goto("#/bookmarks");
     await expect(page.locator(".home-bookmarks")).toContainText(entry.title);
     await expect(page.locator(".home-bookmarks")).not.toContainText("not in this library");
-    await page.goto("#/books/active");
+    await page.goto("#/books/manage");
     await openBookGroups(page);
     await expect(page.getByRole("checkbox", { name: `Active ${otherSource!.title}`, exact: true })).not.toBeChecked();
     await page.goto(`#/entry/${entry.id}`);

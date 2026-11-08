@@ -62,8 +62,8 @@ https://phynics.github.io/cast-iron/ on 2026-11-07:
 
 **Shipped since `20e6a31`** (31 first-parent merges, grouped by PR):
 
-- Books and Active books: [#204](https://github.com/phynics/cast-iron/pull/204) a book row opens
-  the book page, [#215](https://github.com/phynics/cast-iron/pull/215) Active books page with
+- Books and Manage books: [#204](https://github.com/phynics/cast-iron/pull/204) a book row opens
+  the book page, [#215](https://github.com/phynics/cast-iron/pull/215) Manage books page with
   presets and Undo, [#214](https://github.com/phynics/cast-iron/pull/214) publication filter opens
   Adventures alone and keeps a forced tier's choice,
   [#234](https://github.com/phynics/cast-iron/pull/234) one count line, oldest first, h2 groups,

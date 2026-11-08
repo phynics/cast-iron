@@ -7,7 +7,7 @@ use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
 use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
-    ACTIVE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
+    MANAGE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
 };
 use crate::views::book_tier::{Tier, group_is_open, remember_group};
 use crate::views::categories::{self, Lens, applied_facets};
@@ -353,7 +353,7 @@ fn title_order(books: &[BookListEntry], a: usize, b: usize) -> std::cmp::Orderin
         .then_with(|| books[a].id.cmp(&books[b].id))
 }
 
-/// Groups publications for the one order of Books and Active books: tiers in priority order
+/// Groups publications for the one order of Books and Manage books: tiers in priority order
 /// (empty tiers are left out), and inside a tier the oldest book first. A book with no usable
 /// date comes last; ties are alphabetical.
 pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
@@ -384,7 +384,7 @@ pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
 }
 
 /// One book row: a single link to the book page, where the contents and the Active checkbox
-/// live. The row carries no checkbox; Active books and the book page change the choice. The
+/// live. The row carries no checkbox; Manage books changes the choice. The
 /// meta line reads `Aug 2009 · 2,994 entries`, and a book that is not active ends it with the
 /// plain label `Inactive`.
 fn book_row(row: BookListEntry, library: Library) -> AnyView {
@@ -422,16 +422,16 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
     .into_any()
 }
 
-/// The publication directory: a heading, one live count line, a link to Active books, and one
+/// The publication directory: a heading, one live count line, a link to Manage books, and one
 /// link row per book in the tier groups. There is one order (tier order, oldest first) and no
-/// sort control. The checkboxes and the presets live on Active books.
+/// sort control. The checkboxes and the presets live on Manage books.
 #[component]
 pub fn Books() -> impl IntoView {
     set_title("Books");
     let library = use_library();
-    // Back from Active books lands here: Done asks for focus on the link it was left from.
+    // Back from Manage books lands here: Done asks for focus on the link it was left from.
     if take_link_focus() {
-        focus_after_frame(ACTIVE_LINK_ID);
+        focus_after_frame(MANAGE_LINK_ID);
     }
     // One cached pass over the catalog gives every row its count. Counting per row rescanned
     // the whole catalog for each publication and stalled the page for seconds.
@@ -492,9 +492,9 @@ pub fn Books() -> impl IntoView {
             <h1>"Books"</h1>
             <p class="muted books-count" aria-live="polite">{count_line}</p>
             <div class="filter-row">
-                <a class="page-link" id=ACTIVE_LINK_ID href=Route::BooksActive.href()
+                <a class="page-link" id=MANAGE_LINK_ID href=Route::BooksManage.href()
                     on:click=|_| note_opened_from_books()>
-                    <span>"Active books"</span>
+                    <span>"Manage books"</span>
                     {icons::chevron_right_large()}
                 </a>
             </div>
@@ -519,7 +519,7 @@ pub fn group_count_text(active: usize, total: usize) -> String {
 
 /// One tier: an `h2` that holds a disclosure button (a chevron, the name, and a muted count of
 /// active books), then the rows. The button is the only control; there is no group action of any
-/// kind, and the presets on Active books are the only bulk change. Rulebooks start open and the
+/// kind, and the presets on Manage books are the only bulk change. Rulebooks start open and the
 /// other groups closed; the reader's choice is kept for the session ([`remember_group`]).
 ///
 /// A closed group holds an empty list: `items` runs when the group first opens, so a mount builds
@@ -1735,7 +1735,7 @@ fn BrowseList(
                     {format!("Show all {}", kind.label().to_lowercase())}
                 </a>
                 " · "
-                <a class="count-action" href=Route::BooksActive.href()>"Active books"</a>
+                <a class="count-action" href=Route::BooksManage.href()>"Manage books"</a>
             </p>
         }
         .into_any()

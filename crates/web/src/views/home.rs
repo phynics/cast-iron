@@ -106,7 +106,7 @@ pub fn Home() -> impl IntoView {
         <div class="wide home-page" data-index-ready=move || index_ready.get().then_some("true")>
             <h1 id="home-title" tabindex="-1" node_ref=title_ref>"Your rules reference"</h1>
             <Show when=move || use_library().discovery().entries().next().is_none()>
-                <p class="notice">"No books are active. "<a href=Route::BooksActive.href()>"Open Active books"</a>" to turn some on."</p>
+                <p class="notice">"No books are active. "<a href=Route::BooksManage.href()>"Open Manage books"</a>" to turn some on."</p>
             </Show>
             {move || star_error.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
             {move || match bookmarks.get() {

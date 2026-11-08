@@ -70,8 +70,8 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
   await waitControlled(page);
   await onlyBooks(page, [CORE]);
 
-  // Turn the book on through Active books, as a reader does.
-  await page.goto("#/books/active");
+  // Turn the book on through Manage books, as a reader does.
+  await page.goto("#/books/manage");
   await waitReady(page);
   await openBookGroups(page);
   const toggle = page
