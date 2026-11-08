@@ -293,6 +293,7 @@ mod tests {
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read[0].to_source(42), sources[0]);
         assert_eq!(read[0].suffix, None);
+        assert!(!read[0].third_party, "an absent marker means a Paizo book");
     }
 
     #[test]
@@ -304,16 +305,17 @@ mod tests {
             category: None,
             publication_date: Some("2011-01-01".into()),
             third_party: true,
-            suffix: None,
+            suffix: Some("toh".into()),
         };
         let text = write_publication_list(std::slice::from_ref(&publication));
         assert!(text.contains("third_party = true"), "{text}");
         // The marker sits after the reviewed metadata and before the suffix.
-        let marker = text.find("third_party").expect("marker");
-        assert!(
-            text[..marker].contains("publication_date"),
-            "third_party should follow publication_date: {text}"
-        );
+        let order = |key: &str| {
+            text.find(key)
+                .unwrap_or_else(|| panic!("no {key} in {text}"))
+        };
+        assert!(order("publication_date") < order("third_party"), "{text}");
+        assert!(order("third_party") < order("suffix"), "{text}");
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read, vec![publication.clone()]);
         assert_eq!(

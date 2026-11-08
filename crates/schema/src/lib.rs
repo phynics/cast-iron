@@ -1622,6 +1622,10 @@ mod tests {
         let catalog: Catalog = serde_json::from_str(old).unwrap();
         assert_eq!(catalog.sources[0].category, None);
         assert_eq!(catalog.sources[0].publication_date, None);
+        assert!(
+            !catalog.sources[0].third_party,
+            "an absent marker means a Paizo book"
+        );
 
         // A newer catalog carries the fields, and an older reader ignores them because
         // neither Catalog nor SourceInfo denies unknown fields.
@@ -1647,17 +1651,27 @@ mod tests {
         let json = serde_json::to_string(&empty).unwrap();
         assert!(!json.contains("category"));
         assert!(!json.contains("publication_date"));
-        assert!(!json.contains("third_party"));
+        assert!(!json.contains("\"third_party\""), "{json}");
+        let parsed: SourceInfo = serde_json::from_str(&json).unwrap();
+        assert!(!parsed.third_party);
 
-        // A marked source round-trips.
+        // A marked source round-trips, and the field keeps the documented order: after the
+        // reviewed metadata.
         let marked = SourceInfo {
+            category: Some("RPG".into()),
+            publication_date: Some("2011-01-01".into()),
             third_party: true,
             ..empty
         };
         let json = serde_json::to_string(&marked).unwrap();
         assert!(json.contains(r#""third_party":true"#), "{json}");
+        let order = |key: &str| {
+            json.find(key)
+                .unwrap_or_else(|| panic!("no {key} in {json}"))
+        };
+        assert!(order("publication_date") < order("third_party"), "{json}");
         let read: SourceInfo = serde_json::from_str(&json).unwrap();
-        assert!(read.third_party);
+        assert_eq!(read, marked);
     }
 
     #[test]
