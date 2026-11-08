@@ -26,7 +26,9 @@ Paizo's [Pathfinder Roleplaying Game Preview #1](https://cdn.paizo.com/blog/path
 | 14 | Creating NPCs | 448 |
 | 15 | Magic Items | 458 |
 
-The printed contents page lists the appendices Special Abilities (554), Conditions (565), Inspiring Reading (568), and Game Aids (569), followed by the license, character sheet, and index. The sequence agrees with the first 15 groups in `books.toml`; the remaining `Glossary` group is an upstream aggregate, not a printed chapter title. Main chapter order is verified; nested placement and appendix fidelity remain incomplete. The dataset still places some Creating NPCs text inside Gamemastering and the prestige-class introduction inside Classes.
+The printed contents page lists the appendices Special Abilities (554), Conditions (565), Inspiring Reading (568), and Game Aids (569), followed by the license, character sheet, and index.
+
+`books.toml` now has the 15 printed chapters followed by two appendix groups, Special Abilities and Conditions. The upstream `Glossary` aggregate holds only links to those two appendices, so it opens the Special Abilities group instead of standing as a chapter of its own. Printed Appendix 3 Inspiring Reading (568) and Appendix 4 Game Aids (569) have no corpus entries, so they have no group. Main chapter order is verified; nested placement remains incomplete. The dataset still places some Creating NPCs text inside Gamemastering and the prestige-class introduction inside Classes.
 
 ## Advanced Player's Guide
 
@@ -44,7 +46,7 @@ The printed contents page of the Advanced Player's Guide was checked in this rev
 | 7 | Magic Items | 280 |
 | 8 | New Rules | 318 |
 
-The dataset splits the printed Classes chapter into Base Classes and Core Classes. Main chapter order and titles are verified; nested placement remains unverified.
+The dataset split of the printed Classes chapter is kept as two sub-groups, Base Classes and Core Classes, inside the top-level Classes chapter. Main chapter order and titles are verified; nested placement remains unverified.
 
 ## Advanced Race Guide
 
@@ -61,7 +63,7 @@ The printed contents page of the Advanced Race Guide was checked in this review.
 | Appendix 2 | Height and Weight | 250 |
 | Appendix 3 | Spells | 251 |
 
-The dataset combines Appendix 1 and Appendix 2 in one chapter and has no chapter for Appendix 3. Main chapter order and titles are verified; nested placement remains unverified.
+`books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group. Main chapter order and titles are verified; nested placement remains unverified.
 
 ## Bestiary
 
@@ -86,7 +88,7 @@ The printed contents page of the Bestiary was checked in this review. It verifie
 | Appendix 13 | Monster Roles | 323 |
 | Appendix 14 | Encounter Tables | 324 |
 
-The dataset's Universal Monster Rules chapter is part of Monsters A to Z rather than a printed appendix. Miscellaneous Monster Rules combines Appendix 4 and Appendix 6. The dataset has no chapter for Appendix 3, Appendix 7, or Appendices 9-12. Main chapter order is verified; appendix coverage and nested placement remain incomplete.
+`books.toml` follows this sequence: Monsters A to Z, then the appendices. Universal Monster Rules, whose rules sit inside the printed Monsters A to Z section, is kept as a separate dataset appendix after it. The printed Appendices 4 and 6 are separate top-level groups, Monsters as PCs and Monster Cohorts; the dataset's Miscellaneous Monster Rules aggregate opens Monsters as PCs. The dataset's Creature Types appendix uses the printed Appendix 8 title, Monsters by Type. Printed Appendix 3 Glossary (297), Appendix 7 Animal Companions (316), and Appendices 9-12 (Monsters by CR, Monsters by Terrain, Variant Monster Index, Ability Index) have no corpus entries, so they have no groups. Main chapter order is verified; nested placement remains incomplete.
 
 ## Bestiary 2
 
@@ -98,7 +100,7 @@ The printed contents page of Bestiary 2 was checked in this review. It verifies 
 | — | Monsters A to Z | 7 |
 | Appendices 1-13 | Appendices | 292-318 |
 
-The dataset holds only the monster entries; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
+The dataset holds only the monster entries, in a top-level group with the printed title Monsters A to Z; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
 
 ## Bestiary 3
 
@@ -110,7 +112,7 @@ The printed contents page of Bestiary 3 was checked in this review. It verifies 
 | — | Monsters A to Z | 7 |
 | Appendices 1-13 | Appendices | 290-318 |
 
-The dataset holds only the monster entries; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
+The dataset holds only the monster entries, in a top-level group with the printed title Monsters A to Z; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
 
 ## Bestiary 4
 
@@ -124,7 +126,7 @@ The printed contents page of Bestiary 4 was checked in this review. It verifies 
 | Appendix 14 | Advanced Awards | 318 |
 | Appendix 15 | Mythic Creatures | 318 |
 
-The dataset holds only the monster entries; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
+The dataset holds only the monster entries, in a top-level group with the printed title Monsters A to Z; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
 
 ## Game Mastery Guide
 
@@ -144,7 +146,7 @@ The printed contents page of the Game Mastery Guide was checked in this review. 
 | 9 | NPC Gallery | 252 |
 | Appendix | Appendix | 310 |
 
-The dataset does not model these chapters: it groups topics instead. The topic chapters that could be matched appear in printed page order, but the printed chapter titles and boundaries are not represented in `books.toml`. Main printed chapter order is recorded; the dataset's topic structure remains provisional.
+`books.toml` now uses these printed chapters, in printed order: Introduction, Getting Started, Running a Game, Player Characters, Nonplayer Characters, Rewards, Creating a World, Adventures, Advanced Topics, and NPC Gallery. Each chapter node opens its printed chapter entry, and the entries below it keep the page order their source lines give. The printed Appendix (310) has no corpus entries, so it has no group. Main printed chapter order and titles are verified; nested placement is not checked against the printed subheadings.
 
 ## Monster Codex
 
@@ -236,7 +238,7 @@ The printed contents page of Ultimate Campaign was checked in this review. It ve
 | 3 | Campaign Systems | 132 |
 | 4 | Kingdoms and War | 196 |
 
-The dataset splits Story Feats out of the printed Character Background chapter; the 28 feats are placed there. Main chapter order and titles are verified; nested placement remains unverified.
+The dataset's Story Feats split stays as a sub-group inside the printed Character Background chapter. Main chapter order and titles are verified; nested placement remains unverified.
 
 ## Ultimate Combat
 
@@ -253,7 +255,7 @@ The printed contents page of Ultimate Combat was checked in this review. It veri
 | 6 | Spells | 208 |
 | Appendix | Appendix | 250 |
 
-The dataset splits the printed Classes chapter into Classes and Class Archetypes. Main chapter order and titles are verified; nested placement remains unverified.
+The dataset's Class Archetypes split stays as a sub-group inside the printed Classes chapter. Main chapter order and titles are verified; nested placement remains unverified.
 
 ## Ultimate Equipment
 
@@ -286,11 +288,11 @@ The printed contents page of Ultimate Magic was checked in this review. It verif
 | 5 | Spells | 194 |
 | Appendix | Appendix | 250 |
 
-The dataset splits the printed Mastering Magic chapter into Mastering Magic and New Familiars, and places the printed appendix material in Updates. Main chapter order and titles are verified; nested placement remains unverified.
+The dataset's New Familiars split stays as a sub-group inside the printed Mastering Magic chapter. The printed appendix material is the top-level Appendix chapter; its Alphabetized Words of Power section has no corpus entry. Main chapter order and titles are verified; nested placement remains unverified.
 
 ## Other books in the curated list
 
-The Game Mastery Guide printed chapter order is recorded above, but its dataset structure remains a topic tree rather than the printed chapters.
+The printed chapters of the Game Mastery Guide are recorded above, and its `books.toml` tree now uses them.
 
 No publisher contents listing was located for any publication outside the sixteen curated books. Those titles keep the page-ordered `Page order` and `Unpaged` lists rather than a chapter structure.
 
@@ -302,10 +304,12 @@ It is not chapter evidence. A page number does not name a chapter, prove that tw
 
 ## Curation rule
 
-Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The curated `books.toml` now records main chapter order from a printed contents page for the books listed above. The Game Mastery Guide topic structure and all nested placement remain provisional and must not be described as complete printed chapter fidelity.
+Keep match rules and record placement independent from evidence status. When a publisher source verifies only a subset, record precisely that subset and retain a review note for the rest. Never infer printed sequence from SQLite nested-set order, PSRD JSON arrays, alphabetical naming, a third-party review, or a product-description bullet list. The curated `books.toml` records main chapter and appendix order from a printed contents page for the books listed above.
+
+Top-level groups follow the printed chapters and appendices. A dataset split that print does not make stays as a sub-group inside its printed chapter; a dataset hub entry that print splits down becomes the opening entry of the first printed chapter it links to. A printed chapter or appendix with no entries gets no group. Nested placement is checked separately and must not be described as complete printed chapter fidelity.
 
 ## Canonical library
 
 The canonical library (the default `cargo xtask content`) keeps this curated chapter list and order for the same sixteen publications. It does not add, remove, reorder, or rename a PSRD chapter. Instead it re-addresses each placed entry through the reviewed legacy alias map, so the reviewed tree decides the chapter and the canonical id decides the entry. A shared canonical target appears once in a book, at the first placement; a legacy id whose canonical target is not installed is dropped and listed in coverage.
 
-Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the Core Rulebook and fourteen other publications have their main chapter order checked against a printed contents page, and the Game Mastery Guide records its printed chapters but keeps a topic tree.
+Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the sixteen publications have their main chapter and appendix order checked against a printed contents page, while nested placement remains a separate check.
