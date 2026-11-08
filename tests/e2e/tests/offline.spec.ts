@@ -1,5 +1,5 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookTrees, cacheContents, corpusEntry, firstEntry, hasBlock, hitTitles, installLibrary, waitControlled, waitReady, waitResults } from "./helpers";
+import { bookTrees, cacheContents, corpusEntry, firstEntry, hasBlock, hitTitles, installLibrary, waitControlled, waitHomeIdle, waitReady, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -39,6 +39,7 @@ test("No application feature requires a runtime server", async ({ page, context,
   await installLibrary(page);
   await waitControlled(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
+  await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
 

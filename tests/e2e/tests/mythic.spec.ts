@@ -30,6 +30,7 @@ async function onlyBooks(page: Page, active: string[]) {
     "disabled_books",
     allBooks.filter((id) => !active.includes(id)),
   );
+  await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
   await waitHomeIdle(page);

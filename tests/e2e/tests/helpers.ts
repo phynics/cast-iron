@@ -768,6 +768,9 @@ export async function seedHome(
   await page.goto("#/");
   await waitReady(page);
   await page.locator("section[aria-labelledby=by-kind] a.cat").first().waitFor({ state: "visible", timeout: 90_000 });
+  // Home warms the search index after it renders. A caller that leaves or reloads while that
+  // Cache read is in flight is the WebKit page error "Context is stopped" (#121, #273).
+  await waitHomeIdle(page);
 }
 
 /** How many recently viewed entries are in storage right now, read straight from IndexedDB. */
