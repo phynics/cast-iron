@@ -490,16 +490,17 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
-    // An add-on names its base once, at the end of the metadata line. The base stays linked
-    // when its book is inactive, followed by the plain `Inactive` label.
+    // An add-on or variant names its base once, at the end of the metadata line. The base
+    // stays linked when its book is inactive, followed by the plain `Inactive` label.
     let addon_base = entry
         .relations
         .iter()
         .find_map(|relation| {
-            if relation.kind != RelationKind::Addon {
-                return None;
-            }
-            let phrase = addon_base_phrase(relation.label.as_deref()?)?;
+            let phrase = match relation.kind {
+                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?)?,
+                RelationKind::Variant => "Variant of",
+                _ => return None,
+            };
             Some((phrase, relation.target.clone()))
         })
         .map(|(phrase, base)| {

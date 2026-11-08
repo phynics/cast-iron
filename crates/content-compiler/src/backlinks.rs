@@ -184,6 +184,20 @@ mod tests {
     }
 
     #[test]
+    fn a_variant_body_link_does_not_repeat_the_variants_row() {
+        let mut variant = entry("ref/spell/mass-cure", &[("ref/spell/cure", None)]);
+        variant.relations.push(Relation {
+            kind: RelationKind::Variant,
+            target: EntryId::parse("ref/spell/cure").unwrap(),
+            label: None,
+        });
+        let built = build(&[variant]);
+        assert_eq!(built.coverage.excluded_relation, 1);
+        assert_eq!(built.coverage.links, 0);
+        assert!(built.shards.iter().all(Vec::is_empty));
+    }
+
+    #[test]
     fn a_unique_anchor_is_kept_and_several_anchors_keep_none() {
         let built = build(&[
             entry("ref/rule/a", &[("ref/rule/b", Some("one"))]),
