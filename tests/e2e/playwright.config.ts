@@ -37,6 +37,6 @@ export default defineConfig({
     { name: "webkit", testIgnore: /mobile\.spec\.ts/, use: { ...devices["Desktop Safari"], trace: "off", screenshot: "off" } },
     // Mobile layout is a viewport check, not a browser matrix entry.
     // The shortcut spec runs here too, because the header search icon stays visible at 390 px.
-    { name: "mobile-chromium", testMatch: /(mobile|slash-shortcut|books-open)\.spec\.ts/, use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } } },
+    { name: "mobile-chromium", testMatch: /(mobile|slash-shortcut|books-open|mythic)\.spec\.ts/, use: { ...devices["Pixel 7"], viewport: { width: 390, height: 844 } } },
   ],
 });

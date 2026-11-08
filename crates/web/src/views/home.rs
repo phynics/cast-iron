@@ -4,6 +4,7 @@ use crate::library::use_library;
 use crate::route::Route;
 use crate::store::{self, Bookmark};
 use crate::views::browse::CategoryDirectory;
+use crate::views::icons;
 use crate::views::recent;
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{EntryId, EntryKind};
@@ -164,7 +165,7 @@ pub fn Home() -> impl IntoView {
                                         unstarring.set(false);
                                     });
                                 }>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
+                                    {icons::star()}
                                 </button>
                             }.into_any();
                             entry_row(row, ambiguous.contains(&row.title.to_lowercase()), Some(button))
@@ -245,7 +246,7 @@ pub fn Home() -> impl IntoView {
             </Show>
             // Teaches the star until the first one exists.
             <Show when=move || matches!(bookmarks.get(), Some(Ok(ref items)) if items.is_empty())>
-                <p class="muted home-hint">"Tap "<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg><span class="sr-only">"the star"</span>" on an entry to keep it here."</p>
+                <p class="muted home-hint">"Tap "{icons::star()}<span class="sr-only">"the star"</span>" on an entry to keep it here."</p>
             </Show>
             <CategoryDirectory note=true />
         </div>

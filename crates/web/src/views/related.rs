@@ -7,8 +7,8 @@
 
 use crate::fmt;
 use crate::graph::{
-    Relations, is_alternate_racial_trait, level_counts, list_of_class_entry, list_total,
-    requirements_blocks,
+    Relations, demote_headings, is_alternate_racial_trait, level_counts, list_of_class_entry,
+    list_total, requirements_blocks,
 };
 use crate::library::Library;
 use crate::route::Route;
@@ -17,7 +17,7 @@ use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
 use crate::views::search::facet_label;
 use crate::views::spells::spells_noun;
-use crate::views::util::sort_key;
+use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, Relation, RelationKind, RuleEntry, SpellListClass, SpellLists,
     TypedFields,
@@ -63,7 +63,11 @@ pub fn needs(kind: EntryKind) -> Needs {
 /// The index data that was loaded for an entry. A field is `None` when the library lacks the file.
 #[derive(Clone, Default)]
 pub struct Indexes {
+    /// The relation graph projected for discovery: both ends of every edge are active.
     pub relations: Option<Rc<Relations>>,
+    /// The unfiltered graph. An add-on row keeps its label while its base's book is inactive,
+    /// and a base page shows an add-on by the add-on's own book alone.
+    pub all_relations: Option<Rc<Relations>>,
     pub spell_lists: Option<Rc<SpellLists>>,
 }
 
@@ -297,7 +301,7 @@ fn class_panels(
                     <section class="rel" aria-labelledby="rel-archetypes">
                         <h2 id="rel-archetypes">"Archetypes · "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
-                            <summary>{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
+                            <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
                             {groups}
                         </details>
                     </section>
@@ -332,6 +336,81 @@ fn archetype_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
                 <h2 id="rel-archetype-of">"An archetype of"</h2>
                 <ul class="rel-list">{rows}</ul>
                 <p class="hint">"Open the class to see its other archetypes."</p>
+            </section>
+        }
+        .into_any(),
+    )
+}
+
+/// The mythic add-ons that a base page stacks: the edge label picks them, and the add-on's own
+/// book decides whether one appears. The base's own book never hides an add-on.
+pub fn mythic_addons(
+    relations: &Relations,
+    base: &EntryId,
+    eligible: impl Fn(&EntryId) -> bool,
+) -> Vec<EntryId> {
+    relations
+        .addons_of(base, "mythic")
+        .into_iter()
+        .filter(|id| eligible(id))
+        .cloned()
+        .collect()
+}
+
+/// The add-on's body as the base page shows it: no stat block, because the entry's own stat
+/// block keeps the page's only accent rule, and every heading as a bold paragraph, so the
+/// section's `h2` and the add-on's `h3` title stay its only headings.
+pub fn attached_body(body: &[Block]) -> Vec<Block> {
+    body.iter()
+        .filter(|block| !matches!(block, Block::StatBlock { .. }))
+        .map(demote_headings)
+        .collect()
+}
+
+/// One mythic version inside a base page's `Mythic` section. The title and the source line
+/// arrive with the page; only the rules text waits for the add-on's shard.
+#[component]
+fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
+    let href = Route::entry(id.clone()).href();
+    let title = title_of(&library, &id);
+    let book = source_title(&library, &id);
+    let load = library.clone();
+    let body = local_resource(async move { load.entry(&id).await });
+    view! {
+        <div class="attached-addon">
+            <h3><a href=href>{title}</a></h3>
+            <p class="sources-line">{format!("Sources: {book}")}</p>
+            {move || {
+                body.with(|state| match state {
+                    None => view! { <p class="status" role="status">"Loading the mythic rules…"</p> }.into_any(),
+                    Some(Err(error)) => view! {
+                        <p class="error" role="alert">{error.to_string()}</p>
+                    }.into_any(),
+                    Some(Ok(entry)) => view! {
+                        <div class="rich">{blocks(&attached_body(&entry.body))}</div>
+                    }.into_any(),
+                })
+            }}
+        </div>
+    }
+}
+
+fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Option<AnyView> {
+    let relations = all?;
+    let discovery = library.discovery();
+    let addons = mythic_addons(relations, id, |addon| discovery.is_eligible(addon.as_str()));
+    if addons.is_empty() {
+        return None;
+    }
+    let versions = addons
+        .into_iter()
+        .map(|addon| view! { <MythicAddon library=library.clone() id=addon /> }.into_any())
+        .collect_view();
+    Some(
+        view! {
+            <section class="rel-addon" aria-labelledby="rel-mythic">
+                <h2 id="rel-mythic">"Mythic"</h2>
+                {versions}
             </section>
         }
         .into_any(),
@@ -655,6 +734,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
 #[component]
 pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl IntoView {
     let relations = indexes.relations.as_deref();
+    let all_relations = indexes.all_relations.as_deref();
     let lists = indexes.spell_lists.as_deref();
     let mut panels: Vec<AnyView> = Vec::new();
     match entry.kind {
@@ -665,7 +745,10 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         EntryKind::Class => panels.extend(class_panels(&library, &entry.id, relations, lists)),
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
         EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
-        EntryKind::Feat => panels.extend(feat_panels(&library, &entry, relations)),
+        EntryKind::Feat => {
+            panels.extend(mythic_panel(&library, &entry.id, all_relations));
+            panels.extend(feat_panels(&library, &entry, relations));
+        }
         EntryKind::Trait => panels.extend(trait_panel(&entry)),
         EntryKind::Spell => panels.extend(spell_panel(&entry, lists)),
         EntryKind::Rule
@@ -683,7 +766,6 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
 mod tests {
     use super::*;
     use cast_iron_schema::{FeatFields, Provenance};
-
     fn id(s: &str) -> EntryId {
         EntryId::parse(s).unwrap()
     }
@@ -810,5 +892,75 @@ mod tests {
         assert_eq!(needs(EntryKind::Creature), Needs::default());
         // Racial traits, archetypes, and traits read their own entry: no extra file.
         assert_eq!(needs(EntryKind::Archetype), Needs::default());
+    }
+
+    fn labelled_edges(edges: &[(&str, &str, &str, Option<&str>)]) -> Relations {
+        Relations::new(cast_iron_schema::RelationIndex {
+            counts: std::collections::BTreeMap::new(),
+            edges: edges
+                .iter()
+                .map(|(source, kind, target, label)| {
+                    let kind = match *kind {
+                        "addon" => RelationKind::Addon,
+                        _ => RelationKind::Prerequisite,
+                    };
+                    cast_iron_schema::RelationEdge(
+                        id(source),
+                        kind,
+                        id(target),
+                        label.map(String::from),
+                    )
+                })
+                .collect(),
+        })
+    }
+
+    #[test]
+    fn a_base_page_stacks_a_mythic_add_on_only_while_its_own_book_is_active() {
+        let relations = labelled_edges(&[
+            ("c/base/mythic", "addon", "c/base", Some("mythic")),
+            ("c/other/stamina", "addon", "c/other", Some("stamina")),
+        ]);
+        assert_eq!(
+            mythic_addons(&relations, &id("c/base"), |_| true),
+            [id("c/base/mythic")]
+        );
+        // The add-on's book is what gates the section; the base's book never does.
+        assert_eq!(
+            mythic_addons(&relations, &id("c/base"), |addon| addon.as_str()
+                != "c/base/mythic"),
+            Vec::<EntryId>::new()
+        );
+        // A Stamina add-on is not a mythic version.
+        assert!(mythic_addons(&relations, &id("c/other"), |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_stacked_add_on_body_loses_its_stat_block_and_demotes_its_headings() {
+        let stat = Block::StatBlock {
+            title: None,
+            rows: vec![cast_iron_schema::StatRow {
+                label: "Type".into(),
+                value: vec![cast_iron_schema::Inline::text("Mythic")],
+            }],
+        };
+        let heading = Block::Heading {
+            level: 2,
+            anchor: Some("benefits".into()),
+            content: vec![cast_iron_schema::Inline::text("Benefits")],
+        };
+        let paragraph = Block::Paragraph {
+            style: cast_iron_schema::ParagraphStyle::Normal,
+            content: vec![cast_iron_schema::Inline::text("Text.")],
+        };
+        let out = attached_body(&[stat, heading, paragraph]);
+        assert_eq!(out.len(), 2);
+        assert!(matches!(&out[0], Block::Paragraph { content, .. }
+            if matches!(content.as_slice(), [cast_iron_schema::Inline::Strong { .. }])));
+        assert!(matches!(&out[1], Block::Paragraph { .. }));
+        assert!(
+            !out.iter()
+                .any(|block| matches!(block, Block::StatBlock { .. } | Block::Heading { .. }))
+        );
     }
 }

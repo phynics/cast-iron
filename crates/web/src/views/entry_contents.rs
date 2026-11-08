@@ -2,6 +2,7 @@
 
 use crate::library::use_library;
 use crate::route::Route;
+use crate::views::icons;
 use crate::views::rich::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryId};
 use leptos::prelude::*;
@@ -122,7 +123,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
         .collect_view();
     view! {
         <details class="article-contents">
-            <summary>"On this page"</summary>
+            <summary>{icons::chevron_right("disclosure-chevron")}"On this page"</summary>
             <nav aria-label="Article contents"><ol>{links}</ol></nav>
         </details>
     }

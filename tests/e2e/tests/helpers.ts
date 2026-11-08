@@ -354,6 +354,24 @@ export function buildLibraryWithoutBooks() {
 }
 
 /**
+ * A manifest overlay that leaves out `backlinks.json` and its shards and presents the library
+ * as schema 3, so the client sees a library built before the reverse index existed. The
+ * content version stays the same, so every other file keeps coming from dist.
+ */
+export function buildLibraryWithoutBacklinks() {
+  const old = distManifest();
+  const isBacklink = (p: string) => /\/backlinks\.json$/.test(p) || /\/backlinks\//.test(p);
+  const removed = old.files.filter((f) => isBacklink(f.path));
+  const files = old.files.filter((f) => !isBacklink(f.path));
+  const total_bytes = old.total_bytes - removed.reduce((n, f) => n + f.bytes, 0);
+  const manifest = { ...old, schema_version: 3, total_bytes, files };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-no-backlinks-"));
+  fs.mkdirSync(path.join(dir, "content"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
+  return { dir, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
  * A manifest-only overlay with a different content version, for the automatic update check.
  * The files are the served library's with the new version prefix, so the client accepts the
  * manifest. None of those files exists: the check must never download anything, and the test

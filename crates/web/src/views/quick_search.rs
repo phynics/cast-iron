@@ -11,6 +11,7 @@ use crate::js;
 use crate::library::use_library;
 use crate::route::{self, Route, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::icons;
 use crate::views::quick_rows::{
     MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
     valid_active,
@@ -18,7 +19,7 @@ use crate::views::quick_rows::{
 use crate::views::recent_searches::{self, RecentSearch, normalize};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
-use crate::views::util::kind_name;
+use crate::views::util::{addon_name, kind_name};
 use cast_iron_schema::{EntryId, EntryKind};
 use cast_iron_search::Query;
 use leptos::prelude::*;
@@ -339,10 +340,7 @@ pub fn QuickSearchButton() -> impl IntoView {
                 }
             }
         >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-                stroke-linecap="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
-            </svg>
+            {icons::search()}
         </button>
     }
 }
@@ -408,12 +406,19 @@ fn watch_suggestions(quick: QuickSearch) {
             let Ok(hits) = discovery.search_summaries(&query).await else {
                 return;
             };
+            // A mythic suggestion names its label instead of the kind while its base's book may
+            // be inactive, so the labels read the whole graph.
+            let relations = library.relations().await.ok().flatten();
             let hits = shortest_completion_first(hits, &typed);
             let list: Vec<Suggestion> = dedupe_hits(hits, MAX_SUGGESTIONS)
                 .into_iter()
                 .filter_map(|hit| {
                     let id = EntryId::parse(hit.id.clone()).ok()?;
                     let kind = EntryKind::from_slug(&hit.kind).map_or("", kind_name);
+                    let row_kind = relations
+                        .as_ref()
+                        .and_then(|relations| relations.addon_label(&id))
+                        .map_or(kind, addon_name);
                     // The index records one attribution source. When it is inactive, the entry's
                     // book placement is the source that kept it eligible, so name that instead
                     // (the same rule as the search result rows).
@@ -434,7 +439,7 @@ fn watch_suggestions(quick: QuickSearch) {
                     Some(Suggestion {
                         id,
                         title: hit.title,
-                        detail: format!("{kind} · {book}"),
+                        detail: format!("{row_kind} · {book}"),
                     })
                 })
                 .collect();
@@ -555,10 +560,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                 quick.submit();
             }>
                 <div class="search-field">
-                    <svg class="search-field-icon" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/>
-                    </svg>
+                    {icons::search_field()}
                     <input
                         id="quick-search-input"
                         node_ref=quick.input
@@ -638,10 +640,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                 quick.text.set(String::new());
                                 quick.focus_field();
                             }>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                                <path d="m7 7 10 10M17 7 7 17"/>
-                            </svg>
+                            {icons::close()}
                         </button>
                     </Show>
                 </div>
@@ -702,10 +701,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                     Some(view! {
                                         <button class="quick-search-remove" type="button" aria-label=name
                                             on:click=move |_| remove_recent(search.clone())>
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
-                                                <path d="m7 7 10 10M17 7 7 17"/>
-                                            </svg>
+                                            {icons::close()}
                                         </button>
                                     })
                                 }

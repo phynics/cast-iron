@@ -8,13 +8,17 @@ use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::entry_contents::ArticleContents;
+use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody};
 use crate::views::util::{kind_name, local_resource, set_title};
-use cast_iron_schema::{EntryId, EntryKind, EntryReference, RetirementReason, RuleEntry};
+use cast_iron_schema::{
+    EntryId, EntryKind, EntryReference, RelationKind, RetirementReason, RuleEntry,
+};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::rc::Rc;
 
 /// The parent chain of a stub, root first, stopping at a missing stub or a cycle.
 pub fn parent_chain(library: &Library, id: &EntryId) -> Vec<(EntryId, String)> {
@@ -116,8 +120,15 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
         let wanted = needs(entry.kind);
         let mut indexes = Indexes::default();
         if wanted.relations {
-            match fetch_library.discovery().relations().await {
-                Ok(found) => indexes.relations = found,
+            match fetch_library.relations().await {
+                Ok(Some(all)) => {
+                    let discovery = fetch_library.discovery();
+                    indexes.relations = Some(Rc::new(
+                        all.filtered(|id| discovery.is_eligible(id.as_str())),
+                    ));
+                    indexes.all_relations = Some(all);
+                }
+                Ok(None) => {}
                 Err(error) => leptos::logging::warn!("relation panels are off: {error}"),
             }
         }
@@ -330,6 +341,27 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
+    // An add-on names its base once, at the end of the metadata line. The base stays linked
+    // when its book is inactive, followed by the plain `Inactive` label.
+    let mythic_version = entry
+        .relations
+        .iter()
+        .find(|relation| {
+            relation.kind == RelationKind::Addon && relation.label.as_deref() == Some("mythic")
+        })
+        .map(|relation| {
+            let base = relation.target.clone();
+            let title = library
+                .stub(&base)
+                .map_or_else(|| base.to_string(), |stub| stub.title.clone());
+            let href = Route::entry(base.clone()).href();
+            let inactive = !library.is_entry_active(&base);
+            view! {
+                <span class="meta-sep" aria-hidden="true">"·"</span>
+                <a class="meta-link" href=href>{format!("Mythic version of {title}")}</a>
+                {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
+            }
+        });
     let category_route = if kind == EntryKind::Rule {
         Route::Books
     } else {
@@ -354,6 +386,7 @@ fn EntryView(
                 <a class="meta-link" href=category_route.href()>{kind_name(kind)}</a>
                 {first_source}
                 {more_sources}
+                {mythic_version}
             </div>
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
@@ -377,7 +410,7 @@ fn EntryView(
             </p>
             {has_provenance.then(|| view! {
                 <details class="provenance">
-                    <summary>"Provenance"</summary>
+                    <summary>{icons::chevron_right("disclosure-chevron")}"Provenance"</summary>
                     <dl class="facts">{provenance}</dl>
                 </details>
             })}
@@ -449,7 +482,7 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
                 aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
                 aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
                 disabled=move || !loaded.get() || writing.get() on:click=toggle>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z"/></svg>
+                {icons::star()}
             </button>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
         </div>
