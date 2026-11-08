@@ -45,7 +45,7 @@ test("Source variants retain distinct entries in browse and search after book fi
   for (const stub of variants) await expect(searchGroup.locator(`a[href="#/entry/${stub.id}"]`)).toBeVisible();
   const disabled = owners.get(variants[0].id) ?? variants[0].source;
   const source = corpus.catalog.sources.find((candidate) => candidate.id === disabled)!;
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   await page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true }).uncheck();
   await expect(page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeDisabled();

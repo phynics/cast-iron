@@ -130,8 +130,8 @@ pub fn size(preset: Preset, books: &[PresetBook<'_>]) -> usize {
     preset.members(books).len()
 }
 
-/// The count line of Books and Active books: `28 of 439 books active`. `preset` is the name or
-/// `Custom` on Books and `None` on Active books, where the checked preset row says it. No active
+/// The count line of Books and Manage books: `28 of 439 books active`. `preset` is the name or
+/// `Custom` on Books and `None` on Manage books, where the checked preset row says it. No active
 /// book reads `No books active`, with no preset name.
 pub fn count_line(active: usize, total: usize, preset: Option<&str>) -> String {
     if active == 0 {

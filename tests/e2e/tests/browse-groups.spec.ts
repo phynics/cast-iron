@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, waitControlled } from "./helpers";
+import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -221,7 +221,7 @@ test("A shared feat type link with another case still reads as that type, and an
   await expect(typeButton(page)).toHaveText("Type: All types");
   await expect(main.getByText("No Nonesuch feats in your active books.")).toBeVisible();
   // The way out is the page where the active set changes, not the read-only Books list.
-  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await expect(main.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
   await expect(main.getByRole("link", { name: "Choose books" })).toHaveCount(0);
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all feats" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat");
@@ -364,7 +364,7 @@ test("An item category that no active book holds shows the empty state with the 
   await expect(categoryButton(page)).toHaveText("Category: All categories");
   await expect(main.getByText("No Nonesuch in your active books.")).toBeVisible();
   // The way out is the page where the active set changes, not the read-only Books list.
-  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await expect(main.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
   await expect(main.getByRole("link", { name: "Choose books" })).toHaveCount(0);
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all items" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/item");
@@ -685,7 +685,7 @@ test("A creature combination no active book holds shows the empty state and both
   await expect(creatureTypeButton(page)).toHaveText("Type: Dragon");
   await expect(creatureCrButton(page)).toHaveText("CR: 1/8");
   await expect(main.getByText("No CR 1/8 Dragon creatures in your active books.")).toBeVisible();
-  await expect(main.getByRole("link", { name: "Active books", exact: true })).toHaveAttribute("href", "#/books/active");
+  await expect(main.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
   await main.locator("p.empty-actions").getByRole("link", { name: "Show all creatures" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/creature");
   await expect(main.locator(".list-count")).toHaveText(`${count(creatureCount)} creatures`);
@@ -740,8 +740,10 @@ test("An inactive book's list still shows its entries with the pill", async ({ p
   await installLibrary(page);
   const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
   const spells = inBook(core.id, "spell");
-  await page.goto(`#/browse/book/${core.id}`);
-  const active = page.locator(".book-active-row").getByRole("checkbox", { name: "Active", exact: true });
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const active = page.locator(`.book-directory-item[data-book-id="${core.id}"]`)
+    .getByRole("checkbox", { name: `Active ${core.title}`, exact: true });
   await active.uncheck();
   await expect(active).not.toBeChecked();
 
