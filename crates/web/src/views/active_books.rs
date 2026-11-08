@@ -11,7 +11,7 @@ use crate::library::{Library, use_library};
 use crate::route::{Route, replace};
 use crate::views::browse::{BookListEntry, book_groups, tier_section};
 use crate::views::icons;
-use crate::views::util::set_title;
+use crate::views::util::{Shared, set_title};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::cell::Cell;
@@ -281,6 +281,7 @@ pub fn ActiveBooks() -> impl IntoView {
         })
         .collect();
     let total = rows.len();
+    let rows = Shared::new(rows);
     let revision = library.selection_revision();
     let count_library = library.clone();
     let active = move || {
@@ -299,11 +300,18 @@ pub fn ActiveBooks() -> impl IntoView {
         .map(|group| {
             let tier = group.tier;
             let ids: Vec<String> = group.books.iter().map(|&i| rows[i].id.clone()).collect();
-            let items = group
-                .books
-                .into_iter()
-                .map(|i| toggle_row(rows[i].clone(), panel.clone()))
-                .collect_view();
+            // Rows are built when the group opens; see `tier_section`.
+            let lazy_rows = rows.clone();
+            let lazy_panel = panel.clone();
+            let books = group.books;
+            let items = move || {
+                let rows = &*lazy_rows;
+                books
+                    .iter()
+                    .map(|&i| toggle_row(rows[i].clone(), lazy_panel.clone()))
+                    .collect_view()
+                    .into_any()
+            };
             tier_section(tier, ids, items, library.clone())
         })
         .collect_view();
