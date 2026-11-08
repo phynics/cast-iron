@@ -511,6 +511,59 @@ fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Opt
     )
 }
 
+/// The Stamina add-ons that a base page folds: the edge label picks them, and the add-on's own
+/// book decides whether one appears. The base's own book never hides an add-on.
+pub fn stamina_addons(
+    relations: &Relations,
+    base: &EntryId,
+    eligible: impl Fn(&EntryId) -> bool,
+) -> Vec<EntryId> {
+    relations
+        .addons_of(base, "stamina")
+        .into_iter()
+        .filter(|id| eligible(id))
+        .cloned()
+        .collect()
+}
+
+/// One collapsed Stamina disclosure on a base page. The summary names the add-on's book; the
+/// rules text waits for the add-on's shard. No title, box or tint: the summary is the heading.
+#[component]
+fn StaminaAddon(library: Library, id: EntryId) -> impl IntoView {
+    let book = source_title(&library, &id);
+    let load = library.clone();
+    let body = local_resource(async move { load.entry(&id).await });
+    view! {
+        <details class="rel-disclosure rel-stamina">
+            <summary>{icons::chevron_right("disclosure-chevron")}{format!("Stamina · {book}")}</summary>
+            {move || {
+                body.with(|state| match state {
+                    None => view! { <p class="status" role="status">"Loading the Stamina rules…"</p> }.into_any(),
+                    Some(Err(error)) => view! {
+                        <p class="error" role="alert">{error.to_string()}</p>
+                    }.into_any(),
+                    Some(Ok(entry)) => view! {
+                        <div class="rich">{blocks(&attached_body(&entry.body))}</div>
+                    }.into_any(),
+                })
+            }}
+        </details>
+    }
+}
+
+/// The collapsed Stamina rows a base page shows, one per eligible add-on, after the Mythic
+/// section. The add-on's own page carries the same text; this is a second way to reach it.
+fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Vec<AnyView> {
+    let Some(relations) = all else {
+        return Vec::new();
+    };
+    let discovery = library.discovery();
+    stamina_addons(relations, id, |addon| discovery.is_eligible(addon.as_str()))
+        .into_iter()
+        .map(|addon| view! { <StaminaAddon library=library.clone() id=addon /> }.into_any())
+        .collect()
+}
+
 fn feat_panels(
     library: &Library,
     entry: &RuleEntry,
@@ -848,6 +901,7 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
         EntryKind::Feat => {
             panels.extend(mythic_panel(&library, &entry.id, all_relations));
+            panels.extend(stamina_panel(&library, &entry.id, all_relations));
             panels.extend(feat_panels(&library, &entry, relations));
         }
         EntryKind::Trait => panels.extend(trait_panel(&entry)),
@@ -1034,6 +1088,32 @@ mod tests {
         );
         // A Stamina add-on is not a mythic version.
         assert!(mythic_addons(&relations, &id("c/other"), |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_base_page_folds_a_stamina_add_on_only_while_its_own_book_is_active() {
+        let relations = labelled_edges(&[
+            ("c/base/mythic", "addon", "c/base", Some("mythic")),
+            ("c/base/stamina", "addon", "c/base", Some("stamina")),
+        ]);
+        assert_eq!(
+            stamina_addons(&relations, &id("c/base"), |_| true),
+            [id("c/base/stamina")]
+        );
+        // The add-on's own book gates the row; the base's book never does.
+        assert_eq!(
+            stamina_addons(&relations, &id("c/base"), |addon| addon.as_str()
+                != "c/base/stamina"),
+            Vec::<EntryId>::new()
+        );
+        // A mythic version is not a Stamina row.
+        assert!(
+            stamina_addons(&relations, &id("c/base"), |addon| addon.as_str()
+                == "c/base/mythic")
+            .is_empty()
+        );
+        // A base with no add-on gets no row.
+        assert!(stamina_addons(&relations, &id("c/none"), |_| true).is_empty());
     }
 
     #[test]

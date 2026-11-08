@@ -13,7 +13,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody};
-use crate::views::util::{kind_name, local_resource, set_title};
+use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
     EntryId, EntryKind, EntryReference, RelationKind, RetirementReason, RuleEntry,
 };
@@ -356,14 +356,17 @@ fn EntryView(
     let plain_title = entry.title.clone();
     // An add-on names its base once, at the end of the metadata line. The base stays linked
     // when its book is inactive, followed by the plain `Inactive` label.
-    let mythic_version = entry
+    let addon_base = entry
         .relations
         .iter()
-        .find(|relation| {
-            relation.kind == RelationKind::Addon && relation.label.as_deref() == Some("mythic")
+        .find_map(|relation| {
+            if relation.kind != RelationKind::Addon {
+                return None;
+            }
+            let phrase = addon_base_phrase(relation.label.as_deref()?)?;
+            Some((phrase, relation.target.clone()))
         })
-        .map(|relation| {
-            let base = relation.target.clone();
+        .map(|(phrase, base)| {
             let title = library
                 .stub(&base)
                 .map_or_else(|| base.to_string(), |stub| stub.title.clone());
@@ -371,7 +374,7 @@ fn EntryView(
             let inactive = !library.is_entry_active(&base);
             view! {
                 <span class="meta-sep" aria-hidden="true">"·"</span>
-                <a class="meta-link" href=href>{format!("Mythic version of {title}")}</a>
+                <a class="meta-link" href=href>{format!("{phrase} {title}")}</a>
                 {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
             }
         });
@@ -435,7 +438,7 @@ fn EntryView(
                 {kind_meta}
                 {first_source}
                 {more_sources}
-                {mythic_version}
+                {addon_base}
             </div>
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
