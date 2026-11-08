@@ -21,6 +21,7 @@ use crate::views::{
     legal::Legal,
     not_found::NotFound,
     quick_search::{QuickSearch, QuickSearchButton, QuickSearchLayer},
+    recent::{self, Recent},
     search::Search,
     settings::Settings,
     spells::{SpellListView, SpellsHub},
@@ -53,6 +54,8 @@ pub struct AppCtx {
     pub theme: RwSignal<Theme>,
     /// The reader's spell-row density. Both the spell lists and Settings read it.
     pub density: RwSignal<Density>,
+    /// Recently viewed entries. The entry screen records a visit here and Home shows the list.
+    pub recents: RwSignal<Vec<Recent>>,
     /// A newer app shell is installed and waiting for the user to reload.
     pub shell_update_ready: RwSignal<bool>,
     pub online: RwSignal<bool>,
@@ -149,6 +152,7 @@ pub fn App() -> impl IntoView {
         boot: RwSignal::new(Boot::Starting),
         theme: RwSignal::new(theme::mirrored()),
         density: RwSignal::new(Density::default()),
+        recents: RwSignal::new(Vec::new()),
         shell_update_ready: RwSignal::new(false),
         online: RwSignal::new(online),
     };
@@ -167,6 +171,9 @@ pub fn App() -> impl IntoView {
     });
     spawn_local(async move {
         app.density.set(density::load().await);
+    });
+    spawn_local(async move {
+        recent::load_into(app.recents).await;
     });
     spawn_local(async move {
         let result = js::register_service_worker(move || app.shell_update_ready.set(true)).await;

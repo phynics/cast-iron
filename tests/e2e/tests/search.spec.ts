@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, bookOwners, corpusEntry, count, hitTitles, installLibrary, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitResults } from "./helpers";
+import { bodyText, bookOwners, corpusEntry, count, hitTitles, installLibrary, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -866,6 +866,10 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await page.goto("#/");
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
+  // Home warms the search index in the background. Reloading while that cache read is in flight
+  // stops the page under it, which WebKit reports as the page error "Context is stopped". The app
+  // marks the end of the read with `data-index-ready` for exactly this wait.
+  await waitHomeIdle(page);
   const layer = await openQuickSearch(page);
   await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
   await expect(quickOptions(page)).toHaveText(["Grapple", "dragon", "fireball"]);
@@ -886,6 +890,7 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await expect(layer).toBeHidden();
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
+  await waitHomeIdle(page);
   await openQuickSearch(page);
   await expect(quickOptions(page)).toHaveText(["Grapple"]);
   await layer.getByRole("button", { name: "Clear", exact: true }).click();
