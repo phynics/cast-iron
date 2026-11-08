@@ -49,9 +49,18 @@ fn numeric_facet_name(field: &str) -> Option<&'static str> {
         .find_map(|(name, prefix)| (*name == field).then_some(*prefix))
 }
 
+/// Spell level 0 names the spell category itself, so it never takes the kind noun after it:
+/// `Cantrips`, not `Cantrips spells`. The value stays `0` in filters and routes.
+fn is_cantrips(field: &str, value: &str) -> bool {
+    field == "spell_level" && value == "0"
+}
+
 /// One facet as a phrase. Numeric facets say their field; every other value keeps the label
 /// that its menu shows.
 fn facet_phrase(field: &str, value: &str) -> String {
+    if is_cantrips(field, value) {
+        return "Cantrips".to_string();
+    }
     match numeric_facet_name(field) {
         Some(name) => format!("{name} {value}"),
         None => upper_first(&facet_label(field, value)),
@@ -123,12 +132,17 @@ impl Scope {
     /// appends the book's name: `feats in Core Rulebook`.
     fn phrase(&self) -> String {
         let noun = self.kind.label().to_lowercase();
+        let cantrips = self
+            .facets
+            .iter()
+            .any(|(field, value)| is_cantrips(field, value));
         let mut facets: Vec<(bool, String)> = self
             .facets
             .iter()
             .map(|(field, value)| {
                 (
-                    numeric_facet_name(field).is_some(),
+                    // Cantrips already names the category, so it is not a leading number here.
+                    numeric_facet_name(field).is_some() && !is_cantrips(field, value),
                     facet_phrase(field, value),
                 )
             })
@@ -138,11 +152,12 @@ impl Scope {
         let facets: Vec<String> = facets.into_iter().map(|(_, text)| text).collect();
         let mut phrase = if facets.is_empty() {
             noun
-        } else if self.kind == EntryKind::Item
+        } else if (self.kind == EntryKind::Item
             && self
                 .facets
                 .iter()
-                .any(|(field, _)| field == "item_category")
+                .any(|(field, _)| field == "item_category"))
+            || cantrips
         {
             facets.join(" ")
         } else {
@@ -385,6 +400,36 @@ mod tests {
         assert_eq!(numeric_facet_name("cr"), Some("CR"));
         assert_eq!(numeric_facet_name("spell_level"), Some("Level"));
         assert_eq!(numeric_facet_name("school"), None);
+    }
+
+    #[test]
+    fn a_cantrip_facet_names_the_category_without_repeating_the_kind() {
+        let cantrips = scope(EntryKind::Spell, vec![("spell_level".into(), "0".into())]);
+        assert_eq!(cantrips.placeholder(), "Search Cantrips");
+        assert_eq!(cantrips.label(), "Cantrips");
+        assert_eq!(
+            cantrips.results_line("18 results"),
+            "18 results in Cantrips"
+        );
+        // The stored value stays `0` for the route and the engine filter.
+        assert_eq!(
+            cantrips.filters().facets,
+            [("spell_level".to_string(), "0".to_string())]
+        );
+
+        // Another facet reads before the word, and the kind noun still stays out.
+        let evocation_cantrips = scope(
+            EntryKind::Spell,
+            vec![
+                ("school".into(), "evocation".into()),
+                ("spell_level".into(), "0".into()),
+            ],
+        );
+        assert_eq!(
+            evocation_cantrips.placeholder(),
+            "Search Evocation Cantrips"
+        );
+        assert_eq!(evocation_cantrips.label(), "Evocation Cantrips");
     }
 
     #[test]

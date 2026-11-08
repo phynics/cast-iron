@@ -290,6 +290,25 @@ test("Rule entries preserve complex formatting: spell levels keep their groups",
   for (const name of classNames) expect(text).toContain(name);
 });
 
+test("Level 0 spells read as Cantrips on the spell page and the Wizard list", async ({ page }) => {
+  const spell = firstEntry("a level-0 Wizard spell", (entry) =>
+    entry.kind === "spell" && entry.fields?.levels?.some((level: any) => level.class === "Wizard" && level.level === 0));
+  await page.goto(`#/entry/${spell.id}`);
+  const lists = page.locator(".entry-rel section").filter({ has: page.getByRole("heading", { name: "On spell lists" }) });
+  const wizard = lists.getByRole("link", { name: "Wizard cantrip", exact: true });
+  await expect(wizard).toBeVisible();
+  // The route keeps the number even though the label is a word.
+  await expect(wizard).toHaveAttribute("href", /#\/spells\/Wizard\/0$/);
+
+  await page.goto("#/spells/Wizard/0");
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard cantrips" })).toBeVisible();
+  const tab = page.locator(".level-nav").getByRole("link", { name: /^Cantrips,/ });
+  await expect(tab).toHaveAttribute("aria-current", "page");
+  await expect(tab.locator(".lvl-n")).toHaveText("Cantrips");
+  // The group keeps its numeric value for CSS and links.
+  await expect(page.locator(".level-group")).toHaveAttribute("data-level", "0");
+});
+
 test("Rule entries preserve complex formatting: creature spell lists use readable level labels", async ({ page }) => {
   const creature = firstEntry("a creature with a class/level spell list", (entry) =>
     entry.kind === "creature" && entry.body.some((block: any) => {

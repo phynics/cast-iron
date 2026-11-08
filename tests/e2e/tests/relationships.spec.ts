@@ -62,7 +62,8 @@ test("spell lists filter by class, level, and query; search supports source filt
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
 
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${level}`);
-  await expect(page.getByRole("heading", { name: `${listClass} spells, level ${level}`, level: 1 })).toBeVisible();
+  const heading = level === 0 ? `${listClass} cantrips` : `${listClass} spells, level ${level}`;
+  await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
   await expect(page.locator(".spell-rows").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
   await expect(page.locator(".level-group")).toHaveAttribute("data-level", String(level));
 

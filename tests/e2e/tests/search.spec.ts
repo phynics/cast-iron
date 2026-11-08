@@ -521,7 +521,8 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   const schoolChip = page.locator(".filters .chip", { hasText: new RegExp(`^${escape(chosen.school)}\\d*$`, "i") });
   await expect(schoolChip.first()).toBeVisible();
   await schoolChip.first().click();
-  const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${chosen.level}\\d*$`) });
+  const levelText = chosen.level === 0 ? "Cantrips" : String(chosen.level);
+  const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${escape(levelText)}\\d*$`) });
   await expect(levelChip.first()).toBeVisible();
   await levelChip.first().click();
   await expect.poll(() => page.url()).toContain(`spell_level:${chosen.level}`);

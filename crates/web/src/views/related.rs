@@ -198,11 +198,20 @@ fn level_pills(list: &SpellListClass) -> impl IntoView + use<> {
                 level: Some(level),
             }
             .href();
-            let label = format!("{name} level {level}, {}", spells_noun(n));
+            let label = format!(
+                "{name} {}, {}",
+                fmt::spell_level(level).to_lowercase(),
+                spells_noun(n)
+            );
+            let shown = if level == 0 {
+                "Cantrips".to_string()
+            } else {
+                level.to_string()
+            };
             view! {
                 <li>
                     <a class="lvl" href=href aria-label=label>
-                        <span class="lvl-n">{level}</span>
+                        <span class="lvl-n">{shown}</span>
                         <span class="lvl-count">{fmt::count(n)}</span>
                     </a>
                 </li>
@@ -800,7 +809,11 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
     let items = levels
         .into_iter()
         .map(|l| {
-            let text = format!("{} {}", l.class, l.level);
+            let text = if l.level == 0 {
+                format!("{} cantrip", l.class)
+            } else {
+                format!("{} {}", l.class, l.level)
+            };
             if lists.is_some() {
                 let href = Route::SpellList {
                     class: l.class.clone(),
