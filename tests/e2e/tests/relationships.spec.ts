@@ -143,40 +143,28 @@ test("category hub exposes requested reference areas and dedicated lenses", asyn
   await expect(page.locator(".chain-heads .chain-head").first()).toBeVisible();
 });
 
-test("book contents keep their order and synchronize selection with history", async ({ page }) => {
+test("book contents keep their order and highlight a chapter path without disclosures", async ({ page }) => {
   const book = bookTrees().find((candidate) => candidate.chapters.some((chapter) => chapter.children?.length))!;
-  const first = book.chapters.find((chapter) => chapter.children?.length > 0)!;
   await page.goto("#/browse/books");
   await openBookContents(page, book.title);
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${book.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) })).toBeVisible();
   await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   const tocTitles = await page.locator(".toc-top > li").evaluateAll((items) => items.map((item) => {
-    const branch = item.querySelector(".toc-title");
-    const leaf = item.querySelector("a");
+    const branch = item.querySelector(":scope > .toc-row .toc-title");
+    const leaf = item.querySelector(":scope > a");
     return (branch?.textContent ?? leaf?.textContent ?? "").trim();
   }));
   expect(tocTitles).toEqual(listedChapterTitles(book));
-  const chapter = page.locator(".toc-details").filter({ has: page.locator("summary", { hasText: first.title }) }).first();
-  await chapter.locator("summary").click();
-  await expect.poll(() => new URL(page.url()).hash).toContain(`#/browse/book/${book.source}?c=`);
-  const selectedUrl = page.url();
-  await page.goBack();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/books");
-  await page.goForward();
-  await expect.poll(() => page.url()).toBe(selectedUrl);
+  // Every branch is expanded; nothing on the page is a disclosure.
+  await expect(page.locator(".toc [aria-expanded], .toc details, .toc summary")).toHaveCount(0);
+  await expect(page.locator(".toc-top > .toc-branch > .toc-list > li").first()).toBeVisible();
 
-  const walk = (nodes: any[]): any[] => nodes.flatMap((n) => [n, ...walk(n.children ?? [])]);
-  const entryId = walk(first.children).find((n: any) => n.entry)?.entry;
-  if (entryId) {
-    await page.goto(`#/entry/${entryId}`);
-    await expect(page.getByTestId("book-bar")).toBeVisible();
-    const next = page.locator('.book-steps a[rel="next"]');
-    if (await next.count()) {
-      const href = await next.getAttribute("href");
-      await next.click();
-      await expect(page).toHaveURL(new RegExp(href!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-      await page.goBack();
-      await expect(page).toHaveURL(new RegExp(`#/entry/${entryId.replaceAll("/", "\\/")}$`));
-    }
-  }
+  // A chapter path in the address still marks the row it names, and Back walks the history.
+  const selectedUrl = `${page.url()}?c=1`;
+  await page.goto(selectedUrl);
+  await expect(page.locator("#toc-1")).toHaveAttribute("aria-current", "location");
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).not.toContain("?c=");
+  await page.goForward();
+  await expect(page.locator("#toc-1")).toHaveAttribute("aria-current", "location");
 });

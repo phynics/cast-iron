@@ -2,8 +2,8 @@
 //! list, and the previous/next control that an entry shows for its place in a book.
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
-//! Contents leaves out the kinds that the `In this book` links reach (see
-//! [`LEAVE_OUT_LINKED_KINDS`]); the page keeps every chapter's real path, so a chapter link,
+//! Contents leaves out every kind that has its own list page and the `In this book` links reach
+//! (see [`LEAVE_OUT_LINKED_KINDS`]); the page keeps every chapter's real path, so a chapter link,
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
 
 use crate::fmt;
@@ -50,43 +50,17 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// True when `path` starts with `prefix`: the node is the target or one of its ancestors.
-pub fn on_path(prefix: &[usize], target: &[usize]) -> bool {
-    target.starts_with(prefix)
-}
-
-/// The path to record in the URL after a toggle: the node when it opened, its parent when it
-/// closed, and nothing when a top-level chapter closed.
-pub fn path_after_toggle(path: &[usize], opened: bool) -> Option<Vec<usize>> {
-    if opened {
-        Some(path.to_vec())
-    } else {
-        path.split_last()
-            .map(|(_, parent)| parent.to_vec())
-            .filter(|p| !p.is_empty())
-    }
-}
-
 /// Whether Contents leaves out the kinds that the `In this book` links reach.
 ///
-/// The owner decided on 2026-11-07 that Contents does not list spells, feats, items and class
-/// options, because a book holds thousands of them and the kind links reach them as list pages
-/// filtered to the book. The links ship in #158, so the exclusion is on.
+/// The owner decided on 2026-11-07 that Contents does not list the kinds that have their own
+/// list page. Every kind except Rules has one, and the kind links reach each as a list page
+/// filtered to the book, so the exclusion is on.
 pub const LEAVE_OUT_LINKED_KINDS: bool = true;
 
-/// The kinds that `In this book` reaches: spells, feats, items and the class options
-/// (classes, prestige classes and archetypes).
+/// The kinds that `In this book` reaches: every kind with its own list page, which is every kind
+/// except Rules. Rules stay in Contents because they have no list page of their own.
 pub fn linked_kind(kind: EntryKind) -> bool {
-    matches!(
-        kind,
-        EntryKind::Spell
-            | EntryKind::Feat
-            | EntryKind::Item
-            | EntryKind::Class
-            | EntryKind::PrestigeClass
-            | EntryKind::Archetype
-            | EntryKind::ClassOption
-    )
+    kind != EntryKind::Rule
 }
 
 /// True when Contents leaves a kind out. Always false while [`LEAVE_OUT_LINKED_KINDS`] is off.
@@ -613,25 +587,9 @@ mod tests {
     }
 
     #[test]
-    fn contents_leaves_out_spells_feats_items_and_class_options_only() {
-        for (kind, hidden) in [
-            (EntryKind::Spell, true),
-            (EntryKind::Feat, true),
-            (EntryKind::Item, true),
-            (EntryKind::Class, true),
-            (EntryKind::PrestigeClass, true),
-            (EntryKind::Archetype, true),
-            (EntryKind::ClassOption, true),
-            (EntryKind::Rule, false),
-            (EntryKind::Race, false),
-            (EntryKind::Skill, false),
-            (EntryKind::Creature, false),
-            (EntryKind::Trait, false),
-            (EntryKind::RacialTrait, false),
-            (EntryKind::Affliction, false),
-            (EntryKind::Trap, false),
-        ] {
-            assert_eq!(linked_kind(kind), hidden, "{kind:?}");
+    fn contents_leaves_out_every_kind_with_a_list_page() {
+        for kind in EntryKind::ALL {
+            assert_eq!(linked_kind(kind), kind != EntryKind::Rule, "{kind:?}");
         }
     }
 
@@ -697,16 +655,16 @@ mod tests {
             None,
             vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
         );
-        // Next to a listed chapter it stays a chapter, with the real index.
+        // Races and spells have list pages, so only the catch-all chapter remains. Alone, its
+        // one remaining row is the top level and keeps its path in the whole tree.
         let books = vec![
             node("Races", Some("ref/race/human"), vec![]),
             spells.clone(),
             catch_all.clone(),
         ];
-        assert_eq!(contents_roots(&books, &hide), vec![vec![0], vec![2]]);
-        // Alone, its rows are the top level and keep their paths in the whole tree.
+        assert_eq!(contents_roots(&books, &hide), vec![vec![2, 2]]);
         let alone = vec![spells, catch_all];
-        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 0], vec![1, 2]]);
+        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 2]]);
         // Nothing left to list.
         assert!(contents_roots(&alone[..1], &hide).is_empty());
     }
@@ -746,25 +704,7 @@ mod tests {
     }
 
     #[test]
-    fn a_node_is_open_when_the_target_is_inside_it() {
-        assert!(on_path(&[2], &[2, 1, 4]));
-        assert!(on_path(&[2, 1], &[2, 1]));
-        assert!(!on_path(&[2, 1], &[2]));
-        assert!(!on_path(&[1], &[2, 1]));
-        // Sibling prefixes do not match: chapter 1 is not chapter 10.
-        assert!(!on_path(&[1], &[10]));
-    }
-
-    #[test]
-    fn toggling_records_the_node_or_its_parent() {
-        assert_eq!(path_after_toggle(&[3, 1], true), Some(vec![3, 1]));
-        assert_eq!(path_after_toggle(&[3, 1], false), Some(vec![3]));
-        assert_eq!(path_after_toggle(&[3], false), None);
-        assert_eq!(path_after_toggle(&[3], true), Some(vec![3]));
-    }
-
-    #[test]
-    fn only_a_chapter_change_inside_one_book_is_a_toggle() {
+    fn only_a_chapter_change_inside_one_book_keeps_the_page_mounted() {
         let book = |source: &str, chapter: Option<Vec<usize>>| Route::Book {
             source: source.into(),
             chapter,

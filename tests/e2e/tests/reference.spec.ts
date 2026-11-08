@@ -85,13 +85,15 @@ test("Book routes, legacy routes, and separate class categories work offline", a
   await expect(page.getByRole("heading", { name: book.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) })).toBeVisible();
   const topTitles = await page.locator(".toc-top > li").evaluateAll((items) => items.map((item) => {
-    const branch = item.querySelector(".toc-title");
-    const leaf = item.querySelector("a");
+    const branch = item.querySelector(":scope > .toc-row .toc-title");
+    const leaf = item.querySelector(":scope > a");
     return (branch?.textContent ?? leaf?.textContent ?? "").trim();
   }));
   expect(topTitles).toEqual(listedChapterTitles(book));
-  await page.locator(".toc-top > .toc-branch > .toc-details > summary").first().click();
-  await expect(page.locator(".toc-top > .toc-branch > .toc-details > ul > li").first()).toBeVisible();
+  // No disclosure: the nested list is in the document as it stands.
+  await expect(page.locator(".toc [aria-expanded], .toc details")).toHaveCount(0);
+  const branchList = page.locator(".toc-top > .toc-branch > .toc-list > li").first();
+  if (await branchList.count()) await expect(branchList).toBeVisible();
 });
 
 test("Reviewed primary-source passage appears with its attribution in the rules", async ({ page, context }) => {
@@ -203,7 +205,10 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   for (const source of sample) {
     await page.goto(`#/browse/source/${encodeURIComponent(source.id)}`);
     await expect(page.getByRole("heading", { level: 1, name: source.title })).toBeVisible();
-    await expect(page.locator(".toc")).toBeVisible();
+    await expect(page.locator(".book-contents")).toBeVisible();
+    // A book that holds only kinds with list pages has no rules chapter left to list.
+    if (await page.locator(".toc").count()) await expect(page.locator(".toc")).toBeVisible();
+    else await expect(page.getByText("This book has no rules chapters to show. Find its entries in In this book above.")).toBeVisible();
     await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   }
 });
