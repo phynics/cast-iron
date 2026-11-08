@@ -215,6 +215,7 @@ pub fn Settings() -> impl IntoView {
             <dl class="facts">
                 <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
                 <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
+                <div><dt>"Books"</dt><dd><a href=Route::BooksManage.href()>"Manage books"</a></dd></div>
             </dl>
             <p>
                 <button class="btn" type="button" on:click=run_verify

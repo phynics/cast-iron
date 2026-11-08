@@ -52,7 +52,7 @@ installedTest("Quick search suggestions follow the active books", async ({ page 
   // With every book active, the book that holds the entry is suggested.
   expect(fromBook(await suggestions())).toBe(true);
 
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
@@ -70,7 +70,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   let page = await context.newPage();
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await waitReady(page);
   await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
@@ -80,7 +80,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await page.locator(".bookmark-toggle").click();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   await row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true }).uncheck();
   await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
@@ -89,7 +89,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
 
   context = await openProfile({ offline: true });
   page = await context.newPage();
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await waitReady(page);
   await openBookGroups(page);
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
@@ -152,14 +152,14 @@ const presets = [
 const countLine = (active: number, name?: string) =>
   `${count(active)} of ${count(allBooks.length)} books active` + (name ? ` · ${name}` : "");
 
-installedTest("Active books opens from Books, and Done returns to the link it came from", async ({ page }) => {
+installedTest("Manage books opens from Books, and Done returns to the link it came from", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   await waitReady(page);
-  const link = page.getByRole("link", { name: "Active books", exact: true });
+  const link = page.getByRole("link", { name: "Manage books", exact: true });
   await link.click();
-  await expect(page).toHaveURL(/#\/books\/active$/);
-  const heading = page.getByRole("heading", { level: 1, name: "Active books", exact: true });
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  const heading = page.getByRole("heading", { level: 1, name: "Manage books", exact: true });
   await expect(heading).toBeVisible();
   // Entering puts focus on the heading, and the Books tab stays current.
   await expect(heading).toBeFocused();
@@ -188,17 +188,35 @@ installedTest("Active books opens from Books, and Done returns to the link it ca
 
 installedTest("Done on a page opened directly replaces it with Books", async ({ page }) => {
   await installLibrary(page);
-  await page.goto("#/books/active");
-  await expect(page.getByRole("heading", { level: 1, name: "Active books", exact: true })).toBeVisible();
+  await page.goto("#/books/manage");
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Done", exact: true }).click();
   await expect(page).toHaveURL(/#\/books$/);
-  await expect(page.getByRole("link", { name: "Active books", exact: true })).toBeFocused();
+  await expect(page.getByRole("link", { name: "Manage books", exact: true })).toBeFocused();
+});
+
+installedTest("The old #/books/active address opens Manage books and writes the new address", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books/active");
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  // The page is live: a preset still applies from the old address.
+  await expect(page.getByRole("button", { name: "Paizo Everything", exact: true })).toBeVisible();
+});
+
+installedTest("Settings links to Manage books", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/settings");
+  const link = page.getByRole("link", { name: "Manage books", exact: true });
+  await expect(link).toHaveAttribute("href", "#/books/manage");
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
 });
 
 installedTest("A checkbox saves at once, survives a reload, and the count line follows", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   const { book, source } = target();
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
@@ -222,7 +240,7 @@ installedTest("A checkbox saves at once, survives a reload, and the count line f
 installedTest("Each preset sets its books, the count line names it, and Undo restores the earlier set", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await waitReady(page);
   // No book is marked third party yet, so the fourth preset equals Paizo Everything and is hidden.
   await expect(page.locator(".preset-row")).toHaveCount(presets.length);
@@ -233,7 +251,7 @@ installedTest("Each preset sets its books, the count line names it, and Undo res
   await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length));
   await page.goto("#/books");
   await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length, "Paizo Everything"));
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
 
   for (const preset of [presets[0], presets[1], presets[2]]) {
     await row(preset.name).click();
@@ -254,7 +272,7 @@ installedTest("Each preset sets its books, the count line names it, and Undo res
     // Books names the preset in its count line.
     await page.goto("#/books");
     await expect(page.locator(".books-count")).toHaveText(countLine(preset.ids.length, preset.name));
-    await page.goto("#/books/active");
+    await page.goto("#/books/manage");
   }
 
   // Undo: back to Paizo Rulebooks & More after applying Paizo Rulebooks.
@@ -290,7 +308,7 @@ installedTest("A preset keeps downloads and stars, and changes what search finds
   await waitResults(page, "fire");
   const everything = await resultCount(page);
 
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await page.getByRole("button", { name: "Paizo Rulebooks", exact: true }).click();
   const adventureBooks = corpus.catalog.sources.filter((row) => adventureCategories.includes(row.category as string));
   await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-active')).toHaveText(
@@ -311,7 +329,7 @@ installedTest("A preset keeps downloads and stars, and changes what search finds
   await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
 
   // Undo brings the Adventures back with no reload.
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await page.getByRole("button", { name: "Paizo Everything", exact: true }).click();
   await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-active')).toHaveText(
     `${adventureBooks.length} books`,
@@ -324,7 +342,7 @@ installedTest("A preset keeps downloads and stars, and changes what search finds
 
 installedTest("Two quick preset taps end on exactly the second preset", async ({ page }) => {
   await installLibrary(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await expect(page.locator(".preset-row").first()).toBeVisible();
   // Both taps land in one task, before the first write has finished. The second preset must be
   // planned after the first write, or a book that the first turned off stays off.
@@ -352,7 +370,7 @@ test("A new install starts on Paizo Rulebooks", async ({ page }) => {
   await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-active')).toHaveText(
     `${rulebooks.ids.length} ${rulebooks.ids.length === 1 ? "book" : "books"}`,
   );
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await expect(page.getByRole("button", { name: "Paizo Rulebooks", exact: true })).toHaveAttribute("aria-pressed", "true");
   // The default survives a reload and is written once: a later change is kept, not reset.
   const { book, source } = target();
@@ -411,8 +429,8 @@ test("No active books offers a direct recovery path from Home", async ({ page })
   }), books);
   await page.reload();
   await expect(page.getByText("No books are active.")).toBeVisible();
-  await page.getByRole("link", { name: "Open Active books" }).click();
-  await expect(page.getByRole("heading", { name: "Active books", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Open Manage books" }).click();
+  await expect(page.getByRole("heading", { name: "Manage books", exact: true })).toBeVisible();
   await expect(page.getByText("No books active", { exact: true })).toBeVisible();
   const first = page.getByRole("checkbox", { name: /^Active / }).first();
   await first.check();
@@ -444,7 +462,7 @@ installedTest("Invalid book choices recover without removing the library or star
   await waitReady(page);
   await page.goto("#/");
   await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   await expect(page.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();
 });
@@ -519,28 +537,26 @@ installedTest("The book page meta line is the book's size and survives deactivat
   await expect(page.getByTestId("source-count")).toHaveText(rowLine);
   await expect(page.locator(".book > .notice")).toHaveCount(0);
   await expect(page.locator(".toc-top")).toBeVisible();
+  await expect(page.getByTestId("book-off-line")).toHaveCount(0);
 
-  // The book page has its own Active row. Turn the book off there, with no trip to Active books.
-  const rowToggle = page.locator(".book-active-row").getByRole("checkbox", { name: "Active", exact: true });
-  await expect(rowToggle).toBeChecked();
-  await rowToggle.uncheck();
-  await expect(rowToggle).not.toBeChecked();
-  await expect(page.locator(".book-active-row")).toContainText(
-    "Search and lists leave this book out. You can still read its contents here.",
-  );
-  await expect(page.getByTestId("source-count")).toHaveText(rowLine);
-
-  await page.goto("#/books/active");
+  // Turn the book off on Manage books; the book page itself has no control.
+  await page.goto("#/books/manage");
   await waitReady(page);
   await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
-  await expect(row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
+  const toggle = row.getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
+  await expect(toggle).toBeChecked();
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
 
   await page.goto(`#/browse/book/${encodeURIComponent(book.source)}`);
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
-  // The contents stay readable, so the line must not change when the book is disabled.
+  // The contents stay readable, so the count line must not change when the book is disabled.
   await expect(page.getByTestId("source-count")).toHaveText(rowLine);
-  await expect(page.locator(".book-active-row")).toContainText("Search and lists leave this book out.");
+  await expect(page.getByTestId("book-off-line")).toHaveText(
+    "This book is turned off. Its entries don't appear in search or lists.",
+  );
+  await expect(page.locator(".book-active-row")).toHaveCount(0);
   await expect(page.locator(".toc-top")).toBeVisible();
 });
 
@@ -548,7 +564,7 @@ installedTest("A search hint offers to include an inactive book without changing
   const { entry, book, source } = target();
   await installLibrary(page);
   await waitControlled(page);
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
@@ -561,7 +577,7 @@ installedTest("A search hint offers to include an inactive book without changing
   const hint = page.locator(".inactive-books-hint");
   await expect(hint).toContainText(`inactive books (${source.title})`);
   // Reading the hint changes nothing: the book is still inactive in the stored set.
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
@@ -574,7 +590,7 @@ installedTest("A search hint offers to include an inactive book without changing
     .getByRole("button", { name: `Turn on ${source.title}`, exact: true }).click();
   // Exact id (or id plus an anchor): a nested add-on such as `<id>/mythic` shares the prefix.
   await expect(page.locator(`.results a[href="#/entry/${entry.id}"], .results a[href^="#/entry/${entry.id}#"]`)).toBeVisible();
-  await page.goto("#/books/active");
+  await page.goto("#/books/manage");
   await openBookGroups(page);
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();

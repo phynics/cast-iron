@@ -1,4 +1,5 @@
-//! Active books (`#/books/active`): the presets and one checkbox per book.
+//! Manage books (`#/books/manage`): the presets and one checkbox per book. The old address
+//! `#/books/active` parses to the same route.
 //!
 //! The page is a route, not local state: every change writes the stored choice at once through
 //! `Library::update_active_books`, so nothing can be left half edited, a reload stays on the
@@ -20,15 +21,15 @@ use wasm_bindgen::JsCast;
 // ---- how the page is entered and left -------------------------------------------------------
 
 thread_local! {
-    /// Set when the `Active books ›` link on Books is followed, so Done can go Back to that
+    /// Set when the `Manage books ›` link on Books is followed, so Done can go Back to that
     /// Books entry (which restores its scroll position) instead of stacking a new one.
     static OPENED_FROM_BOOKS: Cell<bool> = const { Cell::new(false) };
-    /// Set by Done, so Books puts focus back on the `Active books ›` link it was left from.
+    /// Set by Done, so Books puts focus back on the `Manage books ›` link it was left from.
     static FOCUS_LINK_NEXT: Cell<bool> = const { Cell::new(false) };
 }
 
-/// The id of the `Active books ›` link on Books.
-pub const ACTIVE_LINK_ID: &str = "active-books-link";
+/// The id of the `Manage books ›` link on Books.
+pub const MANAGE_LINK_ID: &str = "manage-books-link";
 
 /// Call from the Books link, before the route changes.
 pub fn note_opened_from_books() {
@@ -253,10 +254,10 @@ fn preset_list(panel: &Panel) -> impl IntoView + use<> {
     view! { <ul class="preset-list">{rows}</ul> }
 }
 
-/// Active books: the presets, then the same tier groups as Books with a checkbox per book.
+/// Manage books: the presets, then the same tier groups as Books with a checkbox per book.
 #[component]
 pub fn ActiveBooks() -> impl IntoView {
-    set_title("Active books");
+    set_title("Manage books");
     let library = use_library();
     let opened_from_books = OPENED_FROM_BOOKS.with(|flag| flag.replace(false));
     let panel = Panel {
@@ -266,7 +267,7 @@ pub fn ActiveBooks() -> impl IntoView {
         applied: RwSignal::new(None),
     };
     // Entering moves focus to the heading, after the shell has moved it to `main`.
-    focus_after_frame("active-books-heading");
+    focus_after_frame("manage-books-heading");
 
     let counts = library.source_entry_counts();
     let rows: Vec<BookListEntry> = library
@@ -321,7 +322,7 @@ pub fn ActiveBooks() -> impl IntoView {
     view! {
         <div class="wide active-books">
             <div class="head-row">
-                <h1 id="active-books-heading" tabindex="-1">"Active books"</h1>
+                <h1 id="manage-books-heading" tabindex="-1">"Manage books"</h1>
                 <button type="button" class="text-btn" on:click=move |_| done(opened_from_books)>"Done"</button>
             </div>
             <p class="muted books-count" aria-live="polite">{line}</p>

@@ -26,7 +26,7 @@ const screens: [string, string][] = [
   ["#/browse", "a.cat"],
   ["#/browse/kind/spell", ".entry-list li"],
   ["#/books", ".book-directory-row"],
-  ["#/books/active", ".preset-row"],
+  ["#/books/manage", ".preset-row"],
   [`#/browse/source/${encodeURIComponent(source)}`, ".toc"],
   [`#/spells/${encodeURIComponent(listClass)}/${listLevel}`, ".level-group"],
   ["#/feats/chains", ".chain-head"],
@@ -94,20 +94,25 @@ installedTest("Book rows, the book page contents tree and the groups fit the mob
   await link.click();
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of `) });
   await expect(tree).toBeVisible();
-  await tree.locator(".toc-top > li > .toc-details > summary").first().click();
+  // The contents are expanded, with no disclosure to open, and every row is a 44 px target.
+  await expect(tree.locator("details, summary, [aria-expanded]")).toHaveCount(0);
+  const tocRow = tree.locator(".toc-top > li > .toc-row, .toc-top > li.toc-leaf > a").first();
+  await expect(tocRow).toBeVisible();
+  expect((await tocRow.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await overflow()).toBeLessThanOrEqual(0);
 
-  // The book page has no breadcrumb, its first screen holds the title, the meta line, the Active
-  // row and the Contents heading, and nothing overflows with a chapter open.
+  // The book page has no breadcrumb, its first screen holds the title, the meta line,
+  // In this book and the Contents heading, and nothing overflows.
   await expect(page.locator("main .crumbs")).toHaveCount(0);
   await expect(page.getByTestId("source-count")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "In this book", exact: true })).toBeVisible();
   const heading = page.getByRole("heading", { level: 2, name: "Contents", exact: true });
   await expect(heading).toBeVisible();
   expect((await heading.boundingBox())!.y).toBeLessThan(844);
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
-installedTest("Books and Active books fit 390 px with full-size touch targets", async ({ page }) => {
+installedTest("Books and Manage books fit 390 px with full-size touch targets", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books");
   const groups = page.locator(".book-tier");
@@ -124,17 +129,17 @@ installedTest("Books and Active books fit 390 px with full-size touch targets", 
   const overflow = async () =>
     page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
 
-  // Books has no group controls and no Only Rulebooks; the link to Active books is a 44 px target.
+  // Books has no group controls and no Only Rulebooks; the link to Manage books is a 44 px target.
   await expect(page.getByRole("button", { name: /Activate all|Deactivate all|Only Rulebooks/ })).toHaveCount(0);
-  const link = page.getByRole("link", { name: "Active books", exact: true });
+  const link = page.getByRole("link", { name: "Manage books", exact: true });
   const linkBox = (await link.boundingBox())!;
   expect(linkBox.height).toBeGreaterThanOrEqual(44);
   expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(390);
   expect(await overflow()).toBeLessThanOrEqual(0);
 
   await link.click();
-  await expect(page).toHaveURL(/#\/books\/active$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Active books", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
   const targets = [
     page.getByRole("button", { name: "Done", exact: true }),
     ...(await page.locator(".preset-row").all()),

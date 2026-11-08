@@ -623,8 +623,26 @@ export function bookTrees(): BookTree[] {
   return cachedBooks!;
 }
 
-/** The kinds that the `In this book` links (#158) will reach. */
-export const LINKED_KINDS = new Set(["spell", "feat", "item", "class", "prestige_class", "archetype", "class_option"]);
+/**
+ * The kinds that the `In this book` links reach: every kind with its own list page, which is
+ * every kind except Rules (`EntryKind` in the schema).
+ */
+export const LINKED_KINDS = new Set([
+  "spell",
+  "feat",
+  "creature",
+  "item",
+  "class",
+  "prestige_class",
+  "race",
+  "skill",
+  "affliction",
+  "trap",
+  "trait",
+  "racial_trait",
+  "archetype",
+  "class_option",
+]);
 /**
  * Whether Contents leaves those kinds out. On since #158 shipped the links (`LEAVE_OUT_LINKED_KINDS`
  * in `views/book.rs`); the tests follow this one switch.
@@ -637,11 +655,16 @@ export const CONTENTS_HIDDEN_KINDS: Set<string> = CONTENTS_LEAVES_OUT_LINKED_KIN
 export function listedChapterTitles(book: BookTree): string[] {
   const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
   const ids = (node: TocNode): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(ids)];
-  const listed = book.chapters.filter((chapter) => {
-    const all = ids(chapter);
+  const shown = (node: TocNode) => {
+    const all = ids(node);
     return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
-  });
+  };
+  const listed = book.chapters.filter(shown);
   const rename = (title: string) => (title === "New entries (page order)" ? "More from this book" : title);
+  // A book whose only listed chapter is the catch-all shows that chapter's rows at the top.
+  if (listed.length === 1 && listed[0].title === "New entries (page order)" && !listed[0].entry) {
+    return (listed[0].children ?? []).filter(shown).map((node) => rename(node.title));
+  }
   return listed.map((chapter) => rename(chapter.title));
 }
 
@@ -697,7 +720,7 @@ export function bookEntryOrder(book: BookTree): string[] {
 
 const tocId = (path: number[]) => `toc-${path.map((index) => index + 1).join("-")}`;
 
-/** Expand a contents path and follow the entry it ends at. */
+/** Follow the expanded contents row of an entry. */
 export async function openBookEntry(
   page: Page,
   book: BookTree,
@@ -709,25 +732,8 @@ export async function openBookEntry(
   const activate = (locator: import("@playwright/test").Locator) =>
     keys ? locator.press("Enter") : locator.click();
   await openBookContents(page, book.title);
-  let nodes = book.chapters;
-  for (let depth = 0; depth < path.length; depth++) {
-    const node = nodes[path[depth]];
-    const id = tocId(path.slice(0, depth + 1));
-    if (!node.children?.length) {
-      await activate(page.locator(`a#${id}`));
-      return;
-    }
-    const details = page.locator(`#${id}`).locator("xpath=..");
-    if (!(await details.evaluate((el: HTMLDetailsElement) => el.open))) {
-      await activate(page.locator(`#${id}`));
-    }
-    await expect(details).toHaveJSProperty("open", true);
-    if (depth === path.length - 1) {
-      await activate(details.locator(":scope > ul > li.toc-self > a"));
-      return;
-    }
-    nodes = node.children;
-  }
+  const id = tocId(path);
+  await activate(page.locator(`a#${id}`));
 }
 
 /**
