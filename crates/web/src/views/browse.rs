@@ -2044,6 +2044,10 @@ mod tests {
             empty_filter_line(EntryKind::Spell, &[facet("spell_level", "5")]),
             "No Level 5 spells in your active books."
         );
+        assert_eq!(
+            empty_filter_line(EntryKind::Spell, &[facet("spell_level", "0")]),
+            "No Cantrips in your active books."
+        );
     }
 
     #[test]

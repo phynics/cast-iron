@@ -112,7 +112,26 @@ pub fn spells_noun(n: usize) -> String {
 }
 
 fn level_label(level: u8) -> String {
-    format!("Level {level}")
+    fmt::spell_level(level)
+}
+
+/// The compact text inside a level-number tab on a spell page: `Cantrips`, or the numeral.
+fn level_tab(level: u8) -> String {
+    if level == 0 {
+        fmt::spell_level(level)
+    } else {
+        level.to_string()
+    }
+}
+
+/// The heading and document title of a class list: `Wizard spells`, `Wizard cantrips` for level
+/// 0, `Wizard spells, level 5` otherwise.
+fn list_heading(name: &str, level: Option<u8>) -> String {
+    match level {
+        Some(0) => format!("{name} cantrips"),
+        Some(level) => format!("{name} spells, level {level}"),
+        None => format!("{name} spells"),
+    }
 }
 
 fn missing_lists() -> impl IntoView {
@@ -262,10 +281,7 @@ pub fn SpellsHub() -> impl IntoView {
 #[component]
 pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
     let library = use_library();
-    set_title(&match level {
-        Some(level) => format!("{class} spells, level {level}"),
-        None => format!("{class} spells"),
-    });
+    set_title(&list_heading(&class, level));
     let lists = {
         let library = library.clone();
         let revision = library.selection_revision();
@@ -450,7 +466,7 @@ fn ListPage(
                     <li>
                         <a class="lvl" href=href aria-label=label
                             aria-current=(level == Some(l)).then_some("page")>
-                            <span class="lvl-n">{l}</span>
+                            <span class="lvl-n">{level_tab(l)}</span>
                             <span class="lvl-count">{fmt::count(n)}</span>
                         </a>
                     </li>
@@ -467,10 +483,7 @@ fn ListPage(
         }
     };
 
-    let heading = match level {
-        Some(l) => format!("{name} spells, level {l}"),
-        None => format!("{name} spells"),
-    };
+    let heading = list_heading(&name, level);
     let lists_for_body = lists.clone();
     let list_name = name.clone();
     let library_for_body = library.clone();
@@ -483,14 +496,21 @@ fn ListPage(
         if groups.is_empty() {
             let text = filter.get();
             let narrowed = !chosen.is_empty();
+            // A level page names its own category: a list of cantrips has no "spells" on it.
+            let empty_level = if level == Some(0) {
+                "No cantrips on this list.".to_string()
+            } else {
+                "No spells at this level.".to_string()
+            };
+            let noun = if level == Some(0) { "cantrip" } else { "spell" };
             return view! {
                 <p class="empty" role="status">
                     {if text.trim().is_empty() && !narrowed {
-                        "No spells at this level.".to_string()
+                        empty_level
                     } else if text.trim().is_empty() {
-                        "No spell on this list is in the chosen schools.".to_string()
+                        format!("No {noun} on this list is in the chosen schools.")
                     } else {
-                        format!("No spell on this list matches {:?}.", text.trim())
+                        format!("No {noun} on this list matches {:?}.", text.trim())
                     }}
                 </p>
             }
@@ -631,7 +651,11 @@ fn ListPage(
             {level_links}
             {(!known_level).then(|| view! {
                 <p class="notice">
-                    {format!("{name} has no spells at level {}. The levels it has are listed above.", level.unwrap_or(0))}
+                    {match level {
+                        Some(0) => format!("{name} has no cantrips. The levels it has are listed above."),
+                        Some(l) => format!("{name} has no spells at level {l}. The levels it has are listed above."),
+                        None => format!("{name} has no spells at this level. The levels it has are listed above."),
+                    }}
                 </p>
             })}
             <form class="search-form list-filter" role="search" on:submit=|ev| ev.prevent_default()>
@@ -738,5 +762,17 @@ mod tests {
         assert_eq!(spells_noun(1), "1 spell");
         assert_eq!(spells_noun(0), "0 spells");
         assert_eq!(spells_noun(131), "131 spells");
+    }
+
+    #[test]
+    fn level_zero_is_cantrips_in_headings_tabs_and_labels() {
+        assert_eq!(level_label(0), "Cantrips");
+        assert_eq!(level_label(5), "Level 5");
+        assert_eq!(level_tab(0), "Cantrips");
+        assert_eq!(level_tab(5), "5");
+        // The heading names the page's own noun, and level 0 needs no "level" qualifier.
+        assert_eq!(list_heading("Wizard", None), "Wizard spells");
+        assert_eq!(list_heading("Wizard", Some(0)), "Wizard cantrips");
+        assert_eq!(list_heading("Wizard", Some(5)), "Wizard spells, level 5");
     }
 }

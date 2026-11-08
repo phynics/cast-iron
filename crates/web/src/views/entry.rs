@@ -12,14 +12,150 @@ use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
-use crate::views::rich::{RELATED_ANCHOR, RichBody};
+use crate::views::rich::{RELATED_ANCHOR, RichBody, plain_text};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
-    EntryId, EntryKind, EntryReference, RelationKind, RetirementReason, RuleEntry,
+    Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
+    SpellLevel, TypedFields,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
+
+/// A class name as the drift check compares it: case, spacing, and trailing punctuation do not
+/// decide whether the printed row and the typed levels are the same set.
+fn normalized_class(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+        .trim_end_matches(['.', ';'])
+        .to_string()
+}
+
+/// `(class, level)` pairs of a printed `Level` row, in the order the row lists them. Lines
+/// read `<level>: <class>, <class>`.
+fn printed_levels(value: &[Inline]) -> Vec<(String, u8)> {
+    let mut lines: Vec<String> = vec![String::new()];
+    for inline in value {
+        match inline {
+            Inline::Break => lines.push(String::new()),
+            _ => lines
+                .last_mut()
+                .expect("one line is always present")
+                .push_str(&plain_text(std::slice::from_ref(inline))),
+        }
+    }
+    let mut pairs = Vec::new();
+    for line in lines {
+        let Some((level, classes)) = line.split_once(':') else {
+            continue;
+        };
+        let Ok(level) = level.trim().parse::<u8>() else {
+            continue;
+        };
+        for class in classes.split(',') {
+            let class = class.trim();
+            if !class.is_empty() {
+                pairs.push((class.to_string(), level));
+            }
+        }
+    }
+    pairs
+}
+
+/// The typed levels as the rows a reader sees, grouped by level ascending. Level 0 is
+/// `Cantrips`; classes keep the order the printed row used, so the replacement reads as a
+/// correction of the word, not a re-sort of the list.
+fn typed_level_values(levels: &[SpellLevel], printed: &[(String, u8)]) -> Vec<Inline> {
+    let printed_rank: BTreeMap<(String, u8), usize> = printed
+        .iter()
+        .enumerate()
+        .map(|(at, (class, level))| ((normalized_class(class), *level), at))
+        .collect();
+    let mut by_level: BTreeMap<u8, Vec<&str>> = BTreeMap::new();
+    for level in levels {
+        by_level.entry(level.level).or_default().push(&level.class);
+    }
+    let mut out = Vec::new();
+    for (at, (level, classes)) in by_level.iter_mut().enumerate() {
+        // The typed list is the source; the printed row only supplies the order. A class the
+        // printed row did not name (impossible when the sets agree) sorts last.
+        classes.sort_by_key(|class| {
+            printed_rank
+                .get(&(normalized_class(class), *level))
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
+        classes.dedup_by(|a, b| normalized_class(a) == normalized_class(b));
+        if at > 0 {
+            out.push(Inline::Break);
+        }
+        let label = if *level == 0 {
+            crate::fmt::spell_level(0)
+        } else {
+            level.to_string()
+        };
+        out.push(Inline::Text {
+            v: format!("{label}: {}", classes.join(", ")),
+        });
+    }
+    out
+}
+
+/// The body as a spell page renders it. The printed `Level` stat row is replaced with a typed
+/// rendering so level 0 reads as `Cantrips`. A missing typed list, a row without any pair, a
+/// row whose classes differ from the typed set, or a row with styling or links keeps the
+/// corpus text unchanged.
+pub fn spell_level_body(body: &[Block], fields: &TypedFields) -> Vec<Block> {
+    let TypedFields::Spell(spell) = fields else {
+        return body.to_vec();
+    };
+    if spell.levels.is_empty() {
+        return body.to_vec();
+    }
+    let typed: BTreeSet<(String, u8)> = spell
+        .levels
+        .iter()
+        .map(|level| (normalized_class(&level.class), level.level))
+        .collect();
+    let mut blocks = body.to_vec();
+    let mut rewrote = false;
+    for block in &mut blocks {
+        let Block::StatBlock { rows, .. } = block else {
+            continue;
+        };
+        for row in rows.iter_mut() {
+            if !row.label.eq_ignore_ascii_case("Level") {
+                continue;
+            }
+            // The replacement is plain text. A row that carries formatting would lose it, so
+            // it stays as printed.
+            if row
+                .value
+                .iter()
+                .any(|inline| !matches!(inline, Inline::Text { .. } | Inline::Break))
+            {
+                continue;
+            }
+            let printed = printed_levels(&row.value);
+            if printed.is_empty() {
+                continue;
+            }
+            let stated: BTreeSet<(String, u8)> = printed
+                .iter()
+                .map(|(class, level)| (normalized_class(class), *level))
+                .collect();
+            if stated != typed {
+                continue;
+            }
+            row.value = typed_level_values(&spell.levels, &printed);
+            rewrote = true;
+        }
+    }
+    if rewrote { blocks } else { body.to_vec() }
+}
 
 /// The parent chain of a stub, root first, stopping at a missing stub or a cycle.
 pub fn parent_chain(library: &Library, id: &EntryId) -> Vec<(EntryId, String)> {
@@ -420,6 +556,9 @@ fn EntryView(
         .into_any(),
     };
     let disabled_book = !library.is_entry_active(&entry.id);
+    // The printed spell `Level` row says `0: Class`; render it from the typed levels so the
+    // reader sees `Cantrips`. Every other entry keeps its body as printed.
+    let rendered_body = spell_level_body(&entry.body, &entry.fields);
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
@@ -443,7 +582,7 @@ fn EntryView(
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
         <ArticleContents body=entry.body.clone() id=entry.id.clone() />
-        <RichBody body=entry.body.clone() anchor=anchor />
+        <RichBody body=rendered_body anchor=anchor />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />
         <aside class="entry-refs" aria-label="Entry links">
@@ -544,6 +683,95 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cast_iron_schema::{SpellFields, StatRow};
+
+    fn text(value: &str) -> Inline {
+        Inline::Text { v: value.into() }
+    }
+
+    fn level_row(value: Vec<Inline>) -> Block {
+        Block::StatBlock {
+            title: None,
+            rows: vec![StatRow {
+                label: "Level".into(),
+                value,
+            }],
+        }
+    }
+
+    fn spell(levels: &[(&str, u8)]) -> TypedFields {
+        TypedFields::Spell(SpellFields {
+            levels: levels
+                .iter()
+                .map(|(class, level)| SpellLevel {
+                    class: (*class).into(),
+                    level: *level,
+                })
+                .collect(),
+            ..Default::default()
+        })
+    }
+
+    fn row_value(blocks: &[Block]) -> &[Inline] {
+        match &blocks[0] {
+            Block::StatBlock { rows, .. } => &rows[0].value,
+            other => panic!("expected a stat block, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_spell_level_row_reads_cantrips_for_level_zero() {
+        let body = vec![level_row(vec![text("0: Cleric, Wizard")])];
+        let out = spell_level_body(&body, &spell(&[("Wizard", 0), ("Cleric", 0)]));
+        // The typed list is the source; the printed row supplies the class order.
+        assert_eq!(row_value(&out), [text("Cantrips: Cleric, Wizard")]);
+        // The label stays.
+        assert!(matches!(
+            &out[0],
+            Block::StatBlock { rows, .. } if rows[0].label == "Level"
+        ));
+    }
+
+    #[test]
+    fn levels_group_ascending_with_the_printed_class_order() {
+        let body = vec![level_row(vec![
+            text("2: Druid, Arcanist"),
+            Inline::Break,
+            text("3: Cleric"),
+        ])];
+        let out = spell_level_body(
+            &body,
+            &spell(&[("Arcanist", 2), ("Cleric", 3), ("Druid", 2)]),
+        );
+        assert_eq!(
+            row_value(&out),
+            [text("2: Druid, Arcanist"), Inline::Break, text("3: Cleric"),]
+        );
+    }
+
+    #[test]
+    fn a_row_that_disagrees_with_the_typed_levels_is_left_alone() {
+        let body = vec![level_row(vec![text("0: Cleric, Wizard")])];
+        assert_eq!(spell_level_body(&body, &spell(&[("Wizard", 0)])), body);
+        // Case and spacing do not decide the comparison, as in the drift check.
+        let cased = vec![level_row(vec![text("0:  wizard")])];
+        assert_eq!(
+            row_value(&spell_level_body(&cased, &spell(&[("Wizard", 0)]))),
+            [text("Cantrips: Wizard")]
+        );
+    }
+
+    #[test]
+    fn nothing_is_rewritten_without_typed_levels_or_a_plain_row() {
+        let body = vec![level_row(vec![text("0: Wizard")])];
+        assert_eq!(spell_level_body(&body, &spell(&[])), body);
+        assert_eq!(spell_level_body(&body, &TypedFields::None), body);
+        // A styled or linked row would lose that content, so it stays as printed.
+        let styled = vec![level_row(vec![Inline::Strong {
+            c: vec![text("0: Wizard")],
+        }])];
+        assert_eq!(spell_level_body(&styled, &spell(&[("Wizard", 0)])), styled);
+    }
 
     fn r(target: &str, anchor: Option<&str>) -> EntryReference {
         EntryReference {

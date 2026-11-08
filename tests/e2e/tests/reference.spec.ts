@@ -286,8 +286,42 @@ test("Rule entries preserve complex formatting: spell levels keep their groups",
   const value = row.locator("dd");
   await expect(value.locator("br")).toHaveCount(levels.length - 1);
   const text = await value.innerText();
-  for (const level of levels) expect(text).toContain(`${level}: `);
+  for (const level of levels) expect(text).toContain(`${level === 0 ? "Cantrips" : level}: `);
   for (const name of classNames) expect(text).toContain(name);
+});
+
+test("Level 0 spells read as Cantrips on the spell page and the Wizard list", async ({ page }) => {
+  const spell = firstEntry("a level-0 Wizard spell", (entry) =>
+    entry.kind === "spell" && entry.fields?.levels?.some((level: any) => level.class === "Wizard" && level.level === 0));
+  await page.goto(`#/entry/${spell.id}`);
+  // The printed stat-block row is rendered from the typed levels, so it says Cantrips.
+  const row = page.locator(".stat-block .stat-row").filter({ has: page.locator("dt", { hasText: /^Level$/ }) });
+  const value = row.locator("dd");
+  await expect(value).toContainText(/^Cantrips: /);
+  await expect(value).not.toContainText(/\b0: /);
+  await expect(value).toContainText("Wizard");
+  const lists = page.locator(".entry-rel section").filter({ has: page.getByRole("heading", { name: "On spell lists" }) });
+  const wizard = lists.getByRole("link", { name: "Wizard cantrip", exact: true });
+  await expect(wizard).toBeVisible();
+  // The route keeps the number even though the label is a word.
+  await expect(wizard).toHaveAttribute("href", /#\/spells\/Wizard\/0$/);
+
+  await page.goto("#/spells/Wizard/0");
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard cantrips" })).toBeVisible();
+  const tab = page.locator(".level-nav").getByRole("link", { name: /^Cantrips,/ });
+  await expect(tab).toHaveAttribute("aria-current", "page");
+  await expect(tab.locator(".lvl-n")).toHaveText("Cantrips");
+  // The group keeps its numeric value for CSS and links.
+  await expect(page.locator(".level-group")).toHaveAttribute("data-level", "0");
+
+  // A class without cantrips says what the empty level is, in the same word.
+  const classNames = [...new Set(entries.flatMap((entry) =>
+    (entry.fields?.levels ?? []).map((level: any) => level.class as string)))];
+  const noCantrips = classNames.find((name) => !entries.some((entry) =>
+    entry.kind === "spell" && entry.fields?.levels?.some((level: any) => level.class === name && level.level === 0)));
+  expect(noCantrips, "a spell list with no level 0").toBeTruthy();
+  await page.goto(`#/spells/${encodeURIComponent(noCantrips!)}/0`);
+  await expect(page.getByRole("status").filter({ hasText: "No cantrips on this list." })).toBeVisible();
 });
 
 test("Rule entries preserve complex formatting: creature spell lists use readable level labels", async ({ page }) => {
