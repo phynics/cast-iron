@@ -3,6 +3,16 @@ import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
+/** The books the corpus marks third party (#189); a settled profile starts without them. */
+const thirdParty = new Set<string>(
+  corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
+);
+const activeOwners = bookOwners();
+/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+const activeStubs = corpus.catalog.entries.filter(
+  (stub: any) => !thirdParty.has(activeOwners.get(stub.id) ?? stub.source),
+);
+const activeIds = new Set(activeStubs.map((stub: any) => stub.id as string));
 
 test("A long kind opens one letter group, focuses it, and Back returns to it", async ({ page }) => {
   await installLibrary(page);
@@ -51,7 +61,7 @@ test("A short kind stays one flat list without a jump bar", async ({ page }) => 
 
 test("A kind's list page is a title, a count line, the filters, a letter bar and rows, with no breadcrumb, lede or search link", async ({ page }) => {
   await installLibrary(page);
-  const feats = corpus.catalog.entries.filter((stub) => stub.kind === "feat");
+  const feats = activeStubs.filter((stub) => stub.kind === "feat");
   expect(feats.length).toBeGreaterThan(200);
   await page.goto("#/browse/kind/feat");
   const main = page.locator("main");
@@ -106,8 +116,10 @@ test("Feat chains and the spell pages start their crumbs below a tab destination
 
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
 
-const featsInCombat = [...corpus.entries.values()].filter((entry) => entry.kind === "feat" && (entry.fields?.feat_types ?? []).includes("Combat")).length;
-const featCount = corpus.catalog.entries.filter((stub) => stub.kind === "feat").length;
+const featsInCombat = [...corpus.entries.values()]
+  .filter((entry) => activeIds.has(entry.id) && entry.kind === "feat" && (entry.fields?.feat_types ?? []).includes("Combat"))
+  .length;
+const featCount = activeStubs.filter((stub) => stub.kind === "feat").length;
 const typeButton = (page: Page) => page.getByRole("button", { name: /^Type: /, exact: false });
 
 test("The feat type menu opens, finds a type, filters the list in place, and Back returns to all types", async ({ page }) => {
@@ -251,7 +263,7 @@ test("Feat chains is a plain accent link in the filter row, not a card", async (
 
 test("Feats that lead to more than five feats carry a chain marker, and it stays quiet", async ({ page }) => {
   await installLibrary(page);
-  const leads = featLeadsTo(5);
+  const leads = featLeadsTo(5, activeIds);
   const powerAttack = corpusEntry("feat", "Power Attack");
   const dodge = corpusEntry("feat", "Dodge");
   for (const feat of [powerAttack, dodge]) {

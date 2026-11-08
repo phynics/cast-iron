@@ -5,6 +5,15 @@ import { bodyText, bookOwners, corpusEntry, count, hitTitles, installLibrary, nu
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
+/** The books the corpus marks third party (#189); a settled profile starts without them. */
+const thirdParty = new Set<string>(
+  corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
+);
+const owners = bookOwners();
+/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+const activeStubs = corpus.catalog.entries.filter(
+  (stub: any) => !thirdParty.has(owners.get(stub.id) ?? stub.source),
+);
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The chip whose label starts with `label`, and the count it shows. */
@@ -23,7 +32,7 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   await installLibrary(page);
   await page.goto("#/search");
   const kindTotals = new Map<string, number>();
-  for (const e of corpus.entries.values()) kindTotals.set(e.kind, (kindTotals.get(e.kind) ?? 0) + 1);
+  for (const stub of activeStubs) kindTotals.set(stub.kind, (kindTotals.get(stub.kind) ?? 0) + 1);
 
   // Without a query the chips are the totals for the active books.
   await expect(page.locator(".search-page")).toBeVisible();

@@ -807,14 +807,17 @@ export async function waitHomeIdle(page: Page) {
 
 /**
  * How many feats each feat leads to, directly or not, from the compiled relations: the number
- * the chain marker states. Only feats that lead to more than `moreThan` are returned.
+ * the chain marker states. Only feats that lead to more than `moreThan` are returned. Pass
+ * `eligible` to keep only the edges between entries that the current book selection shows: the
+ * page filters the relation graph the same way.
  */
-export function featLeadsTo(moreThan = 5): Map<string, number> {
+export function featLeadsTo(moreThan = 5, eligible?: Set<string>): Map<string, number> {
   const dir = path.join(GENERATED, loadCorpus().version);
   const index = JSON.parse(fs.readFileSync(path.join(dir, "relations.json"), "utf8"));
   const leads = new Map<string, string[]>();
   for (const [source, kind, target] of index.edges as [string, string, string][]) {
     if (kind !== "prerequisite") continue;
+    if (eligible && (!eligible.has(source) || !eligible.has(target))) continue;
     leads.set(target, [...(leads.get(target) ?? []), source]);
   }
   const out = new Map<string, number>();

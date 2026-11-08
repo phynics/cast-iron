@@ -139,15 +139,25 @@ const tierCategories: Record<string, string[]> = {
   setting: ["Campaign Setting"],
 };
 const allBooks: string[] = corpus.catalog.sources.map((row: any) => row.id);
+/** The books the corpus marks third party (#189); they are opt-in and start off. */
+const thirdParty = new Set<string>(
+  corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
+);
+/** The default active set for a settled profile: every book that is not third party. */
+const paizoBooks = allBooks.filter((id) => !thirdParty.has(id));
 const idsIn = (...tiers: string[]) =>
   corpus.catalog.sources
-    .filter((row: any) => tiers.some((tier) => tierCategories[tier].includes(row.category)))
+    .filter(
+      (row: any) =>
+        !row.third_party && tiers.some((tier) => tierCategories[tier].includes(row.category)),
+    )
     .map((row: any) => row.id as string);
-/** The books each offered preset turns on, from the compiled catalog. No book is third party yet. */
+/** The books each offered preset turns on, from the compiled catalog. */
 const presets = [
   { name: "Paizo Rulebooks", ids: idsIn("rulebooks") },
   { name: "Paizo Rulebooks & More", ids: idsIn("rulebooks", "companions", "setting") },
-  { name: "Paizo Everything", ids: allBooks },
+  { name: "Paizo Everything", ids: paizoBooks },
+  { name: "Everything incl. 3rd party", ids: allBooks },
 ];
 const countLine = (active: number, name?: string) =>
   `${count(active)} of ${count(allBooks.length)} books active` + (name ? ` · ${name}` : "");
@@ -222,19 +232,19 @@ installedTest("A checkbox saves at once, survives a reload, and the count line f
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true });
   await expect(toggle).toBeChecked();
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length));
   await toggle.uncheck();
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length - 1));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length - 1));
   // The checkbox never disables itself, so keyboard focus stays on it.
   await expect(toggle).toBeEnabled();
   await page.reload();
   await waitReady(page);
   await openBookGroups(page);
   await expect(toggle).not.toBeChecked();
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length - 1));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length - 1));
   // Books names the set Custom, and nothing is saved on the book rows themselves.
   await page.goto("#/books");
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length - 1, "Custom"));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length - 1, "Custom"));
 });
 
 installedTest("Each preset sets its books, the count line names it, and Undo restores the earlier set", async ({ page }) => {
@@ -242,18 +252,18 @@ installedTest("Each preset sets its books, the count line names it, and Undo res
   await waitControlled(page);
   await page.goto("#/books/manage");
   await waitReady(page);
-  // No book is marked third party yet, so the fourth preset equals Paizo Everything and is hidden.
+  // The corpus marks two books third party, so the fourth preset is distinct and offered.
   await expect(page.locator(".preset-row")).toHaveCount(presets.length);
-  await expect(page.getByRole("button", { name: "Everything incl. 3rd party", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Everything incl. 3rd party", exact: true })).toHaveCount(1);
   const row = (name: string) => page.getByRole("button", { name, exact: true });
-  // A profile that kept every book active matches Paizo Everything.
+  // A settled profile keeps every Paizo book active, which matches Paizo Everything.
   await expect(row("Paizo Everything")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length));
   await page.goto("#/books");
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length, "Paizo Everything"));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
   await page.goto("#/books/manage");
 
-  for (const preset of [presets[0], presets[1], presets[2]]) {
+  for (const preset of presets) {
     await row(preset.name).click();
     await expect(page.getByRole("status").filter({ hasText: `Applied ${preset.name}.` })).toBeVisible();
     await expect(row(preset.name)).toHaveAttribute("aria-pressed", "true");
@@ -385,9 +395,10 @@ test("A new install starts on Paizo Rulebooks", async ({ page }) => {
   await expect(toggle).toBeChecked({ checked: !wasActive });
 });
 
-test("An install from before the default keeps every book active, with or without a stored choice", async ({ page }) => {
+test("An install from before the default keeps every Paizo book active, with or without a stored choice", async ({ page }) => {
   // The helper settles the marker, the state of an existing profile. Removing the marker too is a
-  // profile that never stored anything and has no marker at all: nothing may change for it.
+  // profile that never stored anything and has no marker at all: nothing may change for it. The
+  // third-party books are the exception: #189 turns them off on the first load that sees them.
   await installLibrary(page);
   await waitControlled(page);
   await page.evaluate(() => new Promise<void>((resolve, reject) => {
@@ -404,7 +415,7 @@ test("An install from before the default keeps every book active, with or withou
   await page.reload();
   await waitReady(page);
   await page.goto("#/books");
-  await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length, "Paizo Everything"));
+  await expect(page.locator(".books-count")).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
 });
 
 // Clean profile on purpose: from a pre-installed profile the reload below can interrupt a
