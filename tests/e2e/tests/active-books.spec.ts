@@ -195,7 +195,7 @@ installedTest("Done on a page opened directly replaces it with Books", async ({ 
   await expect(page.getByRole("link", { name: "Active books", exact: true })).toBeFocused();
 });
 
-test("A checkbox saves at once, survives a reload, and the count line follows", async ({ page }) => {
+installedTest("A checkbox saves at once, survives a reload, and the count line follows", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/books/active");
@@ -219,7 +219,7 @@ test("A checkbox saves at once, survives a reload, and the count line follows", 
   await expect(page.locator(".books-count")).toHaveText(countLine(allBooks.length - 1, "Custom"));
 });
 
-test("Each preset sets its books, the count line names it, and Undo restores the earlier set", async ({ page }) => {
+installedTest("Each preset sets its books, the count line names it, and Undo restores the earlier set", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/books/active");
@@ -276,7 +276,7 @@ test("Each preset sets its books, the count line names it, and Undo restores the
   await expect(page.locator('.preset-row[aria-pressed="true"]')).toHaveCount(0);
 });
 
-test("A preset keeps downloads and stars, and changes what search finds", async ({ page }) => {
+installedTest("A preset keeps downloads and stars, and changes what search finds", async ({ page }) => {
   const { id, entry } = adventureEntry();
   await installLibrary(page);
   await waitControlled(page);
@@ -322,7 +322,7 @@ test("A preset keeps downloads and stars, and changes what search finds", async 
   expect(await cacheContents(page)).toEqual(downloads);
 });
 
-test("Two quick preset taps end on exactly the second preset", async ({ page }) => {
+installedTest("Two quick preset taps end on exactly the second preset", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/books/active");
   await expect(page.locator(".preset-row").first()).toBeVisible();
