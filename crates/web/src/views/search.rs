@@ -337,8 +337,9 @@ fn publication_toggle_action(
 /// selected publication forces its tier open, so a chosen filter is never hidden, and so does a
 /// non-empty name box, so its matches are seen. Otherwise the reader's answer applies, then the
 /// default: open when the tier has chips and is not collapsed by default. "Show all" opens a
-/// collapsed-by-default tier too, because it lists everything. An Adventures-only page opens
-/// Adventures and spends the budget on it, because a page of closed headings looks empty (#142).
+/// collapsed-by-default tier too, because it lists everything. A page whose only results are in
+/// one collapsed tier opens that tier and spends the budget on it, because a page of closed
+/// headings looks empty (#142). Adventures and third-party books are the collapsed tiers.
 fn publication_page(
     sources: &[SourceInfo],
     selected: &[String],
@@ -357,8 +358,11 @@ fn publication_page(
         .filter(|s| count_of(&s.id) > 0)
         .map(Tier::of)
         .collect();
-    let adventures_only =
-        tiers_with_results.len() == 1 && tiers_with_results.contains(&Tier::Adventures);
+    let only_tier = if tiers_with_results.len() == 1 {
+        tiers_with_results.iter().next().copied()
+    } else {
+        None
+    };
     let matches = sources
         .iter()
         .filter(|s| count_of(&s.id) > 0 && name_matches(s))
@@ -371,13 +375,12 @@ fn publication_page(
     let expanded = |tier: Tier| {
         unlimited || (tier.is_disclosure() && choices.get(&tier).copied() == Some(true))
     };
-    // Adventures take no budget while another tier has results. Alone, they open and spend it,
-    // unless the reader closed them.
-    let adventures_default =
-        adventures_only && choices.get(&Tier::Adventures).copied() != Some(false);
-    let takes_budget = |tier: Tier| {
-        !tier.collapsed_by_default() || (tier == Tier::Adventures && adventures_default)
-    };
+    // A single collapsed tier with results opens and spends the budget, unless the reader
+    // closed it.
+    let one_tier_default = only_tier
+        .filter(|tier| tier.collapsed_by_default())
+        .filter(|tier| choices.get(tier).copied() != Some(false));
+    let takes_budget = |tier: Tier| !tier.collapsed_by_default() || Some(tier) == one_tier_default;
 
     // Candidates by tier: pinned selections, plus every publication with results that the name
     // box matches. Selected first, then count, then title.
@@ -2748,6 +2751,33 @@ mod tests {
         assert!(adventures.ids.is_empty());
         assert_eq!(page.shown_with_results, 0);
         assert_eq!(page.more, 15);
+    }
+
+    #[test]
+    fn a_third_party_only_page_opens_third_party_and_spends_the_budget() {
+        let mut sources = many("tp", "RPG", 15);
+        for source in &mut sources {
+            source.third_party = true;
+        }
+        let counts = ranked_counts(&sources, 1);
+        let page = page_of(&sources, &counts, &[], "", false);
+        let third_party = page.group(Tier::ThirdParty).expect("a third-party group");
+        assert!(third_party.open, "the only tier with results opens");
+        assert_eq!(third_party.ids.len(), PUBLICATION_TOP);
+        assert_eq!(third_party.heading(), "Third party (12 of 15)");
+        assert_eq!(page.shown_with_results, PUBLICATION_TOP);
+        // A reader who closed the group keeps it closed.
+        let page = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::ThirdParty, false)],
+        );
+        let third_party = page.group(Tier::ThirdParty).unwrap();
+        assert!(!third_party.open);
+        assert!(third_party.ids.is_empty());
     }
 
     #[test]
