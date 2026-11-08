@@ -36,6 +36,10 @@ pub const KEY_BOOK_DEFAULTS: &str = crate::book_presets::DEFAULTS_KEY;
 /// The third-party book ids that the profile has already seen. A book that is not in this set
 /// arrived with a library update, so it starts disabled (#189).
 pub const KEY_KNOWN_THIRD_PARTY: &str = "known_third_party";
+/// The one-time third-party notice: `pending` queues it for Home, `shown` retires it.
+pub const KEY_THIRD_PARTY_NOTICE: &str = "third_party_notice";
+pub const THIRD_PARTY_NOTICE_PENDING: &str = "pending";
+pub const THIRD_PARTY_NOTICE_SHOWN: &str = "shown";
 pub const KEY_RECENT: &str = "recent";
 pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
@@ -458,6 +462,23 @@ pub async fn known_third_party() -> Result<Option<std::collections::BTreeSet<Str
 
 pub async fn set_known_third_party(ids: &std::collections::BTreeSet<String>) -> Result<()> {
     set_meta(KEY_KNOWN_THIRD_PARTY, ids).await
+}
+
+/// The one-time third-party notice: absent when it never applied, `pending` until Home shows
+/// it, `shown` after that.
+pub async fn third_party_notice() -> Result<Option<String>> {
+    get_meta(KEY_THIRD_PARTY_NOTICE).await
+}
+
+/// Queues the notice for the next Home mount. Called by the load that turns third-party books
+/// off for an existing profile.
+pub async fn queue_third_party_notice() -> Result<()> {
+    set_meta(KEY_THIRD_PARTY_NOTICE, &THIRD_PARTY_NOTICE_PENDING).await
+}
+
+/// Retires the notice after Home has shown it, so it appears once.
+pub async fn settle_third_party_notice() -> Result<()> {
+    set_meta(KEY_THIRD_PARTY_NOTICE, &THIRD_PARTY_NOTICE_SHOWN).await
 }
 
 /// The first-run book default marker: `seed` on a profile that was new when its first library

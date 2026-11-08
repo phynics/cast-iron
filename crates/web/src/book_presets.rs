@@ -206,21 +206,25 @@ pub enum DefaultsAction {
     Seed(BTreeSet<String>),
 }
 
-/// The disabled set of a new install: every book that is not in `Paizo Rulebooks`. `None` when
-/// the library has no such book (the retired PSRD carry-over has none), because the default must
-/// never leave a reader with no active book.
+/// The disabled set of a new install. With Rulebooks, every book outside `Paizo Rulebooks`.
+/// Without Rulebooks (the retired PSRD carry-over has none), only the third-party books, so the
+/// Paizo books stay active and a marked book never starts on. `None` when that set is empty, so
+/// a Paizo-only library with no Rulebooks keeps every book.
 pub fn fresh_install_disabled(books: &[PresetBook<'_>]) -> Option<BTreeSet<String>> {
     let rulebooks = Preset::PaizoRulebooks;
-    if rulebooks.members(books).is_empty() {
-        return None;
-    }
-    Some(
-        books
-            .iter()
-            .filter(|book| !rulebooks.includes(book))
-            .map(|book| book.id.to_string())
-            .collect(),
-    )
+    let has_rulebooks = !rulebooks.members(books).is_empty();
+    let disabled: BTreeSet<String> = books
+        .iter()
+        .filter(|book| {
+            if has_rulebooks {
+                !rulebooks.includes(book)
+            } else {
+                book.third_party
+            }
+        })
+        .map(|book| book.id.to_string())
+        .collect();
+    (!disabled.is_empty()).then_some(disabled)
 }
 
 /// The third-party books of a catalog. The first-run default and the arrival rule use it.
@@ -282,10 +286,59 @@ pub fn defaults_action(
     }
 }
 
+/// The book-selection outcome of one library load: the disabled set to keep, the remembered
+/// third-party set to store, whether this load settles the first-run default, and whether it
+/// should queue the one-time third-party notice.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettledBooks {
+    pub disabled: BTreeSet<String>,
+    pub known_third_party: BTreeSet<String>,
+    /// This load applied the first-run default or cleared its marker.
+    pub settle_marker: bool,
+    /// This load turned off third-party books that an existing profile had never seen.
+    pub notice: bool,
+}
+
+/// Whether an existing profile should see the one-time third-party notice. True on the first
+/// load that turns off books it had never seen; a fresh install is seeded silently, and a load
+/// with a remembered set has already shown it.
+pub fn should_show_third_party_notice(
+    known: Option<&BTreeSet<String>>,
+    arrived: &BTreeSet<String>,
+    seeded: bool,
+) -> bool {
+    known.is_none() && !arrived.is_empty() && !seeded
+}
+
+/// The pure settle behind `Library::load`: the first-run default, the third-party arrival rule,
+/// and the notice decision. The store writes follow from this value, so the sequence is native-
+/// tested without IndexedDB.
+pub fn settle_books(
+    marker: Option<&str>,
+    stored: Option<&BTreeSet<String>>,
+    known: Option<&BTreeSet<String>>,
+    books: &[PresetBook<'_>],
+) -> SettledBooks {
+    let action = defaults_action(marker, stored.is_some(), books);
+    let seeded = matches!(action, DefaultsAction::Seed(_));
+    let arrived = newly_third_party(known, books);
+    let notice = should_show_third_party_notice(known, &arrived, seeded);
+    let mut disabled = match action {
+        DefaultsAction::Nothing | DefaultsAction::Settle => stored.cloned().unwrap_or_default(),
+        DefaultsAction::Seed(disabled) => disabled,
+    };
+    disabled.extend(arrived);
+    SettledBooks {
+        disabled,
+        known_third_party: remembered_third_party(known, books),
+        settle_marker: marker == Some(DEFAULTS_PENDING),
+        notice,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
     fn book(id: &str, tier: Tier) -> PresetBook<'_> {
         PresetBook {
             id,
@@ -514,9 +567,28 @@ mod tests {
         assert_eq!(active, ["core", "apg"]);
         // The default is the Paizo Rulebooks preset, third-party books included in the disabled set.
         assert!(disabled.contains("indie"));
-        // A library with no Rulebooks keeps every book active.
-        let none = [book("path", Tier::Adventures)];
-        assert_eq!(fresh_install_disabled(&none), None);
+        // A library with no Rulebooks keeps its Paizo books active, but still leaves third-party
+        // books off.
+        let no_rulebooks = [book("path", Tier::Adventures), third_party("indie")];
+        let disabled = fresh_install_disabled(&no_rulebooks).expect("a marked book");
+        assert_eq!(
+            ids(disabled.iter().map(String::as_str).collect()),
+            ["indie"]
+        );
+        // A Paizo-only library with no Rulebooks keeps every book active.
+        assert_eq!(
+            fresh_install_disabled(&[book("path", Tier::Adventures)]),
+            None
+        );
+    }
+
+    #[test]
+    fn size_counts_the_marked_book_only_in_the_last_preset() {
+        let books = shelf();
+        assert_eq!(size(Preset::PaizoRulebooks, &books), 2);
+        assert_eq!(size(Preset::PaizoRulebooksAndMore, &books), 4);
+        assert_eq!(size(Preset::PaizoEverything, &books), 6);
+        assert_eq!(size(Preset::EverythingInclThirdParty, &books), 7);
     }
 
     #[test]
@@ -554,6 +626,68 @@ mod tests {
             ),
             DefaultsAction::Settle
         );
+        // With a marked book, even a Rulebooks-less library seeds the third-party book off.
+        assert_eq!(
+            defaults_action(
+                Some(DEFAULTS_PENDING),
+                false,
+                &[book("path", Tier::Adventures), third_party("indie")]
+            ),
+            DefaultsAction::Seed(["indie".to_string()].into_iter().collect())
+        );
+    }
+
+    #[test]
+    fn settling_seeds_settles_and_leaves_an_existing_choice_alone() {
+        let books = shelf();
+        let marked: BTreeSet<String> = ["indie".to_string()].into_iter().collect();
+
+        // Seed: a new install, no stored choice, no remembered marked book. Every marked book
+        // is off, and the notice stays quiet.
+        let seed = settle_books(Some(DEFAULTS_PENDING), None, None, &books);
+        assert!(seed.settle_marker);
+        assert!(seed.disabled.contains("indie"));
+        assert_eq!(seed.known_third_party, marked);
+        assert!(!seed.notice, "a fresh install shows no notice");
+
+        // A second load of the seeded profile changes nothing and shows nothing.
+        let second = settle_books(
+            Some(DEFAULTS_SETTLED),
+            Some(&seed.disabled),
+            Some(&seed.known_third_party),
+            &books,
+        );
+        assert!(!second.settle_marker);
+        assert_eq!(second.disabled, seed.disabled);
+        assert!(!second.notice);
+
+        // Settle: an existing profile with a stored choice and a pending marker. The marked
+        // book arrives, is turned off, and queues the one-time notice.
+        let stored: BTreeSet<String> = ["path".to_string()].into_iter().collect();
+        let settle = settle_books(Some(DEFAULTS_PENDING), Some(&stored), None, &books);
+        assert!(settle.settle_marker);
+        assert!(settle.disabled.contains("indie"));
+        assert!(settle.disabled.contains("path"), "the choice is kept");
+        assert_eq!(settle.known_third_party, marked);
+        assert!(settle.notice);
+
+        // Nothing: an existing profile that never carried the marker. Same arrival, same
+        // notice, and no marker write.
+        let nothing = settle_books(None, None, None, &books);
+        assert!(!nothing.settle_marker);
+        assert!(nothing.disabled.contains("indie"));
+        assert!(nothing.notice);
+
+        // A second load of that profile remembers the book and does nothing.
+        let again = settle_books(
+            None,
+            Some(&nothing.disabled),
+            Some(&nothing.known_third_party),
+            &books,
+        );
+        assert_eq!(again.disabled, nothing.disabled);
+        assert_eq!(again.known_third_party, nothing.known_third_party);
+        assert!(!again.notice);
     }
 
     #[test]
