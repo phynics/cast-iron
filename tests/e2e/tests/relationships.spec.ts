@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookTrees, installLibrary, listedChapterTitles, openBookContents, waitControlled } from "./helpers";
+import { bookEntryOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openBookEntry, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -167,4 +167,55 @@ test("book contents keep their order and highlight a chapter path without disclo
   await expect.poll(() => new URL(page.url()).hash).not.toContain("?c=");
   await page.goForward();
   await expect(page.locator("#toc-1")).toHaveAttribute("aria-current", "location");
+});
+
+test("a book bar steps from a contents entry through the book, and Back returns", async ({ page }) => {
+  // Pick a rules entry that Contents lists, with a neighbour on each side in the same book and
+  // whose book bar follows that book (the first placement).
+  let found: { book: ReturnType<typeof bookTrees>[number]; order: string[]; index: number } | undefined;
+  for (const book of bookTrees()) {
+    const order = bookEntryOrder(book);
+    for (let index = 1; index < order.length - 1; index++) {
+      const entry = corpus.entries.get(order[index]);
+      if (entry?.kind !== "rule") continue;
+      if (firstBookPlacement(entry.id)?.source !== book.source) continue;
+      found = { book, order, index };
+      break;
+    }
+    if (found) break;
+  }
+  if (!found) throw new Error("The compiled corpus has no book with a rules entry between two neighbours.");
+  const { book, order, index } = found;
+  const current = corpus.entries.get(order[index])!;
+  const previous = corpus.entries.get(order[index - 1])!;
+  const next = corpus.entries.get(order[index + 1])!;
+
+  // Open the entry from the contents, not by typing its address.
+  await openBookEntry(page, book, current.id);
+  await expect(page.getByRole("heading", { level: 1, name: current.title, exact: true })).toBeVisible();
+  await expect(page.getByTestId("book-bar")).toBeVisible();
+
+  // Next follows the book's contents order, and the next page names this entry as Previous.
+  const nextLink = page.locator('.book-steps a[rel="next"]');
+  await expect(nextLink).toContainText(next.title);
+  await nextLink.click();
+  await expect(page.getByRole("heading", { level: 1, name: next.title, exact: true })).toBeVisible();
+  await expect(page.locator('.book-steps a[rel="prev"]')).toContainText(current.title);
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}$`));
+  await expect(page.getByRole("heading", { level: 1, name: current.title, exact: true })).toBeVisible();
+
+  // Previous walks the other way, and Back returns to this entry again.
+  const prevLink = page.locator('.book-steps a[rel="prev"]');
+  await expect(prevLink).toContainText(previous.title);
+  await prevLink.click();
+  await expect(page.getByRole("heading", { level: 1, name: previous.title, exact: true })).toBeVisible();
+  await expect(page.locator('.book-steps a[rel="next"]')).toContainText(current.title);
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}$`));
+  await expect(page.getByRole("heading", { level: 1, name: current.title, exact: true })).toBeVisible();
+
+  // The neighbours are adjacent in the contents order, which is what the bar stepped through.
+  expect(order.indexOf(previous.id) + 1).toBe(index);
+  expect(order.indexOf(next.id) - 1).toBe(index);
 });
