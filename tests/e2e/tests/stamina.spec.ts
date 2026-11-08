@@ -139,4 +139,14 @@ test("Unchained active, base inactive: the add-on names its inactive base", asyn
   const meta = page.locator(".entry-meta");
   await expect(meta.getByRole("link", { name: "Stamina rules for Power Attack", exact: true })).toBeVisible();
   await expect(meta.locator("span.tag")).toHaveText("Inactive");
+
+  // The base's book is off, but the add-on's own book still folds exactly one openable row.
+  await page.goto(`#/entry/${BASE}`);
+  const row = page.locator("details.rel-stamina");
+  await expect(row).toHaveCount(1);
+  await expect(row.locator("summary")).toHaveText(STAMINA_SUMMARY);
+  await expect(row).not.toHaveAttribute("open", "");
+  await row.locator("summary").click();
+  await expect(row).toHaveAttribute("open", "");
+  await expect(row.getByText("spend 2 stamina points")).toBeVisible();
 });
