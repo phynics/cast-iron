@@ -301,7 +301,7 @@ test("Level 0 spells read as Cantrips on the spell page and the Wizard list", as
   await expect(value).not.toContainText(/\b0: /);
   await expect(value).toContainText("Wizard");
   const lists = page.locator(".entry-rel section").filter({ has: page.getByRole("heading", { name: "On spell lists" }) });
-  const wizard = lists.getByRole("link", { name: "Wizard cantrip", exact: true });
+  const wizard = lists.getByRole("link", { name: "Wizard Cantrips", exact: true });
   await expect(wizard).toBeVisible();
   // The route keeps the number even though the label is a word.
   await expect(wizard).toHaveAttribute("href", /#\/spells\/Wizard\/0$/);
