@@ -4,6 +4,7 @@ import {
   bodyLinks,
   bodyText,
   bookEntryOrder,
+  bookOwners,
   bookTrees,
   corpusEntry,
   firstEntry,
@@ -29,7 +30,16 @@ import {
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
-const count = (pred: (s: (typeof corpus.catalog.entries)[number]) => boolean) => corpus.catalog.entries.filter(pred).length;
+/** The books the corpus marks third party (#189); a settled profile starts without them. */
+const thirdParty = new Set<string>(
+  corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
+);
+const owners = bookOwners();
+/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+const activeStubs = corpus.catalog.entries.filter(
+  (stub: any) => !thirdParty.has(owners.get(stub.id) ?? stub.source),
+);
+const count = (pred: (s: (typeof corpus.catalog.entries)[number]) => boolean) => activeStubs.filter(pred).length;
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const uniqueTitles = (stubs: typeof corpus.catalog.entries) =>
   [...new Set(stubs.map((stub) => stub.title))];
@@ -133,7 +143,7 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   }
 
   // The Spells category opens one letter group at a time; the jump bar moves between them.
-  const spells = corpus.catalog.entries.filter((stub) => stub.kind === "spell");
+  const spells = activeStubs.filter((stub) => stub.kind === "spell");
   const letters = [...new Set(spells.map((stub) => groupLetter(stub.title)))].sort(
     (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
   );
