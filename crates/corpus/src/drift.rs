@@ -736,8 +736,11 @@ fn printed_items(lines: &[String]) -> Vec<String> {
     lines
         .iter()
         .flat_map(|line| line.split(','))
-        .map(|item| item.trim().to_string())
+        // Each line may end in its own period or semicolon, so strip the punctuation
+        // per item rather than from the joined text.
+        .map(|item| item.trim().trim_end_matches(['.', ';']).trim_end())
         .filter(|item| !item.is_empty())
+        .map(str::to_string)
         .collect()
 }
 
@@ -1479,6 +1482,28 @@ mod tests {
             EntryKind::ClassOption,
             class_option(&["Detect evil", "Smite evil"], &[]),
             &[("Replaces", "Detect evil"), ("Replaces", "Smite evil")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn printed_periods_do_not_break_a_multi_line_replaces_list() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&["Detect evil", "Smite evil"], &[]),
+            &[("Replaces", "Detect evil."), ("Replaces", "Smite evil.")],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn printed_periods_do_not_break_a_multi_line_alters_list() {
+        let entry = attached(
+            "ref/oath/test",
+            EntryKind::ClassOption,
+            class_option(&[], &["Divine bond", "Aura of resolve"]),
+            &[("Alters", "Divine bond."), ("Alters", "Aura of resolve.")],
         );
         assert!(find_drift(&entry).is_empty());
     }
