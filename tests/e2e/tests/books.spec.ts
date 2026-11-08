@@ -88,13 +88,18 @@ test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest c
     await expect(group.locator(".tier-active")).toHaveText(`${grouped(members.length)} ${members.length === 1 ? "book" : "books"}`);
     await expect(group.locator(".tier-chevron")).toHaveCount(1);
     expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    // A closed group keeps its rows out of reach until it opens.
-    if (tier.open) await expect(list.locator(".book-directory-item").first()).toBeVisible();
-    else await expect(list.locator(".book-directory-item").first()).toBeHidden();
-    const ids = await list.locator(".book-directory-item").evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
-    expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
+    // A closed group builds no rows: its list is empty until the reader opens it. The open
+    // group paints its rows at once.
+    if (tier.open) {
+      await expect(list.locator(".book-directory-item").first()).toBeVisible();
+      const ids = await list.locator(".book-directory-item").evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
+      expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
+    } else {
+      await expect(list.locator(".book-directory-item")).toHaveCount(0);
+    }
   }
-  await expect(page.locator(".book-directory-item")).toHaveCount(sources.length);
+  // Only the group that starts open holds rows after the mount.
+  await expect(page.locator(".book-directory-item")).toHaveCount(inTier("Rulebooks").length);
 
   // The group heading is a heading with one button; nothing else sits in it, and no group acts.
   await expect(page.locator(".book-group-head a, .book-group-head input, .book-group-head button")).toHaveCount(present.length);
@@ -109,6 +114,31 @@ test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest c
   await toggle.press("Enter");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(adventures.locator(".book-directory-item").first()).toBeHidden();
+});
+
+test("A closed group holds no rows in the document, and opening it renders them", async ({ page }) => {
+  await page.goto("#/books");
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  for (const tier of tiers.filter((tier) => !tier.open)) {
+    const group = page.locator(`.book-tier[data-tier="${tier.label}"]`);
+    if (!(await group.count())) continue;
+    const members = inTier(tier.label);
+    const list = group.locator("ul.book-directory");
+    const toggle = group.locator(".tier-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    // Nothing to build and nothing to hide: the rows do not exist yet.
+    await expect(list.locator(".book-directory-item")).toHaveCount(0);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(list.locator(".book-directory-item")).toHaveCount(members.length);
+    const ids = await list.locator(".book-directory-item").evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
+    expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
+    // Closing hides them; the rows stay built, so a second open costs nothing.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(list.locator(".book-directory-item").first()).toBeHidden();
+    await expect(list.locator(".book-directory-item")).toHaveCount(members.length);
+  }
 });
 
 test("A group heading looks different from a book row", async ({ page }) => {

@@ -456,20 +456,29 @@ pub fn Books() -> impl IntoView {
         let preset = book_presets::matching(&books, |id| count_library.book_active(id));
         book_presets::count_line(active, total, Some(book_presets::name_or_custom(preset)))
     };
+    // The rows of a closed group are built when it opens, so a mount builds one group's rows.
+    let rows = Shared::new(rows);
     let groups = book_groups(&rows)
         .into_iter()
         .map(|group| {
+            let tier = group.tier;
             let ids: Vec<String> = group
                 .books
                 .iter()
                 .map(|&index| rows[index].id.clone())
                 .collect();
-            let items = group
-                .books
-                .into_iter()
-                .map(|index| book_row(rows[index].clone(), library.clone()))
-                .collect_view();
-            tier_section(group.tier, ids, items, library.clone())
+            let lazy_rows = rows.clone();
+            let lazy_library = library.clone();
+            let books = group.books;
+            let items = move || {
+                let rows = &*lazy_rows;
+                books
+                    .iter()
+                    .map(|&index| book_row(rows[index].clone(), lazy_library.clone()))
+                    .collect_view()
+                    .into_any()
+            };
+            tier_section(tier, ids, items, library.clone())
         })
         .collect_view();
     view! {
@@ -506,10 +515,15 @@ pub fn group_count_text(active: usize, total: usize) -> String {
 /// active books), then the rows. The button is the only control; there is no group action of any
 /// kind, and the presets on Active books are the only bulk change. Rulebooks start open and the
 /// other groups closed; the reader's choice is kept for the session ([`remember_group`]).
+///
+/// A closed group holds an empty list: `items` runs when the group first opens, so a mount builds
+/// the rows of the open groups only. The rows stay after the group closes again, so reopening
+/// costs nothing, and a group that starts open still has its rows on the first paint (Back to
+/// Books restores the scroll position of a group the reader left open).
 pub(crate) fn tier_section(
     tier: Tier,
     ids: Vec<String>,
-    items: impl IntoView + 'static,
+    items: impl Fn() -> AnyView + Send + 'static,
     library: Library,
 ) -> AnyView {
     let label = tier.label();
@@ -519,7 +533,9 @@ pub(crate) fn tier_section(
     let list_id = format!("book-tier-list-{slug}");
     let labelled_by = heading_id.clone();
     let controls = list_id.clone();
-    let open = RwSignal::new(group_is_open(tier));
+    let starts_open = group_is_open(tier);
+    let open = RwSignal::new(starts_open);
+    let built = RwSignal::new(starts_open);
     let revision = library.selection_revision();
     let active_ids = ids;
     let count_text = move || {
@@ -538,6 +554,9 @@ pub(crate) fn tier_section(
                     on:click=move |_| {
                         let next = !open.get_untracked();
                         open.set(next);
+                        if next {
+                            built.set(true);
+                        }
                         remember_group(tier, next);
                     }>
                     {icons::tier_chevron()}
@@ -545,7 +564,9 @@ pub(crate) fn tier_section(
                     <span class="tier-active">{count_text}</span>
                 </button>
             </h2>
-            <ul class="book-directory" id=list_id hidden=move || !open.get()>{items}</ul>
+            <ul class="book-directory" id=list_id hidden=move || !open.get()>
+                {move || built.get().then(&items)}
+            </ul>
         </section>
     }
     .into_any()

@@ -59,6 +59,8 @@ test("Book routes, legacy routes, and separate class categories work offline", a
   // The removed standalone Rules category resolves to the Books directory.
   await page.goto("#/browse/kind/rule");
   await expect(page.getByRole("heading", { name: "Books", level: 1 })).toBeVisible();
+  // Closed groups build their rows when they open, so open every group before counting.
+  await openBookGroups(page);
   await expect(page.locator(".book-directory-row")).toHaveCount(corpus.catalog.sources.length);
   await page.goto("#/browse/kind/prestige_class");
   await page.getByRole("link", { name: onePrestige.title, exact: true }).click();
@@ -157,6 +159,8 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   // Rules have no standalone Browse category. The former route redirects to Books.
   await page.goto("#/browse/kind/rule");
   await expect(page.getByRole("heading", { name: "Books", level: 1 })).toBeVisible();
+  // Closed groups build their rows when they open, so open every group before counting.
+  await openBookGroups(page);
   await expect(page.locator(".book-directory-row")).toHaveCount(corpus.catalog.sources.length);
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home", exact: true }).click();
   await expect(page.locator("section[aria-labelledby=by-kind] .cat-name", { hasText: /^Rules$/ })).toHaveCount(0);
