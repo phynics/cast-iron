@@ -595,6 +595,16 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
+    // The add-on's own book, for the `changes` phrase. An add-on has one publication.
+    let addon_book = entry
+        .source_ids
+        .first()
+        .map(|id| {
+            library
+                .source(id)
+                .map_or_else(|| id.clone(), |source| source.title.clone())
+        })
+        .unwrap_or_default();
     // An add-on or variant names its base once, at the end of the metadata line. The base
     // stays linked when its book is inactive, followed by the plain `Inactive` label.
     let addon_base = entry
@@ -602,11 +612,11 @@ fn EntryView(
         .iter()
         .find_map(|relation| {
             let phrase = match relation.kind {
-                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?)?,
-                RelationKind::Variant => "Variant of",
+                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?, &addon_book)?,
+                RelationKind::Variant => "Variant of".to_string(),
                 // The revision's own page names the feat it revises. A base page never shows
                 // this: its effective entry drops the revision edge.
-                RelationKind::Revision => "Revision of",
+                RelationKind::Revision => "Revision of".to_string(),
                 _ => return None,
             };
             Some((phrase, relation.target.clone()))

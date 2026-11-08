@@ -55,16 +55,22 @@ pub fn needs(kind: EntryKind) -> Needs {
             replaces: false,
         },
         // The metadata line of an option names its group and, when the group has one class,
-        // links that class.
+        // links that class. The relation index carries any third-party `changes` add-on.
         EntryKind::ClassOption => Needs {
-            relations: false,
+            relations: true,
             spell_lists: false,
             option_groups: true,
             replaces: false,
         },
-        EntryKind::Rule
-        | EntryKind::Creature
-        | EntryKind::Item
+        // A third-party `changes` add-on can attach to a rule or an item too, so those pages
+        // load the relation index as a feat, class or spell page does.
+        EntryKind::Rule | EntryKind::Item => Needs {
+            relations: true,
+            spell_lists: false,
+            option_groups: false,
+            replaces: false,
+        },
+        EntryKind::Creature
         | EntryKind::PrestigeClass
         | EntryKind::Skill
         | EntryKind::Affliction
@@ -632,6 +638,46 @@ fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
     .collect()
 }
 
+/// One third-party change inside a base page's book-titled section: the add-on's title as an
+/// `h3` link and its printed text, expanded like a mythic version. The body already starts with
+/// the add-on's printed `Sources:` line, so the section does not print a second one.
+#[component]
+fn ChangesAddon(library: Library, id: EntryId) -> impl IntoView {
+    let href = Route::entry(id.clone()).href();
+    let title = title_of(&library, &id);
+    view! {
+        <h3><a href=href>{title}</a></h3>
+        <AddonBody library=library id=id loading="Loading the third-party changes…" />
+    }
+}
+
+/// The expanded third-party changes a base page shows, one section per eligible add-on, its
+/// heading naming the add-on's book. The add-on's own book alone gates the section; the base's
+/// book never does. An inactive base still shows it, as it does for a mythic version.
+fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Vec<AnyView> {
+    let Some(relations) = all else {
+        return Vec::new();
+    };
+    let discovery = library.discovery();
+    addons_of_label(relations, id, "changes", |addon| {
+        discovery.is_eligible(addon.as_str())
+    })
+    .into_iter()
+    .map(|addon| {
+        let book = source_title(library, &addon);
+        let heading = format!("Changes in {book}");
+        let label = heading.clone();
+        view! {
+            <section class="rel-addon rel-changes" aria-label=label>
+                <h2>{heading}</h2>
+                <ChangesAddon library=library.clone() id=addon />
+            </section>
+        }
+        .into_any()
+    })
+    .collect()
+}
+
 fn feat_panels(
     library: &Library,
     entry: &RuleEntry,
@@ -1015,34 +1061,38 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
             panels.extend(relations.and_then(|r| race_panel(&library, &entry.id, r)))
         }
         EntryKind::RacialTrait => panels.extend(racial_trait_panel(&library, &entry)),
-        EntryKind::Class => panels.extend(class_panels(
-            &library,
-            &entry.id,
-            relations,
-            lists,
-            indexes.option_groups.as_deref(),
-            indexes.replaces.as_deref(),
-        )),
+        EntryKind::Class => {
+            panels.extend(changes_panel(&library, &entry.id, all_relations));
+            panels.extend(class_panels(
+                &library,
+                &entry.id,
+                relations,
+                lists,
+                indexes.option_groups.as_deref(),
+                indexes.replaces.as_deref(),
+            ));
+        }
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
         EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
         EntryKind::Feat => {
             panels.extend(mythic_panel(&library, &entry.id, all_relations));
+            panels.extend(changes_panel(&library, &entry.id, all_relations));
             panels.extend(stamina_panel(&library, &entry.id, all_relations));
             panels.extend(feat_panels(&library, &entry, relations));
         }
         EntryKind::Trait => panels.extend(trait_panel(&entry)),
         EntryKind::Spell => {
             panels.extend(mythic_panel(&library, &entry.id, all_relations));
+            panels.extend(changes_panel(&library, &entry.id, all_relations));
             panels.extend(spell_panel(&entry, lists));
             panels.extend(variants_panel(&library, &entry.id, all_relations, lists));
         }
-        EntryKind::Rule
-        | EntryKind::Creature
-        | EntryKind::Item
-        | EntryKind::Skill
-        | EntryKind::Affliction
-        | EntryKind::Trap
-        | EntryKind::ClassOption => {}
+        // A third-party change can attach to a rule, an item or a class option. The panel
+        // reads the raw graph, and the add-on's own book alone decides whether it appears.
+        EntryKind::Rule | EntryKind::Item | EntryKind::ClassOption => {
+            panels.extend(changes_panel(&library, &entry.id, all_relations));
+        }
+        EntryKind::Creature | EntryKind::Skill | EntryKind::Affliction | EntryKind::Trap => {}
     }
     (!panels.is_empty()).then(|| view! { <div class="entry-rel">{panels}</div> })
 }
@@ -1174,6 +1224,10 @@ mod tests {
     fn only_kinds_with_panels_load_index_files() {
         assert!(needs(EntryKind::Feat).relations);
         assert!(needs(EntryKind::Class).spell_lists);
+        // A third-party `changes` add-on can attach to a rule, an item or a class option.
+        assert!(needs(EntryKind::Rule).relations);
+        assert!(needs(EntryKind::Item).relations);
+        assert!(needs(EntryKind::ClassOption).relations);
         assert_eq!(needs(EntryKind::Creature), Needs::default());
         // Racial traits, archetypes, and traits read their own entry: no extra file.
         assert_eq!(needs(EntryKind::Archetype), Needs::default());
@@ -1245,6 +1299,32 @@ mod tests {
         );
         // A base with no add-on gets no row.
         assert!(addons_of_label(&relations, &id("c/none"), "stamina", |_| true).is_empty());
+    }
+
+    #[test]
+    fn a_base_page_shows_a_changes_add_on_only_while_its_own_book_is_active() {
+        let relations = labelled_edges(&[
+            ("c/base/teitr", "addon", "c/base", Some("changes")),
+            ("c/base/stamina", "addon", "c/base", Some("stamina")),
+        ]);
+        assert_eq!(
+            addons_of_label(&relations, &id("c/base"), "changes", |_| true),
+            [id("c/base/teitr")]
+        );
+        // The add-on's own book gates the section; the base's book never does.
+        assert_eq!(
+            addons_of_label(&relations, &id("c/base"), "changes", |addon| addon.as_str()
+                != "c/base/teitr"),
+            Vec::<EntryId>::new()
+        );
+        // A Stamina add-on is not a third-party change.
+        assert!(
+            addons_of_label(&relations, &id("c/base"), "changes", |addon| addon.as_str()
+                == "c/base/stamina")
+            .is_empty()
+        );
+        // A base with no add-on gets no section.
+        assert!(addons_of_label(&relations, &id("c/none"), "changes", |_| true).is_empty());
     }
 
     #[test]
