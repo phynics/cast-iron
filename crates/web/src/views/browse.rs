@@ -4,9 +4,8 @@
 use crate::book_presets;
 use crate::class_options;
 use crate::fmt;
-use crate::graph::Relations;
 use crate::library::{Library, LibraryError, use_library};
-use crate::revisions::{RevisionRows, RevisionView};
+use crate::revisions::EffectiveRevisions;
 use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
     MANAGE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
@@ -292,16 +291,9 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
     let hidden_by_kind = {
         let library = library.clone();
         local_resource(async move {
-            let relations = library.relations().await.ok().flatten()?;
-            let discovery = library.discovery();
-            let view = RevisionView::build(
-                &relations,
-                |id| library.is_entry_active(id),
-                |id| library.stub(id).map(|stub| stub.source.clone()),
-            );
-            let rows = view.rows(|id| discovery.is_eligible(id.as_str()));
+            let revisions = library.revisions().await.ok().flatten()?;
             let mut counts = HashMap::<EntryKind, usize>::new();
-            for id in rows.hidden_ids() {
+            for id in revisions.rows().hidden_ids() {
                 if let Some(stub) = library.stub(id) {
                     *counts.entry(stub.kind).or_default() += 1;
                 }
@@ -1429,11 +1421,11 @@ pub fn FeatBrowseKind(
     source: Option<String>,
 ) -> impl IntoView {
     let library = use_library();
-    let relations = {
+    let revisions = {
         let library = library.clone();
         local_resource(async move {
             library
-                .relations()
+                .revisions()
                 .await
                 .ok()
                 .flatten()
@@ -1441,7 +1433,7 @@ pub fn FeatBrowseKind(
         })
     };
     move || {
-        relations.with(|state| match state {
+        revisions.with(|state| match state {
             None => view! {
                 <div class="wide list-page">
                     <h1 tabindex="-1">"Feats"</h1>
@@ -1449,13 +1441,13 @@ pub fn FeatBrowseKind(
                 </div>
             }
             .into_any(),
-            Some(Some(relations)) => view! {
+            Some(Some(revisions)) => view! {
                 <BrowseKind
                     kind=EntryKind::Feat
                     letter=letter
                     facets=facets.clone()
                     source=source.clone()
-                    revisions=relations.clone()
+                    revisions=revisions.clone()
                 />
             }
             .into_any(),
@@ -1482,10 +1474,10 @@ pub fn BrowseKind(
     letter: Option<char>,
     #[prop(optional)] facets: Vec<(String, String)>,
     source: Option<String>,
-    /// The relation graph for a kind whose rows a revision can change. `None` for every other
-    /// kind and for a library without `relations.json`.
+    /// The effective revision state for a kind whose rows a revision can change. `None` for
+    /// every other kind and for a library without `relations.json`.
     #[prop(optional)]
-    revisions: Option<Shared<Relations>>,
+    revisions: Option<Shared<EffectiveRevisions>>,
 ) -> impl IntoView {
     set_title(kind.label());
     let library = use_library();
@@ -1519,18 +1511,8 @@ pub fn BrowseKind(
     // A revision changes the whole active list: its own row hides behind the original, and a
     // removed or merged feat leaves the list. A book's own contents stay complete, because that
     // page lists what the book holds.
-    let revision_rows: Option<RevisionRows> = match (source_id.is_none(), revisions.as_ref()) {
-        (true, Some(relations)) => {
-            let discovery = library.discovery();
-            Some(
-                RevisionView::build(
-                    relations,
-                    |id| discovery.is_eligible(id.as_str()),
-                    |id| library.stub(id).map(|stub| stub.source.clone()),
-                )
-                .rows(|id| discovery.is_eligible(id.as_str())),
-            )
-        }
+    let revision_rows = match (source_id.is_none(), revisions.as_ref()) {
+        (true, Some(revisions)) => Some(revisions.clone()),
         _ => None,
     };
     let all = Shared::new(match &source_id {
@@ -1538,9 +1520,9 @@ pub fn BrowseKind(
         None => {
             let list = sorted_of_kind(&library, kind);
             match &revision_rows {
-                Some(rows) => list
+                Some(revisions) => list
                     .into_iter()
-                    .filter(|stub| !rows.hides(&stub.id))
+                    .filter(|stub| !revisions.rows().hides(&stub.id))
                     .collect(),
                 None => list,
             }
@@ -1777,10 +1759,10 @@ fn BrowseList(
     /// A to Z list.
     #[prop(optional)]
     sections: Option<Vec<Section>>,
-    /// The rows an active revision hides, and the book a revised row names. `None` when no
-    /// revision applies.
+    /// The effective revision state: the rows to hide, the book a revised row names, and the
+    /// graph its chain marker counts. `None` when no revision applies.
     #[prop(optional)]
-    revisions: Option<RevisionRows>,
+    revisions: Option<Shared<EffectiveRevisions>>,
 ) -> impl IntoView {
     let library = use_library();
     let count = stubs.len();
@@ -1790,7 +1772,7 @@ fn BrowseList(
     let row_source = |stub: &EntryStub| -> String {
         revisions
             .as_ref()
-            .and_then(|rows| rows.source_of(&stub.id))
+            .and_then(|state| state.rows().source_of(&stub.id))
             .map_or_else(|| stub.source.clone(), str::to_owned)
     };
     let multi_source = stubs
@@ -1835,13 +1817,13 @@ fn BrowseList(
             let library = library.clone();
             local_resource(async move {
                 // The labels read the whole graph: an add-on's row names its own label even
-                // while its base's book is inactive. The markers read the discovery projection,
-                // so a disabled feat never inflates a visible row's count.
+                // while its base's book is inactive. The marks read the effective graph, so a
+                // chains follows a revised feat's prerequisites and neither a revision nor a
+                // removed or merged feat inflates a visible row's count.
                 let all = library.relations().await.ok().flatten()?;
-                let discovery = library.discovery();
-                let scoped = all.filtered(|id| discovery.is_eligible(id.as_str()));
+                let revisions = library.revisions().await.ok().flatten()?;
                 Some(Shared::new(FeatRowInfo {
-                    marks: scoped.long_chains(CHAIN_MARK_MIN),
+                    marks: revisions.graph().long_chains(CHAIN_MARK_MIN),
                     addons: all.addon_labels(),
                 }))
             })
@@ -1992,19 +1974,18 @@ fn BrowseList(
     let notice = unknown
         .as_deref()
         .map(|id| view! { <p class="notice" role="status">{unknown_source_notice(kind, id)}</p> });
-    let revision_note =
-        revisions
-            .as_ref()
-            .and_then(RevisionRows::removed_note)
-            .map(|(n, source)| {
-                let book = library
-                    .source(source)
-                    .map_or_else(|| source.to_string(), |source| source.title.clone());
-                format!(
-                    "{} removed or merged by {book}",
-                    fmt::pluralize(n, "feat", "feats")
-                )
-            });
+    let revision_note = revisions
+        .as_ref()
+        .and_then(|state| state.rows().removed_note())
+        .map(|(n, source)| {
+            let book = library
+                .source(source)
+                .map_or_else(|| source.to_string(), |source| source.title.clone());
+            format!(
+                "{} removed or merged by {book}",
+                fmt::pluralize(n, "feat", "feats")
+            )
+        });
 
     view! {
         <div class="wide list-page">

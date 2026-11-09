@@ -4,13 +4,11 @@
 use crate::fmt;
 use crate::graph::{ChainHead, ChainNode, Relations};
 use crate::library::{Library, use_library};
-use crate::revisions::RevisionView;
 use crate::route::Route;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
-use std::rc::Rc;
 
 /// The title of a feat for display, from the catalog; the id when the catalog lacks it.
 fn title_of(library: &Library, id: &EntryId) -> String {
@@ -57,40 +55,32 @@ pub fn chain_tree(library: &Library, node: &ChainNode, show_root: bool) -> AnyVi
 pub fn FeatChains() -> impl IntoView {
     set_title("Feat chains");
     let library = use_library();
-    let relations = {
+    let revisions = {
         let library = library.clone();
         let revision = library.selection_revision();
         local_resource(async move {
             let _ = revision.get();
-            library.discovery().relations().await
+            library.revisions().await.ok().flatten()
         })
     };
     let body = move || {
         let library = library.clone();
-        relations.with(|state| match state {
+        revisions.with(|state| match state {
             None => view! { <p class="status" role="status">"Loading feat chains…"</p> }.into_any(),
-            Some(Err(error)) => view! {
-                <div class="error" role="alert"><p>{error.to_string()}</p></div>
-            }
-            .into_any(),
-            Some(Ok(None)) => view! {
+            Some(None) => view! {
                 <p class="notice">
                     "This library has no feat chains. It was installed before they existed. "
                     "Open Settings and check for a library update."
                 </p>
             }
             .into_any(),
-            Some(Ok(Some(relations))) => {
-                // A revision row never starts or joins a chain. Hide it, and hide a feat that
-                // an active removed or merged revision took out of the library.
-                let view = RevisionView::build(
-                    relations,
-                    |id| library.is_entry_active(id),
-                    |id| library.stub(id).map(|stub| stub.source.clone()),
-                );
-                let hidden = view.rows(|id| library.discovery().is_eligible(id.as_str()));
-                let scoped = Rc::new(relations.filtered(|id| !hidden.hides(id)));
-                view! { <HeadList library relations=Shared::from_rc(scoped) /> }.into_any()
+            Some(Some(revisions)) => {
+                // The effective graph already hides revision rows and removed or merged
+                // feats, and walks a revised feat's own prerequisites.
+                view! {
+                    <HeadList library relations=Shared::from_rc(revisions.graph()) />
+                }
+                .into_any()
             }
         })
     };
