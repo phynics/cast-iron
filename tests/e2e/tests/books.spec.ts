@@ -619,21 +619,47 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   expect(titles).toEqual(listedChapterTitles(book));
 });
 
-test("A top-level chapter keeps its chapter page and printed sections", async ({ page }) => {
+test("A top-level chapter collapses only when the corpus marks it", async ({ page }) => {
   const bestiary = sources.find((row) => row.id === "bestiary")!;
+  const book = bookTrees().find((row) => row.source === bestiary.id)!;
+  const titled = (nodes: any[], title: string): any => {
+    for (const node of nodes) {
+      if (node.title === title) return node;
+      const found = titled(node.children ?? [], title);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const hub = titled(book.chapters, "Universal Monster Rules");
+  expect(hub, "the Bestiary contents carry Universal Monster Rules").toBeTruthy();
+  const count = (node: any): number =>
+    (node.entry ? 1 : 0) + (node.children ?? []).reduce((sum: number, child: any) => sum + count(child), 0);
+
   await page.goto(`#/browse/book/${bestiary.id}`);
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary.title)}`) });
   await expect(tree).toBeVisible();
   const row = tree.locator(".toc-top > li").filter({ has: page.getByText("Universal Monster Rules", { exact: true }) }).first();
-  await expect(row).not.toHaveClass(/toc-hub/);
-  await expect(row.locator(":scope > .toc-list")).toBeVisible();
 
-  // The row keeps its chapter page, and that page still shows the printed sections.
-  const link = row.locator(":scope > .toc-row a");
-  await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(bestiary.id)}/[^/]+$`));
-  await link.click();
-  await expect(page.getByTestId("chapter-title")).toHaveText("Universal Monster Rules");
-  await expect(page.getByRole("heading", { level: 2, name: "Ability Damage and Drain", exact: true })).toBeVisible();
+  if (hub.collapse) {
+    // The data corpus marks it: one row, the count, and the hub entry that lists the rules.
+    await expect(row).toHaveClass(/toc-hub/);
+    await expect(row.locator(".toc-count")).toHaveText(grouped(count(hub)));
+    await expect(row.locator(".toc-list")).toHaveCount(0);
+    const link = row.locator(":scope > .toc-row a");
+    await expect(link).toHaveAttribute("href", new RegExp(`^#/entry/${escape(hub.entry)}(\\?|$)`));
+    await link.click();
+    await expect(page.getByRole("heading", { level: 1, name: "Universal Monster Rules", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ability Damage and Drain", exact: true }).first()).toBeVisible();
+  } else {
+    // Unmarked: the row keeps its chapter page, and that page shows the printed sections.
+    await expect(row).not.toHaveClass(/toc-hub/);
+    await expect(row.locator(":scope > .toc-list")).toBeVisible();
+    const link = row.locator(":scope > .toc-row a");
+    await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(bestiary.id)}/[^/]+$`));
+    await link.click();
+    await expect(page.getByTestId("chapter-title")).toHaveText("Universal Monster Rules");
+    await expect(page.getByRole("heading", { level: 2, name: "Ability Damage and Drain", exact: true })).toBeVisible();
+  }
 });
 
 test("A nested hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
@@ -815,8 +841,9 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   await expect(children).toHaveCount((chapter.children ?? []).filter(shown).length);
   await expect(tree.locator("details, summary, [aria-expanded]")).toHaveCount(0);
 
-  // A deeper section is expanded too.
-  const nested = chapterRow.locator(":scope > .toc-list > li.toc-branch").first();
+  // A deeper branch that is not collapsed is expanded too. A marked or automatic hub is
+  // covered by its own test.
+  const nested = chapterRow.locator(":scope > .toc-list > li.toc-branch:not(.toc-hub)").first();
   if (await nested.count()) {
     await expect(nested.locator(":scope > .toc-list > li").first()).toBeVisible();
   }

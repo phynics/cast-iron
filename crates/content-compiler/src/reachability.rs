@@ -443,6 +443,7 @@ mod tests {
             entry: entry.map(|id| EntryId::parse(id).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
             lists_children: false,
             children: vec![],
         }

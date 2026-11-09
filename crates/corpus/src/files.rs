@@ -494,12 +494,14 @@ mod tests {
                     entry: None,
                     anchor: None,
                     review: None,
+                    collapse: true,
                     lists_children: false,
                     children: vec![BookNode {
                         title: "Actions".into(),
                         entry: Some(cast_iron_schema::EntryId::parse("ref/rule/actions").unwrap()),
                         anchor: Some("act".into()),
                         review: None,
+                        collapse: false,
                         lists_children: false,
                         children: vec![],
                     }],
@@ -507,6 +509,7 @@ mod tests {
             }],
         };
         let text = write_books(&books);
+        assert!(text.contains("collapse = true"), "{text}");
         assert_eq!(read_books(Path::new("books.toml"), &text).unwrap(), books);
     }
 

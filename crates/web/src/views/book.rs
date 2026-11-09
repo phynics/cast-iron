@@ -7,10 +7,11 @@
 //! path, so a chapter link,
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
 //!
-//! A node below chapter level that is itself an entry collapses to one row when its own page
-//! lists every entry below it (`BookNode::lists_children`, computed by the compiler). A top-level
-//! chapter row always keeps its chapter page. Reading order does not change: previous and next
-//! still visit every child in book order.
+//! A corpus-marked node collapses to one row at any level. Otherwise a node below chapter level
+//! that is itself an entry collapses when its own page lists every entry below it
+//! (`BookNode::lists_children`, computed by the compiler). An unmarked top-level chapter keeps
+//! its chapter page. Reading order does not change: previous and next still visit every child in
+//! book order.
 
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
@@ -62,15 +63,18 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// True when a node below chapter level that is itself an entry shows as one row, because its
-/// own page already lists every entry below it.
+/// True when Contents shows this node as one row and hides its children.
 ///
-/// A top-level chapter row never collapses: it keeps its chapter page, which shows the chapter's
-/// printed sections. The compiler records the body-link test on [`BookNode::lists_children`]; the
-/// book page must not load an entry body to decide a row. A hidden entry cannot be the row's
-/// link, so its node keeps the branch for whatever its children still show.
-pub fn hub_collapses(node: &BookNode, hide: Hide<'_>, is_chapter: bool) -> bool {
-    !is_chapter && node.lists_children && node.entry.as_ref().is_some_and(|entry| !hide(entry))
+/// The corpus marker wins at every level, including a top-level chapter. Without it, a top-level
+/// chapter keeps its chapter page and printed sections. Below chapter level the automatic rule
+/// still applies: the node is itself an entry and its page lists every entry below it
+/// (`BookNode::lists_children`, recorded by the compiler). A hidden entry cannot be the row's
+/// link, so an unmarked hub keeps the branch for whatever its children still show.
+pub fn node_collapses(node: &BookNode, hide: Hide<'_>, is_chapter: bool) -> bool {
+    node.collapse
+        || (!is_chapter
+            && node.lists_children
+            && node.entry.as_ref().is_some_and(|entry| !hide(entry)))
 }
 
 /// The label of a chapter or section row.
@@ -498,7 +502,7 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
         None => view! { {title.clone()} }.into_any(),
     };
     let children = listed_children(node, hide);
-    let list = (!hub_collapses(node, hide, false) && !children.is_empty()).then(|| {
+    let list = (!node_collapses(node, hide, false) && !children.is_empty()).then(|| {
         let items = children
             .into_iter()
             .filter_map(|index| {
@@ -529,7 +533,7 @@ fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usiz
             None => view! { <span>{title.clone()}</span> }.into_any(),
         };
         let children = listed_children(node, hide);
-        let list = (!hub_collapses(node, hide, false) && !children.is_empty()).then(|| {
+        let list = (!node_collapses(node, hide, false) && !children.is_empty()).then(|| {
             let items = children
                 .into_iter()
                 .filter_map(|index| {
@@ -605,9 +609,9 @@ fn Contents(
 }
 
 /// One row of the contents. Every branch is expanded: a nested list carries its children, so the
-/// reader sees the whole book at once and no row is a disclosure. A nested hub whose own page
-/// lists its children is the one exception: it keeps its title and count and adds no nested list.
-/// A top-level chapter is never collapsed; it opens its chapter page.
+/// reader sees the whole book at once and no row is a disclosure. A marked node and a nested hub
+/// whose own page lists its children are the exceptions: they keep the title and count and add no
+/// nested list. An unmarked top-level chapter is never collapsed; it opens its chapter page.
 #[component]
 fn TocNode(
     lookup: Shared<BookLookup>,
@@ -647,7 +651,8 @@ fn TocNode(
         move || target.with(|t| t.as_deref() == Some(path.as_slice()))
     };
 
-    if listed.is_empty() {
+    let collapsed = node_collapses(node, &hide, chapter.is_some());
+    if listed.is_empty() && !collapsed {
         let link = chapter_link.clone().or_else(|| {
             lookup.target_of(tree, &path).map(|(entry, anchor)| {
                 Route::Entry {
@@ -671,9 +676,9 @@ fn TocNode(
     }
 
     // A top-level row opens its chapter page. A nested chapter that is itself an entry links to
-    // that entry; a bare heading is a plain row. A hub row opens its own entry page instead: that
-    // page already carries the list, so the chapter page would only repeat it.
-    let collapsed = hub_collapses(node, &hide, chapter.is_some());
+    // that entry; a bare heading is a plain row. A collapsed row opens its hub entry when it has
+    // one; a marked heading without an entry keeps its chapter page. The automatic below-chapter
+    // rule means the entry page already carries the list, so the chapter page would repeat it.
     let entry_link = node
         .entry
         .as_ref()
@@ -687,7 +692,7 @@ fn TocNode(
             .href()
         });
     let own_link = if collapsed {
-        entry_link
+        entry_link.or(chapter_link.clone())
     } else {
         chapter_link.clone().or(entry_link)
     };
@@ -872,6 +877,7 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
             lists_children: false,
             children,
         }
@@ -1037,6 +1043,7 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
             lists_children: false,
             children,
         };
@@ -1119,17 +1126,36 @@ mod tests {
             Some("core/rule/combat"),
             vec![node("Actions", Some("core/rule/actions"), vec![])],
         );
-        assert!(!hub_collapses(&hub, &hide, false));
+        assert!(!node_collapses(&hub, &hide, false));
         hub.lists_children = true;
-        assert!(hub_collapses(&hub, &hide, false));
+        assert!(node_collapses(&hub, &hide, false));
         // A top-level chapter keeps its chapter page even when its entry lists the children.
-        assert!(!hub_collapses(&hub, &hide, true));
+        assert!(!node_collapses(&hub, &hide, true));
         // A hidden hub entry has no row link, so the branch stays.
         let only_combat = |id: &EntryId| id.as_str() == "core/rule/combat";
-        assert!(!hub_collapses(&hub, &only_combat, false));
-        // A heading without an entry never collapses.
+        assert!(!node_collapses(&hub, &only_combat, false));
+        // A heading without an entry never collapses by the automatic rule.
         hub.entry = None;
-        assert!(!hub_collapses(&hub, &hide, false));
+        assert!(!node_collapses(&hub, &hide, false));
+    }
+
+    #[test]
+    fn a_marked_node_collapses_at_every_level_even_without_an_entry() {
+        let mut marked = node(
+            "Long list",
+            Some("core/rule/long-list"),
+            vec![node("Child", Some("core/rule/child"), vec![])],
+        );
+        marked.collapse = true;
+        assert!(node_collapses(&marked, &hide, false));
+        assert!(node_collapses(&marked, &hide, true));
+        // The marker does not need the automatic body-link flag.
+        let mut heading = node("Appendix", None, vec![]);
+        heading.collapse = true;
+        assert!(node_collapses(&heading, &hide, true));
+        // A hidden entry still collapses a marked node; the row keeps its chapter link.
+        let hidden = |id: &EntryId| id.as_str() == "core/rule/long-list";
+        assert!(node_collapses(&marked, &hidden, true));
     }
 
     #[test]

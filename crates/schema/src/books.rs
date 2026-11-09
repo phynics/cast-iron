@@ -333,6 +333,7 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
             lists_children: false,
             children,
         }

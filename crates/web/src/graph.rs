@@ -1400,6 +1400,7 @@ mod tests {
             entry: entry.map(id),
             anchor: None,
             review: None,
+            collapse: false,
             lists_children: false,
             children,
         }

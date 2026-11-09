@@ -937,6 +937,11 @@ pub struct BookNode {
     /// Set on a chapter whose position or content is a guess, with the reason.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review: Option<String>,
+    /// Authored in the corpus `books.toml`: show this node as one row in Contents at any level,
+    /// including a top-level chapter. The row links to the node's entry when it has one, else to
+    /// its chapter page. Additive and optional, so an older library reads as `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub collapse: bool,
     /// Computed by the compiler, never authored in the corpus: the node is itself an entry and
     /// that entry's body lists every entry below it. Contents and the chapter page show the node
     /// as one row and do not repeat the children. Additive and optional, so an older library
