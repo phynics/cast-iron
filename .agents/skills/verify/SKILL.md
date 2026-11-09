@@ -19,13 +19,16 @@ This fetches the pinned corpus and compiles the library into `generated/content/
 
 If compiler code, schema types, or the corpus pin changed, run `cargo xtask fetch-sources` and `cargo xtask content` first. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
 
-## 2. Run the acceptance suite
+## 2. Run the affected specs
+
+Run only the specs that the change can break: the spec files you changed, plus the specs of the change's row in the feature map (section 5). The full suite runs in CI (`gh workflow run ci.yml --ref <branch>`), not locally. On a shared host, the full suite takes 12–22 minutes for Chromium and 45–60 minutes with WebKit, and load alone makes tests time out. See "Test scope" in `AGENTS.md`.
 
 ```sh
 npm --prefix tests/e2e ci
-npx --prefix tests/e2e playwright install chromium webkit
-npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium
+npm --prefix tests/e2e test -- --project=chromium tests/<changed>.spec.ts tests/<affected>.spec.ts
 ```
+
+On a host without the Nix dev shell, install the browsers once first: `npx --prefix tests/e2e playwright install chromium webkit`.
 
 To run one test, pass a name pattern:
 
@@ -33,9 +36,11 @@ To run one test, pass a name pattern:
 npm --prefix tests/e2e test -- --project=chromium --grep "<name>"
 ```
 
-Report any failure with its output. Do not call a change done while a test fails.
+Add `--project=mobile-chromium` when the spec is in that project (see `playwright.config.ts`). Add `--project=webkit` on the same specs when the change touches the service worker, installation, storage, or offline behavior.
 
-The default command without project flags includes Firefox. Its local startup failure and the informational CI browser projects are recorded in `docs/status.md`. Report the projects actually run; a passing Chromium run does not verify WebKit or Firefox.
+Report any failure with its output. Do not call a change done while a test fails. When a test fails only during a run under load, run its spec again alone before you change code.
+
+The default command without project flags includes Firefox. Its local startup failure and the informational CI browser projects are recorded in `docs/status.md`. Report the specs and projects actually run; a passing Chromium run does not verify WebKit or Firefox.
 
 ## 3. Drive the app by hand (new features)
 

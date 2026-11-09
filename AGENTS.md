@@ -70,7 +70,22 @@ Start new work from current `origin/main` on an issue-linked branch. Keep outsta
 
 In a T3 Code worktree (a path under `~/.t3/worktrees/`), the branch already exists: commit and push on it, and do not create, rename or switch branches. T3 removes a worktree only while it stays on the branch T3 recorded. Link the issue in the PR body instead of the branch name. To start from current `origin/main`, run `git fetch origin && git reset --hard origin/main` before you change any file.
 
-Work in small commits, each with a verifiable state. A task is finished only after `cargo xtask check` passes and, for user-visible behavior, the affected e2e test passes on a real `dist/` build. Report failures with their output.
+Work in small commits, each with a verifiable state. A task is finished only after the checks for its kind of change pass (see "Test scope"). Report failures with their output.
+
+## Test scope
+
+Test what the change can break, once. Locally, run only the checks in the row of the change. The full browser suite runs in CI, not locally. A change that spans rows takes the checks of each row.
+
+| What changed | Local checks | Full CI run on the branch before merge |
+|---|---|---|
+| Docs only, or research scripts the build does not run (`scripts/*-nested.py`, `docs/research/`) | Run the changed script. No build, no e2e | No. The PR's Rust checks are enough |
+| `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`, or the screen on a built `dist/` | No for the release script; yes for the screen |
+| Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Yes |
+| UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, `cargo xtask build-site --public-url /cast-iron/`, then the changed specs and the specs of the feature-map row (`verify` skill) on `--project=chromium`. Add `--project=mobile-chromium` when the spec is in that project | Yes |
+| Service worker, installer, storage, offline (`web/sw.js`, `install.rs`, `content_cache.rs`, `store.rs`) | The UI checks, plus `--project=webkit` on the affected specs | Yes |
+| Corpus pin (`sources/corpus.toml`) | `cargo xtask content`, and the specs that read the changed data | Yes |
+
+Start one full CI run (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only when a later commit changes code, or when `main` has moved in the same feature area. Do not run the full e2e suite locally. Run WebKit locally only on the affected specs; CI runs the full WebKit suite, which is informational.
 
 Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
 
