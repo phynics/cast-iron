@@ -1419,8 +1419,18 @@ Refs [#360](https://github.com/phynics/cast-iron/issues/360), part of
   a typed relation to it; or it has an add-on, variant or revision relation to a reachable
   base. The link and relation routes repeat until nothing changes, so a chain of links counts
   from its first placed or listed entry.
+- **The list-page route assumes every book is active.** The compiler has no reader selection, so
+  a non-rule entry counts as reachable when its kind has a list page, even if a reader turned
+  its book off. Third-party books are off by default, so a non-rule entry that only a
+  third-party catch-all chapter places is still reachable in this report. A revision-hidden
+  entry also counts: the unfiltered list hides a removed, merged, or revised base only while the
+  revision's book is active, and the book's own kind list still shows the entry. The report
+  describes the installed library, not one reader's active books.
 - **The report is `reachability.json` in the generated reports.** It lists each unreachable
-  entry with its kind, source ids and reason, and gives counts per book and kind. It also
+  entry with its kind, source ids and reason, and gives counts per book and kind. The top-level
+  `unreachable` total counts distinct entries. `by_book` counts catch-all placements, so its
+  rows can add to more than the distinct total when one entry sits in several books; the report
+  records that sum as `unreachable_placements` and explains it in `by_book_note`. The report also
   confirms that the search index holds every entry under its exact title. Entries, books and
   kinds are sorted, and the report holds no timestamps, so two compiles produce the same bytes.
 - **A warning comes first.** `cargo xtask content` prints the count per book and exits zero

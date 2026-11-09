@@ -129,10 +129,11 @@ fn main() -> ExitCode {
             }
             if o.reachability.unreachable > 0 {
                 eprintln!(
-                    "warning: {} of {} entries are unreachable without the catch-all chapter `{}`; see reachability.json",
+                    "warning: {} distinct entries of {} are unreachable without the catch-all chapter `{}` ({} catch-all placements); see reachability.json",
                     o.reachability.unreachable,
                     o.reachability.entries,
-                    o.reachability.catch_all_title
+                    o.reachability.catch_all_title,
+                    o.reachability.unreachable_placements
                 );
                 for book in &o.reachability.by_book {
                     if book.unreachable > 0 {

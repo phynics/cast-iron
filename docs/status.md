@@ -32,11 +32,12 @@ failing, for every entry that the catch-all chapter `New entries (page order)` i
 to. The report is a warning until [#363](https://github.com/phynics/cast-iron/issues/363) removes
 the chapter from the app; [#360](https://github.com/phynics/cast-iron/issues/360) adds it.
 
-On corpus `v0.1.16`, 64 of 31,958 entries are unreachable, all rules: Advanced Race Guide 44,
-Bestiary 4 13, Bestiary 2 2, Mythic Adventures 2, and one each in the Advanced Player's Guide,
-Core Rulebook, Ultimate Campaign, Ultimate Combat, and Ultimate Magic. Every entry is in the
-search index under its exact title (31,958 of 31,958). The report is byte-identical between two
-compiles.
+On corpus `v0.1.16`, 64 distinct entries of 31,958 are unreachable, all rules. The per-book rows
+add to 66 catch-all placements because `ref/rule/traits-and-other-details` sits in three
+catch-alls: Advanced Race Guide 44, Bestiary 4 13, Bestiary 2 2, Mythic Adventures 2, and one
+each in the Advanced Player's Guide, Core Rulebook, Ultimate Campaign, Ultimate Combat, and
+Ultimate Magic. Every entry is in the search index under its exact title (31,958 of 31,958). The
+report is byte-identical between two compiles.
 
 ## Corpus pinned to v0.1.15, 2026-11-09
 

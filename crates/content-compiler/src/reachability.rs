@@ -22,6 +22,9 @@ use std::collections::{BTreeMap, BTreeSet};
 /// The corpus title of the chapter that the app will stop showing.
 pub const CATCH_ALL_TITLE: &str = "New entries (page order)";
 
+/// The report explains why `by_book` can add to more than the distinct total.
+pub const BY_BOOK_NOTE: &str = "`unreachable` counts distinct entries. `by_book` counts catch-all placements, so one entry can appear in more than one book and its `unreachable` column can add to `unreachable_placements`, which is larger than the distinct total.";
+
 /// One installed entry that no route reaches without the catch-all chapter.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct UnreachableEntry {
@@ -78,7 +81,13 @@ pub struct Report {
     pub catch_all_title: String,
     pub entries: u32,
     pub reachable: u32,
+    /// Distinct entries that no route reaches without the catch-all chapter.
     pub unreachable: u32,
+    /// Sum of `by_book[].unreachable`. One entry can sit in several books' catch-all
+    /// chapters, so this can be larger than `unreachable`.
+    pub unreachable_placements: u32,
+    /// Explains the distinct total against the per-book placements.
+    pub by_book_note: String,
     /// Unreachable entries that no book tree places anywhere.
     pub unplaced: u32,
     pub unreachable_entries: Vec<UnreachableEntry>,
@@ -104,7 +113,14 @@ pub fn reachable_without_catch_all(entries: &[RuleEntry], books: &BookIndex) -> 
     let mut reachable: BTreeSet<EntryId> = entries
         .iter()
         .filter(|entry| {
-            // A list page reaches every kind except Rules.
+            // A list page reaches every kind except Rules. This route assumes every book is
+            // active: the compiler has no reader selection, and the app's kind lists filter by
+            // the books a reader turned on. Third-party books are off by default, so a
+            // non-rule entry that only a third-party catch-all places is still reachable here.
+            // A revision-hidden entry also counts: the unfiltered list hides a removed,
+            // merged, or revised base only while its revision's book is active, and the book's
+            // own kind list still shows the entry. The report describes the installed library,
+            // not one reader's active books.
             entry.kind != EntryKind::Rule
                 || placements
                     .get(&entry.id)
@@ -249,11 +265,14 @@ pub fn report(entries: &[RuleEntry], books: &BookIndex, index: &SearchIndex) -> 
 
     let search = search_summary(entries, index);
     let unreachable = unreachable_entries.len() as u32;
+    let unreachable_placements = by_book.iter().map(|book| book.unreachable).sum();
     Report {
         catch_all_title: CATCH_ALL_TITLE.to_string(),
         entries: entries.len() as u32,
         reachable: entries.len() as u32 - unreachable,
         unreachable,
+        unreachable_placements,
+        by_book_note: BY_BOOK_NOTE.to_string(),
         unplaced,
         unreachable_entries,
         by_book,
@@ -427,15 +446,19 @@ mod tests {
         }
     }
 
+    fn book_named(source: &str, title: &str, chapters: Vec<BookNode>) -> BookTree {
+        BookTree {
+            source: source.into(),
+            title: title.into(),
+            basis: String::new(),
+            review: vec![],
+            chapters,
+        }
+    }
+
     fn book(chapters: Vec<BookNode>) -> BookIndex {
         BookIndex {
-            books: vec![BookTree {
-                source: "book".into(),
-                title: "Book".into(),
-                basis: String::new(),
-                review: vec![],
-                chapters,
-            }],
+            books: vec![book_named("book", "Book", chapters)],
         }
     }
 
@@ -468,9 +491,11 @@ mod tests {
         let report = report_for(&entries, &books);
         assert_eq!(ids(&report), vec!["ref/rule/a"]);
         assert_eq!(report.unreachable, 1);
+        assert_eq!(report.unreachable_placements, 1);
         assert_eq!(report.by_book[0].source_id, "book");
         assert_eq!(report.by_book[0].catch_all_entries, 1);
         assert_eq!(report.by_book[0].unreachable_rules, 1);
+        assert_eq!(report.by_book_note, BY_BOOK_NOTE);
         assert!(
             report.unreachable_entries[0]
                 .reason
@@ -548,6 +573,53 @@ mod tests {
         assert_eq!(report.search.indexed, 0);
         assert_eq!(report.search.problems[0].id, "ref/rule/a");
         assert_eq!(report.search.problems[0].reason, "not in the search index");
+    }
+
+    #[test]
+    fn rules_that_link_only_to_each_other_are_both_reported() {
+        let entries = vec![
+            link(entry("ref/rule/a", EntryKind::Rule), "ref/rule/b"),
+            link(entry("ref/rule/b", EntryKind::Rule), "ref/rule/a"),
+        ];
+        let books = book(vec![
+            chapter(CATCH_ALL_TITLE, Some("ref/rule/a")),
+            chapter(CATCH_ALL_TITLE, Some("ref/rule/b")),
+        ]);
+        let report = report_for(&entries, &books);
+        assert_eq!(ids(&report), vec!["ref/rule/a", "ref/rule/b"]);
+        assert_eq!(report.unreachable, 2);
+    }
+
+    #[test]
+    fn one_entry_in_several_catch_alls_is_one_distinct_entry_and_several_placements() {
+        let entries = vec![entry("ref/rule/a", EntryKind::Rule)];
+        let books = BookIndex {
+            books: vec![
+                book_named(
+                    "book-a",
+                    "Book A",
+                    vec![chapter(CATCH_ALL_TITLE, Some("ref/rule/a"))],
+                ),
+                book_named(
+                    "book-b",
+                    "Book B",
+                    vec![chapter(CATCH_ALL_TITLE, Some("ref/rule/a"))],
+                ),
+            ],
+        };
+        let report = report_for(&entries, &books);
+        assert_eq!(ids(&report), vec!["ref/rule/a"]);
+        assert_eq!(report.unreachable, 1);
+        assert_eq!(report.unreachable_placements, 2);
+        assert_eq!(
+            report
+                .by_book
+                .iter()
+                .map(|book| book.unreachable)
+                .sum::<u32>(),
+            2
+        );
+        assert!(report.by_book_note.contains("more than one book"));
     }
 
     #[test]
