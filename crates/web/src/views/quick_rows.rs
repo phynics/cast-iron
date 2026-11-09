@@ -1,6 +1,7 @@
 //! What the Quick search list shows: the rows, and the keyboard movement through them. No
 //! browser calls, so the rules are tested natively.
 
+use crate::store::Recent;
 use crate::views::recent_searches::RecentSearch;
 use crate::views::source_variants::normalized_title;
 use cast_iron_schema::EntryId;
@@ -8,6 +9,8 @@ use cast_iron_search::HitSummary;
 
 /// Suggestions shown under the field while the reader types.
 pub const MAX_SUGGESTIONS: usize = 8;
+/// Recently viewed rows shown before "Show more".
+pub const MAX_RECENT_VIEWED: usize = 5;
 
 /// An entry offered while typing.
 #[derive(Debug, Clone, PartialEq)]
@@ -18,11 +21,26 @@ pub struct Suggestion {
     pub detail: String,
 }
 
+/// One recently viewed entry, resolved for display.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ViewedRow {
+    pub id: EntryId,
+    pub title: String,
+    /// The muted line: the kind and book for a visit, the entry title for the Continue row.
+    pub detail: String,
+    /// The book of the Continue row, which its link carries in its URL.
+    pub book: Option<String>,
+}
+
 /// One row of the list. Its position is the index that Up and Down move through.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Row {
     /// Opens the entry.
     Entry(Suggestion),
+    /// "Continue {book}": opens the entry with that book's context.
+    Continue(ViewedRow),
+    /// A recently viewed entry.
+    Viewed(ViewedRow),
     /// "See all results for …": opens the results page for the typed text.
     SeeAll(String),
     /// A recent search: runs it again in the scope it ran in.
@@ -31,40 +49,163 @@ pub enum Row {
     Starter(String),
 }
 
-/// Which list the layer is showing.
+/// Resolves the stored visits into the rows to show. `resolve` maps a stored id to the entry it
+/// now opens, following an alias and dropping anything that no longer resolves. Two stored ids
+/// that resolve to one entry show once, under the kept entry's current title.
+pub fn visible_viewed(
+    recents: &[Recent],
+    resolve: impl Fn(&EntryId) -> Option<ViewedRow>,
+) -> Vec<ViewedRow> {
+    let mut seen = std::collections::BTreeSet::new();
+    recents
+        .iter()
+        .filter_map(|item| {
+            let row = resolve(&item.id)?;
+            seen.insert(row.id.clone()).then_some(row)
+        })
+        .collect()
+}
+
+/// What one group of the list is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
+pub enum GroupKind {
     Suggestions,
     Recent,
     Starters,
+    Viewed,
+}
+
+impl GroupKind {
+    /// The visible heading, and the listbox's accessible name.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Suggestions => "Suggestions",
+            Self::Recent => "Recent searches",
+            Self::Starters => "Try searching for",
+            Self::Viewed => "Recently viewed",
+        }
+    }
+
+    /// The suffix of the group's listbox and heading ids.
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Suggestions => "suggestions",
+            Self::Recent => "recent",
+            Self::Starters => "starters",
+            Self::Viewed => "viewed",
+        }
+    }
+}
+
+/// One group: a heading and the rows under it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Group {
+    pub kind: GroupKind,
+    pub rows: Vec<Row>,
+}
+
+/// The whole list: the groups in display order, and how much of Recently viewed is folded away.
+#[derive(Debug, Clone, PartialEq)]
+pub struct List {
+    pub groups: Vec<Group>,
+    /// Recently viewed rows that the five-row cap hides.
+    pub hidden_viewed: usize,
+    /// How many rows the Recently viewed group holds in total.
+    pub viewed_total: usize,
+}
+
+impl List {
+    /// True while the reader has typed text, so the one group is the suggestion popup.
+    pub fn is_typing(&self) -> bool {
+        self.groups
+            .first()
+            .is_some_and(|group| group.kind == GroupKind::Suggestions)
+    }
+
+    pub fn len(&self) -> usize {
+        self.groups.iter().map(|group| group.rows.len()).sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// The row at the highlight index, counted across every group.
+    pub fn row(&self, index: usize) -> Option<&Row> {
+        self.groups
+            .iter()
+            .flat_map(|group| group.rows.iter())
+            .nth(index)
+    }
 }
 
 /// The rows for the field's text: suggestions with a final "See all" row while the reader has
-/// typed something, otherwise the recent searches, otherwise the starter searches.
-pub fn rows(
+/// typed something, otherwise the recent searches (or the starter searches when none) and then
+/// the recently viewed entries. The Continue row leads Recently viewed and counts toward the cap.
+pub fn list(
     text: &str,
     suggestions: &[Suggestion],
     recents: &[RecentSearch],
     starters: &[&str],
-) -> (Mode, Vec<Row>) {
+    continue_row: Option<ViewedRow>,
+    viewed: &[ViewedRow],
+    viewed_expanded: bool,
+) -> List {
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if !text.is_empty() {
         let mut rows: Vec<Row> = suggestions.iter().cloned().map(Row::Entry).collect();
         rows.push(Row::SeeAll(text));
-        (Mode::Suggestions, rows)
-    } else if !recents.is_empty() {
-        (
-            Mode::Recent,
-            recents.iter().cloned().map(Row::Search).collect(),
-        )
+        return List {
+            groups: vec![Group {
+                kind: GroupKind::Suggestions,
+                rows,
+            }],
+            hidden_viewed: 0,
+            viewed_total: 0,
+        };
+    }
+    let mut groups = Vec::new();
+    let searches: Vec<Row> = if recents.is_empty() {
+        starters
+            .iter()
+            .map(|starter| Row::Starter((*starter).to_owned()))
+            .collect()
     } else {
-        (
-            Mode::Starters,
-            starters
-                .iter()
-                .map(|s| Row::Starter((*s).to_owned()))
-                .collect(),
-        )
+        recents.iter().cloned().map(Row::Search).collect()
+    };
+    if !searches.is_empty() {
+        groups.push(Group {
+            kind: if recents.is_empty() {
+                GroupKind::Starters
+            } else {
+                GroupKind::Recent
+            },
+            rows: searches,
+        });
+    }
+    let all_viewed: Vec<Row> = continue_row
+        .into_iter()
+        .map(Row::Continue)
+        .chain(viewed.iter().cloned().map(Row::Viewed))
+        .collect();
+    let viewed_total = all_viewed.len();
+    let cap = if viewed_expanded {
+        viewed_total
+    } else {
+        MAX_RECENT_VIEWED
+    };
+    let rows: Vec<Row> = all_viewed.into_iter().take(cap).collect();
+    let hidden_viewed = viewed_total - rows.len();
+    if !rows.is_empty() {
+        groups.push(Group {
+            kind: GroupKind::Viewed,
+            rows,
+        });
+    }
+    List {
+        groups,
+        hidden_viewed,
+        viewed_total,
     }
 }
 
@@ -138,6 +279,7 @@ pub fn step(active: Option<usize>, len: usize, down: bool) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use super::list as build;
     use super::*;
     use crate::views::scope::Scope;
     use cast_iron_schema::EntryKind;
@@ -161,17 +303,84 @@ mod tests {
         }
     }
 
+    fn viewed(n: usize) -> ViewedRow {
+        ViewedRow {
+            id: EntryId::parse(format!("ref/rule/viewed-{n}")).unwrap(),
+            title: format!("Viewed {n}"),
+            detail: "Rule · Core Rulebook".to_owned(),
+            book: None,
+        }
+    }
+
+    fn continue_row() -> ViewedRow {
+        ViewedRow {
+            id: EntryId::parse("ref/rule/continue").unwrap(),
+            title: "Continue Core Rulebook".to_owned(),
+            detail: "Grapple".to_owned(),
+            book: Some("core-rulebook".to_owned()),
+        }
+    }
+
+    fn named(id: &str, title: &str) -> ViewedRow {
+        ViewedRow {
+            id: EntryId::parse(id).unwrap(),
+            title: title.to_owned(),
+            detail: "Item · Core Rulebook".to_owned(),
+            book: None,
+        }
+    }
+
+    #[test]
+    fn a_stored_legacy_visit_resolves_to_the_kept_entry() {
+        let stored = |id: &str, title: &str| Recent {
+            id: EntryId::parse(id).unwrap(),
+            title: title.to_owned(),
+        };
+        let recents = vec![
+            stored("ref/tech-misc/silverdisk", "Silverdisk"),
+            stored("ref/rule/hierophant", "Heirophant"),
+            // The same kept entry twice is one row.
+            stored("ref/rule/hierophant", "Heirophant"),
+            // Nothing in the map keeps this one, so it is dropped.
+            stored("ref/rule/gone", "Gone"),
+        ];
+        let rows = visible_viewed(&recents, |entry| match entry.as_str() {
+            "ref/tech-misc/silverdisk" => Some(named("ref/tech-misc/battery", "Battery")),
+            "ref/rule/hierophant" => Some(named(
+                "ref/carried/mythic-adventures/rules/mythic-heroes/hierophant",
+                "Hierophant",
+            )),
+            _ => None,
+        });
+        assert_eq!(
+            rows.iter()
+                .map(|row| (row.id.as_str(), row.title.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("ref/tech-misc/battery", "Battery"),
+                (
+                    "ref/carried/mythic-adventures/rules/mythic-heroes/hierophant",
+                    "Hierophant"
+                ),
+            ]
+        );
+    }
+
     #[test]
     fn typing_shows_suggestions_then_see_all() {
-        let (mode, list) = rows(
+        let list = build(
             "  fireb ",
             &[suggestion("Fireball")],
             &[RecentSearch::new("old", None)],
             &["x"],
+            Some(continue_row()),
+            &[viewed(1)],
+            false,
         );
-        assert_eq!(mode, Mode::Suggestions);
+        assert!(list.is_typing());
+        assert_eq!(list.groups.len(), 1);
         assert_eq!(
-            list,
+            list.groups[0].rows,
             [
                 Row::Entry(suggestion("Fireball")),
                 Row::SeeAll("fireb".to_owned())
@@ -181,13 +390,13 @@ mod tests {
 
     #[test]
     fn typing_with_no_suggestion_still_offers_see_all() {
-        let (mode, list) = rows("zzzz", &[], &[], &["x"]);
-        assert_eq!(mode, Mode::Suggestions);
-        assert_eq!(list, [Row::SeeAll("zzzz".to_owned())]);
+        let list = build("zzzz", &[], &[], &["x"], None, &[], false);
+        assert!(list.is_typing());
+        assert_eq!(list.groups[0].rows, [Row::SeeAll("zzzz".to_owned())]);
     }
 
     #[test]
-    fn an_empty_field_shows_recents_then_starters() {
+    fn an_empty_field_shows_recents_then_recently_viewed() {
         let feats = Scope {
             kind: EntryKind::Feat,
             facets: Vec::new(),
@@ -198,24 +407,93 @@ mod tests {
             RecentSearch::new("grapple", Some(feats)),
             RecentSearch::new("fireball", None),
         ];
-        let (mode, list) = rows("", &[], &recents, &["dragon"]);
-        assert_eq!(mode, Mode::Recent);
+        let list = build("", &[], &recents, &["dragon"], None, &[viewed(1)], false);
         assert_eq!(
-            list,
+            list.groups
+                .iter()
+                .map(|group| group.kind)
+                .collect::<Vec<_>>(),
+            [GroupKind::Recent, GroupKind::Viewed]
+        );
+        assert_eq!(
+            list.groups[0].rows,
             [
                 Row::Search(recents[0].clone()),
                 Row::Search(recents[1].clone())
             ]
         );
-        let (mode, list) = rows("   ", &[], &[], &["dragon", "fireball"]);
-        assert_eq!(mode, Mode::Starters);
+        assert_eq!(list.groups[1].rows, [Row::Viewed(viewed(1))]);
+        assert_eq!(list.len(), 3);
+    }
+
+    #[test]
+    fn starters_show_before_recently_viewed_when_nothing_is_recent() {
+        let list = build(
+            "   ",
+            &[],
+            &[],
+            &["dragon", "fireball"],
+            None,
+            &[viewed(1)],
+            false,
+        );
         assert_eq!(
-            list,
+            list.groups
+                .iter()
+                .map(|group| group.kind)
+                .collect::<Vec<_>>(),
+            [GroupKind::Starters, GroupKind::Viewed]
+        );
+        assert_eq!(
+            list.groups[0].rows,
             [
                 Row::Starter("dragon".to_owned()),
                 Row::Starter("fireball".to_owned())
             ]
         );
+    }
+
+    #[test]
+    fn the_continue_row_leads_recently_viewed_and_counts_toward_the_cap() {
+        let viewed_rows: Vec<ViewedRow> = (0..6).map(viewed).collect();
+        let list = build("", &[], &[], &[], Some(continue_row()), &viewed_rows, false);
+        assert_eq!(list.groups[0].kind, GroupKind::Viewed);
+        // Five rows: the Continue row first, then the four newest visits.
+        assert_eq!(list.groups[0].rows.len(), MAX_RECENT_VIEWED);
+        assert_eq!(list.groups[0].rows[0], Row::Continue(continue_row()));
+        assert_eq!(
+            &list.groups[0].rows[1..],
+            &viewed_rows[0..4]
+                .iter()
+                .cloned()
+                .map(Row::Viewed)
+                .collect::<Vec<_>>()[..]
+        );
+        assert_eq!(list.viewed_total, 7);
+        assert_eq!(list.hidden_viewed, 2);
+        // Expanding shows every row and hides nothing.
+        let list = build("", &[], &[], &[], Some(continue_row()), &viewed_rows, true);
+        assert_eq!(list.groups[0].rows.len(), 7);
+        assert_eq!(list.hidden_viewed, 0);
+    }
+
+    #[test]
+    fn an_empty_field_with_nothing_stored_has_no_groups() {
+        let list = build("", &[], &[], &[], None, &[], false);
+        assert!(list.groups.is_empty());
+        assert_eq!(list.len(), 0);
+        assert_eq!(list.viewed_total, 0);
+    }
+
+    #[test]
+    fn the_highlight_counts_across_groups() {
+        let recents = [RecentSearch::new("grapple", None)];
+        let list = build("", &[], &recents, &[], None, &[viewed(1), viewed(2)], false);
+        assert_eq!(list.len(), 3);
+        assert_eq!(list.row(0), Some(&Row::Search(recents[0].clone())));
+        assert_eq!(list.row(1), Some(&Row::Viewed(viewed(1))));
+        assert_eq!(list.row(2), Some(&Row::Viewed(viewed(2))));
+        assert_eq!(list.row(3), None);
     }
 
     #[test]

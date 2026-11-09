@@ -8,14 +8,17 @@
 
 use crate::discovery::Discovery;
 use crate::js;
-use crate::library::use_library;
+use crate::library::{Library, use_library};
 use crate::route::{self, Route, use_route};
+use crate::store::{self, ContinuePoint};
 use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::quick_rows::{
-    MAX_SUGGESTIONS, Mode, Row, Suggestion, dedupe_hits, rows, shortest_completion_first, step,
-    valid_active,
+    self, GroupKind, List, MAX_SUGGESTIONS, Row, Suggestion, ViewedRow, dedupe_hits,
+    shortest_completion_first, step, valid_active,
 };
+use crate::views::recent::{self, Recent};
 use crate::views::recent_searches::{self, RecentSearch, normalize};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
@@ -57,10 +60,16 @@ pub struct QuickSearch {
     list_open: RwSignal<bool>,
     suggestions: RwSignal<Vec<Suggestion>>,
     recents: RwSignal<Vec<RecentSearch>>,
+    /// The most recently read book's Continue row, when that book is active.
+    continue_row: RwSignal<Option<ViewedRow>>,
+    /// Whether Recently viewed shows every row or only the first five.
+    viewed_expanded: RwSignal<bool>,
     /// Numbers the suggestion lookups, so a slow answer for an old text is dropped.
     lookup: StoredValue<u64>,
     /// The page that is open, which the scope is taken from at opening.
     route: ReadSignal<Route>,
+    /// The Reader's library, captured at setup so an event handler keeps the context it needs.
+    library: StoredValue<Library, LocalStorage>,
     /// What the search is limited to. Set at opening from a list page; the reader removes it
     /// with the pill. It limits the suggestions and the results page that Enter opens.
     scope: RwSignal<Option<Scope>>,
@@ -73,6 +82,65 @@ pub fn use_quick_search() -> QuickSearch {
 fn marker_is_current() -> bool {
     // The entry's state is shared with the scroll memory; only the `quickSearch` field is ours.
     route::current_entry_has_flag(route::QUICK_SEARCH_FIELD)
+}
+
+/// The recently viewed rows the library still shows: aliases resolve to their canonical entry,
+/// and a retired entry, an unknown id or an entry whose book is inactive is left out.
+fn viewed_rows(library: &Library, recents: &[Recent]) -> Vec<ViewedRow> {
+    quick_rows::visible_viewed(recents, |stored| {
+        let id = continue_reading::live_target(library, stored)?;
+        if !library.is_entry_active(&id) {
+            return None;
+        }
+        let stub = library.stub(&id)?;
+        let book = library
+            .canonical_source_for_entry(&id)
+            .and_then(|source| library.source(&source))
+            .map(|source| source.title.clone());
+        let kind = kind_name(stub.kind);
+        let detail = match book {
+            Some(book) => format!("{kind} · {book}"),
+            None => kind.to_string(),
+        };
+        Some(ViewedRow {
+            id,
+            title: stub.title.clone(),
+            detail,
+            book: None,
+        })
+    })
+}
+
+/// The Continue row for the most recently read book, when that book is active. The entry title
+/// is the muted line; the book stays in the link so opening the row keeps the reading context.
+fn continue_viewed_row(library: &Library, points: &[ContinuePoint]) -> Option<ViewedRow> {
+    let active: Vec<ContinuePoint> = points
+        .iter()
+        .filter(|point| library.book_active(&point.source))
+        .cloned()
+        .collect();
+    let point = store::latest_continue_point(&active)?;
+    let source = library.source(&point.source)?;
+    let id = continue_reading::live_target(library, &point.entry_id)?;
+    if !library.is_entry_active(&id) {
+        return None;
+    }
+    let stub = library.stub(&id)?;
+    Some(ViewedRow {
+        id,
+        title: format!("Continue {}", source.title),
+        detail: stub.title.clone(),
+        book: Some(point.source.clone()),
+    })
+}
+
+/// Forgets one recently viewed entry, including any stored row that resolves to it through an
+/// alias, and writes the shortened list.
+fn remove_viewed(recents: RwSignal<Vec<Recent>>, library: &Library, id: EntryId) {
+    let library = library.clone();
+    spawn_local(async move {
+        recent::remove(recents, |stored| library.resolves_to(stored, &id)).await;
+    });
 }
 
 /// Keeps Tab and Shift+Tab inside the layer. A modal dialog already blocks the page behind it,
@@ -140,8 +208,11 @@ impl QuickSearch {
             list_open: RwSignal::new(true),
             suggestions: RwSignal::new(Vec::new()),
             recents: RwSignal::new(Vec::new()),
+            continue_row: RwSignal::new(None),
+            viewed_expanded: RwSignal::new(false),
             lookup: StoredValue::new(0),
             route: use_route(),
+            library: StoredValue::new_local(use_library()),
             scope: RwSignal::new(None),
         }
     }
@@ -190,11 +261,21 @@ impl QuickSearch {
             scope.with_source_title(title)
         });
         self.scope.set(scope);
+        self.continue_row.set(None);
+        self.viewed_expanded.set(false);
         self.open.set(true);
         spawn_local(async move {
             let list = recent_searches::load().await;
             self.recents.try_set(list);
         });
+        {
+            let library = self.library.get_value();
+            spawn_local(async move {
+                let points = continue_reading::load(&library).await;
+                self.continue_row
+                    .try_set(continue_viewed_row(&library, &points));
+            });
+        }
         let _ = dialog.show_modal();
         if let Some(input) = self.input.get_untracked() {
             let _ = input.focus();
@@ -296,6 +377,16 @@ impl QuickSearch {
         match row {
             Row::Entry(suggestion) => self.go(Route::Entry {
                 id: suggestion.id.clone(),
+                anchor: None,
+                book: None,
+            }),
+            Row::Continue(viewed) => self.go(Route::Entry {
+                id: viewed.id.clone(),
+                anchor: None,
+                book: viewed.book.clone(),
+            }),
+            Row::Viewed(viewed) => self.go(Route::Entry {
+                id: viewed.id.clone(),
                 anchor: None,
                 book: None,
             }),
@@ -492,14 +583,29 @@ pub fn QuickSearchLayer() -> impl IntoView {
 
     watch_suggestions(quick);
 
+    let app = crate::app::use_app();
+    let library = use_library();
+    let memo_library = library.clone();
     let list = Memo::new(move |_| {
-        quick.text.with(|text| {
-            quick.suggestions.with(|suggestions| {
-                quick
-                    .recents
-                    .with(|recents| rows(text, suggestions, recents, &STARTERS))
-            })
-        })
+        // The active-book choice decides which visits are visible, so read its revision too.
+        let _ = memo_library.selection_revision().get();
+        let text = quick.text.get();
+        let suggestions = quick.suggestions.get();
+        let recents = quick.recents.get();
+        let continue_row = quick.continue_row.get();
+        let expanded = quick.viewed_expanded.get();
+        let viewed = app
+            .recents
+            .with(|recents| viewed_rows(&memo_library, recents));
+        quick_rows::list(
+            &text,
+            &suggestions,
+            &recents,
+            &STARTERS,
+            continue_row,
+            &viewed,
+            expanded,
+        )
     });
     // The rows changed under the highlight, so it may name a row that is gone or a different
     // one. Drop it: Enter then searches the text instead of opening a row the reader did not see.
@@ -507,15 +613,15 @@ pub fn QuickSearchLayer() -> impl IntoView {
         list.track();
         quick.active.set(None);
     });
-    // The list is a popup only while the reader types. Recent and starter searches are the
-    // content of the empty layer, so they stay expanded.
+    // The list is a popup only while the reader types. Recent searches, starter searches and
+    // recently viewed entries are the content of the empty layer, so they stay expanded.
     let expanded = move || {
-        let (mode, rows) = list.get();
-        !rows.is_empty() && (mode != Mode::Suggestions || quick.list_open.get())
+        let list = list.get();
+        !list.is_empty() && (!list.is_typing() || quick.list_open.get())
     };
     let move_highlight = move |down: bool| {
         quick.list_open.set(true);
-        let len = list.with_untracked(|(_, rows)| rows.len());
+        let len = list.with_untracked(List::len);
         let next = step(quick.active.get_untracked(), len, down);
         quick.active.set(next);
         if let Some(index) = next {
@@ -533,6 +639,17 @@ pub fn QuickSearchLayer() -> impl IntoView {
         spawn_local(async move {
             recent_searches::clear().await;
             quick.recents.try_set(Vec::new());
+        });
+        quick.focus_field();
+    };
+    let clear_viewed = move |_| {
+        // Empty the screen now; the writes below are the durable copies.
+        app.recents.set(Vec::new());
+        quick.continue_row.set(None);
+        quick.viewed_expanded.set(false);
+        spawn_local(async move {
+            recent::clear(app.recents).await;
+            let _ = store::clear_continue_points().await;
         });
         quick.focus_field();
     };
@@ -591,10 +708,18 @@ pub fn QuickSearchLayer() -> impl IntoView {
                             })
                         }
                         aria-autocomplete="list"
-                        aria-controls="quick-search-list"
+                        aria-controls=move || {
+                            list.with(|list| {
+                                list.groups
+                                    .iter()
+                                    .map(|group| format!("quick-search-list-{}", group.kind.slug()))
+                                    .collect::<Vec<_>>()
+                                    .join(" ")
+                            })
+                        }
                         aria-expanded=move || expanded().to_string()
                         aria-activedescendant=move || {
-                            let len = list.with(|(_, rows)| rows.len());
+                            let len = list.with(List::len);
                             valid_active(quick.active.get(), len)
                                 .filter(|_| expanded())
                                 .map(option_id)
@@ -626,24 +751,31 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                 // A highlighted row opens itself; without one, Enter submits the text.
                                 "Enter" if !ev.is_composing() => {
                                     let row = quick.active.get_untracked().filter(|_| expanded()).and_then(|index| {
-                                        list.with_untracked(|(_, rows)| rows.get(index).cloned())
+                                        list.with_untracked(|list| list.row(index).cloned())
                                     });
                                     if let Some(row) = row {
                                         ev.prevent_default();
                                         quick.open_row(&row);
                                     }
                                 }
-                                // Delete forgets the highlighted recent search.
+                                // Delete forgets the highlighted recent search or visit.
                                 "Delete" if quick.text.with_untracked(|text| text.is_empty()) => {
                                     let row = quick.active.get_untracked().and_then(|index| {
-                                        list.with_untracked(|(mode, rows)| {
-                                            rows.get(index).cloned().filter(|_| *mode == Mode::Recent)
-                                        })
+                                        list.with_untracked(|list| list.row(index).cloned())
                                     });
-                                    if let Some(Row::Search(search)) = row {
-                                        ev.prevent_default();
-                                        quick.active.set(None);
-                                        remove_recent(search);
+                                    match row {
+                                        Some(Row::Search(search)) => {
+                                            ev.prevent_default();
+                                            quick.active.set(None);
+                                            remove_recent(search);
+                                        }
+                                        Some(Row::Viewed(viewed)) => {
+                                            ev.prevent_default();
+                                            quick.active.set(None);
+                                            remove_viewed(app.recents, &library, viewed.id);
+                                            quick.focus_field();
+                                        }
+                                        _ => {}
                                     }
                                 }
                                 _ => {}
@@ -688,86 +820,151 @@ pub fn QuickSearchLayer() -> impl IntoView {
             <Show when=move || quick.open.get()>
                 <div class="quick-search-body">
                     {move || {
-                        let (mode, rows) = list.get();
-                        let label = match mode {
-                            Mode::Suggestions => "Suggestions",
-                            Mode::Recent => "Recent searches",
-                            Mode::Starters => "Try searching for",
-                        };
-                        let heading = match mode {
-                            Mode::Suggestions => None,
-                            Mode::Recent => Some(view! {
-                                <div class="quick-search-heading-row">
-                                    <h2 class="quick-search-heading">{label}</h2>
-                                    <button class="quick-search-clear-all" type="button"
-                                        on:click=clear_recents>"Clear"</button>
-                                </div>
-                            }.into_any()),
-                            Mode::Starters => Some(view! {
-                                <div class="quick-search-heading-row">
-                                    <h2 class="quick-search-heading">{label}</h2>
-                                </div>
-                            }.into_any()),
-                        };
-                        let items = rows.into_iter().enumerate().map(|(index, row)| {
-                            let remove = match (&row, mode) {
-                                (Row::Search(search), Mode::Recent) => {
-                                    let search = search.clone();
-                                    let name = format!("Remove “{}” from recent searches", search.name());
-                                    Some(view! {
-                                        <button class="quick-search-remove" type="button" aria-label=name
-                                            on:click=move |_| remove_recent(search.clone())>
-                                            {icons::close()}
-                                        </button>
-                                    })
-                                }
-                                _ => None,
-                            };
-                            let body = match &row {
-                                Row::Entry(suggestion) => view! {
-                                    <span class="quick-search-name">{suggestion.title.clone()}</span>
-                                    <span class="quick-search-meta">{suggestion.detail.clone()}</span>
-                                }.into_any(),
-                                Row::SeeAll(text) => view! {
-                                    <span class="quick-search-name">
-                                        {format!("See all results for “{text}”")}
-                                    </span>
-                                }.into_any(),
-                                Row::Search(search) => view! {
-                                    <span class="quick-search-name">{search.text.clone()}</span>
-                                    {search.scope_label().map(|label| view! {
-                                        <span class="quick-search-meta">{label}</span>
-                                    })}
-                                }.into_any(),
-                                Row::Starter(text) => view! {
-                                    <span class="quick-search-name">{text.clone()}</span>
-                                }.into_any(),
-                            };
-                            let all = matches!(row, Row::SeeAll(_));
-                            view! {
-                                <li class="quick-search-item" role="presentation">
-                                    <div
-                                        id=option_id(index)
-                                        class="quick-search-row"
-                                        class:quick-search-all=all
-                                        role="option"
-                                        aria-selected=move || (quick.active.get() == Some(index)).to_string()
-                                        // Keep focus in the field, so the keyboard stays open.
-                                        on:mousedown=move |ev| ev.prevent_default()
-                                        on:click=move |_| quick.open_row(&row)
-                                    >
-                                        {body}
+                        let list = list.get();
+                        let viewed_total = list.viewed_total;
+                        let hidden_viewed = list.hidden_viewed;
+                        let mut index = 0;
+                        let groups = list.groups.into_iter().map(|group| {
+                            let label = group.kind.label();
+                            let heading_id = format!("quick-search-heading-{}", group.kind.slug());
+                            let list_id = format!("quick-search-list-{}", group.kind.slug());
+                            let heading = if group.kind == GroupKind::Suggestions {
+                                // The suggestion popup has no visible heading, but the listbox still
+                                // needs a name.
+                                view! { <h2 class="sr-only" id=heading_id.clone()>{label}</h2> }
+                                    .into_any()
+                            } else {
+                                let clear = match group.kind {
+                                    GroupKind::Recent => Some(view! {
+                                        <button class="quick-search-clear-all" type="button"
+                                            on:click=clear_recents>"Clear"</button>
+                                    }.into_any()),
+                                    GroupKind::Viewed => Some(view! {
+                                        <button class="quick-search-clear-all" type="button"
+                                            on:click=clear_viewed>"Clear"</button>
+                                    }.into_any()),
+                                    _ => None,
+                                };
+                                view! {
+                                    <div class="quick-search-heading-row">
+                                        <h2 class="quick-search-heading" id=heading_id.clone()>{label}</h2>
+                                        {clear}
                                     </div>
-                                    {remove}
-                                </li>
-                            }
+                                }.into_any()
+                            };
+                            let items = group.rows.into_iter().map(|row| {
+                                let i = index;
+                                index += 1;
+                                let remove = match &row {
+                                    Row::Search(search) => {
+                                        let search = search.clone();
+                                        let name = format!("Remove “{}” from recent searches", search.name());
+                                        Some(view! {
+                                            <button class="quick-search-remove" type="button" aria-label=name
+                                                on:click=move |_| remove_recent(search.clone())>
+                                                {icons::close()}
+                                            </button>
+                                        }.into_any())
+                                    }
+                                    Row::Viewed(viewed) => {
+                                        let id = viewed.id.clone();
+                                        let name = format!("Remove “{}” from recently viewed", viewed.title);
+                                        Some(view! {
+                                            <button class="quick-search-remove" type="button" aria-label=name
+                                                on:click=move |_| {
+                                                    let library = quick.library.get_value();
+                                                    remove_viewed(app.recents, &library, id.clone());
+                                                    quick.focus_field();
+                                                }>
+                                                {icons::close()}
+                                            </button>
+                                        }.into_any())
+                                    }
+                                    _ => None,
+                                };
+                                let body = match &row {
+                                    Row::Entry(suggestion) => view! {
+                                        <span class="quick-search-name">{suggestion.title.clone()}</span>
+                                        <span class="quick-search-meta">{suggestion.detail.clone()}</span>
+                                    }.into_any(),
+                                    Row::Continue(viewed) | Row::Viewed(viewed) => view! {
+                                        <span class="quick-search-name">{viewed.title.clone()}</span>
+                                        <span class="quick-search-meta">{viewed.detail.clone()}</span>
+                                    }.into_any(),
+                                    Row::SeeAll(text) => view! {
+                                        <span class="quick-search-name">
+                                            {format!("See all results for “{text}”")}
+                                        </span>
+                                    }.into_any(),
+                                    Row::Search(search) => view! {
+                                        <span class="quick-search-name">{search.text.clone()}</span>
+                                        {search.scope_label().map(|label| view! {
+                                            <span class="quick-search-meta">{label}</span>
+                                        })}
+                                    }.into_any(),
+                                    Row::Starter(text) => view! {
+                                        <span class="quick-search-name">{text.clone()}</span>
+                                    }.into_any(),
+                                };
+                                let all = matches!(row, Row::SeeAll(_));
+                                view! {
+                                    <li class="quick-search-item" role="presentation">
+                                        <div
+                                            id=option_id(i)
+                                            class="quick-search-row"
+                                            class:quick-search-all=all
+                                            role="option"
+                                            aria-selected=move || (quick.active.get() == Some(i)).to_string()
+                                            // Keep focus in the field, so the keyboard stays open.
+                                            on:mousedown=move |ev| ev.prevent_default()
+                                            on:click=move |_| quick.open_row(&row)
+                                        >
+                                            {body}
+                                        </div>
+                                        {remove}
+                                    </li>
+                                }
+                            }).collect_view();
+                            view! {
+                                {heading}
+                                <ul id=list_id class="quick-search-list" role="listbox"
+                                    aria-label=label aria-labelledby=heading_id hidden=move || !expanded()>
+                                    {items}
+                                </ul>
+                            }.into_any()
                         }).collect_view();
+                        let more = (viewed_total > quick_rows::MAX_RECENT_VIEWED).then(|| view! {
+                            <button
+                                class="btn btn-quiet quick-search-more"
+                                type="button"
+                                aria-controls="quick-search-list-viewed"
+                                aria-expanded=move || quick.viewed_expanded.get().to_string()
+                                on:click=move |_| {
+                                    quick.viewed_expanded.update(|open| *open = !*open);
+                                    quick.focus_field();
+                                }
+                            >
+                                {move || if quick.viewed_expanded.get() {
+                                    "Show fewer".to_string()
+                                } else {
+                                    format!("Show more ({})", hidden_viewed)
+                                }}
+                            </button>
+                        });
                         view! {
-                            {heading}
-                            <ul id="quick-search-list" class="quick-search-list" role="listbox"
-                                aria-label=label hidden=move || !expanded()>
-                                {items}
-                            </ul>
+                            <div class="quick-search-groups">{groups}</div>
+                            <Show when=move || {
+                                quick.viewed_expanded.get()
+                                    && quick.text.with(|text| text.trim().is_empty())
+                            }>
+                                <p class="sr-only" role="status">
+                                    {format!(
+                                        "Showing all {} recently viewed entries",
+                                        crate::fmt::count(viewed_total)
+                                    )}
+                                </p>
+                            </Show>
+                            {more}
                         }
                     }}
                 </div>

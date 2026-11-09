@@ -4,6 +4,8 @@ import {
   bookTrees,
   installLibrary,
   openBookEntry,
+  openQuickSearch,
+  quickGroup,
   searchFor,
   storedMeta,
   waitHomeIdle,
@@ -37,11 +39,16 @@ async function expectStoredPoint(page: import("@playwright/test").Page, source: 
     .toBe(entryId);
 }
 
+/** The Continue row of Quick search's Recently viewed group. */
+function continueRow(page: import("@playwright/test").Page) {
+  return quickGroup(page, "Recently viewed").filter({ has: page.locator(".quick-search-name", { hasText: /^Continue / }) });
+}
+
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
-test("An entry opened from a book sets its continue point on the book page and Home, and both survive a reload", async ({ page }) => {
+test("An entry opened from a book sets its continue point on the book page and in Quick search, and both survive a reload", async ({ page }) => {
   const { book, entry } = placedEntry();
   await openBookEntry(page, book, entry.id);
   await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
@@ -58,22 +65,36 @@ test("An entry opened from a book sets its continue point on the book page and H
     new RegExp(`#/entry/${entry.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\?.*book=${book.source}`),
   );
 
+  // Home no longer shows reading history at all.
   await page.goto("#/");
   await waitReady(page);
-  const homeRow = page.getByTestId("home-continue");
-  await expect(homeRow).toBeVisible();
-  await expect(homeRow).toContainText(`Continue ${book.title}`);
-  // It is the first row of Recently viewed, above the ordinary visit rows.
-  await expect(page.locator(".home-recent > li").first()).toHaveAttribute("data-testid", "home-continue");
+  await waitHomeIdle(page);
+  await expect(page.getByTestId("home-continue")).toHaveCount(0);
+  await expect(page.locator(".home-recent")).toHaveCount(0);
+
+  // Quick search shows it as the first row of Recently viewed.
+  await openQuickSearch(page);
+  const row = continueRow(page);
+  await expect(row).toHaveCount(1);
+  await expect(row.first()).toContainText(`Continue ${book.title}`);
+  await expect(row.first().locator(".quick-search-meta")).toHaveText(entry.title);
+  await expect(quickGroup(page, "Recently viewed").first()).toContainText(`Continue ${book.title}`);
+
   // Opening it keeps the book context, which is what makes the point move forward.
-  await expect(homeRow.getByRole("link")).toHaveAttribute("href", new RegExp(`#/entry/.*[?&]book=${book.source}`));
+  await row.first().click();
+  await expect(page).toHaveURL(new RegExp(`#/entry/.*[?&]book=${book.source}`));
+  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
 
   // The stored point, not a page signal, is what a reload reads.
+  await page.goto("#/");
   await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
   await waitHomeIdle(page);
-  await expect(page.getByTestId("home-continue")).toContainText(`Continue ${book.title}`);
+  await openQuickSearch(page);
+  await expect(continueRow(page)).toHaveCount(1);
+  await expect(continueRow(page).first()).toContainText(`Continue ${book.title}`);
+  await page.keyboard.press("Escape");
 
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toContainText(`Continue reading: ${entry.title}`);
@@ -93,10 +114,14 @@ test("An entry opened from search leaves the continue point alone", async ({ pag
   await page.goto("#/");
   await waitReady(page);
   await waitHomeIdle(page);
-  await expect(page.getByTestId("home-continue")).toHaveCount(0);
+  await openQuickSearch(page);
+  // The visit is a recently viewed row, but no Continue row exists for it.
+  await expect(quickGroup(page, "Recently viewed")).toHaveCount(1);
+  await expect(continueRow(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
 });
 
-test("Clear history removes the continue point and it stays gone after a reload", async ({ page }) => {
+test("Clear in Recently viewed removes the visit and the continue point, and both stay gone after a reload", async ({ page }) => {
   const { book, entry } = placedEntry();
   await openBookEntry(page, book, entry.id);
   await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
@@ -105,17 +130,27 @@ test("Clear history removes the continue point and it stays gone after a reload"
   await page.goto("#/");
   await waitReady(page);
   await waitHomeIdle(page);
-  await expect(page.getByTestId("home-continue")).toBeVisible();
-  await page.getByRole("button", { name: "Clear", exact: true }).click();
-  await expect(page.getByTestId("home-continue")).toHaveCount(0);
+  const layer = await openQuickSearch(page);
+  await expect(continueRow(page)).toHaveCount(1);
+  // Each group clears itself: the Clear next to the Recently viewed heading.
+  await layer
+    .locator(".quick-search-heading-row", { hasText: "Recently viewed" })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  await expect(continueRow(page)).toHaveCount(0);
   await expect.poll(async () => (await storedContinuePoints(page)).length).toBe(0);
+  await page.keyboard.press("Escape");
 
   await waitHomeIdle(page);
   await page.reload();
   await waitReady(page);
   await waitHomeIdle(page);
-  await expect(page.getByTestId("home-continue")).toHaveCount(0);
+  await openQuickSearch(page);
+  await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  await expect(continueRow(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toHaveCount(0);
 });

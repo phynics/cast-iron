@@ -645,7 +645,7 @@ pub async fn record_continue_point(source: &str, entry_id: &EntryId, read_at: f6
     tx.finish().await
 }
 
-/// Removes every continue point, so Home's Clear also forgets where the reader stopped.
+/// Removes every continue point, so Quick search's Clear also forgets where the reader stopped.
 pub async fn clear_continue_points() -> Result<()> {
     remove_meta(KEY_CONTINUE_POINTS).await
 }
