@@ -30,10 +30,13 @@ pub const CREATURE_TYPES: [&str; 13] = [
     "vermin",
 ];
 
-/// What a check found. Every problem fails the run; there are no warnings.
+/// What a check found. Every problem fails the run; warnings do not.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
     pub problems: Vec<String>,
+    /// Suspicious content that needs review but does not fail the run. Third-party sharing is
+    /// a warning until the corpus has no unclassified case.
+    pub warnings: Vec<String>,
     /// Values that `[fields]` and the body both state and that disagree. Each one is also
     /// listed in `problems`.
     pub drift: Vec<Disagreement>,
@@ -638,6 +641,7 @@ pub fn check(corpus: &Corpus) -> Report {
     }
 
     check_relations(corpus, &mut report);
+    check_third_party_sharing(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
@@ -684,6 +688,68 @@ fn anchor_fix(target_path: &Path, anchor: &str, available: &[(String, String)]) 
             String::new()
         }
     )
+}
+
+/// Warn when third-party content can escape its book.
+///
+/// The corpus has no per-entry statement of which paragraph came from which book. Two reliable
+/// proxies stand in for one:
+///
+/// - an entry with no third-party source must not link an entry whose sources are all
+///   third-party, because turning the third-party book off would hide the link target;
+/// - an entry that mixes third-party and Paizo sources warns. The split form is an `addon` or
+///   `revision` entry with only the third-party source, beside an unchanged Paizo base. A mixed
+///   entry is either a missed split or a shared-printing claim that a reviewer must confirm.
+fn check_third_party_sharing(corpus: &Corpus, report: &mut Report) {
+    let third_party: BTreeSet<&str> = corpus
+        .publications
+        .iter()
+        .filter(|publication| publication.third_party)
+        .map(|publication| publication.id.as_str())
+        .collect();
+    if third_party.is_empty() {
+        return;
+    }
+    let is_third_party = |source: &String| third_party.contains(source.as_str());
+    let third_party_only = |entry: &RuleEntry| {
+        !entry.source_ids.is_empty() && entry.source_ids.iter().all(is_third_party)
+    };
+
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        let has_third_party = entry.source_ids.iter().any(is_third_party);
+        let has_paizo = entry
+            .source_ids
+            .iter()
+            .any(|source| !is_third_party(source));
+
+        if !has_third_party {
+            for link in &entry.links {
+                let Some(target) = corpus.entries.get(link.target.as_str()) else {
+                    continue;
+                };
+                if !third_party_only(&target.entry) {
+                    continue;
+                }
+                let line = line_of(&stored.text, &format!("]({}", link.target));
+                report.warnings.push(format!(
+                    "{}:{line}: body link to `{}` is third-party only ({}); a non-third-party entry must not link content that its book setting can hide",
+                    stored.path.display(),
+                    link.target,
+                    target.entry.source_ids.join(", ")
+                ));
+            }
+        }
+
+        if has_third_party && has_paizo {
+            let line = line_of(&stored.text, "source_ids");
+            report.warnings.push(format!(
+                "{}:{line}: entry mixes third-party and Paizo sources ({}); move the third-party text into an `addon` or `revision` entry, or confirm a shared printing",
+                stored.path.display(),
+                entry.source_ids.join(", ")
+            ));
+        }
+    }
 }
 
 fn check_relations(corpus: &Corpus, report: &mut Report) {
@@ -1318,6 +1384,51 @@ mod tests {
     }
 
     #[test]
+    fn a_paizo_entry_linking_third_party_only_content_is_a_warning() {
+        let target = in_publication(rule("ref/rule/tp", vec![]), "third-party");
+        let source = rule(
+            "ref/rule/base",
+            vec![paragraph(vec![link("ref/rule/tp", None, "third party")])],
+        );
+        let mut c = corpus(vec![source, target]);
+        add_third_party(&mut c, "third-party", None);
+
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("body link to `ref/rule/tp` is third-party only"),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn mixed_sources_warn_but_a_third_party_only_entry_does_not() {
+        let mut mixed = in_publication(rule("ref/rule/mixed", vec![]), "core-rulebook");
+        mixed.source_ids.push("third-party".into());
+        let mut c = corpus(vec![mixed]);
+        add_third_party(&mut c, "third-party", None);
+
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("entry mixes third-party and Paizo sources"),
+            "{:?}",
+            report.warnings
+        );
+
+        // An entry whose sources are all third-party is the split form and does not warn.
+        let only = in_publication(rule("ref/rule/only", vec![]), "third-party");
+        let mut c = corpus(vec![only]);
+        add_third_party(&mut c, "third-party", None);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    #[test]
     fn a_series_row_needs_the_fields_of_its_kind() {
         // An Adventure Path needs a name and a positive volume, and no season.
         let mut c = corpus(vec![]);
@@ -1661,6 +1772,22 @@ mod tests {
             third_party: false,
             suffix: suffix.map(str::to_string),
         });
+    }
+
+    fn add_third_party(corpus: &mut crate::Corpus, id: &str, suffix: Option<&str>) {
+        add_publication(corpus, id, suffix);
+        let publication = corpus.publications.last_mut().unwrap();
+        publication.title = format!("Third Party {id}");
+        let copyright = format!("Third Party {id}. (c) 2020, Example Games.");
+        publication.copyright = Some(copyright.clone());
+        publication.third_party = true;
+        corpus
+            .legal
+            .section_15
+            .push(cast_iron_schema::CopyrightNotice {
+                title: publication.title.clone(),
+                notice: copyright,
+            });
     }
 
     fn in_publication(mut entry: RuleEntry, source: &str) -> RuleEntry {
