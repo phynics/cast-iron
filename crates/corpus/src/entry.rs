@@ -5,9 +5,9 @@ use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::tomlutil;
 use cast_iron_schema::{
-    Block, ChallengeRating, CreatureFields, EntryId, EntryKind, EntryReference, FeatFields, Inline,
-    ItemFields, Provenance, Relation, RelationKind, RuleEntry, SpellFields, SpellLevel,
-    TypedFields,
+    Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference,
+    FeatFields, Inline, ItemFields, Provenance, Relation, RelationKind, RuleEntry, SpellFields,
+    SpellLevel, TypedFields,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -130,6 +130,7 @@ pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
         }
         out.push_str("]\n");
     }
+    write_sources(&mut out, &entry.sources);
     out.push_str("\n[fields]\n");
     write_fields(&mut out, &entry.fields);
     out.push_str("+++\n");
@@ -188,6 +189,21 @@ fn merge_relations(fields: &TypedFields, stored: Vec<Relation>) -> Vec<Relation>
             && feats.contains(&row.target))
     }));
     relations
+}
+
+/// Writes the `[[sources]]` rows in list order. The rows are last in the header because a
+/// TOML array of tables ends the top-level keys; `[fields]` follows.
+fn write_sources(out: &mut String, sources: &[Citation]) {
+    for source in sources {
+        out.push_str("[[sources]]\npublication = ");
+        out.push_str(&tomlutil::string(&source.publication));
+        out.push('\n');
+        if let Some(page) = &source.page {
+            out.push_str("page = ");
+            out.push_str(&tomlutil::string(page));
+            out.push('\n');
+        }
+    }
 }
 
 fn write_string_array(out: &mut String, key: &str, values: &[String]) {
@@ -361,7 +377,17 @@ struct RawFront {
     license_refs: Option<Vec<String>>,
     #[serde(default)]
     relations: Vec<Relation>,
+    #[serde(default)]
+    sources: Vec<RawSource>,
     fields: toml::Table,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawSource {
+    publication: String,
+    #[serde(default)]
+    page: Option<String>,
 }
 
 pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntry> {
@@ -425,6 +451,14 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         .map_err(|e| Error::new(path, key_line(&front, "parent"), e.to_string()))?;
     let fields = parse_fields(path, &front, &raw.fields)?;
     let relations = merge_relations(&fields, raw.relations);
+    let sources: Vec<Citation> = raw
+        .sources
+        .into_iter()
+        .map(|source| Citation {
+            publication: source.publication,
+            page: source.page,
+        })
+        .collect();
 
     let body_lines = &lines[close + 1..];
     let body_start = close + 2;
@@ -441,6 +475,7 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         kind,
         title: raw.title,
         source_ids: raw.source_ids,
+        sources,
         section: raw.section,
         parent,
         body,
@@ -853,6 +888,10 @@ mod tests {
             kind: EntryKind::Spell,
             title: "Fog Cloud".into(),
             source_ids: vec!["core-rulebook".into()],
+            sources: vec![Citation {
+                publication: "core-rulebook".into(),
+                page: Some("221".into()),
+            }],
             section: vec!["Spells".into()],
             parent: Some(EntryId::parse("ref/spell").unwrap()),
             body: vec![
@@ -1364,6 +1403,37 @@ mod tests {
         other.relations = vec![prerequisite("ref/feat/a", None)];
         let text = round_trip_with(&other, &Config::default());
         assert!(text.contains("ref/feat/a"), "{text}");
+    }
+
+    #[test]
+    fn sources_are_written_as_repeated_tables_before_fields() {
+        let mut entry = entry();
+        entry.sources = vec![
+            Citation {
+                publication: "core-rulebook".into(),
+                page: Some("221".into()),
+            },
+            Citation {
+                publication: "ultimate-combat".into(),
+                page: None,
+            },
+        ];
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(
+            text.contains(
+                "[[sources]]\npublication = \"core-rulebook\"\npage = \"221\"\n\
+                 [[sources]]\npublication = \"ultimate-combat\"\n\n[fields]"
+            ),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_entry_without_sources_writes_no_sources_table() {
+        let mut entry = entry();
+        entry.sources.clear();
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(!text.contains("[[sources]]"), "{text}");
     }
 
     #[test]

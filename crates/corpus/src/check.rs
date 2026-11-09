@@ -576,6 +576,27 @@ pub fn check(corpus: &Corpus) -> Report {
                     .push(format!("{}: unknown publication `{source}`", at(source)));
             }
         }
+        for citation in &entry.sources {
+            let needle = format!("publication = \"{}\"", citation.publication);
+            if !publication_ids.contains(citation.publication.as_str()) {
+                report.problems.push(format!(
+                    "{}: `[[sources]]`: unknown publication `{}`",
+                    at(&needle),
+                    citation.publication
+                ));
+            }
+            if !entry
+                .source_ids
+                .iter()
+                .any(|source| source == &citation.publication)
+            {
+                report.problems.push(format!(
+                    "{}: `[[sources]]`: publication `{}` is not listed in `source_ids`",
+                    at(&needle),
+                    citation.publication
+                ));
+            }
+        }
         for license in &entry.license_refs {
             if !license_ids.contains(license.as_str()) {
                 report
@@ -1229,7 +1250,8 @@ mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
     use cast_iron_schema::{
-        BookIndex, BookNode, BookTree, CreatureFields, EntryId, FeatFields, Inline, SeriesKind,
+        BookIndex, BookNode, BookTree, Citation, CreatureFields, EntryId, FeatFields, Inline,
+        SeriesKind,
     };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
@@ -1666,6 +1688,46 @@ mod tests {
     fn in_publication(mut entry: RuleEntry, source: &str) -> RuleEntry {
         entry.source_ids = vec![source.into()];
         entry
+    }
+
+    fn with_source(mut entry: RuleEntry, publication: &str, page: Option<&str>) -> RuleEntry {
+        entry.source_ids.push(publication.into());
+        entry.sources.push(Citation {
+            publication: publication.into(),
+            page: page.map(str::to_string),
+        });
+        entry
+    }
+
+    #[test]
+    fn a_source_citation_must_name_a_known_publication() {
+        let entry = with_source(rule("ref/rule/a", vec![]), "missing-book", Some("12"));
+        let text = check(&corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("unknown publication `missing-book`"),
+            "{text}"
+        );
+        assert!(text.contains("[[sources]]"), "{text}");
+    }
+
+    #[test]
+    fn a_source_citation_publication_must_be_in_source_ids() {
+        let mut entry = rule("ref/rule/a", vec![]);
+        entry.sources.push(Citation {
+            publication: "core-rulebook".into(),
+            page: Some("12".into()),
+        });
+        // `rule` already lists core-rulebook, so remove it to make the citation stray.
+        entry.source_ids.clear();
+        let text = check(&corpus(vec![entry])).problems.join("\n");
+        assert!(text.contains("is not listed in `source_ids`"), "{text}");
+    }
+
+    #[test]
+    fn citations_that_name_a_listed_publication_pass() {
+        let entry = with_source(rule("ref/rule/a", vec![]), "core-rulebook", Some("12-14"));
+        let report = check(&corpus(vec![entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]

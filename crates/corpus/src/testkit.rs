@@ -41,6 +41,7 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
         kind: EntryKind::Rule,
         title: id.rsplit('/').next().unwrap().to_string(),
         source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
         section: vec![],
         parent: None,
         body,

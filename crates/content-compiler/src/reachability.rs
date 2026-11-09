@@ -398,6 +398,7 @@ mod tests {
             kind,
             title: id.into(),
             source_ids: vec!["book".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![],

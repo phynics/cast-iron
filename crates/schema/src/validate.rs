@@ -428,6 +428,7 @@ mod tests {
             kind: EntryKind::Rule,
             title: "Title".into(),
             source_ids: vec!["cr".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![],

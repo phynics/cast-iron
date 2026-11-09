@@ -117,6 +117,7 @@ mod tests {
             kind,
             title: id.into(),
             source_ids: sources.iter().map(|s| s.to_string()).collect(),
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![],
