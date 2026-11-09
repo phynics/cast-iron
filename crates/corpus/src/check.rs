@@ -1801,7 +1801,6 @@ mod tests {
 
     #[test]
     fn an_aon_entry_path_must_be_a_relative_display_page() {
-        let mut entry = rule("ref/feat/power-attack", vec![]);
         for value in [
             "FeatDisplay.aspx?ItemName=Power%20Attack",
             "ArchetypeDisplay.aspx?FixedName=Alchemist%20Aerochemist",
