@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -925,6 +925,120 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await expect(quickOptions(page)).toHaveText(["wizard"]);
   await page.keyboard.press("Escape");
   await expect(layer).toBeHidden();
+});
+
+// ---- Recently viewed in Quick search (#356) ----------------------------------------------
+
+/** Active spell stubs with distinct titles, ready to be seeded as visits. */
+const activeSpells = activeStubs
+  .filter((entry: any) => entry.kind === "spell")
+  .filter((entry: any, i: number, all: any[]) => all.findIndex((c) => c.title === entry.title) === i);
+const activeVisits = activeSpells.slice(0, 2).map((entry: any) => ({ id: entry.id as string, title: entry.title as string }));
+
+installedTest("Quick search shows Recent searches above Recently viewed, with the Continue row first, and the keyboard crosses both groups", async ({ page }) => {
+  await installLibrary(page);
+  const visit = activeVisits[0];
+  const source = owners.get(visit.id)!;
+  const bookTitle = corpus.catalog.sources.find((s: any) => s.id === source)!.title as string;
+  await seedHome(page, {
+    recents: activeVisits,
+    continuePoints: [{ source, entry_id: visit.id, read_at: 1 }],
+  });
+  await quickSearchFor(page, "grapple");
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  const layer = await openQuickSearch(page);
+  await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
+  await expect(layer.getByRole("heading", { name: "Recently viewed" })).toBeVisible();
+  const recent = quickGroup(page, "Recent searches");
+  const viewed = quickGroup(page, "Recently viewed");
+  await expect(recent).toHaveText(["grapple"]);
+  await expect(viewed.first().locator(".quick-search-name")).toHaveText(`Continue ${bookTitle}`);
+  await expect(viewed.first().locator(".quick-search-meta")).toHaveText(visit.title);
+  // Recent searches come first, and the Continue row leads Recently viewed.
+  const recentTop = (await recent.first().boundingBox())!.y;
+  const viewedTop = (await viewed.first().boundingBox())!.y;
+  expect(recentTop).toBeLessThan(viewedTop);
+
+  // Down crosses from the recent searches into Recently viewed; Up returns.
+  await page.keyboard.press("ArrowDown");
+  await expect(recent.first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowDown");
+  await expect(viewed.first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("ArrowUp");
+  await expect(recent.first()).toHaveAttribute("aria-selected", "true");
+
+  // Enter opens the focused row, and the Continue row keeps the book context.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { level: 1, name: visit.title })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`[?&]book=${source}`));
+});
+
+installedTest("Recently viewed shows five rows, expands with Show more, removes one visit, and clears itself", async ({ page }) => {
+  await installLibrary(page);
+  expect(activeSpells.length).toBeGreaterThanOrEqual(12);
+  const visits = activeSpells.slice(0, 12).map((entry: any) => ({ id: entry.id as string, title: entry.title as string }));
+  await seedHome(page, { recents: visits });
+  await quickSearchFor(page, "grapple");
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  const layer = await openQuickSearch(page);
+  const viewed = quickGroup(page, "Recently viewed");
+  await expect(viewed).toHaveCount(5);
+  const more = layer.getByRole("button", { name: "Show more (7)" });
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(more).toHaveAttribute("aria-controls", "quick-search-list-viewed");
+  await more.click();
+  await expect(viewed).toHaveCount(12);
+  await expect(layer.getByRole("status").filter({ hasText: "Showing all 12 recently viewed entries" })).toHaveCount(1);
+  await layer.getByRole("button", { name: "Show fewer" }).click();
+  await expect(viewed).toHaveCount(5);
+
+  // A single visit goes with its own remove button, like a recent search. The group is folded
+  // again, so it still shows five rows, drawn from the remaining visits.
+  await layer.getByRole("button", { name: `Remove “${visits[0].title}” from recently viewed` }).click();
+  await expect(viewed).toHaveCount(5);
+  await expect(
+    viewed.locator(".quick-search-name").filter({ hasText: new RegExp(`^${escape(visits[0].title)}$`) }),
+  ).toHaveCount(0);
+  await expect.poll(() => storedRecentCount(page)).toBe(11);
+
+  // Clear next to the Recently viewed heading empties that group only.
+  await layer
+    .locator(".quick-search-heading-row", { hasText: "Recently viewed" })
+    .getByRole("button", { name: "Clear", exact: true })
+    .click();
+  await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
+  await expect(quickGroup(page, "Recent searches")).toHaveText(["grapple"]);
+  await expect.poll(() => storedRecentCount(page)).toBe(0);
+});
+
+installedTest("Recently viewed hides a missing entry and an entry from an inactive book", async ({ page }) => {
+  await installLibrary(page);
+  const visit = activeVisits[1];
+  const source = owners.get(visit.id)!;
+  const book = corpus.catalog.sources.find((s: any) => s.id === source)!;
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const toggle = page
+    .locator(`.book-directory-item[data-book-id="${source}"]`)
+    .getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await seedHome(page, {
+    recents: [
+      { id: "missing-source/old", title: "Gone Rule" },
+      { id: visit.id, title: visit.title },
+    ],
+  });
+  await openQuickSearch(page);
+  // Both stored ids are hidden: one is unknown, the other belongs to a book that is off.
+  await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
+  await expect(page.locator(".quick-search-name", { hasText: "Gone Rule" })).toHaveCount(0);
+  await expect(page.locator(".quick-search-name", { hasText: visit.title })).toHaveCount(0);
 });
 
 installedTest("The highlight is dropped when the suggestions change under it", async ({ page }) => {

@@ -230,6 +230,10 @@ export const quickField = (page: Page) => quickSearch(page).locator("#quick-sear
 /** The rows of the Quick search list: suggestions, or recent and starter searches. */
 export const quickOptions = (page: Page) => quickSearch(page).getByRole("option");
 
+/** The options of one named Quick search group, such as "Recently viewed". */
+export const quickGroup = (page: Page, name: string) =>
+  quickSearch(page).getByRole("listbox", { name }).getByRole("option");
+
 /** The names of the entries that Quick search suggests, without the "See all results" row. */
 export async function suggestionTitles(page: Page) {
   return quickSearch(page).locator('[role="option"]:not(.quick-search-all) .quick-search-name').allInnerTexts();
@@ -802,11 +806,20 @@ export function pathStartsWith(path: number[], prefix: number[]): boolean {
 
 /**
  * Replaces the stored recent history and stars with the given entries, then opens Home on a
- * fresh load. Writes straight to IndexedDB so a test need not browse to fill the lists.
+ * fresh load. Writes straight to IndexedDB so a test need not browse to fill the lists. Home
+ * shows the stars; Quick search shows the recent history.
  */
 export async function seedHome(
   page: Page,
-  { recents = [], stars = [] }: { recents?: { id: string; title: string }[]; stars?: { id: string; title: string; kind: string }[] },
+  {
+    recents = [],
+    stars = [],
+    continuePoints = [],
+  }: {
+    recents?: { id: string; title: string }[];
+    stars?: { id: string; title: string; kind: string }[];
+    continuePoints?: { source: string; entry_id: string; read_at: number }[];
+  },
 ) {
   // Stage on Legal, not Settings: Settings has its own storage and service worker reads in flight
   // for a moment after it renders, and a reload that stops the page under them is reported by
@@ -814,7 +827,7 @@ export async function seedHome(
   await page.goto("#/legal");
   await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
   await page.evaluate(
-    ({ recents, stars }) =>
+    ({ recents, stars, continuePoints }) =>
       new Promise<void>((resolve, reject) => {
         const open = indexedDB.open("cast-iron");
         open.onerror = () => reject(open.error);
@@ -827,11 +840,12 @@ export async function seedHome(
               entry_id: s.id, title_snapshot: s.title, kind: s.kind, added_at: 100 + i, collection_ids: [],
             }));
           tx.objectStore("meta").put(recents.map((r) => ({ id: r.id, title: r.title })), "recent");
+          tx.objectStore("meta").put(continuePoints, "continue_points");
           tx.oncomplete = () => { db.close(); resolve(); };
           tx.onerror = () => reject(tx.error);
         };
       }),
-    { recents, stars },
+    { recents, stars, continuePoints },
   );
   await page.reload();
   await page.locator(".legal-text").first().waitFor({ state: "visible", timeout: 90_000 });
