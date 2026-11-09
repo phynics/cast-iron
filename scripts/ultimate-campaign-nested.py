@@ -291,9 +291,10 @@ TERRAIN = [
 
 KINGDOM_BUILDINGS = [
     "ref/rule/building-descriptions",
+    "ref/rule/gaining-experience-for-leadership",
     "ref/rule/kbuildings1", "ref/rule/kbuildings2", "ref/rule/kbuildings3",
     "ref/rule/kbuildings4", "ref/rule/kbuildings5", "ref/rule/kbuildings6",
-    "ref/rule/kbuildings7", "ref/rule/gaining-experience-for-leadership",
+    "ref/rule/kbuildings7",
 ]
 
 OPTIONAL_KINGDOM = [

@@ -343,7 +343,7 @@ The printed contents page of Ultimate Equipment was checked in this review. It v
 | 6 | Artifacts and Other Items | 326 |
 | Appendices | Appendices | 360 |
 
-The sequence matches `books.toml`. Main chapter order and titles are verified; nested placement remains unverified.
+The sequence matches `books.toml`. Main chapter order and titles are verified, and the nested placement is verified against the printed section headings and page order. Each chapter holds its printed sections: Armor, Weapons, and Special Materials in Arms and Armor; the eleven Gear sections; Armor Special Abilities, Specific Magic Armor & Shields, Weapon Special Abilities, and Specific Magic Weapons; Rings, Rods (including Metamagic Rods), and Staves; the eleven wondrous item slots and Slotless Wondrous Items in Wondrous Items; Artifacts, Cursed Items, and Intelligent Items; and Appendix 1 Treasure Generator. The wondrous item and ring sections follow the printed slot sections and their page order, which is alphabetical within each section; rods and staves follow their printed sections. Item variants sit under their base item, including the Lamellar materials (9), the ring and belt bonuses (166-253), the ioun stones (305), and the metamagic rods (187-191). Entries that share a printed page keep the dataset order. Appendix 2 Gems and Jewelry (388) has its own heading. Appendix 3 Art Objects (390) has no corpus entries, so it has no group. No entry id, entry file, or anchor changed.
 
 ## Ultimate Magic
 
