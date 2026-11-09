@@ -954,7 +954,7 @@ Refs [#153](https://github.com/phynics/cast-iron/issues/153), [#155](https://git
 - **Rows.** A row is two lines: the title and `Aug 2009 · 2,994 entries`, then a chevron; at least 56 px. The month and year come from a fixed English table (`fmt::month_year`, no `Intl`: the app has no locale setting). A date with only a year prints the year; no date prints the count alone. The row has no category, no publisher (`SourceInfo` has neither), and `Inactive` (a `.tag`, plain muted text) replaces `· Disabled`. Active books rows use the same meta line.
 - **The book page has no breadcrumb.** It opens with the H1, the same meta line as the row (the catalog count, so the two agree; it no longer waits for `books.json`, and it is not the count of the rows Contents shows), the `Active` row, and `Contents`. `data-testid="source-count"` now holds that line.
 - **Contents leaves out spells, feats, items and class options (owner decision 4).** Class options are classes, prestige classes and archetypes; races, racial traits, skills, traits, creatures, afflictions, traps and rules stay. The `In this book` links (#158) reach the left-out kinds as list pages filtered to the book, so no entry is stranded. `LEAVE_OUT_LINKED_KINDS` in `views/book.rs` is `true`. The filter works on the compiled tree at display time (`hidden_from_contents`, `shows_in_contents`): a chapter whose entries are all of those kinds is not listed, and a chapter with no entry at all and an entry the catalog does not know are kept. Rows keep their real paths in the tree either way, so `c=3.2` addresses, the `toc-` ids and the trail above an entry mean what they did. Chapter counts count the listed entries. A book whose entries are all of those kinds then shows a one-line note in place of the tree, pointing at `In this book`. Native tests run the rule with the set on (`hide` in the `book.rs` tests) and check the shipped switch; the e2e helpers carry the same switch (`CONTENTS_LEAVES_OUT_LINKED_KINDS`), so the specs follow it.
-- **`New entries (page order)` is renamed `More from this book` at display time.** The string is in the corpus `books.toml`, not in the compiler, so the real rename is a corpus change and a pin bump (the corpus owner's). `views::book::chapter_label` maps the old title to the new until then. A book whose only remaining chapter is that one shows its rows at the top level.
+- **`New entries (page order)` is renamed `More from this book` at display time.** The string is in the corpus `books.toml`, not in the compiler, so the real rename is a corpus change and a pin bump (the corpus owner's). `views::book::chapter_label` maps the old title to the new until then. A book whose only remaining chapter is that one shows its rows at the top level. *Superseded on 2026-11-09: the chapter is not shown at all (#363, below).*
 - **One review line replaces the order-note box.** `Chapter order not yet checked against the printed book`, muted and regular weight, under the `Contents` heading, shown while the book has open review items (all 449 books do today). PRODUCT.md keeps its review warning. The "How this list was made" disclosure, the per-row `check order` flags and `Position unverified` are removed from the reader; their text (`basis`, `review`) stays in `books.json` and the evidence stays in `docs/research/book-order-evidence.md`. The chapter rows are still native `<details>` and keep the card look: the council's 44 px `button[aria-expanded]` rows, leaders and plain hairlines are #160.
 - **The copyright is printed once, in a colophon.** Root cause: `publications.toml` in the corpus holds, for many publications, the Section 15 notices joined with `; ` as the import found them, and the import joined a notice again when a source file carried it with a title in front, with `Copyright` for `©`, or with a different final period (228 of 439 publications; the Advanced Player's Guide repeats one notice three times, about 400 px at 390 px width). The corpus gate (`check_publication_notices`) requires a Section 15 notice to be a substring of the copyright, and those strings are licensing text in a repository with its own pin, so the fix at the source is a corpus edit and a pin bump, not a quick one. The page dedupes for display instead (`fmt::notice_lines`): it splits on `; ` (a piece that starts with `Author` belongs to the notice before it) and drops a notice whose text from the `©` or `Copyright` on is the same once case, white space, commas and the final period are ignored. Notices that differ in any other way are all kept, in order: the Core Rulebook keeps four notices (2009 and 2010, each in a "material" and an "original material" wording), and a different author list or year is a different notice. One of them reads `Jason Buhlman`; that spelling is corpus data, not a bug in the page, and the page prints notices as the corpus has them. The first position wins and the longer spelling is kept, so a title survives. This changes only the book page's footer. Entry pages and the legacy source page still print the raw string; applying `notice_lines` there is a small follow-up, and cleaning the strings in `cast-iron-data` is the clean fix.
 - **A book page highlights Books.** `Route::BrowseSource(id)` becomes `Route::Book` when the library has `books.json`: the router renders the book at once and an effect replaces the address (`#/browse/book/<id>`), so the tab bar follows the address and the history holds one entry. The by-kind page stays for a library without `books.json`, and there `Route::BrowseSource` still belongs to Home.
@@ -1425,8 +1425,8 @@ issue on 2026-11-09.
   entry and the footer names that chapter (`Next in {Book} · {Chapter}: {title}`); the reverse
   crossing names the previous chapter. The first and last visible entries of a book have one
   side only.
-- **The book and chapter title stay the reader's.** Titles use `chapter_label` and
-  `section_label`, so a display rename never changes an id or a URL.
+- **The book and chapter title stay the reader's.** Titles use `section_label`, so a display
+  rename never changes an id or a URL.
 
 ## Test scope: affected specs locally, the full suite once in CI, 2026-11-09
 
@@ -1494,9 +1494,10 @@ Refs [#360](https://github.com/phynics/cast-iron/issues/360), part of
   records that sum as `unreachable_placements` and explains it in `by_book_note`. The report also
   confirms that the search index holds every entry under its exact title. Entries, books and
   kinds are sorted, and the report holds no timestamps, so two compiles produce the same bytes.
-- **A warning comes first.** `cargo xtask content` prints the count per book and exits zero
-  while unreachable entries remain. [#363](https://github.com/phynics/cast-iron/issues/363)
-  switches the report to an error after the corpus places or links every rule.
+- **The report is an error.** `cargo xtask content` prints the count per book and exits
+  non-zero while unreachable entries remain, so the content pin cannot land with an entry that
+  the app cannot reach. [#363](https://github.com/phynics/cast-iron/issues/363) turned the
+  earlier warning into this error after the corpus placed or linked every rule.
 
 ## Hub contents collapse, 2026-11-09
 
@@ -1552,3 +1553,26 @@ Closes [#356](https://github.com/phynics/cast-iron/issues/356). Owner decisions 
 - **Each group clears itself.** Recent searches keeps its `Clear`. Recently viewed gets its own `Clear`, which empties the visit list and removes `continue_points`, so it also forgets where the reader stopped. Each recently viewed row also has a remove button, and Delete on the highlighted row removes it.
 - **Visibility matches the library.** A stored visit resolves through the alias map and opens under the canonical id. A retired entry, an unknown id, or an entry whose book is inactive is hidden. Continue points are read the same way, and the most recently read *active* book supplies the row.
 - **One listbox per group, one keyboard order.** The field keeps focus; `aria-controls` names every group's listbox and `aria-activedescendant` names the focused option. Down and Up cross the groups in display order, and Enter opens the focused row. The row rules, order, cap, continue row and empty states are native tests in `views/quick_rows.rs`; the store and the layer add no new JavaScript.
+
+## The catch-all chapter is not shown, 2026-11-09
+
+Closes [#363](https://github.com/phynics/cast-iron/issues/363), part of
+[#359](https://github.com/phynics/cast-iron/issues/359). Pins corpus
+[`v0.1.18`](https://github.com/phynics/cast-iron-data/releases/tag/v0.1.18), which carries the
+placement of the 21 catch-all-only rules (data #63), the Game Mastery Guide book merge (data
+#62), and the third-party contamination fixes (data #65).
+
+- **The catch-all chapter has no reader route.** The corpus chapter titled
+  `New entries (page order)` is not a Contents row, has no chapter page, and is left out of the
+  previous/next order. `views::book::chapter_label` and the `More from this book` label are
+  removed: nothing renames it because nothing shows it.
+- **A book with no other chapter lists what it can.** `Contents` is empty; the book page keeps
+  `In this book` and its list-page kind links, and shows `This book has no entries to show.`
+  only when it has no list-page kind either.
+- **The schema owns the rule.** `cast_iron_schema::books::shows_in_contents` returns false for
+  the catch-all, and `contents_roots` no longer lifts its rows to the top level. The compiler's
+  book-section documents and the client's chapter rows both come from those functions, so they
+  cannot disagree.
+- **Reachability is now a gate.** `cargo xtask content` exits non-zero when any entry has no
+  route without the catch-all, instead of warning. On corpus `v0.1.18` the report shows 0
+  unreachable entries of 31,807, so the pin passes.
