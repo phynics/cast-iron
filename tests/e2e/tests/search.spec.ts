@@ -1335,7 +1335,7 @@ installedTest("A book section result opens its chapter page at the section and B
   const sections = page.getByTestId("book-sections");
   await expect(sections).toBeVisible();
   await expect(sections.locator("h2")).toContainText("Book sections");
-  const link = sections.locator("a.hit-link", { hasText: query }).first();
+  const link = sections.locator("a.section-hit-link", { hasText: query }).first();
   await expect(link).toContainText(fixture!.book.title);
   await expect(link).toHaveAttribute(
     "href",

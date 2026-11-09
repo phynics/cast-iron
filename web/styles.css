@@ -1512,7 +1512,8 @@ mark {
   border-bottom: var(--border);
 }
 
-.hit-link {
+.hit-link,
+.section-hit-link {
   display: block;
   padding: var(--space-3) var(--space-2);
   color: var(--ink);
@@ -1520,7 +1521,8 @@ mark {
   border-radius: var(--radius);
 }
 
-.hit-link:hover {
+.hit-link:hover,
+.section-hit-link:hover {
   background: var(--surface-2);
 }
 
@@ -1533,7 +1535,8 @@ mark {
   color: var(--accent);
 }
 
-.hit-link:hover .hit-title {
+.hit-link:hover .hit-title,
+.section-hit-link:hover .hit-title {
   text-decoration: underline;
 }
 

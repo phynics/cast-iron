@@ -1957,7 +1957,7 @@ fn section_hit_view(
     let title = marked(&hit.title, &hit.title_matches);
     view! {
         <li class="hit hit-section">
-            <a class="hit-link" href=href>
+            <a class="section-hit-link" href=href>
                 <span class="hit-title">{title}</span>
                 <span class="hit-meta">"Book section · "{book}</span>
             </a>
