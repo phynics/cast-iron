@@ -368,7 +368,6 @@ GEAR = [
         "black", "blue", "brown", "gray", "green", "orange", "prismatic", "red", "white",
     )],
     "ref/tech-misc/battery",
-    # The Pf Data Silverdisk record repeats the printed Battery text.
     "ref/tech-misc/camera",
     "ref/tech-misc/chemalyzer",
     f"{CARRIED}/equipment/gear/technological-gear/on-signals/chipfinder",
