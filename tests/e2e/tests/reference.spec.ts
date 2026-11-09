@@ -218,7 +218,8 @@ test("Home is category-only and Books is the publication directory", async ({ pa
     await expect(page.locator(".book-contents")).toBeVisible();
     // A book that holds only kinds with list pages has no rules chapter left to list.
     if (await page.locator(".toc").count()) await expect(page.locator(".toc")).toBeVisible();
-    else await expect(page.getByText("This book has no rules chapters to show. Find its entries in In this book above.")).toBeVisible();
+    else if (await page.locator(".book-in-this-book .jump").count()) await expect(page.locator(".book-in-this-book")).toBeVisible();
+    else await expect(page.getByText("This book has no entries to show.")).toBeVisible();
     await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
   }
 });
