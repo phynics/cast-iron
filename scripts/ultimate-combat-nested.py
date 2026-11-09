@@ -191,10 +191,8 @@ ARCHETYPE_HEADING = {
 # order; item lists follow the printed descriptions, not the dataset order.
 EASTERN_ARMOR = [
     "ref/eq-armor/do-maru",
-    "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/four-mirror-armor",
     "ref/eq-armor/four-mirror",
     "ref/eq-armor/haramaki",
-    "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/kikko-armor",
     "ref/eq-armor/kikko",
     "ref/eq-armor/kusari-gusoku",
     "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/lamellar-armor",
@@ -204,10 +202,8 @@ EASTERN_ARMOR = [
     "ref/eq-armor/lamellar-steel",
     "ref/eq-armor/lamellar-stone",
     "ref/eq-armor/lamellar-cuirass",
-    "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/mountain-pattern-armor",
     "ref/eq-armor/mountain-pattern",
     "ref/eq-armor/o-yoroi",
-    "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/silken-ceremonial-armor",
     "ref/eq-armor/silken-ceremonial",
     "ref/carried/ultimate-combat/rules/mastering-combat/eastern-armor-and-weapons/eastern-armor/stone-coat",
     "ref/eq-armor/tatami-do",
@@ -317,23 +313,15 @@ AMMUNITION = [
     "ref/eq-weapon/alchemical-cartridge-salt-shot",
     "ref/eq-weapon/black-powder-dose",
     "ref/eq-weapon/black-powder-keg",
-    "ref/carried/ultimate-combat/rules/mastering-combat/firearms/"
-    "firearm-descriptions/firearm-ammunition-and-adventuring-gear/bullet",
     "ref/eq-weapon/firearm-bullet",
     "ref/eq-weapon/bullet-adamantine",
     "ref/eq-weapon/pitted-bullet",
     "ref/carried/ultimate-combat/rules/mastering-combat/firearms/"
     "firearm-descriptions/firearm-ammunition-and-adventuring-gear/bullet/silver",
     "ref/eq-weapon/firearm-bullet-silver",
-    "ref/carried/ultimate-combat/rules/mastering-combat/firearms/"
-    "firearm-descriptions/firearm-ammunition-and-adventuring-gear/gunsmiths-kit",
-    "ref/eq-weapon/gunsmiths-kit",
     "ref/eq-misc/gunsmiths-kit",
     "ref/eq-weapon/metal-cartridge",
     "ref/eq-weapon/pellets-handful",
-    "ref/carried/ultimate-combat/rules/mastering-combat/firearms/"
-    "firearm-descriptions/firearm-ammunition-and-adventuring-gear/powder-horn",
-    "ref/eq-weapon/powder-horn",
     "ref/eq-misc/powder-horn",
 ]
 
@@ -685,9 +673,6 @@ CROSS_BOOK_CARTRIDGES = {
 
 def spell_sort_key(node: dict) -> tuple:
     title = node["title"].strip()
-    # The carried entry misspells the printed spell; keep it beside the
-    # printed name and list the duplicate for a follow-up.
-    title = {"Adjuring Step": "Abjuring Step"}.get(title, title)
     base = title
     suffix = ""
     prefixes = ("Greater Communal", "Greater", "Improved", "Lesser", "Mass", "Communal")
