@@ -24,19 +24,7 @@
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
-/// Book source ids that retired, paired with the book that now holds their contents.
-///
-/// A book id appears in an address (`#/browse/book/<id>`), so an old id keeps opening
-/// its book. The corpus holds one book record per publication.
-const RETIRED_BOOK_SOURCES: &[(&str, &str)] = &[("gamemastery-guide", "game-mastery-guide")];
-
-/// The current book source for an old book address. A current id is returned unchanged.
-fn aliased_book_source(source: &str) -> &str {
-    RETIRED_BOOK_SOURCES
-        .iter()
-        .find_map(|(old, new)| (*old == source).then_some(*new))
-        .unwrap_or(source)
-}
+use crate::book_source::aliased_book_source;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {

@@ -136,10 +136,20 @@ struct Inner {
 /// seen third-party books is recorded so a later update can tell an arrival from a choice.
 async fn settle_first_run_defaults(
     sources: &[SourceInfo],
+    migrate_book_sources: bool,
 ) -> Result<BTreeSet<String>, LibraryError> {
     let selection = |e: store::StoreError| LibraryError::BookSelection(e.to_string());
     let marker = store::book_defaults_marker().await.map_err(selection)?;
-    let stored = store::stored_disabled_books().await.map_err(selection)?;
+    let mut stored = store::stored_disabled_books().await.map_err(selection)?;
+    if migrate_book_sources
+        && !store::book_source_migration_done()
+            .await
+            .map_err(selection)?
+    {
+        stored = store::settle_book_source_migration(stored.as_ref())
+            .await
+            .map_err(selection)?;
+    }
     let known_third_party = store::known_third_party().await.map_err(selection)?;
     let books = book_presets::books_of(sources);
     let settled = book_presets::settle_books(
@@ -243,7 +253,11 @@ impl Library {
         } else {
             (Rc::new(AliasIndex::default()), String::new())
         };
-        let disabled_books = settle_first_run_defaults(&catalog.sources).await?;
+        let migrate_book_sources = books
+            .as_ref()
+            .is_some_and(|books| !crate::book_source::has_retired_book(books));
+        let disabled_books =
+            settle_first_run_defaults(&catalog.sources, migrate_book_sources).await?;
         let library = Library(SendWrapper::new(Rc::new(Inner {
             active: active.clone(),
             manifest,
