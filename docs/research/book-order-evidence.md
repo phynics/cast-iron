@@ -69,9 +69,24 @@ The printed contents page of the Advanced Race Guide was checked in this review.
 
 `books.toml` splits the dataset's combined Age, Height & Weight chapter into the two printed appendices, Age and Height and Weight. Printed Appendix 3 Spells (251) has no corpus entries, so it has no group.
 
-Main chapter order and nested placement are verified against the printed Advanced Race Guide. Each entry in the curated chapters sits in its printed chapter and section, and the tree follows the printed page order: the Core Races run Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 10-79); each race keeps Alternate Racial Traits before its New Racial Rules, whose Equipment, Feats, Magic Items, and Spells subsections follow print (for example Catfolk pp. 91-95); and the Race Builder keeps the racial-quality and racial-trait descriptions inside Step 2 (p. 215) and Step 3 (p. 220). Entries that share a printed page keep the dataset order inside that page.
+Main chapter order and nested placement are verified against the printed Advanced Race Guide. Each entry in the curated chapters sits in its printed chapter and section, and the tree follows the printed page order: the Core Races run Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 10-79); each race keeps Alternate Racial Traits before its Racial Archetypes and New Racial Rules, whose Equipment, Feats, Magic Items, and Spells subsections follow print (for example Catfolk pp. 91-95); and the Race Builder keeps the racial-quality and racial-trait descriptions inside Step 2 (p. 215) and Step 3 (p. 220). Entries that share a printed page keep the dataset order inside that page.
 
-The page-ordered list of entries that the curated tree does not place is not a printed chapter position. It keeps its entries in page order and is outside this check.
+The residual `New entries (page order)` group now holds 176 entries. The 177 ARG-primary entries that print places in a known section moved there:
+
+- 43 Race Builder rules: Step 2 qualities (pp. 215-219) and Step 3 trait categories (pp. 220-239), including the three poison stat blocks under Standard Offensive Traits (p. 232).
+- 82 per-race Racial Archetypes and bloodline entries, including Treesinger's plant companions (p. 26), Bramble Brewer's new discovery (p. 44), the Kitsune Trickster rogue talents (p. 193), and Shadow Caller's evolutions (pp. 110-111).
+- 17 rogue-talent and discovery sections that print before New Racial Rules: Catfolk Rogue Talents (p. 92), and the Goblin, Grippli, Ratfolk, and Svirfneblin Discoveries (pp. 116, 191, 153, 205).
+- 35 equipment, feat, magic item, and spell entries under New Racial Rules (pp. 36-211). Variant records nest under the base entry that print already places, for example Fetters (common) under Fetters and Mass Binding Earth under Binding Earth, Mass.
+
+The 176 residual entries keep their position for reasons outside the printed section order:
+
+- 96 multi-source race records: the 29 `ref/race/*` hubs and their 67 racial-trait children. The carried race entry already carries the printed race section, so moving these would duplicate it.
+- 32 cross-book class hubs and class rule hubs.
+- 35 secondary-source items: 23 figurines of wondrous power, 5 horseshoes of crushing blows, 2 riding geckos, 2 underwater crossbows, cruel, deadly, and furyborn. Their first source is Ultimate Equipment, the Core Rulebook, or Ranged Tactics Toolbox.
+- 3 race rule hubs that duplicate a placed race entry (Drow, Duergar, Ratfolk) and 2 chapter intro records that duplicate a placed chapter entry (The Core Races, Less-Common Races).
+- Qinggong Monk (secondary source), Dire Rat (Bestiary), and 6 cross-book rule fragments: Races, Basics, Gamemastery, the Dhampir and Tengu subtypes, and the Shadow template.
+
+The variant records and race hubs are duplicate candidates for a later pass; this check places them and does not merge them.
 
 ## Bestiary
 
