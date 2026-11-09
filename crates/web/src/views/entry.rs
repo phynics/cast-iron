@@ -14,6 +14,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
+use crate::views::sources::source_line;
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
@@ -692,16 +693,28 @@ fn EntryView(
         .into_any(),
     };
     let disabled_book = !library.is_entry_active(&entry.id);
+    // The line follows the text on screen. A revision in force supplies its own citations;
+    // an unconverted revision with none keeps the base's rows. The original-text disclosure
+    // always ends with the base's own line.
+    let body_sources = match &revision {
+        Some(page) => {
+            revisions::effective_sources(&page.original.sources, &page.revision_entry.sources)
+                .to_vec()
+        }
+        None => entry.sources.clone(),
+    };
     // A revision in force keeps the original text for a collapsed disclosure. A removal or
     // merge shows the printed sentence instead of the old body; a revised text shows the
     // revision's body in place.
     let original_disclosure = revision.as_ref().map(|page| {
         let book = book_title(&library, &page.original);
         let body = page.original.body.clone();
+        let original_sources = source_line(&page.original.sources, &library, None);
         view! {
             <details class="rel-disclosure rel-original">
                 <summary>{icons::chevron_right("disclosure-chevron")}{format!("Original text · {book}")}</summary>
                 <div class="rich">{blocks(&body)}</div>
+                {original_sources}
             </details>
         }
     });
@@ -828,6 +841,7 @@ fn EntryView(
         {original_disclosure}
         <ArticleContents body=contents_body id=entry.id.clone() />
         <RichBody body=rendered_body anchor=anchor changed=changed_labels />
+        {source_line(&body_sources, &library, None)}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
         <aside class="entry-refs" aria-label="Entry links">

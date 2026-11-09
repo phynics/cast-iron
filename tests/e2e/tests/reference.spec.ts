@@ -111,7 +111,13 @@ test("Reviewed primary-source passage appears with its attribution in the rules"
   const passage = firstEntry("the reviewed magic passage", (entry) =>
     bodyText(entry).includes("From creating a wisp of light"));
   const sourceLine = "PRPG Core Rulebook pg 206";
-  expect(bodyText(passage)).toContain(sourceLine);
+  const typed = passage.sources?.find(
+    (source) => source.publication === "core-rulebook" && source.page === "206",
+  );
+  // Migrated data carries the citation as a typed row and removes the printed paragraph; the
+  // current pin still holds the paragraph. Either way the page shows the attribution.
+  if (typed) expect(passage.sources?.length).toBeGreaterThan(0);
+  else expect(bodyText(passage)).toContain(sourceLine);
   const casting = firstEntry("the Casting Spells rule", (entry) =>
     entry.kind === "rule" && entry.title === "Casting Spells");
   const book = firstBookPlacement(passage.id);
@@ -123,9 +129,39 @@ test("Reviewed primary-source passage appears with its attribution in the rules"
   await openBookEntry(page, book!, passage.id);
   await expect(page.getByRole("heading", { level: 1, name: passage.title })).toBeVisible();
   await expect(page.getByText("From creating a wisp of light", { exact: false })).toBeVisible();
-  await expect(page.getByText(sourceLine, { exact: false })).toBeVisible();
+  if (typed) {
+    const line = page.locator(".entry > .sources-line");
+    await expect(line).toContainText("Sources: Core Rulebook p. 206");
+    await expect(line.getByRole("link", { name: "Core Rulebook", exact: true })).toHaveAttribute(
+      "href",
+      "#/browse/book/core-rulebook",
+    );
+  } else {
+    await expect(page.getByText(sourceLine, { exact: false })).toBeVisible();
+  }
   await openBookEntry(page, book!, casting.id);
   await expect(page.getByRole("heading", { level: 1, name: casting.title })).toBeVisible();
+});
+
+test("A converted entry ends its text with one typed Sources line", async ({ page }) => {
+  const abjuring = corpusEntry("spell", "Abjuring Step");
+  await page.goto(`#/entry/${abjuring.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Abjuring Step" })).toBeVisible();
+
+  const line = page.locator(".entry > .sources-line");
+  if (!(abjuring.sources?.length)) {
+    // The current pin has no typed rows: the body keeps its printed paragraph.
+    await expect(line).toHaveCount(0);
+    return;
+  }
+
+  // The description is the first paragraph after the stat card; the typed line is last in the
+  // entry's own text, immediately above the related panels.
+  await expect(page.locator(".entry > .rich > p").first()).toContainText("This spell creates");
+  await expect(line).toHaveText("Sources: Ultimate Combat p. 221");
+  const book = line.getByRole("link", { name: "Ultimate Combat", exact: true });
+  await expect(book).toHaveAttribute("href", "#/browse/book/ultimate-combat");
+  await expect(page.locator(".entry > .sources-line + #entry-related")).toHaveCount(1);
 });
 
 test("Home is category-only and Books is the publication directory", async ({ page }) => {

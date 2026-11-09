@@ -30,5 +30,6 @@ pub mod scope;
 pub mod search;
 pub mod settings;
 pub mod source_variants;
+pub mod sources;
 pub mod spells;
 pub mod util;
