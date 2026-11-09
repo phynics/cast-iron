@@ -3,6 +3,7 @@
 pub mod active_books;
 pub mod backlinks;
 pub mod book;
+pub mod book_series;
 pub mod book_tier;
 pub mod bookmark_control;
 pub mod bookmarks;

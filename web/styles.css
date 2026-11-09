@@ -1329,6 +1329,19 @@ mark {
   color: var(--ink-muted);
 }
 
+/* The Adventures group splits its chips by series line (#159). The titles are muted labels,
+   never chips; the chips stay the only pills. */
+.publication-series + .publication-series {
+  margin-top: var(--space-2);
+}
+
+.publication-series-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--step--1);
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
 .publication-group-summary {
   display: flex;
   align-items: center;
@@ -3510,6 +3523,21 @@ input::placeholder {
    the right. No fill and no box; the type, the space above and the count tell it from a row. */
 .book-tier { max-width: 52rem; }
 .book-group-head { margin: var(--space-5) 0 0; font: 700 var(--step-1)/var(--leading-tight) var(--font-display); scroll-margin-top: var(--header-h); text-wrap: wrap; }
+/* Adventures groups by series (#159): nested native disclosures inside the tier. A series
+   heading is serif 700 like a tier heading but one step smaller; the count stays muted and
+   tabular at the right. No box, no fill, and no border. */
+.adventure-series-groups { max-width: 52rem; }
+.adventure-group, .adventure-series, .adventure-season { min-width: 0; }
+.series-head { margin: var(--space-4) 0 0; font: 700 var(--step-0)/var(--leading-tight) var(--font-display); scroll-margin-top: var(--header-h); text-wrap: wrap; }
+.series-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
+.series-toggle:hover .series-name { text-decoration: underline; text-underline-offset: 0.2em; }
+.series-toggle[aria-expanded="true"] .tier-chevron { transform: rotate(90deg); }
+.series-name { min-width: 0; overflow-wrap: anywhere; }
+.series-count { margin-inline-start: auto; padding-inline-start: var(--space-3); color: var(--ink-muted); font: 400 var(--step--1)/var(--leading-tight) var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.series-head-row { display: flex; align-items: center; gap: var(--space-2); }
+.series-head-row .series-head { flex: 1; min-width: 0; }
+.series-bulk { flex: none; padding-inline: var(--space-1); font-size: var(--step--1); }
+.adventure-group > .series-body, .adventure-series > .series-body, .adventure-season > .series-body { padding-inline-start: var(--space-4); }
 .tier-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
 .tier-toggle:hover .tier-name { text-decoration: underline; text-underline-offset: 0.2em; }
 .tier-chevron { flex: none; color: var(--accent); transition: transform 0.12s ease; }

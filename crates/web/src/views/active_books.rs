@@ -4,13 +4,18 @@
 //! The page is a route, not local state: every change writes the stored choice at once through
 //! `Library::update_active_books`, so nothing can be left half edited, a reload stays on the
 //! page, and Settings can link to it. Books is the place to read; this is the place to change.
-//! There are no bulk controls on a group. The presets are the only bulk action, and Undo
-//! reverses the last one until the next change.
+//! The presets are page-wide bulk actions, and Undo reverses the last one until the next change.
+//! An Adventures series group also carries its own on/off bulk button (#159); a tier itself
+//! still has no control.
 
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace};
-use crate::views::browse::{BookListEntry, book_groups, tier_section};
+use crate::views::book_tier::Tier;
+use crate::views::browse::{
+    BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, adventure_tier_section,
+    book_groups, tier_section,
+};
 use crate::views::icons;
 use crate::views::util::{Shared, set_title};
 use leptos::prelude::*;
@@ -148,6 +153,37 @@ impl Panel {
         });
     }
 
+    /// Turns every book of one series group on or off. The change is planned inside the write
+    /// path, so a quick second tap lands on the set the first write left. A single-book or
+    /// group change ends the preset's Undo, which would no longer describe the set.
+    fn set_books(&self, ids: Vec<String>, active: bool) {
+        self.error.set(None);
+        self.clear_status();
+        let panel = self.clone();
+        spawn_local(async move {
+            let planned = panel
+                .library
+                .apply_active_plan(|is_active| {
+                    let mut change = Change::default();
+                    for id in &ids {
+                        let already = is_active(id);
+                        if active && !already {
+                            change.activate.push(id.clone());
+                        } else if !active && already {
+                            change.deactivate.push(id.clone());
+                        }
+                    }
+                    change
+                })
+                .await;
+            if let Err(failure) = planned {
+                panel.error.set(Some(format!(
+                    "Could not save the book selection: {failure}"
+                )));
+            }
+        });
+    }
+
     fn undo(&self) {
         let Some(applied) = self.applied.get_untracked() else {
             return;
@@ -280,6 +316,10 @@ pub fn ActiveBooks() -> impl IntoView {
             publication_date: source.publication_date.clone(),
             count: counts.get(&source.id).copied().unwrap_or(0),
             third_party: source.third_party,
+            series_kind: source.series_kind,
+            series: source.series.clone(),
+            series_number: source.series_number.clone(),
+            season: source.season,
         })
         .collect();
     let total = rows.len();
@@ -297,11 +337,69 @@ pub fn ActiveBooks() -> impl IntoView {
     let empty = active.clone();
     let line = move || book_presets::count_line(active(), total, None);
     let presets = preset_list(&panel);
+    // Adventures rows are toggle rows; every series group shows its live active tally and a
+    // bulk button that turns the whole group on or off.
+    let row_panel = panel.clone();
+    let row: Box<RowFactory> = Box::new(move |row| toggle_row(row, row_panel.clone()));
+    let count_library = library.clone();
+    let count_revision = library.selection_revision();
+    let count: Box<CountFactory> = Box::new(move |ids: &[String]| {
+        count_revision.get();
+        let active = ids
+            .iter()
+            .filter(|id| count_library.book_active(id))
+            .count();
+        format!(
+            "{} of {} active",
+            crate::fmt::count(active),
+            crate::fmt::count(ids.len())
+        )
+    });
+    let bulk_library = library.clone();
+    let bulk_revision = library.selection_revision();
+    let bulk_panel = panel.clone();
+    let bulk: Box<BulkFactory> = Box::new(move |label: &str, ids: Vec<String>| {
+        let library = bulk_library.clone();
+        let panel = bulk_panel.clone();
+        let group = label.to_string();
+        let state_library = library.clone();
+        let state_ids = ids.clone();
+        let all_active = move || {
+            bulk_revision.get();
+            state_ids.iter().all(|id| state_library.book_active(id))
+        };
+        let label_group = group.clone();
+        let label_all = all_active.clone();
+        let click_all = all_active.clone();
+        let text_all = all_active;
+        let click_ids = ids;
+        let click_panel = panel;
+        view! {
+            <button type="button" class="text-btn series-bulk"
+                aria-label=move || if label_all() {
+                    format!("Turn off all {label_group} books")
+                } else {
+                    format!("Turn on all {label_group} books")
+                }
+                on:click=move |_| {
+                    let turn_on = !click_all();
+                    click_panel.set_books(click_ids.clone(), turn_on);
+                }>
+                {move || if text_all() { "Turn all off" } else { "Turn all on" }}
+            </button>
+        }
+        .into_any()
+    });
+    let render = SeriesRender::new(row, count, Some(bulk));
     let groups = book_groups(&rows)
         .into_iter()
         .map(|group| {
             let tier = group.tier;
             let ids: Vec<String> = group.books.iter().map(|&i| rows[i].id.clone()).collect();
+            if tier == Tier::Adventures {
+                let books = group.books.iter().map(|&i| rows[i].clone()).collect();
+                return adventure_tier_section(books, ids, render.clone(), library.clone());
+            }
             // Rows are built when the group opens; see `tier_section`.
             let lazy_rows = rows.clone();
             let lazy_panel = panel.clone();

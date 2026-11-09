@@ -119,11 +119,14 @@ test("Book visibility persists offline and filters discovery while keeping stars
 });
 
 const adventureCategories = ["Adventure Path", "Module", "Society"];
+/** The Adventures tier: a reviewed category, or a recognized series kind when it has none. */
+const isAdventure = (row: any) =>
+  adventureCategories.includes(row.category as string) || Boolean(row.series_kind);
 
 /** An entry that an Adventures-tier book places first, so deactivating Adventures hides it. */
 function adventureEntry() {
   for (const source of corpus.catalog.sources) {
-    if (!adventureCategories.includes(source.category as string)) continue;
+    if (!isAdventure(source)) continue;
     const id = [...owners].find(([, bookId]) => bookId === source.id)?.[0];
     if (id) return { id, source, entry: corpus.entries.get(id)! };
   }
@@ -320,7 +323,7 @@ installedTest("A preset keeps downloads and stars, and changes what search finds
 
   await page.goto("#/books/manage");
   await page.getByRole("button", { name: "Paizo Rulebooks", exact: true }).click();
-  const adventureBooks = corpus.catalog.sources.filter((row) => adventureCategories.includes(row.category as string));
+  const adventureBooks = corpus.catalog.sources.filter(isAdventure);
   await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-active')).toHaveText(
     `0 of ${adventureBooks.length} active`,
   );
