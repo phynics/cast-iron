@@ -398,10 +398,7 @@ test("A Contents chapter opens its own page with a Books › Book › Chapter br
 test("A chapter page opens an entry, and Next continues the book before Back returns to the chapter", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   const book = bookTrees().find((row) => row.source === core.id)!;
-  // A hub chapter now opens its entry page instead of the chapter page, so this #346 test
-  // keeps the first chapter that still opens a chapter page.
-  const first = listedChapters(book).find((row) => !row.node.lists_children && row.node.entry)!;
-  expect(first, "the book has a chapter page with its own entry").toBeTruthy();
+  const first = listedChapters(book)[0];
   const order = bookReadingOrder(book);
   const entryId = order.find((id, at) => {
     if (at >= order.length - 1) return false;
@@ -413,7 +410,7 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
 
   await page.goto(`#/browse/book/${core.id}`);
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
-  const row = tree.locator(".toc-top > li").filter({ has: page.getByText(first.title, { exact: true }) }).first();
+  const row = tree.locator(".toc-top > li").first();
   await row.locator(":scope > .toc-row a, :scope > a").first().click();
   await expect(page.getByTestId("chapter-title")).toBeVisible();
   await expect(page.getByTestId("chapter-title")).toHaveText(first.title);
@@ -434,13 +431,9 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
   await entryLink.click();
   const next = page.locator('.book-steps a[rel="next"]');
   await expect(next).toBeVisible();
-  // The book row keeps the printed title; the entry page shows the catalog title, so read the
-  // target id from the link instead of comparing the two labels.
-  const nextHref = (await next.getAttribute("href"))!;
-  const nextId = decodeURIComponent(nextHref.split("?")[0].slice("#/entry/".length));
-  const nextEntry = corpus.entries.get(nextId)!;
+  const nextTitle = (await next.locator(".step-title").innerText()).trim();
   await next.click();
-  await expect(page.getByRole("heading", { level: 1, name: nextEntry.title, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: nextTitle, exact: true })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
   await page.goBack();
@@ -626,9 +619,26 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   expect(titles).toEqual(listedChapterTitles(book));
 });
 
-test("A hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
+test("A top-level chapter keeps its chapter page and printed sections", async ({ page }) => {
   const bestiary = sources.find((row) => row.id === "bestiary")!;
-  const book = bookTrees().find((row) => row.source === bestiary.id)!;
+  await page.goto(`#/browse/book/${bestiary.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary.title)}`) });
+  await expect(tree).toBeVisible();
+  const row = tree.locator(".toc-top > li").filter({ has: page.getByText("Universal Monster Rules", { exact: true }) }).first();
+  await expect(row).not.toHaveClass(/toc-hub/);
+  await expect(row.locator(":scope > .toc-list")).toBeVisible();
+
+  // The row keeps its chapter page, and that page still shows the printed sections.
+  const link = row.locator(":scope > .toc-row a");
+  await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(bestiary.id)}/[^/]+$`));
+  await link.click();
+  await expect(page.getByTestId("chapter-title")).toHaveText("Universal Monster Rules");
+  await expect(page.getByRole("heading", { level: 2, name: "Ability Damage and Drain", exact: true })).toBeVisible();
+});
+
+test("A nested hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
   const titled = (nodes: any[], title: string): any => {
     for (const node of nodes) {
       if (node.title === title) return node;
@@ -637,25 +647,24 @@ test("A hub whose own page lists its children is one Contents row with its count
     }
     return undefined;
   };
-  const hub = titled(book.chapters, "Universal Monster Rules");
-  expect(hub, "the Bestiary contents carry Universal Monster Rules").toBeTruthy();
+  const hub = titled(book.chapters, "Using Skills");
+  expect(hub, "the Core Rulebook contents carry Using Skills").toBeTruthy();
   const count = (node: any): number =>
     (node.entry ? 1 : 0) + (node.children ?? []).reduce((sum: number, child: any) => sum + count(child), 0);
 
-  await page.goto(`#/browse/book/${bestiary.id}`);
-  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary.title)}`) });
+  await page.goto(`#/browse/book/${core.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
   await expect(tree).toBeVisible();
-  const row = tree.locator(".toc-hub").filter({ hasText: "Universal Monster Rules" });
+  const row = tree.locator(".toc-hub").filter({ has: page.getByText("Using Skills", { exact: true }) });
   await expect(row).toHaveCount(1);
   await expect(row.locator(".toc-count")).toHaveText(grouped(count(hub)));
   await expect(row.locator(".toc-list")).toHaveCount(0);
 
-  // The row links to the hub entry, which already lists the rules.
+  // The row links to the hub entry, which already lists the sections below it.
   const link = row.locator(":scope > .toc-row a");
   await expect(link).toHaveAttribute("href", new RegExp(`^#/entry/${escape(hub.entry)}(\\?|$)`));
   await link.click();
-  await expect(page.getByRole("heading", { level: 1, name: "Universal Monster Rules", exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ability Damage and Drain", exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Using Skills", exact: true })).toBeVisible();
 });
 
 test("Top-level chapter rows show a dotted leader, hidden in a narrow contents container", async ({ page }) => {

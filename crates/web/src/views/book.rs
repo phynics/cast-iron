@@ -7,9 +7,10 @@
 //! path, so a chapter link,
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
 //!
-//! A node that is itself an entry collapses to one row when its own page lists every entry below
-//! it (`BookNode::lists_children`, computed by the compiler). Reading order does not change:
-//! previous and next still visit every child in book order.
+//! A node below chapter level that is itself an entry collapses to one row when its own page
+//! lists every entry below it (`BookNode::lists_children`, computed by the compiler). A top-level
+//! chapter row always keeps its chapter page. Reading order does not change: previous and next
+//! still visit every child in book order.
 
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
@@ -61,14 +62,15 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// True when a node that is itself an entry shows as one row, because its own page already
-/// lists every entry below it.
+/// True when a node below chapter level that is itself an entry shows as one row, because its
+/// own page already lists every entry below it.
 ///
-/// The compiler records the body-link test on [`BookNode::lists_children`]; the book page must
-/// not load an entry body to decide a row. A hidden entry cannot be the row's link, so its node
-/// keeps the branch for whatever its children still show.
-pub fn hub_collapses(node: &BookNode, hide: Hide<'_>) -> bool {
-    node.lists_children && node.entry.as_ref().is_some_and(|entry| !hide(entry))
+/// A top-level chapter row never collapses: it keeps its chapter page, which shows the chapter's
+/// printed sections. The compiler records the body-link test on [`BookNode::lists_children`]; the
+/// book page must not load an entry body to decide a row. A hidden entry cannot be the row's
+/// link, so its node keeps the branch for whatever its children still show.
+pub fn hub_collapses(node: &BookNode, hide: Hide<'_>, is_chapter: bool) -> bool {
+    !is_chapter && node.lists_children && node.entry.as_ref().is_some_and(|entry| !hide(entry))
 }
 
 /// The label of a chapter or section row.
@@ -496,7 +498,7 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
         None => view! { {title.clone()} }.into_any(),
     };
     let children = listed_children(node, hide);
-    let list = (!hub_collapses(node, hide) && !children.is_empty()).then(|| {
+    let list = (!hub_collapses(node, hide, false) && !children.is_empty()).then(|| {
         let items = children
             .into_iter()
             .filter_map(|index| {
@@ -527,7 +529,7 @@ fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usiz
             None => view! { <span>{title.clone()}</span> }.into_any(),
         };
         let children = listed_children(node, hide);
-        let list = (!hub_collapses(node, hide) && !children.is_empty()).then(|| {
+        let list = (!hub_collapses(node, hide, false) && !children.is_empty()).then(|| {
             let items = children
                 .into_iter()
                 .filter_map(|index| {
@@ -603,8 +605,9 @@ fn Contents(
 }
 
 /// One row of the contents. Every branch is expanded: a nested list carries its children, so the
-/// reader sees the whole book at once and no row is a disclosure. A hub whose own page lists its
-/// children is the one exception: it keeps its title, leader and count and adds no nested list.
+/// reader sees the whole book at once and no row is a disclosure. A nested hub whose own page
+/// lists its children is the one exception: it keeps its title and count and adds no nested list.
+/// A top-level chapter is never collapsed; it opens its chapter page.
 #[component]
 fn TocNode(
     lookup: Shared<BookLookup>,
@@ -670,7 +673,7 @@ fn TocNode(
     // A top-level row opens its chapter page. A nested chapter that is itself an entry links to
     // that entry; a bare heading is a plain row. A hub row opens its own entry page instead: that
     // page already carries the list, so the chapter page would only repeat it.
-    let collapsed = hub_collapses(node, &hide);
+    let collapsed = hub_collapses(node, &hide, chapter.is_some());
     let entry_link = node
         .entry
         .as_ref()
@@ -1110,21 +1113,23 @@ mod tests {
     }
 
     #[test]
-    fn a_hub_collapses_only_with_a_visible_entry() {
+    fn a_hub_collapses_below_chapter_level_only_with_a_visible_entry() {
         let mut hub = node(
             "Combat",
             Some("core/rule/combat"),
             vec![node("Actions", Some("core/rule/actions"), vec![])],
         );
-        assert!(!hub_collapses(&hub, &hide));
+        assert!(!hub_collapses(&hub, &hide, false));
         hub.lists_children = true;
-        assert!(hub_collapses(&hub, &hide));
+        assert!(hub_collapses(&hub, &hide, false));
+        // A top-level chapter keeps its chapter page even when its entry lists the children.
+        assert!(!hub_collapses(&hub, &hide, true));
         // A hidden hub entry has no row link, so the branch stays.
         let only_combat = |id: &EntryId| id.as_str() == "core/rule/combat";
-        assert!(!hub_collapses(&hub, &only_combat));
+        assert!(!hub_collapses(&hub, &only_combat, false));
         // A heading without an entry never collapses.
         hub.entry = None;
-        assert!(!hub_collapses(&hub, &hide));
+        assert!(!hub_collapses(&hub, &hide, false));
     }
 
     #[test]

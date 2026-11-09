@@ -1472,32 +1472,35 @@ Refs [#360](https://github.com/phynics/cast-iron/issues/360), part of
 
 Closes [#358](https://github.com/phynics/cast-iron/issues/358).
 
-- **A hub is a node that is itself an entry and lists every entry below it.** The signal is the
-  renderer's own child list: `Block::EntryLink` rows in the entry body, not every resolved
-  inline reference. A page that mentions a child in a sentence does not get its nested rows
-  removed. The pure rule is `cast_iron_schema::books::entry_lists_children`; a node with no
-  entry, no entry below it, or one unlinked child stays a branch.
+- **Only a node below chapter level collapses.** A hub is a node that is itself an entry and
+  lists every entry below it. The signal is the renderer's own child list: `Block::EntryLink`
+  rows in the entry body, not every resolved inline reference. A page that mentions a child in
+  a sentence does not get its nested rows removed. The pure rule is
+  `cast_iron_schema::books::entry_lists_children`; a node with no entry, no entry below it, or
+  one unlinked child stays a branch. A top-level chapter row never collapses: it keeps its
+  chapter page and that page's printed sections (#346).
 - **The compiler records the answer on the node.** `BookNode::lists_children` is additive and
   optional in `books.json`; the corpus never authors it, old readers ignore it, and an old
   library reads as `false`. `mark_listed_children` sets it only for kinds Contents shows,
   because a hidden entry has no row link to open. No new file and no new fetch: the book page
   already loads `books.json`.
-- **Contents shows the row and skips the list.** A collapsed row keeps its title, dotted leader
-  and muted count, and adds no `<ol>`. Its link opens the hub entry, not the chapter page, since
-  that entry is the page that lists the children. A boxed row for a collapsed top-level chapter
-  still looks like the other chapters.
-- **The chapter page collapses a hub section.** A nested section that is a hub keeps its link
-  and drops its nested list. The chapter page itself still lists its own first-level sections;
-  the chapter is the page's subject, not a row inside it. `sections` (which the compiler turns
-  into book-section search documents) stops at a collapsed hub too, so every section anchor
-  still names a rendered row.
+- **Contents shows a nested row and skips its list.** A collapsed row keeps its title and muted
+  count, and adds no `<ol>`. Its link opens the hub entry, not a chapter page, since that entry
+  is the page that lists the children. A top-level chapter row keeps its normal chapter-page
+  link and its nested rows, so the printed sections stay reachable.
+- **The chapter page collapses a hub section.** A first-level or deeper section that is a hub
+  keeps its link and drops its nested list. The chapter page itself still lists its own
+  first-level sections; the chapter is the page's subject, not a row inside it. `sections`
+  (which the compiler turns into book-section search documents) stops at a collapsed hub too, so
+  every section anchor still names a rendered row.
 - **Reading order is untouched.** `reading_order` and `reading_neighbors` still walk every
   Contents-visible child in book order, so previous and next cross a collapsed hub as before.
   Only what the two lists display changed.
-- **Scope.** With corpus `v0.1.17`, the rule collapses 104 nodes in 12 books. The largest are
-  Universal Monster Rules (89 rows), Goods and Services (136), Weapons (82) and Special
-  Abilities (53) in the Core Rulebook; NPC Codex has 26 class pages. Conditions has no child
-  node in `books.toml`, so it is not a hub.
+- **Scope.** With corpus `v0.1.17`, the rule collapses 92 nodes in 11 books. The largest are
+  Goods and Services (136), Weapons (82) and Special Abilities (53) in the Core Rulebook; NPC
+  Codex has 26 class pages. The Bestiary's Universal Monster Rules is a top-level chapter node,
+  so it keeps its chapter page and 88 printed sections; Conditions has no child node in
+  `books.toml`, so it is not a hub.
 
 ## Recently viewed in Quick search, 2026-11-09
 
