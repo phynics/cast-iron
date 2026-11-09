@@ -91,7 +91,8 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
 | Mobile layout | `Mobile viewport\|Expanded books, their contents tree` (`mobile.spec.ts`) | `web/styles.css`, `crates/web/src/views/browse.rs` |
-| Legal and attribution | `Licensing` | `crates/web/src/views/legal.rs` |
+| Legal and attribution | `Licensing` (`legal.spec.ts`) | `crates/web/src/views/legal.rs` |
+| Report a problem | `Report a problem` (`report-problem.spec.ts`) | `crates/web/src/report.rs`, `crates/web/src/app.rs`, `.github/ISSUE_TEMPLATE/app-problem.yml` |
 | Publication scope | none: `python3 scripts/check-publication.py` after building the default | `scripts/check-publication.py`, `docs/research/licensing-audit.md` |
 | Content compiler and default library | none: `cargo test -p cast-iron-content-compiler`, CI determinism job (two corpus builds, same bytes) | `crates/content-compiler`, `crates/corpus`, `crates/xtask`, `sources/corpus.toml` |
 
