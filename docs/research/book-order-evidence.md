@@ -279,7 +279,15 @@ The printed contents page of Technology Guide was checked in this review. It ver
 | — | Technological Equipment | 18 |
 | — | Technological Hazards and Artifacts | 54 |
 
-The corpus already has this order. The printed Introduction has no corpus chapter. Two top-level chapters are renamed to the printed titles: `Equipment` to `Technological Equipment`, and `Hazards and Artifacts` to `Technological Hazards and Artifacts`. The final `New entries (page order)` chapter holds canonical entries the curated tree does not place; it is page-ordered and is not a printed chapter. No entry moves between chapters, and the entry set is unchanged.
+The corpus already has this order. The printed Introduction has no corpus chapter. Two top-level chapters are renamed to the printed titles: `Equipment` to `Technological Equipment`, and `Hazards and Artifacts` to `Technological Hazards and Artifacts`.
+
+Main chapter order and nested placement are verified against the printed Technology Guide. Each entry sits in its printed section, and the tree follows the printed page order. Technology in the World runs Skills (p. 5), Feats (p. 6), Spells (p. 8), Technology-Themed Archetypes (p. 12), Technomancer (p. 14), and Crafting High-Tech Items (p. 16). Its archetypes run Cyber-Soldier and Iron Priest (p. 12), then Numerian Scavenger, Savage Technologist, and Techslinger (p. 13); the PSRD Technic Scavenger is the printed Numerian Scavenger and prints with it. The spells run in the printed alphabetical order with their greater versions (pp. 8-11), and the crafting section runs Crafting Laboratories (p. 16), Hybrid Magic/Tech Items (p. 17), and Pricing and Creating New Technological Items (p. 17).
+
+Technological Equipment runs Introduction and Technological Adventures (p. 19), Weapons (p. 20), Armor (p. 29), Pharmaceuticals (p. 33), Cybertech (p. 35), and Technological Gear (p. 39). The weapon, armor, pharmaceutical, cybertech, and gear descriptions keep the printed alphabetical order, and each colour, grade, and mark variant follows its base item on the base item's page. The glitch tables print on the inside front cover (p. 1) under the Timeworn Technology Glitches heading, and the On Signals sidebar prints on p. 43.
+
+Technological Hazards and Artifacts runs Timeworn Technology (p. 55) with its glitch tables, Radiation (p. 55), Traps and Technology (p. 56), Skymetals (p. 56), Artificial Intelligences with Creating an AI, Sample AIs, and the Aggregate Template (pp. 58-59), Technological Artifacts (p. 60), and Power Generators (p. 62). A canonical Pf Data record that repeats a dataset section intro opens that printed section: Technological Adventures, Technological Feats, Feats and Crafting High-Tech Items, Artificial Intelligence, Tech Artifacts, and Miscellaneous Gear.
+
+Entries that share a printed page keep the dataset order. The placed entry set is unchanged at 346 ids. The final `New entries (page order)` chapter keeps only the entries with no Technology Guide page: the base Make Whole spell, which the book refers to but does not print, and the cross-book Specific Campaign Types hub. It is page-ordered and is not a printed chapter.
 
 ## Ultimate Campaign
 
