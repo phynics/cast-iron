@@ -19,10 +19,10 @@ Local verification, 2026-11-09 (no CI or deployment claim):
 
 | Check | Result |
 |---|---|
-| `generated/content` | Content version `v7e2e103c29cf83a4`, schema 4, 31,807 entries, corpus tag `v0.1.17` (was `v3023e551a457c6eb`) |
+| `generated/content` | Content version `v17a954e5c0f1d11c`, schema 4, 31,807 entries, corpus tag `v0.1.17` (was `v3023e551a457c6eb`) |
 | `cargo xtask content` | Exit 0; the published-id guard passed |
 | `cargo xtask check` | Passed |
-| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `933e6101b965862f`, 11 files; `generated/content/manifest.json` and `dist/content/manifest.json` match |
+| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `d3186470177a1899`, 11 files; `generated/content/manifest.json` and `dist/content/manifest.json` match |
 | `npm --prefix tests/e2e test -- --project=chromium tests/relationships.spec.ts tests/class-options.spec.ts tests/books.spec.ts` | 38 passed; no test changes needed |
 
 ## Corpus pinned to v0.1.16, 2026-11-09
