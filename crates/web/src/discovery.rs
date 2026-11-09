@@ -4,7 +4,7 @@ use crate::graph::{BookLookup, Relations, filtered_spell_lists};
 use crate::library::{Library, LibraryError, canonical_book_source, count_by_source};
 use cast_iron_schema::SpellLists;
 use cast_iron_schema::{EntryKind, EntryStub};
-use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query};
+use cast_iron_search::{BOOK_SECTION_KIND, FilterCounts, Filters, Hit, HitSummary, Query};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -120,6 +120,15 @@ impl Discovery {
     pub async fn search_summaries(&self, query: &Query) -> Result<Vec<HitSummary>, LibraryError> {
         let index = self.library.search_index().await?;
         Ok(index.search_summaries_eligible(query, |id| self.is_eligible(id)))
+    }
+    /// Ranking data for book-section documents in active books, without snippets. A section
+    /// document is not an entry id, so it is accepted by its kind and its book's state instead
+    /// of the catalog id set. An inactive book contributes no section.
+    pub async fn section_summaries(&self, query: &Query) -> Result<Vec<HitSummary>, LibraryError> {
+        let index = self.library.search_index().await?;
+        Ok(index.search_summaries_docs(query, |doc| {
+            doc.kind == BOOK_SECTION_KIND && self.library.book_active(doc.source)
+        }))
     }
     /// Counts for the search filter chips: kinds, sources and facet values over the eligible
     /// entries that match `text`, each applying every active filter except its own group.

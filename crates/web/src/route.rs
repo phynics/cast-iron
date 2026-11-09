@@ -75,6 +75,8 @@ pub enum Route {
     BookChapter {
         source: String,
         chapter: String,
+        /// A section row on the chapter page, when the address came from a book-section result.
+        anchor: Option<String>,
     },
     /// Spell lists by class and level.
     Spells,
@@ -259,6 +261,10 @@ impl Route {
                         Route::BookChapter {
                             source: aliased_book_source(&source).to_string(),
                             chapter,
+                            anchor: query
+                                .and_then(|q| query_pairs(q).find(|(k, _)| k == "a"))
+                                .map(|(_, v)| v)
+                                .filter(|v| !v.is_empty()),
                         }
                     }
                     _ => not_found(),
@@ -363,11 +369,23 @@ impl Route {
                 ),
                 _ => format!("#/browse/book/{}", percent_encode(source)),
             },
-            Route::BookChapter { source, chapter } => format!(
-                "#/browse/book/{}/{}",
-                percent_encode(source),
-                percent_encode(chapter)
-            ),
+            Route::BookChapter {
+                source,
+                chapter,
+                anchor,
+            } => match anchor {
+                Some(anchor) => format!(
+                    "#/browse/book/{}/{}?a={}",
+                    percent_encode(source),
+                    percent_encode(chapter),
+                    percent_encode(anchor)
+                ),
+                None => format!(
+                    "#/browse/book/{}/{}",
+                    percent_encode(source),
+                    percent_encode(chapter)
+                ),
+            },
             Route::Spells => "#/spells".into(),
             Route::SpellList { class, level } => match level {
                 Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
@@ -400,7 +418,9 @@ impl Route {
     /// The anchor to scroll to after the route renders.
     pub fn anchor(&self) -> Option<std::borrow::Cow<'_, str>> {
         match self {
-            Route::Entry { anchor, .. } => anchor.as_deref().map(std::borrow::Cow::Borrowed),
+            Route::Entry { anchor, .. } | Route::BookChapter { anchor, .. } => {
+                anchor.as_deref().map(std::borrow::Cow::Borrowed)
+            }
             Route::Book {
                 chapter: Some(path),
                 ..
@@ -443,16 +463,7 @@ fn parse_letter(value: &str) -> Option<char> {
     (letter.is_ascii_uppercase() || letter == '#').then_some(letter)
 }
 
-/// The DOM id of a contents node, so that a chapter link can scroll to it.
-pub fn toc_id(path: &[usize]) -> String {
-    format!(
-        "toc-{}",
-        path.iter()
-            .map(|i| (i + 1).to_string())
-            .collect::<Vec<_>>()
-            .join("-")
-    )
-}
+pub use cast_iron_schema::books::toc_id;
 
 fn parse_search(query: Option<&str>) -> Route {
     let (mut q, mut kinds, mut sources) = (String::new(), Vec::new(), Vec::new());
@@ -1135,7 +1146,8 @@ mod tests {
             Route::parse("#/books/gamemastery-guide/combat"),
             Route::BookChapter {
                 source: "game-mastery-guide".into(),
-                chapter: "combat".into()
+                chapter: "combat".into(),
+                anchor: None
             }
         );
         assert_eq!(
@@ -1168,6 +1180,7 @@ mod tests {
         let route = Route::BookChapter {
             source: "core-rulebook".into(),
             chapter: "combat".into(),
+            anchor: None,
         };
         assert_eq!(route.href(), "#/browse/book/core-rulebook/combat");
         round_trip(route.clone());
@@ -1177,9 +1190,22 @@ mod tests {
         let odd = Route::BookChapter {
             source: "odd source".into(),
             chapter: "a/b & c".into(),
+            anchor: None,
         };
         assert_eq!(odd.href(), "#/browse/book/odd%20source/a%2Fb%20%26%20c");
         round_trip(odd);
+        // A section result carries the anchor of its row on the page.
+        let section = Route::BookChapter {
+            source: "core-rulebook".into(),
+            chapter: "combat".into(),
+            anchor: Some("toc-3-2".into()),
+        };
+        assert_eq!(
+            section.href(),
+            "#/browse/book/core-rulebook/combat?a=toc-3-2"
+        );
+        round_trip(section.clone());
+        assert_eq!(section.anchor().as_deref(), Some("toc-3-2"));
         // A malformed address is not found.
         for hash in ["#/browse/book//combat", "#/books/core-rulebook/%FF"] {
             assert_eq!(Route::parse(hash), Route::NotFound(hash.into()), "{hash}");

@@ -69,6 +69,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Feature | `--grep` pattern (spec file) | Source files |
 |---|---|---|
 | Search and filters | `Search operates` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs` |
+| Book section search results | `book section result` (`search.spec.ts`) | `crates/schema/src/books.rs`, `crates/content-compiler/src/pipeline.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/book.rs` |
 | Installer, integrity, recovery | `installs completely\|integrity\|Interrupted` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
 | Offline launch, no runtime server | `Offline launch\|runtime server` | `web/sw.js`, `crates/web/src/app.rs` |
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |

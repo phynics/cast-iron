@@ -813,65 +813,7 @@ impl BookLookup {
     }
 }
 
-/// One chapter page of a book: its permanent address and the path of the node it opens.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChapterId {
-    pub id: String,
-    pub path: Vec<usize>,
-}
-
-/// The permanent id of a chapter: its compiler anchor, else a slug of its printed title. The
-/// title is the corpus title, not the display label, so renaming a label cannot move the address.
-/// A title with no ASCII letter or digit gets `chapter`, which later collisions still number.
-pub fn chapter_base(node: &BookNode) -> String {
-    if let Some(anchor) = node.anchor.as_deref().filter(|anchor| !anchor.is_empty()) {
-        return anchor.to_string();
-    }
-    let slug = cast_iron_schema::headings::slugify(&node.title);
-    if slug.is_empty() {
-        "chapter".to_string()
-    } else {
-        slug
-    }
-}
-
-/// The permanent ids of the chapters at `paths`, in the order given. The first chapter to claim
-/// a base keeps it; a later one takes `-2`, `-3`, ... so a collision never moves the earlier id.
-/// A chapter's position is never part of its id.
-pub fn chapter_ids<'a>(
-    chapters: &[BookNode],
-    paths: impl IntoIterator<Item = &'a [usize]>,
-) -> Vec<ChapterId> {
-    let mut used: HashSet<String> = HashSet::new();
-    paths
-        .into_iter()
-        .filter_map(|path| {
-            let node = node_at_path(chapters, path)?;
-            let base = chapter_base(node);
-            let mut id = base.clone();
-            let mut suffix = 2;
-            while used.contains(&id) {
-                id = format!("{base}-{suffix}");
-                suffix += 1;
-            }
-            used.insert(id.clone());
-            Some(ChapterId {
-                id,
-                path: path.to_vec(),
-            })
-        })
-        .collect()
-}
-
-/// The node at a path of a list of chapter trees. `node_at` takes a whole book.
-fn node_at_path<'a>(chapters: &'a [BookNode], path: &[usize]) -> Option<&'a BookNode> {
-    let (first, rest) = path.split_first()?;
-    let mut node = chapters.get(*first)?;
-    for i in rest {
-        node = node.children.get(*i)?;
-    }
-    Some(node)
-}
+pub use cast_iron_schema::books::{ChapterId, chapter_base, chapter_ids, node_at_path};
 
 /// The node at a path, or `None` when the path leaves the tree.
 pub fn node_at<'a>(book: &'a BookTree, path: &[usize]) -> Option<&'a BookNode> {
