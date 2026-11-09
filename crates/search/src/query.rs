@@ -1,6 +1,6 @@
 use crate::build::cap_text;
 use crate::text::{Tok, scan};
-use crate::{FilterCounts, Filters, Hit, Query, SearchIndex, Snippet, normalize};
+use crate::{DocView, FilterCounts, Filters, Hit, Query, SearchIndex, Snippet, normalize};
 
 const DEFAULT_LIMIT: usize = 50;
 const MAX_PREFIX_TERMS: usize = 512;
@@ -436,7 +436,7 @@ impl SearchIndex {
 
     /// Search only eligible document IDs, applying eligibility before the result limit.
     pub fn search_eligible(&self, query: &Query, eligible: impl Fn(&str) -> bool) -> Vec<Hit> {
-        self.search_eligible_timed(query, eligible, &mut NoTimer)
+        self.search_eligible_docs(query, |doc| eligible(doc.id), &mut NoTimer)
     }
 
     /// Ranked results without snippets, for callers that only show a page.
@@ -451,8 +451,18 @@ impl SearchIndex {
         query: &Query,
         eligible: impl Fn(&str) -> bool,
     ) -> Vec<HitSummary> {
+        self.search_summaries_docs(query, |doc| eligible(doc.id))
+    }
+
+    /// Summary-only search over the documents that `accept` allows. Applies the test before the
+    /// result limit, so a caller can search one document kind without the others displacing it.
+    pub fn search_summaries_docs(
+        &self,
+        query: &Query,
+        accept: impl Fn(DocView<'_>) -> bool,
+    ) -> Vec<HitSummary> {
         let limit = result_limit(query);
-        let Some((ranked, _)) = self.ranked(query, eligible, &mut NoTimer, limit) else {
+        let Some((ranked, _)) = self.ranked(query, accept, &mut NoTimer, limit) else {
             return Vec::new();
         };
         ranked
@@ -509,7 +519,7 @@ impl SearchIndex {
             timing: SearchTiming::default(),
         };
         let limit = result_limit(query);
-        let summaries = match self.ranked(query, eligible, &mut timer, limit) {
+        let summaries = match self.ranked(query, |doc| eligible(doc.id), &mut timer, limit) {
             Some((ranked, _)) => ranked
                 .into_iter()
                 .map(|(ord, score)| self.summary(ord, score))
@@ -522,14 +532,24 @@ impl SearchIndex {
         (summaries, timing)
     }
 
+    #[cfg(feature = "profile")]
     fn search_eligible_timed<T: PhaseTimer>(
         &self,
         query: &Query,
         eligible: impl Fn(&str) -> bool,
         timer: &mut T,
     ) -> Vec<Hit> {
+        self.search_eligible_docs(query, |doc| eligible(doc.id), timer)
+    }
+
+    fn search_eligible_docs<T: PhaseTimer>(
+        &self,
+        query: &Query,
+        accept: impl Fn(DocView<'_>) -> bool,
+        timer: &mut T,
+    ) -> Vec<Hit> {
         let limit = result_limit(query);
-        let Some((ranked, matcher)) = self.ranked(query, eligible, timer, limit) else {
+        let Some((ranked, matcher)) = self.ranked(query, accept, timer, limit) else {
             return Vec::new();
         };
         ranked
@@ -543,7 +563,7 @@ impl SearchIndex {
     fn ranked<T: PhaseTimer>(
         &self,
         query: &Query,
-        eligible: impl Fn(&str) -> bool,
+        accept: impl Fn(DocView<'_>) -> bool,
         timer: &mut T,
         limit: usize,
     ) -> Option<(Vec<(u32, f32)>, Matcher)> {
@@ -556,7 +576,7 @@ impl SearchIndex {
             }
             timer.enter(Phase::Scoring);
             let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
-                .filter(|&i| eligible(&self.meta.docs[i].id) && self.passes(i, &query.filters))
+                .filter(|&i| accept(self.view(i)) && self.passes(i, &query.filters))
                 .map(|i| {
                     (
                         normalize(&self.meta.docs[i].title),
@@ -579,13 +599,27 @@ impl SearchIndex {
 
         let (mut scored, matcher) = self.score_docs(
             &qtokens,
-            |doc| eligible(&self.meta.docs[doc].id) && self.passes(doc, &query.filters),
+            |doc| accept(self.view(doc)) && self.passes(doc, &query.filters),
             timer,
         )?;
         timer.enter(Phase::Sort);
         sort_scored(&mut scored, &self.meta.docs, &self.doc_ranks, limit);
         timer.exit(Phase::Sort);
         Some((scored, matcher))
+    }
+
+    fn view(&self, ord: usize) -> DocView<'_> {
+        let d = &self.meta.docs[ord];
+        DocView {
+            id: &d.id,
+            title: &d.title,
+            kind: &d.kind,
+            source: &d.source,
+            section: &d.section,
+            facets: &d.facets,
+            chapter: &d.chapter,
+            anchor: &d.anchor,
+        }
     }
 
     fn summary(&self, ord: u32, score: f32) -> HitSummary {

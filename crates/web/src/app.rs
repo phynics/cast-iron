@@ -509,9 +509,11 @@ fn RouteView() -> impl IntoView {
         Route::Books => view! { <Books /> }.into_any(),
         Route::BooksManage => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
-        Route::BookChapter { source, chapter } => {
-            view! { <ChapterView source chapter /> }.into_any()
-        }
+        Route::BookChapter {
+            source,
+            chapter,
+            anchor,
+        } => view! { <ChapterView source chapter anchor=anchor /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
@@ -573,7 +575,8 @@ mod tests {
             &Route::Books,
             &Route::BookChapter {
                 source: "core-rulebook".into(),
-                chapter: "combat".into()
+                chapter: "combat".into(),
+                anchor: None
             }
         ));
         assert!(!in_section(&Route::Home, &Route::Books));
