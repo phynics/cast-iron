@@ -186,15 +186,16 @@ impl RevisionView {
         visible: impl Fn(&EntryId) -> bool,
     ) -> Relations {
         let rows = self.rows(&visible);
+        // Only a single revision in force substitutes. A collision keeps the printed base and
+        // its prerequisites, exactly as the page keeps the original text under its notice.
         let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<String>)>> = self
-            .by_revision
-            .values()
-            .filter(|active| active.is_revised())
-            .map(|active| {
-                (
-                    active.base.clone(),
-                    relations.prerequisite_edges(&active.revision),
-                )
+            .by_base
+            .keys()
+            .filter_map(|base| {
+                let active = self.in_force(base)?;
+                active
+                    .is_revised()
+                    .then(|| (base.clone(), relations.prerequisite_edges(&active.revision)))
             })
             .collect();
         // A book that is inactive is not part of the effective graph either, so a chain never
@@ -629,6 +630,35 @@ mod tests {
                 .targets_of(&id("c/revision"), RelationKind::Prerequisite)
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn a_collision_keeps_the_printed_prerequisites() {
+        let all = graph(&[
+            ("c/base", RelationKind::Prerequisite, "c/old", None),
+            ("c/revision-a", RelationKind::Prerequisite, "c/new-a", None),
+            ("c/revision-b", RelationKind::Prerequisite, "c/new-b", None),
+            ("c/revision-a", RelationKind::Revision, "c/base", None),
+            ("c/revision-b", RelationKind::Revision, "c/base", None),
+        ]);
+        let state =
+            EffectiveRevisions::build(&all, |_| true, |_| Some("book".into()), |_| None, |_| true);
+        assert!(state.view().is_collision(&id("c/base")));
+        assert!(state.view().in_force(&id("c/base")).is_none());
+        let effective = state.graph();
+        // Two revisions in force mean no substitution: the base keeps the edges it printed and
+        // neither revision supplies prerequisites.
+        assert_eq!(
+            effective.targets_of(&id("c/base"), RelationKind::Prerequisite),
+            [&id("c/old")]
+        );
+        for revision in ["c/revision-a", "c/revision-b"] {
+            assert!(
+                effective
+                    .targets_of(&id(revision), RelationKind::Prerequisite)
+                    .is_empty()
+            );
+        }
     }
 
     #[test]
