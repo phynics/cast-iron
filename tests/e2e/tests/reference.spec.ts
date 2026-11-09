@@ -559,6 +559,15 @@ test("Cross-reference navigation works: deep link opens an entry in a fresh page
   await expect(fresh.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });
 
+test("An aliased entry id opens its canonical entry in place", async ({ page }) => {
+  // The corpus dropped this duplicate; its id still resolves to the printed entry.
+  const target = corpus.entries.get("ref/tech-misc/battery");
+  expect(target, "the alias target is in the library").toBeTruthy();
+  await page.goto("#/entry/ref/tech-misc/silverdisk");
+  await expect(page.getByRole("heading", { level: 1, name: target!.title })).toBeVisible();
+  await expect(page).toHaveURL(/#\/entry\/ref\/tech-misc\/battery$/);
+});
+
 test("Entry reading puts rules first and exposes requirement links", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   for (const kind of ["class", "race", "feat"]) {
