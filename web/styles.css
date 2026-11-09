@@ -3076,6 +3076,59 @@ main,
   font-weight: 400;
 }
 
+/* A chapter page reads at the page width, not in the narrower contents column. First-level
+   sections are headings; deeper levels are plain, indented lists with no disclosure. */
+.chapter-page > h1 {
+  margin-bottom: var(--space-3);
+}
+
+.chapter-sections {
+  margin-top: var(--space-5);
+}
+
+.chapter-section + .chapter-section {
+  margin-top: var(--space-5);
+}
+
+.chapter-section > h2 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--step-1);
+  font-weight: 600;
+}
+
+.chapter-section > h2 a,
+.chapter-list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+
+.chapter-list {
+  list-style: none;
+  margin: 0;
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--line);
+}
+
+.chapter-list > li {
+  padding: 0 0 var(--space-1) var(--space-3);
+}
+
+.chapter-list > li > span {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+
+.chapter-list .chapter-list {
+  margin-top: var(--space-1);
+}
+
+.chapter-own {
+  margin: 0 0 var(--space-4);
+}
+
 .colophon {
   max-width: 48rem;
   margin-top: var(--space-6);

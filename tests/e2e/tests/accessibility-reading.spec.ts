@@ -5,7 +5,7 @@ import {
   bodyHeadings,
   bodyLinks,
   bookTrees,
-  bookEntryOrder,
+  bookReadingOrder,
   firstEntry,
   letterId,
   openBookEntry,
@@ -17,14 +17,15 @@ import {
  * A placed rule article long enough for the keyboard walk: more than ten headings, at
  * least one typed cross-reference, and a following entry in its book. The ids and chapter
  * structure change with the corpus, so the test asks the compiled library for the article
- * instead of naming one.
+ * instead of naming one. Take the shortest such article: the walk visits every section, and
+ * the longest subsystem took several minutes under WebKit.
  */
 function readingTarget() {
   const entries = [...loadCorpus().entries.values()];
   const books = bookTrees();
   const place = new Map<string, { book: (typeof books)[number]; order: string[] }>();
   for (const book of books) {
-    const order = bookEntryOrder(book);
+    const order = bookReadingOrder(book);
     for (const id of order) if (!place.has(id)) place.set(id, { book, order });
   }
   const candidates = entries
@@ -34,7 +35,7 @@ function readingTarget() {
       bodyLinks(entry.body).length > 0 &&
       place.has(entry.id) &&
       place.get(entry.id)!.order.indexOf(entry.id) < place.get(entry.id)!.order.length - 1)
-    .sort((a, b) => bodyHeadings(b).length - bodyHeadings(a).length);
+    .sort((a, b) => bodyHeadings(a).length - bodyHeadings(b).length);
   const target = candidates[0];
   if (!target) throw new Error("The compiled corpus has no placed rule article for the keyboard reading test.");
   return { target, book: place.get(target.id)!.book };
@@ -43,9 +44,10 @@ function readingTarget() {
 test("Keyboard reading traverses a complete subsystem offline and preserves book history", async ({ page, context, server }) => {
   // The walk visits every contents stop, then goes forward and back in the book. On the
   // canonical library it takes about 100-115 s on a quiet machine and up to about 200 s under
-  // load, so the 120 s default is too tight.
+  // load; the shortest candidate still walks more than ten sections, and the ceiling keeps
+  // headroom for the chapter page that now precedes the article.
   // The per-step assertions still fail fast; only the whole-walk ceiling moves.
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   await installLibrary(page); await waitControlled(page); await goOffline(context, server);
   const { target, book } = readingTarget();
   expect(pathToEntry(book.chapters, target.id)).not.toBeNull();

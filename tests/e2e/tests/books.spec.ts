@@ -1,5 +1,15 @@
 import { test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, bookTrees, CONTENTS_HIDDEN_KINDS, installLibrary, listedChapterTitles, openBookGroups } from "./helpers";
+import {
+  bookOwners,
+  bookReadingOrder,
+  bookTrees,
+  CONTENTS_HIDDEN_KINDS,
+  installLibrary,
+  listedChapterTitles,
+  listedChapters,
+  openBookGroups,
+  searchFor,
+} from "./helpers";
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
@@ -343,6 +353,128 @@ test("A book page opens with its title, a meta line and the contents, with no br
   expect(await review.evaluate((el) => getComputedStyle(el).fontWeight)).toBe("400");
 });
 
+test("A Contents chapter opens its own page with a Books › Book › Chapter breadcrumb, and Back restores the position", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
+  await page.goto(`#/browse/book/${core.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
+  await expect(tree).toBeVisible();
+  const chapters = listedChapters(book);
+  const last = chapters[chapters.length - 1];
+  const row = tree.locator(".toc-top > li").last();
+  const link = row.locator(":scope > .toc-row a, :scope > a").first();
+  await expect(link).toHaveAccessibleName(last.title);
+  await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(core.id)}/[^/]+$`));
+
+  await row.scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollBy(0, 40));
+  const before = await page.evaluate(() => Math.round(window.scrollY));
+  expect(before).toBeGreaterThan(200);
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  const chapterUrl = new URL(page.url()).hash;
+  const href = (await link.getAttribute("href"))!;
+  // Programmatic activation keeps the measured offset: Playwright would first scroll the link
+  // into view again, and that extra scroll is what Back would then restore.
+  await link.evaluate((element) => (element as HTMLAnchorElement).click());
+  await expect(page).toHaveURL(new RegExp(`${escape(href)}$`));
+  const heading = page.getByTestId("chapter-title");
+  await expect(heading).toHaveText(last.title);
+  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(crumbs.getByRole("link", { name: "Books", exact: true })).toHaveAttribute("href", "#/books");
+  await expect(crumbs.getByRole("link", { name: core.title, exact: true })).toHaveAttribute(
+    "href",
+    `#/browse/book/${core.id}`,
+  );
+  await expect(crumbs.locator('[aria-current="page"]')).toHaveText(last.title);
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
+  await expect(page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) })).toBeVisible();
+  await expect
+    .poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before), { timeout: 5000 })
+    .toBeLessThanOrEqual(2);
+});
+
+test("A chapter page opens an entry, and Next continues the book before Back returns to the chapter", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
+  const first = listedChapters(book)[0];
+  const order = bookReadingOrder(book);
+  const entryId = order.find((id, at) => {
+    if (at >= order.length - 1) return false;
+    const path = pathOfEntry(book, id);
+    return path !== null && first.path.every((part, depth) => path[depth] === part);
+  });
+  expect(entryId, "the first chapter has an entry with a next entry").toBeTruthy();
+  const entry = corpus.entries.get(entryId!)!;
+
+  await page.goto(`#/browse/book/${core.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
+  const row = tree.locator(".toc-top > li").first();
+  await row.locator(":scope > .toc-row a, :scope > a").first().click();
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  await expect(page.getByTestId("chapter-title")).toHaveText(first.title);
+  const chapterUrl = new URL(page.url()).hash;
+
+  const entryLink = page.locator(`main a[href^="#/entry/${entryId}"]`).first();
+  await expect(entryLink).toBeVisible();
+  await entryLink.click();
+  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
+  await expect(page.getByTestId("book-bar")).toBeVisible();
+  // Back from the entry returns to the chapter page it came from.
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+
+  // Open the same entry again and step once; two Backs walk the entry and the chapter back.
+  await expect(entryLink).toBeVisible();
+  await entryLink.click();
+  const next = page.locator('.book-steps a[rel="next"]');
+  await expect(next).toBeVisible();
+  const nextTitle = (await next.locator(".step-title").innerText()).trim();
+  await next.click();
+  await expect(page.getByRole("heading", { level: 1, name: nextTitle, exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+});
+
+test("An entry opened from search outside the first active book shows no previous or next", async ({ page }) => {
+  // The default selection keeps every book active, so the first book in book order is the
+  // fallback context. An entry that only another book places has no reading footer. Stay in the
+  // Rulebooks tier, which search opens by default, so the hit is visible.
+  const first = bookTrees()[0];
+  const otherBook = sources.find(
+    (source) => source.category === "RPG" && source.id !== first.source && !source.third_party,
+  )!;
+  const placed = bookOwners();
+  const other = [...corpus.entries.values()]
+    .find((entry) => placed.get(entry.id) === otherBook.id && entry.title.trim().length > 3)!;
+  expect(other, "the compiled corpus has an entry outside the first book").toBeTruthy();
+  await searchFor(page, other.title);
+  const result = page.locator(`.results a[href^="#/entry/${other.id}"]`).first();
+  await expect(result).toBeVisible();
+  await result.click();
+  await expect(page.getByRole("heading", { level: 1, name: other.title, exact: true })).toBeVisible();
+  await expect(page.locator(".book-bar")).toHaveCount(0);
+  await expect(page.locator(".book-steps a")).toHaveCount(0);
+});
+
+function pathOfEntry(book: ReturnType<typeof bookTrees>[number], id: string): number[] | null {
+  const walk = (nodes: any[], base: number[]): number[] | null => {
+    for (const [index, node] of nodes.entries()) {
+      const path = [...base, index];
+      if (node.entry === id) return path;
+      const found = walk(node.children ?? [], path);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(book.chapters, []);
+}
+
 test("An inactive book shows one off line and no toggle; turning it on removes both", async ({ page }) => {
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   const source = sources.find((row) => row.id === book.source)!;
@@ -493,7 +625,7 @@ test("Top-level chapter rows show a dotted leader, hidden in a narrow contents c
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
   await expect(tree).toBeVisible();
 
-  // A chapter that is itself an entry keeps its link; the leader and the count join it.
+  // Every top-level row opens its chapter page; the leader and the count join the link.
   const row = tree.locator(".toc-top > li > .toc-row").filter({ has: page.locator("a") }).first();
   const link = row.locator("a");
   const title = (await link.locator(".toc-title").innerText()).trim();
@@ -516,7 +648,7 @@ test("Top-level chapter rows show a dotted leader, hidden in a narrow contents c
   await expect(leader).toBeHidden();
   expect(await leader.evaluate((el) => getComputedStyle(el).display)).toBe("none");
   expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await expect(link).toHaveAttribute("href", /^#\/entry\//);
+  await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(core.id)}/[^/]+$`));
   await expect(link).toHaveAccessibleName(title);
 });
 
