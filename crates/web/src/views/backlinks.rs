@@ -255,6 +255,7 @@ fn row_view(
         let href = Route::Entry {
             id: current.clone(),
             anchor: Some(anchor),
+            book: None,
         }
         .href();
         view! { <a class="muted backlink-anchor" href=href>{format!("at {text}")}</a> }

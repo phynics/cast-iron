@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookEntryOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openBookEntry, waitControlled } from "./helpers";
+import { bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openBookEntry, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -174,7 +174,7 @@ test("a book bar steps from a contents entry through the book, and Back returns"
   // whose book bar follows that book (the first placement).
   let found: { book: ReturnType<typeof bookTrees>[number]; order: string[]; index: number } | undefined;
   for (const book of bookTrees()) {
-    const order = bookEntryOrder(book);
+    const order = bookReadingOrder(book);
     for (let index = 1; index < order.length - 1; index++) {
       const entry = corpus.entries.get(order[index]);
       if (entry?.kind !== "rule") continue;
@@ -202,7 +202,7 @@ test("a book bar steps from a contents entry through the book, and Back returns"
   await expect(page.getByRole("heading", { level: 1, name: next.title, exact: true })).toBeVisible();
   await expect(page.locator('.book-steps a[rel="prev"]')).toContainText(current.title);
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}$`));
+  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}(\\?book=[^&]+)?$`));
   await expect(page.getByRole("heading", { level: 1, name: current.title, exact: true })).toBeVisible();
 
   // Previous walks the other way, and Back returns to this entry again.
@@ -212,7 +212,7 @@ test("a book bar steps from a contents entry through the book, and Back returns"
   await expect(page.getByRole("heading", { level: 1, name: previous.title, exact: true })).toBeVisible();
   await expect(page.locator('.book-steps a[rel="next"]')).toContainText(current.title);
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}$`));
+  await expect(page).toHaveURL(new RegExp(`#/entry/${current.id.replaceAll("/", "\\/")}(\\?book=[^&]+)?$`));
   await expect(page.getByRole("heading", { level: 1, name: current.title, exact: true })).toBeVisible();
 
   // The neighbours are adjacent in the contents order, which is what the bar stepped through.

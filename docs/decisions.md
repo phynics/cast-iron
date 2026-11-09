@@ -1265,3 +1265,47 @@ the checker and the schema.
   `publication_date` and before `third_party`.
 - **No `SCHEMA_VERSION` bump.** The fields are additive optional `SourceInfo` members, absent
   from an older catalog, so schema 4 still reads them. The grouping UI is a later change.
+
+## Chapter pages and their address, 2026-11-09
+
+Refs [#161](https://github.com/phynics/cast-iron/issues/161). Owner decisions recorded in the
+issue on 2026-11-09.
+
+- **A chapter's id is its anchor, else a slug of its printed title.** The base comes from the
+  corpus node (`BookNode::anchor` or `chapter_base`), never from the row's index. A title with
+  no ASCII letter or digit gets `chapter`. If two displayed chapters claim the same base, the
+  first in Contents order keeps it and the later rows take `-2`, `-3`, and so on
+  (`graph::chapter_ids`). Moving a chapter in the tree does not rename it unless it changes a
+  collision.
+- **The page is `#/browse/book/<source>/<chapter>`.** The id is one percent-encoded path
+  segment; `#/books/<source>/<chapter>`, the shape in the issue, parses to the same route and
+  the address bar does not rewrite it. The old `#/browse/book/<source>?c=3.2` address still
+  parses to the book page and still marks the row it names. The book page remains
+  `#/browse/book/<source>`.
+- **The chapter is a full-width reading page.** The breadcrumb is Books › Book › Chapter. The
+  chapter's children are `h2` headings; deeper nodes are plain indented lists. Nothing on the
+  page is a disclosure. A chapter that is itself an entry offers one link to that entry.
+- **Chapter pages list what Contents lists.** The page and its ids come from `chapter_rows`,
+  which starts from `contents_roots`, so the kinds that Contents leaves out (feats, spells,
+  items, class options, and every other kind with a list page) are absent here too.
+
+## Reading context for previous and next, 2026-11-09
+
+Refs [#161](https://github.com/phynics/cast-iron/issues/161). Owner decisions recorded in the
+issue on 2026-11-09.
+
+- **The context is a URL parameter.** An entry opened from a book page or a chapter page carries
+  `?book=<source>` on its entry route, next to the existing `?a=<anchor>`. It survives reload
+  and shows the book the reader came from, not hidden state.
+- **Without a context the first active book in book order wins.** That book is the candidate
+  whether or not it places the entry; the footer appears only if its Contents lists the entry.
+  A search hit or a direct address from another book therefore shows no reading links, while a
+  search hit that the first active book does place follows that book.
+- **Previous and next follow Contents, not the raw tree.** `views::book::reading_order` flattens
+  only the entries Contents shows and `reading_neighbors` takes the neighbours from that list.
+  A hidden kind is skipped. At a chapter end the walk continues into the next chapter's first
+  entry and the footer names that chapter (`Next in {Book} · {Chapter}: {title}`); the reverse
+  crossing names the previous chapter. The first and last visible entries of a book have one
+  side only.
+- **The book and chapter title stay the reader's.** Titles use `chapter_label` and
+  `section_label`, so a display rename never changes an id or a URL.

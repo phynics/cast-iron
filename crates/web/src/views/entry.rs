@@ -249,7 +249,7 @@ fn book_title(library: &Library, entry: &RuleEntry) -> String {
 }
 
 #[component]
-pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
+pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl IntoView {
     let library = use_library();
     // An old bookmark or link resolves in one step. The address bar becomes canonical without
     // a Back entry; the fetch below uses the canonical id immediately.
@@ -266,6 +266,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
         let route = Route::Entry {
             id: id.clone(),
             anchor: anchor.clone(),
+            book: book.clone(),
         };
         Effect::new(move |_| route::replace(&route));
     }
@@ -413,6 +414,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                         revision=loaded.revision.clone()
                         collision=loaded.collision.clone()
                         anchor=anchor.clone()
+                        book=book.clone()
                     />
                 }.into_any(),
             })}
@@ -429,6 +431,7 @@ fn EntryView(
     revision: Option<RevisionPage>,
     collision: Vec<CollisionRow>,
     anchor: Option<String>,
+    book: Option<String>,
 ) -> impl IntoView {
     set_title(&entry.title);
     {
@@ -561,6 +564,7 @@ fn EntryView(
             let href = Route::Entry {
                 id: reference.target.clone(),
                 anchor: reference.anchor.clone(),
+                book: None,
             }
             .href();
             view! {
@@ -814,7 +818,7 @@ fn EntryView(
         <ArticleContents body=contents_body id=entry.id.clone() />
         <RichBody body=rendered_body anchor=anchor changed=changed_labels />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
-        <BookPosition library=library.clone() id=entry.id.clone() />
+        <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
         <aside class="entry-refs" aria-label="Entry links">
             {has_references.then(|| view! {
                 <section class="ref-block" aria-labelledby="references-heading">

@@ -96,6 +96,7 @@ fn inline(item: &Inline) -> AnyView {
             let href = Route::Entry {
                 id: target.clone(),
                 anchor: anchor.clone(),
+                book: None,
             }
             .href();
             view! { <a class="xref" href=href>{inlines(c)}</a> }.into_any()

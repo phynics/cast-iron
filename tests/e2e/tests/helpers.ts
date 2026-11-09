@@ -651,21 +651,65 @@ export const CONTENTS_LEAVES_OUT_LINKED_KINDS = true;
 /** The kinds Contents leaves out right now. */
 export const CONTENTS_HIDDEN_KINDS: Set<string> = CONTENTS_LEAVES_OUT_LINKED_KINDS ? LINKED_KINDS : new Set();
 
+/** Mirror of `shows_in_contents` in `views/book.rs`. */
+function shownInContents(node: TocNode, kinds: Map<string, string>): boolean {
+  const ids = (n: TocNode): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(ids)];
+  const all = ids(node);
+  return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
+}
+
+/** Mirror of `chapter_label` in `views/book.rs`. */
+function chapterLabel(title: string): string {
+  return title === "New entries (page order)" ? "More from this book" : title;
+}
+
+/** The top-level rows of Contents with their real tree paths, as `chapter_rows` builds them. */
+export function listedChapters(book: BookTree): { path: number[]; node: TocNode; title: string }[] {
+  const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
+  const listed = book.chapters
+    .map((node, index) => ({ path: [index], node }))
+    .filter((row) => shownInContents(row.node, kinds));
+  // A book whose only listed chapter is the catch-all shows that chapter's rows at the top.
+  if (listed.length === 1 && listed[0].node.title === "New entries (page order)" && !listed[0].node.entry) {
+    return (listed[0].node.children ?? [])
+      .map((node, index) => ({ path: [listed[0].path[0], index], node }))
+      .filter((row) => shownInContents(row.node, kinds))
+      .map((row) => ({ ...row, title: chapterLabel(row.node.title) }));
+  }
+  return listed.map((row) => ({ ...row, title: chapterLabel(row.node.title) }));
+}
+
+/** A chapter's permanent id: its anchor, else a slug of its printed title, with collision suffixes. */
+export function chapterIds(book: BookTree): { path: number[]; id: string }[] {
+  const used = new Set<string>();
+  return listedChapters(book).map(({ path, node }) => {
+    const anchor = node.anchor && node.anchor.length > 0 ? node.anchor : undefined;
+    const slug = slugify(node.title);
+    const base = anchor ?? (slug || "chapter");
+    let id = base;
+    for (let suffix = 2; used.has(id); suffix++) id = `${base}-${suffix}`;
+    used.add(id);
+    return { path, id };
+  });
+}
+
 /** The titles the top level of Contents shows, as the page writes them. */
 export function listedChapterTitles(book: BookTree): string[] {
+  return listedChapters(book).map((row) => row.title);
+}
+
+/** Entries of a book in Contents reading order: hidden kinds are skipped, as the reader does. */
+export function bookReadingOrder(book: BookTree): string[] {
   const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
-  const ids = (node: TocNode): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(ids)];
-  const shown = (node: TocNode) => {
-    const all = ids(node);
-    return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
+  const order: string[] = [];
+  const walk = (nodes: TocNode[]) => {
+    for (const node of nodes) {
+      if (node.entry && !CONTENTS_HIDDEN_KINDS.has(kinds.get(node.entry) as string)) order.push(node.entry);
+      walk(node.children ?? []);
+    }
   };
-  const listed = book.chapters.filter(shown);
-  const rename = (title: string) => (title === "New entries (page order)" ? "More from this book" : title);
-  // A book whose only listed chapter is the catch-all shows that chapter's rows at the top.
-  if (listed.length === 1 && listed[0].title === "New entries (page order)" && !listed[0].entry) {
-    return (listed[0].children ?? []).filter(shown).map((node) => rename(node.title));
-  }
-  return listed.map((chapter) => rename(chapter.title));
+  walk(book.chapters);
+  return order;
 }
 
 /** The chapter path of an entry in a book tree, or null when the book does not place it. */
@@ -729,11 +773,23 @@ export async function openBookEntry(
 ) {
   const path = pathToEntry(book.chapters, entryId);
   if (!path) throw new Error(`${book.title} does not place ${entryId}.`);
+  const chapter = listedChapters(book).find((row) => pathStartsWith(path, row.path));
+  if (!chapter) throw new Error(`${book.title} has no listed chapter for ${entryId}.`);
   const activate = (locator: import("@playwright/test").Locator) =>
     keys ? locator.press("Enter") : locator.click();
   await openBookContents(page, book.title);
-  const id = tocId(path);
-  await activate(page.locator(`a#${id}`));
+  // A top-level Contents row opens its chapter page; the entry is one of its links. This is
+  // also the navigation a reader takes, so the test never invents an entry URL.
+  await activate(page.locator(`a#${tocId(chapter.path)}`));
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  const link = page.locator(`main a[href^="#/entry/${entryId}"]`).first();
+  await expect(link).toBeVisible();
+  await activate(link);
+}
+
+/** True when `path` starts with `prefix`. */
+export function pathStartsWith(path: number[], prefix: number[]): boolean {
+  return prefix.length <= path.length && prefix.every((part, index) => path[index] === part);
 }
 
 /**

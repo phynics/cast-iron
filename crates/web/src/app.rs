@@ -11,7 +11,7 @@ use crate::theme::{self, Theme};
 use crate::views::{
     self,
     active_books::ActiveBooks,
-    book::{BookView, same_book},
+    book::{BookView, ChapterView, same_book},
     browse::{Books, BrowseKind, BrowseSource, FeatBrowseKind},
     chains::FeatChains,
     entry::Entry,
@@ -360,7 +360,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksManage | Route::Book { .. },
+            Route::Books | Route::BooksManage | Route::Book { .. } | Route::BookChapter { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -432,7 +432,7 @@ fn RouteView() -> impl IntoView {
         // a rebuild after each toggle would drop focus and the scroll position.
         let selection = if matches!(
             route,
-            Route::Books | Route::BooksManage | Route::Book { .. }
+            Route::Books | Route::BooksManage | Route::Book { .. } | Route::BookChapter { .. }
         ) {
             0
         } else {
@@ -459,10 +459,13 @@ fn RouteView() -> impl IntoView {
         Route::Books => view! { <Books /> }.into_any(),
         Route::BooksManage => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
+        Route::BookChapter { source, chapter } => {
+            view! { <ChapterView source chapter /> }.into_any()
+        }
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
-        Route::Entry { id, anchor } => view! { <Entry id anchor /> }.into_any(),
+        Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
         Route::Bookmarks | Route::Collection(_) => view! { <Home /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
@@ -514,6 +517,13 @@ mod tests {
             &Route::Book {
                 source: "core-rulebook".into(),
                 chapter: Some(vec![1])
+            }
+        ));
+        assert!(in_section(
+            &Route::Books,
+            &Route::BookChapter {
+                source: "core-rulebook".into(),
+                chapter: "combat".into()
             }
         ));
         assert!(!in_section(&Route::Home, &Route::Books));
