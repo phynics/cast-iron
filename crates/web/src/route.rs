@@ -24,6 +24,8 @@
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
+use crate::book_source::aliased_book_source;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     Home,
@@ -221,7 +223,9 @@ impl Route {
                     }
                 }),
             ["browse", "source", id] => match percent_decode(id) {
-                Some(id) if !id.is_empty() => Route::BrowseSource(id),
+                Some(id) if !id.is_empty() => {
+                    Route::BrowseSource(aliased_book_source(&id).to_string())
+                }
                 _ => not_found(),
             },
             // `active` is the old address of the page; both parse to the same route.
@@ -230,7 +234,7 @@ impl Route {
             ["books"] | ["browse", "books"] => Route::Books,
             ["browse", "book", id] => match percent_decode(id) {
                 Some(source) if !source.is_empty() => Route::Book {
-                    source,
+                    source: aliased_book_source(&source).to_string(),
                     chapter: query
                         .and_then(|q| query_pairs(q).find(|(k, _)| k == "c"))
                         .and_then(|(_, v)| parse_chapter_path(&v)),
@@ -243,7 +247,7 @@ impl Route {
                 match (percent_decode(source), percent_decode(chapter)) {
                     (Some(source), Some(chapter)) if !source.is_empty() && !chapter.is_empty() => {
                         Route::BookChapter {
-                            source,
+                            source: aliased_book_source(&source).to_string(),
                             chapter,
                             anchor: query
                                 .and_then(|q| query_pairs(q).find(|(k, _)| k == "a"))
@@ -283,7 +287,7 @@ impl Route {
                     .filter(|v| !v.is_empty());
                 let book = query
                     .and_then(|q| query_pairs(q).find(|(k, _)| k == "book"))
-                    .map(|(_, v)| v)
+                    .map(|(_, v)| aliased_book_source(&v).to_string())
                     .filter(|v| !v.is_empty());
                 Route::Entry { id, anchor, book }
             }
@@ -1106,6 +1110,57 @@ mod tests {
             Route::parse("#/browse/book"),
             Route::NotFound("#/browse/book".into())
         );
+    }
+
+    #[test]
+    fn a_retired_book_id_opens_the_surviving_book() {
+        // The corpus once exported the GameMastery Guide under two book ids. The old
+        // address keeps opening the one book record.
+        assert_eq!(
+            Route::parse("#/browse/book/gamemastery-guide"),
+            Route::Book {
+                source: "game-mastery-guide".into(),
+                chapter: None
+            }
+        );
+        assert_eq!(
+            Route::parse("#/browse/book/gamemastery-guide?c=7.1"),
+            Route::Book {
+                source: "game-mastery-guide".into(),
+                chapter: Some(vec![6, 0])
+            }
+        );
+        assert_eq!(
+            Route::parse("#/books/gamemastery-guide/combat"),
+            Route::BookChapter {
+                source: "game-mastery-guide".into(),
+                chapter: "combat".into(),
+                anchor: None
+            }
+        );
+        assert_eq!(
+            Route::parse("#/browse/source/gamemastery-guide"),
+            Route::BrowseSource("game-mastery-guide".into())
+        );
+        assert_eq!(
+            Route::parse("#/entry/ref/rule/getting-started?book=gamemastery-guide"),
+            Route::Entry {
+                id: EntryId::parse("ref/rule/getting-started").unwrap(),
+                anchor: None,
+                book: Some("game-mastery-guide".into())
+            }
+        );
+        // The surviving id and every other book id are unchanged.
+        for source in ["game-mastery-guide", "core-rulebook"] {
+            assert_eq!(
+                Route::parse(&format!("#/browse/book/{source}")),
+                Route::Book {
+                    source: source.into(),
+                    chapter: None
+                },
+                "{source}"
+            );
+        }
     }
 
     #[test]

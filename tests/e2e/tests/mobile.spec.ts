@@ -1,5 +1,5 @@
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
-import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, searchIcon, seedHome, waitResults } from "./helpers";
+import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, quickGroup, searchIcon, seedHome, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
 // Every screen names a target the compiled corpus actually holds; the two libraries differ
@@ -441,32 +441,44 @@ const homeSpells = entries.filter((entry) => entry.kind === "spell")
   .filter((entry, i, all) => all.findIndex((c) => c.title === entry.title) === i)
   .map((entry) => ({ id: entry.id as string, title: entry.title as string }));
 
-installedTest("Home at 390 px: Categories starts in the first viewport with no stars and few recents", async ({ page }) => {
+installedTest("Home at 390 px: Categories starts in the first viewport with no stars or recent history", async ({ page }) => {
   await installLibrary(page);
-  await seedHome(page, { recents: homeSpells.slice(0, 3) });
   const top = await page.locator("#by-kind").evaluate((el) => el.getBoundingClientRect().top);
   expect(top).toBeLessThan(page.viewportSize()!.height);
   await expect(page.getByRole("heading", { name: "Starred" })).toHaveCount(0);
-  await expect(page.locator(".home-recent > li")).toHaveCount(3);
+  await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
 });
 
-installedTest("Home at 390 px: twelve recents take five rows and a Show more control", async ({ page }) => {
+installedTest("Quick search at 390 px: recently viewed rows are full-size touch targets", async ({ page }) => {
+  await installLibrary(page);
+  await seedHome(page, { recents: homeSpells.slice(0, 3) });
+  await openQuickSearch(page);
+  const viewed = quickGroup(page, "Recently viewed");
+  await expect(viewed).toHaveCount(3);
+  const viewport = page.viewportSize()!;
+  for (const row of await viewed.all()) {
+    const box = (await row.boundingBox())!;
+    expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  }
+  const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.keyboard.press("Escape");
+});
+
+installedTest("Quick search at 390 px: twelve recents take five rows and a Show more control", async ({ page }) => {
   await installLibrary(page);
   await seedHome(page, { recents: homeSpells.slice(0, 12) });
-  const rows = page.locator(".home-recent > li");
-  await expect(rows).toHaveCount(5);
+  await openQuickSearch(page);
+  const viewed = quickGroup(page, "Recently viewed");
+  await expect(viewed).toHaveCount(5);
   const more = page.getByRole("button", { name: /^Show more/ });
   await expect(more).toBeVisible();
-  const section = (await page.locator("section[aria-labelledby=home-recent]").boundingBox())!;
-  const last = (await rows.last().boundingBox())!;
+  const last = (await viewed.last().boundingBox())!;
   const moreBox = (await more.boundingBox())!;
-  // Heading, five one-line rows and the control: no taller than that plus a little spacing.
-  expect(section.height).toBeLessThan(44 + 5 * 52 + 44 + 24);
   expect(moreBox.y).toBeGreaterThan(last.y);
-  for (const row of await rows.all()) {
-    const title = row.locator(".home-row-title");
-    const lineHeight = await title.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
-    expect((await title.boundingBox())!.height).toBeLessThanOrEqual(lineHeight + 1);
+  for (const row of await viewed.all()) {
     expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);

@@ -67,6 +67,8 @@ PAGE_OVERRIDES: dict[str, int] = {
     "ref/family/dragon-primal-crystal": 98,
     "ref/family/dragon-primal-magma": 100,
     "ref/family/dragon-primal-umbral": 102,
+    # Appendix 3 creature subtype heading page.
+    "ref/subtype/grippli": 307,
     # Source lines that name another page. Akata prints on 23, not 22; the
     # giant amoeba prints on 24, not 23; the giant mosquito source has a
     # duplicated digit.
@@ -353,14 +355,23 @@ SYNTHESIZED_GROUPS: list[tuple[str, list[str]]] = [
     ),
 ]
 
+# The printed Appendix 3 Glossary universal monster rules and creature
+# subtypes. Only the entries with no other route into the tree move here; the
+# remaining subtype records stay residual because a placed monster links to
+# them.
+UNIVERSAL_MONSTER_RULES = [
+    "ref/umr/lycanthropic-empathy",
+]
+MONSTER_SUBTYPES = [
+    "ref/subtype/grippli",
+]
+
 # The residual chapter holds only entries whose printed home is an appendix
 # that this book tree does not carry, plus cross-book hubs.
 RESIDUAL_ENTRIES = {
     "ref/template/entropic",
     "ref/template/resolute",
     "ref/rule/step-2-target-statistics",
-    "ref/umr/lycanthropic-empathy",
-    "ref/rule/umr-lycanthropic-empathy/lycanthropic-empathy",
     "ref/subtype/nightshade",
     "ref/subtype/aeon",
     "ref/subtype/agathion",
@@ -384,7 +395,6 @@ RESIDUAL_ENTRIES = {
     "ref/subtype/giant",
     "ref/subtype/gnome",
     "ref/subtype/good",
-    "ref/subtype/grippli",
     "ref/subtype/incorporeal",
     "ref/subtype/inevitable",
     "ref/subtype/lawful",
@@ -439,6 +449,20 @@ def ensure_group(monsters: dict, title: str) -> dict:
             return child
     node = {"title": title, "children": []}
     attach(monsters, node)
+    return node
+
+
+def ensure_top_chapter(book: dict, title: str) -> dict:
+    for node in book["chapters"]:
+        if node["title"] == title:
+            return node
+    residual = next(
+        index
+        for index, node in enumerate(book["chapters"])
+        if node["title"] == "New entries (page order)"
+    )
+    node = {"title": title, "children": []}
+    book["chapters"].insert(residual, node)
     return node
 
 
@@ -571,6 +595,14 @@ def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None,
     # 9. Monsters A to Z in printed page order.  A stable sort keeps the
     # dataset order of nodes that share a printed page.
     sort_children(monsters, lambda child: page_key(corpus, order, child))
+
+    # 10. Printed Appendix 3 Glossary entries with no other route.
+    universal = ensure_top_chapter(book, "Universal Monster Rules")
+    for entry_id in UNIVERSAL_MONSTER_RULES:
+        move(book, entry_id, universal)
+    subtypes = ensure_top_chapter(book, "Monster Subtypes")
+    for entry_id in MONSTER_SUBTYPES:
+        move(book, entry_id, subtypes)
 
     after: dict[str, str] = {}
     for top in book["chapters"]:

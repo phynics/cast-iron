@@ -1407,6 +1407,15 @@ Closes [#140](https://github.com/phynics/cast-iron/issues/140). Owner decisions 
 - **Nothing is fetched before the click.** The control is a plain `target="_blank" rel="noopener noreferrer"` anchor. Offline behavior needs no special case and no hint: the device browser cannot load GitHub, and the app itself makes no request.
 - **The control is a 44 px text action, not a pill.** It sits in the existing footer link line, names the entry in its accessible name on an entry page, and says "opens in a new tab". The wording names no publisher and implies no official status.
 
+## One GameMastery Guide book record, 2026-11-09
+
+Refs [#362](https://github.com/phynics/cast-iron/issues/362), part of [#359](https://github.com/phynics/cast-iron/issues/359).
+
+- **The two book trees are one publication.** The corpus exported the printed-chapter tree under `gamemastery-guide` and a dataset-topic tree under the publication id `game-mastery-guide`. `publications.toml` has one row, `game-mastery-guide`, and every GameMastery Guide entry names it. Decision [#423](#canonical-publication-registry-2026-11-05) keeps the PSRD source id, so the printed tree moves to `game-mastery-guide` and the second tree is dropped. The split came from the import, not from the book: `history.toml` records both source ids in its frozen book-order results.
+- **Only the second tree's 111 records needed a new place.** The printed tree already placed the other 614. Of the 111, 81 are NPC stat blocks, 22 are drugs, hazards, and insanities, and 8 are rules. None carries a GameMastery Guide page line, so `scripts/gmg-nested.py` places each at the end of the printed section its dataset group names. The script is idempotent: `--check` accepts the merged tree.
+- **The old book id still resolves in addresses and in stored state.** `crates/web/src/book_source.rs` holds one retired-book table. `crates/web/src/route.rs` uses it for `#/browse/book/<source>`, chapter pages, the legacy `#/browse/source/<source>` address, and an entry's `?book=` context; the canonical address is `#/browse/book/game-mastery-guide`. The same table migrates the two stores that also hold a book id. `store::resolve_continue_points` maps `continue_points.source`, and keeps the newest point when both old ids have one. `disabled_books` is rewritten once, when the installed library no longer has the retired tree: the merged book is disabled only when the reader had disabled the printed tree (`gamemastery-guide`), alone or together with the topic tree; a disable of the topic tree alone is dropped because the printed tree stayed active. A marker (`book_source_migration`) keeps that rewrite from running again and undoing a later choice. The map is one retired-book row, not a general alias file: `BookIndex` has no alias field, so the client is the only layer that can resolve the id without a format bump. Unlike an entry id, a book id is not a bookmark key, but it does persist in these two stores, so the client must migrate it there as well as in URLs.
+- **No entry id changed.** The published-id guard still resolves every id, so the merge moves only book nodes.
+
 ## Reachability without the catch-all chapter, 2026-11-09
 
 Refs [#360](https://github.com/phynics/cast-iron/issues/360), part of
@@ -1436,3 +1445,14 @@ Refs [#360](https://github.com/phynics/cast-iron/issues/360), part of
 - **A warning comes first.** `cargo xtask content` prints the count per book and exits zero
   while unreachable entries remain. [#363](https://github.com/phynics/cast-iron/issues/363)
   switches the report to an error after the corpus places or links every rule.
+
+## Recently viewed in Quick search, 2026-11-09
+
+Closes [#356](https://github.com/phynics/cast-iron/issues/356). Owner decisions recorded in the issue on 2026-11-09. Builds on "Quick search suggestions and recent searches" and "Continue reading per book".
+
+- **Recently viewed moves off Home.** Home keeps Starred and the category directory, and the teaching line until the first star. Quick search's empty field shows Recent searches first and then a Recently viewed group, so one place holds the reader's search history and reading history.
+- **The Continue row leads the group.** `Continue {Book}` is the first row of Recently viewed and no longer appears on Home. Its link keeps `?book=<source>`, so opening it stays inside that book and moves the point forward. The book page keeps its own `Continue reading: {entry title}` link.
+- **Five rows, then Show more.** The Continue row counts toward the five-row cap. `Show more (N)` expands the rest with `aria-expanded`, and `Show fewer` folds it back; the polite status line names the total when expanded.
+- **Each group clears itself.** Recent searches keeps its `Clear`. Recently viewed gets its own `Clear`, which empties the visit list and removes `continue_points`, so it also forgets where the reader stopped. Each recently viewed row also has a remove button, and Delete on the highlighted row removes it.
+- **Visibility matches the library.** A stored visit resolves through the alias map and opens under the canonical id. A retired entry, an unknown id, or an entry whose book is inactive is hidden. Continue points are read the same way, and the most recently read *active* book supplies the row.
+- **One listbox per group, one keyboard order.** The field keeps focus; `aria-controls` names every group's listbox and `aria-activedescendant` names the focused option. Down and Up cross the groups in display order, and Enter opens the focused row. The row rules, order, cap, continue row and empty states are native tests in `views/quick_rows.rs`; the store and the layer add no new JavaScript.

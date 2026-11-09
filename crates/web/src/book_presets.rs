@@ -300,14 +300,17 @@ pub struct SettledBooks {
 }
 
 /// Whether an existing profile should see the one-time third-party notice. True on the first
-/// load that turns off books it had never seen; a fresh install is seeded silently, and a load
-/// with a remembered set has already shown it.
+/// load that turns off third-party books on a profile that had never seen one; a fresh install
+/// is seeded silently, and a profile that already remembers a third-party book has seen it.
+///
+/// An empty remembered set counts as "never seen": the release before the marker shipped (app
+/// `2840faf`, library v0.1.13) stored an empty set, because that library marked no book.
 pub fn should_show_third_party_notice(
     known: Option<&BTreeSet<String>>,
     arrived: &BTreeSet<String>,
     seeded: bool,
 ) -> bool {
-    known.is_none() && !arrived.is_empty() && !seeded
+    known.is_none_or(BTreeSet::is_empty) && !arrived.is_empty() && !seeded
 }
 
 /// The pure settle behind `Library::load`: the first-run default, the third-party arrival rule,
@@ -688,6 +691,26 @@ mod tests {
         assert_eq!(again.disabled, nothing.disabled);
         assert_eq!(again.known_third_party, nothing.known_third_party);
         assert!(!again.notice);
+    }
+
+    #[test]
+    fn a_profile_that_remembered_an_empty_third_party_set_sees_the_notice() {
+        // The release before the marker stored an empty remembered set: its library marked no
+        // book. The first marked library must still turn the book off and show the notice once.
+        let books = shelf();
+        let empty = BTreeSet::new();
+        let stored: BTreeSet<String> = ["path".to_string()].into_iter().collect();
+        let first = settle_books(None, Some(&stored), Some(&empty), &books);
+        assert!(first.disabled.contains("indie"));
+        assert!(first.disabled.contains("path"), "the choice is kept");
+        assert!(first.notice);
+        let again = settle_books(
+            None,
+            Some(&first.disabled),
+            Some(&first.known_third_party),
+            &books,
+        );
+        assert!(!again.notice, "the notice shows once");
     }
 
     #[test]

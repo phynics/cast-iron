@@ -55,7 +55,7 @@ pub struct AppCtx {
     pub theme: RwSignal<Theme>,
     /// The reader's spell-row density. Both the spell lists and Settings read it.
     pub density: RwSignal<Density>,
-    /// Recently viewed entries. The entry screen records a visit here and Home shows the list.
+    /// Recently viewed entries. The entry screen records a visit here; Quick search shows them.
     pub recents: RwSignal<Vec<Recent>>,
     /// A newer app shell is installed and waiting for the user to reload.
     pub shell_update_ready: RwSignal<bool>,

@@ -165,6 +165,15 @@ def path_of(book: dict, node: dict) -> str:
 
 MYTHIC_PAGE = re.compile(r"Mythic Adventures(?: pg\.?| p\.) ?(\d+)")
 
+# The printed Introduction (pp. 4-5). The tree had no group for it; the four
+# rules sat in the residual chapter.
+INTRODUCTION = [
+    "ref/rule/mythic-rules",
+    "ref/rule/what-is-mythic",
+    "ref/rule/mythic-versus-non-mythic",
+    "ref/rule/what-makes-mythic-adventures-different",
+]
+
 
 def page_of(corpus: Path, entry_id: str | None) -> int | None:
     if not entry_id:
@@ -828,6 +837,15 @@ def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None]
     chapters = {chapter["title"]: chapter for chapter in book["chapters"]}
     residual = chapters["New entries (page order)"]
 
+    intro = chapters.get("Introduction")
+    if intro is None:
+        intro = {"title": "Introduction", "children": []}
+        book["chapters"].insert(0, intro)
+        chapters["Introduction"] = intro
+    intro["children"] = build(
+        [("e", entry_id) for entry_id in INTRODUCTION], book, intro
+    )
+
     specs = {
         "Mythic Heroes": heroes_spec(),
         "Mythic Feats": feats_spec(book),
@@ -894,12 +912,13 @@ def main() -> int:
 
     book["basis"] = (
         "The chapter titles, their order, and their first pages are checked "
-        "against the printed contents page of Mythic Adventures. The Glossary "
-        "is front matter in print, so it is placed first here. Each chapter "
-        "holds its printed section headings, and each entry sits in its "
-        "printed section in page order. See "
-        "docs/research/book-order-evidence.md. Canonical ids were substituted "
-        "through the reviewed alias map; chapters and order are unchanged."
+        "against the printed contents page of Mythic Adventures. The "
+        "Introduction and Glossary are front matter in print, so they are "
+        "placed first in printed order. Each chapter holds its printed "
+        "section headings, and each entry sits in its printed section in "
+        "page order. See docs/research/book-order-evidence.md. Canonical ids "
+        "were substituted through the reviewed alias map; chapters and order "
+        "are unchanged."
     )
     book["review"] = [
         "The printed chapter 7: Fire Over Blackcrag has no corresponding chapter in the dataset.",
