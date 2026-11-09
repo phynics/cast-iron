@@ -31,6 +31,9 @@ pub type Hide<'a> = &'a dyn Fn(&EntryId) -> bool;
 /// True when a node still has something to list. A node whose entries are all left out has
 /// nothing; a node with no entry anywhere under it is kept as the compiler wrote it.
 pub fn shows_in_contents(node: &BookNode, hide: Hide<'_>) -> bool {
+    if is_catch_all(node) {
+        return false;
+    }
     fn all_hidden(node: &BookNode, hide: Hide<'_>, seen: &mut bool) -> bool {
         if let Some(entry) = &node.entry {
             *seen = true;
@@ -67,28 +70,19 @@ pub fn listed_under(node: &BookNode, hide: Hide<'_>) -> usize {
 /// The title that the compiler gives the chapter of entries that no curated chapter places.
 pub const CATCH_ALL_TITLE: &str = "New entries (page order)";
 
-/// What a reader sees for it. The title says how the list was made, which a reader does not
-/// need; the corpus carries the old title, so the page renames it (the pin bump that renames it
-/// at the source is the corpus owner's).
-pub const CATCH_ALL_LABEL: &str = "More from this book";
+/// Whether a node is the compiler's catch-all chapter. The app does not show it: its entries
+/// reach the reader through their printed chapters, links, or list pages (#363).
+pub fn is_catch_all(node: &BookNode) -> bool {
+    node.title == CATCH_ALL_TITLE
+}
 
-/// The paths of the rows at the top of Contents. A book whose one remaining chapter is the
-/// catch-all shows that chapter's rows at the top, not a lone `More from this book` heading
-/// over them. Paths are real: they index the whole tree, not the listed rows.
+/// The paths of the rows at the top of Contents. Every listed chapter is one row; the catch-all
+/// is never listed. Paths are real: they index the whole tree, not the listed rows.
 pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> {
-    let listed: Vec<usize> = (0..chapters.len())
+    (0..chapters.len())
         .filter(|&i| shows_in_contents(&chapters[i], hide))
-        .collect();
-    if let [only] = listed[..] {
-        let node = &chapters[only];
-        if node.title == CATCH_ALL_TITLE && node.entry.is_none() {
-            return listed_children(node, hide)
-                .into_iter()
-                .map(|child| vec![only, child])
-                .collect();
-        }
-    }
-    listed.into_iter().map(|i| vec![i]).collect()
+        .map(|i| vec![i])
+        .collect()
 }
 
 /// One chapter page of a book: its permanent address and the path of the node it opens.
@@ -152,8 +146,7 @@ pub fn node_at_path<'a>(chapters: &'a [BookNode], path: &[usize]) -> Option<&'a 
 }
 
 /// One top-level row of Contents as a chapter page: the permanent id, the real tree path and the
-/// label the reader sees. A book whose only listed chapter is the catch-all shows that chapter's
-/// rows at the top, and each of those rows is a chapter page in the same way.
+/// title the reader sees.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChapterRow {
     pub id: String,
@@ -345,6 +338,43 @@ mod tests {
                 ("Partial Cover", "combat", Some("toc-1-2-1")),
                 ("Credits", "credits", None),
             ]
+        );
+    }
+
+    #[test]
+    fn the_catch_all_is_never_a_contents_row_or_a_section() {
+        let book = BookTree {
+            source: "core".into(),
+            title: "Core".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![
+                node(
+                    CATCH_ALL_TITLE,
+                    None,
+                    vec![node("Grapple", Some("core/rule/grapple"), vec![])],
+                ),
+                node(
+                    "Combat",
+                    None,
+                    vec![node("Cover", Some("core/rule/cover"), vec![])],
+                ),
+            ],
+        };
+        assert_eq!(contents_roots(&book.chapters, &hide), vec![vec![1]]);
+        assert_eq!(
+            chapter_rows(&book, &hide)
+                .iter()
+                .map(|row| (row.id.as_str(), row.title.as_str()))
+                .collect::<Vec<_>>(),
+            [("combat", "Combat")]
+        );
+        assert_eq!(
+            sections(&book, &hide)
+                .iter()
+                .map(|section| section.title)
+                .collect::<Vec<_>>(),
+            ["Combat", "Cover"]
         );
     }
 
