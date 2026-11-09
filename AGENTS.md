@@ -26,7 +26,8 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Check before you finish | `cargo xtask check` |
-| Browser acceptance tests | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium --project=webkit --project=mobile-chromium` |
+| Browser acceptance tests (the affected specs; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
+| Full browser suite (CI only) | `gh workflow run ci.yml --ref <branch>` |
 
 To prove a change in the real app, use the `verify` skill in `.agents/skills/verify/SKILL.md`.
 
@@ -72,6 +73,10 @@ In a T3 Code worktree (a path under `~/.t3/worktrees/`), the branch already exis
 
 Work in small commits, each with a verifiable state. A task is finished only after the checks for its kind of change pass (see "Test scope"). Report failures with their output.
 
+Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
+
+After changing compiler code, schema types, or the corpus pin, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill.
+
 ## Test scope
 
 Test what the change can break, once. Locally, run only the checks in the row of the change. The full browser suite runs in CI, not locally. A change that spans rows takes the checks of each row.
@@ -87,6 +92,6 @@ Test what the change can break, once. Locally, run only the checks in the row of
 
 Start one full CI run (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only when a later commit changes code, or when `main` has moved in the same feature area. Do not run the full e2e suite locally. Run WebKit locally only on the affected specs; CI runs the full WebKit suite, which is informational.
 
-Open PRs against `main` and use `Closes #N` only for completed acceptance, otherwise `Refs #N`. A merged PR is not a release. Record exact CI and Pages runs separately from local and live checks.
-
-After changing compiler code, schema types, or the corpus pin, run `cargo xtask content` before `cargo xtask build-site`. The site build reuses an existing content manifest; it does not detect stale generated content. For corpus or schema changes, follow the upgrade checks in the `verify` skill.
+- When a test fails only in a run with other load on the host, run its spec again alone before you change code. Report both results.
+- A reviewer does not run tests or builds. The reviewer reads the diff and the code, and cites the implementer's report and the CI run (`gh pr checks`, `gh run view`) for test status.
+- Report the exact specs and projects you ran. Do not report a targeted run as a full run.
