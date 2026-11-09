@@ -563,11 +563,11 @@ FULL_VEHICLE_RULES = [
     "ref/rule/vic-threatening-and-line-of-sight",
     "ref/rule/vic-jumping-on-or-off-vehicle",
     "ref/rule/vic-taking-control-of-a-vehicle",
-    "ref/rule/propulsion-devices",
     "ref/rule/vic-attacks-against-vehicles",
-    "ref/rule/driving-devices",
     "ref/rule/vic-vehicle-combat-maneuvers",
     "ref/rule/vic-damaging-a-vehicle",
+    "ref/rule/propulsion-devices",
+    "ref/rule/driving-devices",
 ]
 
 LAND_VEHICLES = [
