@@ -505,7 +505,6 @@ LESHY_GROWING: dict[str, tuple[str, str]] = {
 VARIANT_TARGETS: dict[str, str] = {
     "ref/monster/kangaroo": "ref/carried/bestiary-3/monsters/marsupial/kangaroo",
     "ref/monster/thylacine": "ref/carried/bestiary-3/monsters/marsupial/thylacine",
-    "ref/rule/race-ratfolk/ratfolk": "ref/race/ratfolk",
 }
 
 # Monster abilities that print inside the monster's entry.

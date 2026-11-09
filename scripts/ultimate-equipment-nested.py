@@ -342,7 +342,6 @@ ITEM_PAGES.update(
         "ref/eq-misc/tear-away-cold-weather-outfit": 89,
         "ref/eq-misc/tear-away-courtesans-outfit": 89,
         "ref/eq-misc/tear-away-courtiers-outfit": 89,
-        "ref/eq-misc/tear-away-dilettantes-outfit": 89,
         "ref/eq-misc/tear-away-doctors-outfit": 89,
         "ref/eq-misc/tear-away-entertainers-outfit": 89,
         "ref/eq-misc/tear-away-executioners-outfit": 89,
