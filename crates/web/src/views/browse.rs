@@ -10,6 +10,9 @@ use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
     MANAGE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
 };
+use crate::views::book_series::{
+    NamedGroup, SeasonGroup, SeriesFields, adventure_sections, display_title,
+};
 use crate::views::book_tier::{Tier, group_is_open, remember_group};
 use crate::views::categories::{self, Lens, applied_facets};
 use crate::views::filter_menu::{
@@ -24,7 +27,7 @@ use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
     local_resource, set_title, sort_key,
 };
-use cast_iron_schema::{EntryId, EntryKind, EntryStub, OptionGroupIndex};
+use cast_iron_schema::{EntryId, EntryKind, EntryStub, OptionGroupIndex, SeriesKind};
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -367,6 +370,42 @@ pub struct BookListEntry {
     pub count: usize,
     /// The corpus third-party marker (#189). It outweighs the category when grouping.
     pub third_party: bool,
+    /// The optional series fields (#159). A book without them stays in the Adventures plain
+    /// list, and a book in another tier keeps its tier.
+    pub series_kind: Option<SeriesKind>,
+    pub series: Option<String>,
+    pub series_number: Option<String>,
+    pub season: Option<u16>,
+}
+
+impl SeriesFields for BookListEntry {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn title(&self) -> &str {
+        &self.title
+    }
+
+    fn series_kind(&self) -> Option<SeriesKind> {
+        self.series_kind
+    }
+
+    fn series(&self) -> Option<&str> {
+        self.series.as_deref()
+    }
+
+    fn series_number(&self) -> Option<&str> {
+        self.series_number.as_deref()
+    }
+
+    fn season(&self) -> Option<u16> {
+        self.season
+    }
+
+    fn publication_date(&self) -> Option<&str> {
+        self.publication_date.as_deref()
+    }
 }
 
 /// One displayed group of publications: a priority tier and the books in it, in display order.
@@ -397,8 +436,11 @@ pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
         .filter_map(|tier| {
             let mut indices: Vec<usize> = (0..books.len())
                 .filter(|&index| {
-                    Tier::of_parts(books[index].third_party, books[index].category.as_deref())
-                        == tier
+                    Tier::of_parts(
+                        books[index].third_party,
+                        books[index].category.as_deref(),
+                        books[index].series_kind,
+                    ) == tier
                 })
                 .collect();
             if indices.is_empty() {
@@ -460,6 +502,371 @@ fn book_row(row: BookListEntry, library: Library) -> AnyView {
     .into_any()
 }
 
+// ---- Adventures series grouping -----------------------------------------------------------
+
+pub(crate) type RowFactory = dyn Fn(BookListEntry) -> AnyView + Send + Sync;
+pub(crate) type CountFactory = dyn Fn(&[String]) -> String + Send + Sync;
+pub(crate) type BulkFactory = dyn Fn(&str, Vec<String>) -> AnyView + Send + Sync;
+type ItemsFactory = dyn Fn() -> AnyView + Send + Sync;
+
+/// How a page draws the rows and counts inside the Adventures series groups: Books uses links
+/// and total counts, Manage books uses toggle rows, active tallies and a bulk button per group.
+#[derive(Clone)]
+pub(crate) struct SeriesRender {
+    row: Shared<Box<RowFactory>>,
+    count: Shared<Box<CountFactory>>,
+    bulk: Option<Shared<Box<BulkFactory>>>,
+}
+
+impl SeriesRender {
+    pub(crate) fn new(
+        row: Box<RowFactory>,
+        count: Box<CountFactory>,
+        bulk: Option<Box<BulkFactory>>,
+    ) -> Self {
+        Self {
+            row: Shared::new(row),
+            count: Shared::new(count),
+            bulk: bulk.map(Shared::new),
+        }
+    }
+
+    fn row(&self, book: BookListEntry) -> AnyView {
+        let row: &RowFactory = &**self.row;
+        row(book)
+    }
+
+    fn count(&self, ids: &[String]) -> String {
+        let count: &CountFactory = &**self.count;
+        count(ids)
+    }
+
+    fn bulk(&self, label: &str, ids: Vec<String>) -> Option<AnyView> {
+        let bulk = self.bulk.as_ref()?;
+        let bulk: &BulkFactory = &**bulk;
+        Some(bulk(label, ids))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum SeriesLevel {
+    Section,
+    Subsection,
+}
+
+fn series_ids(books: &[BookListEntry], indices: &[usize]) -> Vec<String> {
+    indices
+        .iter()
+        .map(|&index| books[index].id.clone())
+        .collect()
+}
+
+fn series_count(render: &SeriesRender, ids: &[String]) -> impl Fn() -> String + Send + 'static {
+    let render = render.clone();
+    let ids = ids.to_vec();
+    move || render.count(&ids)
+}
+
+fn series_rows(
+    books: Shared<Vec<BookListEntry>>,
+    indices: Vec<usize>,
+    render: SeriesRender,
+    clean_titles: bool,
+) -> AnyView {
+    indices
+        .into_iter()
+        .map(|index| {
+            let mut book = books[index].clone();
+            if clean_titles {
+                book.title = display_title(&book);
+            }
+            render.row(book)
+        })
+        .collect_view()
+        .into_any()
+}
+
+fn series_list(
+    books: Shared<Vec<BookListEntry>>,
+    indices: Vec<usize>,
+    render: SeriesRender,
+    clean_titles: bool,
+) -> Shared<Box<ItemsFactory>> {
+    Shared::new(Box::new(move || {
+        let rows = series_rows(books.clone(), indices.clone(), render.clone(), clean_titles);
+        view! { <ul class="book-directory">{rows}</ul> }.into_any()
+    }))
+}
+
+/// A nested native disclosure inside the Adventures tier. `Class` names the level (an
+/// Adventure Path, a season), and `data-series` gives the e2e selectors a stable value without
+/// a second naming scheme.
+#[allow(clippy::too_many_arguments)]
+fn series_block(
+    level: SeriesLevel,
+    class: &'static str,
+    data_series: String,
+    label: String,
+    count: impl Fn() -> String + Send + 'static,
+    items: Shared<Box<ItemsFactory>>,
+    bulk: Option<AnyView>,
+    start_open: bool,
+) -> AnyView {
+    static NEXT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let serial = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let body_id = format!("adventure-series-{serial}");
+    let controls = body_id.clone();
+    let open = RwSignal::new(start_open);
+    let built = RwSignal::new(start_open);
+    let count_for = count;
+    let toggle = view! {
+        <button type="button" class="series-toggle" aria-controls=controls
+            aria-expanded=move || if open.get() { "true" } else { "false" }
+            on:click=move |_| {
+                let next = !open.get_untracked();
+                open.set(next);
+                if next {
+                    built.set(true);
+                }
+            }>
+            {icons::tier_chevron()}
+            <span class="series-name">{label}</span>
+            <span class="series-count">{move || count_for()}</span>
+        </button>
+    };
+    let heading = match level {
+        SeriesLevel::Section => view! { <h3 class="series-head">{toggle}</h3> }.into_any(),
+        SeriesLevel::Subsection => view! { <h4 class="series-head">{toggle}</h4> }.into_any(),
+    };
+    let head_row = match bulk {
+        Some(bulk) => view! { <div class="series-head-row">{heading}{bulk}</div> }.into_any(),
+        None => heading,
+    };
+    view! {
+        <section class=class data-series=data_series>
+            {head_row}
+            <div id=body_id class="series-body" hidden=move || !open.get()>
+                {move || built.get().then(|| {
+                    let items: &ItemsFactory = &**items;
+                    items()
+                })}
+            </div>
+        </section>
+    }
+    .into_any()
+}
+
+/// The Adventures tier: Adventure Paths by path, Modules in one dated list, Pathfinder Society
+/// by season, and a plain Other list for the publications with no series. Every series block
+/// starts open inside the tier, so opening Adventures shows the same rows it did before the
+/// grouping; a reader folds a path or a season to shorten the list.
+pub(crate) fn adventure_tier_section(
+    books: Vec<BookListEntry>,
+    ids: Vec<String>,
+    render: SeriesRender,
+    library: Library,
+) -> AnyView {
+    let sections = adventure_sections(&books);
+    let books = Shared::new(books);
+    let body = {
+        let books = books.clone();
+        let render = render.clone();
+        move || {
+            let mut blocks: Vec<AnyView> = Vec::new();
+            if !sections.paths.is_empty() {
+                let ap_ids: Vec<String> = sections
+                    .paths
+                    .iter()
+                    .flat_map(|group| series_ids(&books, &group.books))
+                    .collect();
+                let paths = sections.paths.clone();
+                let items: Shared<Box<ItemsFactory>> = {
+                    let books = books.clone();
+                    let render = render.clone();
+                    Shared::new(Box::new(move || {
+                        let children = paths
+                            .iter()
+                            .map(
+                                |NamedGroup {
+                                     name,
+                                     books: indices,
+                                 }| {
+                                    let child_ids = series_ids(&books, indices);
+                                    let rows = series_list(
+                                        books.clone(),
+                                        indices.clone(),
+                                        render.clone(),
+                                        true,
+                                    );
+                                    let bulk = render.bulk(name, child_ids.clone());
+                                    series_block(
+                                        SeriesLevel::Subsection,
+                                        "adventure-series",
+                                        name.clone(),
+                                        name.clone(),
+                                        series_count(&render, &child_ids),
+                                        rows,
+                                        bulk,
+                                        true,
+                                    )
+                                },
+                            )
+                            .collect_view();
+                        view! { {children} }.into_any()
+                    }))
+                };
+                blocks.push(series_block(
+                    SeriesLevel::Section,
+                    "adventure-group",
+                    "adventure-paths".to_string(),
+                    "Adventure Paths".to_string(),
+                    series_count(&render, &ap_ids),
+                    items,
+                    None,
+                    true,
+                ));
+            }
+
+            if !sections.modules.is_empty() {
+                let module_ids = series_ids(&books, &sections.modules);
+                let rows = series_list(
+                    books.clone(),
+                    sections.modules.clone(),
+                    render.clone(),
+                    true,
+                );
+                let bulk = render.bulk("Modules", module_ids.clone());
+                blocks.push(series_block(
+                    SeriesLevel::Section,
+                    "adventure-group",
+                    "modules".to_string(),
+                    "Modules".to_string(),
+                    series_count(&render, &module_ids),
+                    rows,
+                    bulk,
+                    true,
+                ));
+            }
+
+            if !sections.seasons.is_empty() {
+                let society_ids: Vec<String> = sections
+                    .seasons
+                    .iter()
+                    .flat_map(|group| series_ids(&books, &group.books))
+                    .collect();
+                let seasons = sections.seasons.clone();
+                let items: Shared<Box<ItemsFactory>> = {
+                    let books = books.clone();
+                    let render = render.clone();
+                    Shared::new(Box::new(move || {
+                        let children = seasons
+                            .iter()
+                            .map(
+                                |SeasonGroup {
+                                     season,
+                                     books: indices,
+                                 }| {
+                                    let season_ids = series_ids(&books, indices);
+                                    let label = format!("Season {season}");
+                                    let rows = series_list(
+                                        books.clone(),
+                                        indices.clone(),
+                                        render.clone(),
+                                        true,
+                                    );
+                                    let bulk = render.bulk(&label, season_ids.clone());
+                                    series_block(
+                                        SeriesLevel::Subsection,
+                                        "adventure-season",
+                                        format!("season-{season}"),
+                                        label,
+                                        series_count(&render, &season_ids),
+                                        rows,
+                                        bulk,
+                                        true,
+                                    )
+                                },
+                            )
+                            .collect_view();
+                        view! { {children} }.into_any()
+                    }))
+                };
+                blocks.push(series_block(
+                    SeriesLevel::Section,
+                    "adventure-group",
+                    "society".to_string(),
+                    "Pathfinder Society".to_string(),
+                    series_count(&render, &society_ids),
+                    items,
+                    None,
+                    true,
+                ));
+            }
+
+            if !sections.other.is_empty() {
+                let other_ids = series_ids(&books, &sections.other);
+                let rows =
+                    series_list(books.clone(), sections.other.clone(), render.clone(), false);
+                blocks.push(series_block(
+                    SeriesLevel::Section,
+                    "adventure-group",
+                    "other".to_string(),
+                    "Other".to_string(),
+                    series_count(&render, &other_ids),
+                    rows,
+                    None,
+                    true,
+                ));
+            }
+            blocks.into_iter().collect_view()
+        }
+    };
+
+    let label = Tier::Adventures.label();
+    let total = ids.len();
+    let heading_id = "book-tier-adventures".to_string();
+    let list_id = "book-tier-list-adventures".to_string();
+    let labelled_by = heading_id.clone();
+    let controls = list_id.clone();
+    let starts_open = group_is_open(Tier::Adventures);
+    let open = RwSignal::new(starts_open);
+    let built = RwSignal::new(starts_open);
+    let revision = library.selection_revision();
+    let active_ids = ids;
+    let count_text = move || {
+        revision.get();
+        let active = active_ids
+            .iter()
+            .filter(|id| library.book_active(id))
+            .count();
+        group_count_text(active, total)
+    };
+    view! {
+        <section class="book-tier adventure-tier" aria-labelledby=labelled_by data-tier=label>
+            <h2 class="book-group-head" id=heading_id>
+                <button type="button" class="tier-toggle" aria-controls=controls
+                    aria-expanded=move || if open.get() { "true" } else { "false" }
+                    on:click=move |_| {
+                        let next = !open.get_untracked();
+                        open.set(next);
+                        if next {
+                            built.set(true);
+                        }
+                        remember_group(Tier::Adventures, next);
+                    }>
+                    {icons::tier_chevron()}
+                    <span class="tier-name">{label}</span>
+                    <span class="tier-active">{count_text}</span>
+                </button>
+            </h2>
+            <div class="adventure-series-groups" id=list_id hidden=move || !open.get()>
+                {move || built.get().then(&body)}
+            </div>
+        </section>
+    }
+    .into_any()
+}
+
 /// The publication directory: a heading, one live count line, a link to Manage books, and one
 /// link row per book in the tier groups. There is one order (tier order, oldest first) and no
 /// sort control. The checkboxes and the presets live on Manage books.
@@ -484,6 +891,10 @@ pub fn Books() -> impl IntoView {
             publication_date: source.publication_date.clone(),
             count: counts.get(&source.id).copied().unwrap_or(0),
             third_party: source.third_party,
+            series_kind: source.series_kind,
+            series: source.series.clone(),
+            series_number: source.series_number.clone(),
+            season: source.season,
         })
         .collect();
     let total = rows.len();
@@ -503,6 +914,11 @@ pub fn Books() -> impl IntoView {
     };
     // The rows of a closed group are built when it opens, so a mount builds one group's rows.
     let rows = Shared::new(rows);
+    let row_library = library.clone();
+    let row: Box<RowFactory> = Box::new(move |row| book_row(row, row_library.clone()));
+    let count: Box<CountFactory> =
+        Box::new(|ids: &[String]| format!("({})", fmt::count(ids.len())));
+    let render = SeriesRender::new(row, count, None);
     let groups = book_groups(&rows)
         .into_iter()
         .map(|group| {
@@ -512,6 +928,14 @@ pub fn Books() -> impl IntoView {
                 .iter()
                 .map(|&index| rows[index].id.clone())
                 .collect();
+            if tier == Tier::Adventures {
+                let books = group
+                    .books
+                    .iter()
+                    .map(|&index| rows[index].clone())
+                    .collect();
+                return adventure_tier_section(books, ids, render.clone(), library.clone());
+            }
             let lazy_rows = rows.clone();
             let lazy_library = library.clone();
             let books = group.books;
@@ -2359,6 +2783,10 @@ mod tests {
             publication_date: date.map(str::to_string),
             count: 0,
             third_party: false,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
         }
     }
 
