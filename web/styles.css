@@ -3116,6 +3116,18 @@ main,
   margin: 0 0 var(--space-4);
 }
 
+/* The saved place in a book, under the meta line. The link is the 44 px target. */
+.continue-reading {
+  margin: 0 0 var(--space-4);
+}
+
+.continue-reading a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  font-weight: 600;
+}
+
 .colophon {
   max-width: 48rem;
   margin-top: var(--space-6);
