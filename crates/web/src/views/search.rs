@@ -6,6 +6,7 @@ use crate::fmt;
 use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
+use crate::views::book_series::adventure_sections;
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
@@ -262,6 +263,15 @@ struct PublicationGroup {
     holds_selected: bool,
     /// Whether the chips are visible: always for Rulebooks, otherwise the disclosure's state.
     open: bool,
+    /// The Adventures group splits its chips by series line (#159). Empty for every other
+    /// tier, which lists one flat group.
+    series: Vec<PublicationSeriesGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PublicationSeriesGroup {
+    label: String,
+    ids: Vec<String>,
 }
 
 impl PublicationGroup {
@@ -331,6 +341,52 @@ fn publication_toggle_action(
     } else {
         ToggleAction::Ignore
     }
+}
+
+/// Splits listed Adventures chips the way the Books tier does: Adventure Paths by name,
+/// Modules in one group, Society by season, and the publications with no series last. Only the
+/// ids already listed for the tier appear, and every one of them appears once.
+fn publication_series_groups(
+    sources: &[SourceInfo],
+    ids: &[String],
+) -> Vec<PublicationSeriesGroup> {
+    let books: Vec<&SourceInfo> = ids
+        .iter()
+        .filter_map(|id| sources.iter().find(|source| &source.id == id))
+        .collect();
+    let sections = adventure_sections(&books);
+    let selected = |indices: &[usize]| -> Vec<String> {
+        indices
+            .iter()
+            .map(|&index| books[index].id.clone())
+            .collect()
+    };
+    let mut groups = Vec::new();
+    for group in &sections.paths {
+        groups.push(PublicationSeriesGroup {
+            label: group.name.clone(),
+            ids: selected(&group.books),
+        });
+    }
+    if !sections.modules.is_empty() {
+        groups.push(PublicationSeriesGroup {
+            label: "Modules".to_string(),
+            ids: selected(&sections.modules),
+        });
+    }
+    for group in &sections.seasons {
+        groups.push(PublicationSeriesGroup {
+            label: format!("Season {}", group.season),
+            ids: selected(&group.books),
+        });
+    }
+    if !sections.other.is_empty() {
+        groups.push(PublicationSeriesGroup {
+            label: "Other".to_string(),
+            ids: selected(&sections.other),
+        });
+    }
+    groups
 }
 
 /// `choices` holds the reader's own open (`true`) or closed (`false`) answer per tier. A
@@ -422,6 +478,7 @@ fn publication_page(
                 listed_with_results: 0,
                 holds_selected: false,
                 open: false,
+                series: Vec::new(),
             });
         }
         let group = groups.last_mut().expect("a group was just pushed");
@@ -450,6 +507,9 @@ fn publication_page(
                 .get(&tier)
                 .copied()
                 .unwrap_or(!group.ids.is_empty() && (show_all || takes_budget(tier)));
+        if tier == Tier::Adventures {
+            group.series = publication_series_groups(sources, &group.ids);
+        }
     }
     let shown_with_results = groups
         .iter()
@@ -1221,14 +1281,52 @@ pub fn Search() -> impl IntoView {
     let group_ids = move |tier: Tier| {
         publication_view.with(|page| page.group(tier).map(|g| g.ids.clone()).unwrap_or_default())
     };
+    let group_series = move |tier: Tier| {
+        publication_view.with(|page| {
+            page.group(tier)
+                .map(|group| group.series.clone())
+                .unwrap_or_default()
+        })
+    };
     let publication_group = move |tier: Tier| {
         let label = tier.label();
         let title_id = format!(
             "publication-group-{}",
             label.to_lowercase().replace(' ', "-")
         );
-        let chips = view! {
+        let flat_chips = view! {
             <For each=move || group_ids(tier) key=|id| id.clone() children=publication_chips.clone() />
+        };
+        let chips = if tier == Tier::Adventures {
+            let series_chips = publication_chips.clone();
+            view! {
+                <For each=move || group_series(tier) key=|group| group.label.clone()
+                    children=move |group| {
+                        let count = group.ids.len();
+                        let ids = group.ids;
+                        let series_label = group.label;
+                        let title = format!(
+                            "publication-series-{}",
+                            series_label.to_lowercase().replace(' ', "-")
+                        );
+                        let label_id = format!("{title}-label");
+                        let label_text = format!("{series_label} ({count})");
+                        let chips = view! {
+                            <For each=move || ids.clone() key=|id| id.clone()
+                                children=series_chips.clone() />
+                        };
+                        view! {
+                            <div class="publication-series" role="group"
+                                aria-labelledby=label_id.clone() data-series=series_label>
+                                <p class="publication-series-title" id=label_id.clone()>{label_text}</p>
+                                <div class="chips">{chips}</div>
+                            </div>
+                        }
+                    } />
+            }
+            .into_any()
+        } else {
+            flat_chips.into_any()
         };
         if !tier.is_disclosure() {
             return view! {
@@ -2174,6 +2272,93 @@ mod tests {
             show_all,
             &choices,
         )
+    }
+
+    #[test]
+    fn the_adventures_chips_group_by_series_line() {
+        use cast_iron_schema::SeriesKind;
+
+        let mut runelords_one = source("runelords-1", "Pathfinder #1: Burnt Offerings");
+        runelords_one.category = Some("Adventure Path".into());
+        runelords_one.series_kind = Some(SeriesKind::AdventurePath);
+        runelords_one.series = Some("Rise of the Runelords".into());
+        runelords_one.series_number = Some("1".into());
+        let mut runelords_two = source("runelords-2", "Pathfinder #2: The Skinsaw Murders");
+        runelords_two.category = Some("Adventure Path".into());
+        runelords_two.series_kind = Some(SeriesKind::AdventurePath);
+        runelords_two.series = Some("Rise of the Runelords".into());
+        runelords_two.series_number = Some("2".into());
+        let mut curse = source("curse-1", "Pathfinder #7: Edge of Anarchy");
+        curse.category = Some("Adventure Path".into());
+        curse.series_kind = Some(SeriesKind::AdventurePath);
+        curse.series = Some("Curse of the Crimson Throne".into());
+        curse.series_number = Some("1".into());
+        let mut module = source("module", "Pathfinder Module: Academy of Secrets");
+        module.category = Some("Module".into());
+        module.series_kind = Some(SeriesKind::Module);
+        let mut society = source(
+            "society",
+            "Pathfinder Society S03-10 The Immortal Connundrum",
+        );
+        society.series_kind = Some(SeriesKind::Society);
+        society.series_number = Some("3-10".into());
+        society.season = Some(3);
+        let mut players_guide = source("guide", "Rise of the Runelords Player's Guide");
+        players_guide.category = Some("Adventure Path".into());
+
+        let sources = [
+            runelords_two,
+            society,
+            curse,
+            players_guide,
+            runelords_one,
+            module,
+        ];
+        let counts = [
+            ("runelords-1", 1),
+            ("runelords-2", 1),
+            ("curse-1", 1),
+            ("module", 1),
+            ("society", 1),
+            ("guide", 1),
+        ];
+        let page = page_choosing(
+            &sources,
+            &counts,
+            &[],
+            "",
+            false,
+            &[(Tier::Adventures, true)],
+        );
+        let adventures = page.group(Tier::Adventures).expect("an Adventures group");
+        let groups: Vec<_> = adventures
+            .series
+            .iter()
+            .map(|group| (group.label.as_str(), group.ids.clone()))
+            .collect();
+        assert_eq!(
+            groups,
+            [
+                ("Curse of the Crimson Throne", vec!["curse-1".to_string()]),
+                (
+                    "Rise of the Runelords",
+                    vec!["runelords-1".to_string(), "runelords-2".to_string()]
+                ),
+                ("Modules", vec!["module".to_string()]),
+                ("Season 3", vec!["society".to_string()]),
+                ("Other", vec!["guide".to_string()]),
+            ]
+        );
+        // Every listed chip appears in exactly one series group.
+        let mut grouped: Vec<&str> = adventures
+            .series
+            .iter()
+            .flat_map(|group| group.ids.iter().map(String::as_str))
+            .collect();
+        grouped.sort_unstable();
+        let mut listed: Vec<&str> = adventures.ids.iter().map(String::as_str).collect();
+        listed.sort_unstable();
+        assert_eq!(grouped, listed);
     }
 
     #[test]

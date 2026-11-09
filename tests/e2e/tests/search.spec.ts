@@ -281,15 +281,17 @@ installedTest("Publication filter keeps a closed heading with a count for every 
   const rulebookTitle = await rulebooks.locator(".publication-group-title").innerText();
   const rulebookTotal = Number(rulebookTitle.match(/^Rulebooks \(12 of (\d+)\)$/)![1]);
 
-  // Every other tier with results is a closed heading with its count, in tier order.
+  // Every other tier with results is a closed heading with its count, in tier order. Other is
+  // present only while a publication outside the three named tiers still matches (the Society
+  // scenario moved to Adventures in #159).
   const headings = group.locator("details.publication-group > summary");
-  await expect(headings).toHaveText([
-    /^Player Companions \(\d+\)$/,
-    /^Campaign Setting \(\d+\)$/,
-    /^Adventures \(\d+\)$/,
-    /^Other \(\d+\)$/,
-  ]);
-  const held = (await headings.allInnerTexts()).map((text) => Number(text.match(/\((\d+)\)/)![1]));
+  const titles = await headings.allInnerTexts();
+  expect(titles.length).toBeGreaterThanOrEqual(3);
+  expect(titles[0]).toMatch(/^Player Companions \(\d+\)$/);
+  expect(titles[1]).toMatch(/^Campaign Setting \(\d+\)$/);
+  expect(titles[2]).toMatch(/^Adventures \(\d+\)$/);
+  for (const title of titles.slice(3)) expect(title).toMatch(/^Other \(\d+\)$/);
+  const held = titles.map((text) => Number(text.match(/\((\d+)\)/)![1]));
   // The counts reconcile with the summary line: every publication with results is in a group.
   expect(rulebookTotal + held.reduce((sum, n) => sum + n, 0)).toBe(total);
   for (const details of await group.locator("details.publication-group").all()) {
