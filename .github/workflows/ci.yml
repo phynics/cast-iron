@@ -1,7 +1,7 @@
 name: CI
 
-# Pull requests run only the Rust checks. The full pipeline (content determinism,
-# site build, browser shards) runs on main once a day and on demand; see
+# Pull requests run only the Rust checks. The full pipeline (content compile and
+# determinism, site build, browser shards) runs on main once a day and on demand; see
 # docs/decisions.md. Release promotion needs a successful full run for the exact
 # main commit, so start one with `gh workflow run ci.yml --ref main` if needed.
 on:
@@ -66,7 +66,7 @@ jobs:
         run: cargo xtask check
 
   content:
-    name: Content compiler and determinism
+    name: Content compiler
     # The full pipeline runs on main only (daily or on demand). Every later job
     # needs this one, so they are skipped on pull requests as well.
     if: ${{ github.event_name != 'pull_request' }}
@@ -89,7 +89,7 @@ jobs:
         with:
           cache-key: content
       - run: cargo xtask fetch-sources
-      # Save before the compile and determinism checks, which a failure would skip.
+      # Save before the compile, which a failure would skip.
       - name: Save the pinned corpus
         if: ${{ steps.corpus.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
@@ -98,23 +98,12 @@ jobs:
           key: ${{ steps.corpus.outputs.cache-primary-key }}
       # The library is compiled from the pinned plain-text corpus into generated/content.
       - run: cargo xtask content
-      - name: Hash the first compile
-        id: first
-        run: echo "hash=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Compile the library again from scratch
-        run: |
-          rm -rf generated
-          cargo xtask content
-      - name: Output must be byte-identical (NFR-05)
-        run: |
-          second=$(find generated -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
-          echo "first : ${{ steps.first.outputs.hash }}"
-          echo "second: $second"
-          test "$second" = "${{ steps.first.outputs.hash }}"
       - uses: actions/upload-artifact@v7
         with:
           name: generated
           path: generated
+          # The determinism job compares every file, so a dotfile must not drop out.
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v7
@@ -123,6 +112,39 @@ jobs:
           path: generated/reports
           if-no-files-found: error
           retention-days: 30
+
+  # The second compile of the determinism check. It compares its own output with the
+  # artifact of the content job. Nothing waits for it, so it runs beside the site build
+  # and the browser shards instead of before them.
+  determinism:
+    name: Content determinism (NFR-05)
+    needs: [content]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Read the pinned corpus commit
+        id: pin
+        run: echo "corpus=$(sed -n 's/^commit *= *"\(.*\)"/\1/p' sources/corpus.toml)" >> "$GITHUB_OUTPUT"
+      - name: Restore the pinned corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: .cache/sources/cast-iron-data
+          key: cast-iron-data-${{ steps.pin.outputs.corpus }}
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key: content
+      - run: cargo xtask fetch-sources
+      - uses: actions/download-artifact@v8
+        with:
+          name: generated
+          path: first
+      - name: Compile the library again from scratch
+        run: |
+          rm -rf generated
+          cargo xtask content
+      - name: Output must be byte-identical (NFR-05)
+        run: diff -r --brief first generated
 
   site:
     name: Build the site
