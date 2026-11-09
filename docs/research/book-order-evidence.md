@@ -254,7 +254,7 @@ The printed contents page of the NPC Codex was checked in this review. It verifi
 | 4 | Iconic Characters | 274 |
 | — | Appendices | 298 |
 
-The dataset uses the printed chapter titles for Chapters 1-3 and has no chapter for Chapter 4. Main chapter order and titles are verified; nested placement remains unverified.
+The dataset uses the printed chapter titles for Chapters 1-3 and has no chapter for Chapter 4. Main chapter order and nested placement are verified against the printed NPC Codex. Each class section holds its NPCs in printed page order: Core Classes runs Barbarian (pp. 10-25), Bard (pp. 26-43), Cleric (pp. 44-61), Druid (pp. 62-79), Fighter (pp. 80-95), Monk (pp. 96-111), Paladin (pp. 112-127), Ranger (pp. 128-143), Rogue (pp. 144-159), Sorcerer (pp. 160-177), and Wizard (pp. 178-195); Prestige Classes runs Arcane Archer (pp. 200-203) through Shadowdancer (pp. 236-239); and NPC Classes runs Adept (pp. 244-249) through Warrior (pp. 266-271). The 11 core classes hold 20 stat blocks each, the 10 prestige classes hold 4 each, and the 5 NPC classes hold 10 each, in level order. The dataset's plural class list groups (Barbarians through Wizards, Arcane Archers through Shadowdancers, Adepts through Warriors) stay inside their class section as its dataset heading. The Eldritch Knight stat blocks print Queen of Staves (p. 220), Champion of Magic (p. 221), Spirit Avenger (p. 222), and Mithral Wizard (p. 223); the Monk's Poisonous Performer prints on p. 102. Entries that share a printed page keep the dataset order. The placed entry set is unchanged at 350 ids, 310 of them NPCs. The printed Chapter 4 Iconic Characters (p. 274) and the Appendices (p. 298) have no corpus entries, so they have no group.
 
 ## Technology Guide
 
