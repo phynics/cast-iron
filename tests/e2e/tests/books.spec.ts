@@ -476,6 +476,40 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   expect(titles).toEqual(listedChapterTitles(book));
 });
 
+test("Top-level chapter rows show a dotted leader, hidden in a narrow contents container", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`#/browse/book/${core.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
+  await expect(tree).toBeVisible();
+
+  // A chapter that is itself an entry keeps its link; the leader and the count join it.
+  const row = tree.locator(".toc-top > li > .toc-row").filter({ has: page.locator("a") }).first();
+  const link = row.locator("a");
+  const title = (await link.locator(".toc-title").innerText()).trim();
+  const leader = row.locator(".toc-leader");
+  await expect(leader).toHaveCount(1);
+  await expect(leader).toBeVisible();
+  expect(await leader.evaluate((el) => getComputedStyle(el).borderBottomStyle)).toBe("dotted");
+  expect((await leader.boundingBox())!.width).toBeGreaterThan(8);
+  await expect(row.locator(".toc-count")).toHaveCount(1);
+  // The leader is decorative: the link keeps the title as its whole accessible name.
+  await expect(link).toHaveAccessibleName(title);
+
+  // Only the top level draws a leader; a nested section keeps a plain gap.
+  const nested = tree.locator(".toc-list .toc-list .toc-leader").first();
+  await expect(nested).toHaveCount(1);
+  expect(await nested.evaluate((el) => getComputedStyle(el).display)).toBe("none");
+
+  // Below a 340 px container the leader is hidden and the row keeps its 44 px target and link.
+  await page.setViewportSize({ width: 320, height: 844 });
+  await expect(leader).toBeHidden();
+  expect(await leader.evaluate((el) => getComputedStyle(el).display)).toBe("none");
+  expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(link).toHaveAttribute("href", /^#\/entry\//);
+  await expect(link).toHaveAccessibleName(title);
+});
+
 test("The Core Rulebook contents have no feat or item rows, and Feats opens the filtered list", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   await page.goto(`#/browse/book/${core.id}`);
