@@ -26,7 +26,7 @@ Local verification, 2026-11-09 (no CI or deployment claim):
 | `generated/content` | Content version `v96888807160b6179`, schema 4, 31,807 entries, corpus tag `v0.1.18` (was `v17a954e5c0f1d11c`) |
 | `cargo xtask content` | Exit 0; the published-id guard passed; reachability 0 of 31,807 |
 | `cargo xtask check` | Passed |
-| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `72eeb8143df44d66`, 11 files |
+| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `7d43eb0e1ce6ed18`, 11 files |
 | `npm --prefix tests/e2e test -- --project=chromium tests/books.spec.ts tests/search.spec.ts tests/continue-reading.spec.ts tests/active-books.spec.ts tests/reference.spec.ts tests/relationships.spec.ts` | 107 passed |
 | `npm --prefix tests/e2e test -- --project=webkit tests/continue-reading.spec.ts tests/active-books.spec.ts` | 20 passed |
 
