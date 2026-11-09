@@ -67,6 +67,8 @@ impl IndexBuilder {
                 source: d.source,
                 section: d.section,
                 facets: d.facets,
+                chapter: d.chapter,
+                anchor: d.anchor,
                 len_title: lens[0],
                 len_alias: lens[1],
                 len_text: lens[2],

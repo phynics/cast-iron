@@ -20,7 +20,14 @@ pub use text::{normalize, tokenize};
 use store::{MetaSection, PostingsSection, TextSection};
 
 /// Bumped whenever the serialized layout changes.
-pub const INDEX_FORMAT_VERSION: u32 = 1;
+///
+/// 2: document metadata carries a book section's chapter id and anchor. A version 1 library is
+/// rejected cleanly and the reader is sent to Settings for an update.
+pub const INDEX_FORMAT_VERSION: u32 = 2;
+
+/// The kind of a book-section document: a node of a book's contents tree. Its id is not an
+/// entry id; the result opens `chapter` at `anchor` on the book's chapter page.
+pub const BOOK_SECTION_KIND: &str = "book-section";
 
 /// The rank of a source that has no assigned rank. A lower rank sorts first on a relevance tie,
 /// so the neutral rank sorts last. See [`SearchIndex::set_source_ranks`].
@@ -37,6 +44,10 @@ pub struct DocInput {
     pub section: String,
     pub facets: Vec<(String, String)>,
     pub text: String,
+    /// For a book-section document, the permanent id of the chapter page it opens.
+    pub chapter: String,
+    /// For a book-section document, the anchor of its row on that page. Empty for the chapter.
+    pub anchor: String,
 }
 
 /// Borrowed view of a stored document's metadata.
@@ -48,6 +59,8 @@ pub struct DocView<'a> {
     pub source: &'a str,
     pub section: &'a str,
     pub facets: &'a [(String, String)],
+    pub chapter: &'a str,
+    pub anchor: &'a str,
 }
 
 /// Kinds and sources are OR within a list, AND across lists. Facets are OR
@@ -255,6 +268,8 @@ impl SearchIndex {
             source: &d.source,
             section: &d.section,
             facets: &d.facets,
+            chapter: &d.chapter,
+            anchor: &d.anchor,
         })
     }
 

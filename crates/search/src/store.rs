@@ -37,6 +37,9 @@ pub(crate) struct DocMeta {
     pub source: String,
     pub section: String,
     pub facets: Vec<(String, String)>,
+    /// The chapter page of a book-section document, and its row anchor. Empty for entries.
+    pub chapter: String,
+    pub anchor: String,
     pub len_title: u32,
     pub len_alias: u32,
     pub len_text: u32,

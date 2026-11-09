@@ -13,7 +13,9 @@ use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{addon_name, kind_name, local_resource, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
-use cast_iron_search::{FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex};
+use cast_iron_search::{
+    BOOK_SECTION_KIND, FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex,
+};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::{BTreeMap, BTreeSet};
@@ -641,6 +643,8 @@ enum Phase {
         hits: Vec<SearchHit>,
         total: usize,
         groups: usize,
+        sections: Vec<SectionHit>,
+        section_total: usize,
     },
     Failed(String),
 }
@@ -651,6 +655,17 @@ struct SearchHit {
     anchor: Option<String>,
     variants: Vec<(Hit, Option<String>)>,
 }
+
+/// One book-section row. The target comes from the document metadata, not from an entry id.
+#[derive(Clone)]
+struct SectionHit {
+    hit: Hit,
+    chapter: String,
+    anchor: String,
+}
+
+/// How many book sections the results page lists before the entry results.
+const SECTION_LIMIT: usize = 8;
 
 /// Matches the query found in inactive books: how many, and the book that holds the most.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -935,13 +950,27 @@ pub fn Search() -> impl IntoView {
                     }
                     None => all_hits,
                 };
+                let section_hits = match discovery.section_summaries(&query).await {
+                    Ok(hits) => hits,
+                    Err(error) => {
+                        if alive() {
+                            phase.set(Phase::Failed(error.to_string()));
+                        }
+                        return;
+                    }
+                };
                 if !alive() {
                     return;
                 }
                 // The index holds every book; eligibility is applied per query. Search the
-                // unfiltered index once more to say what the active-book filter removed.
+                // unfiltered index once more to say what the active-book filter removed. Book
+                // sections are not entries, so they are never part of that count.
                 let hidden = if library.has_inactive_books() {
-                    let every_hit = idx.search_summaries(&query);
+                    let every_hit: Vec<HitSummary> = idx
+                        .search_summaries(&query)
+                        .into_iter()
+                        .filter(|hit| hit.kind != BOOK_SECTION_KIND)
+                        .collect();
                     inactive_matches(
                         &every_hit,
                         |id| discovery.is_eligible(id),
@@ -974,11 +1003,29 @@ pub fn Search() -> impl IntoView {
                 let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
                 // Only the rendered rows scan their document text for highlights.
                 let highlighter = idx.highlighter(&query);
+                let section_total = section_hits.len();
+                let mut sections = section_hits
+                    .into_iter()
+                    .take(SECTION_LIMIT)
+                    .filter_map(|summary| {
+                        let hit = summary.into_hit();
+                        let doc = idx.doc(hit.ord)?;
+                        let (chapter, anchor) = (doc.chapter.to_string(), doc.anchor.to_string());
+                        Some(SectionHit {
+                            hit,
+                            chapter,
+                            anchor,
+                        })
+                    })
+                    .collect::<Vec<_>>();
                 for result in &mut hits {
                     idx.materialize_hit(&highlighter, &mut result.hit);
                     for (hit, _) in &mut result.variants {
                         idx.materialize_hit(&highlighter, hit);
                     }
+                }
+                for section in &mut sections {
+                    idx.materialize_hit(&highlighter, &mut section.hit);
                 }
                 let engine_ms = now() - started;
                 let fresh_counts = discovery
@@ -1060,6 +1107,8 @@ pub fn Search() -> impl IntoView {
                     hits,
                     total,
                     groups,
+                    sections,
+                    section_total,
                 });
             });
             previous_value
@@ -1501,14 +1550,29 @@ pub fn Search() -> impl IntoView {
             </div>
         }
         .into_any(),
-        Phase::Done { hits, .. } if hits.is_empty() => view! {
-            <div class="empty">
-                <p>"No entries match."</p>
-                <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
-            </div>
+        Phase::Done {
+            hits,
+            groups,
+            sections,
+            section_total,
+            ..
+        } if hits.is_empty() && sections.is_empty() => {
+            let _ = (groups, section_total);
+            view! {
+                <div class="empty">
+                    <p>"No entries match."</p>
+                    <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
+                </div>
+            }
+            .into_any()
         }
-        .into_any(),
-        Phase::Done { hits, groups, .. } => {
+        Phase::Done {
+            hits,
+            groups,
+            sections,
+            section_total,
+            ..
+        } => {
             let full = hits.len() < groups;
             let all_relations = addon_labels.with(|state| state.clone().flatten());
             let all_groups = option_groups.with(|state| state.clone().flatten());
@@ -1552,7 +1616,31 @@ pub fn Search() -> impl IntoView {
                     </details></li> }.into_any()
                 })
                 .collect_view();
+            let section_rows = sections
+                .iter()
+                .map(|section| {
+                    section_hit_view(
+                        &lib_for_hits,
+                        &section.hit,
+                        &section.chapter,
+                        &section.anchor,
+                    )
+                })
+                .collect_view();
+            let section_count = section_total;
+            let section_block = (!sections.is_empty()).then(|| {
+                view! {
+                    <section class="book-sections" aria-labelledby="book-sections-head" data-testid="book-sections">
+                        <h2 id="book-sections-head">
+                            "Book sections"
+                            <small class="chip-count">{fmt::count(section_count)}</small>
+                        </h2>
+                        <ol class="section-results">{section_rows}</ol>
+                    </section>
+                }
+            });
             view! {
+                {section_block}
                 <ol class="results">{items}</ol>
                 {full.then(|| view! {
                     <p><button class="btn" type="button" on:click=move |_| pages.update(|p| *p += 1)>
@@ -1569,10 +1657,16 @@ pub fn Search() -> impl IntoView {
         Memo::new(move |_| state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources)));
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
-        Phase::Done { total, groups, .. } => {
+        Phase::Done {
+            total,
+            groups,
+            section_total,
+            ..
+        } => {
             let n = groups;
             let limit = pages.get() * PAGE;
             let text = match (n, n > limit) {
+                (0, _) if section_total > 0 => "No entry results".to_string(),
                 (0, _) => "No results".to_string(),
                 (1, _) => "1 result".to_string(),
                 (_, true) => format!(
@@ -1841,6 +1935,33 @@ fn focus_result_count() {
         .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
     {
         let _ = status.focus();
+    }
+}
+
+/// One book-section row: its title, the book, and the chapter page at the row's anchor.
+fn section_hit_view(
+    library: &crate::library::Library,
+    hit: &Hit,
+    chapter: &str,
+    anchor: &str,
+) -> impl IntoView + use<> {
+    let href = Route::BookChapter {
+        source: hit.source.clone(),
+        chapter: chapter.to_string(),
+        anchor: (!anchor.is_empty()).then(|| anchor.to_string()),
+    }
+    .href();
+    let book = library
+        .source(&hit.source)
+        .map_or_else(|| hit.source.clone(), |source| source.title.clone());
+    let title = marked(&hit.title, &hit.title_matches);
+    view! {
+        <li class="hit hit-section">
+            <a class="section-hit-link" href=href>
+                <span class="hit-title">{title}</span>
+                <span class="hit-meta">"Book section · "{book}</span>
+            </a>
+        </li>
     }
 }
 
