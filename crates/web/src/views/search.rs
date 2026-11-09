@@ -5,7 +5,6 @@
 use crate::fmt;
 use crate::js;
 use crate::library::use_library;
-use crate::revisions::RevisionView;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::icons;
@@ -750,6 +749,16 @@ pub fn Search() -> impl IntoView {
     // rescan every indexed document for every field on every search.
     let facet_values_cache = StoredValue::new(None::<(u64, BTreeMap<String, Vec<String>>)>);
     let discovery_cache = StoredValue::new_local(None::<(u64, Rc<crate::discovery::Discovery>)>);
+    // One effective revision state per active-book set. The chip totals, the facet values and
+    // every count predicate read it, so the revision graph is not rebuilt per keystroke.
+    let revisions = {
+        let library = library.clone();
+        let revision = library.selection_revision();
+        local_resource(async move {
+            let _ = revision.get();
+            library.revisions().await.ok().flatten()
+        })
+    };
     // The add-on labels of result rows. The whole graph, so a mythic row keeps its label while
     // its base's book is inactive; a hit is only shown when its own book is active.
     let addon_labels = {
@@ -800,6 +809,10 @@ pub fn Search() -> impl IntoView {
         Effect::new(move |previous: Option<SearchState>| {
             let revision = library.selection_revision().get();
             let discovery = discovery_for(&library, discovery_cache, revision);
+            let revision_state = revisions.get().flatten();
+            let counts_state = revision_state.clone();
+            let counts_row =
+                move |id: &str| counts_state.as_ref().is_none_or(|state| !state.hides(id));
             let current = state.get();
             let previous_value = current.clone();
             if previous.as_ref() != Some(&current) {
@@ -827,7 +840,9 @@ pub fn Search() -> impl IntoView {
                     inactive.set(None);
                     // Warm the index so the first keystroke does not wait for it.
                     ensure_index(&library, index, index_ms, phase, false, &alive).await;
-                    if let Ok(fresh) = discovery.filter_counts("", &Filters::default()).await
+                    if let Ok(fresh) = discovery
+                        .filter_counts_counted("", &Filters::default(), counts_row)
+                        .await
                         && alive()
                     {
                         counts.set(Some(fresh));
@@ -852,18 +867,13 @@ pub fn Search() -> impl IntoView {
                 };
                 // A revision is a second indexed document with the same title. Rewrite it to
                 // the original id and keep one row, so a search never shows the pair.
-                let all_hits = match library.relations().await {
-                    Ok(Some(relations)) => {
-                        let view = RevisionView::build(
-                            &relations,
-                            |id| library.is_entry_active(id),
-                            |id| library.stub(id).map(|stub| stub.source.clone()),
-                        );
-                        crate::revisions::effective_hits(all_hits, &view, |id| {
+                let all_hits = match revision_state.as_ref() {
+                    Some(revisions) => {
+                        crate::revisions::effective_hits(all_hits, revisions.view(), |id| {
                             discovery.is_eligible(id)
                         })
                     }
-                    _ => all_hits,
+                    None => all_hits,
                 };
                 if !alive() {
                     return;
@@ -912,7 +922,7 @@ pub fn Search() -> impl IntoView {
                 }
                 let engine_ms = now() - started;
                 let fresh_counts = discovery
-                    .filter_counts(&current.q, &query.filters)
+                    .filter_counts_counted(&current.q, &query.filters, |id| counts_row(id))
                     .await
                     .ok();
                 let mut facet_data = Vec::new();
@@ -926,7 +936,10 @@ pub fn Search() -> impl IntoView {
                     });
                     let values = match cached {
                         Some(values) => values,
-                        None => match discovery.facet_values(field).await {
+                        None => match discovery
+                            .facet_values_counted(field, |id| counts_row(id))
+                            .await
+                        {
                             Ok(pairs) => {
                                 if !alive() {
                                     return;
@@ -1062,7 +1075,9 @@ pub fn Search() -> impl IntoView {
     let count_library = library.clone();
     let kind_counts = Memo::new(move |_: Option<&Vec<(EntryKind, usize)>>| {
         let revision = count_library.selection_revision().get();
-        discovery_for(&count_library, discovery_cache, revision).kind_counts()
+        let state = revisions.get().flatten();
+        discovery_for(&count_library, discovery_cache, revision)
+            .kind_counts_counted(|id| state.as_ref().is_none_or(|state| !state.hides(id)))
     });
     let kind_counts = kind_counts.get();
     // One pass over the eligible entries for every publication chip. Computing this inside
@@ -1071,8 +1086,16 @@ pub fn Search() -> impl IntoView {
     let source_totals_library = library.clone();
     let source_totals = Memo::new(move |_| {
         let revision = source_totals_library.selection_revision().get();
+        let state = revisions.get().flatten();
         let mut totals: BTreeMap<String, usize> = BTreeMap::new();
-        for stub in discovery_for(&source_totals_library, discovery_cache, revision).entries() {
+        for stub in discovery_for(&source_totals_library, discovery_cache, revision)
+            .entries()
+            .filter(|stub| {
+                state
+                    .as_ref()
+                    .is_none_or(|state| !state.hides(stub.id.as_str()))
+            })
+        {
             *totals.entry(stub.source.clone()).or_default() += 1;
         }
         totals
@@ -1350,8 +1373,14 @@ pub fn Search() -> impl IntoView {
     let results = move || match phase.get() {
         Phase::Idle => {
             let revision = lib_for_hits.selection_revision().get();
+            let state = revisions.get().flatten();
             let total = discovery_for(&lib_for_hits, discovery_cache, revision)
                 .entries()
+                .filter(|stub| {
+                    state
+                        .as_ref()
+                        .is_none_or(|state| !state.hides(stub.id.as_str()))
+                })
                 .count();
             view! {
                 <div class="empty">
