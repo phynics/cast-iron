@@ -841,6 +841,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind,
             title: "T".into(),
+            aon: None,
             source_ids: vec!["core-rulebook".into()],
             sources: vec![],
             section: vec![],

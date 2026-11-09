@@ -1182,6 +1182,7 @@ mod tests {
             id: id("c/feats/x"),
             kind: EntryKind::Feat,
             title: "X".into(),
+            aon: None,
             source_ids: vec!["c".into()],
             sources: vec![],
             section: vec![],

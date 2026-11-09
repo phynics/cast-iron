@@ -40,6 +40,7 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
         id: EntryId::parse(id).unwrap(),
         kind: EntryKind::Rule,
         title: id.rsplit('/').next().unwrap().to_string(),
+        aon: None,
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
         section: vec![],
@@ -77,6 +78,7 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
         publications: vec![Publication {
             id: "core-rulebook".into(),
             title: "Core Rulebook".into(),
+            aon: None,
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
