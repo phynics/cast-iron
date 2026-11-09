@@ -172,6 +172,7 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
         }
         assert!(reports.join("coverage.md").is_file());
         assert!(reports.join("validation.json").is_file());
+        assert!(reports.join("reachability.json").is_file());
         let coverage = fs::read_to_string(reports.join("coverage.md")).unwrap();
         assert!(coverage.contains("json/example.json"), "{coverage}");
         let derived: Vec<String> = manifest

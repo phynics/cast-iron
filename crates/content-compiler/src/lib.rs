@@ -7,5 +7,6 @@ pub mod corpus_coverage;
 pub mod lists;
 pub mod pipeline;
 pub mod published;
+pub mod reachability;
 pub mod relations;
 pub mod text;
