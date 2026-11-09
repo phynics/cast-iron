@@ -296,7 +296,9 @@ SANITY_SUBSECTIONS = [
 TYPES_OF_INSANITY_ID = "ref/rule/rule-sanity-and-madness/types-of-insanity"
 INSANITY_TYPES = [
     "ref/madness/amnesia",
+    "ref/madness/dissociated-identity",
     "ref/madness/mania",
+    "ref/madness/moral-insanity",
     "ref/madness/paranoid",
     "ref/madness/phobia",
     "ref/madness/schizophrenia",
