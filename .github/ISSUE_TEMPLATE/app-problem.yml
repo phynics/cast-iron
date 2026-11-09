@@ -1,0 +1,42 @@
+name: App problem
+description: "Report a problem with the Cast Iron app: layout, search, install, offline use, or updates."
+title: "[App] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a problem. This form is for the app itself. A wrong or
+        missing rules entry belongs in the
+        [content repository](https://github.com/phynics/cast-iron-data/issues).
+        Cast Iron is an unofficial project and is not affiliated with Paizo Inc.
+  - type: input
+    id: route
+    attributes:
+      label: Page
+      description: The address shown in the address bar when the problem happened.
+      placeholder: "#/settings"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: Settings shows the app version under "This app".
+  - type: input
+    id: content-version
+    attributes:
+      label: Library content version
+      description: Settings shows the corpus and content version under "This app".
+  - type: input
+    id: schema-version
+    attributes:
+      label: Library content format
+      description: Settings shows the content format under "This app".
+  - type: textarea
+    id: whats-wrong
+    attributes:
+      label: What's wrong?
+      description: What happened, what you expected, and how to reproduce it.
+    validations:
+      required: true
