@@ -94,7 +94,7 @@ class level and the full body below.
 | `id` | string | Permanent `ref/` id. Required. |
 | `kind` | string | `EntryKind` slug: `rule`, `spell`, `feat`, `creature`, `item`, `class`, `prestige_class`, `race`, `skill`, `affliction`, `trap`, `trait`, `racial_trait`, `archetype`, `class_option`. Required. |
 | `title` | string | Display title. Required. |
-| `aon` | string | Optional Archives of Nethys page, as a path relative to `https://aonprd.com/`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`. It names a `*Display.aspx` page with `ItemName`; no scheme, host, leading slash, or fragment. |
+| `aon` | string | Optional Archives of Nethys page, as a path relative to `https://aonprd.com/`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`. It names a `*Display.aspx` page with `ItemName`, `FixedName`, or `FinalName`; no scheme, host, leading slash, or fragment. |
 | `source_ids` | array of strings | Publication ids. Every one must exist in `publications.toml`. |
 | `section` | array of strings | Breadcrumb inside the rules hierarchy. |
 | `parent` | string | Containing rules entry; must resolve to another entry. Omitted when absent. |

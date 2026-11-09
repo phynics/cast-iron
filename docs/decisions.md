@@ -14,9 +14,10 @@ separate pull request in `phynics/cast-iron-data`; app rendering is a later step
   variant record without a distinct AoN page gets no field, and every miss stays in the
   harvest report. The app never guesses a URL.
 - **`corpus-check` owns the shape.** An entry path must name a `*Display.aspx` page with
-  `ItemName`; a publication path must name `SourceDisplay.aspx` with `FixedSource`. Values are
-  percent-encoded and the query key is fixed, so a host, a missing escape, or another query
-  cannot enter the corpus.
+  `ItemName`, `FixedName`, or `FinalName`; AoN uses `ItemName` for most records, `FixedName`
+  for archetypes, and `FinalName` for some item pages. A publication path must name
+  `SourceDisplay.aspx` with `FixedSource`. Values are percent-encoded and the query key is
+  fixed, so a host, a missing escape, or another query cannot enter the corpus.
 - **`SCHEMA_VERSION` stays 4 and the corpus format stays 1.** Both fields are optional and
   omitted when absent; an older reader ignores the unknown key. The tool that reads the corpus
   ships with the corpus pin, as with the `[[sources]]` migration (#357). The compiler carries

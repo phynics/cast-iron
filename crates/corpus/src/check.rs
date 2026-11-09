@@ -393,19 +393,26 @@ fn aon_problem(value: &str, kind: AonKind) -> Option<String> {
         let Some((key, value)) = pair.split_once('=') else {
             return Some(format!("has a query part `{pair}` that is not `key=value`"));
         };
-        let expected = if kind == AonKind::Publication {
-            "FixedSource"
+        // AoN names an entry differently by page type: feats, spells and most records use
+        // `ItemName`, archetypes use `FixedName`, and some item pages use `FinalName`.
+        let allowed: &[&str] = if kind == AonKind::Publication {
+            &["FixedSource"]
         } else {
-            "ItemName"
+            &["ItemName", "FixedName", "FinalName"]
         };
-        if key != expected {
+        if !allowed.contains(&key) {
             return Some(format!(
-                "uses query key `{key}`; a {kind_name} must use `{expected}`",
+                "uses query key `{key}`; a {kind_name} must use {expected}",
                 kind_name = if kind == AonKind::Publication {
                     "publication"
                 } else {
                     "entry"
-                }
+                },
+                expected = allowed
+                    .iter()
+                    .map(|key| format!("`{key}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
             ));
         }
         if !seen.insert(key) {
@@ -1795,9 +1802,16 @@ mod tests {
     #[test]
     fn an_aon_entry_path_must_be_a_relative_display_page() {
         let mut entry = rule("ref/feat/power-attack", vec![]);
-        entry.aon = Some("FeatDisplay.aspx?ItemName=Power%20Attack".into());
-        let report = check(&corpus(vec![entry]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        for value in [
+            "FeatDisplay.aspx?ItemName=Power%20Attack",
+            "ArchetypeDisplay.aspx?FixedName=Alchemist%20Aerochemist",
+            "MagicWondrousDisplay.aspx?FinalName=Wayfinder",
+        ] {
+            let mut entry = rule("ref/feat/power-attack", vec![]);
+            entry.aon = Some(value.into());
+            let report = check(&corpus(vec![entry]));
+            assert!(report.problems.is_empty(), "{value}: {report:?}");
+        }
 
         let bad = [
             "https://aonprd.com/FeatDisplay.aspx?ItemName=Power%20Attack",
