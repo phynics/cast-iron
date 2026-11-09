@@ -124,9 +124,25 @@ The printed contents page of Bestiary 3 was checked in this review. It verifies 
 |---|---|---|
 | Introduction | Introduction | 5 |
 | — | Monsters A to Z | 7 |
-| Appendices 1-13 | Appendices | 290-318 |
+| Appendix 1 | Monster Creation | 290 |
+| Appendix 2 | Monster Advancement | 290 |
+| Appendix 3 | Glossary | 292 |
+| Appendix 4 | Monsters as PCs | 308 |
+| Appendix 5 | Monster Feats | 308 |
+| Appendix 6 | Monster Cohorts | 310 |
+| Appendix 7 | Animal Companions | 310 |
+| Appendix 8 | Monsters by Type | 312 |
+| Appendix 9 | Monsters by CR | 313 |
+| Appendix 10 | Monsters by Terrain | 314 |
+| Appendix 11 | Variant Monster Index | 317 |
+| Appendix 12 | Ability Index | 317 |
+| Appendix 13 | Monster Roles | 318 |
 
-The dataset holds only the monster entries, in a top-level group with the printed title Monsters A to Z; the printed introduction and appendices are not in it. Main chapter order is verified; appendix coverage remains incomplete.
+`books.toml` follows this sequence: Monsters A to Z, then the appendices that have corpus entries. Universal Monster Rules holds the printed Appendix 3 Glossary rules (pp. 292-301). Animal Companions holds the stat blocks from the printed Appendix 7 (pp. 310-312). Monsters by Type uses the printed Appendix 8 title (p. 312) and holds the creature subtype descriptions that print in the Appendix 3 Glossary (pp. 303-308). The printed Appendices 1, 2, 4, 5, 6 and 9-13 have no Bestiary 3 entries in the corpus, so they have no groups.
+
+Main chapter order and nested placement are verified against the printed Bestiary 3. The set of placed entries is unchanged at 465. Inside Monsters A to Z, each printed family heading holds its own monsters in page order: Asura (p. 20; adhukait p. 22, aghasura p. 23, asurendra pp. 24-25, tripurasura p. 26, upasunda p. 27), Behemoth (p. 36), Clockwork (p. 53), Demodand (p. 68), Div (p. 82), Dragon (Imperial) (p. 92; forest pp. 94-95, sea pp. 96-97, sky pp. 98-99, sovereign pp. 100-101, underworld pp. 102-103), Kami (p. 159), Kyton with the Kyton Demagogues sidebar (p. 170), Leshy (p. 176), Linnorm (p. 181), Oni (p. 205), Rakshasa (p. 224), Sphinx (p. 250), and Thriae (p. 263). The six additional familiars sit under the printed Familiar heading (pp. 112-113). Each template heading keeps its example creature: Animal Lord (pp. 14-15), Fey Creature (pp. 116-117), Foo Creature with Foo Dog and Foo Lion (pp. 120-121), Graveknight (pp. 138-139), Penanggalen (pp. 216-217), and Jiang-Shi (pp. 277-279).
+
+Construction subsections sit inside their construct entries: caryatid column (p. 46), clockwork goliath, leviathan, servant, soldier and spy (pp. 54-58), bone, brass, cannon and fossil golems (pp. 133-136), graven guardian (pp. 140-141), taotieh (p. 260), terra-cotta soldier (p. 262), tophet (p. 271), and tupilaq (p. 275). Each leshy keeps its Growing a Leshy subsection (pp. 177-180). Dataset splits sit inside the entry that prints them: monster abilities (asurendra p. 24, cerberi p. 51, pairaka p. 88, giant crab and ogre spiders p. 254, wolf-in-sheep's-clothing p. 285), marsupial stat blocks (p. 191), and the Ratfolk race text (p. 231). The universal monster rules keep their splits, and the creature subtypes sit under Monsters by Type. The alphabetical order follows the printed pages; entries that share a printed page keep the dataset order.
 
 ## Bestiary 4
 
