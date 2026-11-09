@@ -3,6 +3,7 @@
 use crate::class_options;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
+use crate::revisions::{self, ActiveRevision, RevisionLabel, RevisionView};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
@@ -12,7 +13,7 @@ use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
-use crate::views::rich::{RELATED_ANCHOR, RichBody, plain_text};
+use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
@@ -207,6 +208,46 @@ pub fn retirement_reason_label(reason: RetirementReason) -> &'static str {
     }
 }
 
+/// The revision that is in force on this page. `original` is the entry the route opened, so the
+/// page can disclose its text; `revision_entry` supplies the revised text or the printed
+/// sentence for a removal or merge.
+#[derive(Clone)]
+struct RevisionPage {
+    active: ActiveRevision,
+    book: String,
+    original: RuleEntry,
+    revision_entry: RuleEntry,
+    changed: Vec<&'static str>,
+}
+
+/// One row of the two-or-more-revisions list: the original stays, and every revision is named
+/// with its book.
+#[derive(Clone)]
+struct CollisionRow {
+    id: EntryId,
+    book: String,
+}
+
+/// Everything the entry screen needs after one resource pass: the effective entry, the index
+/// files, and the revision state.
+#[derive(Clone)]
+struct LoadedEntry {
+    entry: RuleEntry,
+    indexes: Indexes,
+    revision: Option<RevisionPage>,
+    collision: Vec<CollisionRow>,
+}
+
+/// The title of the book that prints an entry, for notices and disclosures. `Other` when the
+/// catalog does not name it.
+fn book_title(library: &Library, entry: &RuleEntry) -> String {
+    entry
+        .source_ids
+        .first()
+        .and_then(|id| library.source(id))
+        .map_or_else(|| "Other".to_string(), |source| source.title.clone())
+}
+
 #[component]
 pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
     let library = use_library();
@@ -287,7 +328,58 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                 Err(error) => leptos::logging::warn!("replacement lines are off: {error}"),
             }
         }
-        Ok::<_, crate::library::LibraryError>((entry, indexes))
+        let mut loaded = LoadedEntry {
+            entry,
+            indexes,
+            revision: None,
+            collision: Vec::new(),
+        };
+        // A revision is gated by its own book alone. A page that is itself a revision keeps its
+        // own text and names its base; a base resolves one active revision (or reports a
+        // collision). The original entry stays in the page for the disclosure.
+        if let Some(view) = loaded.indexes.all_relations.as_ref().map(|all| {
+            RevisionView::build(
+                all,
+                |id| fetch_library.is_entry_active(id),
+                |id| fetch_library.stub(id).map(|stub| stub.source.clone()),
+            )
+        }) && view.for_revision(&loaded.entry.id).is_none()
+        {
+            if view.is_collision(&loaded.entry.id) {
+                loaded.collision = view
+                    .active_for(&loaded.entry.id)
+                    .iter()
+                    .map(|active| CollisionRow {
+                        id: active.revision.clone(),
+                        book: active
+                            .source
+                            .as_deref()
+                            .and_then(|source| fetch_library.source(source))
+                            .map_or_else(|| "Other".to_string(), |source| source.title.clone()),
+                    })
+                    .collect();
+            } else if let Some(active) = view.in_force(&loaded.entry.id).cloned() {
+                let revision_entry = fetch_library.entry(&active.revision).await?;
+                let book = active
+                    .source
+                    .as_deref()
+                    .and_then(|source| fetch_library.source(source))
+                    .map_or_else(|| "Other".to_string(), |source| source.title.clone());
+                let original = loaded.entry.clone();
+                let changed = revisions::changed_fields(&original.fields, &revision_entry.fields);
+                if active.is_revised() {
+                    loaded.entry = revisions::effective_entry(&original, &revision_entry);
+                }
+                loaded.revision = Some(RevisionPage {
+                    active,
+                    book,
+                    original,
+                    revision_entry,
+                    changed,
+                });
+            }
+        }
+        Ok::<_, crate::library::LibraryError>(loaded)
     });
     let shown_id = id.clone();
     view! {
@@ -308,11 +400,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
                         <p class="muted"><code>{shown_id.to_string()}</code></p>
                     </div>
                 }.into_any(),
-                Some(Ok((entry, indexes))) => view! {
+                Some(Ok(loaded)) => view! {
                     <EntryView
                         library=library.clone()
-                        entry=entry.clone()
-                        indexes=indexes.clone()
+                        entry=loaded.entry.clone()
+                        indexes=loaded.indexes.clone()
+                        revision=loaded.revision.clone()
+                        collision=loaded.collision.clone()
                         anchor=anchor.clone()
                     />
                 }.into_any(),
@@ -327,6 +421,8 @@ fn EntryView(
     library: Library,
     entry: RuleEntry,
     indexes: Indexes,
+    revision: Option<RevisionPage>,
+    collision: Vec<CollisionRow>,
     anchor: Option<String>,
 ) -> impl IntoView {
     set_title(&entry.title);
@@ -334,6 +430,19 @@ fn EntryView(
         let (id, title) = (entry.id.clone(), entry.title.clone());
         let recents = crate::app::use_app().recents;
         spawn_local(async move { recent::record(recents, id, title).await });
+    }
+    // A revision in force changes what the feat requires. The panels keep their own graph, but
+    // the chain walks the revision's prerequisite edges under the original id.
+    let mut indexes = indexes;
+    if let Some(page) = revision.as_ref()
+        && page.active.is_revised()
+        && let Some(all) = indexes.all_relations.as_ref()
+    {
+        let discovery = library.discovery();
+        let effective = all.with_prerequisite_override(&entry.id, &page.active.revision);
+        indexes.relations = Some(Rc::new(
+            effective.filtered(|id| discovery.is_eligible(id.as_str())),
+        ));
     }
 
     let chain = parent_chain(&library, &entry.id);
@@ -486,6 +595,16 @@ fn EntryView(
 
     let kind: EntryKind = entry.kind;
     let plain_title = entry.title.clone();
+    // The add-on's own book, for the `changes` phrase. An add-on has one publication.
+    let addon_book = entry
+        .source_ids
+        .first()
+        .map(|id| {
+            library
+                .source(id)
+                .map_or_else(|| id.clone(), |source| source.title.clone())
+        })
+        .unwrap_or_default();
     // An add-on or variant names its base once, at the end of the metadata line. The base
     // stays linked when its book is inactive, followed by the plain `Inactive` label.
     let addon_base = entry
@@ -493,8 +612,11 @@ fn EntryView(
         .iter()
         .find_map(|relation| {
             let phrase = match relation.kind {
-                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?)?,
-                RelationKind::Variant => "Variant of",
+                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?, &addon_book)?,
+                RelationKind::Variant => "Variant of".to_string(),
+                // The revision's own page names the feat it revises. A base page never shows
+                // this: its effective entry drops the revision edge.
+                RelationKind::Revision => "Revision of".to_string(),
                 _ => return None,
             };
             Some((phrase, relation.target.clone()))
@@ -553,9 +675,98 @@ fn EntryView(
         .into_any(),
     };
     let disabled_book = !library.is_entry_active(&entry.id);
+    // A revision in force keeps the original text for a collapsed disclosure. A removal or
+    // merge shows the printed sentence instead of the old body; a revised text shows the
+    // revision's body in place.
+    let original_disclosure = revision.as_ref().map(|page| {
+        let book = book_title(&library, &page.original);
+        let body = page.original.body.clone();
+        view! {
+            <details class="rel-disclosure rel-original">
+                <summary>{icons::chevron_right("disclosure-chevron")}{format!("Original text · {book}")}</summary>
+                <div class="rich">{blocks(&body)}</div>
+            </details>
+        }
+    });
+    let revision_notice = revision.as_ref().map(|page| {
+        let book = page.book.clone();
+        match page.active.label {
+            RevisionLabel::Revised => {
+                let changed = revisions::changed_phrase(&page.changed);
+                view! {
+                    <p class="notice revision-notice">
+                        "Revised by "{book}". Changed: "{changed}"."
+                    </p>
+                }
+                .into_any()
+            }
+            RevisionLabel::Removed => view! {
+                <p class="notice revision-notice">"Removed by "{book}"."</p>
+                <div class="rich revision-sentence">{blocks(&page.revision_entry.body)}</div>
+            }
+            .into_any(),
+            RevisionLabel::Merged => {
+                let merged = page.revision_entry.links.first().map(|reference| {
+                    let title = library
+                        .stub(&reference.target)
+                        .map_or_else(|| reference.target.to_string(), |stub| stub.title.clone());
+                    let href = Route::entry(reference.target.clone()).href();
+                    view! { <a href=href>{title}</a> }.into_any()
+                });
+                match merged {
+                    Some(link) => view! {
+                        <p class="notice revision-notice">
+                            "Merged by "{book}" into "{link}"."
+                        </p>
+                    }
+                    .into_any(),
+                    None => view! {
+                        <p class="notice revision-notice">"Merged by "{book}"."</p>
+                    }
+                    .into_any(),
+                }
+            }
+        }
+    });
+    // Two or more revisions in force mean no substitution: the original stays, and the page
+    // lists each revision rather than picking one.
+    let collision_block = (!collision.is_empty()).then(|| {
+        let rows = collision
+            .iter()
+            .map(|row| {
+                let title = library
+                    .stub(&row.id)
+                    .map_or_else(|| row.id.to_string(), |stub| stub.title.clone());
+                view! {
+                    <li>
+                        <a href=Route::entry(row.id.clone()).href()>{title}</a>
+                        <span class="muted">" · "{row.book.clone()}</span>
+                    </li>
+                }
+            })
+            .collect_view();
+        view! {
+            <section class="rel revision-collision">
+                <h2>"Revised by"</h2>
+                <ul class="rel-list">{rows}</ul>
+            </section>
+        }
+    });
+    let hide_body = revision
+        .as_ref()
+        .is_some_and(|page| !page.active.is_revised());
+    let contents_body = if hide_body {
+        Vec::new()
+    } else {
+        entry.body.clone()
+    };
     // The printed spell `Level` row says `0: Class`; render it from the typed levels so the
     // reader sees `Cantrips`. Every other entry keeps its body as printed.
-    let rendered_body = spell_level_body(&entry.body, &entry.fields);
+    let rendered_body = if hide_body {
+        Vec::new()
+    } else {
+        spell_level_body(&entry.body, &entry.fields)
+    };
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
@@ -578,7 +789,10 @@ fn EntryView(
             </div>
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
-        <ArticleContents body=entry.body.clone() id=entry.id.clone() />
+        {revision_notice}
+        {collision_block}
+        {original_disclosure}
+        <ArticleContents body=contents_body id=entry.id.clone() />
         <RichBody body=rendered_body anchor=anchor />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />

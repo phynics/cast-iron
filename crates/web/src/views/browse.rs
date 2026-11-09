@@ -4,7 +4,9 @@
 use crate::book_presets;
 use crate::class_options;
 use crate::fmt;
+use crate::graph::Relations;
 use crate::library::{Library, LibraryError, use_library};
+use crate::revisions::{RevisionRows, RevisionView};
 use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
     MANAGE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
@@ -284,43 +286,82 @@ fn category_card(kind: EntryKind, n: usize) -> impl IntoView + use<> {
 #[component]
 pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
     let library = use_library();
-    let (primary, more) = categories::arrange(&library.discovery().kind_counts());
-    let primary = primary
-        .into_iter()
-        .map(|(kind, n)| category_card(kind, n))
-        .collect_view();
-    let more_section = (!more.is_empty()).then(|| {
-        let rows = more
+    // The counts are totals for the effective rows: a revision replaces its base and a removed
+    // or merged feat leaves the kind, so neither inflates the number on Home. The adjustment
+    // arrives with the relation graph; the cards render once without it, then settle.
+    let hidden_by_kind = {
+        let library = library.clone();
+        local_resource(async move {
+            let relations = library.relations().await.ok().flatten()?;
+            let discovery = library.discovery();
+            let view = RevisionView::build(
+                &relations,
+                |id| library.is_entry_active(id),
+                |id| library.stub(id).map(|stub| stub.source.clone()),
+            );
+            let rows = view.rows(|id| discovery.is_eligible(id.as_str()));
+            let mut counts = HashMap::<EntryKind, usize>::new();
+            for id in rows.hidden_ids() {
+                if let Some(stub) = library.stub(id) {
+                    *counts.entry(stub.kind).or_default() += 1;
+                }
+            }
+            Some(counts)
+        })
+    };
+    let directory = move || {
+        let hidden = hidden_by_kind.get().flatten().unwrap_or_default();
+        let counts: Vec<(EntryKind, usize)> = library
+            .discovery()
+            .kind_counts()
+            .into_iter()
+            .map(|(kind, n)| {
+                (
+                    kind,
+                    n.saturating_sub(hidden.get(&kind).copied().unwrap_or(0)),
+                )
+            })
+            .filter(|(_, n)| *n > 0)
+            .collect();
+        let (primary, more) = categories::arrange(&counts);
+        let primary = primary
             .into_iter()
             .map(|(kind, n)| category_card(kind, n))
             .collect_view();
+        let more_section = (!more.is_empty()).then(|| {
+            let rows = more
+                .into_iter()
+                .map(|(kind, n)| category_card(kind, n))
+                .collect_view();
+            view! {
+                <section aria-labelledby="by-kind-more">
+                    <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
+                    <ul class="cats cats-quiet" aria-describedby=note.then_some("by-kind-scope")>{rows}</ul>
+                </section>
+            }
+        });
+        let shortcuts = library.has_spell_lists().then(|| {
+            view! {
+                <section aria-labelledby="shortcuts">
+                    <h2 id="shortcuts" class="sub-head">"Shortcuts"</h2>
+                    <ul class="jump-list">
+                        <li><a class="jump" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
+                        <li><a class="jump" href=Route::FeatChains.href()>"Feat chains"</a></li>
+                    </ul>
+                </section>
+            }
+        });
         view! {
-            <section aria-labelledby="by-kind-more">
-                <h2 id="by-kind-more" class="sub-head">"More categories"</h2>
-                <ul class="cats cats-quiet" aria-describedby=note.then_some("by-kind-scope")>{rows}</ul>
+            <section aria-labelledby="by-kind">
+                <h2 id="by-kind">"Categories"</h2>
+                {note.then(|| view! { <p id="by-kind-scope" class="muted cats-note">{ACTIVE_BOOKS_SCOPE}"."</p> })}
+                <ul class="cats" aria-describedby=note.then_some("by-kind-scope")>{primary}</ul>
             </section>
+            {more_section}
+            {shortcuts}
         }
-    });
-    let shortcuts = library.has_spell_lists().then(|| {
-        view! {
-            <section aria-labelledby="shortcuts">
-                <h2 id="shortcuts" class="sub-head">"Shortcuts"</h2>
-                <ul class="jump-list">
-                    <li><a class="jump" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
-                    <li><a class="jump" href=Route::FeatChains.href()>"Feat chains"</a></li>
-                </ul>
-            </section>
-        }
-    });
-    view! {
-        <section aria-labelledby="by-kind">
-            <h2 id="by-kind">"Categories"</h2>
-            {note.then(|| view! { <p id="by-kind-scope" class="muted cats-note">{ACTIVE_BOOKS_SCOPE}"."</p> })}
-            <ul class="cats" aria-describedby=note.then_some("by-kind-scope")>{primary}</ul>
-        </section>
-        {more_section}
-        {shortcuts}
-    }
+    };
+    view! { {directory} }
 }
 
 /// One publication row. Grouping is a pure function over these so the order can be tested
@@ -1379,6 +1420,58 @@ pub fn unknown_source_notice(kind: EntryKind, source: &str) -> String {
     )
 }
 
+/// A feat list waits for `relations.json` so a revision entry never becomes a second row and a
+/// removed or merged feat leaves the list and the count. Every other kind renders at once.
+#[component]
+pub fn FeatBrowseKind(
+    letter: Option<char>,
+    #[prop(optional)] facets: Vec<(String, String)>,
+    source: Option<String>,
+) -> impl IntoView {
+    let library = use_library();
+    let relations = {
+        let library = library.clone();
+        local_resource(async move {
+            library
+                .relations()
+                .await
+                .ok()
+                .flatten()
+                .map(Shared::from_rc)
+        })
+    };
+    move || {
+        relations.with(|state| match state {
+            None => view! {
+                <div class="wide list-page">
+                    <h1 tabindex="-1">"Feats"</h1>
+                    <p class="muted list-count" role="status" aria-live="polite">"Loading…"</p>
+                </div>
+            }
+            .into_any(),
+            Some(Some(relations)) => view! {
+                <BrowseKind
+                    kind=EntryKind::Feat
+                    letter=letter
+                    facets=facets.clone()
+                    source=source.clone()
+                    revisions=relations.clone()
+                />
+            }
+            .into_any(),
+            Some(None) => view! {
+                <BrowseKind
+                    kind=EntryKind::Feat
+                    letter=letter
+                    facets=facets.clone()
+                    source=source.clone()
+                />
+            }
+            .into_any(),
+        })
+    }
+}
+
 /// A kind's A to Z list. The URL may narrow it by a facet (`?facet=feat_type:Combat`) and by a
 /// publication (`?source=core-rulebook`); the index then names the entries that carry the value,
 /// and the list, its letters and its count all follow. Without a facet the list is built at
@@ -1389,6 +1482,10 @@ pub fn BrowseKind(
     letter: Option<char>,
     #[prop(optional)] facets: Vec<(String, String)>,
     source: Option<String>,
+    /// The relation graph for a kind whose rows a revision can change. `None` for every other
+    /// kind and for a library without `relations.json`.
+    #[prop(optional)]
+    revisions: Option<Shared<Relations>>,
 ) -> impl IntoView {
     set_title(kind.label());
     let library = use_library();
@@ -1419,9 +1516,35 @@ pub fn BrowseKind(
         })
         .flatten();
     // A book's set comes from the whole catalog, so a disabled book still lists what it holds.
+    // A revision changes the whole active list: its own row hides behind the original, and a
+    // removed or merged feat leaves the list. A book's own contents stay complete, because that
+    // page lists what the book holds.
+    let revision_rows: Option<RevisionRows> = match (source_id.is_none(), revisions.as_ref()) {
+        (true, Some(relations)) => {
+            let discovery = library.discovery();
+            Some(
+                RevisionView::build(
+                    relations,
+                    |id| discovery.is_eligible(id.as_str()),
+                    |id| library.stub(id).map(|stub| stub.source.clone()),
+                )
+                .rows(|id| discovery.is_eligible(id.as_str())),
+            )
+        }
+        _ => None,
+    };
     let all = Shared::new(match &source_id {
         Some(source) => sorted_of_kind_in_source(&library, kind, source),
-        None => sorted_of_kind(&library, kind),
+        None => {
+            let list = sorted_of_kind(&library, kind);
+            match &revision_rows {
+                Some(rows) => list
+                    .into_iter()
+                    .filter(|stub| !rows.hides(&stub.id))
+                    .collect(),
+                None => list,
+            }
+        }
     });
     if source_id.is_none()
         && let Some(field) = categories::grouped_by(kind)
@@ -1436,7 +1559,8 @@ pub fn BrowseKind(
         return view! {
             <BrowseList kind letter applied=applied source=source_id source_title
                 unknown stubs total=all.len() focus_menu focus_first
-                class_scope=class_scope.clone().unwrap_or_default() />
+                class_scope=class_scope.clone().unwrap_or_default()
+                revisions=revision_rows.clone().unwrap_or_default() />
         }
         .into_any();
     }
@@ -1520,7 +1644,8 @@ pub fn BrowseKind(
                     <BrowseList kind letter applied=applied.clone() source=source_id.clone()
                         source_title=source_title.clone() unknown=unknown.clone() stubs
                         total=all.len() focus_menu focus_first
-                        class_scope=class_scope.clone().unwrap_or_default() />
+                        class_scope=class_scope.clone().unwrap_or_default()
+                        revisions=revision_rows.clone().unwrap_or_default() />
                 }
                 .into_any()
             }
@@ -1652,12 +1777,25 @@ fn BrowseList(
     /// A to Z list.
     #[prop(optional)]
     sections: Option<Vec<Section>>,
+    /// The rows an active revision hides, and the book a revised row names. `None` when no
+    /// revision applies.
+    #[prop(optional)]
+    revisions: Option<RevisionRows>,
 ) -> impl IntoView {
     let library = use_library();
     let count = stubs.len();
     let narrowed = !applied.is_empty();
     let book = source_title.is_some();
-    let multi_source = stubs.iter().any(|s| s.source != stubs[0].source);
+    // A revised row names the book that revised it, not the book that printed the original.
+    let row_source = |stub: &EntryStub| -> String {
+        revisions
+            .as_ref()
+            .and_then(|rows| rows.source_of(&stub.id))
+            .map_or_else(|| stub.source.clone(), str::to_owned)
+    };
+    let multi_source = stubs
+        .first()
+        .is_some_and(|first| stubs.iter().any(|s| row_source(s) != row_source(first)));
     let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
     let groups = group_by_letter(&titles);
     let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
@@ -1755,7 +1893,7 @@ fn BrowseList(
                 let n = group.len();
                 let source_titles: Vec<Option<String>> = group
                     .iter()
-                    .map(|s| library.source(&s.source).map(|src| src.title.clone()))
+                    .map(|s| library.source(&row_source(s)).map(|src| src.title.clone()))
                     .collect();
                 view! {
                     <section class="letter-group" aria-labelledby=labelled_by>
@@ -1781,7 +1919,7 @@ fn BrowseList(
     } else {
         let source_titles: Vec<Option<String>> = stubs
             .iter()
-            .map(|s| library.source(&s.source).map(|src| src.title.clone()))
+            .map(|s| library.source(&row_source(s)).map(|src| src.title.clone()))
             .collect();
         view! {
             <AzList kind facets=applied.clone() source=source.clone() marks groups
@@ -1854,6 +1992,19 @@ fn BrowseList(
     let notice = unknown
         .as_deref()
         .map(|id| view! { <p class="notice" role="status">{unknown_source_notice(kind, id)}</p> });
+    let revision_note =
+        revisions
+            .as_ref()
+            .and_then(RevisionRows::removed_note)
+            .map(|(n, source)| {
+                let book = library
+                    .source(source)
+                    .map_or_else(|| source.to_string(), |source| source.title.clone());
+                format!(
+                    "{} removed or merged by {book}",
+                    fmt::pluralize(n, "feat", "feats")
+                )
+            });
 
     view! {
         <div class="wide list-page">
@@ -1866,6 +2017,7 @@ fn BrowseList(
         {jump}
         {(!sectioned).then(|| view! { <h2 class="sr-only">"All, A to Z"</h2> })}
         {body}
+        {revision_note.map(|note| view! { <p class="muted revision-note">{note}</p> })}
         </div>
     }
 }

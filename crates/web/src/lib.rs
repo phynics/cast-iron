@@ -24,6 +24,7 @@ pub mod js;
 pub mod library;
 pub mod lru;
 pub mod pwa;
+pub mod revisions;
 pub mod route;
 pub mod store;
 pub mod theme;
