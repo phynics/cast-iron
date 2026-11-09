@@ -13,8 +13,12 @@ The printed evidence is in docs/research/book-order-evidence.md.
 
 The dataset splits and the printed chapters keep their shape: New Familiars
 stays inside Mastering Magic, the residual ``New entries (page order)`` chapter
-keeps cross-book base entries and duplicate carried records, and entries that
-share a printed page keep the dataset order inside that page.
+keeps cross-book base entries, and entries that share a printed page keep the
+dataset order inside that page.
+
+A canonical record that replaced a carried Ultimate Magic duplicate (see
+cast-iron-data #340) takes the carried record's printed place. The page-order
+node for an entry that now sits in its printed section is dropped.
 """
 
 from __future__ import annotations
@@ -841,6 +845,82 @@ def spells(book: dict, corpus: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Resolved duplicates
+
+
+# The carried record is the key; the canonical record that keeps the printed
+# place is the value. cast-iron-data #340 resolved these pairs.
+DUPLICATE_KEPT = {
+    # New Familiars
+    "ref/carried/ultimate-magic/monsters/new-familiars/"
+    "small-and-vermin-familiars/familiar/turtle": "ref/monster/turtle",
+    # Ranger traps
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/alarm-trap-ex-or-su": "ref/rangertrap/alarm-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/burning-trap-ex-or-su": "ref/rangertrap/burning-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/exploding-trap-ex-or-su": "ref/rangertrap/exploding-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/fire-trap-ex-or-su": "ref/rangertrap/fire-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/freezing-trap-su": "ref/rangertrap/freezing-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/marking-trap-ex-or-su": "ref/rangertrap/marking-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/poison-trap-ex-or-su": "ref/rangertrap/poison-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/sleet-trap-su": "ref/rangertrap/sleet-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/snare-trap-ex-or-su": "ref/rangertrap/snare-trap",
+    "ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger/"
+    "ranger-traps/swarm-trap-ex-or-su": "ref/rangertrap/swarm-trap",
+    # Spells
+    "ref/carried/ultimate-magic/spells/age-resistance/greater": "ref/spell/age-resistance-greater",
+    "ref/carried/ultimate-magic/spells/animate-dead/lesser": "ref/spell/animate-dead-lesser",
+    "ref/carried/ultimate-magic/spells/astral-projection/lesser": "ref/spell/astral-projection-lesser",
+    "ref/carried/ultimate-magic/spells/atavism/mass": "ref/spell/atavism-mass",
+    "ref/carried/ultimate-magic/spells/contagion/greater": "ref/spell/contagion-greater",
+    "ref/carried/ultimate-magic/spells/create-demiplane/greater": "ref/spell/create-demiplane-greater",
+    "ref/carried/ultimate-magic/spells/curse/major": "ref/spell/curse-major",
+    "ref/carried/ultimate-magic/spells/darkvision/greater": "ref/spell/darkvision-greater",
+    "ref/carried/ultimate-magic/spells/daze/mass": "ref/spell/daze-mass",
+    "ref/carried/ultimate-magic/spells/false-life/greater": "ref/spell/false-life-greater",
+    "ref/carried/ultimate-magic/spells/forbid-action/greater": "ref/spell/forbid-action-greater",
+    "ref/carried/ultimate-magic/spells/icy-prison/mass": "ref/spell/icy-prison-mass",
+    "ref/carried/ultimate-magic/spells/interrogation/greater": "ref/spell/interrogation-greater",
+    "ref/carried/ultimate-magic/spells/lend-judgment/greater": "ref/spell/lend-judgment-greater",
+    "ref/carried/ultimate-magic/spells/restore-eidolon": "ref/spell/restore-eidolon",
+    "ref/carried/ultimate-magic/spells/simulacrum/lesser": "ref/spell/simulacrum-lesser",
+    # Words of Power
+    "ref/rule/words-of-power-in-the-worlds": "ref/carried/ultimate-magic/rules/"
+    "words-of-power/words-of-power-in-the-world",
+}
+
+
+def resolve_duplicates(book: dict) -> None:
+    """Point each resolved carried node at the record that replaced it."""
+    for chapter in book["chapters"]:
+        for node in walk(chapter):
+            entry_id = node.get("entry")
+            if entry_id in DUPLICATE_KEPT:
+                node["entry"] = DUPLICATE_KEPT[entry_id]
+
+
+def drop_page_order(book: dict) -> None:
+    """Remove the page-order node of an entry that now sits in its section."""
+    placed = set(DUPLICATE_KEPT.values())
+    for chapter in book["chapters"]:
+        if chapter["title"] != "New entries (page order)":
+            continue
+        chapter["children"] = [
+            child
+            for child in chapter.get("children", [])
+            if child.get("entry") not in placed
+        ]
+
+
+# ---------------------------------------------------------------------------
 # The transform
 
 
@@ -888,18 +968,20 @@ def lcs_kept(before: list[str], after: list[str]) -> set[str]:
 
 def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None]]:
     before = {
-        node["entry"]: path_of(book, node["entry"])
+        DUPLICATE_KEPT.get(node["entry"], node["entry"]): path_of(book, node["entry"])
         for chapter in book["chapters"]
         for node in walk(chapter)
         if node.get("entry")
     }
     before_orders = order_map(book)
 
+    resolve_duplicates(book)
     spellcasters(book, corpus)
     mastering_magic(book)
     words_of_power(book)
     feats(book, corpus)
     spells(book, corpus)
+    drop_page_order(book)
 
     after = {
         node["entry"]: path_of(book, node["entry"])
@@ -972,7 +1054,9 @@ def main() -> int:
     original_text = books_path.read_text(encoding="utf-8")
     books = tomllib.loads(original_text)
     book = find_book(books)
-    before = book_entries(book)
+    before = {
+        DUPLICATE_KEPT.get(entry, entry) for entry in book_entries(book)
+    }
     moves = transform(book, args.corpus)
     after = book_entries(book)
     if before != after:
