@@ -75,6 +75,10 @@ fn write_corpus(dir: &Path) {
         copyright: Some("Core Rulebook. (c) Paizo Inc.".into()),
         category: Some("RPG".into()),
         publication_date: None,
+        series_kind: None,
+        series: None,
+        series_number: None,
+        season: None,
         third_party: false,
     }];
     let legal = LegalNotices {
