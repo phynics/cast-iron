@@ -16,6 +16,7 @@ use crate::views::chains::chain_tree;
 use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
 use crate::views::search::facet_label;
+use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
@@ -540,9 +541,16 @@ pub fn attached_body(body: &[Block]) -> Vec<Block> {
 }
 
 /// The shard-backed rules text of one attached add-on: a status line while it loads, the
-/// error if the shard fails, then the body that [`attached_body`] prepared.
+/// error if the shard fails, then the body that [`attached_body`] prepared. The add-on's own
+/// citations follow the body. `sources_fallback` names the book for an add-on that never had a
+/// printed citation (a mythic version), so the section still says where the text comes from.
 #[component]
-fn AddonBody(library: Library, id: EntryId, loading: &'static str) -> impl IntoView {
+fn AddonBody(
+    library: Library,
+    id: EntryId,
+    loading: &'static str,
+    #[prop(optional)] sources_fallback: Option<String>,
+) -> impl IntoView {
     let load = library.clone();
     let body = local_resource(async move { load.entry(&id).await });
     view! {
@@ -552,16 +560,25 @@ fn AddonBody(library: Library, id: EntryId, loading: &'static str) -> impl IntoV
                 Some(Err(error)) => view! {
                     <p class="error" role="alert">{error.to_string()}</p>
                 }.into_any(),
-                Some(Ok(entry)) => view! {
-                    <div class="rich">{blocks(&attached_body(&entry.body))}</div>
-                }.into_any(),
+                Some(Ok(entry)) => {
+                    let sources = source_line(
+                        &entry.sources,
+                        &library,
+                        sources_fallback.as_deref(),
+                    );
+                    view! {
+                        <div class="rich">{blocks(&attached_body(&entry.body))}</div>
+                        {sources}
+                    }.into_any()
+                },
             })
         }}
     }
 }
 
-/// One mythic version inside a base page's `Mythic` section. The title and the source line
-/// arrive with the page; only the rules text waits for the add-on's shard.
+/// One mythic version inside a base page's `Mythic` section. The title arrives with the page;
+/// the add-on's typed citations follow its text, and an unconverted version falls back to its
+/// book name because its body has no printed line.
 #[component]
 fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
     let href = Route::entry(id.clone()).href();
@@ -570,8 +587,7 @@ fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
     view! {
         <div class="attached-addon">
             <h3><a href=href>{title}</a></h3>
-            <p class="sources-line">{format!("Sources: {book}")}</p>
-            <AddonBody library=library id=id loading="Loading the mythic rules…" />
+            <AddonBody library=library id=id loading="Loading the mythic rules…" sources_fallback=book />
         </div>
     }
 }
@@ -639,8 +655,9 @@ fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
 }
 
 /// One third-party change inside a base page's book-titled section: the add-on's title as an
-/// `h3` link and its printed text, expanded like a mythic version. The body already starts with
-/// the add-on's printed `Sources:` line, so the section does not print a second one.
+/// `h3` link and its printed text, expanded like a mythic version. The add-on's typed citations
+/// follow the body. An unconverted body keeps its printed `Sources:` paragraph, so the section
+/// never adds a second line for it.
 #[component]
 fn ChangesAddon(library: Library, id: EntryId) -> impl IntoView {
     let href = Route::entry(id.clone()).href();

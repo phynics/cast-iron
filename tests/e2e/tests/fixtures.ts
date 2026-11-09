@@ -55,6 +55,7 @@ export interface Entry {
   kind: string;
   title: string;
   source_ids: string[];
+  sources?: { publication: string; page?: string }[];
   fields: Record<string, any>;
   body: any[];
   relations?: any[];
