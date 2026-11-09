@@ -663,32 +663,26 @@ export const CONTENTS_LEAVES_OUT_LINKED_KINDS = true;
 /** The kinds Contents leaves out right now. */
 export const CONTENTS_HIDDEN_KINDS: Set<string> = CONTENTS_LEAVES_OUT_LINKED_KINDS ? LINKED_KINDS : new Set();
 
+/** Mirror of `is_catch_all` in `views/book.rs`; the app never lists this chapter. */
+function isCatchAll(node: TocNode): boolean {
+  return node.title === "New entries (page order)";
+}
+
 /** Mirror of `shows_in_contents` in `views/book.rs`. */
 function shownInContents(node: TocNode, kinds: Map<string, string>): boolean {
+  if (isCatchAll(node)) return false;
   const ids = (n: TocNode): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(ids)];
   const all = ids(node);
   return all.length === 0 || all.some((id) => !CONTENTS_HIDDEN_KINDS.has(kinds.get(id) as string));
 }
 
-/** Mirror of `chapter_label` in `views/book.rs`. */
-function chapterLabel(title: string): string {
-  return title === "New entries (page order)" ? "More from this book" : title;
-}
-
 /** The top-level rows of Contents with their real tree paths, as `chapter_rows` builds them. */
 export function listedChapters(book: BookTree): { path: number[]; node: TocNode; title: string }[] {
   const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
-  const listed = book.chapters
+  return book.chapters
     .map((node, index) => ({ path: [index], node }))
-    .filter((row) => shownInContents(row.node, kinds));
-  // A book whose only listed chapter is the catch-all shows that chapter's rows at the top.
-  if (listed.length === 1 && listed[0].node.title === "New entries (page order)" && !listed[0].node.entry) {
-    return (listed[0].node.children ?? [])
-      .map((node, index) => ({ path: [listed[0].path[0], index], node }))
-      .filter((row) => shownInContents(row.node, kinds))
-      .map((row) => ({ ...row, title: chapterLabel(row.node.title) }));
-  }
-  return listed.map((row) => ({ ...row, title: chapterLabel(row.node.title) }));
+    .filter((row) => shownInContents(row.node, kinds))
+    .map((row) => ({ ...row, title: row.node.title }));
 }
 
 /** A chapter's permanent id: its anchor, else a slug of its printed title, with collision suffixes. */
@@ -710,12 +704,13 @@ export function listedChapterTitles(book: BookTree): string[] {
   return listedChapters(book).map((row) => row.title);
 }
 
-/** Entries of a book in Contents reading order: hidden kinds are skipped, as the reader does. */
+/** Entries of a book in Contents reading order: hidden kinds and the catch-all are skipped. */
 export function bookReadingOrder(book: BookTree): string[] {
   const kinds = new Map(loadCorpus().catalog.entries.map((stub) => [stub.id, stub.kind]));
   const order: string[] = [];
   const walk = (nodes: TocNode[]) => {
     for (const node of nodes) {
+      if (isCatchAll(node)) continue;
       if (node.entry && !CONTENTS_HIDDEN_KINDS.has(kinds.get(node.entry) as string)) order.push(node.entry);
       walk(node.children ?? []);
     }

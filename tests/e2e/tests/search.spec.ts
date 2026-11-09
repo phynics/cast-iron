@@ -1489,3 +1489,15 @@ installedTest("A book section result opens its chapter page at the section and B
   await expect(page.locator("#search-input")).toHaveValue(query);
   await expect(sections).toBeVisible();
 });
+
+installedTest("A former catch-all rule is found by exact title and opens", async ({ page }) => {
+  await installLibrary(page);
+  // The corpus used to place this rule only in the catch-all chapter of Mythic Adventures.
+  const rule = corpusEntry("rule", "What is Mythic?");
+  await page.goto(`#/search?q=${encodeURIComponent(rule.title)}`);
+  await waitResults(page, rule.title);
+  const hit = page.locator(`.results a.hit-link[href="#/entry/${rule.id}"], .results a.hit-link[href^="#/entry/${rule.id}?"]`).first();
+  await expect(hit).toContainText(rule.title);
+  await hit.click();
+  await expect(page.getByRole("heading", { level: 1, name: rule.title })).toBeVisible();
+});
