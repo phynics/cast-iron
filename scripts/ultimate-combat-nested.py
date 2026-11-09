@@ -644,7 +644,6 @@ WOUNDS_AND_VIGOR = [
 # Entries whose printed home is a section of another book. They stay in the
 # residual page-ordered chapter until a later decision places them.
 CROSS_BOOK_HUBS = {
-    "ref/rule/alternate-classes",
     "ref/rule/base-classes",
     "ref/rule/feats-class",
     "ref/rule/feats-other",
@@ -776,7 +775,9 @@ def transform(book: dict, corpus: Corpus) -> dict[str, str]:
         return ids
 
     # --- Classes ---------------------------------------------------------
-    classes = []
+    # The printed chapter introduction (p. 8) opens with Alternate Classes,
+    # before the class entries at p. 9.
+    classes = [entry("ref/rule/alternate-classes")]
     for title, class_id, heading_title, group in BASE_CLASSES:
         children = []
         if group is not None:

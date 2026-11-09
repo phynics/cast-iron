@@ -365,6 +365,30 @@ RESIDUAL_MONSTERS = [
 ]
 
 
+# The printed Appendix 3 Glossary universal monster rules (pp. 290-301).
+# Each id is the parent of a printed rule; the dataset splits that carry the
+# format text sit under their parent and move with it.
+UNIVERSAL_MONSTER_RULES = [
+    "ref/umr/amazing-initiative",
+    "ref/umr/blood-rage",
+    "ref/umr/curse-of-lycanthropy",
+    "ref/umr/demon-lord-traits",
+    "ref/umr/display-of-strength",
+    "ref/umr/empyreal-lord-traits",
+    "ref/umr/engulf",
+    "ref/umr/formian-traits",
+    "ref/umr/mythic-immortality",
+    "ref/umr/natural-invisibility",
+    "ref/umr/plantbringer",
+    "ref/umr/push",
+    "ref/umr/recuperation",
+    "ref/umr/sound-mimicry",
+    "ref/umr/sunlight-powerlessness",
+    "ref/umr/unnatural-aura",
+    "ref/umr/unstoppable",
+    "ref/umr/water-dependency",
+]
+
 # Residual entries whose printed home is an appendix that this book tree does
 # not carry, plus cross-book hubs.  Everything else must leave the residual.
 RESIDUAL_PREFIXES = (
@@ -372,7 +396,6 @@ RESIDUAL_PREFIXES = (
     "ref/domain/",
     "ref/rule/",
     "ref/subtype/",
-    "ref/umr/",
 )
 RESIDUAL_EXACT = {"ref/template/hellbound-creature"}
 
@@ -390,6 +413,20 @@ def ensure_group(parent: dict, title: str) -> dict:
             return child
     node = {"title": title, "children": []}
     attach(parent, node)
+    return node
+
+
+def ensure_top_chapter(book: dict, title: str) -> dict:
+    for node in book["chapters"]:
+        if node["title"] == title:
+            return node
+    residual = next(
+        index
+        for index, node in enumerate(book["chapters"])
+        if node["title"] == "New entries (page order)"
+    )
+    node = {"title": title, "children": []}
+    book["chapters"].insert(residual, node)
     return node
 
 
@@ -557,6 +594,12 @@ def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None,
     # dataset order of nodes that share a printed page, and places a group
     # heading before its first member on the same page.
     sort_children(monsters, lambda child: page_key(corpus, order, child))
+
+    # 10. Appendix 3 universal monster rules (pp. 290-301). The printed order
+    # is the catch-all order, so the list above preserves it.
+    universal = ensure_top_chapter(book, "Universal Monster Rules")
+    for entry_id in UNIVERSAL_MONSTER_RULES:
+        move(book, entry_id, universal)
 
     after: dict[str, str] = {}
     for top in book["chapters"]:
