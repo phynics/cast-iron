@@ -12,7 +12,7 @@ use crate::views::{
     self,
     active_books::ActiveBooks,
     book::{BookView, same_book},
-    browse::{Books, BrowseKind, BrowseSource},
+    browse::{Books, BrowseKind, BrowseSource, FeatBrowseKind},
     chains::FeatChains,
     entry::Entry,
     header_action::{HeaderAction, InstallGuide},
@@ -448,7 +448,13 @@ fn RouteView() -> impl IntoView {
             letter,
             facets,
             source,
-        } => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
+        } => match kind {
+            // A revision hides or replaces feat rows, so the feat list waits for the graph.
+            cast_iron_schema::EntryKind::Feat => {
+                view! { <FeatBrowseKind letter=letter facets=facets source=source /> }.into_any()
+            }
+            _ => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
+        },
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books => view! { <Books /> }.into_any(),
         Route::BooksManage => view! { <ActiveBooks /> }.into_any(),

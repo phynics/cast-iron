@@ -4,11 +4,13 @@
 use crate::fmt;
 use crate::graph::{ChainHead, ChainNode, Relations};
 use crate::library::{Library, use_library};
+use crate::revisions::RevisionView;
 use crate::route::Route;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
+use std::rc::Rc;
 
 /// The title of a feat for display, from the catalog; the id when the catalog lacks it.
 fn title_of(library: &Library, id: &EntryId) -> String {
@@ -79,8 +81,16 @@ pub fn FeatChains() -> impl IntoView {
             }
             .into_any(),
             Some(Ok(Some(relations))) => {
-                view! { <HeadList library relations=Shared::from_rc(relations.clone()) /> }
-                    .into_any()
+                // A revision row never starts or joins a chain. Hide it, and hide a feat that
+                // an active removed or merged revision took out of the library.
+                let view = RevisionView::build(
+                    relations,
+                    |id| library.is_entry_active(id),
+                    |id| library.stub(id).map(|stub| stub.source.clone()),
+                );
+                let hidden = view.rows(|id| library.discovery().is_eligible(id.as_str()));
+                let scoped = Rc::new(relations.filtered(|id| !hidden.hides(id)));
+                view! { <HeadList library relations=Shared::from_rc(scoped) /> }.into_any()
             }
         })
     };
