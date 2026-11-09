@@ -127,6 +127,37 @@ fn main() -> ExitCode {
             for (k, n) in &o.stripped {
                 println!("  {k}: {n}");
             }
+            if o.reachability.unreachable > 0 {
+                eprintln!(
+                    "warning: {} of {} entries are unreachable without the catch-all chapter `{}`; see reachability.json",
+                    o.reachability.unreachable,
+                    o.reachability.entries,
+                    o.reachability.catch_all_title
+                );
+                for book in &o.reachability.by_book {
+                    if book.unreachable > 0 {
+                        eprintln!(
+                            "  {}: {} unreachable ({} rules) of {} catch-all entries",
+                            book.source_id,
+                            book.unreachable,
+                            book.unreachable_rules,
+                            book.catch_all_entries
+                        );
+                    }
+                }
+                if o.reachability.unplaced > 0 {
+                    eprintln!(
+                        "  {} unreachable entries are not placed in any book tree",
+                        o.reachability.unplaced
+                    );
+                }
+            }
+            for problem in &o.reachability.search.problems {
+                eprintln!(
+                    "warning: search index: {} (`{}`): {}",
+                    problem.id, problem.title, problem.reason
+                );
+            }
             ExitCode::SUCCESS
         }
         Err(failure) => {

@@ -25,6 +25,19 @@ Local verification, 2026-11-09 (no CI or deployment claim):
 | `cargo xtask build-site` | Passed; shell `df303149a7421e0e`, 11 files |
 | `npm --prefix tests/e2e test -- --project=chromium` | 196 passed, 1 skipped; one new test opens `#/entry/ref/tech-misc/silverdisk` and lands on Battery |
 
+## Reachability report, 2026-11-09
+
+`cargo xtask content` writes `generated/reports/reachability.json` and prints a warning, without
+failing, for every entry that the catch-all chapter `New entries (page order)` is the only route
+to. The report is a warning until [#363](https://github.com/phynics/cast-iron/issues/363) removes
+the chapter from the app; [#360](https://github.com/phynics/cast-iron/issues/360) adds it.
+
+On corpus `v0.1.16`, 64 of 31,958 entries are unreachable, all rules: Advanced Race Guide 44,
+Bestiary 4 13, Bestiary 2 2, Mythic Adventures 2, and one each in the Advanced Player's Guide,
+Core Rulebook, Ultimate Campaign, Ultimate Combat, and Ultimate Magic. Every entry is in the
+search index under its exact title (31,958 of 31,958). The report is byte-identical between two
+compiles.
+
 ## Corpus pinned to v0.1.15, 2026-11-09
 
 `sources/corpus.toml` now pins `phynics/cast-iron-data` tag `v0.1.15`, commit
