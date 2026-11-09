@@ -102,6 +102,8 @@ jobs:
         with:
           name: generated
           path: generated
+          # The determinism job compares every file, so a dotfile must not drop out.
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v7

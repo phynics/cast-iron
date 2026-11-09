@@ -79,18 +79,19 @@ After changing compiler code, schema types, or the corpus pin, run `cargo xtask 
 
 ## Test scope
 
-Test what the change can break, once. Locally, run only the checks in the row of the change. The full browser suite runs in CI, not locally. A change that spans rows takes the checks of each row.
+Run each check once per pull request, and only the checks that the change can break. Find every row that matches a changed file. Run the checks of all those rows. Example: a change to `crates/web/src/install.rs` matches the UI row and the service-worker row, so it needs the UI checks plus WebKit on the affected specs. The full browser suite runs in CI, not locally.
 
 | What changed | Local checks | Full CI run on the branch before merge |
 |---|---|---|
-| Docs only, or research scripts the build does not run (`scripts/*-nested.py`, `docs/research/`) | Run the changed script. No build, no e2e | No. The PR's Rust checks are enough |
+| Docs only (`docs/`, `AGENTS.md`, `DESIGN.md`, `.agents/skills/`), or research scripts the build does not run (`scripts/*-nested.py`) | Run the changed script. No build, no e2e | No. The PR's Rust checks are enough |
+| CI and build configuration: `.github/`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `Trunk.toml`, `tests/e2e/package*.json`, `playwright.config.ts`, `server.mjs` | `actionlint` for workflow files. `cargo xtask check` for Cargo or toolchain files | Yes |
 | `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`, or the screen on a built `dist/` | No for the release script; yes for the screen |
 | Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Yes |
-| UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, `cargo xtask build-site --public-url /cast-iron/`, then the changed specs and the specs of the feature-map row (`verify` skill) on `--project=chromium`. Add `--project=mobile-chromium` when the spec is in that project | Yes |
+| UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, `cargo xtask build-site --public-url /cast-iron/`, then the changed specs and the specs of the feature-map row (`verify` skill) on `--project=chromium`. When the spec is listed in the `mobile-chromium` Playwright project (`playwright.config.ts`), also add `--project=mobile-chromium` | Yes |
 | Service worker, installer, storage, offline (`web/sw.js`, `install.rs`, `content_cache.rs`, `store.rs`) | The UI checks, plus `--project=webkit` on the affected specs | Yes |
-| Corpus pin (`sources/corpus.toml`) | `cargo xtask content`, and the specs that read the changed data | Yes |
+| Corpus pin (`sources/corpus.toml`) | `cargo xtask content`. Then run the specs of the feature-map rows whose content changed (`verify` skill) | Yes |
 
-Start one full CI run (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only when a later commit changes code, or when `main` has moved in the same feature area. Do not run the full e2e suite locally. Run WebKit locally only on the affected specs; CI runs the full WebKit suite, which is informational.
+Start one full CI run (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only in two cases. First: a later commit changes a file whose row needs a full run. Second: a pull request merged into `main` after the run, and it changed files that this pull request also changes, or specs that test them. Do not run the full e2e suite locally. Run WebKit locally only on the affected specs; CI runs the full WebKit suite, which is informational.
 
 - When a test fails only in a run with other load on the host, run its spec again alone before you change code. Report both results.
 - A reviewer does not run tests or builds. The reviewer reads the diff and the code, and cites the implementer's report and the CI run (`gh pr checks`, `gh run view`) for test status.

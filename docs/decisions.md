@@ -117,7 +117,7 @@ Refs [#100](https://github.com/phynics/cast-iron/issues/100).
 - **Offline means two things.** Tests call `context.setOffline(true)` and also make the server drop every connection. Chromium's offline emulation does not cover the browser's own check of `sw.js`, which reached the server in the first run, so the allowed exception is exactly `sw.js`.
 - **Update test library.** The test builds version 2 in a temp directory (a copy of the library with `legal.json` changed, hashes and manifest recomputed, version by the compiler's rule) and serves it through the overlay. The client does not derive versions, so any `v...` string would do.
 - **Browsers.** Chromium (and a 390 px Pixel 7 project for `mobile.spec.ts`) gate CI. WebKit passes all tests locally on macOS; its project turns Playwright traces and screenshots off, because they inject an inline `<style>` into WebKit pages of persistent contexts and the page CSP refuses it, which would be a false console error. WebKit runs in CI with `continue-on-error` until a CI run shows it stable. Firefox is disabled in CI as recorded below.
-- **Compiler determinism is a CI check, not a browser test.** The `content` job compiles twice and compares a hash over all of `generated/`.
+- **Compiler determinism is a CI check, not a browser test.** The `content` job compiles once; the `determinism` job compiles again and compares all of `generated/` (since 2026-11-09, see "Test scope" below).
 - **Pages.** `pages.yml` builds as CI does and deploys with the official Pages actions. The repository must have Pages set to the "GitHub Actions" source, which is a repository setting that no workflow changes.
 
 ## Public POC rollout, 2026-11-03
@@ -675,6 +675,7 @@ Closes [#125](https://github.com/phynics/cast-iron/issues/125), split out of [#1
 
 - **Pull requests run only `Rust checks`** (`cargo xtask check` and the release-promotion script tests). Content determinism, the site build, and the Chromium and WebKit browser shards are skipped there. Each pull request push used to start both a `push` and a `pull_request` run of the full pipeline, which kept the runners busy for tens of minutes per push.
 - **The full pipeline runs on `main` once a day** (03:17 UTC) and on demand with `gh workflow run ci.yml --ref main`. Pushes, including merges to `main`, no longer start CI.
+- **Refined 2026-11-09** ("Test scope: affected specs locally, the full suite once in CI"): a pull request that changes code now gets one full run on its branch before merge.
 - **Consequence:** a content, build, or browser regression is found by the next daily run, not at merge. Run the affected checks locally before merging (`cargo xtask content`, `cargo xtask build-site`, and the affected e2e specs), as `AGENTS.md` already requires.
 - **Release promotion still needs a green full run for the exact commit.** `scripts/promote-release.py` accepts any successful `ci.yml` run on `main` for that SHA (daily or dispatched), not only a push run.
 

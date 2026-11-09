@@ -36,7 +36,7 @@ To run one test, pass a name pattern:
 npm --prefix tests/e2e test -- --project=chromium --grep "<name>"
 ```
 
-Add `--project=mobile-chromium` when the spec is in that project (see `playwright.config.ts`). Add `--project=webkit` on the same specs when the change touches the service worker, installation, storage, or offline behavior.
+When the spec is listed in the `mobile-chromium` Playwright project (`playwright.config.ts`), also add `--project=mobile-chromium`. Add `--project=webkit` on the same specs when the change touches the service worker, installation, storage, or offline behavior.
 
 Report any failure with its output. Do not call a change done while a test fails. When a test fails only during a run under load, run its spec again alone before you change code.
 
