@@ -1561,6 +1561,7 @@ mod tests {
                     entry: Some(EntryId::parse("ref/rule/b").unwrap()),
                     anchor: Some("gone".into()),
                     review: None,
+                    lists_children: false,
                     children: vec![],
                 }],
             }],

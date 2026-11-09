@@ -916,6 +916,12 @@ pub struct BookNode {
     /// Set on a chapter whose position or content is a guess, with the reason.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub review: Option<String>,
+    /// Computed by the compiler, never authored in the corpus: the node is itself an entry and
+    /// that entry's body lists every entry below it. Contents and the chapter page show the node
+    /// as one row and do not repeat the children. Additive and optional, so an older library
+    /// reads as `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub lists_children: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<BookNode>,
 }

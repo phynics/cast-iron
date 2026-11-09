@@ -416,6 +416,7 @@ mod anchor_tests {
                     entry: Some(EntryId::parse("ref/rule/b").unwrap()),
                     anchor: Some("sec-chapter-one".into()),
                     review: None,
+                    lists_children: false,
                     children: vec![],
                 }],
             }],

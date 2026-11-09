@@ -1368,6 +1368,7 @@ mod tests {
             entry: Some(entry.clone()),
             anchor: None,
             review: None,
+            lists_children: false,
             children: vec![],
         }
     }
@@ -1452,6 +1453,7 @@ mod tests {
                     entry: Some(placed_id.clone()),
                     anchor: None,
                     review: None,
+                    lists_children: false,
                     children: vec![],
                 }],
             }],

@@ -494,11 +494,13 @@ mod tests {
                     entry: None,
                     anchor: None,
                     review: None,
+                    lists_children: false,
                     children: vec![BookNode {
                         title: "Actions".into(),
                         entry: Some(cast_iron_schema::EntryId::parse("ref/rule/actions").unwrap()),
                         anchor: Some("act".into()),
                         review: None,
+                        lists_children: false,
                         children: vec![],
                     }],
                 }],

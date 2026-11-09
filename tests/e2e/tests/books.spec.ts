@@ -398,7 +398,10 @@ test("A Contents chapter opens its own page with a Books › Book › Chapter br
 test("A chapter page opens an entry, and Next continues the book before Back returns to the chapter", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   const book = bookTrees().find((row) => row.source === core.id)!;
-  const first = listedChapters(book)[0];
+  // A hub chapter now opens its entry page instead of the chapter page, so this #346 test
+  // keeps the first chapter that still opens a chapter page.
+  const first = listedChapters(book).find((row) => !row.node.lists_children && row.node.entry)!;
+  expect(first, "the book has a chapter page with its own entry").toBeTruthy();
   const order = bookReadingOrder(book);
   const entryId = order.find((id, at) => {
     if (at >= order.length - 1) return false;
@@ -410,7 +413,7 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
 
   await page.goto(`#/browse/book/${core.id}`);
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
-  const row = tree.locator(".toc-top > li").first();
+  const row = tree.locator(".toc-top > li").filter({ has: page.getByText(first.title, { exact: true }) }).first();
   await row.locator(":scope > .toc-row a, :scope > a").first().click();
   await expect(page.getByTestId("chapter-title")).toBeVisible();
   await expect(page.getByTestId("chapter-title")).toHaveText(first.title);
@@ -431,9 +434,13 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
   await entryLink.click();
   const next = page.locator('.book-steps a[rel="next"]');
   await expect(next).toBeVisible();
-  const nextTitle = (await next.locator(".step-title").innerText()).trim();
+  // The book row keeps the printed title; the entry page shows the catalog title, so read the
+  // target id from the link instead of comparing the two labels.
+  const nextHref = (await next.getAttribute("href"))!;
+  const nextId = decodeURIComponent(nextHref.split("?")[0].slice("#/entry/".length));
+  const nextEntry = corpus.entries.get(nextId)!;
   await next.click();
-  await expect(page.getByRole("heading", { level: 1, name: nextTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: nextEntry.title, exact: true })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
   await page.goBack();
@@ -600,9 +607,10 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
   await expect(tree).toBeVisible();
 
-  // Every chapter and section is expanded: no disclosure and nothing folded away.
+  // Every branch is expanded except a hub whose own page already lists its children: still no
+  // disclosure, and at least one ordinary branch keeps its rows.
   await expect(tree.locator("button[aria-expanded], details, summary")).toHaveCount(0);
-  await expect(tree.locator(".toc-branch > .toc-list").first()).toBeVisible();
+  await expect(tree.locator(".toc-branch:not(.toc-hub) > .toc-list").first()).toBeVisible();
 
   // Only rules entries remain; every kind with a list page is reached through In this book.
   const hrefs: string[] = await tree.locator('a[href^="#/entry/"]').evaluateAll((links) => links.map((a) => a.getAttribute("href") as string));
@@ -618,6 +626,38 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   expect(titles).toEqual(listedChapterTitles(book));
 });
 
+test("A hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
+  const bestiary = sources.find((row) => row.id === "bestiary")!;
+  const book = bookTrees().find((row) => row.source === bestiary.id)!;
+  const titled = (nodes: any[], title: string): any => {
+    for (const node of nodes) {
+      if (node.title === title) return node;
+      const found = titled(node.children ?? [], title);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const hub = titled(book.chapters, "Universal Monster Rules");
+  expect(hub, "the Bestiary contents carry Universal Monster Rules").toBeTruthy();
+  const count = (node: any): number =>
+    (node.entry ? 1 : 0) + (node.children ?? []).reduce((sum: number, child: any) => sum + count(child), 0);
+
+  await page.goto(`#/browse/book/${bestiary.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary.title)}`) });
+  await expect(tree).toBeVisible();
+  const row = tree.locator(".toc-hub").filter({ hasText: "Universal Monster Rules" });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator(".toc-count")).toHaveText(grouped(count(hub)));
+  await expect(row.locator(".toc-list")).toHaveCount(0);
+
+  // The row links to the hub entry, which already lists the rules.
+  const link = row.locator(":scope > .toc-row a");
+  await expect(link).toHaveAttribute("href", new RegExp(`^#/entry/${escape(hub.entry)}(\\?|$)`));
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Universal Monster Rules", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ability Damage and Drain", exact: true }).first()).toBeVisible();
+});
+
 test("Top-level chapter rows show a dotted leader, hidden in a narrow contents container", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -625,8 +665,9 @@ test("Top-level chapter rows show a dotted leader, hidden in a narrow contents c
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
   await expect(tree).toBeVisible();
 
-  // Every top-level row opens its chapter page; the leader and the count join the link.
-  const row = tree.locator(".toc-top > li > .toc-row").filter({ has: page.locator("a") }).first();
+  // An ordinary top-level row opens its chapter page; the leader and the count join the link.
+  // A collapsed hub row is covered by its own test.
+  const row = tree.locator(".toc-top > li:not(.toc-hub) > .toc-row").filter({ has: page.locator("a") }).first();
   const link = row.locator("a");
   const title = (await link.locator(".toc-title").innerText()).trim();
   const leader = row.locator(".toc-leader");

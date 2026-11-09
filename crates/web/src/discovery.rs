@@ -226,6 +226,7 @@ mod tests {
             entry: Some(entry.clone()),
             anchor: None,
             review: None,
+            lists_children: false,
             children: vec![],
         }
     }
