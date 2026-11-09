@@ -4,6 +4,7 @@
 //! [`crate::corpus_build`] reads the corpus and fills a [`Library`]. [`package`] holds no
 //! knowledge of where the records came from.
 
+use crate::reachability::{self, Report as ReachabilityReport};
 use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
@@ -57,6 +58,8 @@ pub struct Outcome {
     pub derived_bytes: BTreeMap<String, u64>,
     /// Reverse body-link coverage, as written to `coverage.json`.
     pub backlinks: cast_iron_schema::BacklinkCoverage,
+    /// Reachability without the catch-all chapter, as written to `reachability.json`.
+    pub reachability: ReachabilityReport,
 }
 
 /// A failed compile. `lines` is printed one per line.
@@ -163,21 +166,10 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
     coverage.backlinks = backlinks.coverage;
     coverage.backlinks.bytes = backlink_descriptor_bytes + backlink_shard_bytes;
 
-    write_reports(reports, &errors, &coverage, &notes, &catalog)?;
-    if !errors.is_empty() {
-        let mut lines = vec![format!("validation failed with {} error(s):", errors.len())];
-        for e in errors.iter().take(50) {
-            lines.push(format!("  {}: {}", e.entry, e.problem));
-        }
-        if errors.len() > 50 {
-            lines.push(format!("  ... and {} more", errors.len() - 50));
-        }
-        return Err(Failure { lines });
-    }
-
     // Search index. Entries first, then one document for every node that a book's chapter page
     // renders. The contents functions are the same ones the client uses, so every section result
-    // opens a row that exists.
+    // opens a row that exists. Reachability reads the index before serialization: its report
+    // confirms that every entry is indexed under its exact title.
     let mut index = IndexBuilder::new();
     for e in &entries {
         index.add(DocInput {
@@ -227,7 +219,23 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
             });
         }
     }
-    let search_bin = index.build().to_bytes();
+    let index = index.build();
+    let reachability = reachability::report(&entries, &books, &index);
+    let search_bin = index.to_bytes();
+
+    // Reports are written before the validation failure, so a failed compile still leaves the
+    // reachability and coverage reports for the author to read.
+    write_reports(reports, &errors, &coverage, &notes, &catalog, &reachability)?;
+    if !errors.is_empty() {
+        let mut lines = vec![format!("validation failed with {} error(s):", errors.len())];
+        for e in errors.iter().take(50) {
+            lines.push(format!("  {}: {}", e.entry, e.problem));
+        }
+        if errors.len() > 50 {
+            lines.push(format!("  ... and {} more", errors.len() - 50));
+        }
+        return Err(Failure { lines });
+    }
 
     // Files, manifest, version.
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -312,6 +320,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         relations: coverage.relations.clone(),
         derived_bytes,
         backlinks: coverage.backlinks.clone(),
+        reachability,
     })
 }
 
@@ -582,6 +591,7 @@ fn write_reports(
     coverage: &CoverageReport,
     notes: &[String],
     catalog: &Catalog,
+    reachability: &ReachabilityReport,
 ) -> Result<(), String> {
     let validation = serde_json::json!({
         "ok": errors.is_empty(),
@@ -599,6 +609,11 @@ fn write_reports(
     write_file(
         &dir.join("coverage.md"),
         coverage_markdown(coverage, notes).as_bytes(),
+    )?;
+    let pretty = serde_json::to_string_pretty(reachability).map_err(|e| e.to_string())?;
+    write_file(
+        &dir.join("reachability.json"),
+        format!("{pretty}\n").as_bytes(),
     )
 }
 
