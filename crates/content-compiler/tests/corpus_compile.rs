@@ -39,6 +39,7 @@ fn rule(id: &str, text: &str, link: Option<&str>) -> RuleEntry {
         kind: EntryKind::Rule,
         title: id.rsplit('/').next().unwrap().to_string(),
         source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
         section: vec![],
         parent: None,
         body: vec![Block::Paragraph {
@@ -211,6 +212,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         kind: EntryKind::ClassOption,
         title: "Example Discovery".into(),
         source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
         section: vec![],
         parent: None,
         body: vec![Block::Paragraph {
@@ -238,6 +240,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         kind: EntryKind::Archetype,
         title: "Example Archetype".into(),
         source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
         section: vec![],
         parent: None,
         body: vec![Block::Paragraph {
@@ -269,6 +272,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         kind: EntryKind::Class,
         title: "Fighter".into(),
         source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
         section: vec![],
         parent: None,
         body: vec![],

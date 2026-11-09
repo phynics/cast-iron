@@ -1183,6 +1183,7 @@ mod tests {
             kind: EntryKind::Feat,
             title: "X".into(),
             source_ids: vec!["c".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![],

@@ -58,6 +58,10 @@ relations = [
   { kind = "part", target = "ref/race/dwarf", label = "alternate" },
 ]
 
+[[sources]]
+publication = "core-rulebook"
+page = "221"
+
 [fields]
 kind = "spell"
 school = "conjuration"
@@ -96,6 +100,29 @@ class level and the full body below.
 | `provenance` | array of tables | Optional. `dataset`, `record`, `path` of the upstream record the entry came from. **Frozen history: do not edit it, and leave it out of a new entry.** |
 | `license_refs` | array of strings | Omitted when it equals `[defaults] license_refs` in `corpus.toml` (today `["ogl-1.0a", "legal#community-use"]`). Written only for an entry that differs; an empty list is written as `license_refs = []`. Each value is a licence id from `legal.toml`, or `legal#community-use`. |
 | `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`, `variant`, `addon`, `revision`), `target`, and an optional `label`. Labels are closed per kind: `or` on `prerequisite`; `alternate` on `part`; exactly one of `mythic`, `stamina`, `changes` on `addon`; none, `removed`, or `merged` on `revision`; none on `variant` and `archetype`. A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
+| `sources` | repeated `[[sources]]` table | Optional. One row per printed citation, in print order. `publication` is a publication id that must also appear in `source_ids`; `page` is optional. See [`[[sources]]`](#sources). |
+
+### `[[sources]]`
+
+A printed citation, one row per publication in the order the book prints it. The rows
+replace a `**Sources:** Book pg N` line that the import used to leave in the body; the
+compiler carries them to the client as the optional `sources` entry field.
+
+```toml
+[[sources]]
+publication = "ultimate-combat"
+page = "221"
+
+[[sources]]
+publication = "advanced-players-guide"
+page = "12-14"
+```
+
+`publication` is a publication id from `publications.toml`, and `corpus-check` also requires
+it in `source_ids`. Keep `source_ids`: it is the stable, ordered list that active-book
+filtering uses. `page` is optional. It is a string, not a number, because printed pages are
+not always one number: `"12-14"`, `"263-4"` and `"inside cover"` all occur. The writer puts
+the rows in list order and leaves `page` out when the citation has none.
 
 ### Typed fields
 

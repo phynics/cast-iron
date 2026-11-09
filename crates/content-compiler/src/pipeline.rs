@@ -738,6 +738,7 @@ mod tests {
             kind,
             title: id.into(),
             source_ids: vec!["s".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![Block::Paragraph {

@@ -274,6 +274,7 @@ mod tests {
             kind: EntryKind::Spell,
             title: title.into(),
             source_ids: vec!["cr".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![],
