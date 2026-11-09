@@ -3,7 +3,7 @@
 use crate::class_options;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
-use crate::revisions::{self, ActiveRevision, RevisionLabel, RevisionView};
+use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
@@ -297,13 +297,23 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
         let entry = fetch_library.entry(&fetch_id).await?;
         let wanted = needs(entry.kind);
         let mut indexes = Indexes::default();
+        let revisions = if wanted.relations {
+            fetch_library.revisions().await.ok().flatten()
+        } else {
+            None
+        };
+        if let Some(revisions) = revisions.as_ref() {
+            indexes.relations = Some(revisions.graph());
+        }
         if wanted.relations {
             match fetch_library.relations().await {
                 Ok(Some(all)) => {
-                    let discovery = fetch_library.discovery();
-                    indexes.relations = Some(Rc::new(
-                        all.filtered(|id| discovery.is_eligible(id.as_str())),
-                    ));
+                    if indexes.relations.is_none() {
+                        let discovery = fetch_library.discovery();
+                        indexes.relations = Some(Rc::new(
+                            all.filtered(|id| discovery.is_eligible(id.as_str())),
+                        ));
+                    }
                     indexes.all_relations = Some(all);
                 }
                 Ok(None) => {}
@@ -337,13 +347,8 @@ pub fn Entry(id: EntryId, anchor: Option<String>) -> impl IntoView {
         // A revision is gated by its own book alone. A page that is itself a revision keeps its
         // own text and names its base; a base resolves one active revision (or reports a
         // collision). The original entry stays in the page for the disclosure.
-        if let Some(view) = loaded.indexes.all_relations.as_ref().map(|all| {
-            RevisionView::build(
-                all,
-                |id| fetch_library.is_entry_active(id),
-                |id| fetch_library.stub(id).map(|stub| stub.source.clone()),
-            )
-        }) && view.for_revision(&loaded.entry.id).is_none()
+        if let Some(view) = revisions.as_ref().map(|revisions| revisions.view())
+            && view.for_revision(&loaded.entry.id).is_none()
         {
             if view.is_collision(&loaded.entry.id) {
                 loaded.collision = view
@@ -431,20 +436,8 @@ fn EntryView(
         let recents = crate::app::use_app().recents;
         spawn_local(async move { recent::record(recents, id, title).await });
     }
-    // A revision in force changes what the feat requires. The panels keep their own graph, but
-    // the chain walks the revision's prerequisite edges under the original id.
-    let mut indexes = indexes;
-    if let Some(page) = revision.as_ref()
-        && page.active.is_revised()
-        && let Some(all) = indexes.all_relations.as_ref()
-    {
-        let discovery = library.discovery();
-        let effective = all.with_prerequisite_override(&entry.id, &page.active.revision);
-        indexes.relations = Some(Rc::new(
-            effective.filtered(|id| discovery.is_eligible(id.as_str())),
-        ));
-    }
-
+    // The effective graph already walks a revised feat's prerequisites under the original id,
+    // so the chain, Requirements and Leads to panels agree with the revised text.
     let chain = parent_chain(&library, &entry.id);
     let mut chain_titles: Vec<&str> = chain.iter().map(|(_, t)| t.as_str()).collect();
     chain_titles.push(entry.kind.label());
@@ -476,15 +469,24 @@ fn EntryView(
     // but an inactive first source is replaced by the highest-priority active source, so the line
     // never names a book that the reader turned off while another book still shows the entry.
     let tier_of = |id: &str| library.source(id).map_or(Tier::Other, Tier::of);
-    let preferred = entry.source_ids.first().map(|first| {
+    // A revised page names the book that revised it, as the mockup's meta line does. The
+    // original book stays named by the notice and the original-text disclosure.
+    let meta_source_ids: Vec<String> = revision
+        .as_ref()
+        .filter(|page| page.active.is_revised())
+        .and_then(|page| page.active.source.clone())
+        .map(|source| vec![source])
+        .filter(|ids| !ids.is_empty())
+        .unwrap_or_else(|| entry.source_ids.clone());
+    let preferred = meta_source_ids.first().map(|first| {
         preferred_source(
             first,
-            entry.source_ids.iter().map(String::as_str),
+            meta_source_ids.iter().map(String::as_str),
             |id| library.book_active(id),
             tier_of,
         )
     });
-    let mut ordered_ids: Vec<&String> = entry.source_ids.iter().collect();
+    let mut ordered_ids: Vec<&String> = meta_source_ids.iter().collect();
     if let Some(preferred) = preferred {
         ordered_ids.sort_by_key(|id| id.as_str() != preferred);
     }
@@ -711,7 +713,12 @@ fn EntryView(
                         .stub(&reference.target)
                         .map_or_else(|| reference.target.to_string(), |stub| stub.title.clone());
                     let href = Route::entry(reference.target.clone()).href();
-                    view! { <a href=href>{title}</a> }.into_any()
+                    let inactive = !library.is_entry_active(&reference.target);
+                    view! {
+                        <a href=href>{title}</a>
+                        {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
+                    }
+                    .into_any()
                 });
                 match merged {
                     Some(link) => view! {
@@ -752,6 +759,18 @@ fn EntryView(
             </section>
         }
     });
+    // The changed field rows carry the quiet `changed` label that DESIGN.md and mockup 03
+    // show. Only a revised page has rows to mark; a removal or merge hides the stat block.
+    let changed_labels: Vec<String> = revision
+        .as_ref()
+        .filter(|page| page.active.is_revised())
+        .map(|page| {
+            page.changed
+                .iter()
+                .map(|field| field.to_lowercase())
+                .collect()
+        })
+        .unwrap_or_default();
     let hide_body = revision
         .as_ref()
         .is_some_and(|page| !page.active.is_revised());
@@ -793,7 +812,7 @@ fn EntryView(
         {collision_block}
         {original_disclosure}
         <ArticleContents body=contents_body id=entry.id.clone() />
-        <RichBody body=rendered_body anchor=anchor />
+        <RichBody body=rendered_body anchor=anchor changed=changed_labels />
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() />
         <aside class="entry-refs" aria-label="Entry links">

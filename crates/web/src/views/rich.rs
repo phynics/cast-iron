@@ -5,7 +5,7 @@
 use crate::route::{self, Route};
 use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
 use leptos::prelude::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -53,6 +53,37 @@ pub fn inlines(items: &[Inline]) -> Vec<AnyView> {
     items.iter().map(inline).collect()
 }
 
+/// A field label such as `Benefit:` reads as the typed field name `benefit`.
+fn field_label(items: &[Inline]) -> String {
+    plain_text(items)
+        .trim()
+        .trim_end_matches(':')
+        .trim()
+        .to_lowercase()
+}
+
+/// Inlines with the quiet `changed` label after a stat label that a revision changed. The
+/// printed feat body puts its fields in one paragraph as bold labels, so this is where a
+/// revised page attaches the marker.
+fn inlines_with_changed(items: &[Inline], changed: &BTreeSet<String>) -> Vec<AnyView> {
+    items
+        .iter()
+        .map(|item| {
+            let node = inline(item);
+            let marked = matches!(item, Inline::Strong { c } if changed.contains(&field_label(c)));
+            if marked {
+                view! {
+                    {node}
+                    <span class="tag changed-tag">"changed"</span>
+                }
+                .into_any()
+            } else {
+                node
+            }
+        })
+        .collect()
+}
+
 fn inline(item: &Inline) -> AnyView {
     match item {
         Inline::Text { v } => v.clone().into_any(),
@@ -83,6 +114,8 @@ pub fn blocks(items: &[Block]) -> Vec<AnyView> {
 /// built from the same slice, so the ids cannot drift from the keys whatever order it renders in.
 struct Renderer {
     keys: BTreeMap<*const Block, Option<String>>,
+    /// Lowercase labels of the stat rows that a revision changed.
+    changed: BTreeSet<String>,
 }
 
 impl Renderer {
@@ -91,7 +124,15 @@ impl Renderer {
             .into_iter()
             .map(|(block, key)| (std::ptr::from_ref(block), key))
             .collect();
-        Self { keys }
+        Self {
+            keys,
+            changed: BTreeSet::new(),
+        }
+    }
+
+    fn with_changed(mut self, changed: BTreeSet<String>) -> Self {
+        self.changed = changed;
+        self
     }
 }
 
@@ -134,7 +175,8 @@ impl Renderer {
                     ParagraphStyle::StatLine => Some("stat-line"),
                     ParagraphStyle::Indented => Some("indented"),
                 };
-                view! { <p class=class>{inlines(content)}</p> }.into_any()
+                view! { <p class=class>{inlines_with_changed(content, &self.changed)}</p> }
+                    .into_any()
             }
             Block::List { ordered, items } => {
                 let rows: Vec<AnyView> = items
@@ -151,7 +193,7 @@ impl Renderer {
             Block::Quote { content } => {
                 view! { <blockquote>{self.blocks(content)}</blockquote> }.into_any()
             }
-            Block::StatBlock { title, rows } => stat_block(title.as_deref(), rows),
+            Block::StatBlock { title, rows } => stat_block(title.as_deref(), rows, &self.changed),
             Block::EntryLink { target, title } => {
                 let href = Route::entry(target.clone()).href();
                 view! { <ul class="entry-links"><li><a href=href>{title.clone()}</a></li></ul> }
@@ -177,7 +219,7 @@ fn unique(prefix: &str) -> String {
     format!("{prefix}-{}", UNIQUE.fetch_add(1, Ordering::Relaxed))
 }
 
-fn stat_block(title: Option<&str>, rows: &[StatRow]) -> AnyView {
+fn stat_block(title: Option<&str>, rows: &[StatRow], changed: &BTreeSet<String>) -> AnyView {
     let title_id = title.map(|_| unique("stat"));
     let heading = title.map(|t| {
         let id = title_id.clone();
@@ -186,9 +228,12 @@ fn stat_block(title: Option<&str>, rows: &[StatRow]) -> AnyView {
     let rows: Vec<AnyView> = rows
         .iter()
         .map(|row| {
+            let changed = changed.contains(&row.label.trim().to_lowercase()).then(|| {
+                view! { <span class="tag changed-tag">"changed"</span> }
+            });
             view! {
                 <div class="stat-row">
-                    <dt>{row.label.clone()}</dt>
+                    <dt>{row.label.clone()}{changed}</dt>
                     <dd>{inlines(&row.value)}</dd>
                 </div>
             }
@@ -264,8 +309,15 @@ fn table_rows(rows: &[TableRow], section: &'static str) -> Vec<AnyView> {
 /// of 340 cells) renders in under 40 ms, and 60 ms with the CPU throttled 4x, so the whole body
 /// renders at once. With an anchor, the view scrolls to it after the first frame.
 #[component]
-pub fn RichBody(body: Vec<Block>, anchor: Option<String>) -> impl IntoView {
-    let content = Renderer::new(&body).blocks(&body);
+pub fn RichBody(
+    body: Vec<Block>,
+    anchor: Option<String>,
+    /// Lowercase labels of stat rows that a revision changed.
+    #[prop(optional)]
+    changed: Vec<String>,
+) -> impl IntoView {
+    let changed = changed.into_iter().collect::<BTreeSet<_>>();
+    let content = Renderer::new(&body).with_changed(changed).blocks(&body);
     if let Some(anchor) = anchor {
         request_animation_frame(move || {
             route::scroll_to_anchor(&anchor);

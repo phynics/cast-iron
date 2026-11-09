@@ -49,6 +49,16 @@ test("Elephant active: revised, removed and merged feats show one effective entr
   await expect(page.locator(".entry > .rich")).toContainText(
     "This bonus increases to +5 against attacks of opportunity",
   );
+  // Each changed stat row carries the quiet `changed` label, and the metadata line names the
+  // book that revised the feat.
+  await expect(page.locator(".entry > .rich .changed-tag")).toHaveCount(1);
+  const benefitLabel = page.locator(".entry > .rich strong", { hasText: /^Benefit:/ });
+  await expect(benefitLabel.locator("xpath=following-sibling::*[1]")).toHaveClass(
+    /changed-tag/,
+  );
+  const meta = page.locator(".entry-meta");
+  await expect(meta).toContainText("The Elephant in the Room");
+  await expect(meta).not.toContainText("Core Rulebook");
   const original = page.locator("details.rel-original");
   await expect(original).toHaveCount(1);
   await expect(original.locator("summary")).toContainText("Original text · Core Rulebook");
@@ -112,4 +122,73 @@ test("Elephant active: revised, removed and merged feats show one effective entr
   await page.goto("#/browse/kind/feat?l=P");
   await expect(page.locator(`a[href="#/entry/${POWER_ATTACK}"]`)).toBeVisible();
   await expect(page.locator(`a[href="#/entry/${POWER_ATTACK}/teitr"]`)).toHaveCount(0);
+});
+
+test("A revision's own page names its base and marks it Inactive when the base's book is off", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [ELEPHANT]);
+
+  await page.goto(`#/entry/${DODGE_REVISION}`);
+  await expect(page.getByTestId("entry-title")).toHaveText("Dodge");
+  const meta = page.locator(".entry-meta");
+  const base = meta.getByRole("link", { name: "Revision of Dodge", exact: true });
+  await expect(base).toBeVisible();
+  await expect(base).toHaveAttribute("href", `#/entry/${DODGE}`);
+  await expect(meta.locator(".tag")).toHaveText("Inactive");
+});
+
+test("A merged notice marks an inactive merge target", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [ELEPHANT]);
+
+  await page.goto(`#/entry/${MOBILITY}`);
+  const merged = page.locator(".revision-notice");
+  await expect(merged).toContainText("Merged by The Elephant in the Room");
+  await expect(merged.getByRole("link", { name: "Dodge", exact: true })).toHaveAttribute(
+    "href",
+    `#/entry/${DODGE}`,
+  );
+  await expect(merged.locator(".tag")).toHaveText("Inactive");
+});
+
+test("The feat chain follows a revised feat's prerequisites", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [CORE]);
+
+  // Point-Blank Shot is printed as a chain head: it has dependents and no prerequisite.
+  await page.goto("#/feats/chains");
+  const heads = page.locator(".chain-head .chain-name");
+  await expect(heads.filter({ hasText: /^Point-Blank Shot$/ })).toHaveCount(1);
+  await expect(heads.filter({ hasText: /^Precise Shot$/ })).toHaveCount(0);
+
+  // The revision gives Point-Blank Shot Precise Shot as a prerequisite, and the revised
+  // Precise Shot drops its own. The effective graph moves the head, so no chain starts from
+  // the printed version.
+  await onlyBooks(page, [CORE, ELEPHANT]);
+  await page.goto("#/feats/chains");
+  await expect(heads.filter({ hasText: /^Point-Blank Shot$/ })).toHaveCount(0);
+  await expect(heads.filter({ hasText: /^Precise Shot$/ })).toHaveCount(1);
+});
+
+test("A facet count drops for a feat that an active revision removes", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [CORE]);
+
+  const combatChip = page
+    .locator(".filter-group", { hasText: "Feat type" })
+    .locator(".chip", { hasText: /^Combat/ });
+  await page.goto("#/search?q=finesse&kind=feat");
+  await waitResults(page, "finesse");
+  await expect(combatChip.locator(".chip-count")).toHaveText("1");
+
+  // The revision removes Weapon Finesse from the effective rows, so the facet count drops by
+  // that one feat even though search still finds the removed feat.
+  await onlyBooks(page, [CORE, ELEPHANT]);
+  await page.goto("#/search?q=finesse&kind=feat");
+  await waitResults(page, "finesse");
+  await expect(combatChip.locator(".chip-count")).toHaveText("0");
 });
