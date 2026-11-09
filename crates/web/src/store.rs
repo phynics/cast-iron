@@ -2,7 +2,7 @@
 //!
 //! Database `cast-iron`, version 1:
 //! - `meta`: out-of-line string keys. `active_library`, `pending_install`, `theme`,
-//!   `spell_density`, `update_check`, `auto_update_check`.
+//!   `spell_density`, `update_check`, `auto_update_check`, `recent`, `continue_points`.
 //! - `bookmarks`: key path `entry_id`.
 //! - `collections`: key path `id`.
 //!
@@ -41,6 +41,8 @@ pub const KEY_THIRD_PARTY_NOTICE: &str = "third_party_notice";
 pub const THIRD_PARTY_NOTICE_PENDING: &str = "pending";
 pub const THIRD_PARTY_NOTICE_SHOWN: &str = "shown";
 pub const KEY_RECENT: &str = "recent";
+/// One continue point per book, newest first. See [`ContinuePoint`].
+pub const KEY_CONTINUE_POINTS: &str = "continue_points";
 pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
 pub const KEY_UPDATE_CHECK: &str = "update_check";
@@ -168,6 +170,79 @@ pub struct Collection {
 pub struct Recent {
     pub id: EntryId,
     pub title: String,
+}
+
+/// Where a reader stopped inside one book. The book is the source, so a reader can continue a
+/// different place in each book; the list keeps the most recently read book first.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ContinuePoint {
+    pub source: String,
+    pub entry_id: EntryId,
+    /// Milliseconds since the Unix epoch.
+    pub read_at: f64,
+}
+
+/// Newest first, with the source as a stable tie-break.
+pub fn sort_continue_points(points: &mut [ContinuePoint]) {
+    points.sort_by(|a, b| {
+        b.read_at
+            .total_cmp(&a.read_at)
+            .then_with(|| a.source.cmp(&b.source))
+    });
+}
+
+/// Records that the reader reached `entry_id` in `source` at `read_at`. One point per book: an
+/// older point for the same book is replaced, and the list stays newest first. Re-reading a book
+/// moves it to the front instead of adding a second row.
+pub fn upsert_continue_point(
+    points: &mut Vec<ContinuePoint>,
+    source: &str,
+    entry_id: EntryId,
+    read_at: f64,
+) {
+    points.retain(|point| point.source != source);
+    points.push(ContinuePoint {
+        source: source.to_string(),
+        entry_id,
+        read_at,
+    });
+    sort_continue_points(points);
+}
+
+/// The most recently read book, or `None` when no book has a point. The newest time wins; the
+/// source name breaks a tie so the answer never depends on the stored order.
+pub fn latest_continue_point(points: &[ContinuePoint]) -> Option<&ContinuePoint> {
+    points.iter().max_by(|a, b| {
+        a.read_at
+            .total_cmp(&b.read_at)
+            .then_with(|| b.source.cmp(&a.source))
+    })
+}
+
+/// Resolves every stored point through `resolve`, which returns the canonical id when the entry
+/// still exists. A point whose entry is gone is dropped; an alias takes its target's id. The
+/// result keeps one point per book, newest first.
+pub fn resolve_continue_points(
+    points: &[ContinuePoint],
+    resolve: impl Fn(&EntryId) -> Option<EntryId>,
+) -> Vec<ContinuePoint> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut out = Vec::new();
+    for point in points {
+        let Some(entry_id) = resolve(&point.entry_id) else {
+            continue;
+        };
+        if !seen.insert(point.source.clone()) {
+            continue;
+        }
+        out.push(ContinuePoint {
+            source: point.source.clone(),
+            entry_id,
+            read_at: point.read_at,
+        });
+    }
+    sort_continue_points(&mut out);
+    out
 }
 
 /// The once-per-alias-map marker. The value is the hash of `aliases.json`, not the content
@@ -534,6 +609,45 @@ pub async fn auto_update_check_enabled() -> bool {
 
 pub async fn set_auto_update_check(enabled: bool) -> Result<()> {
     set_meta(KEY_AUTO_UPDATE_CHECK, &enabled).await
+}
+
+/// Every stored continue point, newest first.
+pub async fn continue_points() -> Result<Vec<ContinuePoint>> {
+    let mut points = get_meta::<Vec<ContinuePoint>>(KEY_CONTINUE_POINTS)
+        .await?
+        .unwrap_or_default();
+    sort_continue_points(&mut points);
+    Ok(points)
+}
+
+/// Records a visit inside a book in one transaction, so two quick visits cannot drop each
+/// other's point the way a separate read and write could.
+pub async fn record_continue_point(source: &str, entry_id: &EntryId, read_at: f64) -> Result<()> {
+    let tx = Tx::begin(&[META], true).await?;
+    let store = tx.store(META)?;
+    let stored = from_js::<Vec<ContinuePoint>>(
+        request(
+            store
+                .get(&JsValue::from_str(KEY_CONTINUE_POINTS))
+                .map_err(Into::into),
+        )
+        .await?,
+    )?
+    .unwrap_or_default();
+    let mut points = stored;
+    upsert_continue_point(&mut points, source, entry_id.clone(), read_at);
+    request(
+        store
+            .put_with_key(&to_js(&points)?, &JsValue::from_str(KEY_CONTINUE_POINTS))
+            .map_err(Into::into),
+    )
+    .await?;
+    tx.finish().await
+}
+
+/// Removes every continue point, so Home's Clear also forgets where the reader stopped.
+pub async fn clear_continue_points() -> Result<()> {
+    remove_meta(KEY_CONTINUE_POINTS).await
 }
 
 // ---- bookmarks ------------------------------------------------------------------------------
@@ -1367,6 +1481,82 @@ mod tests {
                 .collection_ids
                 .is_empty()
         );
+    }
+
+    fn point(source: &str, entry: &str, at: f64) -> ContinuePoint {
+        ContinuePoint {
+            source: source.into(),
+            entry_id: id(entry),
+            read_at: at,
+        }
+    }
+
+    #[test]
+    fn a_book_has_one_continue_point_and_rereading_moves_it_to_the_front() {
+        let mut points = Vec::new();
+        upsert_continue_point(&mut points, "a", id("ref/rule/a1"), 10.0);
+        upsert_continue_point(&mut points, "b", id("ref/rule/b1"), 20.0);
+        upsert_continue_point(&mut points, "a", id("ref/rule/a2"), 30.0);
+        assert_eq!(
+            points,
+            [
+                point("a", "ref/rule/a2", 30.0),
+                point("b", "ref/rule/b1", 20.0)
+            ]
+        );
+        // The replaced point for `a` is gone: one point per book.
+        assert_eq!(points.iter().filter(|p| p.source == "a").count(), 1);
+    }
+
+    #[test]
+    fn the_latest_continue_point_is_the_most_recent_book_with_a_stable_tie() {
+        assert!(latest_continue_point(&[]).is_none());
+        let points = [
+            point("a", "ref/rule/a", 10.0),
+            point("b", "ref/rule/b", 20.0),
+            point("c", "ref/rule/c", 20.0),
+        ];
+        // A tie for the time uses the source name, not the stored order.
+        assert_eq!(latest_continue_point(&points).unwrap().source, "b");
+        let reversed = [
+            point("c", "ref/rule/c", 20.0),
+            point("b", "ref/rule/b", 20.0),
+            point("a", "ref/rule/a", 10.0),
+        ];
+        assert_eq!(latest_continue_point(&reversed).unwrap().source, "b");
+    }
+
+    #[test]
+    fn continue_points_follow_an_alias_and_drop_an_entry_the_library_lost() {
+        let points = [
+            point("a", "legacy/a", 30.0),
+            point("b", "missing", 20.0),
+            point("c", "ref/rule/c", 10.0),
+        ];
+        let resolved = resolve_continue_points(&points, |entry| match entry.as_str() {
+            "legacy/a" => Some(id("ref/rule/merged")),
+            "ref/rule/c" => Some(id("ref/rule/c")),
+            _ => None,
+        });
+        assert_eq!(
+            resolved,
+            [
+                point("a", "ref/rule/merged", 30.0),
+                point("c", "ref/rule/c", 10.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn continue_points_round_trip_and_an_unreadable_list_reads_as_empty() {
+        let points = [point("a", "ref/rule/a", 3.0)];
+        let json = serde_json::to_string(&points).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Vec<ContinuePoint>>(&json).unwrap(),
+            points
+        );
+        // The reader starts from nothing, never from a damaged key.
+        assert!(serde_json::from_str::<Vec<ContinuePoint>>(r#"[{"source":"a"}]"#).is_err());
     }
 
     #[test]

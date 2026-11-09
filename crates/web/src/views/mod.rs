@@ -10,6 +10,7 @@ pub mod bookmarks;
 pub mod browse;
 pub mod categories;
 pub mod chains;
+pub mod continue_reading;
 pub mod entry;
 pub mod entry_contents;
 pub mod filter_menu;

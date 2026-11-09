@@ -439,6 +439,17 @@ fn EntryView(
         let recents = crate::app::use_app().recents;
         spawn_local(async move { recent::record(recents, id, title).await });
     }
+    // Only a visit that carries the book in its route is reading inside that book. A search hit,
+    // a Home row without context, or a direct entry URL leaves every continue point alone.
+    if let Some(source) = book.clone() {
+        let id = entry.id.clone();
+        let library = library.clone();
+        spawn_local(async move {
+            if library.source(&source).is_some() {
+                let _ = store::record_continue_point(&source, &id, js::now_ms()).await;
+            }
+        });
+    }
     // The effective graph already walks a revised feat's prerequisites under the original id,
     // so the chain, Requirements and Leads to panels agree with the revised text.
     let chain = parent_chain(&library, &entry.id);

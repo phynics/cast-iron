@@ -10,10 +10,12 @@ use crate::fmt;
 use crate::graph::{BookLookup, chapter_ids, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, toc_id, use_route};
+use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use std::collections::HashSet;
 
 /// Distinct entries that a book's contents tree reaches. Every placement counts once, whether
@@ -277,6 +279,19 @@ pub fn BookView(source: String) -> impl IntoView {
         let library = library.clone();
         local_resource(async move { library.books().await })
     };
+    // The reader's place in this book, read once per mount. The page remounts when Back returns
+    // from an entry, so a visit made there shows here without a reload.
+    let saved = RwSignal::new(None::<EntryId>);
+    {
+        let library = library.clone();
+        let source = source.clone();
+        spawn_local(async move {
+            let points = continue_reading::load(&library).await;
+            saved.set(
+                continue_reading::for_book(&points, &source).map(|point| point.entry_id.clone()),
+            );
+        });
+    }
     let current = use_route();
     let initial = chapter_of(&current.get_untracked(), &source);
     let target = RwSignal::new(initial);
@@ -361,6 +376,27 @@ pub fn BookView(source: String) -> impl IntoView {
             </section>
         }
     });
+    // The saved place in this book, under the meta line. A point whose entry left the library
+    // was already dropped by the load, so this only fails when there is nothing to show.
+    let continue_link = {
+        let library = library.clone();
+        let source = source.clone();
+        move || {
+            let id = saved.get()?;
+            let stub = library.stub(&id)?;
+            let href = Route::Entry {
+                id,
+                anchor: None,
+                book: Some(source.clone()),
+            }
+            .href();
+            Some(view! {
+                <p class="continue-reading" data-testid="continue-reading">
+                    <a href=href>"Continue reading: "{stub.title.clone()}</a>
+                </p>
+            })
+        }
+    };
     view! {
         <div class="wide book">
             <h1>{title}</h1>
@@ -368,6 +404,7 @@ pub fn BookView(source: String) -> impl IntoView {
             {move || book_off().then(|| view! {
                 <p class="muted book-off-line" data-testid="book-off-line">{BOOK_OFF_LINE}</p>
             })}
+            {continue_link}
             {kind_links}
             <section class="book-contents" aria-labelledby="book-contents-head">
                 <h2 id="book-contents-head">"Contents"</h2>
