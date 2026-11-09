@@ -19,7 +19,7 @@ Local verification, 2026-11-09 (no CI or deployment claim):
 | `generated/content` | Content version `vb2a40ecd1f8a8665`, schema 4, 31,961 entries (was `v332f238b7f9a7461`) |
 | `cargo xtask content` | Exit 0; the published-id guard passed |
 | `cargo xtask check` | Passed |
-| `cargo xtask build-site` | Passed; shell `407a15434fa7c534`, 11 files |
+| `cargo xtask build-site` | Passed; shell `0f3fb98f3d6df9dd`, 11 files |
 | `npm --prefix tests/e2e test -- --project=chromium` | 191 passed, 1 skipped; no test changes needed |
 
 ## Corpus pinned to v0.1.14, 2026-11-08
