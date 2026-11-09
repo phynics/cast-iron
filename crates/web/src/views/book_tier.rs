@@ -232,6 +232,10 @@ mod tests {
             copyright: None,
             category: category.map(String::from),
             publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
         }
     }
