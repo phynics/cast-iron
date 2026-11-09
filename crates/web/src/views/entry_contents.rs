@@ -103,6 +103,10 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
         return ().into_any();
     }
     let current = crate::route::use_route();
+    let book = match current.get_untracked() {
+        Route::Entry { book, .. } => book,
+        _ => None,
+    };
     let links = items
         .into_iter()
         .map(|heading| {
@@ -111,6 +115,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
             let target = Route::Entry {
                 id: id.clone(),
                 anchor: Some(heading.anchor),
+                book: book.clone(),
             };
             let href = target.href();
             view! { <li class=class><a href=href on:click=move |event: leptos::ev::MouseEvent| {

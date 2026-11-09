@@ -1,7 +1,7 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import {
   afterRouteFrame,
-  bookEntryOrder,
+  bookReadingOrder,
   bookTrees,
   corpusEntry,
   firstBookPlacement,
@@ -161,7 +161,7 @@ test("Books navigation opens a rule and keeps previous and next reading usable",
     if (entry.kind !== "rule") return false;
     const book = firstBookPlacement(entry.id);
     if (!book) return false;
-    const order = bookEntryOrder(book);
+    const order = bookReadingOrder(book);
     return order.indexOf(entry.id) < order.length - 1;
   })!;
   const book = firstBookPlacement(rule.id)!;

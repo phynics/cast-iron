@@ -813,6 +813,66 @@ impl BookLookup {
     }
 }
 
+/// One chapter page of a book: its permanent address and the path of the node it opens.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChapterId {
+    pub id: String,
+    pub path: Vec<usize>,
+}
+
+/// The permanent id of a chapter: its compiler anchor, else a slug of its printed title. The
+/// title is the corpus title, not the display label, so renaming a label cannot move the address.
+/// A title with no ASCII letter or digit gets `chapter`, which later collisions still number.
+pub fn chapter_base(node: &BookNode) -> String {
+    if let Some(anchor) = node.anchor.as_deref().filter(|anchor| !anchor.is_empty()) {
+        return anchor.to_string();
+    }
+    let slug = cast_iron_schema::headings::slugify(&node.title);
+    if slug.is_empty() {
+        "chapter".to_string()
+    } else {
+        slug
+    }
+}
+
+/// The permanent ids of the chapters at `paths`, in the order given. The first chapter to claim
+/// a base keeps it; a later one takes `-2`, `-3`, ... so a collision never moves the earlier id.
+/// A chapter's position is never part of its id.
+pub fn chapter_ids<'a>(
+    chapters: &[BookNode],
+    paths: impl IntoIterator<Item = &'a [usize]>,
+) -> Vec<ChapterId> {
+    let mut used: HashSet<String> = HashSet::new();
+    paths
+        .into_iter()
+        .filter_map(|path| {
+            let node = node_at_path(chapters, path)?;
+            let base = chapter_base(node);
+            let mut id = base.clone();
+            let mut suffix = 2;
+            while used.contains(&id) {
+                id = format!("{base}-{suffix}");
+                suffix += 1;
+            }
+            used.insert(id.clone());
+            Some(ChapterId {
+                id,
+                path: path.to_vec(),
+            })
+        })
+        .collect()
+}
+
+/// The node at a path of a list of chapter trees. `node_at` takes a whole book.
+fn node_at_path<'a>(chapters: &'a [BookNode], path: &[usize]) -> Option<&'a BookNode> {
+    let (first, rest) = path.split_first()?;
+    let mut node = chapters.get(*first)?;
+    for i in rest {
+        node = node.children.get(*i)?;
+    }
+    Some(node)
+}
+
 /// The node at a path, or `None` when the path leaves the tree.
 pub fn node_at<'a>(book: &'a BookTree, path: &[usize]) -> Option<&'a BookNode> {
     let (first, rest) = path.split_first()?;
@@ -1468,6 +1528,53 @@ mod tests {
         assert!(books.neighbors(&id("b/actions")).1.is_none());
         assert_eq!(books.neighbors(&id("c/only")), (None, None));
         assert_eq!(books.neighbors(&id("b/unknown")), (None, None));
+    }
+
+    #[test]
+    fn chapter_ids_use_the_anchor_or_a_title_slug_and_never_the_position() {
+        let books = books();
+        let tree = books.book("b").unwrap();
+        let paths = [vec![0], vec![1]];
+        let ids = chapter_ids(&tree.chapters, paths.iter().map(Vec::as_slice));
+        assert_eq!(
+            ids,
+            [
+                ChapterId {
+                    id: "races".into(),
+                    path: vec![0]
+                },
+                ChapterId {
+                    id: "combat".into(),
+                    path: vec![1]
+                },
+            ]
+        );
+        // The anchor wins over the title, and a title with no ASCII letters still gets one id.
+        let mut anchored = node("Printed Heading", None, vec![]);
+        anchored.anchor = Some("printed-anchor".into());
+        let empty = node("— : —", None, vec![]);
+        let ids = chapter_ids(&[anchored, empty], [vec![0].as_slice(), vec![1].as_slice()]);
+        assert_eq!(ids[0].id, "printed-anchor");
+        assert_eq!(ids[1].id, "chapter");
+    }
+
+    #[test]
+    fn a_chapter_id_collision_gets_a_suffix_without_moving_the_first() {
+        let tree = [
+            node("Magic", None, vec![]),
+            node("Magic", None, vec![]),
+            node("Magic", None, vec![]),
+            node("Magic", None, vec![]),
+        ];
+        let paths: Vec<Vec<usize>> = (0..4).map(|i| vec![i]).collect();
+        let ids = chapter_ids(&tree, paths.iter().map(Vec::as_slice));
+        let names: Vec<&str> = ids.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(names, ["magic", "magic-2", "magic-3", "magic-4"]);
+        // Moving the rows does not rename them as long as every base stays present.
+        let shifted = chapter_ids(&tree, paths.iter().rev().map(Vec::as_slice));
+        let names: Vec<&str> = shifted.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(names, ["magic", "magic-2", "magic-3", "magic-4"]);
+        assert_eq!(shifted[0].path, vec![3]);
     }
 
     #[test]

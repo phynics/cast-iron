@@ -297,6 +297,7 @@ impl QuickSearch {
             Row::Entry(suggestion) => self.go(Route::Entry {
                 id: suggestion.id.clone(),
                 anchor: None,
+                book: None,
             }),
             Row::SeeAll(text) | Row::Starter(text) => self.search(text),
             Row::Search(search) => self.run(search.clone()),
