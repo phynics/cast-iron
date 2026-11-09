@@ -1508,3 +1508,26 @@ Closes [#356](https://github.com/phynics/cast-iron/issues/356). Owner decisions 
 - **Each group clears itself.** Recent searches keeps its `Clear`. Recently viewed gets its own `Clear`, which empties the visit list and removes `continue_points`, so it also forgets where the reader stopped. Each recently viewed row also has a remove button, and Delete on the highlighted row removes it.
 - **Visibility matches the library.** A stored visit resolves through the alias map and opens under the canonical id. A retired entry, an unknown id, or an entry whose book is inactive is hidden. Continue points are read the same way, and the most recently read *active* book supplies the row.
 - **One listbox per group, one keyboard order.** The field keeps focus; `aria-controls` names every group's listbox and `aria-activedescendant` names the focused option. Down and Up cross the groups in display order, and Enter opens the focused row. The row rules, order, cap, continue row and empty states are native tests in `views/quick_rows.rs`; the store and the layer add no new JavaScript.
+
+## Feature anchors on archetypes and class options, 2026-11-10
+
+Refs [#252](https://github.com/phynics/cast-iron/issues/252). Part 1 added stable headings
+for 658 class features across all 44 classes in `cast-iron-data`.
+
+- **The typed printed names keep their meaning.** `replaces` and `alters` stay the printed
+  feature names in print order. The new optional `replaces_features` and `alters_features`
+  lists carry the resolved heading anchors of the base class entry, in the same order.
+- **A key must be an anchor of the base class.** An archetype's class is its `archetype`
+  relation target. A class option's classes are the `classes` of its group in
+  `option-groups.toml`; when a group lists several classes, a key may name a heading in any
+  of them. `corpus-check` fails when a key is not such an anchor.
+- **Agreement with the printed names is a warning.** Resolution strips case, punctuation,
+  and an ability tag (`(Ex)`, `(Su)`, `(Sp)`), then compares the slug with the heading keys.
+  A printed name that does not resolve confidently is omitted instead of guessed, so the
+  feature list can be shorter than the printed list. A non-empty feature list warns when it
+  differs from the confident matches in print order; it does not fail the run while
+  per-power trades remain unresolved.
+- **The flat list describes a whole-feature trade.** The per-power shape for oaths,
+  domains, bloodlines and spirits ([#251](https://github.com/phynics/cast-iron/issues/251))
+  will add a separate optional pair beside these fields. This list keeps its meaning, and
+  the new field is optional, so `SCHEMA_VERSION` stays 4.

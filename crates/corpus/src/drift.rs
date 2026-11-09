@@ -782,6 +782,16 @@ fn replaces_alters_pairs(
     pairs
 }
 
+/// The printed `**Replaces:**` and `**Alters:**` names of the normal part, in body order.
+/// Each list is the concatenation of every such line in the entry.
+pub fn printed_replaces_alters(entry: &RuleEntry) -> (Vec<String>, Vec<String>) {
+    let body = normal_part(&entry.body);
+    (
+        printed_items(&labelled_texts(body, "Replaces")),
+        printed_items(&labelled_texts(body, "Alters")),
+    )
+}
+
 /// Every pair in the entry that states a value in both places and disagrees.
 pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
     let entry = &stored.entry;
@@ -1401,6 +1411,7 @@ mod tests {
         TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
             replaces: replaces.iter().map(|value| value.to_string()).collect(),
             alters: alters.iter().map(|value| value.to_string()).collect(),
+            ..Default::default()
         })
     }
 
@@ -1409,6 +1420,7 @@ mod tests {
             group: "paladin-oath".into(),
             replaces: replaces.iter().map(|value| value.to_string()).collect(),
             alters: alters.iter().map(|value| value.to_string()).collect(),
+            ..Default::default()
         })
     }
 

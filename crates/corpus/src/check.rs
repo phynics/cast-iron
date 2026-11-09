@@ -1,9 +1,9 @@
 //! Cross-file checks over a loaded corpus.
 
-use crate::drift::{Disagreement, find_drift};
+use crate::drift::{Disagreement, find_drift, printed_replaces_alters};
 use crate::entry::entry_path;
 use crate::load::Corpus;
-use cast_iron_schema::headings::keyed_headings;
+use cast_iron_schema::headings::{keyed_headings, slugify};
 use cast_iron_schema::{
     Block, BookNode, EntryId, EntryKind, Relation, RelationKind, RuleEntry, TypedFields,
 };
@@ -664,6 +664,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_relations(corpus, &mut report);
     check_third_party_sharing(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
+    check_replaces_features(corpus, &keys, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
     for tree in &corpus.books.books {
@@ -1123,6 +1124,153 @@ fn check_option_groups(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mut Repor
             report.problems.push(format!(
                 "option-groups.toml:{line}: group `{slug}` holds no class_option entries"
             ));
+        }
+    }
+}
+
+/// The base class entries for the `replaces_features` / `alters_features` anchors. An
+/// archetype names its class through the `archetype` relation; a class option names the
+/// classes of its group in `option-groups.toml`.
+fn base_class_ids<'a>(corpus: &'a Corpus, entry: &'a RuleEntry) -> Vec<&'a str> {
+    match &entry.fields {
+        TypedFields::Archetype(_) => entry
+            .relations
+            .iter()
+            .filter(|relation| relation.kind == RelationKind::Archetype)
+            .map(|relation| relation.target.as_str())
+            .collect(),
+        TypedFields::ClassOption(fields) => corpus
+            .option_groups
+            .groups
+            .get(&fields.group)
+            .map(|group| group.classes.iter().map(String::as_str).collect())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+/// A printed feature name without its ability tag: `Bravery (Ex)` becomes `Bravery`, and
+/// `Arcane Bond (Ex or Sp)` becomes `Arcane Bond`.
+fn strip_ability_tag(name: &str) -> &str {
+    let name = name.trim();
+    let Some(open) = name.rfind('(') else {
+        return name;
+    };
+    if !name.ends_with(')') {
+        return name;
+    }
+    let inner = &name[open + 1..name.len() - 1];
+    let mut saw_tag = false;
+    for token in inner.split(|ch: char| ch.is_whitespace() || matches!(ch, ',' | '/' | ';')) {
+        let token = token.trim().to_ascii_lowercase();
+        if token.is_empty() {
+            continue;
+        }
+        if !matches!(token.as_str(), "ex" | "su" | "sp" | "or" | "and") {
+            return name;
+        }
+        saw_tag = true;
+    }
+    if saw_tag {
+        name[..open].trim_end_matches(['/', ' ']).trim_end()
+    } else {
+        name
+    }
+}
+
+/// The heading anchor a printed feature name would have, before checking that the base
+/// class entry actually has it.
+fn feature_key(name: &str) -> String {
+    slugify(strip_ability_tag(name))
+}
+
+/// Check the typed heading anchors of archetypes and class options.
+///
+/// Every key must name a heading of the base class entry. When the field is present, the
+/// confidently resolved printed names must agree with it in print order; a disagreeing
+/// list is a warning, because a printed name that no heading matches is omitted instead of
+/// guessed.
+fn check_replaces_features(
+    corpus: &Corpus,
+    keys: &BTreeMap<&str, Vec<(String, String)>>,
+    report: &mut Report,
+) {
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        let (replaces_features, alters_features) = match &entry.fields {
+            TypedFields::Archetype(fields) => (&fields.replaces_features, &fields.alters_features),
+            TypedFields::ClassOption(fields) => {
+                (&fields.replaces_features, &fields.alters_features)
+            }
+            _ => continue,
+        };
+        if replaces_features.is_empty() && alters_features.is_empty() {
+            continue;
+        }
+        let classes = base_class_ids(corpus, entry);
+        let mut anchors: BTreeSet<&str> = BTreeSet::new();
+        for class in &classes {
+            if let Some(headings) = keys.get(class) {
+                anchors.extend(headings.iter().map(|(key, _)| key.as_str()));
+            }
+        }
+        let class_list = if classes.is_empty() {
+            "no base class entry".to_string()
+        } else {
+            classes
+                .iter()
+                .map(|class| format!("`{class}`"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let (printed_replaces, printed_alters) = printed_replaces_alters(entry);
+        for (field, printed, features) in [
+            ("replaces_features", printed_replaces, replaces_features),
+            ("alters_features", printed_alters, alters_features),
+        ] {
+            if features.is_empty() {
+                continue;
+            }
+            let at = format!(
+                "{}:{}",
+                stored.path.display(),
+                line_of(&stored.text, &format!("{field} = "))
+            );
+            if classes.is_empty() {
+                report.problems.push(format!(
+                    "{at}: [fields] {field} needs a base class entry, but this entry has none"
+                ));
+                continue;
+            }
+            for key in features {
+                if !anchors.contains(key.as_str()) {
+                    let shown: Vec<&str> = anchors.iter().copied().take(8).collect();
+                    report.problems.push(format!(
+                        "{at}: [fields] {field} key `{key}` is not a heading anchor in {class_list}. Use one of: {}{}",
+                        shown.join(", "),
+                        if anchors.len() > shown.len() {
+                            " and more"
+                        } else {
+                            ""
+                        }
+                    ));
+                }
+            }
+            let label = if field == "replaces_features" {
+                "Replaces"
+            } else {
+                "Alters"
+            };
+            let resolved: Vec<String> = printed
+                .iter()
+                .map(|name| feature_key(name))
+                .filter(|key| anchors.contains(key.as_str()))
+                .collect();
+            if features != &resolved {
+                report.warnings.push(format!(
+                    "{at}: [fields] {field} = {features:?} disagrees with the `**{label}:**` line; the confident matches in print order are {resolved:?}"
+                ));
+            }
         }
     }
 }
@@ -1717,8 +1865,7 @@ mod tests {
         assert!(!fields_match(EntryKind::ClassOption, &archetype));
         let option = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "hex".into(),
-            replaces: vec![],
-            alters: vec![],
+            ..Default::default()
         });
         assert!(fields_match(EntryKind::ClassOption, &option));
         assert!(!fields_match(EntryKind::Archetype, &option));
@@ -2197,6 +2344,8 @@ mod tests {
                 group: group.into(),
                 replaces: vec![],
                 alters: vec![],
+                replaces_features: vec![],
+                alters_features: vec![],
             }),
         )
     }
@@ -2348,6 +2497,7 @@ mod tests {
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
                 replaces: vec!["Trap sense".into()],
                 alters: vec![],
+                ..Default::default()
             }),
         );
         let text = check(&corpus(vec![archetype])).problems.join("\n");
@@ -2373,6 +2523,7 @@ mod tests {
                 group: "discoveries".into(),
                 replaces: vec!["Arcane school".into()],
                 alters: vec![],
+                ..Default::default()
             }),
         );
         let mut c = corpus(vec![option]);
@@ -2391,5 +2542,151 @@ mod tests {
             ),
             "{text}"
         );
+    }
+
+    fn printed(field: &str, text: &str) -> Block {
+        paragraph(vec![
+            Inline::Strong {
+                c: vec![Inline::text(format!("{field}:"))],
+            },
+            Inline::text(format!(" {text}")),
+        ])
+    }
+
+    fn fighter_class() -> RuleEntry {
+        typed(
+            rule(
+                "ref/class/fighter",
+                vec![
+                    heading(Some("bravery"), "Bravery (Ex)"),
+                    heading(Some("trap-sense"), "Trap Sense (Ex)"),
+                ],
+            ),
+            EntryKind::Class,
+            TypedFields::Class(Default::default()),
+        )
+    }
+
+    fn fighter_archetype(replaces: &[&str], features: &[&str], printed_line: &str) -> RuleEntry {
+        let mut entry = typed(
+            rule(
+                "ref/arc-fighter/example",
+                vec![printed("Replaces", printed_line)],
+            ),
+            EntryKind::Archetype,
+            TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+                replaces: replaces.iter().map(|value| value.to_string()).collect(),
+                replaces_features: features.iter().map(|value| value.to_string()).collect(),
+                ..Default::default()
+            }),
+        );
+        entry.relations = vec![Relation {
+            kind: RelationKind::Archetype,
+            target: EntryId::parse("ref/class/fighter").unwrap(),
+            label: None,
+        }];
+        entry
+    }
+
+    #[test]
+    fn replaces_features_accept_class_anchors_in_print_order() {
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(
+                &["Bravery", "Trap sense"],
+                &["bravery", "trap-sense"],
+                "Bravery, Trap sense.",
+            ),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    #[test]
+    fn a_replaces_features_key_must_be_an_anchor_of_the_base_class() {
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(&["Bravery"], &["bravery", "weapon-mastery"], "Bravery."),
+        ]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains(
+                "[fields] replaces_features key `weapon-mastery` is not a heading anchor in `ref/class/fighter`"
+            ),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn a_replaces_features_list_must_match_the_confident_printed_matches() {
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(
+                &["Bravery", "Trap sense"],
+                &["bravery"],
+                "Bravery, Trap sense.",
+            ),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains(
+                "[fields] replaces_features = [\"bravery\"] disagrees with the `**Replaces:**` line; the confident matches in print order are [\"bravery\", \"trap-sense\"]"
+            ),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn unresolved_printed_names_and_ability_tags_are_not_drift() {
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(
+                &["Bravery (Ex)", "The 3rd-level bonus feat"],
+                &["bravery"],
+                "Bravery (Ex), The 3rd-level bonus feat.",
+            ),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    #[test]
+    fn class_option_features_resolve_through_the_group_classes() {
+        let wizard = typed(
+            rule(
+                "ref/class/wizard",
+                vec![heading(Some("arcane-bond"), "Arcane Bond (Ex or Sp)")],
+            ),
+            EntryKind::Class,
+            TypedFields::Class(Default::default()),
+        );
+        let option = typed(
+            rule(
+                "ref/arcanedisc/example",
+                vec![printed("Replaces", "Arcane bond.")],
+            ),
+            EntryKind::ClassOption,
+            TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+                group: "discoveries".into(),
+                replaces: vec!["Arcane bond".into()],
+                replaces_features: vec!["arcane-bond".into()],
+                ..Default::default()
+            }),
+        );
+        let mut c = corpus(vec![wizard, option]);
+        c.option_groups.groups.insert(
+            "discoveries".into(),
+            crate::OptionGroupDef {
+                label: "Discoveries".into(),
+                singular: "Discovery".into(),
+                classes: vec!["ref/class/wizard".into()],
+            },
+        );
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
     }
 }

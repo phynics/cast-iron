@@ -138,13 +138,27 @@ order:
 | `class` | `class_type`, `hit_die`, `skill_ranks`, `class_skills` |
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
-| `archetype` | `replaces`, `alters` (printed feature names, in print order) |
-| `class_option` | `group` (required slug from `option-groups.toml`), `replaces`, `alters` (printed feature names, in print order) |
+| `archetype` | `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
+| `class_option` | `group` (required slug from `option-groups.toml`), `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the group's class entries, in print order) |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
 printed fraction (`1/2`, `1/8`) or a whole number. `abilities` is six strings in
 STR, DEX, CON, INT, WIS, CHA order, with `-` where none applies.
+
+`replaces_features` and `alters_features` are optional. They hold the heading
+anchors of the class entry whose feature a printed name in `replaces` or
+`alters` reaches. An archetype's class is its `archetype` relation target; a
+class option's classes are the `classes` of its group in `option-groups.toml`.
+The resolution strips case, punctuation, and an ability tag such as `(Ex)`,
+`(Su)` or `(Sp)`, then compares the slug with the heading keys. A printed name
+that has no confident match, such as a per-power trade or a level-qualified
+name, is left out of the feature list; the two lists therefore need not have
+the same length. `corpus-check` fails when a feature key is not an anchor of
+the base class, and warns when a non-empty feature list disagrees with the
+confident matches, in print order. A flat list describes a whole-feature
+trade; the per-power shape (#251) will add a separate optional field rather
+than change this one.
 
 ## `corpus.toml`
 
@@ -660,6 +674,11 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
 | archetype | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
 | class_option | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
+
+`replaces_features` and `alters_features` have no second copy in the body. They
+are checked against the class entry's heading anchors, and a non-empty list
+warns when it disagrees with the printed names it claims to resolve. The
+warning is non-failing while the corpus still has unresolved per-power trades.
 
 The comparison reads both sides as words: it ignores case, repeated blanks, an
 end period, `*` and `[label](target)` markers, and a few entities (`&times;`). A
