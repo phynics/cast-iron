@@ -7,7 +7,7 @@
 //! Removed and merged revisions leave the list but keep their original findable in search.
 
 use crate::graph::Relations;
-use cast_iron_schema::{EntryId, RuleEntry, TypedFields};
+use cast_iron_schema::{Citation, EntryId, RuleEntry, TypedFields};
 use cast_iron_search::HitSummary;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -304,16 +304,25 @@ impl RevisionRows {
     }
 }
 
+/// The citations that describe the text on screen. A revision's rows follow the revision's
+/// text, because a citation is part of the printing it came from. When the revision carries no
+/// rows, the base's rows remain: an unconverted revision (or one with no printed citation) must
+/// not leave a converted base page without a source line.
+pub fn effective_sources<'a>(base: &'a [Citation], revision: &'a [Citation]) -> &'a [Citation] {
+    if revision.is_empty() { base } else { revision }
+}
+
 /// The page's effective entry: the original id and metadata, with the revision's fields,
 /// body, links, and prerequisite edges. The revision edge itself is not copied, so the page
-/// never says "Revision of" about its own text.
+/// never says "Revision of" about its own text. Citations follow the visible text through
+/// [`effective_sources`].
 pub fn effective_entry(base: &RuleEntry, revision: &RuleEntry) -> RuleEntry {
     RuleEntry {
         id: base.id.clone(),
         kind: base.kind,
         title: base.title.clone(),
         source_ids: base.source_ids.clone(),
-        sources: revision.sources.clone(),
+        sources: effective_sources(&base.sources, &revision.sources).to_vec(),
         section: base.section.clone(),
         parent: base.parent.clone(),
         body: revision.body.clone(),
@@ -753,6 +762,10 @@ mod tests {
         revision.id = id("ref/feat/dodge/eitr");
         revision.title = "Dodge".into();
         revision.fields = feat("New benefit.");
+        revision.sources = vec![Citation {
+            publication: "elephant".into(),
+            page: Some("12".into()),
+        }];
         revision.relations = vec![cast_iron_schema::Relation {
             kind: RelationKind::Revision,
             target: base.id.clone(),
@@ -761,11 +774,25 @@ mod tests {
         let effective = effective_entry(&base, &revision);
         assert_eq!(effective.id, base.id);
         assert_eq!(effective.fields, revision.fields);
+        assert_eq!(effective.sources, revision.sources);
         assert!(
             effective
                 .relations
                 .iter()
                 .all(|r| r.kind != RelationKind::Revision)
         );
+    }
+
+    #[test]
+    fn a_revision_without_rows_keeps_the_base_citation() {
+        let citation = |publication: &str| Citation {
+            publication: publication.into(),
+            page: None,
+        };
+        let base = [citation("core-rulebook")];
+        let revision = [citation("elephant")];
+        assert_eq!(effective_sources(&base, &revision), &revision);
+        assert_eq!(effective_sources(&base, &[]), &base);
+        assert_eq!(effective_sources(&[], &[]), &[] as &[Citation]);
     }
 }

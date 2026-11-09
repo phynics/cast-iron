@@ -124,18 +124,29 @@ An add-on (variant, mythic version, Stamina rules, a third-party change or revis
 
 **The add-on's own page.** The metadata line ends with one link fragment: `Variant of {base}`, `Mythic version of {base}`, `Stamina rules for {base}`, `Changes {book} makes to {base}`, or `Revision of {base}`. The last appears only on the revision entry's own page. There is no `Base …` stat row; a value appears once. Search rows read `Mythic · {book}`, `Stamina · {book}`, or `Changes · {book}`; a class option reads `{Group singular} · {book}`. No breadcrumb.
 
+**The entry's own text ends with one muted `Sources:` line** when the entry has typed citations:
+`Sources: Ultimate Combat p. 221; Advanced Player's Guide p. 12`. Each publication uses its
+display title and links to its book page, `#/browse/book/<id>`, when the library has book pages.
+`p. {page}` appears only when the citation has a page. The line sits after the body and above the
+related panels. An entry without rows keeps whatever `Sources:` paragraph its body already prints,
+so an unconverted entry and a converted one read the same.
+
 **The base page,** after the body, in this order:
 
-- each mythic version: an `h2` `Mythic`, the add-on's title as an `h3` link, a muted `Sources` line, and its text, expanded;
-- third-party changes: an `h2` with the book title, in the same form;
-- Stamina: one collapsed `details.rel-disclosure` `Stamina · {book}` with a 44 px summary;
+- each mythic version: an `h2` `Mythic`, the add-on's title as an `h3` link, its text expanded, then its own muted `Sources` line;
+- third-party changes: an `h2` with the book title, in the same form, its own `Sources` line after the text;
+- Stamina: one collapsed `details.rel-disclosure` `Stamina · {book}` with a 44 px summary, whose opened body ends with its `Sources` line;
 - on a spell, `Variants`: a `.rel-list` of rows, each the title with a muted line `Bard 6, Cleric 5, Druid 6 · Core Rulebook`.
+
+An add-on section names its own citations. A converted add-on prints its typed line after its
+text; an unconverted body keeps its printed paragraph, so the section never prints a second line
+for the same citation. A mythic version with no printed citation falls back to its book name.
 
 No box, no tint, and no left rule; the stat block keeps the only one.
 
 **Class page.** `Class options` is a `.jump-list` of `.jump` rectangles `{Group} {count}`, each opening `#/browse/kind/class_option?facet=group:{slug}`. The list page has the H1 `Class options`, a count line, and a group filter menu; a class `.scope-pill` appears only when a group serves several classes. Archetype rows show a muted `Replaces {items}` from `replaces`. Option rows show only `{book}`, because the group is the selected filter.
 
-**A revision in force.** A `.notice` reads `Revised by {book}. Changed: {fields}.`, or `Removed by {book}.` / `Merged by {book}.` followed by the printed sentence. Each changed field row carries the Label `changed` (plain muted `.tag`, never accent or bold), then a collapsed `details.rel-disclosure` `Original text · {book}` with a 44 px summary. A list row adds the revision's book as its muted line. Removed feats leave the list, and one prose line under it states the count. When two or more revisions are in force the page shows the original plus `Revised by` and a `.rel-list`; there is no substitution and no last-writer-wins.
+**A revision in force.** A `.notice` reads `Revised by {book}. Changed: {fields}.`, or `Removed by {book}.` / `Merged by {book}.` followed by the printed sentence. Each changed field row carries the Label `changed` (plain muted `.tag`, never accent or bold), then a collapsed `details.rel-disclosure` `Original text · {book}` with a 44 px summary; its body ends with the base's own `Sources` line. The page's `Sources` line follows the revision's text: a revision with typed rows replaces the base citation, and a revision with none keeps the base's rows. A removed or merged page shows the revision's citation under the printed sentence. A list row adds the revision's book as its muted line. Removed feats leave the list, and one prose line under it states the count. When two or more revisions are in force the page shows the original plus `Revised by` and a `.rel-list`; there is no substitution and no last-writer-wins.
 
 **Lists and chains.** A mythic feat is its own row sorting right after its base (`Dodge`, `Dodge, Mythic`); there is no `+ Mythic` row tag. The `Leads to` panel and the chain marker ignore add-ons. Under a revision, the chain shows the revision's prerequisites with a revised notice. The chain-marker figures are measured again when the corpus gains add-ons.
 
