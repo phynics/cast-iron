@@ -209,6 +209,8 @@ Main chapter order and nested placement are verified against the printed Game Ma
 
 The NPC Gallery runs NPC Boons (p. 254), the NPC list (p. 255), and the printed role groups from Adventurers (p. 255) through Villagers (p. 308), each holding its three NPCs. Sanity and Madness keeps Curing Insanity and Types of Insanity, with all seven insanity types of the printed table under Types of Insanity (p. 251), Dissociated Identity and Moral Insanity included. Three printed headings have no corpus entry and are group nodes: Duties of a GM (p. 8), How to Run a Game (p. 24), and Hazards (p. 244). Entries that share a printed page keep the dataset order inside that page. The entry set is unchanged.
 
+The corpus imported the same book twice: the printed-chapter tree and a dataset-topic tree under a second book id. The two are one record now, under the publication id `game-mastery-guide`. The 111 records that only the topic tree held carry no GameMastery Guide page attribution. They sit at the end of the printed section their dataset group names: the 81 NPC stat blocks under their printed NPC Gallery role groups (pp. 255-308), the drug and addiction records under Drugs and Addiction (p. 236), the hazard records under Hazards (p. 244), the insanity records under Sanity and Madness and Types of Insanity (pp. 250-251), settlements under Urban (p. 202), planar material under Planar (p. 184), the NPC hub under NPC Gallery (p. 254), and the Gamemastery hub under the Introduction (p. 4). No entry id changed.
+
 ## Monster Codex
 
 The printed contents page of the Monster Codex was checked in this review. It verifies the following sequence.

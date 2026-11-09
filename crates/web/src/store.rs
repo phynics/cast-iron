@@ -45,6 +45,10 @@ pub const KEY_RECENT: &str = "recent";
 pub const KEY_CONTINUE_POINTS: &str = "continue_points";
 pub const KEY_RECENT_SEARCHES: &str = "recent_searches";
 pub const KEY_ID_MIGRATION: &str = "id_migration";
+/// Set once the stored disabled set has been read under the merged book ids. A book source id
+/// can change while an install keeps its stored choices; this marker makes that rewrite happen
+/// once, not on every load.
+pub const KEY_BOOK_SOURCE_MIGRATION: &str = "book_source_migration";
 pub const KEY_UPDATE_CHECK: &str = "update_check";
 pub const KEY_AUTO_UPDATE_CHECK: &str = "auto_update_check";
 
@@ -220,8 +224,9 @@ pub fn latest_continue_point(points: &[ContinuePoint]) -> Option<&ContinuePoint>
 }
 
 /// Resolves every stored point through `resolve`, which returns the canonical id when the entry
-/// still exists. A point whose entry is gone is dropped; an alias takes its target's id. The
-/// result keeps one point per book, newest first.
+/// still exists. A point whose entry is gone is dropped; an alias takes its target's id. A
+/// retired book source is mapped to the book that now holds it. The result keeps one point per
+/// book, newest first, so the newest point wins when both old ids were stored.
 pub fn resolve_continue_points(
     points: &[ContinuePoint],
     resolve: impl Fn(&EntryId) -> Option<EntryId>,
@@ -232,11 +237,12 @@ pub fn resolve_continue_points(
         let Some(entry_id) = resolve(&point.entry_id) else {
             continue;
         };
-        if !seen.insert(point.source.clone()) {
+        let source = crate::book_source::aliased_book_source(&point.source).to_string();
+        if !seen.insert(source.clone()) {
             continue;
         }
         out.push(ContinuePoint {
-            source: point.source.clone(),
+            source,
             entry_id,
             read_at: point.read_at,
         });
@@ -526,6 +532,45 @@ pub async fn stored_disabled_books() -> Result<Option<std::collections::BTreeSet
 
 pub async fn set_disabled_books(ids: &std::collections::BTreeSet<String>) -> Result<()> {
     set_meta(KEY_DISABLED_BOOKS, ids).await
+}
+
+/// Whether the stored disabled set has already been read under the merged book ids.
+pub async fn book_source_migration_done() -> Result<bool> {
+    Ok(get_meta::<bool>(KEY_BOOK_SOURCE_MIGRATION)
+        .await?
+        .unwrap_or(false))
+}
+
+/// Rewrites the stored disabled set once and records the marker in the same transaction.
+/// Returns the set to use now, or `None` when the profile never stored a choice. The caller
+/// runs this only when the installed library no longer has the retired tree.
+pub async fn settle_book_source_migration(
+    stored: Option<&std::collections::BTreeSet<String>>,
+) -> Result<Option<std::collections::BTreeSet<String>>> {
+    let migrated = stored.map(crate::book_source::migrate_disabled_books);
+    let tx = Tx::begin(&[META], true).await?;
+    let store = tx.store(META)?;
+    if let Some(migrated) = &migrated
+        && stored != Some(migrated)
+    {
+        request(
+            store
+                .put_with_key(&to_js(migrated)?, &JsValue::from_str(KEY_DISABLED_BOOKS))
+                .map_err(Into::into),
+        )
+        .await?;
+    }
+    request(
+        store
+            .put_with_key(
+                &JsValue::from_bool(true),
+                &JsValue::from_str(KEY_BOOK_SOURCE_MIGRATION),
+            )
+            .map_err(Into::into),
+    )
+    .await?;
+    tx.finish().await?;
+    Ok(migrated)
 }
 
 /// The third-party books the profile saw on its last load, or `None` when no library with a
@@ -1543,6 +1588,29 @@ mod tests {
             [
                 point("a", "ref/rule/merged", 30.0),
                 point("c", "ref/rule/c", 10.0)
+            ]
+        );
+    }
+
+    #[test]
+    fn a_stored_retired_book_source_resolves_to_the_merged_book() {
+        let keep = |entry: &EntryId| Some(entry.clone());
+        // A point stored under the printed tree's old id opens the merged book.
+        assert_eq!(
+            resolve_continue_points(&[point("gamemastery-guide", "ref/rule/a", 10.0)], keep),
+            [point("game-mastery-guide", "ref/rule/a", 10.0)]
+        );
+        // When both old ids have a point, the newer one wins and one row remains.
+        let points = [
+            point("gamemastery-guide", "ref/rule/printed", 30.0),
+            point("game-mastery-guide", "ref/rule/topic", 20.0),
+            point("core-rulebook", "ref/rule/core", 10.0),
+        ];
+        assert_eq!(
+            resolve_continue_points(&points, keep),
+            [
+                point("game-mastery-guide", "ref/rule/printed", 30.0),
+                point("core-rulebook", "ref/rule/core", 10.0)
             ]
         );
     }

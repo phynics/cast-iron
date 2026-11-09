@@ -21,7 +21,11 @@ import sys
 import tomllib
 from pathlib import Path
 
-BOOK = "gamemastery-guide"
+BOOK = "game-mastery-guide"
+# The corpus exported the same publication twice. The printed tree below used this
+# page-order source id, which is not a publication id; the dataset-topic tree used
+# the publication id. Merge the first into the second and retire this id.
+RETIRED_BOOK = "gamemastery-guide"
 BOOKS_FILE = "books.toml"
 
 # ---------------------------------------------------------------------------
@@ -75,6 +79,38 @@ def find_book(books: dict) -> dict:
         if book["source"] == BOOK:
             return book
     raise SystemExit(f"unknown book source: {BOOK}")
+
+
+def merge_duplicate_book(books: dict) -> list[dict]:
+    """Merge the retired page-order tree into the printed tree.
+
+    Returns the entry nodes that only the retired tree placed. The caller feeds
+    them to ``transform``, which puts each at its printed section. Running this
+    again on the merged corpus finds no retired tree and returns nothing.
+    """
+    printed = next(
+        (book for book in books["books"] if book["source"] == RETIRED_BOOK), None
+    )
+    topic = next((book for book in books["books"] if book["source"] == BOOK), None)
+    if printed is None or topic is None:
+        return []
+    placed = book_entries(printed)
+    extras: list[dict] = []
+    for chapter in topic["chapters"]:
+        for node in flatten(chapter):
+            entry_id = node.get("entry")
+            if entry_id and entry_id not in placed:
+                # Every extra is placed on its own; its old group is not kept.
+                extras.append(
+                    {
+                        key: value
+                        for key, value in node.items()
+                        if key != "children"
+                    }
+                )
+    books["books"].remove(topic)
+    printed["source"] = BOOK
+    return extras
 
 
 def find_node(book: dict, entry_id: str) -> dict | None:
@@ -316,15 +352,181 @@ EXPLICIT = set(SANITY_SUBSECTIONS) | set(INSANITY_TYPES) | set(NPC_OPENERS)
 
 
 # ---------------------------------------------------------------------------
+# Records that only the retired dataset-topic tree placed.
+#
+# They carry no GameMastery Guide page line, so page order cannot place them.
+# Each sits at the end of the printed section whose title its dataset group
+# names, or under the printed heading it fills. This is a placement by printed
+# section, never by a guessed page.
+
+HAZARDS = "hazards"
+ROLE = "role:"
+NPC_PREFIX = "ref/carried/game-mastery-guide/monsters/"
+
+# The dataset's NPC folder names are the printed NPC Gallery role groups.
+NPC_ROLE_BY_FOLDER = {
+    "adventurers": "Adventurers",
+    "brigands": "Brigands",
+    "city-watch": "City Watch",
+    "coliseum": "Coliseum",
+    "criminals-i": "Criminals I",
+    "criminals-ii": "Criminals II",
+    "crusaders": "Crusaders",
+    "dungeon": "Dungeon",
+    "entertainers": "Entertainers",
+    "fighting-school": "Fighting School",
+    "frontier": "Frontier",
+    "heretics": "Heretics",
+    "marauders": "Marauders",
+    "mercenaries": "Mercenaries",
+    "merchants": "Merchants",
+    "military": "Military",
+    "nobles": "Nobles",
+    "road": "Road",
+    "royalty": "Royalty",
+    "sailors": "Sailors",
+    "scholars": "Scholars",
+    "seers": "Seers",
+    "street": "Street",
+    "tavern": "Tavern",
+    "temple": "Temple",
+    "tribe": "Tribe",
+    "villagers": "Villagers",
+}
+
+PSRD_TARGETS: dict[str, str] = {
+    # Drugs and Addiction (printed p. 236).
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/minor-addiction": "ref/rule/addiction",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/moderate-addiction": "ref/rule/addiction",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/severe-addiction": "ref/rule/addiction",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/aether": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/dwarven-fire-ale": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/elven-absinthe": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/flayleaf": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/opium": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/pesh": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/scour": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/shiver": "ref/rule/drugs",
+    "ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/zerk": "ref/rule/drugs",
+    # Hazards (printed p. 244). The first record fills the printed heading.
+    "ref/carried/game-mastery-guide/rules/hazards": HAZARDS,
+    "ref/carried/game-mastery-guide/rules/hazards/hazards": HAZARDS,
+    "ref/carried/game-mastery-guide/rules/hazards/sample-hazards/ear-seekers/ear-seekers": HAZARDS,
+    "ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak": HAZARDS,
+    "ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak-severe-exposure": HAZARDS,
+    "ref/carried/game-mastery-guide/rules/hazards/sample-hazards/rot-grubs/rot-grubs": HAZARDS,
+    # Sanity and Madness (printed p. 250).
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/going-insane": "ref/rule/sanity-and-madness",
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/amnesia": TYPES_OF_INSANITY_ID,
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/mania-phobia": TYPES_OF_INSANITY_ID,
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/multiple-personality-disorder": TYPES_OF_INSANITY_ID,
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/paranoia": TYPES_OF_INSANITY_ID,
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/psychosis": TYPES_OF_INSANITY_ID,
+    "ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/schizophrenia": TYPES_OF_INSANITY_ID,
+    # Printed sections that the dataset group names.
+    "ref/carried/game-mastery-guide/rules/npcs": "ref/rule/npc-gallery",
+    "ref/carried/game-mastery-guide/rules/planar-adventures": "ref/rule/planar",
+    "ref/carried/game-mastery-guide/rules/settlements": "ref/rule/urban",
+    # The Gamemastery hub prints with the Core Rulebook; in this book it opens the
+    # Introduction, as its old page-order node did.
+    "ref/rule/gamemastery": "ref/rule/gamemastery-guide",
+}
+
+
+def psrd_target(entry_id: str) -> str | None:
+    """Where a record that only the retired tree placed belongs."""
+    if entry_id.startswith(NPC_PREFIX):
+        folder = entry_id[len(NPC_PREFIX) :].split("/", 1)[0]
+        title = NPC_ROLE_BY_FOLDER.get(folder)
+        if title is not None:
+            return ROLE + title
+    return PSRD_TARGETS.get(entry_id)
+
+
+# ---------------------------------------------------------------------------
 # The transform
 
 
-def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None]]:
+def attach_psrd(book: dict, chapters: dict[str, dict], pool: dict[str, dict]) -> None:
+    """Place each record that only the retired dataset-topic tree held.
+
+    A record sits at the end of the printed section its dataset group names.
+    Sorting by title keeps the result independent of the old tree order, so the
+    check is stable.
+    """
+    pending: dict[str, list[dict]] = {}
+    for entry_id in list(pool):
+        target = psrd_target(entry_id)
+        if target is None:
+            continue
+        pending.setdefault(target, []).append(pool.pop(entry_id))
+
+    for target, nodes in pending.items():
+        nodes.sort(key=lambda node: node["title"].casefold())
+        ids = {node["entry"] for node in nodes}
+        if target == HAZARDS:
+            group = next(
+                (
+                    node
+                    for chapter in chapters.values()
+                    for node in flatten(chapter)
+                    if node.get("title") == "Hazards" and node.get("entry") is None
+                ),
+                None,
+            )
+            if group is None:
+                raise SystemExit("missing printed Hazards heading")
+            hazard_rule = next(
+                (
+                    node
+                    for node in nodes
+                    if node["entry"]
+                    == "ref/carried/game-mastery-guide/rules/hazards"
+                ),
+                nodes[0],
+            )
+            group["entry"] = hazard_rule["entry"]
+            group["children"] = [
+                child
+                for child in group.get("children", [])
+                if child.get("entry") not in ids
+            ]
+            group["children"].extend(
+                node for node in nodes if node is not hazard_rule
+            )
+            continue
+        if target.startswith(ROLE):
+            title = target[len(ROLE) :]
+            gallery = chapters["NPC Gallery"]
+            parent = next(
+                (node for node in gallery["children"] if node["title"] == title),
+                None,
+            )
+            if parent is None:
+                raise SystemExit(f"missing printed NPC role group {title}")
+        else:
+            parent = find_node(book, target)
+            if parent is None:
+                raise SystemExit(f"missing placement target {target}")
+        parent["children"] = [
+            child
+            for child in parent.get("children", [])
+            if child.get("entry") not in ids
+        ]
+        parent["children"].extend(nodes)
+
+
+def transform(
+    book: dict, corpus: Path, extras: list[dict] | None = None
+) -> list[tuple[str, str, str, int | None]]:
     before_paths: dict[str, str] = {}
     for chapter in book["chapters"]:
         for node in flatten(chapter):
             if node.get("entry"):
                 before_paths[node["entry"]] = path_of(book, node)
+    for node in extras or []:
+        before_paths[node["entry"]] = "(retired tree)"
 
     chapters = {chapter["title"]: chapter for chapter in book["chapters"]}
     pool: dict[str, dict] = {}
@@ -339,6 +541,8 @@ def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None]
                 held[entry_id] = child
                 continue
             pool[entry_id] = child
+    for node in extras or []:
+        pool[node["entry"]] = node
 
     # Build the eight printed chapters from their section headings.
     for index, (chapter_title, _start) in enumerate(CHAPTERS):
@@ -403,6 +607,9 @@ def transform(book: dict, corpus: Path) -> list[tuple[str, str, str, int | None]
         group["children"] = [node for _entry_id, node in members]
         gallery["children"].append(group)
 
+    # Records that only the retired tree held, at their printed section.
+    attach_psrd(book, chapters, pool)
+
     if pool:
         leftovers = ", ".join(sorted(pool))
         raise SystemExit(f"unplaced entries: {leftovers}")
@@ -449,9 +656,10 @@ def main() -> int:
     books_path = args.corpus / BOOKS_FILE
     original_text = books_path.read_text(encoding="utf-8")
     books = tomllib.loads(original_text)
+    extras = merge_duplicate_book(books)
     book = find_book(books)
-    before = book_entries(book)
-    moves = transform(book, args.corpus)
+    before = book_entries(book) | {node["entry"] for node in extras}
+    moves = transform(book, args.corpus, extras)
     after = book_entries(book)
     if before != after:
         print(f"{BOOK}: entry set changed", file=sys.stderr)
@@ -464,12 +672,16 @@ def main() -> int:
     book["basis"] = (
         "The chapter titles, their order, and their first pages are checked "
         "against the printed contents page of the GameMastery Guide. Each "
-        "chapter holds its printed section headings in page order. See "
+        "chapter holds its printed section headings in page order. The corpus "
+        "imported the same book twice; the second tree is merged into this "
+        "publication id, and its records without a printed page sit at the end "
+        "of the printed section their dataset group names. See "
         "docs/research/book-order-evidence.md. Canonical ids were substituted "
         "through the reviewed alias map; chapters and order are unchanged."
     )
     book["review"] = [
         "Nested placement follows the printed section headings; entries that share a printed page keep the dataset order.",
+        "The records that only the retired page-order tree placed carry no GameMastery Guide page; they sit at the end of their printed section.",
         "The printed Appendix (310) has no corpus entries.",
     ]
 
