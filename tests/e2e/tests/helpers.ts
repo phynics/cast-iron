@@ -857,9 +857,17 @@ export async function seedHome(
   await waitHomeIdle(page);
 }
 
+/** A legacy id and the canonical entry it now resolves to, from the compiled alias map. */
+export function aliasOf(old: string): { old: string; target: string } {
+  const version = distManifest().content_version;
+  const raw = JSON.parse(fs.readFileSync(path.join(GENERATED, version, "aliases.json"), "utf8"));
+  const row = raw.entries.find((entry: any) => entry.old === old);
+  if (!row) throw new Error(`The compiled library has no alias for ${old}`);
+  return { old: row.old, target: row.target };
+}
+
 /** How many recently viewed entries are in storage right now, read straight from IndexedDB. */
-export function storedRecentCount(page: Page): Promise<number> {
-  return page.evaluate(
+export function storedRecentCount(page: Page): Promise<number> {  return page.evaluate(
     () =>
       new Promise<number>((resolve, reject) => {
         const open = indexedDB.open("cast-iron");

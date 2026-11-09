@@ -27,7 +27,6 @@ use cast_iron_schema::{EntryId, EntryKind};
 use cast_iron_search::Query;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use std::collections::BTreeSet;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
@@ -88,32 +87,28 @@ fn marker_is_current() -> bool {
 /// The recently viewed rows the library still shows: aliases resolve to their canonical entry,
 /// and a retired entry, an unknown id or an entry whose book is inactive is left out.
 fn viewed_rows(library: &Library, recents: &[Recent]) -> Vec<ViewedRow> {
-    let mut seen = BTreeSet::new();
-    recents
-        .iter()
-        .filter_map(|item| {
-            let id = continue_reading::live_target(library, &item.id)?;
-            if !library.is_entry_active(&id) || !seen.insert(id.clone()) {
-                return None;
-            }
-            let stub = library.stub(&id)?;
-            let book = library
-                .canonical_source_for_entry(&id)
-                .and_then(|source| library.source(&source))
-                .map(|source| source.title.clone());
-            let kind = kind_name(stub.kind);
-            let detail = match book {
-                Some(book) => format!("{kind} · {book}"),
-                None => kind.to_string(),
-            };
-            Some(ViewedRow {
-                id,
-                title: stub.title.clone(),
-                detail,
-                book: None,
-            })
+    quick_rows::visible_viewed(recents, |stored| {
+        let id = continue_reading::live_target(library, stored)?;
+        if !library.is_entry_active(&id) {
+            return None;
+        }
+        let stub = library.stub(&id)?;
+        let book = library
+            .canonical_source_for_entry(&id)
+            .and_then(|source| library.source(&source))
+            .map(|source| source.title.clone());
+        let kind = kind_name(stub.kind);
+        let detail = match book {
+            Some(book) => format!("{kind} · {book}"),
+            None => kind.to_string(),
+        };
+        Some(ViewedRow {
+            id,
+            title: stub.title.clone(),
+            detail,
+            book: None,
         })
-        .collect()
+    })
 }
 
 /// The Continue row for the most recently read book, when that book is active. The entry title

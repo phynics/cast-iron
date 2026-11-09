@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { aliasOf, bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -1039,6 +1039,28 @@ installedTest("Recently viewed hides a missing entry and an entry from an inacti
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
   await expect(page.locator(".quick-search-name", { hasText: "Gone Rule" })).toHaveCount(0);
   await expect(page.locator(".quick-search-name", { hasText: visit.title })).toHaveCount(0);
+});
+
+installedTest("Recently viewed resolves a stored legacy id through the alias map", async ({ page }) => {
+  await installLibrary(page);
+  const legacy = aliasOf("ref/tech-misc/silverdisk");
+  const target = corpus.entries.get(legacy.target);
+  expect(target, "the alias target is in the compiled corpus").toBeTruthy();
+  await seedHome(page, {
+    recents: [
+      { id: legacy.old, title: "Silverdisk" },
+      { id: "missing-source/old", title: "Gone Rule" },
+    ],
+  });
+  await openQuickSearch(page);
+  const viewed = quickGroup(page, "Recently viewed");
+  // The legacy id and its saved title resolve to the kept entry; the unknown id is dropped.
+  await expect(viewed).toHaveCount(1);
+  await expect(viewed.first().locator(".quick-search-name")).toHaveText(target!.title);
+  // The row opens the canonical entry, not the legacy id.
+  await viewed.first().click();
+  await expect(page).toHaveURL(new RegExp(`#/entry/${escape(legacy.target)}$`));
+  await expect(page.getByRole("heading", { level: 1, name: target!.title })).toBeVisible();
 });
 
 installedTest("The highlight is dropped when the suggestions change under it", async ({ page }) => {

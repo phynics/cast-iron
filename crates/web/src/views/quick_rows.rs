@@ -1,6 +1,7 @@
 //! What the Quick search list shows: the rows, and the keyboard movement through them. No
 //! browser calls, so the rules are tested natively.
 
+use crate::store::Recent;
 use crate::views::recent_searches::RecentSearch;
 use crate::views::source_variants::normalized_title;
 use cast_iron_schema::EntryId;
@@ -46,6 +47,23 @@ pub enum Row {
     Search(RecentSearch),
     /// A starter search, offered when nothing is recent: runs in the scope the layer has.
     Starter(String),
+}
+
+/// Resolves the stored visits into the rows to show. `resolve` maps a stored id to the entry it
+/// now opens, following an alias and dropping anything that no longer resolves. Two stored ids
+/// that resolve to one entry show once, under the kept entry's current title.
+pub fn visible_viewed(
+    recents: &[Recent],
+    resolve: impl Fn(&EntryId) -> Option<ViewedRow>,
+) -> Vec<ViewedRow> {
+    let mut seen = std::collections::BTreeSet::new();
+    recents
+        .iter()
+        .filter_map(|item| {
+            let row = resolve(&item.id)?;
+            seen.insert(row.id.clone()).then_some(row)
+        })
+        .collect()
 }
 
 /// What one group of the list is.
@@ -301,6 +319,51 @@ mod tests {
             detail: "Grapple".to_owned(),
             book: Some("core-rulebook".to_owned()),
         }
+    }
+
+    fn named(id: &str, title: &str) -> ViewedRow {
+        ViewedRow {
+            id: EntryId::parse(id).unwrap(),
+            title: title.to_owned(),
+            detail: "Item · Core Rulebook".to_owned(),
+            book: None,
+        }
+    }
+
+    #[test]
+    fn a_stored_legacy_visit_resolves_to_the_kept_entry() {
+        let stored = |id: &str, title: &str| Recent {
+            id: EntryId::parse(id).unwrap(),
+            title: title.to_owned(),
+        };
+        let recents = vec![
+            stored("ref/tech-misc/silverdisk", "Silverdisk"),
+            stored("ref/rule/hierophant", "Heirophant"),
+            // The same kept entry twice is one row.
+            stored("ref/rule/hierophant", "Heirophant"),
+            // Nothing in the map keeps this one, so it is dropped.
+            stored("ref/rule/gone", "Gone"),
+        ];
+        let rows = visible_viewed(&recents, |entry| match entry.as_str() {
+            "ref/tech-misc/silverdisk" => Some(named("ref/tech-misc/battery", "Battery")),
+            "ref/rule/hierophant" => Some(named(
+                "ref/carried/mythic-adventures/rules/mythic-heroes/hierophant",
+                "Hierophant",
+            )),
+            _ => None,
+        });
+        assert_eq!(
+            rows.iter()
+                .map(|row| (row.id.as_str(), row.title.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("ref/tech-misc/battery", "Battery"),
+                (
+                    "ref/carried/mythic-adventures/rules/mythic-heroes/hierophant",
+                    "Hierophant"
+                ),
+            ]
+        );
     }
 
     #[test]
