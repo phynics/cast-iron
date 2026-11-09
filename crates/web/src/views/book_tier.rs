@@ -3,7 +3,7 @@
 //! Core rulebooks matter most; adventures matter least. The mapping is pure so native
 //! tests cover it, including every category value that the reviewed file contains.
 
-use cast_iron_schema::SourceInfo;
+use cast_iron_schema::{SeriesKind, SourceInfo};
 use cast_iron_search::NEUTRAL_SOURCE_RANK;
 
 /// The search tie-break rank of every source in a catalog, from its reviewed category. Hand the
@@ -72,18 +72,31 @@ impl Tier {
         ("Miscellaneous", Tier::Other),
     ];
 
-    /// The tier for a publication: the third-party marker first, else its category.
+    /// The tier for a publication: the third-party marker first, else its category. A
+    /// recognized series kind with no reviewed category still belongs to Adventures: the
+    /// pinned Society scenario carries `series_kind = "society"` and no category.
     pub fn of(source: &SourceInfo) -> Tier {
-        Self::of_parts(source.third_party, source.category.as_deref())
+        Self::of_parts(
+            source.third_party,
+            source.category.as_deref(),
+            source.series_kind,
+        )
     }
 
     /// [`Tier::of`] over the fields a list row keeps, so the Books and Manage books rows group
     /// a marked book without holding a whole [`SourceInfo`].
-    pub fn of_parts(third_party: bool, category: Option<&str>) -> Tier {
+    pub fn of_parts(
+        third_party: bool,
+        category: Option<&str>,
+        series_kind: Option<SeriesKind>,
+    ) -> Tier {
         if third_party {
             Tier::ThirdParty
         } else {
-            Self::from_category(category)
+            match Self::from_category(category) {
+                Tier::Other if series_kind.is_some() => Tier::Adventures,
+                tier => tier,
+            }
         }
     }
 
@@ -280,6 +293,26 @@ mod tests {
         assert_eq!(Tier::ThirdParty.label(), "Third party");
         assert!(Tier::ThirdParty.collapsed_by_default());
         assert!(Tier::ThirdParty.is_disclosure());
+    }
+
+    #[test]
+    fn a_series_kind_without_a_category_belongs_to_adventures() {
+        let mut society = source("society", None);
+        society.series_kind = Some(SeriesKind::Society);
+        assert_eq!(Tier::of(&society), Tier::Adventures);
+        let mut module = source("module", None);
+        module.series_kind = Some(SeriesKind::Module);
+        assert_eq!(Tier::of(&module), Tier::Adventures);
+        // The reviewed category still decides a book with a recognized series kind.
+        let mut companion = source("companion", Some("Player Companion"));
+        companion.series_kind = Some(SeriesKind::Module);
+        assert_eq!(Tier::of(&companion), Tier::PlayerCompanions);
+        // The third-party marker still outweighs both.
+        let mut indie = source("indie", None);
+        indie.series_kind = Some(SeriesKind::Society);
+        indie.third_party = true;
+        assert_eq!(Tier::of(&indie), Tier::ThirdParty);
+        assert_eq!(Tier::from_category(None), Tier::Other);
     }
 
     #[test]

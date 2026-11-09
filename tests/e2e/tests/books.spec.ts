@@ -27,10 +27,12 @@ const tiers: { label: string; categories: string[]; open: boolean }[] = [
   { label: "Other", categories: [], open: false },
   { label: "Third party", categories: [], open: false },
 ];
-const tierOf = (source: any) =>
-  source.third_party
-    ? "Third party"
-    : tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
+const tierOf = (source: any) => {
+  if (source.third_party) return "Third party";
+  const fromCategory = tiers.find((tier) => tier.categories.includes(source.category))?.label ?? "Other";
+  // A recognized series kind with no reviewed category still belongs to Adventures (#159).
+  return fromCategory === "Other" && source.series_kind ? "Adventures" : fromCategory;
+};
 const inTier = (label: string) => sources.filter((source) => tierOf(source) === label);
 
 /** `2009-08-01` as the page writes it: a fixed English month table, then the year. */
@@ -97,7 +99,10 @@ test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest c
     await expect(heading).toContainText(tier.label);
     const toggle = heading.getByRole("button");
     await expect(toggle).toHaveAttribute("aria-expanded", tier.open ? "true" : "false");
-    const list = group.locator("ul.book-directory");
+    // Adventures holds series group headings rather than one flat list (#159).
+    const list = tier.label === "Adventures"
+      ? group.locator(".adventure-series-groups")
+      : group.locator("ul.book-directory");
     expect(await toggle.getAttribute("aria-controls")).toBe(await list.getAttribute("id"));
     // Every Paizo book starts active; the third-party group starts with none.
     const active = tier.label === "Third party" ? 0 : members.length;
@@ -126,7 +131,7 @@ test("Groups are h2 disclosure buttons in tier order: Rulebooks open, the rest c
 
   // Opening and closing flips aria-expanded and the rows.
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
-  const toggle = adventures.getByRole("button");
+  const toggle = adventures.locator(".tier-toggle");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
   await expect(adventures.locator(".book-directory-item").first()).toBeVisible();
@@ -149,6 +154,9 @@ test("A closed group holds no rows in the document, and opening it renders them"
     await expect(list.locator(".book-directory-item")).toHaveCount(0);
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    if (tier.label === "Adventures") {
+      await expect(group.locator(".adventure-group").first()).toBeVisible();
+    }
     await expect(list.locator(".book-directory-item")).toHaveCount(members.length);
     const ids = await list.locator(".book-directory-item").evaluateAll((items) => items.map((item) => item.getAttribute("data-book-id")));
     expect([...ids].sort()).toEqual(members.map((source) => source.id).sort());
@@ -197,6 +205,8 @@ test("Inside each tier the oldest book comes first and undated books come last",
   await page.goto("#/books");
   await openBookGroups(page);
   for (const tier of tiers) {
+    // Adventures no longer has one dated list: each series group has its own order (#159).
+    if (tier.label === "Adventures") continue;
     const group = page.locator(`.book-tier[data-tier="${tier.label}"]`);
     if (!(await group.count())) continue;
     const ids: string[] = await group
@@ -252,7 +262,7 @@ test("A book row shows a month-year and an entry count, and the Inactive tag onl
 test("The groups the reader opened stay open on Back, before the scroll position returns", async ({ page }) => {
   await page.goto("#/books");
   const adventures = page.locator('.book-tier[data-tier="Adventures"]');
-  await adventures.getByRole("button").click();
+  await adventures.locator(".tier-toggle").click();
   const items = adventures.locator(".book-directory-item");
   const count = await items.count();
   expect(count).toBeGreaterThan(8);
@@ -268,19 +278,19 @@ test("The groups the reader opened stay open on Back, before the scroll position
   await expect(page).toHaveURL(/#\/books$/);
   await expect(page.locator(".book-tier").first()).toBeVisible();
   // The group is open again and the position is where it was.
-  await expect(adventures.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+  await expect(adventures.locator(".tier-toggle")).toHaveAttribute("aria-expanded", "true");
   await expect(adventures.locator(".book-directory-item").last()).toBeVisible();
   await expect
     .poll(async () => Math.abs((await page.evaluate(() => Math.round(window.scrollY))) - before), { timeout: 5000 })
     .toBeLessThanOrEqual(2);
 
   // A group the reader closed stays closed: Rulebooks was open by default.
-  await page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button").click();
-  await expect(page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button")).toHaveAttribute("aria-expanded", "false");
+  await page.locator('.book-tier[data-tier="Rulebooks"] .tier-toggle').click();
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-toggle')).toHaveAttribute("aria-expanded", "false");
   await page.goto("#/settings");
   await page.goto("#/books");
-  await expect(page.locator('.book-tier[data-tier="Rulebooks"]').getByRole("button")).toHaveAttribute("aria-expanded", "false");
-  await expect(adventures.getByRole("button")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-toggle')).toHaveAttribute("aria-expanded", "false");
+  await expect(adventures.locator(".tier-toggle")).toHaveAttribute("aria-expanded", "true");
 });
 
 test("A book row is one link to its book page, with no checkbox, no inline tree and no Read link", async ({ page }) => {

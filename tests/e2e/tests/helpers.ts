@@ -402,6 +402,14 @@ export async function openBookGroups(page: Page) {
   // Each click removes one match, so always take the first.
   for (let left = await closed.count(); left > 0; left--) await closed.first().click();
   await expect(page.locator('.tier-toggle[aria-expanded="false"]')).toHaveCount(0);
+  // Adventures nests series disclosures (#159). A caller that asks for the rows opens those
+  // too, so the same helper reaches every book. Wait for the tier body before counting them.
+  await expect(page.locator(".adventure-group").first()).toBeVisible();
+  const series = page.locator('.series-toggle[aria-expanded="false"]');
+  for (let left = await series.count(); left > 0; left--) {
+    await series.first().click();
+  }
+  await expect(page.locator('.series-toggle[aria-expanded="false"]')).toHaveCount(0);
 }
 
 /** Follow the publication directory through its row link to the book page. */
