@@ -22,8 +22,8 @@ Local verification, 2026-11-09 (no CI or deployment claim):
 | `generated/content` | Content version `v3023e551a457c6eb`, schema 4, 31,958 entries (was `vb2a40ecd1f8a8665`) |
 | `cargo xtask content` | Exit 0; the published-id guard passed |
 | `cargo xtask check` | Passed |
-| `cargo xtask build-site` | Passed; shell `0f3fb98f3d6df9dd`, 11 files |
-| `npm --prefix tests/e2e test -- --project=chromium` | 192 passed, 1 skipped; one new test opens `#/entry/ref/tech-misc/silverdisk` and lands on Battery |
+| `cargo xtask build-site` | Passed; shell `df303149a7421e0e`, 11 files |
+| `npm --prefix tests/e2e test -- --project=chromium` | 196 passed, 1 skipped; one new test opens `#/entry/ref/tech-misc/silverdisk` and lands on Battery |
 
 ## Corpus pinned to v0.1.15, 2026-11-09
 
