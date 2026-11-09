@@ -12,12 +12,15 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ---- relations --------------------------------------------------------------------------
 
+/// One entry's edges: kind, target, and an optional label.
+type Edges = Vec<(RelationKind, EntryId, Option<String>)>;
+
 /// `relations.json` indexed both ways. The index holds each edge once, from the entry that
 /// states it; this adds the inverse lookup that the entry screens need.
 #[derive(Debug, Clone, Default)]
 pub struct Relations {
-    outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>>,
-    incoming: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>>,
+    outgoing: HashMap<EntryId, Edges>,
+    incoming: HashMap<EntryId, Edges>,
     /// Edge count per kind slug, as the compiler wrote it.
     pub counts: BTreeMap<String, u32>,
 }
@@ -209,6 +212,105 @@ impl Relations {
                 .extend(revised);
         }
         view
+    }
+
+    /// The outgoing prerequisite edges of one entry, with their either-or labels. A revision
+    /// carries the prerequisites of its revised text this way.
+    pub fn prerequisite_edges(&self, source: &EntryId) -> Vec<(EntryId, Option<String>)> {
+        self.outgoing
+            .get(source)
+            .into_iter()
+            .flatten()
+            .filter(|(kind, _, _)| *kind == RelationKind::Prerequisite)
+            .map(|(_, target, label)| (target.clone(), label.clone()))
+            .collect()
+    }
+
+    /// A graph with the rows of an active revision selection applied: `hidden` entries leave
+    /// with every edge that touches them, `redirect` sends an edge into a merged base to the
+    /// feat that absorbed it, and `prerequisites` replaces one entry's outgoing prerequisite
+    /// edges. Everything else keeps its source, target and label.
+    pub fn with_effective_revisions(
+        &self,
+        hidden: impl Fn(&EntryId) -> bool,
+        redirect: &BTreeMap<EntryId, EntryId>,
+        prerequisites: &BTreeMap<EntryId, Vec<(EntryId, Option<String>)>>,
+    ) -> Self {
+        fn push(
+            outgoing: &mut HashMap<EntryId, Edges>,
+            incoming: &mut HashMap<EntryId, Edges>,
+            counts: &mut BTreeMap<String, u32>,
+            source: &EntryId,
+            kind: RelationKind,
+            target: &EntryId,
+            label: &Option<String>,
+        ) {
+            outgoing
+                .entry(source.clone())
+                .or_default()
+                .push((kind, target.clone(), label.clone()));
+            incoming
+                .entry(target.clone())
+                .or_default()
+                .push((kind, source.clone(), label.clone()));
+            *counts.entry(kind.slug().to_owned()).or_default() += 1;
+        }
+        let resolve = |target: &EntryId| -> Option<EntryId> {
+            let target = if hidden(target) {
+                redirect.get(target)?.clone()
+            } else {
+                target.clone()
+            };
+            (!hidden(&target)).then_some(target)
+        };
+        let mut outgoing = HashMap::new();
+        let mut incoming = HashMap::new();
+        let mut counts = BTreeMap::new();
+        for (source, edges) in &self.outgoing {
+            if hidden(source) {
+                continue;
+            }
+            let overridden = prerequisites.get(source).is_some();
+            for (kind, target, label) in edges {
+                if *kind == RelationKind::Prerequisite && overridden {
+                    continue;
+                }
+                if let Some(target) = resolve(target) {
+                    push(
+                        &mut outgoing,
+                        &mut incoming,
+                        &mut counts,
+                        source,
+                        *kind,
+                        &target,
+                        label,
+                    );
+                }
+            }
+        }
+        for (source, edges) in prerequisites {
+            if hidden(source) {
+                continue;
+            }
+            for (target, label) in edges {
+                if let Some(target) = resolve(target) {
+                    push(
+                        &mut outgoing,
+                        &mut incoming,
+                        &mut counts,
+                        source,
+                        RelationKind::Prerequisite,
+                        &target,
+                        label,
+                    );
+                }
+            }
+        }
+        Self {
+            outgoing,
+            incoming,
+            counts,
+        }
     }
 
     /// Every add-on entry and the label of the edge it holds, for rows that name their kind

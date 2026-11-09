@@ -6,6 +6,7 @@ use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
+use crate::revisions::EffectiveRevisions;
 use crate::store::{self, ActiveLibrary};
 use crate::views::book_tier::source_ranks;
 use cast_iron_schema::{
@@ -117,6 +118,9 @@ struct Inner {
     /// The eligible id set of the current selection revision, shared by every `discovery()` call
     /// until the reader changes the active books or a new library is installed.
     discovery: crate::discovery::DiscoveryCache,
+    /// The effective revision state of the current selection revision. A new revision rebuilds
+    /// it once; lists, chains, pages and count predicates all read the same value.
+    revisions: RefCell<Option<(u64, Option<Rc<EffectiveRevisions>>)>>,
     selection_revision: RwSignal<u64>,
     selection_write_in_flight: RefCell<bool>,
     /// Set when IndexedDB refused the id rewrite. The library still reads correctly through
@@ -261,6 +265,7 @@ impl Library {
             disabled_books: RefCell::new(disabled_books),
             source_counts: OnceCell::new(),
             discovery: crate::discovery::DiscoveryCache::default(),
+            revisions: RefCell::new(None),
             selection_revision: RwSignal::new(0),
             selection_write_in_flight: RefCell::new(false),
             migration_refused: RwSignal::new(false),
@@ -622,6 +627,46 @@ impl Library {
             Relations::new(index)
         })
         .await
+    }
+
+    /// The effective revision state for the current active-book selection. `None` when the
+    /// library has no relation index. The first call at a selection revision reads the relation
+    /// graph and the two merged revisions' printed links; every later call reuses the same value.
+    pub async fn revisions(&self) -> Result<Option<Rc<EffectiveRevisions>>, LibraryError> {
+        let revision = self.0.selection_revision.get_untracked();
+        if let Some((cached, state)) = self.0.revisions.borrow().as_ref()
+            && *cached == revision
+        {
+            return Ok(state.clone());
+        }
+        let Some(relations) = self.relations().await? else {
+            *self.0.revisions.borrow_mut() = Some((revision, None));
+            return Ok(None);
+        };
+        // A merged revision names its destination in the printed body. Read only the two links
+        // whose own book is active; a merge target lets the graph point the base's dependents
+        // at the feat that absorbed it.
+        let mut merge_targets = BTreeMap::new();
+        for (revision_id, label, _) in relations.revision_edges() {
+            if label != Some("merged") || !self.is_entry_active(revision_id) {
+                continue;
+            }
+            if let Ok(entry) = self.entry(revision_id).await
+                && let Some(link) = entry.links.first()
+            {
+                merge_targets.insert(revision_id.clone(), link.target.clone());
+            }
+        }
+        let discovery = self.discovery();
+        let state = Rc::new(EffectiveRevisions::build(
+            &relations,
+            |id| self.is_entry_active(id),
+            |id| self.stub(id).map(|stub| stub.source.clone()),
+            |id| merge_targets.get(id).cloned(),
+            |id| discovery.is_eligible(id.as_str()),
+        ));
+        *self.0.revisions.borrow_mut() = Some((revision, Some(state.clone())));
+        Ok(Some(state))
     }
 
     /// Spell lists per class and level. `Ok(None)` for a library without `lists.json`.

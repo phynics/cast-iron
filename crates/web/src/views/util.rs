@@ -32,6 +32,12 @@ impl<T> Clone for Shared<T> {
     }
 }
 
+impl<T: Default> Default for Shared<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> Deref for Shared<T> {
     type Target = T;
     fn deref(&self) -> &T {

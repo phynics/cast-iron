@@ -9,7 +9,6 @@
 use crate::discovery::Discovery;
 use crate::js;
 use crate::library::use_library;
-use crate::revisions::RevisionView;
 use crate::route::{self, Route, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::icons;
@@ -412,16 +411,12 @@ fn watch_suggestions(quick: QuickSearch) {
             // which comes from the small derived index.
             let relations = library.relations().await.ok().flatten();
             let option_groups = library.option_groups().await.ok().flatten();
+            let revisions = library.revisions().await.ok().flatten();
             // One suggestion per feat, under the original id, when a revision is in force.
-            let hits = match relations.as_ref() {
-                Some(relations) => {
-                    let view = RevisionView::build(
-                        relations,
-                        |id| library.is_entry_active(id),
-                        |id| library.stub(id).map(|stub| stub.source.clone()),
-                    );
-                    crate::revisions::effective_hits(hits, &view, |id| discovery.is_eligible(id))
-                }
+            let hits = match revisions.as_ref() {
+                Some(revisions) => crate::revisions::effective_hits(hits, revisions.view(), |id| {
+                    discovery.is_eligible(id)
+                }),
                 None => hits,
             };
             let hits = shortest_completion_first(hits, &typed);
