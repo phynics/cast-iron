@@ -350,6 +350,7 @@ mod anchor_tests {
             kind: EntryKind::Rule,
             title: id.into(),
             source_ids: vec!["book".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body,

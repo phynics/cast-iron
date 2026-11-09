@@ -47,6 +47,9 @@ pub mod validate;
 /// a [`RelationEdge`], `EntryKind::ClassOption`, `ClassOptionFields` and `ArchetypeFields`
 /// (each carrying `replaces` and `alters`), and the derived files `option-groups.json` and
 /// `replaces.json`.
+///
+/// [`RuleEntry::sources`] is additive and optional: a library without rows omits the key, and
+/// an older reader ignores an unknown key, so it does not change this version.
 pub const SCHEMA_VERSION: u32 = 4;
 
 /// Name of the relation index, relative to the version directory.
@@ -241,6 +244,11 @@ pub struct RuleEntry {
     pub title: String,
     /// Publication ids. Each id must exist in [`Catalog::sources`].
     pub source_ids: Vec<String>,
+    /// Page citations in printed order. Optional and additive: an entry without rows omits the
+    /// key, and an older reader ignores it. Each publication must also appear in
+    /// [`Self::source_ids`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<Citation>,
     /// Breadcrumb path in the rules hierarchy, such as `["Combat", "Actions in Combat"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<String>,
@@ -327,6 +335,19 @@ pub struct EntryReference {
     /// Heading anchor within the target entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchor: Option<String>,
+}
+
+/// One printed page citation: a publication and, when the source line gives one, its page.
+///
+/// `page` stays a string because printed citations are not always one number: a range such as
+/// `12-14` or a non-numeric page such as `inside cover` must survive as written.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Citation {
+    /// Publication id, which must also appear in [`RuleEntry::source_ids`].
+    pub publication: String,
+    /// Printed page, such as `221`, `12-14` or `inside cover`. Omitted when the citation has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

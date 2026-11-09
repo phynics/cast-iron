@@ -30,10 +30,13 @@ pub const CREATURE_TYPES: [&str; 13] = [
     "vermin",
 ];
 
-/// What a check found. Every problem fails the run; there are no warnings.
+/// What a check found. Every problem fails the run; warnings do not.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
     pub problems: Vec<String>,
+    /// Suspicious content that needs review but does not fail the run. Third-party sharing is
+    /// a warning until the corpus has no unclassified case.
+    pub warnings: Vec<String>,
     /// Values that `[fields]` and the body both state and that disagree. Each one is also
     /// listed in `problems`.
     pub drift: Vec<Disagreement>,
@@ -576,6 +579,27 @@ pub fn check(corpus: &Corpus) -> Report {
                     .push(format!("{}: unknown publication `{source}`", at(source)));
             }
         }
+        for citation in &entry.sources {
+            let needle = format!("publication = \"{}\"", citation.publication);
+            if !publication_ids.contains(citation.publication.as_str()) {
+                report.problems.push(format!(
+                    "{}: `[[sources]]`: unknown publication `{}`",
+                    at(&needle),
+                    citation.publication
+                ));
+            }
+            if !entry
+                .source_ids
+                .iter()
+                .any(|source| source == &citation.publication)
+            {
+                report.problems.push(format!(
+                    "{}: `[[sources]]`: publication `{}` is not listed in `source_ids`",
+                    at(&needle),
+                    citation.publication
+                ));
+            }
+        }
         for license in &entry.license_refs {
             if !license_ids.contains(license.as_str()) {
                 report
@@ -638,6 +662,7 @@ pub fn check(corpus: &Corpus) -> Report {
     }
 
     check_relations(corpus, &mut report);
+    check_third_party_sharing(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
@@ -684,6 +709,68 @@ fn anchor_fix(target_path: &Path, anchor: &str, available: &[(String, String)]) 
             String::new()
         }
     )
+}
+
+/// Warn when third-party content can escape its book.
+///
+/// The corpus has no per-entry statement of which paragraph came from which book. Two reliable
+/// proxies stand in for one:
+///
+/// - an entry with no third-party source must not link an entry whose sources are all
+///   third-party, because turning the third-party book off would hide the link target;
+/// - an entry that mixes third-party and Paizo sources warns. The split form is an `addon` or
+///   `revision` entry with only the third-party source, beside an unchanged Paizo base. A mixed
+///   entry is either a missed split or a shared-printing claim that a reviewer must confirm.
+fn check_third_party_sharing(corpus: &Corpus, report: &mut Report) {
+    let third_party: BTreeSet<&str> = corpus
+        .publications
+        .iter()
+        .filter(|publication| publication.third_party)
+        .map(|publication| publication.id.as_str())
+        .collect();
+    if third_party.is_empty() {
+        return;
+    }
+    let is_third_party = |source: &String| third_party.contains(source.as_str());
+    let third_party_only = |entry: &RuleEntry| {
+        !entry.source_ids.is_empty() && entry.source_ids.iter().all(is_third_party)
+    };
+
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        let has_third_party = entry.source_ids.iter().any(is_third_party);
+        let has_paizo = entry
+            .source_ids
+            .iter()
+            .any(|source| !is_third_party(source));
+
+        if !has_third_party {
+            for link in &entry.links {
+                let Some(target) = corpus.entries.get(link.target.as_str()) else {
+                    continue;
+                };
+                if !third_party_only(&target.entry) {
+                    continue;
+                }
+                let line = line_of(&stored.text, &format!("]({}", link.target));
+                report.warnings.push(format!(
+                    "{}:{line}: body link to `{}` is third-party only ({}); a non-third-party entry must not link content that its book setting can hide",
+                    stored.path.display(),
+                    link.target,
+                    target.entry.source_ids.join(", ")
+                ));
+            }
+        }
+
+        if has_third_party && has_paizo {
+            let line = line_of(&stored.text, "source_ids");
+            report.warnings.push(format!(
+                "{}:{line}: entry mixes third-party and Paizo sources ({}); move the third-party text into an `addon` or `revision` entry, or confirm a shared printing",
+                stored.path.display(),
+                entry.source_ids.join(", ")
+            ));
+        }
+    }
 }
 
 fn check_relations(corpus: &Corpus, report: &mut Report) {
@@ -1229,7 +1316,8 @@ mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
     use cast_iron_schema::{
-        BookIndex, BookNode, BookTree, CreatureFields, EntryId, FeatFields, Inline, SeriesKind,
+        BookIndex, BookNode, BookTree, Citation, CreatureFields, EntryId, FeatFields, Inline,
+        SeriesKind,
     };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
@@ -1315,6 +1403,51 @@ mod tests {
         c.publications[0].copyright = Some("Necromancer Games, (c) 2011".into());
         c.legal.section_15[0].notice = "Necromancer Games, (c) 2011".into();
         assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+    }
+
+    #[test]
+    fn a_paizo_entry_linking_third_party_only_content_is_a_warning() {
+        let target = in_publication(rule("ref/rule/tp", vec![]), "third-party");
+        let source = rule(
+            "ref/rule/base",
+            vec![paragraph(vec![link("ref/rule/tp", None, "third party")])],
+        );
+        let mut c = corpus(vec![source, target]);
+        add_third_party(&mut c, "third-party", None);
+
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("body link to `ref/rule/tp` is third-party only"),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn mixed_sources_warn_but_a_third_party_only_entry_does_not() {
+        let mut mixed = in_publication(rule("ref/rule/mixed", vec![]), "core-rulebook");
+        mixed.source_ids.push("third-party".into());
+        let mut c = corpus(vec![mixed]);
+        add_third_party(&mut c, "third-party", None);
+
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("entry mixes third-party and Paizo sources"),
+            "{:?}",
+            report.warnings
+        );
+
+        // An entry whose sources are all third-party is the split form and does not warn.
+        let only = in_publication(rule("ref/rule/only", vec![]), "third-party");
+        let mut c = corpus(vec![only]);
+        add_third_party(&mut c, "third-party", None);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
     }
 
     #[test]
@@ -1664,9 +1797,65 @@ mod tests {
         });
     }
 
+    fn add_third_party(corpus: &mut crate::Corpus, id: &str, suffix: Option<&str>) {
+        add_publication(corpus, id, suffix);
+        let publication = corpus.publications.last_mut().unwrap();
+        publication.title = format!("Third Party {id}");
+        let copyright = format!("Third Party {id}. (c) 2020, Example Games.");
+        publication.copyright = Some(copyright.clone());
+        publication.third_party = true;
+        corpus
+            .legal
+            .section_15
+            .push(cast_iron_schema::CopyrightNotice {
+                title: publication.title.clone(),
+                notice: copyright,
+            });
+    }
+
     fn in_publication(mut entry: RuleEntry, source: &str) -> RuleEntry {
         entry.source_ids = vec![source.into()];
         entry
+    }
+
+    fn with_source(mut entry: RuleEntry, publication: &str, page: Option<&str>) -> RuleEntry {
+        entry.source_ids.push(publication.into());
+        entry.sources.push(Citation {
+            publication: publication.into(),
+            page: page.map(str::to_string),
+        });
+        entry
+    }
+
+    #[test]
+    fn a_source_citation_must_name_a_known_publication() {
+        let entry = with_source(rule("ref/rule/a", vec![]), "missing-book", Some("12"));
+        let text = check(&corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("unknown publication `missing-book`"),
+            "{text}"
+        );
+        assert!(text.contains("[[sources]]"), "{text}");
+    }
+
+    #[test]
+    fn a_source_citation_publication_must_be_in_source_ids() {
+        let mut entry = rule("ref/rule/a", vec![]);
+        entry.sources.push(Citation {
+            publication: "core-rulebook".into(),
+            page: Some("12".into()),
+        });
+        // `rule` already lists core-rulebook, so remove it to make the citation stray.
+        entry.source_ids.clear();
+        let text = check(&corpus(vec![entry])).problems.join("\n");
+        assert!(text.contains("is not listed in `source_ids`"), "{text}");
+    }
+
+    #[test]
+    fn citations_that_name_a_listed_publication_pass() {
+        let entry = with_source(rule("ref/rule/a", vec![]), "core-rulebook", Some("12-14"));
+        let report = check(&corpus(vec![entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]

@@ -111,6 +111,7 @@ mod tests {
             kind: EntryKind::Rule,
             title: id.into(),
             source_ids: vec!["s".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body: vec![Block::Paragraph {

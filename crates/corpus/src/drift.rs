@@ -842,6 +842,7 @@ mod tests {
             kind,
             title: "T".into(),
             source_ids: vec!["core-rulebook".into()],
+            sources: vec![],
             section: vec![],
             parent: None,
             body,
