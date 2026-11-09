@@ -5,6 +5,7 @@ use crate::install;
 use crate::js;
 use crate::library::{Library, use_library};
 use crate::pwa::InstallCtx;
+use crate::report;
 use crate::route::{self, Route, provide_route, replace, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
@@ -58,6 +59,9 @@ pub struct AppCtx {
     pub recents: RwSignal<Vec<Recent>>,
     /// A newer app shell is installed and waiting for the user to reload.
     pub shell_update_ready: RwSignal<bool>,
+    /// The shell version that the controlling service worker reports, once it answers. The
+    /// report link reads it; Settings asks the same worker for the same value.
+    pub app_version: RwSignal<Option<String>>,
     pub online: RwSignal<bool>,
 }
 
@@ -154,6 +158,7 @@ pub fn App() -> impl IntoView {
         density: RwSignal::new(Density::default()),
         recents: RwSignal::new(Vec::new()),
         shell_update_ready: RwSignal::new(false),
+        app_version: RwSignal::new(None),
         online: RwSignal::new(online),
     };
     provide_context(app);
@@ -181,6 +186,17 @@ pub fn App() -> impl IntoView {
             Ok(true) => {}
             Ok(false) => leptos::logging::warn!("service workers are not supported here"),
             Err(error) => leptos::logging::warn!("service worker registration failed: {error}"),
+        }
+    });
+    // The first load has no controlling worker yet, so the report link and Settings wait for
+    // the claim. No request leaves the origin: this only asks the worker for its version.
+    spawn_local(async move {
+        for _ in 0..20 {
+            if let Some(info) = js::shell_info().await {
+                app.app_version.set(Some(info.version));
+                return;
+            }
+            js::sleep(250).await;
         }
     });
     spawn_local(async move { app.boot.set(boot_check().await) });
@@ -338,11 +354,45 @@ fn Reader(library: Library) -> impl IntoView {
                 <p class="footer-links">
                     <a href="https://github.com/phynics/cast-iron" rel="noopener noreferrer">"Source on GitHub"</a>
                     " · "
-                    <a href="https://github.com/phynics/cast-iron/issues" rel="noopener noreferrer">"Send feedback or report a problem"</a>
-                    <span class="muted">" (needs a connection)"</span>
+                    <ReportProblem />
                 </p>
             </footer>
         </div>
+    }
+}
+
+/// The one footer control. An entry routes to the content issue form; every other page
+/// routes to the app form. It is a plain anchor, so GitHub is not contacted until the click.
+#[component]
+fn ReportProblem() -> impl IntoView {
+    let route = use_route();
+    let library = use_library();
+    let app = use_app();
+    let link = Memo::new(move |_| {
+        let route = route.get();
+        let title = match &route {
+            Route::Entry { id, .. } => library.stub(id).map(|stub| stub.title.clone()),
+            _ => None,
+        };
+        let active = library.active();
+        report::for_route(
+            &route,
+            title.as_deref(),
+            app.app_version.get().as_deref().unwrap_or_default(),
+            &active.content_version,
+            active.schema_version,
+        )
+    });
+    view! {
+        <a
+            class="report-problem"
+            href=move || link.get().url
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label=move || link.get().label
+        >
+            "Report a problem"
+        </a>
     }
 }
 
