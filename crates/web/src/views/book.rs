@@ -7,12 +7,12 @@
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
 
 use crate::fmt;
-use crate::graph::{BookLookup, node_at};
+use crate::graph::{BookLookup, chapter_ids, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, toc_id, use_route};
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
-use cast_iron_schema::{BookNode, EntryId, EntryKind};
+use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
 use std::collections::HashSet;
 
@@ -140,6 +140,117 @@ pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> 
         }
     }
     listed.into_iter().map(|i| vec![i]).collect()
+}
+
+/// One top-level row of Contents as a chapter page: the permanent id, the real tree path and the
+/// label the reader sees. A book whose only listed chapter is the catch-all shows that chapter's
+/// rows at the top, and each of those rows is a chapter page in the same way.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChapterRow {
+    pub id: String,
+    pub path: Vec<usize>,
+    pub title: String,
+}
+
+/// The chapter pages of a book, in Contents order. The ids follow the corpus anchor or the
+/// printed title, never the row's position (see [`chapter_ids`]).
+pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
+    let roots = contents_roots(&book.chapters, hide);
+    chapter_ids(&book.chapters, roots.iter().map(Vec::as_slice))
+        .into_iter()
+        .filter_map(|chapter| {
+            let node = node_at(book, &chapter.path)?;
+            Some(ChapterRow {
+                id: chapter.id,
+                path: chapter.path,
+                title: chapter_label(&node.title),
+            })
+        })
+        .collect()
+}
+
+/// One entry in a book's Contents reading order.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadingStop {
+    pub entry: EntryId,
+    pub title: String,
+    pub path: Vec<usize>,
+}
+
+/// The entries a chapter page's reading order visits: every Contents-visible entry in book
+/// order. A hidden kind is skipped, whether it is a leaf or a chapter of its own, exactly as
+/// Contents leaves it out.
+pub fn reading_order(book: &BookTree, hide: Hide<'_>) -> Vec<ReadingStop> {
+    fn walk(node: &BookNode, path: &mut Vec<usize>, hide: Hide<'_>, out: &mut Vec<ReadingStop>) {
+        if let Some(entry) = &node.entry
+            && !hide(entry)
+        {
+            out.push(ReadingStop {
+                entry: entry.clone(),
+                title: node.title.clone(),
+                path: path.clone(),
+            });
+        }
+        for (index, child) in node.children.iter().enumerate() {
+            path.push(index);
+            walk(child, path, hide, out);
+            path.pop();
+        }
+    }
+    let mut out = Vec::new();
+    let mut path = Vec::new();
+    for (index, chapter) in book.chapters.iter().enumerate() {
+        path.push(index);
+        walk(chapter, &mut path, hide, &mut out);
+        path.pop();
+    }
+    out
+}
+
+/// A neighbour in the reading order. `chapter` is the chapter page the stop belongs to, and
+/// `crossing` says the step leaves the current chapter, which the footer then names.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadingNeighbor {
+    pub entry: EntryId,
+    pub title: String,
+    pub chapter: String,
+    pub crossing: bool,
+}
+
+/// The previous and next Contents-visible entries around `id` in `book`. Crossing a chapter
+/// boundary keeps the next chapter's first entry, so reading never stops at a chapter end.
+pub fn reading_neighbors(
+    book: &BookTree,
+    hide: Hide<'_>,
+    id: &EntryId,
+) -> (Option<ReadingNeighbor>, Option<ReadingNeighbor>) {
+    let order = reading_order(book, hide);
+    let Some(at) = order.iter().position(|stop| &stop.entry == id) else {
+        return (None, None);
+    };
+    let rows = chapter_rows(book, hide);
+    let chapter_of = |path: &[usize]| {
+        rows.iter()
+            .position(|row| path.starts_with(&row.path))
+            .map(|index| (index, rows[index].title.clone()))
+    };
+    let here = chapter_of(&order[at].path);
+    let step = |at: usize| {
+        let stop = &order[at];
+        let chapter = chapter_of(&stop.path);
+        ReadingNeighbor {
+            entry: stop.entry.clone(),
+            title: stop.title.clone(),
+            chapter: chapter
+                .as_ref()
+                .map_or_else(String::new, |(_, title)| title.clone()),
+            crossing: chapter.as_ref().map(|(index, _)| *index)
+                != here.as_ref().map(|(index, _)| *index),
+        }
+    };
+    let before = at.checked_sub(1).map(step);
+    let after = (at + 1 < order.len()).then(|| step(at + 1));
+    (before, after)
 }
 
 /// The one line under `Contents`. Every book's order is a draft until its evidence is complete
@@ -294,6 +405,173 @@ pub fn BookView(source: String) -> impl IntoView {
     }
 }
 
+/// One chapter page: the chapter at full width, its first-level sections as headings and every
+/// deeper level as a plain indented list. Nothing here folds; the page is for reading downward.
+#[component]
+pub fn ChapterView(source: String, chapter: String) -> impl IntoView {
+    let library = use_library();
+    let lookup = {
+        let library = library.clone();
+        local_resource(async move { library.books().await })
+    };
+    let revision = library.selection_revision();
+    let state_library = library.clone();
+    let state_source = source.clone();
+    let book_off = move || {
+        revision.get();
+        !state_library.book_active(&state_source)
+    };
+    let source_for_view = source.clone();
+    view! {
+        <div class="wide book chapter-page">
+            {move || {
+                let source = source_for_view.clone();
+                let library = library.clone();
+                lookup.with(|state| match state {
+                    None => view! { <p class="status" role="status">"Loading chapter…"</p> }.into_any(),
+                    Some(Err(error)) => view! {
+                        <div class="error" role="alert"><p>{error.to_string()}</p></div>
+                    }.into_any(),
+                    Some(Ok(None)) => view! {
+                        <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
+                    }.into_any(),
+                    Some(Ok(Some(books))) => {
+                        let Some(tree) = books.book(&source) else {
+                            return view! {
+                                <p class="notice">"This library has no chapter order for this book."</p>
+                            }.into_any();
+                        };
+                        let hide = |id: &EntryId| {
+                            library
+                                .stub(id)
+                                .is_some_and(|stub| hidden_from_contents(stub.kind))
+                        };
+                        let rows = chapter_rows(tree, &hide);
+                        let Some(row) = rows.iter().find(|row| row.id == chapter) else {
+                            return view! {
+                                <p class="notice">"This chapter is not in this book."</p>
+                                <p><a href=Route::Book { source: source.clone(), chapter: None }.href()>"Back to the book"</a></p>
+                            }.into_any();
+                        };
+                        let Some(node) = node_at(tree, &row.path) else {
+                            return ().into_any();
+                        };
+                        set_title(&row.title);
+                        let book_href = Route::Book {
+                            source: source.clone(),
+                            chapter: None,
+                        }
+                        .href();
+                        let own = node
+                            .entry
+                            .as_ref()
+                            .filter(|entry| !hide(entry))
+                            .map(|entry| {
+                                Route::Entry {
+                                    id: entry.clone(),
+                                    anchor: node.anchor.clone(),
+                                    book: Some(source.clone()),
+                                }
+                                .href()
+                            });
+                        let sections = listed_children(node, &hide)
+                            .into_iter()
+                            .filter_map(|index| {
+                                let child = node.children.get(index)?;
+                                Some(chapter_section(child, &source, &hide))
+                            })
+                            .collect_view();
+                        view! {
+                            <nav class="crumbs" aria-label="Breadcrumb">
+                                <ol>
+                                    <li><a href=Route::Books.href()>"Books"</a></li>
+                                    <li><a href=book_href>{tree.title.clone()}</a></li>
+                                    <li><span aria-current="page">{row.title.clone()}</span></li>
+                                </ol>
+                            </nav>
+                            <h1 data-testid="chapter-title">{row.title.clone()}</h1>
+                            {book_off().then(|| view! {
+                                <p class="muted book-off-line" data-testid="book-off-line">{BOOK_OFF_LINE}</p>
+                            })}
+                            {own.map(|href| view! {
+                                <p class="chapter-own"><a class="jump" href=href>"Read this chapter"</a></p>
+                            })}
+                            <div class="chapter-sections">{sections}</div>
+                        }.into_any()
+                    }
+                })
+            }}
+        </div>
+    }
+}
+
+/// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.
+fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
+    let title = chapter_label(&node.title);
+    let heading = match entry_link(node, source, hide) {
+        Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
+        None => view! { {title.clone()} }.into_any(),
+    };
+    let children = listed_children(node, hide);
+    let list = (!children.is_empty()).then(|| {
+        let items = children
+            .into_iter()
+            .filter_map(|index| {
+                node.children
+                    .get(index)
+                    .map(|child| chapter_list_item(child, source, hide))
+            })
+            .collect_view();
+        view! { <ul class="chapter-list">{items}</ul> }
+    });
+    view! {
+        <section class="chapter-section">
+            <h2>{heading}</h2>
+            {list}
+        </section>
+    }
+    .into_any()
+}
+
+/// One deeper node: a label or entry link, with its children in a nested plain list.
+fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
+    fn walk(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
+        let title = chapter_label(&node.title);
+        let label = match entry_link(node, source, hide) {
+            Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
+            None => view! { <span>{title.clone()}</span> }.into_any(),
+        };
+        let children = listed_children(node, hide);
+        let list = (!children.is_empty()).then(|| {
+            let items = children
+                .into_iter()
+                .filter_map(|index| {
+                    node.children
+                        .get(index)
+                        .map(|child| walk(child, source, hide))
+                })
+                .collect_view();
+            view! { <ul class="chapter-list">{items}</ul> }
+        });
+        view! { <li>{label}{list}</li> }.into_any()
+    }
+    walk(node, source, hide)
+}
+
+/// An entry link for a chapter-page row, with the book context that keeps previous/next on this
+/// book after a reload.
+fn entry_link(node: &BookNode, source: &str, hide: Hide<'_>) -> Option<String> {
+    let entry = node.entry.as_ref().filter(|entry| !hide(entry))?;
+    Some(
+        Route::Entry {
+            id: entry.clone(),
+            anchor: node.anchor.clone(),
+            book: Some(source.to_string()),
+        }
+        .href(),
+    )
+}
+
 /// The review line and the expanded contents list of one book.
 #[component]
 fn Contents(
@@ -306,23 +584,24 @@ fn Contents(
         return ().into_any();
     };
     let label = format!("Contents of {}", tree.title);
-    let roots = contents_roots(&tree.chapters, &|id| {
+    let hide = |id: &EntryId| {
         library
             .stub(id)
             .is_some_and(|stub| hidden_from_contents(stub.kind))
-    });
+    };
+    let chapters = chapter_rows(tree, &hide);
     let review = review_line(&tree.review);
-    if roots.is_empty() {
+    if chapters.is_empty() {
         return view! {
             {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
             <p class="muted">"This book has no rules chapters to show. Find its entries in In this book above."</p>
         }
         .into_any();
     }
-    let items = roots
+    let items = chapters
         .into_iter()
-        .map(|path| {
-            view! { <TocNode lookup=lookup.clone() library=library.clone() book path target /> }
+        .map(|chapter| {
+            view! { <TocNode lookup=lookup.clone() library=library.clone() book path=chapter.path.clone() target chapter=Some(chapter) /> }
         })
         .collect_view();
     view! {
@@ -343,6 +622,8 @@ fn TocNode(
     book: usize,
     path: Vec<usize>,
     target: RwSignal<Option<Vec<usize>>>,
+    /// Set on a top-level row: this row opens its chapter page instead of a leaf entry.
+    chapter: Option<ChapterRow>,
 ) -> impl IntoView {
     let Some(tree) = lookup.book_at(book) else {
         return ().into_any();
@@ -352,6 +633,13 @@ fn TocNode(
     };
     let title = chapter_label(&node.title);
     let id = toc_id(&path);
+    let chapter_link = chapter.as_ref().map(|chapter| {
+        Route::BookChapter {
+            source: tree.source.clone(),
+            chapter: chapter.id.clone(),
+        }
+        .href()
+    });
     let hide = |entry: &EntryId| {
         library
             .stub(entry)
@@ -366,9 +654,16 @@ fn TocNode(
     };
 
     if listed.is_empty() {
-        let link = lookup
-            .target_of(tree, &path)
-            .map(|(entry, anchor)| Route::Entry { id: entry, anchor }.href());
+        let link = chapter_link.clone().or_else(|| {
+            lookup.target_of(tree, &path).map(|(entry, anchor)| {
+                Route::Entry {
+                    id: entry,
+                    anchor,
+                    book: Some(tree.source.clone()),
+                }
+                .href()
+            })
+        });
         let aria_current = is_current.clone();
         return match link {
             Some(href) => view! {
@@ -381,18 +676,21 @@ fn TocNode(
         };
     }
 
-    // A chapter that is itself an entry links to that entry; a bare heading is a plain row.
-    let own_link = node
-        .entry
-        .as_ref()
-        .filter(|entry| !hide(entry))
-        .map(|entry| {
-            Route::Entry {
-                id: entry.clone(),
-                anchor: node.anchor.clone(),
-            }
-            .href()
-        });
+    // A top-level row opens its chapter page. A nested chapter that is itself an entry links to
+    // that entry; a bare heading is a plain row.
+    let own_link = chapter_link.clone().or_else(|| {
+        node.entry
+            .as_ref()
+            .filter(|entry| !hide(entry))
+            .map(|entry| {
+                Route::Entry {
+                    id: entry.clone(),
+                    anchor: node.anchor.clone(),
+                    book: Some(tree.source.clone()),
+                }
+                .href()
+            })
+    });
     let children = {
         let lookup = lookup.clone();
         let library = library.clone();
@@ -403,7 +701,7 @@ fn TocNode(
                     let mut child = path.clone();
                     child.push(i);
                     view! {
-                        <TocNode lookup=lookup.clone() library=library.clone() book path=child target />
+                        <TocNode lookup=lookup.clone() library=library.clone() book path=child target chapter=None />
                     }
                 })
                 .collect_view()
@@ -444,18 +742,45 @@ fn TocNode(
 /// It loads `books.json` after the entry is on screen and shows nothing when the library has no
 /// book order or the entry is in no book.
 #[component]
-pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
-    let lookup = local_resource(async move { library.books().await });
+pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl IntoView {
+    let lookup = {
+        let library = library.clone();
+        local_resource(async move { library.books().await })
+    };
     move || {
         let id = id.clone();
+        let book = book.clone();
         lookup.with(|state| {
             let Some(Ok(Some(books))) = state else {
                 return ().into_any();
             };
-            let Some(place) = books.place(&id) else {
+            let hide = |entry: &EntryId| {
+                library
+                    .stub(entry)
+                    .is_some_and(|stub| hidden_from_contents(stub.kind))
+            };
+            // The reader's book wins. Without context the first active book in book order is
+            // the candidate; if it does not place this entry, the page shows no reading footer.
+            let chosen = book
+                .as_deref()
+                .and_then(|source| books.books().iter().position(|tree| tree.source == source))
+                .or_else(|| {
+                    books
+                        .books()
+                        .iter()
+                        .position(|tree| library.book_active(&tree.source))
+                })
+                .filter(|&index| {
+                    books.book_at(index).is_some_and(|tree| {
+                        reading_order(tree, &hide)
+                            .iter()
+                            .any(|stop| stop.entry == id)
+                    })
+                });
+            let Some(index) = chosen else {
                 return ().into_any();
             };
-            let Some(book) = books.book_at(place.book) else {
+            let Some(book) = books.book_at(index) else {
                 return ().into_any();
             };
             let source = book.source.clone();
@@ -466,23 +791,38 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
             .href();
             let mut crumbs =
                 vec![view! { <li><a href=book_href>{book.title.clone()}</a></li> }.into_any()];
-            for step in books.trail(&id) {
-                let href = Route::Book {
-                    source: source.clone(),
-                    chapter: Some(step.path),
+            let trail = reading_order(book, &hide)
+                .into_iter()
+                .find(|stop| stop.entry == id)
+                .map(|stop| stop.path)
+                .unwrap_or_default();
+            for depth in 1..trail.len() {
+                let path = trail[..depth].to_vec();
+                if let Some(node) = node_at(book, &path) {
+                    let href = Route::Book {
+                        source: source.clone(),
+                        chapter: Some(path),
+                    }
+                    .href();
+                    crumbs.push(view! { <li><a href=href>{chapter_label(&node.title)}</a></li> }.into_any());
                 }
-                .href();
-                crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&step.title)}</a></li> }.into_any());
             }
-            let (before, after) = books.neighbors(&id);
-            let step = |stop: Option<&crate::graph::BookStop>, next: bool| {
-                stop.map(|stop| {
-                    let href = Route::entry(stop.entry.clone()).href();
-                    let (class, dir) = if next {
-                        ("step step-next", "Next in book")
-                    } else {
-                        ("step step-prev", "Previous in book")
+            let (before, after) = reading_neighbors(book, &hide, &id);
+            let step = |neighbor: Option<&ReadingNeighbor>, next: bool| {
+                neighbor.map(|neighbor| {
+                    let href = Route::Entry {
+                        id: neighbor.entry.clone(),
+                        anchor: None,
+                        book: Some(source.clone()),
+                    }
+                    .href();
+                    let dir = match (next, neighbor.crossing) {
+                        (false, false) => "Previous".to_string(),
+                        (false, true) => format!("Previous in {}", neighbor.chapter),
+                        (true, false) => format!("Next in {}", book.title),
+                        (true, true) => format!("Next in {} · {}", book.title, neighbor.chapter),
                     };
+                    let class = if next { "step step-next" } else { "step step-prev" };
                     view! {
                         <a class=class href=href rel=if next { "next" } else { "prev" }>
                             <span class="step-dir">
@@ -490,7 +830,7 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
                                 {dir}
                                 {next.then(|| icons::arrow_right("step-arrow"))}
                             </span>
-                            <span class="step-title">{crate::views::util::section_label(&stop.title)}</span>
+                            <span class="step-title">{crate::views::util::section_label(&neighbor.title)}</span>
                         </a>
                     }
                 })
@@ -500,8 +840,8 @@ pub fn BookPosition(library: Library, id: EntryId) -> impl IntoView {
                     <p class="book-where">"In the book · draft order"</p>
                     <ol class="book-trail">{crumbs}</ol>
                     <div class="book-steps">
-                        {step(before, false)}
-                        {step(after, true)}
+                        {step(before.as_ref(), false)}
+                        {step(after.as_ref(), true)}
                     </div>
                 </nav>
             }
@@ -706,6 +1046,122 @@ mod tests {
         ];
         assert_eq!(book_entry_count(&tree), 3);
         assert_eq!(book_entry_count(&[]), 0);
+    }
+
+    fn chapter_tree() -> BookTree {
+        BookTree {
+            source: "core".into(),
+            title: "Core Rulebook".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![
+                node(
+                    "Combat",
+                    Some("core/rule/combat"),
+                    vec![
+                        node("Actions", Some("core/rule/actions"), vec![]),
+                        node("Power Attack", Some("core/feat/power-attack"), vec![]),
+                        node(
+                            "Cover",
+                            None,
+                            vec![node(
+                                "Partial Cover",
+                                Some("core/rule/partial-cover"),
+                                vec![],
+                            )],
+                        ),
+                    ],
+                ),
+                node(
+                    "Magic",
+                    Some("core/rule/magic"),
+                    vec![node(
+                        "Spells",
+                        None,
+                        vec![node("Fireball", Some("core/spell/fireball"), vec![])],
+                    )],
+                ),
+                node("Credits", None, vec![]),
+            ],
+        }
+    }
+
+    #[test]
+    fn chapter_rows_follow_contents_and_carry_permanent_ids() {
+        let tree = chapter_tree();
+        let rows = chapter_rows(&tree, &hide);
+        assert_eq!(
+            rows.iter()
+                .map(|row| (row.id.as_str(), row.title.as_str()))
+                .collect::<Vec<_>>(),
+            [
+                ("combat", "Combat"),
+                ("magic", "Magic"),
+                ("credits", "Credits")
+            ]
+        );
+        // The row's path is the real tree path, so a chapter that is an entry still opens.
+        assert_eq!(rows[1].path, vec![1]);
+    }
+
+    #[test]
+    fn reading_order_skips_the_kinds_contents_leaves_out() {
+        let tree = chapter_tree();
+        let order: Vec<(String, Vec<usize>)> = reading_order(&tree, &hide)
+            .into_iter()
+            .map(|stop| (stop.entry.as_str().to_string(), stop.path))
+            .collect();
+        assert_eq!(
+            order,
+            [
+                ("core/rule/combat".to_string(), vec![0]),
+                ("core/rule/actions".to_string(), vec![0, 0]),
+                ("core/rule/partial-cover".to_string(), vec![0, 2, 0]),
+                ("core/rule/magic".to_string(), vec![1]),
+            ]
+        );
+        assert!(!order.iter().any(|(id, _)| id == "core/feat/power-attack"));
+        assert!(!order.iter().any(|(id, _)| id == "core/spell/fireball"));
+    }
+
+    #[test]
+    fn reading_neighbours_cross_chapters_stop_at_book_ends_and_skip_hidden_kinds() {
+        let tree = chapter_tree();
+        let id = |s: &str| EntryId::parse(s).unwrap();
+        let (before, after) = reading_neighbors(&tree, &hide, &id("core/rule/combat"));
+        assert!(before.is_none());
+        let after = after.unwrap();
+        assert_eq!(after.entry, id("core/rule/actions"));
+        assert!(!after.crossing);
+
+        // The feat is skipped, so the nested rule follows the heading directly.
+        let (before, after) = reading_neighbors(&tree, &hide, &id("core/rule/actions"));
+        assert_eq!(before.unwrap().entry, id("core/rule/combat"));
+        assert_eq!(after.unwrap().entry, id("core/rule/partial-cover"));
+
+        // The chapter end continues into the next chapter and names it.
+        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/partial-cover"));
+        let after = after.unwrap();
+        assert_eq!(after.entry, id("core/rule/magic"));
+        assert!(after.crossing);
+        assert_eq!(after.chapter, "Magic");
+        let (before, _) = reading_neighbors(&tree, &hide, &id("core/rule/magic"));
+        let before = before.unwrap();
+        assert_eq!(before.entry, id("core/rule/partial-cover"));
+        assert!(before.crossing);
+        assert_eq!(before.chapter, "Combat");
+
+        // The last visible entry has no next; a hidden kind is not on the walk at all.
+        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/magic"));
+        assert!(after.is_none());
+        assert_eq!(
+            reading_neighbors(&tree, &hide, &id("core/feat/power-attack")),
+            (None, None)
+        );
+        assert_eq!(
+            reading_neighbors(&tree, &hide, &id("core/spell/fireball")),
+            (None, None)
+        );
     }
 
     #[test]

@@ -1760,6 +1760,7 @@ fn hit_view(
             Route::Entry {
                 id: id.clone(),
                 anchor: anchor.map(str::to_owned),
+                book: None,
             }
             .href()
         })

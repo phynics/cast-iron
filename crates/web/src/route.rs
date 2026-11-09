@@ -12,10 +12,11 @@
 //!                                    legacy addresses that the router replaces with `#/books`)
 //! #/books/manage                     Manage books: the presets and one checkbox per book
 //!                                    (`#/books/active` is the old address and still parses)
-//! #/browse/book/<source>?c=3.2       a book's contents; `c` is the 1-based chapter path
+//! #/browse/book/<source>?c=3.2       a book's contents; `c` is the old 1-based chapter path
+//! #/browse/book/<source>/<chapter>    one chapter page; the id is the anchor or title slug
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
-//! #/entry/<entry id>?a=<anchor>
+//! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
 //! #/bookmarks                        #/collection/<id>
 //! #/settings[?section=updates]       #/legal
 //! ```
@@ -54,6 +55,13 @@ pub enum Route {
         source: String,
         chapter: Option<Vec<usize>>,
     },
+    /// One chapter page of a book. `chapter` is the permanent id: the chapter's anchor or a
+    /// slug of its printed title, never its row number. `#/books/<source>/<chapter>` parses
+    /// here too, so a hand-written address in the issue's shape still opens the page.
+    BookChapter {
+        source: String,
+        chapter: String,
+    },
     /// Spell lists by class and level.
     Spells,
     /// One class's spell list. `class` is the name that the spells carry, such as `Wizard`.
@@ -66,6 +74,9 @@ pub enum Route {
     Entry {
         id: EntryId,
         anchor: Option<String>,
+        /// The book the reader came from. It survives reload, so previous/next follows the same
+        /// book after the page is opened again.
+        book: Option<String>,
     },
     /// Retained for internal compatibility; parser redirects legacy URLs to Home.
     Bookmarks,
@@ -88,7 +99,20 @@ impl Route {
     }
 
     pub fn entry(id: EntryId) -> Self {
-        Route::Entry { id, anchor: None }
+        Route::Entry {
+            id,
+            anchor: None,
+            book: None,
+        }
+    }
+
+    /// An entry opened from a book or a chapter page, carrying the book into the URL.
+    pub fn entry_in_book(id: EntryId, source: impl Into<String>) -> Self {
+        Route::Entry {
+            id,
+            anchor: None,
+            book: Some(source.into()),
+        }
     }
 
     /// A kind's A to Z list, opening its first letter group.
@@ -211,6 +235,16 @@ impl Route {
                 },
                 _ => not_found(),
             },
+            // A chapter page. The id is one path segment, so it is percent-encoded as a whole;
+            // the issue's `#/books/<source>/<chapter>` shape opens the same page.
+            ["browse", "book", source, chapter] | ["books", source, chapter] => {
+                match (percent_decode(source), percent_decode(chapter)) {
+                    (Some(source), Some(chapter)) if !source.is_empty() && !chapter.is_empty() => {
+                        Route::BookChapter { source, chapter }
+                    }
+                    _ => not_found(),
+                }
+            }
             ["spells"] => Route::Spells,
             ["spells", class] => match percent_decode(class) {
                 Some(class) if !class.is_empty() => Route::SpellList { class, level: None },
@@ -238,7 +272,11 @@ impl Route {
                     .and_then(|q| query_pairs(q).find(|(k, _)| k == "a"))
                     .map(|(_, v)| v)
                     .filter(|v| !v.is_empty());
-                Route::Entry { id, anchor }
+                let book = query
+                    .and_then(|q| query_pairs(q).find(|(k, _)| k == "book"))
+                    .map(|(_, v)| v)
+                    .filter(|v| !v.is_empty());
+                Route::Entry { id, anchor, book }
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
             ["bookmarks"] | ["collection", _] => Route::Home,
@@ -306,16 +344,31 @@ impl Route {
                 ),
                 _ => format!("#/browse/book/{}", percent_encode(source)),
             },
+            Route::BookChapter { source, chapter } => format!(
+                "#/browse/book/{}/{}",
+                percent_encode(source),
+                percent_encode(chapter)
+            ),
             Route::Spells => "#/spells".into(),
             Route::SpellList { class, level } => match level {
                 Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
                 None => format!("#/spells/{}", percent_encode(class)),
             },
             Route::FeatChains => "#/feats/chains".into(),
-            Route::Entry { id, anchor } => match anchor {
-                Some(anchor) => format!("#/entry/{id}?a={}", percent_encode(anchor)),
-                None => format!("#/entry/{id}"),
-            },
+            Route::Entry { id, anchor, book } => {
+                let mut pairs: Vec<String> = Vec::new();
+                if let Some(anchor) = anchor {
+                    pairs.push(format!("a={}", percent_encode(anchor)));
+                }
+                if let Some(book) = book {
+                    pairs.push(format!("book={}", percent_encode(book)));
+                }
+                if pairs.is_empty() {
+                    format!("#/entry/{id}")
+                } else {
+                    format!("#/entry/{id}?{}", pairs.join("&"))
+                }
+            }
             Route::Bookmarks => "#/bookmarks".into(),
             Route::Collection(id) => format!("#/collection/{}", percent_encode(id)),
             Route::Settings => "#/settings".into(),
@@ -1042,6 +1095,29 @@ mod tests {
     }
 
     #[test]
+    fn chapter_pages_have_their_own_route_and_accept_the_issue_shape() {
+        let route = Route::BookChapter {
+            source: "core-rulebook".into(),
+            chapter: "combat".into(),
+        };
+        assert_eq!(route.href(), "#/browse/book/core-rulebook/combat");
+        round_trip(route.clone());
+        // The compact `#/books/<source>/<chapter>` address opens the same page.
+        assert_eq!(Route::parse("#/books/core-rulebook/combat"), route);
+        // A chapter id with a space or a slash is one encoded segment.
+        let odd = Route::BookChapter {
+            source: "odd source".into(),
+            chapter: "a/b & c".into(),
+        };
+        assert_eq!(odd.href(), "#/browse/book/odd%20source/a%2Fb%20%26%20c");
+        round_trip(odd);
+        // A malformed address is not found.
+        for hash in ["#/browse/book//combat", "#/books/core-rulebook/%FF"] {
+            assert_eq!(Route::parse(hash), Route::NotFound(hash.into()), "{hash}");
+        }
+    }
+
+    #[test]
     fn spell_list_routes_encode_the_class_name() {
         let list = Route::SpellList {
             class: "Elementalist Wizard".into(),
@@ -1095,12 +1171,44 @@ mod tests {
         let route = Route::Entry {
             id: id("core-rulebook/spells/fireball"),
             anchor: Some("caster level & more/é".into()),
+            book: None,
         };
         assert_eq!(
             route.href(),
             "#/entry/core-rulebook/spells/fireball?a=caster%20level%20%26%20more%2F%C3%A9"
         );
         round_trip(route);
+    }
+
+    #[test]
+    fn an_entry_carries_the_book_it_was_read_from() {
+        let route = Route::entry_in_book(id("core-rulebook/spells/fireball"), "core-rulebook");
+        assert_eq!(
+            route.href(),
+            "#/entry/core-rulebook/spells/fireball?book=core-rulebook"
+        );
+        round_trip(route.clone());
+        // The anchor and the book keep each other, in either parameter order.
+        let both = Route::Entry {
+            id: id("core-rulebook/spells/fireball"),
+            anchor: Some("casting".into()),
+            book: Some("core-rulebook".into()),
+        };
+        assert_eq!(
+            both.href(),
+            "#/entry/core-rulebook/spells/fireball?a=casting&book=core-rulebook"
+        );
+        round_trip(both);
+        assert_eq!(
+            Route::parse("#/entry/core-rulebook/spells/fireball?book=core-rulebook&a=casting"),
+            Route::Entry {
+                id: id("core-rulebook/spells/fireball"),
+                anchor: Some("casting".into()),
+                book: Some("core-rulebook".into()),
+            }
+        );
+        // An empty context is no context.
+        assert_eq!(Route::parse("#/entry/a/b?book="), Route::entry(id("a/b")));
     }
 
     #[test]
