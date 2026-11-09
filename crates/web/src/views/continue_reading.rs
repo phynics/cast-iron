@@ -4,10 +4,11 @@
 //! from a book page, a chapter page or a previous/next link arrives (#161, #346). Opening the
 //! same entry from search leaves the stored point alone.
 //!
-//! The reader keeps one point per book, in the `meta` store next to `recent`. Home shows the
-//! most recently read book and the book page shows that book's own point. Stored ids resolve
-//! through the alias map; a point whose entry the library no longer holds is hidden. Resolution
-//! happens on read, so a stale row never reaches the screen.
+//! The reader keeps one point per book, in the `meta` store next to `recent`. Quick search shows
+//! the most recently read book's point as the first recently viewed row, and the book page shows
+//! that book's own point. Stored ids resolve through the alias map; a point whose entry the
+//! library no longer holds is hidden. Resolution happens on read, so a stale row never reaches
+//! the screen.
 
 use crate::library::{Library, Resolution};
 use crate::store::{self, ContinuePoint};
