@@ -15,8 +15,8 @@ use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
-    CATCH_ALL_LABEL, CATCH_ALL_TITLE, ChapterRow, Hide, chapter_rows as schema_chapter_rows,
-    hidden_from_contents, listed_children, listed_under,
+    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, is_catch_all,
+    listed_children, listed_under,
 };
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
@@ -57,22 +57,12 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// The label of a chapter or section row.
-pub fn chapter_label(title: &str) -> String {
-    let title = if title == CATCH_ALL_TITLE {
-        CATCH_ALL_LABEL
-    } else {
-        title
-    };
-    crate::views::util::section_label(title)
-}
-
-/// The chapter pages of a book, in Contents order, with the labels the reader sees.
+/// The chapter pages of a book, in Contents order.
 pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
     schema_chapter_rows(book, hide)
         .into_iter()
         .map(|row| ChapterRow {
-            title: chapter_label(&row.title),
+            title: crate::views::util::section_label(&row.title),
             ..row
         })
         .collect()
@@ -91,6 +81,10 @@ pub struct ReadingStop {
 /// Contents leaves it out.
 pub fn reading_order(book: &BookTree, hide: Hide<'_>) -> Vec<ReadingStop> {
     fn walk(node: &BookNode, path: &mut Vec<usize>, hide: Hide<'_>, out: &mut Vec<ReadingStop>) {
+        // The catch-all chapter is not shown, so it is not in the reading order either.
+        if is_catch_all(node) {
+            return;
+        }
         if let Some(entry) = &node.entry
             && !hide(entry)
         {
@@ -259,7 +253,8 @@ pub fn BookView(source: String) -> impl IntoView {
         }
         kinds_in_book(&counts)
     };
-    let kind_links = (!kind_counts.is_empty()).then(|| {
+    let has_kind_links = !kind_counts.is_empty();
+    let kind_links = has_kind_links.then(|| {
         let rows = kind_counts
             .iter()
             .map(|&(kind, n)| {
@@ -332,7 +327,7 @@ pub fn BookView(source: String) -> impl IntoView {
                         }.into_any(),
                         Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
                             Some(index) => view! {
-                                <Contents lookup=Shared::from_rc(books.clone()) library book=index target />
+                                <Contents lookup=Shared::from_rc(books.clone()) library book=index target has_kind_links />
                             }.into_any(),
                             None => view! {
                                 <p class="notice">"This library has no chapter order for this book."</p>
@@ -474,7 +469,7 @@ pub fn ChapterView(
 
 /// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.
 fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
-    let title = chapter_label(&node.title);
+    let title = crate::views::util::section_label(&node.title);
     let id = toc_id(path);
     let heading = match entry_link(node, source, hide) {
         Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
@@ -506,7 +501,7 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
 /// One deeper node: a label or entry link, with its children in a nested plain list.
 fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
     fn walk(node: &BookNode, source: &str, hide: Hide<'_>, path: &mut Vec<usize>) -> AnyView {
-        let title = chapter_label(&node.title);
+        let title = crate::views::util::section_label(&node.title);
         let label = match entry_link(node, source, hide) {
             Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
             None => view! { <span>{title.clone()}</span> }.into_any(),
@@ -553,6 +548,9 @@ fn Contents(
     library: Library,
     book: usize,
     target: RwSignal<Option<Vec<usize>>>,
+    /// Whether `In this book` has a list-page link to offer. A book with no chapters and no
+    /// links has nothing to show, and says so.
+    has_kind_links: bool,
 ) -> impl IntoView {
     let Some(tree) = lookup.book_at(book) else {
         return ().into_any();
@@ -568,7 +566,7 @@ fn Contents(
     if chapters.is_empty() {
         return view! {
             {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
-            <p class="muted">"This book has no rules chapters to show. Find its entries in In this book above."</p>
+            {(!has_kind_links).then(|| view! { <p class="muted">"This book has no entries to show."</p> })}
         }
         .into_any();
     }
@@ -605,7 +603,7 @@ fn TocNode(
     let Some(node) = node_at(tree, &path) else {
         return ().into_any();
     };
-    let title = chapter_label(&node.title);
+    let title = crate::views::util::section_label(&node.title);
     let id = toc_id(&path);
     let chapter_link = chapter.as_ref().map(|chapter| {
         Route::BookChapter {
@@ -779,7 +777,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                         chapter: Some(path),
                     }
                     .href();
-                    crumbs.push(view! { <li><a href=href>{chapter_label(&node.title)}</a></li> }.into_any());
+                    crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&node.title)}</a></li> }.into_any());
                 }
             }
             let (before, after) = reading_neighbors(book, &hide, &id);
@@ -954,13 +952,11 @@ mod tests {
     }
 
     #[test]
-    fn the_catch_all_is_renamed_and_a_lone_one_shows_its_rows_at_the_top() {
+    fn the_catch_all_is_never_listed_and_never_becomes_the_top_level() {
         assert_eq!(
-            chapter_label("New entries (page order)"),
-            "More from this book"
+            crate::views::util::section_label("Actions In Combat"),
+            "Actions in Combat"
         );
-        assert_eq!(chapter_label("Page order"), "Page order");
-        assert_eq!(chapter_label("Actions In Combat"), "Actions in Combat");
 
         let catch_all = node(
             "New entries (page order)",
@@ -971,23 +967,44 @@ mod tests {
                 node("Rules", Some("ref/rule/rules"), vec![]),
             ],
         );
-        let spells = node(
-            "Spells",
+        let combat = node(
+            "Combat",
             None,
-            vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
+            vec![node("Alarm", Some("ref/rule/alarm"), vec![])],
         );
-        // Races and spells have list pages, so only the catch-all chapter remains. Alone, its
-        // one remaining row is the top level and keeps its path in the whole tree.
+        // Races and spells have list pages, so their chapters are left out; the catch-all is
+        // left out too, and its rows never move to the top level.
         let books = vec![
             node("Races", Some("ref/race/human"), vec![]),
-            spells.clone(),
+            node(
+                "Spells",
+                None,
+                vec![node("Fireball", Some("ref/spell/fireball"), vec![])],
+            ),
+            combat.clone(),
             catch_all.clone(),
         ];
-        assert_eq!(contents_roots(&books, &hide), vec![vec![2, 2]]);
-        let alone = vec![spells, catch_all];
-        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 2]]);
-        // Nothing left to list.
-        assert!(contents_roots(&alone[..1], &hide).is_empty());
+        assert_eq!(contents_roots(&books, &hide), vec![vec![2]]);
+        let alone = vec![combat, catch_all];
+        assert_eq!(contents_roots(&alone, &hide), vec![vec![0]]);
+        assert!(contents_roots(&alone[1..], &hide).is_empty());
+        // Reading order and chapter pages leave it out too.
+        let tree = BookTree {
+            source: "core".into(),
+            title: "Core".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: alone,
+        };
+        assert_eq!(
+            reading_order(&tree, &hide),
+            vec![ReadingStop {
+                entry: EntryId::parse("ref/rule/alarm").unwrap(),
+                title: "Alarm".into(),
+                path: vec![0, 0],
+            }]
+        );
+        assert_eq!(chapter_rows(&tree, &hide).len(), 1);
     }
 
     #[test]
