@@ -156,8 +156,6 @@ PAGE_OVERRIDES: dict[str, int] = {
     "ref/carried/technology-guide/rules/technology-in-the-world/spells/discharge/greater": 9,
     "ref/carried/technology-guide/rules/technology-in-the-world/spells/make-whole/greater": 10,
     "ref/carried/technology-guide/rules/technology-in-the-world/spells/remove-radioactivity/greater": 11,
-    # The PSRD Technic Scavenger is the printed Numerian Scavenger.
-    "ref/carried/technology-guide/rules/technology-in-the-world/archtypes/technology-themed-archetypes/technic-scavenger": 13,
     # The aggregate template prints on its heading page.
     "ref/template/aggregate": 59,
 }
@@ -260,8 +258,6 @@ SPELLS = [
 ARCHETYPES = [
     "ref/arc-fighter/cyber-soldier",
     "ref/arc-cleric/iron-priest",
-    # The PSRD Technic Scavenger is the printed Numerian Scavenger.
-    f"{CARRIED}/technology-in-the-world/archtypes/technology-themed-archetypes/technic-scavenger",
     "ref/arc-rogue/numerian-scavenger",
     "ref/arc-barbarian/savage-technologist",
     "ref/arc-gunslinger/techslinger",
@@ -373,7 +369,6 @@ GEAR = [
     )],
     "ref/tech-misc/battery",
     # The Pf Data Silverdisk record repeats the printed Battery text.
-    "ref/tech-misc/silverdisk",
     "ref/tech-misc/camera",
     "ref/tech-misc/chemalyzer",
     f"{CARRIED}/equipment/gear/technological-gear/on-signals/chipfinder",
