@@ -185,40 +185,85 @@ STEP3 = [
 RACE_BUILDER = [title for title, _ in STEP2] + [child for _, children in STEP2 for child in children]
 RACE_BUILDER += [title for title, _ in STEP3] + [child for _, children in STEP3 for child in children]
 
-# ARG-primary records that print already carries as a base entry. They are
-# nested under that base entry; a later duplicate pass decides whether to merge.
-VARIANT_PARENT = {
-    "ref/eq-misc/tear-away-dilettantes-outfit": "ref/eq-misc/dilettantes-outfit",
-    "ref/eq-misc/sherrifs-whistle": "ref/carried/advanced-race-guide/races/gnomes/new-racial-rules/gnome-equipment/sheriffs-whistle",
-    "ref/eq-weapon/shadowcloy-flask": "ref/carried/advanced-race-guide/races/fetchlings/new-racial-rules/fetchling-equipment/shadowcloy",
-    "ref/eq-misc/fetters-common": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/fetters",
-    "ref/eq-misc/fetters-masterwork": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/fetters",
-    "ref/eq-misc/manacles-with-barbs-common": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/manacle-barbs",
-    "ref/eq-misc/manacles-with-barbs-masterwork": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/manacle-barbs",
-    "ref/eq-misc/manacles-with-barbs-mithral": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/manacle-barbs",
-    "ref/eq-misc/manacles-with-barbs-quickcatch": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-equipment/manacle-barbs",
-    "ref/magic-wondrous/hobgoblin-battle-standard-despair": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-magic-items/hobgoblin-battle-standard",
-    "ref/magic-wondrous/hobgoblin-battle-standard-ferocity": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-magic-items/hobgoblin-battle-standard",
-    "ref/magic-wondrous/hobgoblin-battle-standard-iron-resolve": "ref/carried/advanced-race-guide/races/hobgoblins/new-racial-rules/hobgoblin-magic-items/hobgoblin-battle-standard",
-    "ref/eq-weapon/alchemical-coal-blinding-cinders": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/alchemical-coal",
-    "ref/eq-weapon/alchemical-coal-choking-smoke": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/alchemical-coal",
-    "ref/eq-weapon/kobold-tail": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-weapon/kobold-tail-long-lash": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-weapon/kobold-tail-pounder": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-weapon/kobold-tail-razored": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-weapon/kobold-tail-spiked": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-weapon/kobold-tail-sweeper": "ref/carried/advanced-race-guide/races/kobolds/new-racial-rules/kobold-equipment/kobold-tail-attachments",
-    "ref/eq-misc/fleshgem-decorative": "ref/carried/advanced-race-guide/races/oreads/new-racial-rules/oread-equipment/fleshgem",
-    "ref/eq-misc/fleshgem-spikes": "ref/carried/advanced-race-guide/races/oreads/new-racial-rules/oread-equipment/fleshgem",
-    "ref/eq-misc/stink-ink-common": "ref/carried/advanced-race-guide/races/ratfolk/new-racial-rules/ratfolk-equipment/stink-ink",
-    "ref/eq-weapon/tailblade-ratfolk": "ref/carried/advanced-race-guide/races/ratfolk/new-racial-rules/ratfolk-equipment/tailblade",
-    "ref/magic-wondrous/kitsune-star-gem-1st": "ref/carried/advanced-race-guide/races/kitsune/new-racial-rules/kitsune-magic-items/kitsune-star-gem",
-    "ref/magic-wondrous/kitsune-star-gem-2nd": "ref/carried/advanced-race-guide/races/kitsune/new-racial-rules/kitsune-magic-items/kitsune-star-gem",
-    "ref/magic-wondrous/kitsune-star-gem-3rd": "ref/carried/advanced-race-guide/races/kitsune/new-racial-rules/kitsune-magic-items/kitsune-star-gem",
-    "ref/eq-misc/shadow-stencil-set": "ref/carried/advanced-race-guide/races/wayangs/new-racial-rules/wayang-equipment/shadow-stencils",
-    "ref/spell/binding-earth-mass": "ref/carried/advanced-race-guide/races/oreads/new-racial-rules/oread-spells/binding-earth/mass",
-    "ref/spell/blessing-of-luck-and-resolve-mass": "ref/carried/advanced-race-guide/races/halflings/new-racial-rules/halfling-spells/blessing-of-luck-and-resolve/mass",
+# Split records that issue #345 collapsed into their carried base. They no
+# longer exist as entries; this pass only removes their book nodes.
+DROPPED_VARIANTS = {
+    "ref/eq-misc/tear-away-dilettantes-outfit",
+    "ref/eq-misc/sherrifs-whistle",
+    "ref/eq-weapon/shadowcloy-flask",
+    "ref/eq-misc/fetters-common",
+    "ref/eq-misc/fetters-masterwork",
+    "ref/eq-misc/manacles-with-barbs-common",
+    "ref/eq-misc/manacles-with-barbs-masterwork",
+    "ref/eq-misc/manacles-with-barbs-mithral",
+    "ref/eq-misc/manacles-with-barbs-quickcatch",
+    "ref/magic-wondrous/hobgoblin-battle-standard-despair",
+    "ref/magic-wondrous/hobgoblin-battle-standard-ferocity",
+    "ref/magic-wondrous/hobgoblin-battle-standard-iron-resolve",
+    "ref/eq-weapon/alchemical-coal-blinding-cinders",
+    "ref/eq-weapon/alchemical-coal-choking-smoke",
+    "ref/eq-weapon/kobold-tail",
+    "ref/eq-weapon/kobold-tail-long-lash",
+    "ref/eq-weapon/kobold-tail-pounder",
+    "ref/eq-weapon/kobold-tail-razored",
+    "ref/eq-weapon/kobold-tail-spiked",
+    "ref/eq-weapon/kobold-tail-sweeper",
+    "ref/eq-misc/fleshgem-decorative",
+    "ref/eq-misc/fleshgem-spikes",
+    "ref/eq-misc/stink-ink-common",
+    "ref/eq-misc/stink-ink-arcane",
+    "ref/eq-weapon/tailblade-ratfolk",
+    "ref/magic-wondrous/kitsune-star-gem-1st",
+    "ref/magic-wondrous/kitsune-star-gem-2nd",
+    "ref/magic-wondrous/kitsune-star-gem-3rd",
+    "ref/eq-misc/shadow-stencil-set",
+    "ref/spell/binding-earth-mass",
+    "ref/spell/blessing-of-luck-and-resolve-mass",
 }
+
+# Carried race chapters that are aliases of a typed race record. The typed
+# record keeps the printed place; the carried hub is dropped.
+RACE_CHAPTERS = {
+    "ref/carried/advanced-race-guide/races/aasimars": "ref/race/aasimar",
+    "ref/carried/advanced-race-guide/races/changelings": "ref/race/changeling",
+    "ref/carried/advanced-race-guide/races/dhampirs": "ref/race/dhampir",
+    "ref/carried/advanced-race-guide/races/dwarves": "ref/race/dwarf",
+    "ref/carried/advanced-race-guide/races/elves": "ref/race/elf",
+    "ref/carried/advanced-race-guide/races/fetchlings": "ref/race/fetchling",
+    "ref/carried/advanced-race-guide/races/gillmen": "ref/race/gillman",
+    "ref/carried/advanced-race-guide/races/gnomes": "ref/race/gnome",
+    "ref/carried/advanced-race-guide/races/goblins": "ref/race/goblin",
+    "ref/carried/advanced-race-guide/races/gripplis": "ref/race/grippli",
+    "ref/carried/advanced-race-guide/races/half-elves": "ref/race/half-elf",
+    "ref/carried/advanced-race-guide/races/half-orcs": "ref/race/half-orc",
+    "ref/carried/advanced-race-guide/races/halflings": "ref/race/halfling",
+    "ref/carried/advanced-race-guide/races/hobgoblins": "ref/race/hobgoblin",
+    "ref/carried/advanced-race-guide/races/humans": "ref/race/human",
+    "ref/carried/advanced-race-guide/races/ifrits": "ref/race/ifrit",
+    "ref/carried/advanced-race-guide/races/kobolds": "ref/race/kobold",
+    "ref/carried/advanced-race-guide/races/orcs": "ref/race/orc",
+    "ref/carried/advanced-race-guide/races/oreads": "ref/race/oread",
+    "ref/carried/advanced-race-guide/races/samsarans": "ref/race/samsaran",
+    "ref/carried/advanced-race-guide/races/sulis": "ref/race/suli",
+    "ref/carried/advanced-race-guide/races/sylphs": "ref/race/sylph",
+    "ref/carried/advanced-race-guide/races/tengus": "ref/race/tengu",
+    "ref/carried/advanced-race-guide/races/tieflings": "ref/race/tiefling",
+    "ref/carried/advanced-race-guide/races/undines": "ref/race/undine",
+    "ref/carried/advanced-race-guide/races/vanaras": "ref/race/vanara",
+    "ref/carried/advanced-race-guide/races/vishkanyas": "ref/race/vishkanya",
+    "ref/carried/advanced-race-guide/races/wayangs": "ref/race/wayang",
+}
+
+# Rule records that duplicate a placed race record or chapter intro.
+DROPPED_RULES = {
+    "ref/rule/race-drow/drow",
+    "ref/rule/race-duergar/duergar",
+    "ref/rule/race-ratfolk/ratfolk",
+    "ref/rule/core-races",
+    "ref/rule/less-common-races",
+}
+
+DROPPED_IDS = set(DROPPED_VARIANTS) | set(DROPPED_RULES) | set(RACE_CHAPTERS)
 
 # ARG-primary class options print inside a per-race section. The last path
 # element is an existing archetype entry or a group created below.
@@ -255,16 +300,8 @@ CLASS_OPTION_TARGET = {
     "ref/evolution/shadow-form": ("Fetchlings", "Shadow Caller"),
 }
 
-# ARG-primary records that print already carries as a chapter or race entry.
-# They stay residual and are reported as duplicates for a follow-up.
-DUPLICATE_LEFT = {
-    "ref/rule/core-races",
-    "ref/rule/less-common-races",
-}
-
-# Multi-source race records and their standard racial traits. The chapter
-# already holds the printed race section through the carried race entry.
-MULTI_SOURCE = ("ref/race/", "ref/racial-trait/", "ref/rule/race-")
+# Rule records that are not split items stay residual.
+MULTI_SOURCE = ("ref/rule/race-",)
 
 
 # ---------------------------------------------------------------------------
@@ -618,7 +655,75 @@ def fix_nested(book_data: dict, corpus: Path) -> list[dict]:
     def take_entry(entry_id: str) -> dict | None:
         return take(root(book_data), entry_id)
 
-    # 1. Race Builder: Step 2 qualities and Step 3 trait categories.
+    def take_from(container: dict, entry_id: str) -> dict | None:
+        for index, candidate in enumerate(container.get("children", [])):
+            if candidate.get("entry") == entry_id:
+                return container["children"].pop(index)
+            found = take_from(candidate, entry_id)
+            if found is not None:
+                return found
+        return None
+
+    # 1. Race hubs. The typed race record keeps the printed place and the
+    # carried race chapter aliases to it. The standard racial traits travel
+    # with the typed hub from the residual page-order list into the chapter.
+    for carried, typed in RACE_CHAPTERS.items():
+        found = find_entry(root(book_data), carried)
+        if found is not None:
+            found[0]["children"][found[1]]["entry"] = typed
+            moves.append(
+                {
+                    "node": typed,
+                    "old": carried,
+                    "new": "printed race chapter",
+                }
+            )
+
+    for carried, typed in RACE_CHAPTERS.items():
+        hub = take_from(residual, typed)
+        if hub is None:
+            continue
+        found = find_entry(root(book_data), typed)
+        if found is None:
+            raise SystemExit(f"{SOURCE}: missing race chapter for {typed}")
+        chapter = found[0]["children"][found[1]]
+        chapter["children"] = hub.get("children", []) + chapter.get("children", [])
+        moves.append(
+            {
+                "node": hub["title"],
+                "old": "New entries (page order)",
+                "new": f"{chapter['title']} / standard racial traits",
+            }
+        )
+
+    # Duergar Tyrant prints in the Duergar chapter.
+    tyrant = take_from(residual, "ref/race/duergar-tyrant")
+    if tyrant is not None:
+        found = find_entry(root(book_data), "ref/race/duergar")
+        if found is None:
+            raise SystemExit(f"{SOURCE}: missing Duergar chapter")
+        chapter = found[0]["children"][found[1]]
+        chapter["children"] = [tyrant] + chapter.get("children", [])
+        moves.append(
+            {
+                "node": "Duergar Tyrant",
+                "old": "New entries (page order)",
+                "new": "Duergar",
+            }
+        )
+
+    # The split and rule duplicates no longer have entries.
+    for entry_id in sorted(DROPPED_IDS):
+        while take_entry(entry_id) is not None:
+            moves.append(
+                {
+                    "node": entry_id,
+                    "old": "duplicate placement",
+                    "new": "removed",
+                }
+            )
+
+    # 2. Race Builder: Step 2 qualities and Step 3 trait categories.
     step2 = node(root(book_data), "Step 2: Racial Qualities")
     step3 = node(root(book_data), "Step 3: Racial Traits")
     for title, children in STEP2:
@@ -651,32 +756,14 @@ def fix_nested(book_data: dict, corpus: Path) -> list[dict]:
         reorder(holder, children)
     reorder(step3, ["Racial Traits"] + [title for title, _ in STEP3])
 
-    # 2. Variant records nest under the base entry that print already places.
-    for entry_id, base_id in VARIANT_PARENT.items():
-        moved = take_entry(entry_id)
-        if moved is None:
-            continue
-        base = find_entry(root(book_data), base_id)
-        if base is None:
-            raise SystemExit(f"{SOURCE}: missing variant base: {base_id}")
-        base[0]["children"][base[1]].setdefault("children", []).append(moved)
-        moves.append(
-            {
-                "node": moved["title"],
-                "old": "New entries (page order)",
-                "new": f"under {base_id.rsplit('/', 1)[-1]}",
-                "page": page_of(corpus, entry_id),
-            }
-        )
-
     # 3. ARG-primary archetypes, equipment, feats, magic items, and spells.
     for node_data in list(residual.get("children", [])):
         entry_id = node_data.get("entry")
         if not entry_id:
             continue
-        if entry_id in VARIANT_PARENT or entry_id in CLASS_OPTION_TARGET:
+        if entry_id in CLASS_OPTION_TARGET:
             continue
-        if entry_id in DUPLICATE_LEFT or entry_id in RACE_BUILDER:
+        if entry_id in RACE_BUILDER:
             continue
         if entry_id.startswith(MULTI_SOURCE):
             continue
@@ -783,14 +870,15 @@ def main() -> int:
     book_data = book(books)
     _book_data = book_data
     before = book_entries(book_data)
+    expected_after = before - DROPPED_IDS - set(RACE_CHAPTERS)
 
     moves = fix_nested(book_data, args.corpus)
     after = book_entries(book_data)
-    if before != after:
+    if expected_after != after:
         print(f"{SOURCE}: entry set changed", file=sys.stderr)
-        for entry in sorted(before - after):
+        for entry in sorted(expected_after - after):
             print(f"  lost: {entry}", file=sys.stderr)
-        for entry in sorted(after - before):
+        for entry in sorted(after - expected_after):
             print(f"  added: {entry}", file=sys.stderr)
         return 1
 

@@ -540,8 +540,6 @@ ABILITY_TARGETS: dict[str, str] = {
     "ref/eq-poison/black-smear": "ref/monster/dark-folk-dark-stalker",
     "ref/umr/ink-cloud": "ref/monster/octopus",
     "ref/umr/trample": "ref/monster/herd-animal-aurochs",
-    "ref/rule/race-drow/drow": "ref/race/drow",
-    "ref/rule/race-duergar/duergar": "ref/race/duergar",
     "ref/rule/monster-sahuagin/sahuagin": "ref/monster/sahuagin",
 }
 
