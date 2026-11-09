@@ -1,4 +1,4 @@
-import { installedTest as test, expect, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, distManifest, loadCorpus } from "./fixtures";
 import { installLibrary, seedHome, storedRecentCount, waitHomeIdle, waitReady as waitReadyHome } from "./helpers";
 
 const corpus = loadCorpus();
@@ -182,7 +182,7 @@ test("#/browse opens Home and keeps Home current for category pages", async ({ p
   await expect(nav.getByRole("link", { name: "Books", exact: true })).not.toHaveAttribute("aria-current", "page");
 });
 
-test("Footer links to the source and the issue tracker", async ({ page }) => {
+test("Footer links to the source and one report control", async ({ page }) => {
   await page.goto("#/settings");
   const footer = page.locator("footer.app-footer");
   await expect(footer).toContainText("not published, endorsed, or approved by Paizo Inc.");
@@ -190,9 +190,15 @@ test("Footer links to the source and the issue tracker", async ({ page }) => {
     "href",
     "https://github.com/phynics/cast-iron",
   );
-  await expect(footer.getByRole("link", { name: "Send feedback or report a problem" })).toHaveAttribute(
-    "href",
-    "https://github.com/phynics/cast-iron/issues",
-  );
-  await expect(footer).toContainText("(needs a connection)");
+  const report = footer.getByRole("link", {
+    name: "Report a problem on GitHub (opens in a new tab)",
+  });
+  await expect(report).toHaveCount(1);
+  const url = new URL((await report.getAttribute("href"))!);
+  expect(url.pathname).toBe("/phynics/cast-iron/issues/new");
+  expect(url.searchParams.get("template")).toBe("app-problem.yml");
+  expect(url.searchParams.get("route")).toBe("#/settings");
+  expect(url.searchParams.get("content-version")).toBe(distManifest().content_version);
+  expect(url.searchParams.get("schema-version")).toBe(String(distManifest().schema_version));
+  await expect(footer.getByText("Send feedback or report a problem")).toHaveCount(0);
 });
