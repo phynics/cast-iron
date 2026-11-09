@@ -173,6 +173,42 @@ line that names Paizo, because the two contradict each other. It does not requir
 when a copyright line omits Paizo: several Paizo books still have a pending Section 15
 notice, so absence is not evidence of a third-party publisher.
 
+### Series fields
+
+Adventures can carry an optional series grouping (#159). Every field is optional, so the
+schema version does not change, and a publication without `series_kind` belongs to no
+series. `series_kind` takes one of three values, and the other fields depend on it:
+
+```toml
+# An Adventure Path volume: the path name and the volume within it.
+series_kind = "adventure-path"
+series = "Rise of the Runelords"
+series_number = "1"
+
+# A standalone Module: no other field; the client orders modules by publication_date.
+series_kind = "module"
+
+# A Pathfinder Society scenario: the season, and the scenario number within it.
+series_kind = "society"
+series_number = "3-01"
+season = 3
+```
+
+`corpus-check` enforces the shape:
+
+- `series_kind` is `adventure-path`, `module` or `society`.
+- `adventure-path` requires a non-empty `series` and a positive integer `series_number`, and
+  rejects `season`.
+- `module` rejects `series`, `series_number` and `season`, because publication date orders the
+  line.
+- `society` requires `season`; `series_number`, when present, must be `<season>-NN`, and
+  `series` is rejected.
+- A row with any series field but no `series_kind` is rejected.
+
+The canonical writer emits the fields in the order above, after `publication_date` and before
+`third_party`, and omits every unset one. The fields are carried into `catalog.json` as
+optional `SourceInfo` fields; the grouping UI is a later change.
+
 ## `option-groups.toml`
 
 The class-option vocabulary is optional. A missing file means no groups. Each table is a slug
@@ -543,6 +579,8 @@ file and line, when:
   an id under an existing entry ends in a known suffix but holds no matching edge;
 - two publications share a suffix, or a suffix is not one id segment;
 - a publication is marked `third_party = true` but its copyright line names Paizo;
+- a publication's `series_kind` is not one of `adventure-path`, `module` or `society`, or a
+  series field is missing or present against its kind (see "Series fields" above);
 - a body link or a `books.toml` anchor is not a heading key of the target entry
   (the message names the linking file, the target file and its headings, and
   the fix);

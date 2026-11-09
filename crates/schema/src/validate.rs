@@ -447,12 +447,16 @@ mod tests {
     fn catalog(entries: &[RuleEntry]) -> Catalog {
         Catalog {
             sources: vec![SourceInfo {
-                category: None,
-                publication_date: None,
                 id: "cr".into(),
                 title: "CR".into(),
                 entry_count: entries.len() as u32,
                 copyright: None,
+                category: None,
+                publication_date: None,
+                series_kind: None,
+                series: None,
+                series_number: None,
+                season: None,
                 third_party: false,
             }],
             entries: entries
