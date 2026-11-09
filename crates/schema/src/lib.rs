@@ -1191,8 +1191,9 @@ pub struct SourceInfo {
     /// [`SeriesKind::AdventurePath`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub series: Option<String>,
-    /// The issue within the series: the Adventure Path volume, such as `1`, or the Society
-    /// scenario, such as `3-01`. Absent for a Module, which is ordered by publication date.
+    /// The issue within the series: the issue within its Adventure Path, such as `1`, or the
+    /// Society scenario, such as `3-01`. Absent for a Module, which is ordered by publication
+    /// date.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub series_number: Option<String>,
     /// The Pathfinder Society season, such as `3`. Present only for [`SeriesKind::Society`].

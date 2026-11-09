@@ -34,7 +34,8 @@ pub struct Publication {
     /// The Adventure Path name, such as `Rise of the Runelords`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub series: Option<String>,
-    /// The Adventure Path volume, such as `1`, or the Society scenario, such as `3-01`.
+    /// The issue within its Adventure Path, such as `1`, or the Society scenario, such as
+    /// `3-01`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub series_number: Option<String>,
     /// The Pathfinder Society season, such as `3`.
