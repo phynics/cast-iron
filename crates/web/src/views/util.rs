@@ -81,12 +81,14 @@ pub fn addon_name(label: &str) -> &'static str {
     }
 }
 
-/// How an add-on's own page names its base in the metadata line. `None` for a label this app
-/// does not yet phrase, so the line never invents a sentence.
-pub fn addon_base_phrase(label: &str) -> Option<&'static str> {
+/// How an add-on's own page names its base in the metadata line. `book` is the add-on's own
+/// publication title, which only a `changes` add-on puts inside the phrase. `None` for a label
+/// this app does not yet phrase, so the line never invents a sentence.
+pub fn addon_base_phrase(label: &str, book: &str) -> Option<String> {
     match label {
-        "mythic" => Some("Mythic version of"),
-        "stamina" => Some("Stamina rules for"),
+        "mythic" => Some("Mythic version of".to_string()),
+        "stamina" => Some("Stamina rules for".to_string()),
+        "changes" => Some(format!("Changes {book} makes to")),
         _ => None,
     }
 }
@@ -168,10 +170,25 @@ mod tests {
     fn an_add_on_names_its_label_and_its_base_phrase() {
         assert_eq!(addon_name("stamina"), "Stamina");
         assert_eq!(addon_name("mythic"), "Mythic");
-        assert_eq!(addon_base_phrase("stamina"), Some("Stamina rules for"));
-        assert_eq!(addon_base_phrase("mythic"), Some("Mythic version of"));
+        assert_eq!(addon_name("changes"), "Changes");
+        assert_eq!(
+            addon_base_phrase("stamina", "Pathfinder Unchained").as_deref(),
+            Some("Stamina rules for")
+        );
+        assert_eq!(
+            addon_base_phrase("mythic", "Mythic Adventures").as_deref(),
+            Some("Mythic version of")
+        );
+        // A third-party change names its own book inside the phrase.
+        assert_eq!(
+            addon_base_phrase(
+                "changes",
+                "The Elephant in the Room: Feat Taxes in Pathfinder"
+            )
+            .as_deref(),
+            Some("Changes The Elephant in the Room: Feat Taxes in Pathfinder makes to")
+        );
         // A label this app cannot phrase leaves the metadata line alone.
-        assert_eq!(addon_base_phrase("changes"), None);
-        assert_eq!(addon_base_phrase("unknown"), None);
+        assert_eq!(addon_base_phrase("unknown", "Any Book"), None);
     }
 }
