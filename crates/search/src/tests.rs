@@ -20,6 +20,7 @@ fn doc(
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect(),
         text: text.into(),
+        ..DocInput::default()
     }
 }
 
@@ -1148,4 +1149,81 @@ fn ranked_order_is_deterministic_and_does_not_change_the_serialized_index() {
     assert_eq!(ids(&decoded, &q("fireball")), ids(&plain, &q("fireball")));
     decoded.set_source_ranks(RANKS);
     assert_eq!(ids(&decoded, &q("fireball")), ids(&ranked, &q("fireball")));
+}
+
+fn section(id: &str, title: &str, source: &str, chapter: &str, anchor: &str) -> DocInput {
+    DocInput {
+        id: id.into(),
+        title: title.into(),
+        kind: BOOK_SECTION_KIND.into(),
+        source: source.into(),
+        chapter: chapter.into(),
+        anchor: anchor.into(),
+        ..DocInput::default()
+    }
+}
+
+#[test]
+fn book_sections_carry_their_source_chapter_and_anchor() {
+    let idx = build(vec![
+        section("book-section/core/1", "Combat", "core", "combat", ""),
+        section(
+            "book-section/core/1-2",
+            "Actions in Combat",
+            "core",
+            "combat",
+            "toc-1-2",
+        ),
+        doc("ref/rule/combat", "Combat", "rule", "core", "Rules.", &[]),
+    ]);
+    let accept = |doc: DocView<'_>| doc.kind == BOOK_SECTION_KIND;
+    let hits = idx.search_summaries_docs(&q("combat"), accept);
+    // The entry and both sections share the title word; each keeps its own target.
+    let sections: Vec<_> = hits
+        .iter()
+        .filter(|hit| hit.kind == BOOK_SECTION_KIND)
+        .collect();
+    assert_eq!(sections.len(), 2);
+    let chapter = idx.doc(sections[0].ord).unwrap();
+    assert_eq!(chapter.source, "core");
+    assert_eq!(chapter.chapter, "combat");
+    assert!(sections.iter().any(|hit| {
+        idx.doc(hit.ord)
+            .is_some_and(|doc| doc.title == "Actions in Combat" && doc.anchor == "toc-1-2")
+    }));
+}
+
+#[test]
+fn an_inactive_book_contributes_no_section_results() {
+    let idx = build(vec![
+        section("book-section/core/1", "Combat", "core", "combat", ""),
+        section("book-section/apg/1", "Combat", "apg", "combat", ""),
+    ]);
+    let active = |source: &str| source == "core";
+    let hits = idx.search_summaries_docs(&q("combat"), |doc| {
+        doc.kind == BOOK_SECTION_KIND && active(doc.source)
+    });
+    assert_eq!(
+        hits.iter()
+            .map(|hit| hit.source.as_str())
+            .collect::<Vec<_>>(),
+        ["core"]
+    );
+}
+
+#[test]
+fn book_section_bytes_are_identical_whatever_the_insertion_order() {
+    let docs = vec![
+        section("book-section/core/1", "Combat", "core", "combat", ""),
+        section(
+            "book-section/core/1-2",
+            "Actions in Combat",
+            "core",
+            "combat",
+            "toc-1-2",
+        ),
+    ];
+    let mut reversed = docs.clone();
+    reversed.reverse();
+    assert_eq!(build(docs).to_bytes(), build(reversed).to_bytes());
 }

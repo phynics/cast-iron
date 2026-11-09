@@ -14,7 +14,7 @@ use cast_iron_schema::{
     RelationKind, ReplacesIndex, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo,
     SpellLists, TypedFields,
 };
-use cast_iron_search::{DocInput, IndexBuilder};
+use cast_iron_search::{BOOK_SECTION_KIND, DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -166,8 +166,10 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
     coverage.backlinks = backlinks.coverage;
     coverage.backlinks.bytes = backlink_descriptor_bytes + backlink_shard_bytes;
 
-    // Search index. Reachability reads it before serialization: the report confirms that every
-    // entry is indexed under its exact title.
+    // Search index. Entries first, then one document for every node that a book's chapter page
+    // renders. The contents functions are the same ones the client uses, so every section result
+    // opens a row that exists. Reachability reads the index before serialization: its report
+    // confirms that every entry is indexed under its exact title.
     let mut index = IndexBuilder::new();
     for e in &entries {
         index.add(DocInput {
@@ -179,7 +181,43 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
             section: e.section.join(" > "),
             facets: facets.get(&e.id).cloned().unwrap_or_default(),
             text: blocks_text(&e.body),
+            chapter: String::new(),
+            anchor: String::new(),
         });
+    }
+    let kinds: BTreeMap<&EntryId, EntryKind> = entries
+        .iter()
+        .map(|entry| (&entry.id, entry.kind))
+        .collect();
+    for book in &books.books {
+        let hide = |id: &EntryId| {
+            kinds
+                .get(id)
+                .is_some_and(|kind| cast_iron_schema::books::hidden_from_contents(*kind))
+        };
+        for section in cast_iron_schema::books::sections(book, &hide) {
+            index.add(DocInput {
+                id: format!(
+                    "{BOOK_SECTION_KIND}/{}/{}",
+                    book.source,
+                    section
+                        .path
+                        .iter()
+                        .map(|index| (index + 1).to_string())
+                        .collect::<Vec<_>>()
+                        .join("-")
+                ),
+                title: section.title.to_string(),
+                aliases: Vec::new(),
+                kind: BOOK_SECTION_KIND.to_string(),
+                source: book.source.clone(),
+                section: book.title.clone(),
+                facets: Vec::new(),
+                text: String::new(),
+                chapter: section.chapter,
+                anchor: section.anchor.unwrap_or_default(),
+            });
+        }
     }
     let index = index.build();
     let reachability = reachability::report(&entries, &books, &index);
