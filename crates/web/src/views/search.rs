@@ -5,6 +5,7 @@
 use crate::fmt;
 use crate::js;
 use crate::library::use_library;
+use crate::revisions::RevisionView;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::icons;
@@ -848,6 +849,21 @@ pub fn Search() -> impl IntoView {
                         }
                         return;
                     }
+                };
+                // A revision is a second indexed document with the same title. Rewrite it to
+                // the original id and keep one row, so a search never shows the pair.
+                let all_hits = match library.relations().await {
+                    Ok(Some(relations)) => {
+                        let view = RevisionView::build(
+                            &relations,
+                            |id| library.is_entry_active(id),
+                            |id| library.stub(id).map(|stub| stub.source.clone()),
+                        );
+                        crate::revisions::effective_hits(all_hits, &view, |id| {
+                            discovery.is_eligible(id)
+                        })
+                    }
+                    _ => all_hits,
                 };
                 if !alive() {
                     return;

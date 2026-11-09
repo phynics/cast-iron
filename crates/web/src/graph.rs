@@ -157,6 +157,60 @@ impl Relations {
             .and_then(|(_, _, label)| label.as_deref())
     }
 
+    /// Every revision edge as `(revision, label, base)`, sorted by revision id and then base,
+    /// so a caller that lists revisions gets one stable order without reading shards.
+    pub fn revision_edges(&self) -> Vec<(&EntryId, Option<&str>, &EntryId)> {
+        let mut edges: Vec<(&EntryId, Option<&str>, &EntryId)> = self
+            .outgoing
+            .iter()
+            .flat_map(|(source, edges)| {
+                edges.iter().filter_map(move |(kind, target, label)| {
+                    (*kind == RelationKind::Revision).then_some((source, label.as_deref(), target))
+                })
+            })
+            .collect();
+        edges.sort_by(|a, b| a.0.cmp(b.0).then_with(|| a.2.cmp(b.2)));
+        edges
+    }
+
+    /// The base that `revision` revises, with the edge's label (`None` means revised).
+    /// An entry holds at most one revision edge, so the first match answers.
+    pub fn revision_base(&self, revision: &EntryId) -> Option<(&EntryId, Option<&str>)> {
+        self.outgoing
+            .get(revision)
+            .into_iter()
+            .flatten()
+            .find_map(|(kind, target, label)| {
+                (*kind == RelationKind::Revision).then_some((target, label.as_deref()))
+            })
+    }
+
+    /// A view for an entry page where `base` holds `revision`'s prerequisite edges in place of
+    /// its own. A revision in force changes what the feat requires, so its chain must be walked
+    /// from the revised text. Only the outgoing prerequisite edges move; every other edge keeps
+    /// its source and target.
+    pub fn with_prerequisite_override(&self, base: &EntryId, revision: &EntryId) -> Self {
+        let mut view = self.clone();
+        if let Some(edges) = view.outgoing.get_mut(base) {
+            edges.retain(|(kind, _, _)| *kind != RelationKind::Prerequisite);
+        }
+        let revised: Vec<(RelationKind, EntryId, Option<String>)> = self
+            .outgoing
+            .get(revision)
+            .into_iter()
+            .flatten()
+            .filter(|(kind, _, _)| *kind == RelationKind::Prerequisite)
+            .cloned()
+            .collect();
+        if !revised.is_empty() {
+            view.outgoing
+                .entry(base.clone())
+                .or_default()
+                .extend(revised);
+        }
+        view
+    }
+
     /// Every add-on entry and the label of the edge it holds, for rows that name their kind
     /// without opening the add-on's shard. The graph's edges decide the label; an id never does.
     pub fn addon_labels(&self) -> HashMap<EntryId, String> {
@@ -758,6 +812,87 @@ mod tests {
             assert!(!r.long_chains(0).contains_key(&id(addon)));
             assert!(!r.chain_heads().iter().any(|head| head.id == id(addon)));
         }
+    }
+
+    #[test]
+    fn a_revision_edge_names_its_base_and_label() {
+        let edge = |source: &str, target: &str, label: Option<&str>| {
+            RelationEdge(
+                id(source),
+                RelationKind::Revision,
+                id(target),
+                label.map(String::from),
+            )
+        };
+        let r = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: vec![
+                edge("c/base/eitr", "c/base", None),
+                edge("c/base/removed-eitr", "c/base", Some("removed")),
+                RelationEdge(
+                    id("c/revision"),
+                    RelationKind::Prerequisite,
+                    id("c/other"),
+                    None,
+                ),
+            ],
+        });
+        assert_eq!(
+            r.revision_base(&id("c/base/eitr")),
+            Some((&id("c/base"), None))
+        );
+        assert_eq!(
+            r.revision_base(&id("c/base/removed-eitr")),
+            Some((&id("c/base"), Some("removed")))
+        );
+        assert_eq!(r.revision_base(&id("c/revision")), None);
+        // Only revision edges are listed; a prerequisite is not a revision.
+        let edges = r.revision_edges();
+        assert_eq!(edges.len(), 2);
+        assert_eq!(edges[0].0, &id("c/base/eitr"));
+        assert_eq!(edges[1].2, &id("c/base"));
+    }
+
+    #[test]
+    fn a_prerequisite_override_keeps_the_rest_of_the_graph() {
+        let r = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: vec![
+                RelationEdge(id("c/base"), RelationKind::Prerequisite, id("c/old"), None),
+                RelationEdge(
+                    id("c/base/eitr"),
+                    RelationKind::Prerequisite,
+                    id("c/new"),
+                    None,
+                ),
+                RelationEdge(
+                    id("c/base/eitr"),
+                    RelationKind::Revision,
+                    id("c/base"),
+                    None,
+                ),
+                RelationEdge(id("c/base"), RelationKind::Part, id("c/part"), None),
+            ],
+        });
+        let view = r.with_prerequisite_override(&id("c/base"), &id("c/base/eitr"));
+        assert_eq!(
+            view.targets_of(&id("c/base"), RelationKind::Prerequisite),
+            [&id("c/new")]
+        );
+        // The part edge stays; the revision edge is untouched.
+        assert_eq!(
+            view.targets_of(&id("c/base"), RelationKind::Part),
+            [&id("c/part")]
+        );
+        assert_eq!(
+            view.revision_base(&id("c/base/eitr")),
+            Some((&id("c/base"), None))
+        );
+        // The original graph is unchanged.
+        assert_eq!(
+            r.targets_of(&id("c/base"), RelationKind::Prerequisite),
+            [&id("c/old")]
+        );
     }
 
     #[test]
