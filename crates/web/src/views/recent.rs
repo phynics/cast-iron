@@ -1,8 +1,9 @@
 //! Recently viewed entries, kept in the `meta` store under `recent`.
 //!
 //! Updates go through the `recents` signal that [`crate::app::AppCtx`] holds for the whole page.
-//! The entry screen records a visit and Home shows the list; both use that one signal, so a visit
-//! whose write lands after Home has read the store still appears there, without a reload.
+//! The entry screen records a visit and Quick search shows the list; both use that one signal, so
+//! a visit whose write lands after the layer has read the list still appears there, without a
+//! reload.
 
 use crate::store;
 pub use crate::store::Recent;
@@ -106,6 +107,11 @@ pub fn push_recent(list: &mut Vec<Recent>, item: Recent) {
     list.truncate(MAX_RECENT);
 }
 
+/// Drops every visit that `matches` names, keeping the order of the rest.
+pub fn remove_matching(list: &mut Vec<Recent>, matches: impl Fn(&EntryId) -> bool) {
+    list.retain(|item| !matches(&item.id));
+}
+
 /// Adds the stored history after the visits already in `current` (which are newer), dropping a
 /// copy that is already there, so a read that started before a visit landed cannot hide it.
 pub fn merge_stored(current: &mut Vec<Recent>, stored: Vec<Recent>) {
@@ -163,6 +169,13 @@ pub async fn clear(recents: RwSignal<Vec<Recent>>) {
     persist(recents).await;
 }
 
+/// Drops every stored visit that `matches` names, so removing a row shown under an alias also
+/// forgets the legacy id it was stored under.
+pub async fn remove(recents: RwSignal<Vec<Recent>>, matches: impl Fn(&EntryId) -> bool) {
+    recents.update(|list| remove_matching(list, matches));
+    persist(recents).await;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,6 +214,16 @@ mod tests {
         let mut current = vec![r(3)];
         merge_stored(&mut current, vec![r(3), r(2)]);
         assert_eq!(current, vec![r(3), r(2)]);
+    }
+
+    #[test]
+    fn removing_a_visit_keeps_the_order_of_the_rest() {
+        let mut list = vec![r(3), r(2), r(1)];
+        remove_matching(&mut list, |id| id == &r(2).id);
+        assert_eq!(list, vec![r(3), r(1)]);
+        // An id that is not there changes nothing.
+        remove_matching(&mut list, |id| id == &r(9).id);
+        assert_eq!(list, vec![r(3), r(1)]);
     }
 
     #[test]

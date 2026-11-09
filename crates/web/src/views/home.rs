@@ -1,12 +1,10 @@
-//! Home: saved entries, recent reading, and the category directory.
+//! Home: saved entries and the category directory.
 
 use crate::library::use_library;
 use crate::route::Route;
 use crate::store::{self, Bookmark};
 use crate::views::browse::CategoryDirectory;
-use crate::views::continue_reading;
 use crate::views::icons;
-use crate::views::recent;
 use crate::views::util::{kind_name, set_title};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
@@ -15,10 +13,8 @@ use std::collections::BTreeSet;
 
 /// Starred rows shown before the reader asks for the rest.
 const STARRED_PREVIEW: usize = 5;
-/// Recent rows shown before the reader asks for the rest of the stored history.
-const RECENT_PREVIEW: usize = 5;
 
-/// What one Home row shows. Starred and Recently viewed share it.
+/// What one Home row shows.
 struct RowData {
     id: EntryId,
     title: String,
@@ -26,15 +22,6 @@ struct RowData {
     book: Option<String>,
     /// False for a starred entry the installed library no longer holds.
     in_library: bool,
-}
-
-/// The saved place in the most recently read book, ready to render at the top of Recently viewed.
-#[derive(Clone)]
-struct ContinueRow {
-    source: String,
-    id: EntryId,
-    book_title: String,
-    entry_title: String,
 }
 
 /// Lower-cased titles that occur more than once, so those rows can also name their book.
@@ -88,28 +75,6 @@ fn entry_row(row: &RowData, show_book: bool, action: Option<AnyView>) -> AnyView
 pub fn Home() -> impl IntoView {
     set_title("");
     let library = use_library();
-    let recents = crate::app::use_app().recents;
-    let continue_point = RwSignal::new(None::<ContinueRow>);
-    {
-        let library = library.clone();
-        spawn_local(async move {
-            let points = continue_reading::load(&library).await;
-            let Some(point) = store::latest_continue_point(&points) else {
-                return;
-            };
-            let (Some(source), Some(stub)) =
-                (library.source(&point.source), library.stub(&point.entry_id))
-            else {
-                return;
-            };
-            continue_point.set(Some(ContinueRow {
-                source: point.source.clone(),
-                id: point.entry_id.clone(),
-                book_title: source.title.clone(),
-                entry_title: stub.title.clone(),
-            }));
-        });
-    }
     let bookmarks = RwSignal::new(None::<Result<Vec<Bookmark>, String>>);
     spawn_local(async move {
         bookmarks.set(Some(
@@ -129,7 +94,6 @@ pub fn Home() -> impl IntoView {
     let star_error = RwSignal::new(None::<String>);
     let unstarring = RwSignal::new(false);
     let expanded = RwSignal::new(false);
-    let recent_expanded = RwSignal::new(false);
     let starred_library = library.clone();
     let title_ref = NodeRef::<leptos::html::H1>::new();
     // The load that turns third-party books off for an existing profile queues this once
@@ -247,83 +211,6 @@ pub fn Home() -> impl IntoView {
                     }.into_any()
                 }
             }}
-            <Show when=move || !recents.with(|r| r.is_empty()) || continue_point.get().is_some()>
-                <section aria-labelledby="home-recent">
-                    <div class="home-section-heading">
-                        <h2 id="home-recent">"Recently viewed"</h2>
-                        <button class="btn btn-quiet" type="button" on:click=move |_| {
-                            // Empty the screen now; the write below is the durable copy.
-                            recents.set(Vec::new());
-                            continue_point.set(None);
-                            recent_expanded.set(false);
-                            if let Some(title) = title_ref.get_untracked() {
-                                let _ = title.focus();
-                            }
-                            spawn_local(async move {
-                                recent::clear(recents).await;
-                                let _ = store::clear_continue_points().await;
-                            });
-                        }>"Clear"</button>
-                    </div>
-                    {move || {
-                        let library = use_library();
-                        let all = recents.get();
-                        let total = all.len();
-                        // Resolve every title first: collisions are judged on what is shown, over the
-                        // whole history, so a row does not change when "Show more" opens.
-                        let resolved: Vec<RowData> = all.iter().map(|item| {
-                            let stub = library.stub(&item.id);
-                            RowData {
-                                id: item.id.clone(),
-                                title: stub.map_or_else(|| item.title.clone(), |s| s.title.clone()),
-                                kind: stub.map(|s| s.kind),
-                                book: stub.and_then(|s| library.source(&s.source)).map(|s| s.title.clone()),
-                                in_library: stub.is_some(),
-                            }
-                        }).collect();
-                        let ambiguous = duplicate_titles(resolved.iter().map(|r| r.title.as_str()));
-                        let take = if recent_expanded.get() { total } else { RECENT_PREVIEW };
-                        let rows = resolved.iter().take(take).map(|row| {
-                            entry_row(row, ambiguous.contains(&row.title.to_lowercase()), None)
-                        }).collect_view();
-                        // One row for the most recently read book, above the visit list. It
-                        // carries the book in its URL, so opening it stays inside that book.
-                        let continue_row = continue_point.get().map(|row| {
-                            let href = Route::Entry {
-                                id: row.id.clone(),
-                                anchor: None,
-                                book: Some(row.source.clone()),
-                            }
-                            .href();
-                            let name = format!("Continue {}: {}", row.book_title, row.entry_title);
-                            view! {
-                                <li class="home-row home-continue" data-testid="home-continue">
-                                    <a class="home-row-link" href=href aria-label=name>
-                                        <span class="home-row-title">{format!("Continue {}", row.book_title)}</span>
-                                        <span class="home-row-meta">{row.entry_title}</span>
-                                    </a>
-                                </li>
-                            }
-                        });
-                        let more = (total > RECENT_PREVIEW).then(|| view! {
-                            <button
-                                class="btn btn-quiet home-list-more"
-                                type="button"
-                                aria-controls="home-recent-list"
-                                aria-expanded=move || if recent_expanded.get() { "true" } else { "false" }
-                                on:click=move |_| recent_expanded.update(|open| *open = !*open)
-                            >
-                                {move || if recent_expanded.get() { "Show fewer".to_string() } else { format!("Show more ({})", crate::fmt::count(total - RECENT_PREVIEW)) }}
-                            </button>
-                        });
-                        view! {
-                            <ul class="home-list home-recent" id="home-recent-list">{continue_row}{rows}</ul>
-                            <p class="sr-only" role="status">{if recent_expanded.get() { format!("Showing all {} recent entries", crate::fmt::count(total)) } else { String::new() }}</p>
-                            {more}
-                        }
-                    }}
-                </section>
-            </Show>
             // Teaches the star until the first one exists.
             <Show when=move || matches!(bookmarks.get(), Some(Ok(ref items)) if items.is_empty())>
                 <p class="muted home-hint">"Tap "{icons::star()}<span class="sr-only">"the star"</span>" on an entry to keep it here."</p>

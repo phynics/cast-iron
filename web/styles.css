@@ -3927,6 +3927,14 @@ html:has(.quick-search[open]) {
   padding-inline: var(--space-2);
 }
 
+.quick-search-groups > * + * {
+  margin-top: var(--space-2);
+}
+
+.quick-search-more {
+  margin-top: var(--space-1);
+}
+
 .quick-search-heading {
   margin: 0;
   font-family: var(--font-text);
