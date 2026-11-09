@@ -10,6 +10,7 @@ use crate::graph::Relations;
 use cast_iron_schema::{EntryId, RuleEntry, TypedFields};
 use cast_iron_search::HitSummary;
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 /// What a revision says happened to the feat it points at. The edge label picks it; `None`
 /// means the text was revised in place.
@@ -63,6 +64,9 @@ impl ActiveRevision {
 pub struct RevisionView {
     by_revision: BTreeMap<EntryId, ActiveRevision>,
     by_base: BTreeMap<EntryId, Vec<ActiveRevision>>,
+    /// A merged base's destination feat, read from the revision's printed link. A graph uses
+    /// it to point the base's dependents at the feat the base became.
+    merge_targets: BTreeMap<EntryId, EntryId>,
 }
 
 impl RevisionView {
@@ -97,7 +101,21 @@ impl RevisionView {
         Self {
             by_revision,
             by_base,
+            merge_targets: BTreeMap::new(),
         }
+    }
+
+    /// Records where a merged base's revision says the feat went. The page that owns the
+    /// revision entry reads its printed link and passes it here before the graph is derived.
+    pub fn set_merge_target(&mut self, base: &EntryId, target: EntryId) {
+        self.merge_targets.insert(base.clone(), target);
+    }
+
+    /// Every active revision that merged its base into another feat.
+    pub fn merged_revisions(&self) -> impl Iterator<Item = &ActiveRevision> {
+        self.by_revision
+            .values()
+            .filter(|active| active.label == RevisionLabel::Merged)
     }
 
     /// The active revision held by this entry, when the entry is itself a revision.
@@ -137,8 +155,10 @@ impl RevisionView {
                 continue;
             }
             rows.hidden_revisions.insert(revision.clone());
+            rows.hidden_strings.insert(revision.to_string());
             if !self.is_collision(&active.base) && !active.is_revised() {
                 rows.hidden_bases.insert(active.base.clone());
+                rows.hidden_strings.insert(active.base.to_string());
                 if let Some(source) = &active.source {
                     *rows.removed_by_source.entry(source.clone()).or_default() += 1;
                 }
@@ -153,6 +173,89 @@ impl RevisionView {
         }
         rows
     }
+
+    /// The graph that feat chains and relation panels walk while these revisions are in force.
+    ///
+    /// A revision row leaves with the base row it replaces. A removed base and every edge into
+    /// it leave too; an edge into a merged base points at the feat that absorbed it. A revised
+    /// base takes the revision's outgoing prerequisite edges, so a chain follows the revised
+    /// text rather than the printed original.
+    pub fn effective_graph(
+        &self,
+        relations: &Relations,
+        visible: impl Fn(&EntryId) -> bool,
+    ) -> Relations {
+        let rows = self.rows(&visible);
+        // Only a single revision in force substitutes. A collision keeps the printed base and
+        // its prerequisites, exactly as the page keeps the original text under its notice.
+        let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<String>)>> = self
+            .by_base
+            .keys()
+            .filter_map(|base| {
+                let active = self.in_force(base)?;
+                active
+                    .is_revised()
+                    .then(|| (base.clone(), relations.prerequisite_edges(&active.revision)))
+            })
+            .collect();
+        // A book that is inactive is not part of the effective graph either, so a chain never
+        // reaches a row that its own book hides.
+        relations.with_effective_revisions(
+            |id| !visible(id) || rows.hides(id),
+            &self.merge_targets,
+            &prerequisites,
+        )
+    }
+}
+
+/// The cached effective state of one active-book selection: the revision view, the rows that
+/// leave lists and counts, and the graph that chains walk.
+#[derive(Debug, Clone, Default)]
+pub struct EffectiveRevisions {
+    view: RevisionView,
+    rows: RevisionRows,
+    graph: Rc<Relations>,
+}
+
+impl EffectiveRevisions {
+    pub fn build(
+        relations: &Relations,
+        is_active: impl Fn(&EntryId) -> bool,
+        source_of: impl Fn(&EntryId) -> Option<String>,
+        merge_target_of: impl Fn(&EntryId) -> Option<EntryId>,
+        visible: impl Fn(&EntryId) -> bool,
+    ) -> Self {
+        let mut view = RevisionView::build(relations, is_active, source_of);
+        let targets: Vec<(EntryId, EntryId)> = view
+            .merged_revisions()
+            .filter_map(|active| {
+                merge_target_of(&active.revision).map(|target| (active.base.clone(), target))
+            })
+            .collect();
+        for (base, target) in targets {
+            view.set_merge_target(&base, target);
+        }
+        let rows = view.rows(&visible);
+        let graph = Rc::new(view.effective_graph(relations, &visible));
+        Self { view, rows, graph }
+    }
+
+    pub fn view(&self) -> &RevisionView {
+        &self.view
+    }
+
+    pub fn rows(&self) -> &RevisionRows {
+        &self.rows
+    }
+
+    pub fn graph(&self) -> Rc<Relations> {
+        Rc::clone(&self.graph)
+    }
+
+    /// True for a row that an active revision keeps out of lists and counts.
+    pub fn hides(&self, id: &str) -> bool {
+        self.rows.hides_str(id)
+    }
 }
 
 /// The row changes for one active-book selection.
@@ -160,6 +263,8 @@ impl RevisionView {
 pub struct RevisionRows {
     hidden_revisions: BTreeSet<EntryId>,
     hidden_bases: BTreeSet<EntryId>,
+    /// The same ids as strings, for count predicates that receive an indexed id.
+    hidden_strings: BTreeSet<String>,
     /// Base id to the revision's book id, for the row's muted line.
     effective_source: BTreeMap<EntryId, String>,
     /// Removed or merged feats per revision book, for the line under the list.
@@ -169,6 +274,11 @@ pub struct RevisionRows {
 impl RevisionRows {
     pub fn hides(&self, id: &EntryId) -> bool {
         self.hidden_revisions.contains(id) || self.hidden_bases.contains(id)
+    }
+
+    /// The same answer for the string ids that the search index carries.
+    pub fn hides_str(&self, id: &str) -> bool {
+        self.hidden_strings.contains(id)
     }
 
     /// The ids this selection keeps out of lists, in id order. A category count subtracts the
@@ -479,6 +589,145 @@ mod tests {
         );
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].source, "the-elephant");
+    }
+
+    fn graph(edges: &[(&str, RelationKind, &str, Option<&str>)]) -> Relations {
+        Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: edges
+                .iter()
+                .map(|(source, kind, target, label)| {
+                    RelationEdge(id(source), *kind, id(target), label.map(String::from))
+                })
+                .collect(),
+        })
+    }
+
+    #[test]
+    fn an_effective_graph_follows_the_revision_prerequisites() {
+        let all = graph(&[
+            ("c/base", RelationKind::Prerequisite, "c/old", None),
+            ("c/revision", RelationKind::Prerequisite, "c/new", None),
+            ("c/revision", RelationKind::Revision, "c/base", None),
+            ("c/dependent", RelationKind::Prerequisite, "c/base", None),
+        ]);
+        let state =
+            EffectiveRevisions::build(&all, |_| true, |_| Some("book".into()), |_| None, |_| true);
+        let effective = state.graph();
+        assert_eq!(
+            effective.targets_of(&id("c/base"), RelationKind::Prerequisite),
+            [&id("c/new")]
+        );
+        assert!(
+            !effective
+                .targets_of(&id("c/base"), RelationKind::Prerequisite)
+                .contains(&&id("c/old"))
+        );
+        // The base still carries its dependents; the revision itself is not a chain row.
+        assert_eq!(effective.leads_to(&id("c/base")), [&id("c/dependent")]);
+        assert!(
+            effective
+                .targets_of(&id("c/revision"), RelationKind::Prerequisite)
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn a_collision_keeps_the_printed_prerequisites() {
+        let all = graph(&[
+            ("c/base", RelationKind::Prerequisite, "c/old", None),
+            ("c/revision-a", RelationKind::Prerequisite, "c/new-a", None),
+            ("c/revision-b", RelationKind::Prerequisite, "c/new-b", None),
+            ("c/revision-a", RelationKind::Revision, "c/base", None),
+            ("c/revision-b", RelationKind::Revision, "c/base", None),
+        ]);
+        let state =
+            EffectiveRevisions::build(&all, |_| true, |_| Some("book".into()), |_| None, |_| true);
+        assert!(state.view().is_collision(&id("c/base")));
+        assert!(state.view().in_force(&id("c/base")).is_none());
+        let effective = state.graph();
+        // Two revisions in force mean no substitution: the base keeps the edges it printed and
+        // neither revision supplies prerequisites.
+        assert_eq!(
+            effective.targets_of(&id("c/base"), RelationKind::Prerequisite),
+            [&id("c/old")]
+        );
+        for revision in ["c/revision-a", "c/revision-b"] {
+            assert!(
+                effective
+                    .targets_of(&id(revision), RelationKind::Prerequisite)
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
+    fn a_removed_or_merged_feat_leaves_the_effective_graph() {
+        let all = graph(&[
+            (
+                "c/removed-revision",
+                RelationKind::Revision,
+                "c/removed",
+                Some("removed"),
+            ),
+            (
+                "c/merged-revision",
+                RelationKind::Revision,
+                "c/merged",
+                Some("merged"),
+            ),
+            ("c/dependent", RelationKind::Prerequisite, "c/removed", None),
+            (
+                "c/merged-dependent",
+                RelationKind::Prerequisite,
+                "c/merged",
+                None,
+            ),
+            ("c/target", RelationKind::Prerequisite, "c/root", None),
+            ("c/merged", RelationKind::Prerequisite, "c/root", None),
+        ]);
+        let mut view = RevisionView::build(&all, |_| true, |_| Some("book".into()));
+        view.set_merge_target(&id("c/merged"), id("c/target"));
+        let rows = view.rows(|_| true);
+        let effective = view.effective_graph(&all, |_| true);
+        // Both the removed base and its revision leave, with every edge into the base.
+        assert!(rows.hides(&id("c/removed")));
+        assert!(rows.hides(&id("c/removed-revision")));
+        assert!(effective.leads_to(&id("c/removed")).is_empty());
+        assert!(
+            effective
+                .targets_of(&id("c/removed"), RelationKind::Prerequisite)
+                .is_empty()
+        );
+        // The merged base leaves, and its dependents point at the feat that absorbed it.
+        assert!(rows.hides(&id("c/merged")));
+        assert_eq!(
+            effective.targets_of(&id("c/merged-dependent"), RelationKind::Prerequisite),
+            [&id("c/target")]
+        );
+    }
+
+    #[test]
+    fn the_effective_rows_name_the_ids_that_counts_must_skip() {
+        let graph = relations(&[
+            ("ref/feat/dodge/eitr", None, "ref/feat/dodge"),
+            (
+                "ref/feat/power-attack/eitr",
+                Some("removed"),
+                "ref/feat/power-attack",
+            ),
+        ]);
+        let state = EffectiveRevisions::build(
+            &graph,
+            |_| true,
+            |_| Some("book".into()),
+            |_| None,
+            |_| true,
+        );
+        assert!(state.hides("ref/feat/dodge/eitr"));
+        assert!(!state.hides("ref/feat/dodge"));
+        assert!(state.hides("ref/feat/power-attack"));
+        assert!(state.hides("ref/feat/power-attack/eitr"));
     }
 
     #[test]

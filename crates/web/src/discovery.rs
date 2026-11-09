@@ -87,9 +87,21 @@ impl Discovery {
             .filter(move |stub| self.library.stub_is_in_source(stub, source))
     }
     pub fn kind_counts(&self) -> Vec<(EntryKind, usize)> {
+        self.kind_counts_counted(|_| true)
+    }
+    /// Kind totals over the rows a caller also counts. A revision selection hides the revision
+    /// row and a removed or merged base, so neither inflates a chip total.
+    pub fn kind_counts_counted(&self, counted: impl Fn(&str) -> bool) -> Vec<(EntryKind, usize)> {
         EntryKind::ALL
             .into_iter()
-            .map(|kind| (kind, self.entries_of_kind(kind).count()))
+            .map(|kind| {
+                (
+                    kind,
+                    self.entries_of_kind(kind)
+                        .filter(|stub| counted(stub.id.as_str()))
+                        .count(),
+                )
+            })
             .filter(|(_, count)| *count > 0)
             .collect()
     }
@@ -116,16 +128,34 @@ impl Discovery {
         text: &str,
         filters: &Filters,
     ) -> Result<FilterCounts, LibraryError> {
+        self.filter_counts_counted(text, filters, |_| true).await
+    }
+    /// Counts over the rows a caller also counts. A revision selection passes its hidden set
+    /// here so a base and its revision count once, and a removed or merged feat counts not at
+    /// all while its book is active.
+    pub async fn filter_counts_counted(
+        &self,
+        text: &str,
+        filters: &Filters,
+        counted: impl Fn(&str) -> bool,
+    ) -> Result<FilterCounts, LibraryError> {
         let index = self.library.search_index().await?;
-        Ok(index.filter_counts_eligible(text, filters, |id| self.is_eligible(id)))
+        Ok(index.filter_counts_eligible(text, filters, |id| self.is_eligible(id) && counted(id)))
     }
     pub async fn facet_fields(&self) -> Result<Vec<String>, LibraryError> {
         let index = self.library.search_index().await?;
         Ok(index.facet_fields_eligible(|id| self.is_eligible(id)))
     }
     pub async fn facet_values(&self, field: &str) -> Result<Vec<(String, u32)>, LibraryError> {
+        self.facet_values_counted(field, |_| true).await
+    }
+    pub async fn facet_values_counted(
+        &self,
+        field: &str,
+        counted: impl Fn(&str) -> bool,
+    ) -> Result<Vec<(String, u32)>, LibraryError> {
         let index = self.library.search_index().await?;
-        Ok(index.facet_values_eligible(field, |id| self.is_eligible(id)))
+        Ok(index.facet_values_eligible(field, |id| self.is_eligible(id) && counted(id)))
     }
 
     /// The ids of the eligible entries that carry `value` in facet `field`. A list page filters
