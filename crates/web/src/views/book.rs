@@ -3,15 +3,20 @@
 //!
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
 //! Contents leaves out every kind that has its own list page and the `In this book` links reach
-//! (see [`LEAVE_OUT_LINKED_KINDS`]); the page keeps every chapter's real path, so a chapter link,
+//! (see `cast_iron_schema::books::LEAVE_OUT_LINKED_KINDS`); the page keeps every chapter's real
+//! path, so a chapter link,
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
 
 use crate::fmt;
-use crate::graph::{BookLookup, chapter_ids, node_at};
+use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, toc_id, use_route};
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
+use cast_iron_schema::books::{
+    CATCH_ALL_LABEL, CATCH_ALL_TITLE, ChapterRow, Hide, chapter_rows as schema_chapter_rows,
+    hidden_from_contents, listed_children, listed_under,
+};
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
 use std::collections::HashSet;
@@ -50,121 +55,23 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// Whether Contents leaves out the kinds that the `In this book` links reach.
-///
-/// The owner decided on 2026-11-07 that Contents does not list the kinds that have their own
-/// list page. Every kind except Rules has one, and the kind links reach each as a list page
-/// filtered to the book, so the exclusion is on.
-pub const LEAVE_OUT_LINKED_KINDS: bool = true;
-
-/// The kinds that `In this book` reaches: every kind with its own list page, which is every kind
-/// except Rules. Rules stay in Contents because they have no list page of their own.
-pub fn linked_kind(kind: EntryKind) -> bool {
-    kind != EntryKind::Rule
-}
-
-/// True when Contents leaves a kind out. Always false while [`LEAVE_OUT_LINKED_KINDS`] is off.
-pub fn hidden_from_contents(kind: EntryKind) -> bool {
-    LEAVE_OUT_LINKED_KINDS && linked_kind(kind)
-}
-
-/// Says whether Contents leaves an entry out. An entry the catalog does not know is kept.
-pub type Hide<'a> = &'a dyn Fn(&EntryId) -> bool;
-
-/// True when a node still has something to list. A node whose entries are all left out has
-/// nothing; a node with no entry anywhere under it is kept as the compiler wrote it.
-pub fn shows_in_contents(node: &BookNode, hide: Hide<'_>) -> bool {
-    fn all_hidden(node: &BookNode, hide: Hide<'_>, seen: &mut bool) -> bool {
-        if let Some(entry) = &node.entry {
-            *seen = true;
-            if !hide(entry) {
-                return false;
-            }
-        }
-        node.children
-            .iter()
-            .all(|child| all_hidden(child, hide, seen))
-    }
-    let mut seen = false;
-    !(all_hidden(node, hide, &mut seen) && seen)
-}
-
-/// The indices of the children of `node` that Contents lists, in book order.
-pub fn listed_children(node: &BookNode, hide: Hide<'_>) -> Vec<usize> {
-    (0..node.children.len())
-        .filter(|&i| shows_in_contents(&node.children[i], hide))
-        .collect()
-}
-
-/// The entries under a node, itself included, that Contents lists: the number a chapter shows.
-pub fn listed_under(node: &BookNode, hide: Hide<'_>) -> usize {
-    let own = node.entry.as_ref().is_some_and(|entry| !hide(entry));
-    usize::from(own)
-        + node
-            .children
-            .iter()
-            .map(|child| listed_under(child, hide))
-            .sum::<usize>()
-}
-
-/// The title that the compiler gives the chapter of entries that no curated chapter places.
-const CATCH_ALL_TITLE: &str = "New entries (page order)";
-
-/// What a reader sees for it. The title says how the list was made, which a reader does not
-/// need; the corpus carries the old title, so the page renames it (the pin bump that renames it
-/// at the source is the corpus owner's).
-const CATCH_ALL_LABEL: &str = "More from this book";
-
 /// The label of a chapter or section row.
 pub fn chapter_label(title: &str) -> String {
-    if title == CATCH_ALL_TITLE {
-        return CATCH_ALL_LABEL.to_string();
-    }
+    let title = if title == CATCH_ALL_TITLE {
+        CATCH_ALL_LABEL
+    } else {
+        title
+    };
     crate::views::util::section_label(title)
 }
 
-/// The paths of the rows at the top of Contents. A book whose one remaining chapter is the
-/// catch-all shows that chapter's rows at the top, not a lone `More from this book` heading
-/// over them. Paths are real: they index the whole tree, not the listed rows.
-pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> {
-    let listed: Vec<usize> = (0..chapters.len())
-        .filter(|&i| shows_in_contents(&chapters[i], hide))
-        .collect();
-    if let [only] = listed[..] {
-        let node = &chapters[only];
-        if node.title == CATCH_ALL_TITLE && node.entry.is_none() {
-            return listed_children(node, hide)
-                .into_iter()
-                .map(|child| vec![only, child])
-                .collect();
-        }
-    }
-    listed.into_iter().map(|i| vec![i]).collect()
-}
-
-/// One top-level row of Contents as a chapter page: the permanent id, the real tree path and the
-/// label the reader sees. A book whose only listed chapter is the catch-all shows that chapter's
-/// rows at the top, and each of those rows is a chapter page in the same way.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChapterRow {
-    pub id: String,
-    pub path: Vec<usize>,
-    pub title: String,
-}
-
-/// The chapter pages of a book, in Contents order. The ids follow the corpus anchor or the
-/// printed title, never the row's position (see [`chapter_ids`]).
+/// The chapter pages of a book, in Contents order, with the labels the reader sees.
 pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
-    let roots = contents_roots(&book.chapters, hide);
-    chapter_ids(&book.chapters, roots.iter().map(Vec::as_slice))
+    schema_chapter_rows(book, hide)
         .into_iter()
-        .filter_map(|chapter| {
-            let node = node_at(book, &chapter.path)?;
-            Some(ChapterRow {
-                id: chapter.id,
-                path: chapter.path,
-                title: chapter_label(&node.title),
-            })
+        .map(|row| ChapterRow {
+            title: chapter_label(&row.title),
+            ..row
         })
         .collect()
 }
@@ -408,12 +315,33 @@ pub fn BookView(source: String) -> impl IntoView {
 /// One chapter page: the chapter at full width, its first-level sections as headings and every
 /// deeper level as a plain indented list. Nothing here folds; the page is for reading downward.
 #[component]
-pub fn ChapterView(source: String, chapter: String) -> impl IntoView {
+pub fn ChapterView(
+    source: String,
+    chapter: String,
+    /// A section row to scroll to after the chapter page renders.
+    anchor: Option<String>,
+) -> impl IntoView {
     let library = use_library();
     let lookup = {
         let library = library.clone();
         local_resource(async move { library.books().await })
     };
+    let current = use_route();
+    {
+        // The chapter page arrives after `books.json` loads, so the frame's own anchor scroll
+        // may run before the row exists. Repeat it when the content is on screen.
+        Effect::new(move |_| {
+            let wanted = anchor
+                .clone()
+                .or_else(|| current.with(|route| route.anchor().map(|a| a.into_owned())));
+            let ready = lookup.with(|state| matches!(state, Some(Ok(Some(_)))));
+            if let (true, Some(anchor)) = (ready, wanted) {
+                request_animation_frame(move || {
+                    crate::route::scroll_to_anchor(&anchor);
+                });
+            }
+        });
+    }
     let revision = library.selection_revision();
     let state_library = library.clone();
     let state_source = source.clone();
@@ -478,7 +406,9 @@ pub fn ChapterView(source: String, chapter: String) -> impl IntoView {
                             .into_iter()
                             .filter_map(|index| {
                                 let child = node.children.get(index)?;
-                                Some(chapter_section(child, &source, &hide))
+                                let mut path = row.path.clone();
+                                path.push(index);
+                                Some(chapter_section(child, &source, &hide, &path))
                             })
                             .collect_view();
                         view! {
@@ -506,8 +436,9 @@ pub fn ChapterView(source: String, chapter: String) -> impl IntoView {
 }
 
 /// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.
-fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
+fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
     let title = chapter_label(&node.title);
+    let id = toc_id(path);
     let heading = match entry_link(node, source, hide) {
         Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
         None => view! { {title.clone()} }.into_any(),
@@ -517,16 +448,18 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
         let items = children
             .into_iter()
             .filter_map(|index| {
-                node.children
-                    .get(index)
-                    .map(|child| chapter_list_item(child, source, hide))
+                node.children.get(index).map(|child| {
+                    let mut child_path = path.to_vec();
+                    child_path.push(index);
+                    chapter_list_item(child, source, hide, &child_path)
+                })
             })
             .collect_view();
         view! { <ul class="chapter-list">{items}</ul> }
     });
     view! {
         <section class="chapter-section">
-            <h2>{heading}</h2>
+            <h2 id=id>{heading}</h2>
             {list}
         </section>
     }
@@ -534,8 +467,8 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
 }
 
 /// One deeper node: a label or entry link, with its children in a nested plain list.
-fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
-    fn walk(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
+fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
+    fn walk(node: &BookNode, source: &str, hide: Hide<'_>, path: &mut Vec<usize>) -> AnyView {
         let title = chapter_label(&node.title);
         let label = match entry_link(node, source, hide) {
             Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
@@ -546,16 +479,20 @@ fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>) -> AnyView {
             let items = children
                 .into_iter()
                 .filter_map(|index| {
-                    node.children
-                        .get(index)
-                        .map(|child| walk(child, source, hide))
+                    let child = node.children.get(index)?;
+                    path.push(index);
+                    let item = walk(child, source, hide, path);
+                    path.pop();
+                    Some(item)
                 })
                 .collect_view();
             view! { <ul class="chapter-list">{items}</ul> }
         });
-        view! { <li>{label}{list}</li> }.into_any()
+        let id = toc_id(path);
+        view! { <li id=id>{label}{list}</li> }.into_any()
     }
-    walk(node, source, hide)
+    let mut path = path.to_vec();
+    walk(node, source, hide, &mut path)
 }
 
 /// An entry link for a chapter-page row, with the book context that keeps previous/next on this
@@ -637,6 +574,7 @@ fn TocNode(
         Route::BookChapter {
             source: tree.source.clone(),
             chapter: chapter.id.clone(),
+            anchor: None,
         }
         .href()
     });
@@ -859,6 +797,7 @@ pub fn same_book(previous: &Route, next: &Route) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cast_iron_schema::books::{contents_roots, linked_kind, shows_in_contents};
 
     fn node(title: &str, entry: Option<&str>, children: Vec<BookNode>) -> BookNode {
         BookNode {

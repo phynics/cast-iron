@@ -37,6 +37,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
+pub mod books;
 pub mod headings;
 pub mod validate;
 

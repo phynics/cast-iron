@@ -45,6 +45,7 @@ fn main() {
             section: "Synthetic".into(),
             facets: vec![("level".into(), (rng.next() % 10).to_string())],
             text: text.join(" "),
+            ..DocInput::default()
         });
     }
     let t = Instant::now();

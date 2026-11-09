@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { bodyText, bookOwners, corpusEntry, count, hitTitles, installLibrary, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickOptions, quickSearch, quickSearchFor, searchIcon, showAllResults, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -1289,4 +1289,65 @@ installedTest("Search names hidden matches in an inactive book and includes it i
   await expect(page.locator(`.results a[href^="#/entry/${dragon.id}"]`)).toBeVisible();
   await expect(hint).toHaveCount(0);
   await expect(page.locator(".result-count")).toBeFocused();
+});
+
+installedTest("A book section result opens its chapter page at the section and Back returns", async ({ page }) => {
+  // A rule section that Contents lists on a chapter page of a book that is active by default.
+  const kinds = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  const fixture = bookTrees()
+    .map((book) => {
+      const chapters = listedChapters(book);
+      const ids = chapterIds(book);
+      for (const [chapterIndex, chapter] of chapters.entries()) {
+        for (const [childIndex, child] of (chapter.node.children ?? []).entries()) {
+          if (
+            child.entry &&
+            kinds.get(child.entry) === "rule" &&
+            child.title.length >= 8 &&
+            !child.title.includes("?")
+          ) {
+            return {
+              book,
+              chapter,
+              chapterId: ids[chapterIndex].id,
+              child,
+              childPath: [...chapter.path, childIndex],
+            };
+          }
+        }
+      }
+      return undefined;
+    })
+    .find((row) => row && !thirdParty.has(row.book.source));
+  expect(fixture, "the corpus needs a listed rule section in a default-active book").toBeTruthy();
+
+  await installLibrary(page);
+  const query = fixture!.child.title;
+  const anchor = `toc-${fixture!.childPath.map((index) => index + 1).join("-")}`;
+  await page.goto("#/search");
+  await page.locator("#search-input").fill(query);
+  await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
+  await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
+
+  // The section is its own result, under its own heading, and names its book.
+  const sections = page.getByTestId("book-sections");
+  await expect(sections).toBeVisible();
+  await expect(sections.locator("h2")).toContainText("Book sections");
+  const link = sections.locator("a.hit-link", { hasText: query }).first();
+  await expect(link).toContainText(fixture!.book.title);
+  await expect(link).toHaveAttribute(
+    "href",
+    `#/browse/book/${fixture!.book.source}/${fixture!.chapterId}?a=${anchor}`,
+  );
+
+  await link.click();
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  await expect(page).toHaveURL(
+    new RegExp(`#/browse/book/${escape(fixture!.book.source)}/${escape(fixture!.chapterId)}\\?a=${anchor}`),
+  );
+  await expect(page.locator(`#${anchor}`)).toBeInViewport();
+
+  await page.goBack();
+  await expect(page.locator("#search-input")).toHaveValue(query);
+  await expect(sections).toBeVisible();
 });

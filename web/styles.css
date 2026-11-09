@@ -1481,10 +1481,18 @@ mark {
   margin-left: auto;
 }
 
-.results {
+.results,
+.section-results {
   list-style: none;
   padding: 0;
   margin: 0 0 var(--space-4);
+}
+
+.book-sections h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
 .hit {
