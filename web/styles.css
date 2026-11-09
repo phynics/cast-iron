@@ -2991,9 +2991,10 @@ main,
   margin-bottom: var(--space-4);
 }
 
-/* The book view. */
+/* The book view. The contents list is the query container for its rows. */
 .book .toc {
   max-width: 48rem;
+  container-type: inline-size;
 }
 
 /* The book page. Its meta line sits right under the title; the colophon closes the page. */
@@ -3120,11 +3121,38 @@ main,
   font-weight: 600;
 }
 
-.toc-count {
+/* The count closes the row. `.toc-row > span` would otherwise grow it like a title. */
+.toc-row > .toc-count {
   flex: none;
   font-size: var(--step--1);
   font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
+}
+
+/* The printed-style dotted leader: top-level chapter rows only, decorative, and a plain gap
+   when the contents container is too narrow for one. */
+.toc-leader {
+  display: none;
+}
+
+.toc-top > li > .toc-row .toc-title {
+  flex: 0 1 auto;
+}
+
+.toc-top > li > .toc-row .toc-leader {
+  display: block;
+  flex: 1 1 var(--space-4);
+  min-width: var(--space-3);
+  height: 0;
+  margin-inline: var(--space-2);
+  align-self: center;
+  border-bottom: 1px dotted var(--line);
+}
+
+@container (max-width: 339px) {
+  .toc-top > li > .toc-row .toc-leader {
+    display: none;
+  }
 }
 
 .toc-list .toc-list {

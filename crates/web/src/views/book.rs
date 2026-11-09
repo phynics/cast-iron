@@ -409,16 +409,21 @@ fn TocNode(
                 .collect_view()
         }
     };
+    // The dotted leader is decorative: it is hidden from assistive technology and from the
+    // link name, and CSS shows it on top-level rows only.
+    let leader = || view! { <span class="toc-leader" aria-hidden="true"></span> };
     let row = match own_link {
         Some(href) => view! {
             <a id=id href=href aria-current=move || is_current().then_some("location")>
                 <span class="toc-title">{title}</span>
+                {leader()}
             </a>
         }
         .into_any(),
         None => view! {
             <span id=id aria-current=move || is_current().then_some("location")>
                 <span class="toc-title">{title}</span>
+                {leader()}
             </span>
         }
         .into_any(),
