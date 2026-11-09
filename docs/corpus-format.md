@@ -618,6 +618,19 @@ file and line, when:
   line, and the publication id. This is the licensing gate for adding a book: its
   Section 15 notice, or a recorded pending decision, goes in the same change.
 
+`corpus-check` also **warns**, and still succeeds, when third-party content can escape its
+book:
+
+- a body link in an entry with no third-party source targets an entry whose `source_ids`
+  are all third-party;
+- an entry mixes third-party and Paizo `source_ids`.
+
+The second rule is a heuristic. The corpus has no per-paragraph source attribution. The
+split form is an `addon` or `revision` entry that carries only the third-party source beside
+an unchanged Paizo base. A mixed entry is either a missed split or a shared-printing claim
+that a reviewer must confirm. The warnings stay non-failing while genuine shared printings
+remain; a clean corpus can promote them to errors.
+
 ## Drift between fields and body
 
 Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`

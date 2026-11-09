@@ -80,6 +80,9 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
     {
         fs::write(path, report.drift_report()).map_err(|e| format!("cannot write {path}: {e}"))?;
     }
+    for warning in &report.warnings {
+        eprintln!("warning: {warning}");
+    }
     if !report.problems.is_empty() {
         for problem in &report.problems {
             eprintln!("{problem}");
