@@ -8,7 +8,8 @@
 
 use crate::error::{Error, Result};
 use cast_iron_schema::{
-    AliasIndex, BookIndex, CoverageHistory, Exclusion, LegalNotices, Rejection, SourceInfo,
+    AliasIndex, BookIndex, CoverageHistory, Exclusion, LegalNotices, Rejection, SeriesKind,
+    SourceInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -26,6 +27,19 @@ pub struct Publication {
     pub category: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// The optional series line (#159). The three kinds are `adventure-path`, `module` and
+    /// `society`; `corpus-check` holds the required fields for each.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series_kind: Option<SeriesKind>,
+    /// The Adventure Path name, such as `Rise of the Runelords`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series: Option<String>,
+    /// The Adventure Path volume, such as `1`, or the Society scenario, such as `3-01`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series_number: Option<String>,
+    /// The Pathfinder Society season, such as `3`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub season: Option<u16>,
     /// True when the publication is not published by Paizo. Absent means a Paizo book.
     /// `corpus-check` rejects it beside a copyright line that names Paizo.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -44,6 +58,10 @@ impl Publication {
             copyright: source.copyright.clone(),
             category: source.category.clone(),
             publication_date: source.publication_date.clone(),
+            series_kind: source.series_kind,
+            series: source.series.clone(),
+            series_number: source.series_number.clone(),
+            season: source.season,
             third_party: source.third_party,
             suffix: None,
         }
@@ -57,6 +75,10 @@ impl Publication {
             copyright: self.copyright.clone(),
             category: self.category.clone(),
             publication_date: self.publication_date.clone(),
+            series_kind: self.series_kind,
+            series: self.series.clone(),
+            series_number: self.series_number.clone(),
+            season: self.season,
             third_party: self.third_party,
         }
     }
@@ -285,11 +307,16 @@ mod tests {
             copyright: Some("notice".into()),
             category: Some("RPG".into()),
             publication_date: Some("2009-08-01".into()),
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
         }];
         let text = write_publications(&sources);
         assert!(!text.contains("entry_count"));
         assert!(!text.contains("third_party"), "{text}");
+        assert!(!text.contains("series_kind"), "{text}");
         let read = read_publications(Path::new("publications.toml"), &text).unwrap();
         assert_eq!(read[0].to_source(42), sources[0]);
         assert_eq!(read[0].suffix, None);
@@ -304,6 +331,10 @@ mod tests {
             copyright: Some("Necromancer Games, (c) 2011".into()),
             category: None,
             publication_date: Some("2011-01-01".into()),
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: true,
             suffix: Some("toh".into()),
         };
@@ -327,9 +358,63 @@ mod tests {
                 copyright: Some("Necromancer Games, (c) 2011".into()),
                 category: None,
                 publication_date: Some("2011-01-01".into()),
+                series_kind: None,
+                series: None,
+                series_number: None,
+                season: None,
                 third_party: true,
             }
         );
+    }
+
+    #[test]
+    fn series_fields_round_trip_in_canonical_order_and_stay_optional() {
+        let adventure = Publication {
+            id: "pathfinder-85-fires-of-creation".into(),
+            title: "Pathfinder #85: Fires of Creation".into(),
+            copyright: Some("notice".into()),
+            category: Some("Adventure Path".into()),
+            publication_date: Some("2014-09-10".into()),
+            series_kind: Some(SeriesKind::AdventurePath),
+            series: Some("Iron Gods".into()),
+            series_number: Some("1".into()),
+            season: None,
+            third_party: false,
+            suffix: None,
+        };
+        let text = write_publication_list(std::slice::from_ref(&adventure));
+        let order = |key: &str| {
+            text.find(&format!("{key} = "))
+                .unwrap_or_else(|| panic!("no {key} in {text}"))
+        };
+        assert!(text.contains("series_kind = \"adventure-path\""), "{text}");
+        assert!(order("publication_date") < order("series_kind"), "{text}");
+        assert!(order("series_kind") < order("series"), "{text}");
+        assert!(order("series") < order("series_number"), "{text}");
+
+        let read = read_publications(Path::new("publications.toml"), &text).unwrap();
+        assert_eq!(read, vec![adventure.clone()]);
+        assert_eq!(read[0].to_source(2).series, Some("Iron Gods".into()));
+
+        // A module carries no series name or number.
+        let module = Publication {
+            id: "academy-of-secrets".into(),
+            title: "Academy of Secrets".into(),
+            copyright: Some("notice".into()),
+            category: Some("Module".into()),
+            publication_date: Some("2011-05-01".into()),
+            series_kind: Some(SeriesKind::Module),
+            series: None,
+            series_number: None,
+            season: None,
+            third_party: false,
+            suffix: None,
+        };
+        let text = write_publication_list(std::slice::from_ref(&module));
+        assert!(!text.contains("series ="), "{text}");
+        assert!(!text.contains("season"), "{text}");
+        let read = read_publications(Path::new("publications.toml"), &text).unwrap();
+        assert_eq!(read, vec![module]);
     }
 
     #[test]
@@ -340,6 +425,10 @@ mod tests {
             copyright: Some("notice".into()),
             category: None,
             publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
             suffix: Some("teitr".into()),
         };

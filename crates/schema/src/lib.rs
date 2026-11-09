@@ -1144,6 +1144,21 @@ impl Catalog {
     }
 }
 
+/// The optional grouping a publication belongs to in the corpus series fields (#159).
+///
+/// Only three lines are grouped: an Adventure Path and its issue number, a standalone
+/// Module (ordered by publication date), and a Pathfinder Society season and scenario.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum SeriesKind {
+    /// A volume of a Pathfinder Adventure Path, such as issue 1 of Rise of the Runelords.
+    AdventurePath,
+    /// A standalone Pathfinder Module.
+    Module,
+    /// A Pathfinder Society scenario, identified by its season and number.
+    Society,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceInfo {
     /// Slug, such as `core-rulebook`.
@@ -1165,6 +1180,24 @@ pub struct SourceInfo {
     /// text, so no timestamp or locale parsing is needed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub publication_date: Option<String>,
+    /// The optional series line, from `series_kind` in `publications.toml`.
+    ///
+    /// Optional and additive, like [`Self::category`]. The three kinds are the only ones the
+    /// corpus groups: [`SeriesKind::AdventurePath`], [`SeriesKind::Module`] and
+    /// [`SeriesKind::Society`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series_kind: Option<SeriesKind>,
+    /// The Adventure Path name, such as `Rise of the Runelords`. Present only for
+    /// [`SeriesKind::AdventurePath`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series: Option<String>,
+    /// The issue within the series: the Adventure Path volume, such as `1`, or the Society
+    /// scenario, such as `3-01`. Absent for a Module, which is ordered by publication date.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub series_number: Option<String>,
+    /// The Pathfinder Society season, such as `3`. Present only for [`SeriesKind::Society`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub season: Option<u16>,
     /// True when the publication is not published by Paizo, from the corpus
     /// `third_party` marker in `publications.toml`.
     ///
@@ -1622,6 +1655,10 @@ mod tests {
         let catalog: Catalog = serde_json::from_str(old).unwrap();
         assert_eq!(catalog.sources[0].category, None);
         assert_eq!(catalog.sources[0].publication_date, None);
+        assert_eq!(catalog.sources[0].series_kind, None);
+        assert_eq!(catalog.sources[0].series, None);
+        assert_eq!(catalog.sources[0].series_number, None);
+        assert_eq!(catalog.sources[0].season, None);
         assert!(
             !catalog.sources[0].third_party,
             "an absent marker means a Paizo book"
@@ -1646,11 +1683,18 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
         };
         let json = serde_json::to_string(&empty).unwrap();
         assert!(!json.contains("category"));
         assert!(!json.contains("publication_date"));
+        assert!(!json.contains("series_kind"), "{json}");
+        assert!(!json.contains("series_number"), "{json}");
+        assert!(!json.contains("season"), "{json}");
         assert!(!json.contains("\"third_party\""), "{json}");
         let parsed: SourceInfo = serde_json::from_str(&json).unwrap();
         assert!(!parsed.third_party);
@@ -1661,7 +1705,7 @@ mod tests {
             category: Some("RPG".into()),
             publication_date: Some("2011-01-01".into()),
             third_party: true,
-            ..empty
+            ..empty.clone()
         };
         let json = serde_json::to_string(&marked).unwrap();
         assert!(json.contains(r#""third_party":true"#), "{json}");
@@ -1672,6 +1716,39 @@ mod tests {
         assert!(order("publication_date") < order("third_party"), "{json}");
         let read: SourceInfo = serde_json::from_str(&json).unwrap();
         assert_eq!(read, marked);
+
+        // The series fields are additive and keep their documented order after the reviewed
+        // metadata.
+        let series = SourceInfo {
+            category: Some("Adventure Path".into()),
+            publication_date: Some("2014-09-10".into()),
+            series_kind: Some(SeriesKind::AdventurePath),
+            series: Some("Iron Gods".into()),
+            series_number: Some("1".into()),
+            ..empty.clone()
+        };
+        let json = serde_json::to_string(&series).unwrap();
+        assert!(json.contains(r#""series_kind":"adventure-path""#), "{json}");
+        let order = |key: &str| {
+            json.find(&format!("\"{key}\""))
+                .unwrap_or_else(|| panic!("no {key} in {json}"))
+        };
+        assert!(order("publication_date") < order("series_kind"), "{json}");
+        assert!(order("series_kind") < order("series"), "{json}");
+        assert!(order("series") < order("series_number"), "{json}");
+        let read: SourceInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(read, series);
+
+        // A society source carries the season beside its scenario number.
+        let society = SourceInfo {
+            series_kind: Some(SeriesKind::Society),
+            series_number: Some("3-01".into()),
+            season: Some(3),
+            ..empty
+        };
+        let json = serde_json::to_string(&society).unwrap();
+        assert!(json.contains(r#""season":3"#), "{json}");
+        assert_eq!(serde_json::from_str::<SourceInfo>(&json).unwrap(), society);
     }
 
     #[test]

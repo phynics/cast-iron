@@ -2102,6 +2102,10 @@ mod tests {
             copyright: None,
             category: None,
             publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
         }
     }
@@ -2347,6 +2351,10 @@ mod tests {
                 // The marker wins over a Paizo category.
                 category: Some("RPG".into()),
                 publication_date: None,
+                series_kind: None,
+                series: None,
+                series_number: None,
+                season: None,
                 third_party: true,
             },
         ];

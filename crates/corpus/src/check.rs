@@ -377,6 +377,106 @@ fn check_publication_notices(corpus: &Corpus, report: &mut Report) {
     }
 }
 
+/// The optional series fields (#159): one of three kinds, and the fields each kind needs.
+///
+/// Adventure Paths carry the path name and the volume within it. Modules are ordered by
+/// publication date and carry no series fields. Society scenarios carry a season and, when it
+/// is present, a scenario number of the form `<season>-NN`. Fields outside `series_kind` are
+/// rejected so a row cannot half-join a grouping.
+fn check_publication_series(corpus: &Corpus, report: &mut Report) {
+    let text = std::fs::read_to_string(corpus.dir.join("publications.toml")).unwrap_or_default();
+    for publication in &corpus.publications {
+        let at = format!(
+            "publications.toml:{}",
+            line_of(&text, &format!("id = \"{}\"", publication.id))
+        );
+        let series = publication.series.as_deref().map(str::trim).unwrap_or("");
+        let number = publication
+            .series_number
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or("");
+        let Some(kind) = publication.series_kind else {
+            if !series.is_empty() || !number.is_empty() || publication.season.is_some() {
+                report.problems.push(format!(
+                    "{at}: publication `{}` has series fields but no `series_kind`",
+                    publication.id
+                ));
+            }
+            continue;
+        };
+        match kind {
+            cast_iron_schema::SeriesKind::AdventurePath => {
+                if series.is_empty() {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"adventure-path\"` but has no `series`",
+                        publication.id
+                    ));
+                }
+                if number.is_empty() {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"adventure-path\"` but has no `series_number`",
+                        publication.id
+                    ));
+                } else if number.parse::<u32>().map_or(true, |volume| volume == 0) {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` has `series_number = {number:?}`, which is not a positive Adventure Path volume",
+                        publication.id
+                    ));
+                }
+                if publication.season.is_some() {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"adventure-path\"` but carries `season`",
+                        publication.id
+                    ));
+                }
+            }
+            cast_iron_schema::SeriesKind::Module => {
+                if !series.is_empty() || !number.is_empty() || publication.season.is_some() {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"module\"` but carries `series`, `series_number` or `season`; modules are ordered by publication_date",
+                        publication.id
+                    ));
+                }
+            }
+            cast_iron_schema::SeriesKind::Society => {
+                match publication.season {
+                    None => report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"society\"` but has no `season`",
+                        publication.id
+                    )),
+                    Some(0) => report.problems.push(format!(
+                        "{at}: publication `{}` has `season = 0`, which is not a Pathfinder Society season",
+                        publication.id
+                    )),
+                    Some(_) => {}
+                }
+                if !series.is_empty() {
+                    report.problems.push(format!(
+                        "{at}: publication `{}` is `series_kind = \"society\"` but carries `series`; a season names the grouping",
+                        publication.id
+                    ));
+                }
+                if !number.is_empty() {
+                    let matches = publication.season.is_some_and(|season| {
+                        number
+                            .strip_prefix(&format!("{season}-"))
+                            .is_some_and(|rest| {
+                                rest.len() == 2 && rest.bytes().all(|b| b.is_ascii_digit())
+                            })
+                    });
+                    if !matches {
+                        report.problems.push(format!(
+                            "{at}: publication `{}` has `series_number = {number:?}`, which is not `<season>-NN` for its season",
+                            publication.id
+                        ));
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Runs every cross-file check.
 pub fn check(corpus: &Corpus) -> Report {
     let mut report = Report::default();
@@ -402,6 +502,7 @@ pub fn check(corpus: &Corpus) -> Report {
         .collect();
 
     check_publication_notices(corpus, &mut report);
+    check_publication_series(corpus, &mut report);
 
     for (id, stored) in &corpus.entries {
         let entry = &stored.entry;
@@ -1128,7 +1229,7 @@ mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
     use cast_iron_schema::{
-        BookIndex, BookNode, BookTree, CreatureFields, EntryId, FeatFields, Inline,
+        BookIndex, BookNode, BookTree, CreatureFields, EntryId, FeatFields, Inline, SeriesKind,
     };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
@@ -1214,6 +1315,70 @@ mod tests {
         c.publications[0].copyright = Some("Necromancer Games, (c) 2011".into());
         c.legal.section_15[0].notice = "Necromancer Games, (c) 2011".into();
         assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+    }
+
+    #[test]
+    fn a_series_row_needs_the_fields_of_its_kind() {
+        // An Adventure Path needs a name and a positive volume, and no season.
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::AdventurePath);
+        let text = check(&c).problems.join("\n");
+        assert!(text.contains("has no `series`"), "{text}");
+        assert!(text.contains("has no `series_number`"), "{text}");
+
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::AdventurePath);
+        c.publications[0].series = Some("Iron Gods".into());
+        c.publications[0].series_number = Some("0".into());
+        c.publications[0].season = Some(3);
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("not a positive Adventure Path volume"),
+            "{text}"
+        );
+        assert!(text.contains("carries `season`"), "{text}");
+
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::AdventurePath);
+        c.publications[0].series = Some("Iron Gods".into());
+        c.publications[0].series_number = Some("1".into());
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+
+        // A Module is ordered by date and carries no series fields.
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::Module);
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+        c.publications[0].series = Some("Module".into());
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("modules are ordered by publication_date"),
+            "{text}"
+        );
+
+        // Society needs a season; a scenario number must match it.
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::Society);
+        let text = check(&c).problems.join("\n");
+        assert!(text.contains("has no `season`"), "{text}");
+
+        let mut c = corpus(vec![]);
+        c.publications[0].series_kind = Some(SeriesKind::Society);
+        c.publications[0].season = Some(3);
+        c.publications[0].series_number = Some("3-01".into());
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+
+        c.publications[0].series_number = Some("2-01".into());
+        let text = check(&c).problems.join("\n");
+        assert!(text.contains("not `<season>-NN`"), "{text}");
+
+        // Series fields without a kind cannot half-join a grouping.
+        let mut c = corpus(vec![]);
+        c.publications[0].series = Some("Rise of the Runelords".into());
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("series fields but no `series_kind`"),
+            "{text}"
+        );
     }
 
     #[test]
@@ -1489,6 +1654,10 @@ mod tests {
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
             third_party: false,
             suffix: suffix.map(str::to_string),
         });
