@@ -1,8 +1,8 @@
 //! Reachability without the catch-all book chapter.
 //!
 //! The corpus trees put entries that no curated chapter claims into one final chapter,
-//! `New entries (page order)`. The app will stop showing that chapter. This report finds every
-//! installed entry that would then have no way in.
+//! `New entries (page order)`. The app does not show that chapter, so `cargo xtask content`
+//! fails when an entry would then have no way in.
 //!
 //! An entry is reachable when at least one of these holds:
 //!
@@ -397,6 +397,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind,
             title: id.into(),
+            aon: None,
             source_ids: vec!["book".into()],
             sources: vec![],
             section: vec![],
@@ -444,6 +445,8 @@ mod tests {
             entry: entry.map(|id| EntryId::parse(id).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children: vec![],
         }
     }

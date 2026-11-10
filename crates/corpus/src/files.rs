@@ -49,6 +49,10 @@ pub struct Publication {
     /// such as `teitr`. Optional; a publication without one can still hold entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub suffix: Option<String>,
+    /// The Archives of Nethys source page, as a path relative to `https://aonprd.com/`,
+    /// such as `SourceDisplay.aspx?FixedSource=Core%20Rulebook`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aon: Option<String>,
 }
 
 impl Publication {
@@ -65,6 +69,7 @@ impl Publication {
             season: source.season,
             third_party: source.third_party,
             suffix: None,
+            aon: source.aon.clone(),
         }
     }
 
@@ -81,6 +86,7 @@ impl Publication {
             series_number: self.series_number.clone(),
             season: self.season,
             third_party: self.third_party,
+            aon: self.aon.clone(),
         }
     }
 }
@@ -304,6 +310,7 @@ mod tests {
         let sources = vec![SourceInfo {
             id: "core-rulebook".into(),
             title: "Core Rulebook".into(),
+            aon: None,
             entry_count: 42,
             copyright: Some("notice".into()),
             category: Some("RPG".into()),
@@ -329,6 +336,7 @@ mod tests {
         let publication = Publication {
             id: "tome-of-horrors".into(),
             title: "Tome of Horrors".into(),
+            aon: None,
             copyright: Some("Necromancer Games, (c) 2011".into()),
             category: None,
             publication_date: Some("2011-01-01".into()),
@@ -355,6 +363,7 @@ mod tests {
             SourceInfo {
                 id: "tome-of-horrors".into(),
                 title: "Tome of Horrors".into(),
+                aon: None,
                 entry_count: 0,
                 copyright: Some("Necromancer Games, (c) 2011".into()),
                 category: None,
@@ -369,10 +378,47 @@ mod tests {
     }
 
     #[test]
+    fn aon_round_trips_and_is_optional() {
+        let publication = Publication {
+            id: "core-rulebook".into(),
+            title: "Core Rulebook".into(),
+            aon: Some("SourceDisplay.aspx?FixedSource=Core%20Rulebook".into()),
+            copyright: Some("notice".into()),
+            category: None,
+            publication_date: None,
+            series_kind: None,
+            series: None,
+            series_number: None,
+            season: None,
+            third_party: false,
+            suffix: None,
+        };
+        let text = write_publication_list(std::slice::from_ref(&publication));
+        assert!(
+            text.contains("aon = \"SourceDisplay.aspx?FixedSource=Core%20Rulebook\""),
+            "{text}"
+        );
+        let read = read_publications(Path::new("publications.toml"), &text).unwrap();
+        assert_eq!(read, vec![publication]);
+        assert_eq!(
+            read[0].to_source(0).aon.as_deref(),
+            Some("SourceDisplay.aspx?FixedSource=Core%20Rulebook")
+        );
+
+        let without = Publication {
+            aon: None,
+            ..read[0].clone()
+        };
+        let text = write_publication_list(std::slice::from_ref(&without));
+        assert!(!text.contains("aon ="), "{text}");
+    }
+
+    #[test]
     fn series_fields_round_trip_in_canonical_order_and_stay_optional() {
         let adventure = Publication {
             id: "pathfinder-85-fires-of-creation".into(),
             title: "Pathfinder #85: Fires of Creation".into(),
+            aon: None,
             copyright: Some("notice".into()),
             category: Some("Adventure Path".into()),
             publication_date: Some("2014-09-10".into()),
@@ -401,6 +447,7 @@ mod tests {
         let module = Publication {
             id: "academy-of-secrets".into(),
             title: "Academy of Secrets".into(),
+            aon: None,
             copyright: Some("notice".into()),
             category: Some("Module".into()),
             publication_date: Some("2011-05-01".into()),
@@ -423,6 +470,7 @@ mod tests {
         let publication = Publication {
             id: "eitr".into(),
             title: "The Elephant in the Room".into(),
+            aon: None,
             copyright: Some("notice".into()),
             category: None,
             publication_date: None,
@@ -494,17 +542,22 @@ mod tests {
                     entry: None,
                     anchor: None,
                     review: None,
+                    collapse: true,
+                    lists_children: false,
                     children: vec![BookNode {
                         title: "Actions".into(),
                         entry: Some(cast_iron_schema::EntryId::parse("ref/rule/actions").unwrap()),
                         anchor: Some("act".into()),
                         review: None,
+                        collapse: false,
+                        lists_children: false,
                         children: vec![],
                     }],
                 }],
             }],
         };
         let text = write_books(&books);
+        assert!(text.contains("collapse = true"), "{text}");
         assert_eq!(read_books(Path::new("books.toml"), &text).unwrap(), books);
     }
 

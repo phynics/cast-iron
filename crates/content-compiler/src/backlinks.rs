@@ -110,6 +110,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind: EntryKind::Rule,
             title: id.into(),
+            aon: None,
             source_ids: vec!["s".into()],
             sources: vec![],
             section: vec![],

@@ -92,6 +92,11 @@ pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
     out.push_str("title = ");
     out.push_str(&tomlutil::string(&entry.title));
     out.push('\n');
+    if let Some(aon) = &entry.aon {
+        out.push_str("aon = ");
+        out.push_str(&tomlutil::string(aon));
+        out.push('\n');
+    }
     write_string_array(&mut out, "source_ids", &entry.source_ids);
     write_string_array(&mut out, "section", &entry.section);
     if let Some(parent) = &entry.parent {
@@ -369,6 +374,8 @@ struct RawFront {
     kind: String,
     title: String,
     #[serde(default)]
+    aon: Option<String>,
+    #[serde(default)]
     source_ids: Vec<String>,
     #[serde(default)]
     section: Vec<String>,
@@ -481,6 +488,7 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         id,
         kind,
         title: raw.title,
+        aon: raw.aon,
         source_ids: raw.source_ids,
         sources,
         section: raw.section,
@@ -895,6 +903,7 @@ mod tests {
             id: EntryId::parse("ref/spell/fog-cloud").unwrap(),
             kind: EntryKind::Spell,
             title: "Fog Cloud".into(),
+            aon: None,
             source_ids: vec!["core-rulebook".into()],
             sources: vec![Citation {
                 publication: "core-rulebook".into(),
@@ -1475,5 +1484,23 @@ mod tests {
         entry.provenance.clear();
         let text = round_trip_with(&entry, &Config::default());
         assert!(!text.contains("provenance"), "{text}");
+    }
+
+    #[test]
+    fn aon_is_optional_and_round_trips() {
+        let mut entry = entry();
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(!text.contains("aon"), "{text}");
+
+        entry.aon = Some("SpellDisplay.aspx?ItemName=Fog%20Cloud".into());
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(
+            text.contains("aon = \"SpellDisplay.aspx?ItemName=Fog%20Cloud\""),
+            "{text}"
+        );
+        // The key sits with the identity fields, before the source list.
+        let aon = text.find("aon = ").unwrap();
+        let sources = text.find("[[sources]]").unwrap();
+        assert!(aon < sources, "{text}");
     }
 }

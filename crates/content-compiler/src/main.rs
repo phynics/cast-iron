@@ -127,9 +127,10 @@ fn main() -> ExitCode {
             for (k, n) in &o.stripped {
                 println!("  {k}: {n}");
             }
+            let mut failed = false;
             if o.reachability.unreachable > 0 {
                 eprintln!(
-                    "warning: {} distinct entries of {} are unreachable without the catch-all chapter `{}` ({} catch-all placements); see reachability.json",
+                    "error: {} distinct entries of {} are unreachable without the catch-all chapter `{}` ({} catch-all placements); see reachability.json",
                     o.reachability.unreachable,
                     o.reachability.entries,
                     o.reachability.catch_all_title,
@@ -152,6 +153,7 @@ fn main() -> ExitCode {
                         o.reachability.unplaced
                     );
                 }
+                failed = true;
             }
             for problem in &o.reachability.search.problems {
                 eprintln!(
@@ -159,7 +161,11 @@ fn main() -> ExitCode {
                     problem.id, problem.title, problem.reason
                 );
             }
-            ExitCode::SUCCESS
+            if failed {
+                ExitCode::FAILURE
+            } else {
+                ExitCode::SUCCESS
+            }
         }
         Err(failure) => {
             for line in failure.lines {

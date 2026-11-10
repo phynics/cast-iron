@@ -739,6 +739,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind,
             title: id.into(),
+            aon: None,
             source_ids: vec!["s".into()],
             sources: vec![],
             section: vec![],

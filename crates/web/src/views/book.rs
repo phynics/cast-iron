@@ -6,6 +6,12 @@
 //! (see `cast_iron_schema::books::LEAVE_OUT_LINKED_KINDS`); the page keeps every chapter's real
 //! path, so a chapter link,
 //! `c=3.2` in the address and the trail above an entry all mean what they meant.
+//!
+//! A corpus-marked node collapses to one row at any level. Otherwise a node below chapter level
+//! that is itself an entry collapses when its own page lists every entry below it
+//! (`BookNode::lists_children`, computed by the compiler). An unmarked top-level chapter keeps
+//! its chapter page. Reading order does not change: previous and next still visit every child in
+//! book order.
 
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
@@ -15,8 +21,8 @@ use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
-    CATCH_ALL_LABEL, CATCH_ALL_TITLE, ChapterRow, Hide, chapter_rows as schema_chapter_rows,
-    hidden_from_contents, listed_children, listed_under,
+    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, is_catch_all,
+    listed_children, listed_under,
 };
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
@@ -57,22 +63,26 @@ fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
     }
 }
 
-/// The label of a chapter or section row.
-pub fn chapter_label(title: &str) -> String {
-    let title = if title == CATCH_ALL_TITLE {
-        CATCH_ALL_LABEL
-    } else {
-        title
-    };
-    crate::views::util::section_label(title)
+/// True when Contents shows this node as one row and hides its children.
+///
+/// The corpus marker wins at every level, including a top-level chapter. Without it, a top-level
+/// chapter keeps its chapter page and printed sections. Below chapter level the automatic rule
+/// still applies: the node is itself an entry and its page lists every entry below it
+/// (`BookNode::lists_children`, recorded by the compiler). A hidden entry cannot be the row's
+/// link, so an unmarked hub keeps the branch for whatever its children still show.
+pub fn node_collapses(node: &BookNode, hide: Hide<'_>, is_chapter: bool) -> bool {
+    node.collapse
+        || (!is_chapter
+            && node.lists_children
+            && node.entry.as_ref().is_some_and(|entry| !hide(entry)))
 }
 
-/// The chapter pages of a book, in Contents order, with the labels the reader sees.
+/// The chapter pages of a book, in Contents order.
 pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
     schema_chapter_rows(book, hide)
         .into_iter()
         .map(|row| ChapterRow {
-            title: chapter_label(&row.title),
+            title: crate::views::util::section_label(&row.title),
             ..row
         })
         .collect()
@@ -91,6 +101,10 @@ pub struct ReadingStop {
 /// Contents leaves it out.
 pub fn reading_order(book: &BookTree, hide: Hide<'_>) -> Vec<ReadingStop> {
     fn walk(node: &BookNode, path: &mut Vec<usize>, hide: Hide<'_>, out: &mut Vec<ReadingStop>) {
+        // The catch-all chapter is not shown, so it is not in the reading order either.
+        if is_catch_all(node) {
+            return;
+        }
         if let Some(entry) = &node.entry
             && !hide(entry)
         {
@@ -259,7 +273,8 @@ pub fn BookView(source: String) -> impl IntoView {
         }
         kinds_in_book(&counts)
     };
-    let kind_links = (!kind_counts.is_empty()).then(|| {
+    let has_kind_links = !kind_counts.is_empty();
+    let kind_links = has_kind_links.then(|| {
         let rows = kind_counts
             .iter()
             .map(|&(kind, n)| {
@@ -332,7 +347,7 @@ pub fn BookView(source: String) -> impl IntoView {
                         }.into_any(),
                         Some(Ok(Some(books))) => match books.books().iter().position(|b| b.source == source) {
                             Some(index) => view! {
-                                <Contents lookup=Shared::from_rc(books.clone()) library book=index target />
+                                <Contents lookup=Shared::from_rc(books.clone()) library book=index target has_kind_links />
                             }.into_any(),
                             None => view! {
                                 <p class="notice">"This library has no chapter order for this book."</p>
@@ -350,7 +365,8 @@ pub fn BookView(source: String) -> impl IntoView {
 }
 
 /// One chapter page: the chapter at full width, its first-level sections as headings and every
-/// deeper level as a plain indented list. Nothing here folds; the page is for reading downward.
+/// deeper level as a plain indented list. Nothing here folds, except that a section whose own
+/// page lists its children shows only its link; the page is for reading downward.
 #[component]
 pub fn ChapterView(
     source: String,
@@ -474,14 +490,14 @@ pub fn ChapterView(
 
 /// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.
 fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
-    let title = chapter_label(&node.title);
+    let title = crate::views::util::section_label(&node.title);
     let id = toc_id(path);
     let heading = match entry_link(node, source, hide) {
         Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
         None => view! { {title.clone()} }.into_any(),
     };
     let children = listed_children(node, hide);
-    let list = (!children.is_empty()).then(|| {
+    let list = (!node_collapses(node, hide, false) && !children.is_empty()).then(|| {
         let items = children
             .into_iter()
             .filter_map(|index| {
@@ -506,13 +522,13 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
 /// One deeper node: a label or entry link, with its children in a nested plain list.
 fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
     fn walk(node: &BookNode, source: &str, hide: Hide<'_>, path: &mut Vec<usize>) -> AnyView {
-        let title = chapter_label(&node.title);
+        let title = crate::views::util::section_label(&node.title);
         let label = match entry_link(node, source, hide) {
             Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
             None => view! { <span>{title.clone()}</span> }.into_any(),
         };
         let children = listed_children(node, hide);
-        let list = (!children.is_empty()).then(|| {
+        let list = (!node_collapses(node, hide, false) && !children.is_empty()).then(|| {
             let items = children
                 .into_iter()
                 .filter_map(|index| {
@@ -553,6 +569,9 @@ fn Contents(
     library: Library,
     book: usize,
     target: RwSignal<Option<Vec<usize>>>,
+    /// Whether `In this book` has a list-page link to offer. A book with no chapters and no
+    /// links has nothing to show, and says so.
+    has_kind_links: bool,
 ) -> impl IntoView {
     let Some(tree) = lookup.book_at(book) else {
         return ().into_any();
@@ -568,7 +587,7 @@ fn Contents(
     if chapters.is_empty() {
         return view! {
             {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
-            <p class="muted">"This book has no rules chapters to show. Find its entries in In this book above."</p>
+            {(!has_kind_links).then(|| view! { <p class="muted">"This book has no entries to show."</p> })}
         }
         .into_any();
     }
@@ -587,8 +606,10 @@ fn Contents(
     .into_any()
 }
 
-/// One row of the contents. Every chapter and section is expanded: a nested list carries its
-/// children, so the reader sees the whole book at once and no row is a disclosure.
+/// One row of the contents. Every branch is expanded: a nested list carries its children, so the
+/// reader sees the whole book at once and no row is a disclosure. A marked node and a nested hub
+/// whose own page lists its children are the exceptions: they keep the title and count and add no
+/// nested list. An unmarked top-level chapter is never collapsed; it opens its chapter page.
 #[component]
 fn TocNode(
     lookup: Shared<BookLookup>,
@@ -605,7 +626,7 @@ fn TocNode(
     let Some(node) = node_at(tree, &path) else {
         return ().into_any();
     };
-    let title = chapter_label(&node.title);
+    let title = crate::views::util::section_label(&node.title);
     let id = toc_id(&path);
     let chapter_link = chapter.as_ref().map(|chapter| {
         Route::BookChapter {
@@ -628,7 +649,8 @@ fn TocNode(
         move || target.with(|t| t.as_deref() == Some(path.as_slice()))
     };
 
-    if listed.is_empty() {
+    let collapsed = node_collapses(node, &hide, chapter.is_some());
+    if listed.is_empty() && !collapsed {
         let link = chapter_link.clone().or_else(|| {
             lookup.target_of(tree, &path).map(|(entry, anchor)| {
                 Route::Entry {
@@ -652,21 +674,27 @@ fn TocNode(
     }
 
     // A top-level row opens its chapter page. A nested chapter that is itself an entry links to
-    // that entry; a bare heading is a plain row.
-    let own_link = chapter_link.clone().or_else(|| {
-        node.entry
-            .as_ref()
-            .filter(|entry| !hide(entry))
-            .map(|entry| {
-                Route::Entry {
-                    id: entry.clone(),
-                    anchor: node.anchor.clone(),
-                    book: Some(tree.source.clone()),
-                }
-                .href()
-            })
-    });
-    let children = {
+    // that entry; a bare heading is a plain row. A collapsed row opens its hub entry when it has
+    // one; a marked heading without an entry keeps its chapter page. The automatic below-chapter
+    // rule means the entry page already carries the list, so the chapter page would repeat it.
+    let entry_link = node
+        .entry
+        .as_ref()
+        .filter(|entry| !hide(entry))
+        .map(|entry| {
+            Route::Entry {
+                id: entry.clone(),
+                anchor: node.anchor.clone(),
+                book: Some(tree.source.clone()),
+            }
+            .href()
+        });
+    let own_link = if collapsed {
+        entry_link.or(chapter_link.clone())
+    } else {
+        chapter_link.clone().or(entry_link)
+    };
+    let children = (!collapsed).then(|| {
         let lookup = lookup.clone();
         let library = library.clone();
         move || {
@@ -681,7 +709,7 @@ fn TocNode(
                 })
                 .collect_view()
         }
-    };
+    });
     // The dotted leader is decorative: it is hidden from assistive technology and from the
     // link name, and CSS shows it on top-level rows only.
     let leader = || view! { <span class="toc-leader" aria-hidden="true"></span> };
@@ -701,13 +729,18 @@ fn TocNode(
         }
         .into_any(),
     };
+    let class = if collapsed {
+        "toc-branch toc-hub"
+    } else {
+        "toc-branch"
+    };
     view! {
-        <li class="toc-branch">
+        <li class=class>
             <div class="toc-row">
                 {row}
                 <span class="toc-count" aria-label=fmt::pluralize(under, "entry", "entries")>{fmt::count(under)}</span>
             </div>
-            <ol class="toc-list">{children}</ol>
+            {children.map(|children| view! { <ol class="toc-list">{children}</ol> })}
         </li>
     }
     .into_any()
@@ -779,7 +812,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                         chapter: Some(path),
                     }
                     .href();
-                    crumbs.push(view! { <li><a href=href>{chapter_label(&node.title)}</a></li> }.into_any());
+                    crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&node.title)}</a></li> }.into_any());
                 }
             }
             let (before, after) = reading_neighbors(book, &hide, &id);
@@ -842,6 +875,8 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children,
         }
     }
@@ -954,13 +989,11 @@ mod tests {
     }
 
     #[test]
-    fn the_catch_all_is_renamed_and_a_lone_one_shows_its_rows_at_the_top() {
+    fn the_catch_all_is_never_listed_and_never_becomes_the_top_level() {
         assert_eq!(
-            chapter_label("New entries (page order)"),
-            "More from this book"
+            crate::views::util::section_label("Actions In Combat"),
+            "Actions in Combat"
         );
-        assert_eq!(chapter_label("Page order"), "Page order");
-        assert_eq!(chapter_label("Actions In Combat"), "Actions in Combat");
 
         let catch_all = node(
             "New entries (page order)",
@@ -971,23 +1004,44 @@ mod tests {
                 node("Rules", Some("ref/rule/rules"), vec![]),
             ],
         );
-        let spells = node(
-            "Spells",
+        let combat = node(
+            "Combat",
             None,
-            vec![node("Alarm", Some("ref/spell/alarm"), vec![])],
+            vec![node("Alarm", Some("ref/rule/alarm"), vec![])],
         );
-        // Races and spells have list pages, so only the catch-all chapter remains. Alone, its
-        // one remaining row is the top level and keeps its path in the whole tree.
+        // Races and spells have list pages, so their chapters are left out; the catch-all is
+        // left out too, and its rows never move to the top level.
         let books = vec![
             node("Races", Some("ref/race/human"), vec![]),
-            spells.clone(),
+            node(
+                "Spells",
+                None,
+                vec![node("Fireball", Some("ref/spell/fireball"), vec![])],
+            ),
+            combat.clone(),
             catch_all.clone(),
         ];
-        assert_eq!(contents_roots(&books, &hide), vec![vec![2, 2]]);
-        let alone = vec![spells, catch_all];
-        assert_eq!(contents_roots(&alone, &hide), vec![vec![1, 2]]);
-        // Nothing left to list.
-        assert!(contents_roots(&alone[..1], &hide).is_empty());
+        assert_eq!(contents_roots(&books, &hide), vec![vec![2]]);
+        let alone = vec![combat, catch_all];
+        assert_eq!(contents_roots(&alone, &hide), vec![vec![0]]);
+        assert!(contents_roots(&alone[1..], &hide).is_empty());
+        // Reading order and chapter pages leave it out too.
+        let tree = BookTree {
+            source: "core".into(),
+            title: "Core".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: alone,
+        };
+        assert_eq!(
+            reading_order(&tree, &hide),
+            vec![ReadingStop {
+                entry: EntryId::parse("ref/rule/alarm").unwrap(),
+                title: "Alarm".into(),
+                path: vec![0, 0],
+            }]
+        );
+        assert_eq!(chapter_rows(&tree, &hide).len(), 1);
     }
 
     #[test]
@@ -1006,6 +1060,8 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children,
         };
         let tree = vec![
@@ -1078,6 +1134,65 @@ mod tests {
         );
         // The row's path is the real tree path, so a chapter that is an entry still opens.
         assert_eq!(rows[1].path, vec![1]);
+    }
+
+    #[test]
+    fn a_hub_collapses_below_chapter_level_only_with_a_visible_entry() {
+        let mut hub = node(
+            "Combat",
+            Some("core/rule/combat"),
+            vec![node("Actions", Some("core/rule/actions"), vec![])],
+        );
+        assert!(!node_collapses(&hub, &hide, false));
+        hub.lists_children = true;
+        assert!(node_collapses(&hub, &hide, false));
+        // A top-level chapter keeps its chapter page even when its entry lists the children.
+        assert!(!node_collapses(&hub, &hide, true));
+        // A hidden hub entry has no row link, so the branch stays.
+        let only_combat = |id: &EntryId| id.as_str() == "core/rule/combat";
+        assert!(!node_collapses(&hub, &only_combat, false));
+        // A heading without an entry never collapses by the automatic rule.
+        hub.entry = None;
+        assert!(!node_collapses(&hub, &hide, false));
+    }
+
+    #[test]
+    fn a_marked_node_collapses_at_every_level_even_without_an_entry() {
+        let mut marked = node(
+            "Long list",
+            Some("core/rule/long-list"),
+            vec![node("Child", Some("core/rule/child"), vec![])],
+        );
+        marked.collapse = true;
+        assert!(node_collapses(&marked, &hide, false));
+        assert!(node_collapses(&marked, &hide, true));
+        // The marker does not need the automatic body-link flag.
+        let mut heading = node("Appendix", None, vec![]);
+        heading.collapse = true;
+        assert!(node_collapses(&heading, &hide, true));
+        // A hidden entry still collapses a marked node; the row keeps its chapter link.
+        let hidden = |id: &EntryId| id.as_str() == "core/rule/long-list";
+        assert!(node_collapses(&marked, &hidden, true));
+    }
+
+    #[test]
+    fn a_collapsed_hub_still_reads_through_its_children() {
+        let mut tree = chapter_tree();
+        tree.chapters[0].lists_children = true;
+        let stops = reading_order(&tree, &hide);
+        let order: Vec<&str> = stops.iter().map(|stop| stop.entry.as_str()).collect();
+        assert_eq!(
+            order,
+            [
+                "core/rule/combat",
+                "core/rule/actions",
+                "core/rule/partial-cover",
+                "core/rule/magic"
+            ]
+        );
+        let id = |s: &str| EntryId::parse(s).unwrap();
+        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/combat"));
+        assert_eq!(after.unwrap().entry, id("core/rule/actions"));
     }
 
     #[test]

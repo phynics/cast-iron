@@ -2349,6 +2349,7 @@ mod tests {
         SourceInfo {
             id: id.into(),
             title: title.into(),
+            aon: None,
             entry_count: 0,
             copyright: None,
             category: None,
@@ -2684,6 +2685,7 @@ mod tests {
             SourceInfo {
                 id: "indie".into(),
                 title: "Indie".into(),
+                aon: None,
                 entry_count: 0,
                 copyright: None,
                 // The marker wins over a Paizo category.

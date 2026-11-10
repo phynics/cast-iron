@@ -47,6 +47,7 @@ the default in `corpus.toml`, and `relations` never holds a prerequisite that
 id = "ref/spell/fog-cloud"
 kind = "spell"
 title = "Fog Cloud"
+aon = "SpellDisplay.aspx?ItemName=Fog%20Cloud"
 source_ids = ["core-rulebook", "mythic-adventures", "potions-and-poisons"]
 section = ["Spells", "Spell Descriptions"]
 parent = "ref/spell"
@@ -93,6 +94,7 @@ class level and the full body below.
 | `id` | string | Permanent `ref/` id. Required. |
 | `kind` | string | `EntryKind` slug: `rule`, `spell`, `feat`, `creature`, `item`, `class`, `prestige_class`, `race`, `skill`, `affliction`, `trap`, `trait`, `racial_trait`, `archetype`, `class_option`. Required. |
 | `title` | string | Display title. Required. |
+| `aon` | string | Optional Archives of Nethys page, as a path relative to `https://aonprd.com/`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`. It names a `*Display.aspx` page with `ItemName`, `FixedName`, or `FinalName`; no scheme, host, leading slash, or fragment. |
 | `source_ids` | array of strings | Publication ids. Every one must exist in `publications.toml`. |
 | `section` | array of strings | Breadcrumb inside the rules hierarchy. |
 | `parent` | string | Containing rules entry; must resolve to another entry. Omitted when absent. |
@@ -193,6 +195,18 @@ A suffix is one id segment (lowercase letters, digits, and hyphens) and must be 
 the corpus. `corpus-check` rejects a duplicate or an invalid one, and an add-on or revision
 that cannot name its publication's suffix.
 
+A row may carry `aon`, the Archives of Nethys source page, as a path relative to
+`https://aonprd.com/`:
+
+```toml
+aon = "SourceDisplay.aspx?FixedSource=Core%20Rulebook"
+```
+
+The value names `SourceDisplay.aspx` with the AoN source name in `FixedSource`. It has no
+scheme, host, leading slash, or fragment, and it is omitted when no confident match exists.
+`corpus-check` validates it, and the compiler carries it into `catalog.json` as the optional
+`SourceInfo.aon` field.
+
 `third_party = true` marks a publication that Paizo did not publish. Absent means a Paizo
 book, and the canonical writer omits the field when it is false. The marker decides the
 "Third party" book tier and keeps the book out of every preset except
@@ -278,6 +292,24 @@ reviewed source material that an entry cannot express.
 
 The rule of thumb: if two people could disagree about it, store it; if a
 deterministic pass over the entries can produce it, derive it.
+
+### Book nodes (`books.toml`)
+
+`books.toml` is a `BookIndex`: one tree per publication, in the curated chapter order. A
+`[[books.chapters]]` row (or a nested `children` row) has a `title`, an optional `entry`, an
+optional `anchor`, an optional `review` note, and `children`.
+
+`collapse = true` is an optional authored marker. It is additive and omits when false, so older
+readers ignore it and no `SCHEMA_VERSION` bump is needed. A marked node shows as one row in
+Contents at any level, including a top-level chapter. The row keeps the muted count and links to
+the node's entry; a marked node with no entry links to its chapter page. An unmarked top-level
+chapter keeps its nested sections and chapter page. Below chapter level the compiler's automatic
+rule still applies: a node that is itself an entry and whose body lists every child entry as an
+`EntryLink` collapses without the marker.
+
+`corpus-check` warns when a marked node has an entry and at least one child entry, and the body
+does not link every child entry. Collapsing such a row would hide entries that its own page does
+not show. A marker on a heading with no entry has no body to check.
 
 `RuleEntry::links` is the set of body links. It is derived, never stored:
 

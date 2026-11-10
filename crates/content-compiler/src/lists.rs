@@ -273,6 +273,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind: EntryKind::Spell,
             title: title.into(),
+            aon: None,
             source_ids: vec!["cr".into()],
             sources: vec![],
             section: vec![],

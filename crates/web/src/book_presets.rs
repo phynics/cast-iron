@@ -776,6 +776,7 @@ mod tests {
             SourceInfo {
                 id: "core".into(),
                 title: "Core".into(),
+                aon: None,
                 entry_count: 1,
                 copyright: None,
                 category: Some("RPG".into()),
@@ -789,6 +790,7 @@ mod tests {
             SourceInfo {
                 id: "indie".into(),
                 title: "Indie".into(),
+                aon: None,
                 entry_count: 1,
                 copyright: None,
                 category: Some("RPG".into()),

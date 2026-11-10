@@ -600,9 +600,10 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(book.title)}`) });
   await expect(tree).toBeVisible();
 
-  // Every chapter and section is expanded: no disclosure and nothing folded away.
+  // Every branch is expanded except a hub whose own page already lists its children: still no
+  // disclosure, and at least one ordinary branch keeps its rows.
   await expect(tree.locator("button[aria-expanded], details, summary")).toHaveCount(0);
-  await expect(tree.locator(".toc-branch > .toc-list").first()).toBeVisible();
+  await expect(tree.locator(".toc-branch:not(.toc-hub) > .toc-list").first()).toBeVisible();
 
   // Only rules entries remain; every kind with a list page is reached through In this book.
   const hrefs: string[] = await tree.locator('a[href^="#/entry/"]').evaluateAll((links) => links.map((a) => a.getAttribute("href") as string));
@@ -618,6 +619,80 @@ test("Contents is one expanded list with no disclosure buttons and no kind that 
   expect(titles).toEqual(listedChapterTitles(book));
 });
 
+test("A top-level chapter collapses only when the corpus marks it", async ({ page }) => {
+  const bestiary = sources.find((row) => row.id === "bestiary")!;
+  const book = bookTrees().find((row) => row.source === bestiary.id)!;
+  const titled = (nodes: any[], title: string): any => {
+    for (const node of nodes) {
+      if (node.title === title) return node;
+      const found = titled(node.children ?? [], title);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const hub = titled(book.chapters, "Universal Monster Rules");
+  expect(hub, "the Bestiary contents carry Universal Monster Rules").toBeTruthy();
+  const count = (node: any): number =>
+    (node.entry ? 1 : 0) + (node.children ?? []).reduce((sum: number, child: any) => sum + count(child), 0);
+
+  await page.goto(`#/browse/book/${bestiary.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary.title)}`) });
+  await expect(tree).toBeVisible();
+  const row = tree.locator(".toc-top > li").filter({ has: page.getByText("Universal Monster Rules", { exact: true }) }).first();
+
+  if (hub.collapse) {
+    // The data corpus marks it: one row, the count, and the hub entry that lists the rules.
+    await expect(row).toHaveClass(/toc-hub/);
+    await expect(row.locator(".toc-count")).toHaveText(grouped(count(hub)));
+    await expect(row.locator(".toc-list")).toHaveCount(0);
+    const link = row.locator(":scope > .toc-row a");
+    await expect(link).toHaveAttribute("href", new RegExp(`^#/entry/${escape(hub.entry)}(\\?|$)`));
+    await link.click();
+    await expect(page.getByRole("heading", { level: 1, name: "Universal Monster Rules", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Ability Damage and Drain", exact: true }).first()).toBeVisible();
+  } else {
+    // Unmarked: the row keeps its chapter page, and that page shows the printed sections.
+    await expect(row).not.toHaveClass(/toc-hub/);
+    await expect(row.locator(":scope > .toc-list")).toBeVisible();
+    const link = row.locator(":scope > .toc-row a");
+    await expect(link).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(bestiary.id)}/[^/]+$`));
+    await link.click();
+    await expect(page.getByTestId("chapter-title")).toHaveText("Universal Monster Rules");
+    await expect(page.getByRole("heading", { level: 2, name: "Ability Damage and Drain", exact: true })).toBeVisible();
+  }
+});
+
+test("A nested hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
+  const titled = (nodes: any[], title: string): any => {
+    for (const node of nodes) {
+      if (node.title === title) return node;
+      const found = titled(node.children ?? [], title);
+      if (found) return found;
+    }
+    return undefined;
+  };
+  const hub = titled(book.chapters, "Using Skills");
+  expect(hub, "the Core Rulebook contents carry Using Skills").toBeTruthy();
+  const count = (node: any): number =>
+    (node.entry ? 1 : 0) + (node.children ?? []).reduce((sum: number, child: any) => sum + count(child), 0);
+
+  await page.goto(`#/browse/book/${core.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
+  await expect(tree).toBeVisible();
+  const row = tree.locator(".toc-hub").filter({ has: page.getByText("Using Skills", { exact: true }) });
+  await expect(row).toHaveCount(1);
+  await expect(row.locator(".toc-count")).toHaveText(grouped(count(hub)));
+  await expect(row.locator(".toc-list")).toHaveCount(0);
+
+  // The row links to the hub entry, which already lists the sections below it.
+  const link = row.locator(":scope > .toc-row a");
+  await expect(link).toHaveAttribute("href", new RegExp(`^#/entry/${escape(hub.entry)}(\\?|$)`));
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Using Skills", exact: true })).toBeVisible();
+});
+
 test("Top-level chapter rows show a dotted leader, hidden in a narrow contents container", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -625,8 +700,9 @@ test("Top-level chapter rows show a dotted leader, hidden in a narrow contents c
   const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(core.title)}`) });
   await expect(tree).toBeVisible();
 
-  // Every top-level row opens its chapter page; the leader and the count join the link.
-  const row = tree.locator(".toc-top > li > .toc-row").filter({ has: page.locator("a") }).first();
+  // An ordinary top-level row opens its chapter page; the leader and the count join the link.
+  // A collapsed hub row is covered by its own test.
+  const row = tree.locator(".toc-top > li:not(.toc-hub) > .toc-row").filter({ has: page.locator("a") }).first();
   const link = row.locator("a");
   const title = (await link.locator(".toc-title").innerText()).trim();
   const leader = row.locator(".toc-leader");
@@ -674,23 +750,52 @@ test("The Core Rulebook contents have no feat or item rows, and Feats opens the 
   await expect(page.getByRole("button", { name: `Remove filter: ${core.title}`, exact: true })).toBeVisible();
 });
 
-test("The catch-all chapter is renamed and is not shown when nothing is left in it", async ({ page }) => {
+test("The catch-all chapter is not shown on any book page", async ({ page }) => {
+  const withCatchAll = bookTrees().filter((book) => book.chapters.some((chapter) => chapter.title === "New entries (page order)"));
+  expect(withCatchAll.length).toBeGreaterThan(0);
+  for (const book of withCatchAll) {
+    const title = corpus.catalog.sources.find((row: any) => row.id === book.source)?.title ?? book.title;
+    await page.goto(`#/browse/book/${book.source}`);
+    await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+    await expect(page.getByText("New entries (page order)")).toHaveCount(0);
+    await expect(page.getByText("More from this book")).toHaveCount(0);
+  }
+  // The Core Rulebook keeps a catch-all in the corpus, and its page lists none of its rows.
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  await page.goto(`#/browse/book/${core.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: core.title, exact: true })).toBeVisible();
+  await expect(page.getByText("New entries (page order)")).toHaveCount(0);
+  await expect(page.getByText("More from this book")).toHaveCount(0);
+});
+
+test("A book with no chapter left keeps In this book and says when it has nothing to show", async ({ page }) => {
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
   const hidden = CONTENTS_HIDDEN_KINDS;
-  const withCatchAll = bookTrees().filter((book) => book.chapters.some((chapter: any) => chapter.title === "New entries (page order)"));
-  expect(withCatchAll.length).toBeGreaterThan(0);
-  const leaves = (node: any): string[] => [...(node.entry ? [node.entry] : []), ...(node.children ?? []).flatMap(leaves)];
-  for (const book of withCatchAll) {
-    const catchAll = book.chapters.find((chapter: any) => chapter.title === "New entries (page order)");
-    const left = leaves(catchAll).filter((id) => !hidden.has(kindOf.get(id) as string));
-    await page.goto(`#/browse/book/${book.source}`);
-    await expect(page.getByRole("heading", { level: 1, name: book.title, exact: true })).toBeVisible();
-    await expect(page.getByText("New entries (page order)")).toHaveCount(0);
-    const more = page.locator(".toc-top > li", { hasText: "More from this book" });
-    const oneListedChapter = book.chapters.filter((chapter: any) => leaves(chapter).some((id: string) => !hidden.has(kindOf.get(id) as string))).length === 1;
-    if (left.length === 0) await expect(more).toHaveCount(0);
-    else if (!oneListedChapter) await expect(more).toHaveCount(1);
+  const shown = (node: any): boolean => {
+    if (node.title === "New entries (page order)") return false;
+    const entries = (n: any): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(entries)];
+    const all = entries(node);
+    return all.length === 0 || all.some((id) => !hidden.has(kindOf.get(id) as string));
+  };
+  const empty = bookTrees().find((book) => book.chapters.length > 0 && !book.chapters.some(shown));
+  if (!empty) return; // Every installed book still has a listed chapter.
+  const title = corpus.catalog.sources.find((row: any) => row.id === empty.source)?.title ?? empty.title;
+  await page.goto(`#/browse/book/${empty.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.locator(".toc")).toHaveCount(0);
+  const note = page.getByText("This book has no entries to show.");
+  if (await page.locator(".book-in-this-book .jump").count()) {
+    await expect(page.getByRole("heading", { name: "In this book" })).toBeVisible();
+    await expect(note).toHaveCount(0);
+  } else {
+    await expect(note).toBeVisible();
   }
+});
+
+test("The old Game Mastery Guide address opens the merged book", async ({ page }) => {
+  await page.goto("#/browse/book/gamemastery-guide");
+  await expect(page.getByRole("heading", { level: 1, name: "Game Mastery Guide", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Contents of GameMastery Guide" })).toBeVisible();
 });
 
 test("A book page highlights the Books tab, also from an old publication link", async ({ page }) => {
@@ -737,6 +842,7 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
   const hidden = CONTENTS_HIDDEN_KINDS;
   const shown = (node: any): boolean => {
+    if (node.title === "New entries (page order)") return false;
     const entries = (n: any): string[] => [...(n.entry ? [n.entry] : []), ...(n.children ?? []).flatMap(entries)];
     const all = entries(node);
     return all.length === 0 || all.some((id) => !hidden.has(kindOf.get(id) as string));
@@ -765,8 +871,9 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   await expect(children).toHaveCount((chapter.children ?? []).filter(shown).length);
   await expect(tree.locator("details, summary, [aria-expanded]")).toHaveCount(0);
 
-  // A deeper section is expanded too.
-  const nested = chapterRow.locator(":scope > .toc-list > li.toc-branch").first();
+  // A deeper branch that is not collapsed is expanded too. A marked or automatic hub is
+  // covered by its own test.
+  const nested = chapterRow.locator(":scope > .toc-list > li.toc-branch:not(.toc-hub)").first();
   if (await nested.count()) {
     await expect(nested.locator(":scope > .toc-list > li").first()).toBeVisible();
   }
@@ -777,5 +884,5 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   const firstListed = listedTop[0];
   await page.goto(`#/browse/book/${book.source}?c=1`);
   await expect(page.locator("#toc-1")).toHaveAttribute("aria-current", "location");
-  await expect(page.locator("#toc-1")).toContainText(firstListed.title === "New entries (page order)" ? "More from this book" : firstListed.title);
+  await expect(page.locator("#toc-1")).toContainText(firstListed.title);
 });

@@ -335,6 +335,165 @@ pub fn fields_match(kind: EntryKind, fields: &TypedFields) -> bool {
     }
 }
 
+/// Validates an entry's or a publication's optional `aon` path.
+///
+/// The value is a path relative to `https://aonprd.com/`. An entry names a `*Display.aspx`
+/// page with `ItemName`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`. A publication
+/// names `SourceDisplay.aspx` with `FixedSource`, as in
+/// `SourceDisplay.aspx?FixedSource=Core%20Rulebook`. A scheme, host, leading slash, fragment,
+/// or another page type is rejected.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AonKind {
+    Entry,
+    Publication,
+}
+
+fn aon_problem(value: &str, kind: AonKind) -> Option<String> {
+    if value.is_empty() {
+        return Some("is empty".into());
+    }
+    if value.starts_with("//")
+        || value.starts_with('/')
+        || value.contains("://")
+        || value.starts_with("\\\\")
+    {
+        return Some(
+            "must be a path relative to https://aonprd.com/, with no scheme or host".into(),
+        );
+    }
+    if value.contains('\\') {
+        return Some("must use `/` separators, not `\\`".into());
+    }
+    if value.contains('#') {
+        return Some("must not carry a fragment".into());
+    }
+    if value.contains(|ch: char| ch.is_control() || ch.is_whitespace()) {
+        return Some("must not hold spaces or control characters; percent-encode them".into());
+    }
+    let Some((page, query)) = value.split_once('?') else {
+        return Some(
+            "must name a `*Display.aspx` page and a query, such as `FeatDisplay.aspx?ItemName=Power%20Attack`"
+                .into(),
+        );
+    };
+    if query.is_empty() || query.contains('?') {
+        return Some("must carry exactly one non-empty query string".into());
+    }
+    let Some(stem) = page.strip_suffix("Display.aspx") else {
+        return Some("must name a `*Display.aspx` page, such as `FeatDisplay.aspx`".into());
+    };
+    if stem.is_empty() || !stem.chars().all(|ch| ch.is_ascii_alphanumeric()) {
+        return Some("must name a `*Display.aspx` page, such as `FeatDisplay.aspx`".into());
+    }
+    if kind == AonKind::Publication && page != "SourceDisplay.aspx" {
+        return Some("must name `SourceDisplay.aspx` for a publication".into());
+    }
+    let mut seen = BTreeSet::new();
+    for pair in query.split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            return Some(format!("has a query part `{pair}` that is not `key=value`"));
+        };
+        // AoN names an entry differently by page type: feats, spells and most records use
+        // `ItemName`, archetypes use `FixedName`, and some item pages use `FinalName`.
+        let allowed: &[&str] = if kind == AonKind::Publication {
+            &["FixedSource"]
+        } else {
+            &["ItemName", "FixedName", "FinalName"]
+        };
+        if !allowed.contains(&key) {
+            return Some(format!(
+                "uses query key `{key}`; a {kind_name} must use {expected}",
+                kind_name = if kind == AonKind::Publication {
+                    "publication"
+                } else {
+                    "entry"
+                },
+                expected = allowed
+                    .iter()
+                    .map(|key| format!("`{key}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if !seen.insert(key) {
+            return Some(format!("repeats the query key `{key}`"));
+        }
+        if !valid_aon_query_value(value) {
+            return Some(format!(
+                "has a value for `{key}` that must be non-empty and percent-encoded"
+            ));
+        }
+    }
+    None
+}
+
+/// A query value holds unreserved and sub-delimiter characters, and every `%` starts a
+/// two-digit escape. A raw space or non-ASCII byte is not valid.
+fn valid_aon_query_value(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.is_empty() {
+        return false;
+    }
+    let mut index = 0;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            index += 3;
+            continue;
+        }
+        let allowed = byte.is_ascii_alphanumeric()
+            || matches!(
+                byte,
+                b'-' | b'.'
+                    | b'_'
+                    | b'~'
+                    | b'!'
+                    | b'$'
+                    | b'\''
+                    | b'('
+                    | b')'
+                    | b'*'
+                    | b'+'
+                    | b','
+                    | b';'
+                    | b':'
+                    | b'@'
+                    | b'/'
+            );
+        if !allowed {
+            return false;
+        }
+        index += 1;
+    }
+    true
+}
+
+/// A publication's optional `aon` source page. The entry check covers the entry field.
+fn check_publication_aon(corpus: &Corpus, report: &mut Report) {
+    let text = std::fs::read_to_string(corpus.dir.join("publications.toml")).unwrap_or_default();
+    for publication in &corpus.publications {
+        let Some(aon) = &publication.aon else {
+            continue;
+        };
+        let at = format!(
+            "publications.toml:{}",
+            line_of(&text, &format!("aon = {}", crate::tomlutil::string(aon)))
+        );
+        if let Some(problem) = aon_problem(aon, AonKind::Publication) {
+            report.problems.push(format!(
+                "{at}: publication `{}` has `aon` that {problem}",
+                publication.id
+            ));
+        }
+    }
+}
+
 /// The licensing gate: every publication states a copyright and is covered by a Section 15
 /// notice or a reviewed `notice_pending` entry.
 ///
@@ -506,6 +665,7 @@ pub fn check(corpus: &Corpus) -> Report {
 
     check_publication_notices(corpus, &mut report);
     check_publication_series(corpus, &mut report);
+    check_publication_aon(corpus, &mut report);
 
     for (id, stored) in &corpus.entries {
         let entry = &stored.entry;
@@ -520,6 +680,14 @@ pub fn check(corpus: &Corpus) -> Report {
             ));
         }
         let at = |needle: &str| format!("{}:{}", path.display(), line_of(&stored.text, needle));
+        if let Some(aon) = &entry.aon
+            && let Some(problem) = aon_problem(aon, AonKind::Entry)
+        {
+            report.problems.push(format!(
+                "{}: `aon` {problem}",
+                at(&format!("aon = {}", crate::tomlutil::string(aon)))
+            ));
+        }
         if !fields_match(entry.kind, &entry.fields) {
             report.problems.push(format!(
                 "{}: entry kind `{}` does not match `[fields]` kind `{}`",
@@ -1307,6 +1475,21 @@ fn check_book_node(
                 node.title
             ));
         } else {
+            // A marker is a promise that the hub page lists what the row hides. The automatic
+            // rule already refuses a hub with an unlinked child; the authored marker needs the
+            // same warning because it applies at every level and overrides the chapter default.
+            if node.collapse
+                && cast_iron_schema::books::listed_under(node, &|_| false) > 1
+                && !cast_iron_schema::books::entry_lists_children(
+                    node,
+                    &corpus.entries[entry.as_str()].entry,
+                )
+            {
+                report.warnings.push(format!(
+                    "books.toml:{line}: marked node `{}` collapses, but `{entry}` does not link every child entry in its body; collapsing would hide entries",
+                    node.title
+                ));
+            }
             match &node.anchor {
                 None => {
                     if !placed.insert(entry.to_string()) {
@@ -1654,6 +1837,66 @@ mod tests {
     }
 
     #[test]
+    fn an_aon_entry_path_must_be_a_relative_display_page() {
+        for value in [
+            "FeatDisplay.aspx?ItemName=Power%20Attack",
+            "ArchetypeDisplay.aspx?FixedName=Alchemist%20Aerochemist",
+            "MagicWondrousDisplay.aspx?FinalName=Wayfinder",
+        ] {
+            let mut entry = rule("ref/feat/power-attack", vec![]);
+            entry.aon = Some(value.into());
+            let report = check(&corpus(vec![entry]));
+            assert!(report.problems.is_empty(), "{value}: {report:?}");
+        }
+
+        let bad = [
+            "https://aonprd.com/FeatDisplay.aspx?ItemName=Power%20Attack",
+            "aonprd.com/FeatDisplay.aspx?ItemName=Power%20Attack",
+            "/FeatDisplay.aspx?ItemName=Power%20Attack",
+            "//aonprd.com/FeatDisplay.aspx?ItemName=Power%20Attack",
+            "FeatDisplay.aspx",
+            "FeatDisplay.aspx?ItemName=Power Attack",
+            "FeatDisplay.aspx?ItemName=Power%2",
+            "FeatDisplay.aspx?ItemName=Power%20Attack#top",
+            "Rules.aspx?ID=1",
+            "FeatDisplay.aspx?Name=Power%20Attack",
+            "FeatDisplay.aspx?ItemName=Power%20Attack&ItemName=Other",
+        ];
+        for value in bad {
+            let mut entry = rule("ref/feat/power-attack", vec![]);
+            entry.aon = Some(value.into());
+            let report = check(&corpus(vec![entry]));
+            assert_eq!(report.problems.len(), 1, "{value}: {report:?}");
+            assert!(
+                report.problems[0].contains("`aon`"),
+                "{value}: {:?}",
+                report.problems
+            );
+        }
+    }
+
+    #[test]
+    fn a_publication_aon_path_must_use_source_display() {
+        let mut clean = corpus(vec![]);
+        clean.publications[0].aon = Some("SourceDisplay.aspx?FixedSource=Core%20Rulebook".into());
+        assert!(
+            check(&clean).problems.is_empty(),
+            "{:?}",
+            check(&clean).problems
+        );
+
+        let mut entry_page = corpus(vec![]);
+        entry_page.publications[0].aon = Some("FeatDisplay.aspx?ItemName=Power%20Attack".into());
+        let text = check(&entry_page).problems.join("\n");
+        assert!(text.contains("must name `SourceDisplay.aspx`"), "{text}");
+
+        let mut wrong_key = corpus(vec![]);
+        wrong_key.publications[0].aon = Some("SourceDisplay.aspx?ItemName=Core%20Rulebook".into());
+        let text = check(&wrong_key).problems.join("\n");
+        assert!(text.contains("must use `FixedSource`"), "{text}");
+    }
+
+    #[test]
     fn unknown_sources_licences_and_targets_name_the_file() {
         let mut a = rule(
             "ref/rule/a",
@@ -1752,6 +1995,8 @@ mod tests {
                     entry: Some(EntryId::parse("ref/rule/b").unwrap()),
                     anchor: Some("gone".into()),
                     review: None,
+                    collapse: false,
+                    lists_children: false,
                     children: vec![],
                 }],
             }],
@@ -1762,6 +2007,67 @@ mod tests {
         assert!(problem.starts_with("books.toml:2:"), "{problem}");
         assert!(problem.contains("entries/rule/b.md"), "{problem}");
         assert!(problem.contains("`effects`"), "{problem}");
+    }
+
+    #[test]
+    fn a_marked_book_node_warns_when_its_page_does_not_link_every_child() {
+        let node = || BookNode {
+            title: "Long list".into(),
+            entry: Some(EntryId::parse("ref/rule/list").unwrap()),
+            anchor: None,
+            review: None,
+            collapse: true,
+            lists_children: false,
+            children: vec![BookNode {
+                title: "Child".into(),
+                entry: Some(EntryId::parse("ref/rule/child").unwrap()),
+                anchor: None,
+                review: None,
+                collapse: false,
+                lists_children: false,
+                children: vec![],
+            }],
+        };
+        let books = |node: BookNode| BookIndex {
+            books: vec![BookTree {
+                source: "core-rulebook".into(),
+                title: "Core".into(),
+                basis: "reviewed".into(),
+                review: vec![],
+                chapters: vec![node],
+            }],
+        };
+
+        // The page lists neither child, so a marked row would hide the child.
+        let mut first = corpus(vec![
+            rule("ref/rule/list", vec![]),
+            rule("ref/rule/child", vec![]),
+        ]);
+        first.books = books(node());
+        first.books_text = "[[books.chapters]]\nentry = \"ref/rule/list\"\n".into();
+        let report = check(&first);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("marked node `Long list` collapses"),
+            "{:?}",
+            report.warnings
+        );
+
+        // The linked child is the list the page already shows, so the marker is safe.
+        let mut corpus = corpus(vec![
+            rule(
+                "ref/rule/list",
+                vec![Block::EntryLink {
+                    target: EntryId::parse("ref/rule/child").unwrap(),
+                    title: "Child".into(),
+                }],
+            ),
+            rule("ref/rule/child", vec![]),
+        ]);
+        corpus.books = books(node());
+        corpus.books_text = "[[books.chapters]]\nentry = \"ref/rule/list\"\n".into();
+        assert!(check(&corpus).warnings.is_empty());
     }
 
     #[test]
@@ -1842,6 +2148,7 @@ mod tests {
         corpus.publications.push(crate::Publication {
             id: id.into(),
             title: id.into(),
+            aon: None,
             copyright: Some("Core Rulebook, (c) Paizo Inc.".into()),
             category: None,
             publication_date: None,
