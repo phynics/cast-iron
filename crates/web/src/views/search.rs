@@ -171,6 +171,7 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("race_group", "featured_race") => "Featured races".into(),
         ("race_group", "uncommon_race") => "Uncommon races".into(),
         ("race_group", "monster_race") => "Monster races".into(),
+        ("race_group", "other_race") => "Other races".into(),
         ("class_type", "npc") => "NPC".into(),
         ("creature_type", "magicalBeast") => "Magical Beast".into(),
         ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
@@ -2104,6 +2105,7 @@ mod tests {
     #[test]
     fn facet_labels_read_well_and_leave_values_alone() {
         assert_eq!(facet_label("race_group", "monster_race"), "Monster races");
+        assert_eq!(facet_label("race_group", "other_race"), "Other races");
         assert_eq!(facet_label("class_type", "npc"), "NPC");
         assert_eq!(
             facet_label("creature_type", "magicalBeast"),

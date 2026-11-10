@@ -123,6 +123,7 @@ mod tests {
             body: vec![],
             fields: TypedFields::None,
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![],
             license_refs: vec![],

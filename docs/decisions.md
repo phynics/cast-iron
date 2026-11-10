@@ -1508,3 +1508,25 @@ Closes [#356](https://github.com/phynics/cast-iron/issues/356). Owner decisions 
 - **Each group clears itself.** Recent searches keeps its `Clear`. Recently viewed gets its own `Clear`, which empties the visit list and removes `continue_points`, so it also forgets where the reader stopped. Each recently viewed row also has a remove button, and Delete on the highlighted row removes it.
 - **Visibility matches the library.** A stored visit resolves through the alias map and opens under the canonical id. A retired entry, an unknown id, or an entry whose book is inactive is hidden. Continue points are read the same way, and the most recently read *active* book supplies the row.
 - **One listbox per group, one keyboard order.** The field keeps focus; `aria-controls` names every group's listbox and `aria-activedescendant` names the focused option. Down and Up cross the groups in display order, and Enter opens the focused row. The row rules, order, cap, continue row and empty states are native tests in `views/quick_rows.rs`; the store and the layer add no new JavaScript.
+
+## Race groups, 2026-11-10
+
+Refs [#196](https://github.com/phynics/cast-iron/issues/196). The corpus already carried a
+`race_group` facet label in the client, but no canonical record held the value.
+
+- **One optional `race_group` field on the entry.** It is `core_race`, `featured_race`,
+  `uncommon_race`, or `other_race`. The first three are the Advanced Race Guide's printed race
+  chapters; `other_race` is a race printed outside them. `corpus-check` requires the field on a
+  `race` and rejects it on every other kind.
+- **The group is entry metadata, not a typed field.** A race still has `[fields] kind = "none"`.
+  The field is additive: an older library omits it, and an older reader ignores the unknown key,
+  so `SCHEMA_VERSION` stays 4 and the corpus format stays 1. This follows the printed-citation
+  decision.
+- **The compiler derives the facet.** `canonical_facets` reads the entry field and emits
+  `race_group`, so the existing Races filter shows its groups and counts. No client state or
+  search index format changes.
+- **The seven Core races take the Advanced Race Guide's Core group.** Their records also appear
+  in the Core Rulebook, but one record has one printed group; the ARG chapter is the grouping
+  the filter follows. `other_race` replaces the old `monster_race` label for the races outside
+  the three ARG chapters, because many of them are playable races from other books. The old
+  `standard_race` and `monster_race` labels stay readable for an already installed library.

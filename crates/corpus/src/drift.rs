@@ -848,6 +848,7 @@ mod tests {
             body,
             fields,
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![],
             license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],

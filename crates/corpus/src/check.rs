@@ -562,6 +562,28 @@ pub fn check(corpus: &Corpus) -> Report {
                 ));
             }
         }
+        // The typed `ref/race/*` records are the canonical race records. A carried legacy race
+        // keeps its published id but has no group, because the data change never edits it.
+        if entry.id.as_str().starts_with("ref/race/") && entry.race_group.is_none() {
+            report.problems.push(format!(
+                "{}: a typed race needs `race_group` ({})",
+                path.display(),
+                cast_iron_schema::RaceGroup::ALL
+                    .iter()
+                    .map(|group| group.slug())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if entry.kind != EntryKind::Race
+            && let Some(group) = entry.race_group
+        {
+            report.problems.push(format!(
+                "{}: `race_group = \"{}\"` is only valid on a race",
+                path.display(),
+                group.slug()
+            ));
+        }
         if let TypedFields::Creature(fields) = &entry.fields
             && let Some(creature_type) = &fields.creature_type
             && !CREATURE_TYPES.contains(&creature_type.as_str())
@@ -1675,6 +1697,42 @@ mod tests {
         assert!(problem.contains("`effects` (\"Effects\")"), "{problem}");
         assert!(problem.contains("`sec-other-part`"), "{problem}");
         assert!(problem.contains("add `{#nowhere}`"), "{problem}");
+    }
+
+    #[test]
+    fn a_typed_race_needs_a_group_but_a_carried_race_does_not() {
+        let mut typed = rule("ref/race/hillfolk", vec![]);
+        typed.kind = EntryKind::Race;
+        let report = check(&corpus(vec![typed.clone()]));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|p| p.contains("needs `race_group`")),
+            "{:?}",
+            report.problems
+        );
+
+        typed.race_group = Some(cast_iron_schema::RaceGroup::OtherRace);
+        let report = check(&corpus(vec![typed]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let mut carried = rule("ref/carried/old/race", vec![]);
+        carried.kind = EntryKind::Race;
+        let report = check(&corpus(vec![carried]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let mut wrong = rule("ref/rule/x", vec![]);
+        wrong.race_group = Some(cast_iron_schema::RaceGroup::CoreRace);
+        let report = check(&corpus(vec![wrong]));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|p| p.contains("only valid on a race")),
+            "{:?}",
+            report.problems
+        );
     }
 
     #[test]

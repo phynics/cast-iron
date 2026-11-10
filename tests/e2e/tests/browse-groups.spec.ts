@@ -114,6 +114,61 @@ test("Feat chains and the spell pages start their crumbs below a tab destination
   await expect(crumbs.getByRole("link", { name: "Home" })).toHaveCount(0);
 });
 
+// ---- Races: the printed group filter (#196) ----
+
+const RACE_GROUP_LABELS: Record<string, string> = {
+  core_race: "Core races (Advanced Race Guide)",
+  featured_race: "Featured races",
+  uncommon_race: "Uncommon races",
+  other_race: "Other races",
+};
+const typedRaces = [...corpus.entries.values()].filter(
+  (entry) => entry.kind === "race" && entry.id.startsWith("ref/race/") && activeIds.has(entry.id),
+);
+const raceGroupCounts = typedRaces.reduce((counts, entry) => {
+  const group = entry.race_group!;
+  counts.set(group, (counts.get(group) ?? 0) + 1);
+  return counts;
+}, new Map<string, number>());
+const raceCount = activeStubs.filter((stub) => stub.kind === "race").length;
+
+test("The Races list shows every printed group with its count and filters in place", async ({ page }) => {
+  expect(typedRaces.length).toBeGreaterThan(0);
+  expect(raceGroupCounts.size).toBe(4);
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/browse/kind/race");
+  const main = page.locator("main");
+  const lens = main.locator("section.lens").filter({
+    has: page.getByRole("heading", { name: "By group" }),
+  });
+  await expect(lens).toBeVisible();
+  const chips = lens.locator(".lens-chip");
+  await expect(chips).toHaveCount(4);
+
+  for (const [group, n] of raceGroupCounts) {
+    const label = RACE_GROUP_LABELS[group];
+    expect(label, `a label for ${group}`).toBeTruthy();
+    const chip = chips.filter({ hasText: label });
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toContainText(String(n));
+    await expect(chip).toHaveAttribute("href", new RegExp(`facet=race_group:${group}`));
+  }
+
+  // A chip filters the list in place, and the count line compares the part with the whole.
+  const core = raceGroupCounts.get("core_race")!;
+  const coreChip = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
+  await coreChip.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race?facet=race_group:core_race");
+  await expect(main.locator(".list-count")).toHaveText(`${count(core)} of ${count(raceCount)} races · Show all`);
+  await expect(main.locator(".entry-list a[href^='#/entry/']").first()).toBeVisible();
+  await expect(chips.filter({ hasText: RACE_GROUP_LABELS.core_race })).toHaveAttribute("aria-current", "true");
+
+  await main.getByRole("link", { name: "Show all races" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race");
+  await expect(main.locator(".list-count")).toHaveText(`${count(raceCount)} races`);
+});
+
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
 
 const featsInCombat = [...corpus.entries.values()]
