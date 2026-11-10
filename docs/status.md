@@ -38,6 +38,8 @@ Local verification, 2026-11-10 (no CI or deployment claim):
 | Chromium: changes, mythic | 7 passed |
 | mobile-chromium: class-options | 8 passed |
 | mobile-chromium: mythic | 4 passed |
+| mobile-chromium: mobile | 22 passed |
+| Chromium: source-variants | 1 passed |
 
 The Races spec no longer skips on a corpus without `race_group`. It fails unless the compiled
 corpus carries the four groups, and its expected counts come from the compiled catalog and the
