@@ -504,7 +504,6 @@ mod tests {
             provenance: vec![],
             license_refs: vec![],
             relations: vec![],
-            aon: None,
         }
     }
 
