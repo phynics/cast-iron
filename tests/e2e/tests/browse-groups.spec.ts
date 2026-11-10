@@ -126,8 +126,8 @@ const typedRaces = [...corpus.entries.values()].filter(
   (entry) => entry.kind === "race" && entry.id.startsWith("ref/race/") && activeIds.has(entry.id),
 );
 const raceGroupCounts = typedRaces.reduce((counts, entry) => {
-  const group = entry.race_group!;
-  counts.set(group, (counts.get(group) ?? 0) + 1);
+  const group = entry.race_group;
+  if (group) counts.set(group, (counts.get(group) ?? 0) + 1);
   return counts;
 }, new Map<string, number>());
 const raceCount = activeStubs.filter((stub) => stub.kind === "race").length;

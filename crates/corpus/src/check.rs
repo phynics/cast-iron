@@ -663,6 +663,12 @@ pub fn check(corpus: &Corpus) -> Report {
         .map(|(id, stored)| (id.as_str(), heading_keys(&stored.entry)))
         .collect();
 
+    // `race_group` arrived after the pinned corpus, so a library that has no value anywhere is
+    // an older corpus and passes. Once one typed race carries it, every typed race must.
+    let typed_races_have_groups = corpus.entries.iter().any(|(id, stored)| {
+        id.as_str().starts_with("ref/race/") && stored.entry.race_group.is_some()
+    });
+
     check_publication_notices(corpus, &mut report);
     check_publication_series(corpus, &mut report);
     check_publication_aon(corpus, &mut report);
@@ -732,7 +738,10 @@ pub fn check(corpus: &Corpus) -> Report {
         }
         // The typed `ref/race/*` records are the canonical race records. A carried legacy race
         // keeps its published id but has no group, because the data change never edits it.
-        if entry.id.as_str().starts_with("ref/race/") && entry.race_group.is_none() {
+        if typed_races_have_groups
+            && entry.id.as_str().starts_with("ref/race/")
+            && entry.race_group.is_none()
+        {
             report.problems.push(format!(
                 "{}: a typed race needs `race_group` ({})",
                 path.display(),
@@ -1943,10 +1952,18 @@ mod tests {
     }
 
     #[test]
-    fn a_typed_race_needs_a_group_but_a_carried_race_does_not() {
-        let mut typed = rule("ref/race/hillfolk", vec![]);
-        typed.kind = EntryKind::Race;
-        let report = check(&corpus(vec![typed.clone()]));
+    fn a_typed_race_needs_a_group_once_any_typed_race_has_one() {
+        let mut missing = rule("ref/race/hillfolk", vec![]);
+        missing.kind = EntryKind::Race;
+        // An older corpus has no value anywhere. It still loads, because the pin predates the
+        // field.
+        let report = check(&corpus(vec![missing.clone()]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let mut typed = missing.clone();
+        typed.id = EntryId::parse("ref/race/hill-giant").unwrap();
+        typed.race_group = Some(cast_iron_schema::RaceGroup::OtherRace);
+        let report = check(&corpus(vec![typed, missing]));
         assert!(
             report
                 .problems
@@ -1955,10 +1972,6 @@ mod tests {
             "{:?}",
             report.problems
         );
-
-        typed.race_group = Some(cast_iron_schema::RaceGroup::OtherRace);
-        let report = check(&corpus(vec![typed]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let mut carried = rule("ref/carried/old/race", vec![]);
         carried.kind = EntryKind::Race;
