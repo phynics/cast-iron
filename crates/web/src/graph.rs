@@ -672,64 +672,26 @@ pub(crate) fn demote_headings(block: &Block) -> Block {
 
 // ---- book order -------------------------------------------------------------------------
 
-/// One entry of a book in reading order.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BookStop {
-    pub entry: EntryId,
-    pub title: String,
-    /// 0-based path of the node in its book's chapter tree.
-    pub path: Vec<usize>,
-}
-
-/// An entry's place in a book.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BookPlace {
-    pub book: usize,
-    /// Position in [`BookLookup::stops`] of that book.
-    pub stop: usize,
-}
-
-/// A step of the trail above a node: a chapter or a section heading.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TrailStep {
-    pub title: String,
-    pub path: Vec<usize>,
-}
-
-/// `books.json` with the reading order flattened once. Every entry holds one place in one book
-/// (the compiler guarantees this), so a map from entry to place answers "where is this?".
+/// `books.json` with each entry's first placement indexed. Every entry holds one canonical book
+/// (the first book that places it in book order), so the map answers "where is this?" without a
+/// second walk. The Contents reading order itself lives in [`crate::reading`], built per active
+/// library because it depends on the catalog kinds.
 #[derive(Debug, Clone, Default)]
 pub struct BookLookup {
     index: BookIndex,
-    stops: Vec<Vec<BookStop>>,
-    places: HashMap<EntryId, BookPlace>,
+    /// Book index of an entry's first placement.
+    places: HashMap<EntryId, usize>,
 }
 
 impl BookLookup {
     pub fn new(index: BookIndex) -> Self {
-        let mut stops: Vec<Vec<BookStop>> = Vec::with_capacity(index.books.len());
         let mut places = HashMap::new();
         for (book_i, book) in index.books.iter().enumerate() {
-            let mut flat = Vec::new();
-            let mut path = Vec::new();
-            for (i, chapter) in book.chapters.iter().enumerate() {
-                path.push(i);
-                flatten(chapter, &mut path, &mut flat);
-                path.pop();
+            for chapter in &book.chapters {
+                place(chapter, book_i, &mut places);
             }
-            for (stop, item) in flat.iter().enumerate() {
-                // A second place for the same entry is ignored; the first one in order wins.
-                places
-                    .entry(item.entry.clone())
-                    .or_insert(BookPlace { book: book_i, stop });
-            }
-            stops.push(flat);
         }
-        Self {
-            index,
-            stops,
-            places,
-        }
+        Self { index, places }
     }
 
     pub fn books(&self) -> &[BookTree] {
@@ -738,11 +700,8 @@ impl BookLookup {
 
     /// Canonical source ID for an entry's curated book placement, when it has one.
     pub fn source_for_entry(&self, id: &EntryId) -> Option<&str> {
-        let place = self.place(id)?;
-        self.index
-            .books
-            .get(place.book)
-            .map(|book| book.source.as_str())
+        let book = *self.places.get(id)?;
+        self.index.books.get(book).map(|book| book.source.as_str())
     }
 
     pub fn book(&self, source: &str) -> Option<&BookTree> {
@@ -751,50 +710,6 @@ impl BookLookup {
 
     pub fn book_at(&self, index: usize) -> Option<&BookTree> {
         self.index.books.get(index)
-    }
-
-    /// The reading order of one book: entries only, in chapter order.
-    pub fn stops(&self, book: usize) -> &[BookStop] {
-        self.stops.get(book).map_or(&[], Vec::as_slice)
-    }
-
-    pub fn place(&self, id: &EntryId) -> Option<&BookPlace> {
-        self.places.get(id)
-    }
-
-    /// The entries before and after `id` in its book.
-    pub fn neighbors(&self, id: &EntryId) -> (Option<&BookStop>, Option<&BookStop>) {
-        let Some(place) = self.place(id) else {
-            return (None, None);
-        };
-        let stops = self.stops(place.book);
-        let before = place.stop.checked_sub(1).and_then(|i| stops.get(i));
-        (before, stops.get(place.stop + 1))
-    }
-
-    /// The chapters and headings above an entry, outermost first. The entry's own node is not
-    /// part of the trail.
-    pub fn trail(&self, id: &EntryId) -> Vec<TrailStep> {
-        let Some(place) = self.place(id) else {
-            return Vec::new();
-        };
-        let (Some(book), Some(stop)) = (
-            self.index.books.get(place.book),
-            self.stops(place.book).get(place.stop),
-        ) else {
-            return Vec::new();
-        };
-        let mut steps = Vec::new();
-        for depth in 1..stop.path.len() {
-            let path = stop.path[..depth].to_vec();
-            if let Some(node) = node_at(book, &path) {
-                steps.push(TrailStep {
-                    title: node.title.clone(),
-                    path,
-                });
-            }
-        }
-        steps
     }
 
     /// Where a contents node leads: its own entry, or for a heading that holds nested entries,
@@ -825,18 +740,13 @@ pub fn node_at<'a>(book: &'a BookTree, path: &[usize]) -> Option<&'a BookNode> {
     Some(node)
 }
 
-fn flatten(node: &BookNode, path: &mut Vec<usize>, out: &mut Vec<BookStop>) {
+fn place(node: &BookNode, book: usize, places: &mut HashMap<EntryId, usize>) {
     if let Some(entry) = &node.entry {
-        out.push(BookStop {
-            entry: entry.clone(),
-            title: node.title.clone(),
-            path: path.clone(),
-        });
+        // A second place for the same entry is ignored; the first one in book order wins.
+        places.entry(entry.clone()).or_insert(book);
     }
-    for (i, child) in node.children.iter().enumerate() {
-        path.push(i);
-        flatten(child, path, out);
-        path.pop();
+    for child in &node.children {
+        place(child, book, places);
     }
 }
 
@@ -1449,29 +1359,29 @@ mod tests {
     }
 
     #[test]
-    fn reading_order_follows_the_tree_never_the_alphabet() {
+    fn the_first_book_in_order_owns_an_entry_and_later_placements_are_ignored() {
         let books = books();
-        let order: Vec<&str> = books.stops(0).iter().map(|s| s.entry.as_str()).collect();
+        assert_eq!(books.source_for_entry(&id("b/hardy")), Some("b"));
+        assert_eq!(books.source_for_entry(&id("c/only")), Some("c"));
+        assert_eq!(books.source_for_entry(&id("b/unknown")), None);
+
+        let tree = |source: &str, title: &str, entry: &str| BookTree {
+            source: source.into(),
+            title: title.into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![node(title, Some(entry), vec![])],
+        };
+        let duplicate = BookLookup::new(BookIndex {
+            books: vec![
+                tree("first", "First", "shared/entry"),
+                tree("second", "Second", "shared/entry"),
+            ],
+        });
         assert_eq!(
-            order,
-            [
-                "b/zebra",
-                "b/dwarves",
-                "b/hardy",
-                "b/aasimar",
-                "b/combat",
-                "b/actions"
-            ]
+            duplicate.source_for_entry(&id("shared/entry")),
+            Some("first")
         );
-        let (before, after) = books.neighbors(&id("b/dwarves"));
-        assert_eq!(before.unwrap().entry, id("b/zebra"));
-        // The next stop is the nested trait, not the next sibling.
-        assert_eq!(after.unwrap().entry, id("b/hardy"));
-        // The ends have one neighbour only, and neighbours never cross into another book.
-        assert!(books.neighbors(&id("b/zebra")).0.is_none());
-        assert!(books.neighbors(&id("b/actions")).1.is_none());
-        assert_eq!(books.neighbors(&id("c/only")), (None, None));
-        assert_eq!(books.neighbors(&id("b/unknown")), (None, None));
     }
 
     #[test]
@@ -1519,27 +1429,6 @@ mod tests {
         let names: Vec<&str> = shifted.iter().map(|row| row.id.as_str()).collect();
         assert_eq!(names, ["magic", "magic-2", "magic-3", "magic-4"]);
         assert_eq!(shifted[0].path, vec![3]);
-    }
-
-    #[test]
-    fn the_trail_names_the_chapters_above_an_entry() {
-        let books = books();
-        let trail: Vec<(String, Vec<usize>)> = books
-            .trail(&id("b/hardy"))
-            .into_iter()
-            .map(|s| (s.title, s.path))
-            .collect();
-        assert_eq!(
-            trail,
-            [
-                ("Races".to_string(), vec![0]),
-                ("Dwarves".to_string(), vec![0, 1]),
-                ("Racial Traits".to_string(), vec![0, 1, 0]),
-            ]
-        );
-        // A chapter opened as an entry has no trail above it.
-        assert!(books.trail(&id("b/combat")).is_empty());
-        assert!(books.trail(&id("nowhere")).is_empty());
     }
 
     #[test]

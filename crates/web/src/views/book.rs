@@ -21,8 +21,8 @@ use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
-    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, is_catch_all,
-    listed_children, listed_under,
+    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, listed_children,
+    listed_under,
 };
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
@@ -86,94 +86,6 @@ pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
             ..row
         })
         .collect()
-}
-
-/// One entry in a book's Contents reading order.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadingStop {
-    pub entry: EntryId,
-    pub title: String,
-    pub path: Vec<usize>,
-}
-
-/// The entries a chapter page's reading order visits: every Contents-visible entry in book
-/// order. A hidden kind is skipped, whether it is a leaf or a chapter of its own, exactly as
-/// Contents leaves it out.
-pub fn reading_order(book: &BookTree, hide: Hide<'_>) -> Vec<ReadingStop> {
-    fn walk(node: &BookNode, path: &mut Vec<usize>, hide: Hide<'_>, out: &mut Vec<ReadingStop>) {
-        // The catch-all chapter is not shown, so it is not in the reading order either.
-        if is_catch_all(node) {
-            return;
-        }
-        if let Some(entry) = &node.entry
-            && !hide(entry)
-        {
-            out.push(ReadingStop {
-                entry: entry.clone(),
-                title: node.title.clone(),
-                path: path.clone(),
-            });
-        }
-        for (index, child) in node.children.iter().enumerate() {
-            path.push(index);
-            walk(child, path, hide, out);
-            path.pop();
-        }
-    }
-    let mut out = Vec::new();
-    let mut path = Vec::new();
-    for (index, chapter) in book.chapters.iter().enumerate() {
-        path.push(index);
-        walk(chapter, &mut path, hide, &mut out);
-        path.pop();
-    }
-    out
-}
-
-/// A neighbour in the reading order. `chapter` is the chapter page the stop belongs to, and
-/// `crossing` says the step leaves the current chapter, which the footer then names.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReadingNeighbor {
-    pub entry: EntryId,
-    pub title: String,
-    pub chapter: String,
-    pub crossing: bool,
-}
-
-/// The previous and next Contents-visible entries around `id` in `book`. Crossing a chapter
-/// boundary keeps the next chapter's first entry, so reading never stops at a chapter end.
-pub fn reading_neighbors(
-    book: &BookTree,
-    hide: Hide<'_>,
-    id: &EntryId,
-) -> (Option<ReadingNeighbor>, Option<ReadingNeighbor>) {
-    let order = reading_order(book, hide);
-    let Some(at) = order.iter().position(|stop| &stop.entry == id) else {
-        return (None, None);
-    };
-    let rows = chapter_rows(book, hide);
-    let chapter_of = |path: &[usize]| {
-        rows.iter()
-            .position(|row| path.starts_with(&row.path))
-            .map(|index| (index, rows[index].title.clone()))
-    };
-    let here = chapter_of(&order[at].path);
-    let step = |at: usize| {
-        let stop = &order[at];
-        let chapter = chapter_of(&stop.path);
-        ReadingNeighbor {
-            entry: stop.entry.clone(),
-            title: stop.title.clone(),
-            chapter: chapter
-                .as_ref()
-                .map_or_else(String::new, |(_, title)| title.clone()),
-            crossing: chapter.as_ref().map(|(index, _)| *index)
-                != here.as_ref().map(|(index, _)| *index),
-        }
-    };
-    let before = at.checked_sub(1).map(step);
-    let after = (at + 1 < order.len()).then(|| step(at + 1));
-    (before, after)
 }
 
 /// The one line under `Contents`. Every book's order is a draft until its evidence is complete
@@ -762,11 +674,6 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             let Some(Ok(Some(books))) = state else {
                 return ().into_any();
             };
-            let hide = |entry: &EntryId| {
-                library
-                    .stub(entry)
-                    .is_some_and(|stub| hidden_from_contents(stub.kind))
-            };
             // The reader's book wins. Without context the first active book in book order is
             // the candidate; if it does not place this entry, the page shows no reading footer.
             let chosen = book
@@ -779,16 +686,20 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                         .position(|tree| library.book_active(&tree.source))
                 })
                 .filter(|&index| {
-                    books.book_at(index).is_some_and(|tree| {
-                        reading_order(tree, &hide)
-                            .iter()
-                            .any(|stop| stop.entry == id)
-                    })
+                    library
+                        .reading(index)
+                        .is_some_and(|reading| reading.contains(&id))
                 });
             let Some(index) = chosen else {
                 return ().into_any();
             };
             let Some(book) = books.book_at(index) else {
+                return ().into_any();
+            };
+            let Some(reading) = library.reading(index) else {
+                return ().into_any();
+            };
+            let Some(stop) = reading.stop(&id) else {
                 return ().into_any();
             };
             let source = book.source.clone();
@@ -799,11 +710,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             .href();
             let mut crumbs =
                 vec![view! { <li><a href=book_href>{book.title.clone()}</a></li> }.into_any()];
-            let trail = reading_order(book, &hide)
-                .into_iter()
-                .find(|stop| stop.entry == id)
-                .map(|stop| stop.path)
-                .unwrap_or_default();
+            let trail = &stop.path;
             for depth in 1..trail.len() {
                 let path = trail[..depth].to_vec();
                 if let Some(node) = node_at(book, &path) {
@@ -815,8 +722,8 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                     crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&node.title)}</a></li> }.into_any());
                 }
             }
-            let (before, after) = reading_neighbors(book, &hide, &id);
-            let step = |neighbor: Option<&ReadingNeighbor>, next: bool| {
+            let (before, after) = reading.neighbors(&id);
+            let step = |neighbor: Option<&crate::reading::ReadingNeighbor>, next: bool| {
                 neighbor.map(|neighbor| {
                     let href = Route::Entry {
                         id: neighbor.entry.clone(),
@@ -824,11 +731,12 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                         book: Some(source.clone()),
                     }
                     .href();
+                    let chapter = crate::views::util::section_label(&neighbor.chapter);
                     let dir = match (next, neighbor.crossing) {
                         (false, false) => "Previous".to_string(),
-                        (false, true) => format!("Previous in {}", neighbor.chapter),
+                        (false, true) => format!("Previous in {chapter}"),
                         (true, false) => format!("Next in {}", book.title),
-                        (true, true) => format!("Next in {} · {}", book.title, neighbor.chapter),
+                        (true, true) => format!("Next in {} · {chapter}", book.title),
                     };
                     let class = if next { "step step-next" } else { "step step-prev" };
                     view! {
@@ -1025,7 +933,7 @@ mod tests {
         let alone = vec![combat, catch_all];
         assert_eq!(contents_roots(&alone, &hide), vec![vec![0]]);
         assert!(contents_roots(&alone[1..], &hide).is_empty());
-        // Reading order and chapter pages leave it out too.
+        // A chapter page leaves the catch-all out too.
         let tree = BookTree {
             source: "core".into(),
             title: "Core".into(),
@@ -1033,14 +941,6 @@ mod tests {
             review: vec![],
             chapters: alone,
         };
-        assert_eq!(
-            reading_order(&tree, &hide),
-            vec![ReadingStop {
-                entry: EntryId::parse("ref/rule/alarm").unwrap(),
-                title: "Alarm".into(),
-                path: vec![0, 0],
-            }]
-        );
         assert_eq!(chapter_rows(&tree, &hide).len(), 1);
     }
 
@@ -1173,86 +1073,6 @@ mod tests {
         // A hidden entry still collapses a marked node; the row keeps its chapter link.
         let hidden = |id: &EntryId| id.as_str() == "core/rule/long-list";
         assert!(node_collapses(&marked, &hidden, true));
-    }
-
-    #[test]
-    fn a_collapsed_hub_still_reads_through_its_children() {
-        let mut tree = chapter_tree();
-        tree.chapters[0].lists_children = true;
-        let stops = reading_order(&tree, &hide);
-        let order: Vec<&str> = stops.iter().map(|stop| stop.entry.as_str()).collect();
-        assert_eq!(
-            order,
-            [
-                "core/rule/combat",
-                "core/rule/actions",
-                "core/rule/partial-cover",
-                "core/rule/magic"
-            ]
-        );
-        let id = |s: &str| EntryId::parse(s).unwrap();
-        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/combat"));
-        assert_eq!(after.unwrap().entry, id("core/rule/actions"));
-    }
-
-    #[test]
-    fn reading_order_skips_the_kinds_contents_leaves_out() {
-        let tree = chapter_tree();
-        let order: Vec<(String, Vec<usize>)> = reading_order(&tree, &hide)
-            .into_iter()
-            .map(|stop| (stop.entry.as_str().to_string(), stop.path))
-            .collect();
-        assert_eq!(
-            order,
-            [
-                ("core/rule/combat".to_string(), vec![0]),
-                ("core/rule/actions".to_string(), vec![0, 0]),
-                ("core/rule/partial-cover".to_string(), vec![0, 2, 0]),
-                ("core/rule/magic".to_string(), vec![1]),
-            ]
-        );
-        assert!(!order.iter().any(|(id, _)| id == "core/feat/power-attack"));
-        assert!(!order.iter().any(|(id, _)| id == "core/spell/fireball"));
-    }
-
-    #[test]
-    fn reading_neighbours_cross_chapters_stop_at_book_ends_and_skip_hidden_kinds() {
-        let tree = chapter_tree();
-        let id = |s: &str| EntryId::parse(s).unwrap();
-        let (before, after) = reading_neighbors(&tree, &hide, &id("core/rule/combat"));
-        assert!(before.is_none());
-        let after = after.unwrap();
-        assert_eq!(after.entry, id("core/rule/actions"));
-        assert!(!after.crossing);
-
-        // The feat is skipped, so the nested rule follows the heading directly.
-        let (before, after) = reading_neighbors(&tree, &hide, &id("core/rule/actions"));
-        assert_eq!(before.unwrap().entry, id("core/rule/combat"));
-        assert_eq!(after.unwrap().entry, id("core/rule/partial-cover"));
-
-        // The chapter end continues into the next chapter and names it.
-        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/partial-cover"));
-        let after = after.unwrap();
-        assert_eq!(after.entry, id("core/rule/magic"));
-        assert!(after.crossing);
-        assert_eq!(after.chapter, "Magic");
-        let (before, _) = reading_neighbors(&tree, &hide, &id("core/rule/magic"));
-        let before = before.unwrap();
-        assert_eq!(before.entry, id("core/rule/partial-cover"));
-        assert!(before.crossing);
-        assert_eq!(before.chapter, "Combat");
-
-        // The last visible entry has no next; a hidden kind is not on the walk at all.
-        let (_, after) = reading_neighbors(&tree, &hide, &id("core/rule/magic"));
-        assert!(after.is_none());
-        assert_eq!(
-            reading_neighbors(&tree, &hide, &id("core/feat/power-attack")),
-            (None, None)
-        );
-        assert_eq!(
-            reading_neighbors(&tree, &hide, &id("core/spell/fireball")),
-            (None, None)
-        );
     }
 
     #[test]
