@@ -759,6 +759,7 @@ mod tests {
             body: vec![],
             fields: feat("Old benefit."),
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![],
             license_refs: vec![],
