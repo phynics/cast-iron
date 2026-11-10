@@ -133,11 +133,14 @@ const raceGroupCounts = typedRaces.reduce((counts, entry) => {
 const raceCount = activeStubs.filter((stub) => stub.kind === "race").length;
 
 test("The Races list shows every printed group with its count and filters in place", async ({ page }) => {
-  // The data lands in phynics/cast-iron-data first. Until the corpus pin carries it, the filter
-  // has no values and this test has nothing to assert; the compiler unit test still covers the
-  // facet. Remove the skip when the pin includes the race_group data.
-  test.skip(raceGroupCounts.size === 0, "the pinned corpus has no race_group yet");
-  expect(raceGroupCounts.size).toBe(4);
+  // The pinned corpus carries all four printed race groups (#196). No skip: a corpus
+  // without them must fail here.
+  expect([...raceGroupCounts.keys()].sort()).toEqual([
+    "core_race",
+    "featured_race",
+    "other_race",
+    "uncommon_race",
+  ]);
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/browse/kind/race");
