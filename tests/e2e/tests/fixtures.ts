@@ -57,6 +57,7 @@ export interface Entry {
   source_ids: string[];
   sources?: { publication: string; page?: string }[];
   fields: Record<string, any>;
+  race_group?: string;
   body: any[];
   relations?: any[];
 }

@@ -1041,9 +1041,16 @@ pub(crate) fn tier_section(
     .into_any()
 }
 
-/// One group of lens chips, with the first few shown and the rest behind a disclosure.
+/// One group of lens chips, with the first few shown and the rest behind a disclosure. Each
+/// chip narrows this list in place, and the current value carries `aria-current`.
 #[component]
-fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl IntoView {
+fn FacetLens(
+    kind: EntryKind,
+    field: &'static str,
+    label: &'static str,
+    applied: Vec<(String, String)>,
+    source: Option<String>,
+) -> impl IntoView {
     const VISIBLE: usize = 16;
     let library = use_library();
     let values = local_resource(async move {
@@ -1056,16 +1063,17 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
             values
         })
     });
+    let current = applied
+        .iter()
+        .find(|(name, _)| name == field)
+        .map(|(_, value)| value.clone());
     let chip = move |(value, n): (String, u32)| {
-        let route = Route::Search {
-            q: String::new(),
-            kinds: vec![kind],
-            sources: Vec::new(),
-            facets: vec![(field.to_string(), value.clone())],
-        };
+        let route = Route::browse_kind_facets(kind, facets_with(&applied, field, Some(&value)))
+            .with_source(source.clone());
+        let is_current = current.as_deref() == Some(value.as_str());
         view! {
             <li>
-                <a class="lens-chip" href=route.href()>
+                <a class="lens-chip" href=route.href() aria-current=is_current.then_some("true")>
                     {facet_label(field, &value)}<small>{fmt::count(n)}</small>
                 </a>
             </li>
@@ -1082,10 +1090,10 @@ fn FacetLens(kind: EntryKind, field: &'static str, label: &'static str) -> impl 
                 Some(Ok(values)) if values.is_empty() => ().into_any(),
                 Some(Ok(values)) => {
                     let (first, rest) = values.split_at(values.len().min(VISIBLE));
-                    let first = first.iter().cloned().map(chip).collect_view();
+                    let first = first.iter().cloned().map(&chip).collect_view();
                     let rest_view = (!rest.is_empty()).then(|| {
                         let n = rest.len();
-                        let rest = rest.iter().cloned().map(chip).collect_view();
+                        let rest = rest.iter().cloned().map(&chip).collect_view();
                         view! {
                             <details class="lens-more">
                                 <summary>{icons::chevron_right("disclosure-chevron")}{format!("{} more", fmt::count(n))}</summary>
@@ -1362,8 +1370,8 @@ fn class_option_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. Races keep their pills (the old
-/// lens) until the library has group data (#196).
+/// links on the right, and each menu's panel under the row. A short facet such as the race
+/// group stays inline pills that narrow the list in place.
 #[component]
 fn Lenses(
     kind: EntryKind,
@@ -1413,7 +1421,11 @@ fn Lenses(
     }
     let facets = facets
         .into_iter()
-        .map(|(field, label)| view! { <FacetLens kind field label /> })
+        .map(|(field, label)| {
+            view! {
+                <FacetLens kind field label applied=applied.clone() source=source.clone() />
+            }
+        })
         .collect_view();
     let row = (!buttons.is_empty() || !links.is_empty()).then(|| {
         let links = links

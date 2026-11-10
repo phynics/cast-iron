@@ -86,7 +86,7 @@ pub fn arrange(
 /// A way to look at a category besides the A to Z list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lens {
-    /// The values of a search facet, each a link to the search results for that value.
+    /// A small facet whose values fit as inline pills, each narrowing this list in place.
     Facet {
         field: &'static str,
         label: &'static str,
@@ -265,16 +265,17 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
 /// The facets a kind's list page applies in place: those a filter menu of the kind owns, one
 /// value for each. Other facets in a URL are left to search.
 pub fn applied_facets(kind: EntryKind, facets: &[(String, String)]) -> Vec<(String, String)> {
-    let menus: Vec<&str> = lenses(kind)
+    let fields: Vec<&str> = lenses(kind)
         .into_iter()
         .filter_map(|lens| match lens {
             Lens::Menu(spec) => Some(spec.field),
-            _ => None,
+            Lens::Facet { field, .. } => Some(field),
+            Lens::Link { .. } => None,
         })
         .collect();
     list_facets(facets, kind)
         .into_iter()
-        .filter(|(field, _)| menus.contains(&field.as_str()))
+        .filter(|(field, _)| fields.contains(&field.as_str()))
         .collect()
 }
 

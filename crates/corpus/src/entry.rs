@@ -6,8 +6,8 @@ use crate::error::{Error, Result};
 use crate::tomlutil;
 use cast_iron_schema::{
     Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference,
-    FeatFields, Inline, ItemFields, Provenance, Relation, RelationKind, RuleEntry, SpellFields,
-    SpellLevel, TypedFields,
+    FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind, RuleEntry,
+    SpellFields, SpellLevel, TypedFields,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -105,6 +105,11 @@ pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
         out.push('\n');
     }
     write_string_array(&mut out, "tags", &entry.tags);
+    if let Some(group) = entry.race_group {
+        out.push_str("race_group = ");
+        out.push_str(&tomlutil::string(group.slug()));
+        out.push('\n');
+    }
     if !entry.provenance.is_empty() {
         out.push_str("provenance = [\n");
         for provenance in &entry.provenance {
@@ -383,6 +388,8 @@ struct RawFront {
     #[serde(default)]
     tags: Vec<String>,
     #[serde(default)]
+    race_group: Option<RaceGroup>,
+    #[serde(default)]
     provenance: Vec<Provenance>,
     #[serde(default)]
     license_refs: Option<Vec<String>>,
@@ -493,6 +500,7 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         body,
         fields,
         tags: raw.tags,
+        race_group: raw.race_group,
         links,
         provenance: raw.provenance,
         license_refs: raw
@@ -1022,6 +1030,7 @@ mod tests {
                 spell_resistance: None,
             }),
             tags: vec!["fog".into()],
+            race_group: None,
             links: vec![],
             provenance: vec![Provenance {
                 dataset: "pathfinder-data-1-e".into(),
@@ -1044,6 +1053,30 @@ mod tests {
         let text = write_entry(&entry, &Config::default());
         entry.links = derived_links(&entry.body);
         assert_eq!(read_entry(&path, &text, &Config::default()).unwrap(), entry);
+    }
+
+    #[test]
+    fn race_group_round_trips_and_stays_optional() {
+        let mut entry = entry();
+        entry.id = EntryId::parse("ref/race/hillfolk").unwrap();
+        entry.kind = EntryKind::Race;
+        entry.fields = TypedFields::None;
+        entry.tags.clear();
+        entry.race_group = Some(RaceGroup::OtherRace);
+        let path = entry_path(&entry.id);
+        let text = write_entry(&entry, &Config::default());
+        assert!(text.contains("race_group = \"other_race\""), "{text}");
+        entry.links = derived_links(&entry.body);
+        assert_eq!(read_entry(&path, &text, &Config::default()).unwrap(), entry);
+
+        entry.race_group = None;
+        let text = write_entry(&entry, &Config::default());
+        assert!(!text.contains("race_group"), "{text}");
+        entry.links = derived_links(&entry.body);
+        assert_eq!(read_entry(&path, &text, &Config::default()).unwrap(), entry);
+
+        let bad = text.replacen("id =", "race_group = \"unheard_of\"\nid =", 1);
+        assert!(read_entry(&path, &bad, &Config::default()).is_err());
     }
 
     #[test]

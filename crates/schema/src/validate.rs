@@ -267,6 +267,11 @@ fn validate_entry(
     {
         errors.push(error(id, format!("unknown parent {parent}")));
     }
+    // Optional and additive. A carried legacy race has no group, so only a value on another
+    // kind is invalid here; `corpus-check` requires it on every canonical `ref/race/` entry.
+    if entry.kind != EntryKind::Race && entry.race_group.is_some() {
+        errors.push(error(id, "race_group is only valid on a race"));
+    }
     let fields_match = matches!(
         (&entry.fields, entry.kind),
         (TypedFields::Spell(_), EntryKind::Spell)
@@ -435,6 +440,7 @@ mod tests {
             body: vec![],
             fields: TypedFields::None,
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![Provenance {
                 dataset: "d".into(),

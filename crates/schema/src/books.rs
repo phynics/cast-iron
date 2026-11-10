@@ -498,11 +498,12 @@ mod tests {
             body,
             fields: crate::TypedFields::None,
             tags: vec![],
+            race_group: None,
             links: vec![],
+            aon: None,
             provenance: vec![],
             license_refs: vec![],
             relations: vec![],
-            aon: None,
         }
     }
 

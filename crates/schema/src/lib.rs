@@ -268,6 +268,10 @@ pub struct RuleEntry {
     pub fields: TypedFields,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
+    /// The printed group of a `race` entry (issue #196). Optional and additive: absent from an
+    /// older library, and omitted for every other kind, so schema 4 still reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub race_group: Option<RaceGroup>,
     /// Every resolved internal reference that the body holds, deduplicated and sorted.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<EntryReference>,
@@ -279,6 +283,47 @@ pub struct RuleEntry {
     /// from [`RelationIndex`] and is not stored on the target.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub relations: Vec<Relation>,
+}
+
+/// The printed group of a race. The Advanced Race Guide names Core, Featured, and Uncommon
+/// races; every race outside those chapters is Other.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RaceGroup {
+    /// The seven races of the Core Rulebook and the Advanced Race Guide's Core Races chapter.
+    CoreRace,
+    /// The Advanced Race Guide's Featured Races chapter.
+    FeaturedRace,
+    /// The Advanced Race Guide's Uncommon Races chapter.
+    UncommonRace,
+    /// A race printed outside the Advanced Race Guide's three race chapters.
+    OtherRace,
+}
+
+impl RaceGroup {
+    pub const ALL: [RaceGroup; 4] = [
+        RaceGroup::CoreRace,
+        RaceGroup::FeaturedRace,
+        RaceGroup::UncommonRace,
+        RaceGroup::OtherRace,
+    ];
+
+    /// The corpus and index spelling, used by the `race_group` facet.
+    pub fn slug(self) -> &'static str {
+        match self {
+            RaceGroup::CoreRace => "core_race",
+            RaceGroup::FeaturedRace => "featured_race",
+            RaceGroup::UncommonRace => "uncommon_race",
+            RaceGroup::OtherRace => "other_race",
+        }
+    }
+
+    /// Reads a slug. `None` for a value outside [`RaceGroup::ALL`].
+    pub fn parse(value: &str) -> Option<Self> {
+        RaceGroup::ALL
+            .into_iter()
+            .find(|group| group.slug() == value)
+    }
 }
 
 /// What a [`Relation`] says about its source and target.

@@ -121,6 +121,7 @@ mod tests {
             }],
             fields: TypedFields::None,
             tags: vec![],
+            race_group: None,
             links: links
                 .iter()
                 .map(|(target, anchor)| EntryReference {
