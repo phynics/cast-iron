@@ -3,6 +3,7 @@
 //! - [`route`]: hash routes. Pure parsing, plus `use_route`, `navigate`, scroll helpers.
 //! - [`library`]: read access to the active library (catalog, entries, search, legal, and the
 //!   schema-3 relation, spell-list, and book files). [`graph`]: pure lookups over those files.
+//!   [`reading`]: one book's flattened Contents order, built once per active library.
 //! - [`store`]: IndexedDB for bookmarks, collections, and preferences.
 //! - [`install`]: the first-run and update installer.
 //! - [`updates`]: the opt-out daily check for a newer library, and the state the header reads.
@@ -25,6 +26,7 @@ pub mod js;
 pub mod library;
 pub mod lru;
 pub mod pwa;
+pub mod reading;
 pub mod report;
 pub mod revisions;
 pub mod route;

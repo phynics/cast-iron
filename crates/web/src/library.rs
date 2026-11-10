@@ -6,6 +6,7 @@ use crate::content_cache;
 use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
+use crate::reading::{BookReading, ReadingCache};
 use crate::revisions::EffectiveRevisions;
 use crate::store::{self, ActiveLibrary};
 use crate::views::book_tier::source_ranks;
@@ -102,6 +103,11 @@ struct Inner {
     relations: RefCell<Option<Option<Rc<Relations>>>>,
     spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
     books: RefCell<Option<Option<Rc<BookLookup>>>>,
+    /// The flattened Contents reading order of each book, built on first query. Contents
+    /// visibility comes from the immutable catalog kind, so the active-book selection does not
+    /// invalidate it; a new library instance starts empty, so an old content version never
+    /// answers for a new one.
+    readings: ReadingCache,
     /// Schema-4 class-option groups. The outer `Option` is "not loaded yet"; the inner one is
     /// "this library has no such file".
     option_groups: RefCell<Option<Option<Rc<OptionGroupIndex>>>>,
@@ -272,6 +278,7 @@ impl Library {
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
             books: RefCell::new(Some(books)),
+            readings: ReadingCache::default(),
             option_groups: RefCell::new(None),
             replaces: RefCell::new(None),
             backlinks: RefCell::new(None),
@@ -402,6 +409,24 @@ impl Library {
     pub(crate) fn with_books<R>(&self, f: impl FnOnce(Option<&BookLookup>) -> R) -> R {
         let books = self.0.books.borrow();
         f(books.as_ref().and_then(Option::as_deref))
+    }
+
+    /// The flattened Contents reading order of one book, built on first use. The candidate
+    /// membership test, the breadcrumb trail and previous/next all read this value. It depends
+    /// only on the immutable chapter tree and the catalog kind, so changing the active books
+    /// does not rebuild it.
+    pub(crate) fn reading(&self, book: usize) -> Option<Rc<BookReading>> {
+        self.with_books(|books| {
+            let tree = books?.book_at(book)?;
+            Some(self.0.readings.get_or_build(book, || {
+                BookReading::new(tree, &|id| self.contents_hidden(id))
+            }))
+        })
+    }
+
+    fn contents_hidden(&self, id: &EntryId) -> bool {
+        self.stub(id)
+            .is_some_and(|stub| cast_iron_schema::books::hidden_from_contents(stub.kind))
     }
 
     /// True when the catalog stub belongs to `source` under the canonical-source rule. It
