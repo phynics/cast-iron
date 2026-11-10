@@ -48,6 +48,7 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
         body,
         fields: TypedFields::None,
         tags: vec![],
+        race_group: None,
         links: vec![],
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],

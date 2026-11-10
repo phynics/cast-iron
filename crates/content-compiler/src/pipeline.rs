@@ -325,9 +325,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
 }
 
 /// Search facets for the library. Entries are already typed, so the values are read from
-/// [`TypedFields`] instead of a second representation of the record.
-///
-/// A race has no `race_group` facet: the entry does not carry its group.
+/// [`TypedFields`] and the optional entry fields instead of a second representation.
 pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(String, String)>> {
     fn push(facets: &mut Vec<(String, String)>, name: &str, value: &str) {
         if value.is_empty() {
@@ -388,6 +386,10 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
             | TypedFields::Archetype(_)
             | TypedFields::ClassOption(_)
             | TypedFields::None => {}
+        }
+        // A race's group is an optional entry field, not part of `TypedFields`.
+        if let Some(group) = entry.race_group {
+            push(&mut facets, "race_group", group.slug());
         }
         // An archetype's class comes from its typed edge, not from a text field.
         if let Some(target) = entry
@@ -748,6 +750,7 @@ mod tests {
             }],
             fields: TypedFields::None,
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![Provenance {
                 dataset: "d".into(),
@@ -789,7 +792,13 @@ mod tests {
             target: EntryId::parse("ref/class/bard").unwrap(),
             label: None,
         }];
-        let facets = canonical_facets(&[spell, archetype]);
+        let mut race = entry("ref/race/hillfolk", EntryKind::Race, 0);
+        race.race_group = Some(cast_iron_schema::RaceGroup::OtherRace);
+        let facets = canonical_facets(&[spell, archetype, race]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/race/hillfolk").unwrap()],
+            vec![("race_group".into(), "other_race".into())]
+        );
         assert_eq!(
             facets[&EntryId::parse("ref/spell/fireball").unwrap()],
             vec![

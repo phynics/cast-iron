@@ -49,6 +49,7 @@ fn rule(id: &str, text: &str, link: Option<&str>) -> RuleEntry {
         }],
         fields: TypedFields::None,
         tags: vec![],
+        race_group: None,
         links,
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
@@ -234,6 +235,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
             ..Default::default()
         }),
         tags: vec![],
+        race_group: None,
         links: vec![],
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
@@ -263,6 +265,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
             ..Default::default()
         }),
         tags: vec![],
+        race_group: None,
         links: vec![],
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
@@ -285,6 +288,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         body: vec![],
         fields: TypedFields::Class(Default::default()),
         tags: vec![],
+        race_group: None,
         links: vec![],
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],

@@ -1210,6 +1210,7 @@ mod tests {
                 ..Default::default()
             }),
             tags: vec![],
+            race_group: None,
             links: vec![],
             provenance: vec![Provenance {
                 dataset: "d".into(),

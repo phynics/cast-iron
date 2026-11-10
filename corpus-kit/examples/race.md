@@ -16,6 +16,8 @@ title = "Hillfolk"
 source_ids = ["example-book"]
 # Stable labels.
 tags = ["standard_race"]
+# The printed group: `core_race`, `featured_race`, `uncommon_race`, or `other_race`.
+race_group = "other_race"
 
 # Typed fields: what search, facets, and the entry page read. They must match the kind.
 [fields]

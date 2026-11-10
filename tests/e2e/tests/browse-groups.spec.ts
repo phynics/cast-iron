@@ -114,6 +114,93 @@ test("Feat chains and the spell pages start their crumbs below a tab destination
   await expect(crumbs.getByRole("link", { name: "Home" })).toHaveCount(0);
 });
 
+// ---- Races: the printed group filter (#196) ----
+
+const RACE_GROUP_LABELS: Record<string, string> = {
+  core_race: "Core races (Advanced Race Guide)",
+  featured_race: "Featured races",
+  uncommon_race: "Uncommon races",
+  other_race: "Other races",
+};
+const typedRaces = [...corpus.entries.values()].filter(
+  (entry) => entry.kind === "race" && entry.id.startsWith("ref/race/") && activeIds.has(entry.id),
+);
+const raceGroupCounts = typedRaces.reduce((counts, entry) => {
+  const group = entry.race_group;
+  if (group) counts.set(group, (counts.get(group) ?? 0) + 1);
+  return counts;
+}, new Map<string, number>());
+const raceCount = activeStubs.filter((stub) => stub.kind === "race").length;
+
+test("The Races list shows every printed group with its count and filters in place", async ({ page }) => {
+  // The data lands in phynics/cast-iron-data first. Until the corpus pin carries it, the filter
+  // has no values and this test has nothing to assert; the compiler unit test still covers the
+  // facet. Remove the skip when the pin includes the race_group data.
+  test.skip(raceGroupCounts.size === 0, "the pinned corpus has no race_group yet");
+  expect(raceGroupCounts.size).toBe(4);
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/browse/kind/race");
+  const main = page.locator("main");
+  const lens = main.locator("section.lens").filter({
+    has: page.getByRole("heading", { name: "By group" }),
+  });
+  await expect(lens).toBeVisible();
+  const chips = lens.locator(".lens-chip");
+  await expect(chips).toHaveCount(4);
+
+  for (const [group, n] of raceGroupCounts) {
+    const label = RACE_GROUP_LABELS[group];
+    expect(label, `a label for ${group}`).toBeTruthy();
+    const chip = chips.filter({ hasText: label });
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toContainText(String(n));
+    await expect(chip).toHaveAttribute("href", new RegExp(`facet=race_group:${group}`));
+  }
+
+  // A chip filters the list in place, and the count line compares the part with the whole.
+  const core = raceGroupCounts.get("core_race")!;
+  const coreChip = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
+  await coreChip.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race?facet=race_group:core_race");
+  await expect(main.locator(".list-count")).toHaveText(`${count(core)} of ${count(raceCount)} races · Show all`);
+  await expect(main.locator(".entry-list a[href^='#/entry/']").first()).toBeVisible();
+  await expect(chips.filter({ hasText: RACE_GROUP_LABELS.core_race })).toHaveAttribute("aria-current", "true");
+
+  // Selection must be visible, including a check mark and readable count in both themes.
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
+    const selected = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
+    const style = await selected.evaluate((el) => {
+      const css = getComputedStyle(el);
+      const check = getComputedStyle(el, "::before");
+      const root = document.createElement("span");
+      root.style.backgroundColor = "var(--accent)";
+      el.append(root);
+      const accent = getComputedStyle(root).backgroundColor;
+      root.remove();
+      return {
+        background: css.backgroundColor,
+        accent,
+        color: css.color,
+        countColor: getComputedStyle(el.querySelector("small")!).color,
+        check: check.content,
+        checkBorder: check.borderBottomWidth,
+        height: el.getBoundingClientRect().height,
+      };
+    });
+    expect(style.background).toBe(style.accent);
+    expect(style.countColor).toBe(style.color);
+    expect(style.check).not.toBe("none");
+    expect(style.checkBorder).toBe("2px");
+    expect(style.height).toBeGreaterThanOrEqual(44);
+  }
+
+  await main.getByRole("link", { name: "Show all races" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race");
+  await expect(main.locator(".list-count")).toHaveText(`${count(raceCount)} races`);
+});
+
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
 
 const featsInCombat = [...corpus.entries.values()]

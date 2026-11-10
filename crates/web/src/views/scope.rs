@@ -158,6 +158,8 @@ impl Scope {
                 .iter()
                 .any(|(field, _)| field == "item_category"))
             || cantrips
+            || (self.kind == EntryKind::Race
+                && self.facets.iter().any(|(field, _)| field == "race_group"))
         {
             facets.join(" ")
         } else {
@@ -430,6 +432,20 @@ mod tests {
             "Search Evocation Cantrips"
         );
         assert_eq!(evocation_cantrips.label(), "Evocation Cantrips");
+    }
+
+    #[test]
+    fn race_groups_already_name_the_kind() {
+        for (group, label) in [
+            ("core_race", "Core races (Advanced Race Guide)"),
+            ("featured_race", "Featured races"),
+            ("uncommon_race", "Uncommon races"),
+            ("other_race", "Other races"),
+        ] {
+            let group_scope = scope(EntryKind::Race, vec![("race_group".into(), group.into())]);
+            assert_eq!(group_scope.label(), label);
+            assert_eq!(group_scope.placeholder(), format!("Search {label}"));
+        }
     }
 
     #[test]
