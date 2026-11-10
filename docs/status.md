@@ -62,9 +62,9 @@ offline reload repeated the entry, the citation, the star and the four race chip
 **Limitations.** No PSRD library artifact was preserved, so the tag's PSRD upgrade script did
 not run. The 9,968 legacy ids are covered by the published-id guard, which passed, and the
 browser check covers the published canonical baseline only. Physical devices and the
-accessibility check ([#12](https://github.com/phynics/cast-iron/issues/12)) remain open. No CI
-run, Pages deployment or live check happened for this pin. `release` still serves `6365dba` and
-content `v17a954e5c0f1d11c`.
+accessibility check ([#12](https://github.com/phynics/cast-iron/issues/12)) remain open. CI is
+pending for the pull request. No Pages deployment or live check happened for this pin. `release`
+still serves `6365dba` and content `v17a954e5c0f1d11c`.
 
 ## Corpus pinned to v0.1.18, and the catch-all chapter hidden, 2026-11-09
 
