@@ -329,6 +329,8 @@ fn write_fields(out: &mut String, fields: &TypedFields) {
             out.push_str("kind = \"archetype\"\n");
             write_string_array(out, "replaces", &fields.replaces);
             write_string_array(out, "alters", &fields.alters);
+            write_string_array(out, "replaces_features", &fields.replaces_features);
+            write_string_array(out, "alters_features", &fields.alters_features);
         }
         TypedFields::ClassOption(fields) => {
             out.push_str("kind = \"class_option\"\n");
@@ -337,6 +339,8 @@ fn write_fields(out: &mut String, fields: &TypedFields) {
             out.push('\n');
             write_string_array(out, "replaces", &fields.replaces);
             write_string_array(out, "alters", &fields.alters);
+            write_string_array(out, "replaces_features", &fields.replaces_features);
+            write_string_array(out, "alters_features", &fields.alters_features);
         }
         TypedFields::None => out.push_str("kind = \"none\"\n"),
     }
@@ -581,8 +585,21 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
         ],
         "trait" => &["kind", "category", "detail"],
         "racial_trait" => &["kind", "alternate"],
-        "archetype" => &["kind", "replaces", "alters"],
-        "class_option" => &["kind", "group", "replaces", "alters"],
+        "archetype" => &[
+            "kind",
+            "replaces",
+            "alters",
+            "replaces_features",
+            "alters_features",
+        ],
+        "class_option" => &[
+            "kind",
+            "group",
+            "replaces",
+            "alters",
+            "replaces_features",
+            "alters_features",
+        ],
         "none" => &["kind"],
         other => {
             return Err(Error::new(
@@ -699,11 +716,15 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
         "archetype" => TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
             replaces: list("replaces")?,
             alters: list("alters")?,
+            replaces_features: list("replaces_features")?,
+            alters_features: list("alters_features")?,
         }),
         "class_option" => TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: string("group")?,
             replaces: list("replaces")?,
             alters: list("alters")?,
+            replaces_features: list("replaces_features")?,
+            alters_features: list("alters_features")?,
         }),
         "none" => TypedFields::None,
         _ => unreachable!("kind was checked above"),
@@ -1198,11 +1219,15 @@ mod tests {
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
                 replaces: vec!["Trap sense".into()],
                 alters: vec!["Uncanny dodge".into()],
+                replaces_features: vec!["trap-sense".into()],
+                alters_features: vec!["uncanny-dodge".into()],
             }),
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "arcane-discovery".into(),
                 replaces: vec!["Arcane bond".into()],
                 alters: vec!["Arcane school".into()],
+                replaces_features: vec!["arcane-bond".into()],
+                alters_features: vec!["arcane-school".into()],
             }),
             TypedFields::None,
         ];

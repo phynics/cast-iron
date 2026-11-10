@@ -232,6 +232,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
             group: "discoveries".into(),
             replaces: vec!["Arcane bond".into()],
             alters: vec![],
+            ..Default::default()
         }),
         tags: vec![],
         race_group: None,
@@ -261,6 +262,7 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         fields: TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
             replaces: vec!["Trap sense".into()],
             alters: vec![],
+            ..Default::default()
         }),
         tags: vec![],
         race_group: None,

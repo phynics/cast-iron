@@ -50,7 +50,8 @@ pub mod validate;
 ///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
-/// version.
+/// version. The optional `replaces_features` and `alters_features` lists on the attached fields
+/// are additive for the same reason.
 pub const SCHEMA_VERSION: u32 = 4;
 
 /// Name of the relation index, relative to the version directory.
@@ -737,16 +738,37 @@ pub struct RacialTraitFields {
 
 /// Fields of an archetype: the printed class features it replaces and alters, in print order.
 /// Empty vectors are omitted from the serialized form.
+///
+/// `replaces_features` and `alters_features` hold the heading anchors of the base class
+/// entry for the printed names in `replaces` and `alters`, in the same order. A printed name
+/// that no heading resolves is omitted from the feature list. The anchors are stable, so a
+/// client can compare two archetypes, or an archetype with a class option, without parsing
+/// display names.
+///
+/// The flat list describes a whole-feature trade. Per-power trades (#251), such as a bloodline
+/// power or a domain power, will add a separate optional pair beside these fields; this list
+/// keeps its meaning and stays valid.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ArchetypeFields {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub replaces: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub alters: Vec<String>,
+    /// Heading anchors in the base class entry, aligned with the confidently resolved
+    /// entries of `replaces`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replaces_features: Vec<String>,
+    /// Heading anchors in the base class entry, aligned with the confidently resolved
+    /// entries of `alters`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alters_features: Vec<String>,
 }
 
 /// Fields of a class option: the option group it belongs to and the printed features it
 /// replaces and alters, in print order.
+///
+/// `replaces_features` and `alters_features` hold heading anchors of the option group's
+/// class entries, with the same resolution rule as [`ArchetypeFields`].
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ClassOptionFields {
     /// A slug from the corpus `option-groups.toml`.
@@ -755,6 +777,14 @@ pub struct ClassOptionFields {
     pub replaces: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub alters: Vec<String>,
+    /// Heading anchors in the option group's class entries, aligned with the confidently
+    /// resolved entries of `replaces`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub replaces_features: Vec<String>,
+    /// Heading anchors in the option group's class entries, aligned with the confidently
+    /// resolved entries of `alters`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub alters_features: Vec<String>,
 }
 
 /// `relations.json` (schema 3): every `Relation` of every entry, flattened so that the
@@ -1676,6 +1706,8 @@ mod tests {
             group: "arcane-discovery".into(),
             replaces: vec![],
             alters: vec![],
+            replaces_features: vec![],
+            alters_features: vec![],
         });
         assert_eq!(
             serde_json::to_string(&option).unwrap(),
@@ -1685,10 +1717,12 @@ mod tests {
             group: "arcane-discovery".into(),
             replaces: vec!["Arcane bond".into()],
             alters: vec!["Arcane school".into()],
+            replaces_features: vec!["arcane-bond".into()],
+            alters_features: vec!["arcane-school".into()],
         });
         assert_eq!(
             serde_json::to_string(&option).unwrap(),
-            r#"{"kind":"class_option","group":"arcane-discovery","replaces":["Arcane bond"],"alters":["Arcane school"]}"#
+            r#"{"kind":"class_option","group":"arcane-discovery","replaces":["Arcane bond"],"alters":["Arcane school"],"replaces_features":["arcane-bond"],"alters_features":["arcane-school"]}"#
         );
     }
 
