@@ -167,6 +167,35 @@ test("The Races list shows every printed group with its count and filters in pla
   await expect(main.locator(".entry-list a[href^='#/entry/']").first()).toBeVisible();
   await expect(chips.filter({ hasText: RACE_GROUP_LABELS.core_race })).toHaveAttribute("aria-current", "true");
 
+  // Selection must be visible, including a check mark and readable count in both themes.
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
+    const selected = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
+    const style = await selected.evaluate((el) => {
+      const css = getComputedStyle(el);
+      const check = getComputedStyle(el, "::before");
+      const root = document.createElement("span");
+      root.style.backgroundColor = "var(--accent)";
+      el.append(root);
+      const accent = getComputedStyle(root).backgroundColor;
+      root.remove();
+      return {
+        background: css.backgroundColor,
+        accent,
+        color: css.color,
+        countColor: getComputedStyle(el.querySelector("small")!).color,
+        check: check.content,
+        checkBorder: check.borderBottomWidth,
+        height: el.getBoundingClientRect().height,
+      };
+    });
+    expect(style.background).toBe(style.accent);
+    expect(style.countColor).toBe(style.color);
+    expect(style.check).not.toBe("none");
+    expect(style.checkBorder).toBe("2px");
+    expect(style.height).toBeGreaterThanOrEqual(44);
+  }
+
   await main.getByRole("link", { name: "Show all races" }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race");
   await expect(main.locator(".list-count")).toHaveText(`${count(raceCount)} races`);

@@ -1448,7 +1448,8 @@ mark {
 
 /* The selected state is filled and carries a check, so it does not rely on color alone. */
 .chip input:checked + span::before,
-.scope-choice[aria-pressed="true"]::before {
+.scope-choice[aria-pressed="true"]::before,
+.lens-chip[aria-current="true"]::before {
   content: "";
   flex: none;
   display: inline-block;
@@ -2384,7 +2385,7 @@ main,
   gap: var(--space-2);
 }
 
-/* Filter: the only pill shape. A browse facet is a link into search. */
+/* Filter: the only pill shape. A browse facet narrows its category in place. */
 .lens-chip {
   display: inline-flex;
   align-items: center;
@@ -2403,15 +2404,19 @@ main,
   color: var(--accent);
 }
 
-@media (pointer: fine) {
-  .lens-chip {
-    min-height: 2.25rem;
-  }
+.lens-chip[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .lens-chip small {
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
+}
+
+.lens-chip[aria-current="true"] small {
+  color: inherit;
 }
 
 .lens-more > summary,
