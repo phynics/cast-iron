@@ -48,8 +48,9 @@ pub mod validate;
 /// (each carrying `replaces` and `alters`), and the derived files `option-groups.json` and
 /// `replaces.json`.
 ///
-/// [`RuleEntry::sources`] is additive and optional: a library without rows omits the key, and
-/// an older reader ignores an unknown key, so it does not change this version.
+/// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
+/// them omits the key, and an older reader ignores an unknown key, so they do not change this
+/// version.
 pub const SCHEMA_VERSION: u32 = 4;
 
 /// Name of the relation index, relative to the version directory.
@@ -242,6 +243,13 @@ pub struct RuleEntry {
     pub id: EntryId,
     pub kind: EntryKind,
     pub title: String,
+    /// The Archives of Nethys page for this entry, as a path relative to
+    /// `https://aonprd.com/`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`.
+    ///
+    /// Optional and additive: an entry without a confident match omits the key, and an older
+    /// reader ignores an unknown key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aon: Option<String>,
     /// Publication ids. Each id must exist in [`Catalog::sources`].
     pub source_ids: Vec<String>,
     /// Page citations in printed order. Optional and additive: an entry without rows omits the
@@ -1228,6 +1236,12 @@ pub struct SourceInfo {
     /// a source without it is a Paizo book. Serialized only when true.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub third_party: bool,
+    /// The Archives of Nethys source page, as a path relative to `https://aonprd.com/`.
+    ///
+    /// Optional and additive, like [`Self::category`]. It is `SourceDisplay.aspx` with the
+    /// AoN source name in `FixedSource`, and an older catalog has no field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1686,6 +1700,7 @@ mod tests {
             !catalog.sources[0].third_party,
             "an absent marker means a Paizo book"
         );
+        assert_eq!(catalog.sources[0].aon, None);
 
         // A newer catalog carries the fields, and an older reader ignores them because
         // neither Catalog nor SourceInfo denies unknown fields.
@@ -1702,6 +1717,7 @@ mod tests {
         let empty = SourceInfo {
             id: "a".into(),
             title: "A".into(),
+            aon: None,
             entry_count: 0,
             copyright: None,
             category: None,
@@ -1719,6 +1735,7 @@ mod tests {
         assert!(!json.contains("series_number"), "{json}");
         assert!(!json.contains("season"), "{json}");
         assert!(!json.contains("\"third_party\""), "{json}");
+        assert!(!json.contains("aon"), "{json}");
         let parsed: SourceInfo = serde_json::from_str(&json).unwrap();
         assert!(!parsed.third_party);
 

@@ -47,6 +47,7 @@ the default in `corpus.toml`, and `relations` never holds a prerequisite that
 id = "ref/spell/fog-cloud"
 kind = "spell"
 title = "Fog Cloud"
+aon = "SpellDisplay.aspx?ItemName=Fog%20Cloud"
 source_ids = ["core-rulebook", "mythic-adventures", "potions-and-poisons"]
 section = ["Spells", "Spell Descriptions"]
 parent = "ref/spell"
@@ -93,6 +94,7 @@ class level and the full body below.
 | `id` | string | Permanent `ref/` id. Required. |
 | `kind` | string | `EntryKind` slug: `rule`, `spell`, `feat`, `creature`, `item`, `class`, `prestige_class`, `race`, `skill`, `affliction`, `trap`, `trait`, `racial_trait`, `archetype`, `class_option`. Required. |
 | `title` | string | Display title. Required. |
+| `aon` | string | Optional Archives of Nethys page, as a path relative to `https://aonprd.com/`, such as `FeatDisplay.aspx?ItemName=Power%20Attack`. It names a `*Display.aspx` page with `ItemName`, `FixedName`, or `FinalName`; no scheme, host, leading slash, or fragment. |
 | `source_ids` | array of strings | Publication ids. Every one must exist in `publications.toml`. |
 | `section` | array of strings | Breadcrumb inside the rules hierarchy. |
 | `parent` | string | Containing rules entry; must resolve to another entry. Omitted when absent. |
@@ -191,6 +193,18 @@ suffix = "teitr"
 A suffix is one id segment (lowercase letters, digits, and hyphens) and must be unique across
 the corpus. `corpus-check` rejects a duplicate or an invalid one, and an add-on or revision
 that cannot name its publication's suffix.
+
+A row may carry `aon`, the Archives of Nethys source page, as a path relative to
+`https://aonprd.com/`:
+
+```toml
+aon = "SourceDisplay.aspx?FixedSource=Core%20Rulebook"
+```
+
+The value names `SourceDisplay.aspx` with the AoN source name in `FixedSource`. It has no
+scheme, host, leading slash, or fragment, and it is omitted when no confident match exists.
+`corpus-check` validates it, and the compiler carries it into `catalog.json` as the optional
+`SourceInfo.aon` field.
 
 `third_party = true` marks a publication that Paizo did not publish. Absent means a Paizo
 book, and the canonical writer omits the field when it is false. The marker decides the

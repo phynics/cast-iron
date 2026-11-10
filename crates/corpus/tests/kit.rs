@@ -99,6 +99,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
         publications: vec![Publication {
             id: "example-book".into(),
             title: "Example Book".into(),
+            aon: None,
             copyright: Some("Example Book, (c) Example Publisher.".into()),
             category: None,
             publication_date: None,
