@@ -241,6 +241,7 @@ mod tests {
         SourceInfo {
             id: id.into(),
             title: id.into(),
+            aon: None,
             entry_count: 1,
             copyright: None,
             category: category.map(String::from),

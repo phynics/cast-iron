@@ -397,6 +397,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind,
             title: id.into(),
+            aon: None,
             source_ids: vec!["book".into()],
             sources: vec![],
             section: vec![],
@@ -443,6 +444,8 @@ mod tests {
             entry: entry.map(|id| EntryId::parse(id).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children: vec![],
         }
     }

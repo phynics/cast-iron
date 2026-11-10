@@ -50,6 +50,8 @@ def _write_node(node: dict, path: str, out: list[str]) -> None:
         out.append(f"anchor = {_string(node['anchor'])}")
     if node.get("review") is not None:
         out.append(f"review = {_string(node['review'])}")
+    if node.get("collapse"):
+        out.append("collapse = true")
     out.append("")
     for child in node.get("children", []):
         _write_node(child, path + ".children", out)

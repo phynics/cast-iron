@@ -116,6 +116,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind,
             title: id.into(),
+            aon: None,
             source_ids: sources.iter().map(|s| s.to_string()).collect(),
             sources: vec![],
             section: vec![],
@@ -149,6 +150,7 @@ mod tests {
         SourceInfo {
             id: id.into(),
             title: title.into(),
+            aon: None,
             entry_count: 0,
             copyright: None,
             category: None,

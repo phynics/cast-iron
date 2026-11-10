@@ -321,6 +321,10 @@ pub fn effective_entry(base: &RuleEntry, revision: &RuleEntry) -> RuleEntry {
         id: base.id.clone(),
         kind: base.kind,
         title: base.title.clone(),
+        // The AoN page follows the visible text like the citations do: a revision's own link
+        // wins, and the base's link stays when the revision has none (AoN hosts no third-party
+        // revisions, so the original's page is still the closest reference).
+        aon: revision.aon.clone().or_else(|| base.aon.clone()),
         source_ids: base.source_ids.clone(),
         sources: effective_sources(&base.sources, &revision.sources).to_vec(),
         section: base.section.clone(),
@@ -741,11 +745,45 @@ mod tests {
     }
 
     #[test]
+    fn effective_entry_keeps_the_base_aon_link_unless_the_revision_has_its_own() {
+        let base = RuleEntry {
+            id: id("ref/feat/dodge"),
+            kind: cast_iron_schema::EntryKind::Feat,
+            title: "Dodge".into(),
+            aon: Some("FeatDisplay.aspx?ItemName=Dodge".into()),
+            source_ids: vec!["core-rulebook".into()],
+            sources: vec![],
+            section: vec![],
+            parent: None,
+            body: vec![],
+            fields: feat("Old benefit."),
+            tags: vec![],
+            links: vec![],
+            provenance: vec![],
+            license_refs: vec![],
+            relations: vec![],
+        };
+        let mut revision = base.clone();
+        revision.id = id("ref/feat/dodge/eitr");
+        revision.aon = None;
+        assert_eq!(
+            effective_entry(&base, &revision).aon.as_deref(),
+            Some("FeatDisplay.aspx?ItemName=Dodge")
+        );
+        revision.aon = Some("FeatDisplay.aspx?ItemName=Dodge%20(Revised)".into());
+        assert_eq!(
+            effective_entry(&base, &revision).aon.as_deref(),
+            Some("FeatDisplay.aspx?ItemName=Dodge%20(Revised)")
+        );
+    }
+
+    #[test]
     fn effective_entry_keeps_the_original_identity_and_takes_the_revision_text() {
         let base = RuleEntry {
             id: id("ref/feat/dodge"),
             kind: cast_iron_schema::EntryKind::Feat,
             title: "Dodge".into(),
+            aon: None,
             source_ids: vec!["core-rulebook".into()],
             sources: vec![],
             section: vec![],

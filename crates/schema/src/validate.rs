@@ -427,6 +427,7 @@ mod tests {
             id: EntryId::parse(id).unwrap(),
             kind: EntryKind::Rule,
             title: "Title".into(),
+            aon: None,
             source_ids: vec!["cr".into()],
             sources: vec![],
             section: vec![],
@@ -450,6 +451,7 @@ mod tests {
             sources: vec![SourceInfo {
                 id: "cr".into(),
                 title: "CR".into(),
+                aon: None,
                 entry_count: entries.len() as u32,
                 copyright: None,
                 category: None,
@@ -602,6 +604,8 @@ mod tests {
             entry: Some(EntryId::parse(id).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children: vec![],
         };
         let books = |chapters: Vec<BookNode>| BookIndex {
