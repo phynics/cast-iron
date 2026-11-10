@@ -34,3 +34,20 @@ Rules content lives in [phynics/cast-iron-data](https://github.com/phynics/cast-
 this repository. Fix or add entries there by following its `CONTRIBUTING.md`, then bump the pin in
 `sources/corpus.toml` and run `cargo xtask fetch-sources` and `cargo xtask content`. The format is
 documented in [docs/corpus-format.md](docs/corpus-format.md).
+
+Footnotes are level-six headings in the entry body. A note needs a short marker, a unique
+`footnote-` anchor, and a paragraph. Link the reference with a superscript:
+
+```markdown
+- [Homunculus](ref/monster/homunculus)^[5](ref/ability/improved-familiars#footnote-h)^
+
+###### ^5^ {#footnote-h}
+
+The master must first create the homunculus.
+```
+
+Keep the anchor. Body links name it, and `corpus-check` fails when the heading key is missing.
+Do not use Markdown `[^5]` syntax; the reader rejects it. The note is an ordinary heading, so it
+also appears in the page's "On this page" list when that list is shown. Place notes after the
+passage and keep ordinary section headings for article structure. See
+[Footnotes](docs/corpus-format.md#footnotes) for the full rule.
