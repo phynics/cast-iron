@@ -215,6 +215,34 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    #[test]
+    fn a_book_collapse_marker_survives_formatting() {
+        let dir = temp_dir("collapse-marker");
+        let mut source = corpus(vec![rule("ref/rule/a", vec![])]);
+        source.books = cast_iron_schema::BookIndex {
+            books: vec![cast_iron_schema::BookTree {
+                source: "core-rulebook".into(),
+                title: "Core".into(),
+                basis: "reviewed".into(),
+                review: vec![],
+                chapters: vec![cast_iron_schema::BookNode {
+                    title: "Long list".into(),
+                    entry: Some(cast_iron_schema::EntryId::parse("ref/rule/a").unwrap()),
+                    anchor: None,
+                    review: None,
+                    collapse: true,
+                    lists_children: false,
+                    children: vec![],
+                }],
+            }],
+        };
+        write_tree(&dir, &source, &[]);
+        assert!(format_corpus(&dir, false).unwrap().changes.is_empty());
+        let text = fs::read_to_string(dir.join("books.toml")).unwrap();
+        assert!(text.contains("collapse = true"), "{text}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     const MESSY: &str = "+++
 id = \"ref/rule/a\"
 kind = \"rule\"

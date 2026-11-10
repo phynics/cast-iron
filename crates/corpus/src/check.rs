@@ -1453,6 +1453,21 @@ fn check_book_node(
                 node.title
             ));
         } else {
+            // A marker is a promise that the hub page lists what the row hides. The automatic
+            // rule already refuses a hub with an unlinked child; the authored marker needs the
+            // same warning because it applies at every level and overrides the chapter default.
+            if node.collapse
+                && cast_iron_schema::books::listed_under(node, &|_| false) > 1
+                && !cast_iron_schema::books::entry_lists_children(
+                    node,
+                    &corpus.entries[entry.as_str()].entry,
+                )
+            {
+                report.warnings.push(format!(
+                    "books.toml:{line}: marked node `{}` collapses, but `{entry}` does not link every child entry in its body; collapsing would hide entries",
+                    node.title
+                ));
+            }
             match &node.anchor {
                 None => {
                     if !placed.insert(entry.to_string()) {
@@ -1922,6 +1937,8 @@ mod tests {
                     entry: Some(EntryId::parse("ref/rule/b").unwrap()),
                     anchor: Some("gone".into()),
                     review: None,
+                    collapse: false,
+                    lists_children: false,
                     children: vec![],
                 }],
             }],
@@ -1932,6 +1949,67 @@ mod tests {
         assert!(problem.starts_with("books.toml:2:"), "{problem}");
         assert!(problem.contains("entries/rule/b.md"), "{problem}");
         assert!(problem.contains("`effects`"), "{problem}");
+    }
+
+    #[test]
+    fn a_marked_book_node_warns_when_its_page_does_not_link_every_child() {
+        let node = || BookNode {
+            title: "Long list".into(),
+            entry: Some(EntryId::parse("ref/rule/list").unwrap()),
+            anchor: None,
+            review: None,
+            collapse: true,
+            lists_children: false,
+            children: vec![BookNode {
+                title: "Child".into(),
+                entry: Some(EntryId::parse("ref/rule/child").unwrap()),
+                anchor: None,
+                review: None,
+                collapse: false,
+                lists_children: false,
+                children: vec![],
+            }],
+        };
+        let books = |node: BookNode| BookIndex {
+            books: vec![BookTree {
+                source: "core-rulebook".into(),
+                title: "Core".into(),
+                basis: "reviewed".into(),
+                review: vec![],
+                chapters: vec![node],
+            }],
+        };
+
+        // The page lists neither child, so a marked row would hide the child.
+        let mut first = corpus(vec![
+            rule("ref/rule/list", vec![]),
+            rule("ref/rule/child", vec![]),
+        ]);
+        first.books = books(node());
+        first.books_text = "[[books.chapters]]\nentry = \"ref/rule/list\"\n".into();
+        let report = check(&first);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("marked node `Long list` collapses"),
+            "{:?}",
+            report.warnings
+        );
+
+        // The linked child is the list the page already shows, so the marker is safe.
+        let mut corpus = corpus(vec![
+            rule(
+                "ref/rule/list",
+                vec![Block::EntryLink {
+                    target: EntryId::parse("ref/rule/child").unwrap(),
+                    title: "Child".into(),
+                }],
+            ),
+            rule("ref/rule/child", vec![]),
+        ]);
+        corpus.books = books(node());
+        corpus.books_text = "[[books.chapters]]\nentry = \"ref/rule/list\"\n".into();
+        assert!(check(&corpus).warnings.is_empty());
     }
 
     #[test]

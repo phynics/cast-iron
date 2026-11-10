@@ -604,6 +604,8 @@ mod tests {
             entry: Some(EntryId::parse(id).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children: vec![],
         };
         let books = |chapters: Vec<BookNode>| BookIndex {

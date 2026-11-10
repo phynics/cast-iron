@@ -5,7 +5,8 @@
 //! client renders the same rows, so a section result and its target cannot disagree. The
 //! functions are pure and hold no knowledge of routes, DOM, or search.
 
-use crate::{BookNode, BookTree, EntryId, EntryKind};
+use crate::{Block, BookIndex, BookNode, BookTree, EntryId, EntryKind, RuleEntry};
+use std::collections::{HashMap, HashSet};
 
 /// Whether Contents leaves out the kinds that the `In this book` links reach.
 ///
@@ -65,6 +66,80 @@ pub fn listed_under(node: &BookNode, hide: Hide<'_>) -> usize {
             .iter()
             .map(|child| listed_under(child, hide))
             .sum::<usize>()
+}
+
+/// True when `node` is itself an entry and that entry's body lists every entry below the node.
+///
+/// Only [`Block::EntryLink`] rows count. The renderer shows each as a link under the hub's own
+/// page, which is the rule: Contents repeats a list that the page already holds. An inline
+/// reference elsewhere in the body is not that list, so it never collapses a node. A node with
+/// no entry, no entry below it, or one entry the page does not link stays a branch.
+pub fn entry_lists_children(node: &BookNode, entry: &RuleEntry) -> bool {
+    fn collect(node: &BookNode, own: &EntryId, out: &mut HashSet<EntryId>) {
+        for child in &node.children {
+            if let Some(id) = &child.entry
+                && id != own
+            {
+                out.insert(id.clone());
+            }
+            collect(child, own, out);
+        }
+    }
+    fn linked(blocks: &[Block], out: &mut HashSet<EntryId>) {
+        for block in blocks {
+            match block {
+                Block::EntryLink { target, .. } => {
+                    out.insert(target.clone());
+                }
+                Block::List { items, .. } => {
+                    for item in items {
+                        linked(item, out);
+                    }
+                }
+                Block::Quote { content } => linked(content, out),
+                _ => {}
+            }
+        }
+    }
+    let Some(own) = &node.entry else {
+        return false;
+    };
+    let mut children = HashSet::new();
+    collect(node, own, &mut children);
+    if children.is_empty() {
+        return false;
+    }
+    let mut links = HashSet::new();
+    linked(&entry.body, &mut links);
+    children.is_subset(&links)
+}
+
+/// Records [`BookNode::lists_children`] on every node of `books`.
+///
+/// The compiler calls this after it has every entry body; the client reads the flag from
+/// `books.json` and never loads a body to decide a row. `entries` may hold more than the books
+/// place; only an id the tree names matters.
+pub fn mark_listed_children(books: &mut BookIndex, entries: &[RuleEntry]) {
+    let by_id: HashMap<&EntryId, &RuleEntry> =
+        entries.iter().map(|entry| (&entry.id, entry)).collect();
+    fn walk(node: &mut BookNode, by_id: &HashMap<&EntryId, &RuleEntry>) {
+        node.lists_children = node
+            .entry
+            .as_ref()
+            .and_then(|id| by_id.get(id))
+            // A kind Contents leaves out has no row link to open, so its node keeps its branch.
+            .is_some_and(|entry| {
+                !hidden_from_contents(entry.kind) && entry_lists_children(node, entry)
+            });
+        for child in &mut node.children {
+            walk(child, by_id);
+        }
+    }
+    for book in &mut books.books {
+        for chapter in &mut book.chapters {
+            walk(chapter, &by_id);
+        }
+    }
 }
 
 /// The title that the compiler gives the chapter of entries that no curated chapter places.
@@ -209,13 +284,17 @@ pub fn sections<'a>(book: &'a BookTree, hide: Hide<'_>) -> Vec<BookSection<'a>> 
     ) {
         for index in listed_children(node, hide) {
             path.push(index);
+            let child = &node.children[index];
             out.push(BookSection {
                 path: path.clone(),
-                title: &node.children[index].title,
+                title: &child.title,
                 chapter: chapter.to_string(),
                 anchor: Some(toc_id(path)),
             });
-            walk(&node.children[index], path, chapter, hide, out);
+            // A hub section's children are part of its own page, not rows on this one.
+            if !child.lists_children {
+                walk(child, path, chapter, hide, out);
+            }
             path.pop();
         }
     }
@@ -247,6 +326,8 @@ mod tests {
             entry: entry.map(|s| EntryId::parse(s).unwrap()),
             anchor: None,
             review: None,
+            collapse: false,
+            lists_children: false,
             children,
         }
     }
@@ -396,5 +477,138 @@ mod tests {
         let sections = sections(&book, &hide);
         // The chapter has no visible entry under it, so it is not a chapter page.
         assert!(sections.is_empty());
+    }
+
+    fn entry_link(target: &str) -> Block {
+        Block::EntryLink {
+            target: EntryId::parse(target).unwrap(),
+            title: target.into(),
+        }
+    }
+
+    fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
+        RuleEntry {
+            id: EntryId::parse(id).unwrap(),
+            kind: EntryKind::Rule,
+            title: id.into(),
+            source_ids: vec!["core".into()],
+            sources: vec![],
+            section: vec![],
+            parent: None,
+            body,
+            fields: crate::TypedFields::None,
+            tags: vec![],
+            links: vec![],
+            provenance: vec![],
+            license_refs: vec![],
+            relations: vec![],
+        }
+    }
+
+    #[test]
+    fn a_hub_collapses_only_when_its_page_links_every_entry_below_it() {
+        let hub = node(
+            "Combat",
+            Some("core/rule/combat"),
+            vec![
+                node("Actions", Some("core/rule/actions"), vec![]),
+                node(
+                    "Cover",
+                    None,
+                    vec![node(
+                        "Partial Cover",
+                        Some("core/rule/partial-cover"),
+                        vec![],
+                    )],
+                ),
+            ],
+        );
+        let body = vec![
+            entry_link("core/rule/actions"),
+            entry_link("core/rule/partial-cover"),
+        ];
+        assert!(entry_lists_children(&hub, &rule("core/rule/combat", body)));
+
+        // One missing entry link keeps the branch, even when it is a deeper child.
+        let partial = vec![entry_link("core/rule/actions")];
+        assert!(!entry_lists_children(
+            &hub,
+            &rule("core/rule/combat", partial)
+        ));
+
+        // An inline reference is not the page's list of entry links.
+        let inline = vec![Block::Paragraph {
+            style: Default::default(),
+            content: vec![crate::Inline::Link {
+                target: EntryId::parse("core/rule/actions").unwrap(),
+                anchor: None,
+                c: vec![crate::Inline::text("actions")],
+            }],
+        }];
+        assert!(!entry_lists_children(
+            &hub,
+            &rule("core/rule/combat", inline)
+        ));
+
+        // A node without its own entry has no page to list anything.
+        let heading = node(
+            "Combat",
+            None,
+            vec![node("Actions", Some("core/rule/actions"), vec![])],
+        );
+        assert!(!entry_lists_children(
+            &heading,
+            &rule("core/rule/combat", vec![entry_link("core/rule/actions")])
+        ));
+    }
+
+    #[test]
+    fn marking_a_book_records_the_hub_flag_on_the_node() {
+        let books = BookIndex {
+            books: vec![BookTree {
+                source: "core".into(),
+                title: "Core".into(),
+                basis: String::new(),
+                review: vec![],
+                chapters: vec![node(
+                    "Combat",
+                    Some("core/rule/combat"),
+                    vec![node("Actions", Some("core/rule/actions"), vec![])],
+                )],
+            }],
+        };
+        let entries = vec![
+            rule("core/rule/combat", vec![entry_link("core/rule/actions")]),
+            rule("core/rule/actions", vec![]),
+        ];
+        let mut marked = books.clone();
+        mark_listed_children(&mut marked, &entries);
+        assert!(marked.books[0].chapters[0].lists_children);
+        assert!(!marked.books[0].chapters[0].children[0].lists_children);
+        // The input is untouched.
+        assert!(!books.books[0].chapters[0].lists_children);
+    }
+
+    #[test]
+    fn a_collapsed_hub_is_not_followed_for_section_targets() {
+        let mut hub = node(
+            "Actions",
+            Some("core/rule/actions"),
+            vec![node("Charge", Some("core/rule/charge"), vec![])],
+        );
+        hub.lists_children = true;
+        let book = BookTree {
+            source: "core".into(),
+            title: "Core".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![node("Combat", None, vec![hub])],
+        };
+        let named: Vec<&str> = sections(&book, &hide)
+            .iter()
+            .map(|section| section.title)
+            .collect();
+        // The hub section keeps its own row; the child it already lists has no separate row.
+        assert_eq!(named, ["Combat", "Actions"]);
     }
 }

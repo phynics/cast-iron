@@ -139,11 +139,13 @@ pub fn build_from_corpus(
         corpus.exclusions.excluded.len(),
         corpus.exclusions.rejected.len(),
     )];
+    let mut books = corpus.books.clone();
+    cast_iron_schema::books::mark_listed_children(&mut books, &entries);
     Ok(Library {
         entries,
         relations: relations.index,
         spell_lists: spell_lists.lists,
-        books: corpus.books.clone(),
+        books,
         option_groups,
         replaces,
         legal: corpus.legal.clone(),

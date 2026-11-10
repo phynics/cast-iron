@@ -292,6 +292,24 @@ reviewed source material that an entry cannot express.
 The rule of thumb: if two people could disagree about it, store it; if a
 deterministic pass over the entries can produce it, derive it.
 
+### Book nodes (`books.toml`)
+
+`books.toml` is a `BookIndex`: one tree per publication, in the curated chapter order. A
+`[[books.chapters]]` row (or a nested `children` row) has a `title`, an optional `entry`, an
+optional `anchor`, an optional `review` note, and `children`.
+
+`collapse = true` is an optional authored marker. It is additive and omits when false, so older
+readers ignore it and no `SCHEMA_VERSION` bump is needed. A marked node shows as one row in
+Contents at any level, including a top-level chapter. The row keeps the muted count and links to
+the node's entry; a marked node with no entry links to its chapter page. An unmarked top-level
+chapter keeps its nested sections and chapter page. Below chapter level the compiler's automatic
+rule still applies: a node that is itself an entry and whose body lists every child entry as an
+`EntryLink` collapses without the marker.
+
+`corpus-check` warns when a marked node has an entry and at least one child entry, and the body
+does not link every child entry. Collapsing such a row would hide entries that its own page does
+not show. A marker on a heading with no entry has no body to check.
+
 `RuleEntry::links` is the set of body links. It is derived, never stored:
 
 - an `Inline::Link` adds its target and anchor;
