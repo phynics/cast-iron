@@ -436,6 +436,47 @@ A link anchor must name a heading anchor in the target entry. The check names
 the file with the link, the target file, the headings the target has, and the
 fix.
 
+#### Footnotes
+
+A footnote is a level-six heading, not a separate block. The body has no
+footnote block, and only a heading carries an anchor that a body link can name.
+A note that a reference links to therefore takes a heading, and level six is the
+deepest level, so the note sits below the section text. A new block type would
+change the serialized body and need a `SCHEMA_VERSION` increase, so the current
+format keeps the heading (#137).
+
+```markdown
+- [Homunculus](ref/monster/homunculus)^[5](ref/ability/improved-familiars#footnote-h)^
+
+###### ^5^ {#footnote-h}
+
+The master must first create the homunculus.
+```
+
+The superscript holds the link, so the marker is small and still navigable. The
+heading text is the marker, usually a number or a letter. The paragraph after
+the heading is the note. A plain superscript such as `^B^` marks a note without
+linking it. The link target is the entry's own id, not a bare fragment. The
+`footnote-` prefix is a convention; the reader treats the anchor like any other
+heading anchor. This example is from Improved Familiars (Core Rulebook).
+
+Keep the `{#footnote-h}` anchor. Body links name it, and `corpus-check` fails
+when a link anchor is not a heading key in the target entry. Editing the note
+text does not move the anchor. If you change the marker label, change each
+reference label to match and leave the anchor alone. Changing the anchor breaks
+every inbound link, so treat that edit as a data change.
+
+Do not use Markdown footnote syntax such as `[^5]` or `[^5]: ...`. The reader
+accepts neither.
+
+A footnote heading is still a heading. The parser treats it as one, the renderer
+emits `<h6>`, and when the page shows its "On this page" list, the list includes
+the note with every other heading. Use the short marker, the
+`footnote-` anchor, and the position after the passage to tell a note from an
+article section. Some deeply nested skill sections already use level six, so the
+level alone does not prove a heading is a footnote. Give a section a title, not
+a marker, and give it no `footnote-` anchor.
+
 ### Paragraphs
 
 ```markdown
