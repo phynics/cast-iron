@@ -2946,16 +2946,6 @@ main,
   color: var(--ink-muted);
 }
 
-.school-filter {
-  margin-bottom: var(--space-3);
-}
-
-.school-filter > summary .muted {
-  margin-left: auto;
-  font-size: var(--step--1);
-  font-weight: 400;
-}
-
 @media (min-width: 48rem) {
   .spell-rows {
     max-width: 48rem;
@@ -2977,6 +2967,7 @@ main,
 }
 
 .list-filter {
+  margin-top: var(--space-3);
   margin-bottom: var(--space-3);
   max-width: 28rem;
 }
@@ -4409,11 +4400,16 @@ html:has(.quick-search[open]) {
   cursor: pointer;
 }
 
+/* A long scope wraps to a second line rather than being cut: the scope is what the pill is for.
+   The pill keeps 44 px and the cross stays at the right. */
+.scope-pill {
+  padding-block: var(--space-2);
+  text-align: left;
+}
+
 .scope-pill span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .scope-pill svg {
@@ -4646,6 +4642,54 @@ html:has(.quick-search[open]) {
 .choice-check {
   flex: none;
   color: var(--accent);
+}
+
+/* A multi-select row: a native checkbox before the label, the whole row is the target. */
+label.choice-row {
+  cursor: pointer;
+}
+
+/* The `All` row's own box, drawn like a checked native box while nothing is chosen. */
+.choice-box {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid var(--ink-muted);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--accent-ink);
+}
+
+.choice-row[aria-current="true"] .choice-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.choice-box .choice-check {
+  width: 1rem;
+  height: 1rem;
+  color: inherit;
+}
+
+.choice-row input[type="checkbox"] {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.choice-row:has(input:checked) {
+  font-weight: 600;
+}
+
+.choice-row:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* The counts of a current row sit before its check mark. */

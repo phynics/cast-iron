@@ -76,6 +76,9 @@ pub enum Route {
     SpellList {
         class: String,
         level: Option<u8>,
+        /// The schools the list is narrowed to, in the order they were chosen: a spell of any of
+        /// them stays. Lower case, as the search index holds them. Empty is every school.
+        schools: Vec<String>,
     },
     /// Feats that other feats require, with their chains.
     FeatChains,
@@ -104,6 +107,15 @@ impl Route {
             sources: Vec::new(),
             facets: Vec::new(),
             sections: false,
+        }
+    }
+
+    /// A class's spell list, whole or at one level, with every school.
+    pub fn spell_list(class: impl Into<String>, level: Option<u8>) -> Self {
+        Route::SpellList {
+            class: class.into(),
+            level,
+            schools: Vec::new(),
         }
     }
 
@@ -265,7 +277,11 @@ impl Route {
             }
             ["spells"] => Route::Spells,
             ["spells", class] => match percent_decode(class) {
-                Some(class) if !class.is_empty() => Route::SpellList { class, level: None },
+                Some(class) if !class.is_empty() => Route::SpellList {
+                    class,
+                    level: None,
+                    schools: parse_schools(query),
+                },
                 _ => not_found(),
             },
             ["spells", class, level] => {
@@ -276,6 +292,7 @@ impl Route {
                     (Some(class), Some(level)) if !class.is_empty() => Route::SpellList {
                         class,
                         level: Some(level),
+                        schools: parse_schools(query),
                     },
                     _ => not_found(),
                 }
@@ -384,10 +401,21 @@ impl Route {
                 ),
             },
             Route::Spells => "#/spells".into(),
-            Route::SpellList { class, level } => match level {
-                Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
-                None => format!("#/spells/{}", percent_encode(class)),
-            },
+            Route::SpellList {
+                class,
+                level,
+                schools,
+            } => {
+                let mut href = match level {
+                    Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
+                    None => format!("#/spells/{}", percent_encode(class)),
+                };
+                for (i, school) in schools.iter().enumerate() {
+                    href.push(if i == 0 { '?' } else { '&' });
+                    href.push_str(&format!("school={}", percent_encode(school)));
+                }
+                href
+            }
             Route::FeatChains => "#/feats/chains".into(),
             Route::Entry { id, anchor, book } => {
                 let mut pairs: Vec<String> = Vec::new();
@@ -486,6 +514,18 @@ fn parse_search(query: Option<&str>) -> Route {
 /// `facet=field:value` as it appears in a URL.
 fn facet_pair((field, value): &(String, String)) -> String {
     format!("facet={}:{}", percent_encode(field), percent_encode(value))
+}
+
+/// The `school=<name>` pairs of a spell list's query: lower case, in order, each school once.
+fn parse_schools(query: Option<&str>) -> Vec<String> {
+    let mut schools: Vec<String> = Vec::new();
+    for (key, value) in query.into_iter().flat_map(query_pairs) {
+        let value = value.trim().to_lowercase();
+        if key == "school" && !value.is_empty() && !schools.contains(&value) {
+            schools.push(value);
+        }
+    }
+    schools
 }
 
 /// The `source=<id>` of a list page's query, when it has one.
@@ -663,6 +703,31 @@ pub fn navigate_hash(hash: &str) {
 /// Pushes a history entry, like clicking an anchor with `route.href()`.
 pub fn navigate(route: &Route) {
     navigate_hash(&route.href());
+}
+
+/// Pushes a history entry for `route` and updates the route signal at once, so the page that
+/// asked for it reads the new state in the same turn. A plain hash change reaches the signal one
+/// event later, which a control that shows the route's state would miss. Back and Forward fire
+/// `hashchange` as usual.
+///
+/// The new entry starts with no history state, on purpose. Its fields describe one entry:
+/// `scrollId` is that entry's scroll offset, and `quickSearch` marks the entry that Quick search
+/// pushed. Copying them (as [`push_flagged_entry`] does for the page that is on screen) would
+/// give two entries one scroll offset and mark this one as a Quick search entry.
+pub fn push(route: &Route) {
+    let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
+        return;
+    };
+    if history
+        .push_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()))
+        .is_err()
+    {
+        navigate(route);
+        return;
+    }
+    if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
+        write.set(read_location_route());
+    }
 }
 
 /// Replaces the current history entry, such as while a search box types.
@@ -1214,22 +1279,53 @@ mod tests {
     }
 
     #[test]
+    fn a_spell_list_keeps_its_chosen_schools_in_the_url_in_order() {
+        let list = Route::SpellList {
+            class: "Wizard".into(),
+            level: Some(3),
+            schools: vec!["evocation".into(), "conjuration".into()],
+        };
+        assert_eq!(
+            list.href(),
+            "#/spells/Wizard/3?school=evocation&school=conjuration"
+        );
+        round_trip(list);
+        round_trip(Route::SpellList {
+            class: "Wizard".into(),
+            level: None,
+            schools: vec!["illusion".into()],
+        });
+        // Case and repeats do not make a second choice, and an empty value is none.
+        assert_eq!(
+            Route::parse("#/spells/Wizard?school=Evocation&school=evocation&school="),
+            Route::SpellList {
+                class: "Wizard".into(),
+                level: None,
+                schools: vec!["evocation".into()],
+            }
+        );
+    }
+
+    #[test]
     fn spell_list_routes_encode_the_class_name() {
         let list = Route::SpellList {
             class: "Elementalist Wizard".into(),
             level: Some(3),
+            schools: Vec::new(),
         };
         assert_eq!(list.href(), "#/spells/Elementalist%20Wizard/3");
         round_trip(list);
         let all = Route::SpellList {
             class: "Wizard".into(),
             level: None,
+            schools: Vec::new(),
         };
         assert_eq!(all.href(), "#/spells/Wizard");
         round_trip(all);
         round_trip(Route::SpellList {
             class: "Witch".into(),
             level: Some(0),
+            schools: Vec::new(),
         });
         for bad in [
             "#/spells/Wizard/x",
