@@ -157,6 +157,19 @@ No box, no tint, and no left rule; the stat block keeps the only one.
 
 **Owner decisions.** A collapsed Stamina row is enough, with no switch. Druid animal companions are class options. Mythic spells become add-on entries in slice 3.
 
+## Class progression table
+
+A class's progression table (a header row that starts `Level` and has `Base Attack Bonus`) reads
+as two parts on every width. The core table (`.progression-table`) holds every column except the
+spell columns: Level is pinned (`position: sticky`, opaque in both themes, a 1 px edge and a short
+shadow on its right), and it never wraps. An iterative attack bonus (`+11/+6/+1`) breaks after
+each slash. At 390 px Level, Base Attack Bonus, the saves and Special fit with no sideways scroll;
+Special wraps. A class with extra printed columns (Monk) scrolls sideways; the right edge shows a
+strong shadow that the scroll position removes at the end, built with CSS only. Spells per day is
+a native `details.progression-spells` below the core table: a 44 px summary `Spells per day`, a
+chevron, closed by default. A non-caster has no disclosure. Do not hide a stat column in a
+disclosure on any other table.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.

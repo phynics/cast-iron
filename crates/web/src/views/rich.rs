@@ -2,6 +2,7 @@
 //! node; nothing here builds markup from strings. Pure helpers sit at the top and have native
 //! tests.
 
+use super::progression;
 use crate::route::{self, Route};
 use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
 use leptos::prelude::*;
@@ -190,7 +191,10 @@ impl Renderer {
                     view! { <ul>{rows}</ul> }.into_any()
                 }
             }
-            Block::Table(table) => rules_table(table),
+            Block::Table(table) => match progression::split(table) {
+                Some(split) => progression_tables(split),
+                None => rules_table(table, None, None),
+            },
             Block::Quote { content } => {
                 view! { <blockquote>{self.blocks(content)}</blockquote> }.into_any()
             }
@@ -250,30 +254,72 @@ fn stat_block(title: Option<&str>, rows: &[StatRow], changed: &BTreeSet<String>)
     .into_any()
 }
 
-fn rules_table(table: &Table) -> AnyView {
+/// A class progression: the core columns, then any spell columns in a native disclosure. The
+/// core table pins its Level column and fits a phone; the disclosure keeps the slots one tap
+/// away without widening the page.
+fn progression_tables(split: progression::Progression) -> AnyView {
+    let core = rules_table(
+        &split.core,
+        Some("progression-table"),
+        Some("Class progression"),
+    );
+    let spells = split.spells.map(|spells| {
+        let table = rules_table(&spells, Some("progression-table"), Some("Spells per day"));
+        view! {
+            <details class="progression-spells">
+                <summary>"Spells per day"</summary>
+                {table}
+            </details>
+        }
+    });
+    view! { {core}{spells} }.into_any()
+}
+
+/// `class` adds a modifier class to the table. `label` names the region of a table without a
+/// caption; the default is `Table`.
+fn rules_table(table: &Table, class: Option<&'static str>, label: Option<&'static str>) -> AnyView {
     let caption_id = unique("cap");
     let has_caption = !table.caption.is_empty();
     let caption = has_caption.then(|| {
         view! { <caption id=caption_id.clone()>{inlines(&table.caption)}</caption> }
     });
-    let label = (!has_caption).then_some("Table");
+    let label = (!has_caption).then_some(label.unwrap_or("Table"));
     let labelled_by = has_caption.then(|| caption_id.clone());
     let head = (!table.head.is_empty()).then(|| {
-        view! { <thead>{table_rows(&table.head, "head")}</thead> }
+        view! { <thead>{table_rows(&table.head, "head", class.is_some())}</thead> }
     });
-    let body = view! { <tbody>{table_rows(&table.body, "body")}</tbody> };
+    let body = view! { <tbody>{table_rows(&table.body, "body", class.is_some())}</tbody> };
     let foot = (!table.foot.is_empty()).then(|| {
-        view! { <tfoot>{table_rows(&table.foot, "foot")}</tfoot> }
+        view! { <tfoot>{table_rows(&table.foot, "foot", class.is_some())}</tfoot> }
     });
+    let table_class = match class {
+        Some(extra) => format!("rules-table {extra}"),
+        None => "rules-table".to_string(),
+    };
     view! {
         <div class="table-wrap" role="region" tabindex="0" aria-labelledby=labelled_by aria-label=label>
-            <table class="rules-table">{caption}{head}{body}{foot}</table>
+            <table class=table_class>{caption}{head}{body}{foot}</table>
         </div>
     }
     .into_any()
 }
 
-fn table_rows(rows: &[TableRow], section: &'static str) -> Vec<AnyView> {
+/// A cell's content. In a progression table an iterative attack bonus gets a break opportunity
+/// after each slash, so the column can narrow and leave room for Special.
+fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
+    if breakable
+        && let [Inline::Text { v }] = content
+        && let Some(parts) = progression::attack_bonus_parts(v)
+    {
+        return parts
+            .into_iter()
+            .map(|part| view! { {part.to_string()}<wbr /> }.into_any())
+            .collect();
+    }
+    inlines(content)
+}
+
+fn table_rows(rows: &[TableRow], section: &'static str, breakable: bool) -> Vec<AnyView> {
     rows.iter()
         .map(|row| {
             let cells: Vec<AnyView> = row
@@ -287,13 +333,13 @@ fn table_rows(rows: &[TableRow], section: &'static str) -> Vec<AnyView> {
                         let scope = th_scope(section, cell, i);
                         view! {
                             <th scope=scope colspan=colspan rowspan=rowspan>
-                                {inlines(&cell.content)}
+                                {cell_content(&cell.content, breakable)}
                             </th>
                         }
                         .into_any()
                     } else {
                         view! {
-                            <td colspan=colspan rowspan=rowspan>{inlines(&cell.content)}</td>
+                            <td colspan=colspan rowspan=rowspan>{cell_content(&cell.content, breakable)}</td>
                         }
                         .into_any()
                     }

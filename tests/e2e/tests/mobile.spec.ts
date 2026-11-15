@@ -993,3 +993,67 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await expect(panel).toBeHidden();
   await expect(typeButton).toBeFocused();
 });
+
+installedTest("Class progression at 390 px: Level stays pinned, the core columns fit, and spells per day sits in a disclosure", async ({ page }) => {
+  await installLibrary(page);
+  const overflow = () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+
+  await page.goto("#/entry/ref/class/wizard");
+  const table = page.locator(".progression-table").first();
+  await expect(table).toBeVisible();
+  const wrap = page.locator(".table-wrap:has(> .progression-table)").first();
+  await wrap.scrollIntoViewIfNeeded();
+
+  // Level, Base Attack Bonus, the three saves and Special all sit inside the viewport.
+  const headers = table.locator("thead th");
+  await expect(headers).toHaveText(["Level", "Base Attack Bonus", "Fort Save", "Ref Save", "Will Save", "Special"]);
+  for (let i = 0; i < 6; i++) {
+    const box = (await headers.nth(i).boundingBox())!;
+    expect(box.x, `column ${i} starts on screen`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `column ${i} ends on screen`).toBeLessThanOrEqual(390);
+  }
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  expect(await wrap.evaluate((el) => el.scrollWidth - el.clientWidth), "the core table needs no sideways scroll").toBeLessThanOrEqual(0);
+
+  // The spell columns are not in this table; they sit in a closed disclosure with the slot table.
+  const disclosure = page.locator("details.progression-spells").first();
+  await expect(disclosure.locator("summary")).toHaveText("Spells per day");
+  expect((await disclosure.locator("summary").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(disclosure).not.toHaveAttribute("open", "");
+  await disclosure.locator("summary").click();
+  const slots = disclosure.locator(".progression-table");
+  await expect(slots).toBeVisible();
+  await expect(slots.locator("thead th")).toHaveText(["Level", "0", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]);
+  await expect(slots.locator("tbody tr")).toHaveCount(20);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // The spell columns are out of the core table, so a Wizard needs no sideways scroll. Monk has
+  // four more columns, so its table scrolls. Level keeps its left edge and its opaque background
+  // while the other columns move under it.
+  await page.goto("#/entry/ref/class/monk");
+  const monk = page.locator(".table-wrap:has(> .progression-table)").first();
+  await expect(monk).toBeVisible();
+  await monk.scrollIntoViewIfNeeded();
+  expect(await monk.evaluate((el) => el.scrollWidth - el.clientWidth), "Monk's table scrolls").toBeGreaterThan(100);
+  const pinned = monk.locator("tbody tr").nth(9).locator("th").first();
+  await expect(pinned).toHaveText("10th");
+  const before = (await pinned.boundingBox())!;
+  const lastBefore = (await monk.locator("tbody tr").nth(9).locator("td").last().boundingBox())!;
+  await monk.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  const after = (await pinned.boundingBox())!;
+  const lastAfter = (await monk.locator("tbody tr").nth(9).locator("td").last().boundingBox())!;
+  expect(lastAfter.x, "the other columns moved").toBeLessThan(lastBefore.x - 100);
+  expect(Math.abs(after.x - before.x), "Level keeps its left edge").toBeLessThanOrEqual(1);
+  const background = await pinned.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(background, "pinned cell is opaque").not.toMatch(/rgba|transparent|\//);
+  const headBackground = await monk.locator("thead th").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(headBackground, "pinned header is opaque").not.toMatch(/rgba|transparent|\//);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // A non-caster has no disclosure, and its core columns fit as well.
+  await page.goto("#/entry/ref/class/fighter");
+  await expect(page.locator(".progression-table").first()).toBeVisible();
+  await expect(page.locator("details.progression-spells")).toHaveCount(0);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+});

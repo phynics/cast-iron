@@ -2120,6 +2120,97 @@ mark {
   background: color-mix(in srgb, var(--surface-2) 45%, transparent);
 }
 
+/* Class progression: Level stays pinned while the table scrolls, and the spell columns sit in a
+   disclosure below. Pinned cells are opaque, so a cell that scrolls under them never shows through.
+   The right edge carries a strong shadow that the scroll position removes at the end. */
+.table-wrap:has(> .progression-table) {
+  background:
+    linear-gradient(var(--surface), var(--surface)) right / 1.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--shadow-edge), transparent) right / 1.5rem 100% no-repeat scroll,
+    var(--surface);
+}
+
+.progression-table {
+  width: 100%;
+  min-width: 0;
+}
+
+.progression-table th,
+.progression-table td {
+  padding: 0.35rem var(--space-1);
+  max-width: 14rem;
+}
+
+/* The slot table is all short numbers; a smaller size and tighter cells fit more of it. */
+.progression-spells .progression-table {
+  font-size: 0.8125rem;
+}
+
+.progression-spells .progression-table th,
+.progression-spells .progression-table td {
+  padding-inline: 0.1875rem;
+}
+
+.progression-table thead th:not(:first-child) {
+  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
+}
+
+.progression-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  white-space: nowrap;
+  box-shadow: 1px 0 0 var(--line), 5px 0 6px -4px var(--shadow-edge);
+}
+
+.progression-table thead th:first-child {
+  background: var(--surface-2);
+  z-index: 2;
+}
+
+.progression-table tbody tr:nth-child(even) :is(th, td):first-child {
+  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
+}
+
+.progression-spells {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+}
+
+.progression-spells > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.progression-spells > summary::-webkit-details-marker {
+  display: none;
+}
+
+.progression-spells > summary::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.progression-spells[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progression-spells > summary::before {
+    transition: none;
+  }
+}
+
 .entry-refs {
   margin-top: var(--space-6);
 }
