@@ -31,7 +31,7 @@ Local verification, 2026-11-15 (no CI or deployment claim; CI is pending):
 | `cargo xtask corpus-check .cache/sources/cast-iron-data` | Exit 0: 31,807 entries, 439 publications, 448 books, 1 licence |
 | `cargo xtask content` twice | Byte-identical (`diff -r`): content tree `bca72dd47d3a14d280e5cab494bb1f8935dd7dddd515b71849f3559c62f822cd`, reports tree `a5c10009545f6d5863a02c1d6a08f171b88d5f06c8bea033ae39e17feeacb08f` |
 | `cargo xtask check` | Passed: fmt, clippy for native and WASM, workspace tests, WASM build |
-| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `5c4c5b97b718e2c0`, 11 files; `generated/content` and `dist/content` are identical |
+| `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `3b4bbfd362411843`, 11 files; `generated/content` and `dist/content` are identical |
 | Chromium: reference | 18 passed |
 | Chromium: `#/entry/ref/arc-fighter/two-handed-fighter` | No `p!` in the page text; the four restored lines read "These bonuses increase to +2", "+3", "+4" and "+5" |
 
