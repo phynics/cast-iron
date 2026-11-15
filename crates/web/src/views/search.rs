@@ -815,6 +815,9 @@ pub fn Search() -> impl IntoView {
     let written = StoredValue::new(text.get_untracked());
     let typing_gen = RwSignal::new(0u64);
     let pages = RwSignal::new(1usize);
+    // Whether the folded Book sections row is open. It lives with the screen, so a new query,
+    // a filter or `Show more results` keeps the reader's choice; leaving the page resets it.
+    let sections_open = RwSignal::new(false);
     let phase = RwSignal::new(Phase::Idle);
     let search_ms = RwSignal::new(None::<f64>);
     let index_ms = RwSignal::new(None::<f64>);
@@ -1628,17 +1631,55 @@ pub fn Search() -> impl IntoView {
                     )
                 })
                 .collect_view();
-            let section_count = section_total;
-            let section_block = (!sections.is_empty()).then(|| {
+            let section_shown = sections.len();
+            let sections_only = hits.is_empty();
+            let list_caption = (section_total > section_shown).then(|| {
                 view! {
-                    <section class="book-sections" aria-labelledby="book-sections-head" data-testid="book-sections">
-                        <h2 id="book-sections-head">
-                            "Book sections"
-                            <small class="chip-count">{fmt::count(section_count)}</small>
-                        </h2>
-                        <ol class="section-results">{section_rows}</ol>
+                    <p class="muted section-results-note">
+                        {format!("Top {} of {} book sections", fmt::count(section_shown), fmt::count(section_total))}
+                    </p>
+                }
+            });
+            // Entries come first, so the sections fold into one row that names their count. A
+            // query that matches only sections has nothing below the row to protect: show them.
+            let section_block = (!sections.is_empty()).then(|| {
+                if sections_only {
+                    return view! {
+                        <section class="book-sections" aria-labelledby="book-sections-head" data-testid="book-sections">
+                            <h2 id="book-sections-head">
+                                "Book sections"
+                                <small class="chip-count">{fmt::count(section_total)}</small>
+                            </h2>
+                            {list_caption}
+                            <ol class="section-results">{section_rows}</ol>
+                        </section>
+                    }
+                    .into_any();
+                }
+                let on_toggle = move |event: leptos::ev::Event| {
+                    let open = event_target::<web_sys::HtmlDetailsElement>(&event).open();
+                    // The signal sets the attribute too; only the reader's own toggle changes it.
+                    if open != sections_open.get_untracked() {
+                        sections_open.set(open);
+                    }
+                };
+                view! {
+                    <section class="book-sections" aria-label="Book sections" data-testid="book-sections">
+                        <details class="section-fold" prop:open=move || sections_open.get() on:toggle=on_toggle>
+                            <summary class="section-fold-summary">
+                                <span class="section-fold-text">
+                                    <span class="section-fold-label">"Book sections"</span>
+                                    " · "
+                                    <span class="section-fold-count">{fmt::pluralize(section_total, "match", "matches")}</span>
+                                </span>
+                                {icons::chevron_right("disclosure-chevron")}
+                            </summary>
+                            {list_caption}
+                            <ol class="section-results">{section_rows}</ol>
+                        </details>
                     </section>
                 }
+                .into_any()
             });
             view! {
                 {section_block}

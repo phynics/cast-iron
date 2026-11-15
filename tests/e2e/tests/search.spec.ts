@@ -1467,10 +1467,14 @@ installedTest("A book section result opens its chapter page at the section and B
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
 
-  // The section is its own result, under its own heading, and names its book.
+  // The section is its own result, behind the folded Book sections row, and names its book.
   const sections = page.getByTestId("book-sections");
   await expect(sections).toBeVisible();
-  await expect(sections.locator("h2")).toContainText("Book sections");
+  const fold = sections.locator("summary");
+  await expect(fold).toContainText("Book sections");
+  await expect(fold).toContainText(/\d+ match(es)?/);
+  await expect(sections.locator("a.section-hit-link").first()).toBeHidden();
+  await fold.click();
   const link = sections.locator("a.section-hit-link", { hasText: query }).first();
   await expect(link).toContainText(fixture!.book.title);
   await expect(link).toHaveAttribute(
@@ -1485,9 +1489,11 @@ installedTest("A book section result opens its chapter page at the section and B
   );
   await expect(page.locator(`#${anchor}`)).toBeInViewport();
 
+  // Back returns to the results with the row folded; the count stays visible and one tap reopens.
   await page.goBack();
   await expect(page.locator("#search-input")).toHaveValue(query);
   await expect(sections).toBeVisible();
+  await expect(sections.locator("summary")).toContainText(/\d+ match(es)?/);
 });
 
 installedTest("A former catch-all rule is found by exact title and opens", async ({ page }) => {
