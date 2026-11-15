@@ -15,12 +15,14 @@ use leptos::prelude::*;
 pub const AON_BASE: &str = "https://aonprd.com/";
 
 /// The full Archives of Nethys URL for a stored path, or `None` when the entry or publication
-/// has none, which is the only case that renders no link.
+/// has none, which is the only case that renders no link. An empty stored value is treated as
+/// absent: a link to the bare base would be the AoN homepage, not the record.
 ///
 /// The corpus stores the path already percent-encoded, so this prefixes it and never
 /// re-encodes: encoding again would turn `%20` into `%2520`.
 pub fn aon_href(path: Option<&str>) -> Option<String> {
-    path.map(|path| format!("{AON_BASE}{path}"))
+    path.filter(|path| !path.is_empty())
+        .map(|path| format!("{AON_BASE}{path}"))
 }
 
 /// The quiet `View on Archives of Nethys` line, in the Metadata role, directly under the
@@ -227,5 +229,10 @@ mod tests {
     #[test]
     fn no_stored_path_means_no_link() {
         assert_eq!(aon_href(None), None);
+    }
+
+    #[test]
+    fn an_empty_stored_path_means_no_link() {
+        assert_eq!(aon_href(Some("")), None);
     }
 }
