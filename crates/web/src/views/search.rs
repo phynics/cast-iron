@@ -1728,7 +1728,8 @@ pub fn Search() -> impl IntoView {
                         if hidden.count == 1 { "more match" } else { "more matches" },
                         title
                     )}</span>
-                    <button class="btn btn-quiet" type="button"
+                    <button class="count-action" type="button"
+                        aria-label=format!("Turn on {title}")
                         on:click=move |_| {
                             let library = library.clone();
                             let source = source.clone();
@@ -1742,7 +1743,7 @@ pub fn Search() -> impl IntoView {
                                 focus_result_count();
                             });
                         }>
-                        {format!("Turn on {title}")}
+                        "Turn on"
                     </button>
                 </p>
             }
@@ -1771,6 +1772,43 @@ pub fn Search() -> impl IntoView {
             s.sources.clear();
             s.facets.clear();
         })
+    };
+
+    // Below 56rem the filter panel opens in the page flow under the scope row. Opening moves
+    // focus into it; Escape closes it and returns focus to the button. From 56rem the panel is
+    // the sidebar and the button is hidden, so neither runs there.
+    // The scope row scrolls sideways. A kind chosen elsewhere (a link, the panel, Back) can sit
+    // out of sight, so the pressed choice is brought into view after each change of kinds.
+    Effect::new(move |_| {
+        state.with(|s| s.kinds.clone());
+        spawn_local(async {
+            js::sleep(0).await;
+            reveal_pressed_scope();
+        });
+    });
+    let filters_button = NodeRef::<leptos::html::Button>::new();
+    let filters_panel = NodeRef::<leptos::html::Div>::new();
+    let toggle_filters = move |_| {
+        let opening = !filters_open.get_untracked();
+        filters_open.set(opening);
+        if opening {
+            spawn_local(async move {
+                // The panel is displayed after the class change; focus needs a shown element.
+                js::sleep(0).await;
+                if let Some(panel) = filters_panel.get_untracked() {
+                    let _ = panel.focus();
+                }
+            });
+        }
+    };
+    let close_filters_on_escape = move |ev: web_sys::KeyboardEvent| {
+        if ev.key() == "Escape" && filters_open.get_untracked() {
+            ev.prevent_default();
+            filters_open.set(false);
+            if let Some(button) = filters_button.get_untracked() {
+                let _ = button.focus();
+            }
+        }
     };
 
     view! {
@@ -1831,23 +1869,32 @@ pub fn Search() -> impl IntoView {
                     <ScopePill scope on_remove=Callback::new(remove_scope) />
                 </div>
             })}
-            <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
+            // One compact row: the quick kinds scroll sideways, the Filters button stays at the end.
+            // From 56rem the sidebar is always open and the button is hidden.
+            <div class="search-controls">
+                <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
+                <button
+                    class="filters-toggle"
+                    type="button"
+                    node_ref=filters_button
+                    class:filters-active=move || state.with(|s| s.filter_count() > 0)
+                    aria-expanded=move || filters_open.get().to_string()
+                    aria-controls="filters-panel"
+                    on:click=toggle_filters
+                    on:keydown=close_filters_on_escape
+                >
+                    {move || {
+                        let n = state.with(|s| s.filter_count());
+                        if n == 0 { "Filters".to_string() } else { format!("Filters · {}", fmt::count(n)) }
+                    }}
+                    {icons::chevron_down("filters-toggle-icon")}
+                </button>
+            </div>
             <div class="search-layout">
                 <aside class="filters" aria-label="Filters">
-                    <button
-                        class="btn filters-toggle"
-                        type="button"
-                        aria-expanded=move || filters_open.get().to_string()
-                        aria-controls="filters-panel"
-                        on:click=move |_| filters_open.update(|o| *o = !*o)
-                    >
-                        {move || {
-                            let n = state.with(|s| s.filter_count());
-                            if n == 0 { "Filters".to_string() } else { format!("Filters ({n})") }
-                        }}
-                        {icons::chevron_down("filters-toggle-icon")}
-                    </button>
-                    <div id="filters-panel" class="filters-panel" class:open=move || filters_open.get()>
+                    <div id="filters-panel" class="filters-panel" class:open=move || filters_open.get()
+                        node_ref=filters_panel role="group" aria-label="Filter results" tabindex="-1"
+                        on:keydown=close_filters_on_escape>
                         <fieldset class="filter-group">
                             <legend>"Kind"</legend>
                             <div class="chips">{kind_chips}</div>
@@ -1869,14 +1916,16 @@ pub fn Search() -> impl IntoView {
                     data-index-ms=move || index_ms.get().map(|ms| format!("{ms:.1}"))
                     data-query=move || state.with(|s| s.q.clone())
                 >
-                    <p class="result-count" role="status" aria-live="polite" tabindex="-1">
-                        <span>{count_text}</span>
-                        {show_all}
-                        {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
-                            <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
-                        })}
-                    </p>
-                    {inactive_hint}
+                    <div class="results-status">
+                        <p class="result-count" role="status" aria-live="polite" tabindex="-1">
+                            <span>{count_text}</span>
+                            {show_all}
+                            {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
+                                <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
+                            })}
+                        </p>
+                        {inactive_hint}
+                    </div>
                     {results}
                 </section>
             </div>
@@ -1924,6 +1973,24 @@ async fn ensure_index(
             }
             None
         }
+    }
+}
+
+/// Brings the pressed choice of the scope row into view without moving the page.
+fn reveal_pressed_scope() {
+    if let Some(element) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| {
+            document
+                .query_selector(".search-scopes .scope-choice[aria-pressed=\"true\"]")
+                .ok()
+                .flatten()
+        })
+    {
+        let options = web_sys::ScrollIntoViewOptions::new();
+        options.set_block(web_sys::ScrollLogicalPosition::Nearest);
+        options.set_inline(web_sys::ScrollLogicalPosition::Nearest);
+        element.scroll_into_view_with_scroll_into_view_options(&options);
     }
 }
 

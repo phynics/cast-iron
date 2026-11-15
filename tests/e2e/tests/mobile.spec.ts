@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, quickGroup, searchIcon, seedHome, waitResults } from "./helpers";
 
@@ -200,6 +201,132 @@ installedTest("Mobile entry header is compact: one metadata line and an icon sta
   const meta = page.locator(".entry-meta");
   const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 2.6);
+});
+
+// The first result row may start no lower than 300 px at 390 px. The header (61 px), the field and
+// the scope row (44 px each with their gaps) and one status line already take about 190 px, so the
+// issue's "about 180 px" is the floor before any row; a row that follows without a hint measured
+// 257 px, and with the one-line hint of an inactive book 304 px.
+const firstRowTop = (page: Page) => page.locator(".section-results li, .results .hit").first()
+  .evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+const pageOverflow = (page: Page) => page.evaluate(
+  () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+);
+
+installedTest("Search results at 390 px: one scope row with a Filters button, and results start near the top", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fireball");
+  await waitResults(page, "fireball");
+
+  // No Search button: results are live. The field only has its clear control.
+  await expect(page.locator(".search-form button:not(.search-clear)")).toHaveCount(0);
+
+  // The quick kinds are one row that scrolls sideways and never wraps; every pill is a 44 px target.
+  const scopes = page.locator(".search-scopes");
+  const pills = scopes.locator(".scope-choice");
+  await expect(pills).toHaveCount(4);
+  const boxes = await pills.evaluateAll((els) => els.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, height: r.height, radius: getComputedStyle(el).borderRadius };
+  }));
+  for (const box of boxes) {
+    expect(Math.round(box.top)).toBe(Math.round(boxes[0].top));
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.radius).toBe("999px");
+  }
+  expect(await scopes.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  await expect(page.getByRole("button", { name: "All entries", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  // The Filters button sits at the end of the same row: compact, 44 px, never a pill.
+  const filters = page.getByRole("button", { name: "Filters", exact: true });
+  await expect(filters).toBeVisible();
+  const row = (await page.locator(".search-controls").boundingBox())!;
+  const button = (await filters.boundingBox())!;
+  expect(button.height).toBeGreaterThanOrEqual(44);
+  expect(button.width).toBeLessThan(140);
+  expect(Math.abs(button.y - row.y)).toBeLessThanOrEqual(1);
+  expect(button.x + button.width).toBeLessThanOrEqual(390);
+  expect(await filters.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe("999px");
+
+  // The status line sits directly under the row, and the first result row starts near the top.
+  const status = (await page.locator(".results-status").boundingBox())!;
+  expect(status.y - (row.y + row.height)).toBeLessThanOrEqual(16);
+  expect(await page.locator(".result-count").evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeLessThan(
+    await page.locator(".hit-title").first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize)));
+  expect(await firstRowTop(page)).toBeLessThan(280);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+
+  // Choosing a kind in the row keeps its pressed pill inside the row.
+  const feats = page.getByRole("button", { name: "Feats", exact: true });
+  await feats.click();
+  await expect(feats).toHaveAttribute("aria-pressed", "true");
+  const rowBox = (await scopes.boundingBox())!;
+  const pressed = (await feats.boundingBox())!;
+  expect(pressed.x).toBeGreaterThanOrEqual(rowBox.x - 1);
+  expect(pressed.x + pressed.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
+  await expect(page.getByRole("button", { name: /^Filters/ })).toHaveText("Filters · 1");
+});
+
+installedTest("Search results at 390 px: the hidden-matches hint sits in the status area and stays small", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const hint = page.locator(".results-status .inactive-books-hint");
+  await expect(hint).toBeVisible();
+  // The action keeps its full name for assistive technology and shows a short label.
+  const action = hint.getByRole("button", { name: /^Turn on .+/ });
+  await expect(action).toHaveText("Turn on");
+  // Like "Show all": a line of text whose ::after pseudo-element is the 44 px hit area.
+  const hit = await action.evaluate((el) => parseFloat(getComputedStyle(el, "::after").height));
+  expect(Math.round(hit)).toBeGreaterThanOrEqual(44);
+  expect(await firstRowTop(page)).toBeLessThan(330);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+installedTest("Search results at 390 px: the filter panel opens in the page flow with focus management", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fireball");
+  await waitResults(page, "fireball");
+  const toggle = page.getByRole("button", { name: /^Filters/ });
+  const panel = page.locator("#filters-panel");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(panel).toBeHidden();
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(panel).toBeVisible();
+  // Focus moves into the panel.
+  await expect(panel).toBeFocused();
+  // Non-modal and in flow: static, under the row, at most half the viewport, no dialog.
+  expect(await panel.evaluate((el) => getComputedStyle(el).position)).toBe("static");
+  const row = (await page.locator(".search-controls").boundingBox())!;
+  const box = (await panel.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(row.y + row.height);
+  expect(box.height).toBeLessThanOrEqual(844 / 2 + 1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+  // The Kind chips inside are full-size targets.
+  for (const chip of await panel.locator(".filter-group").first().locator(".chip").all()) {
+    expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+
+  // The count follows the active filters.
+  await panel.locator(".chip", { hasText: /^Spells/ }).click();
+  await expect(toggle).toHaveText("Filters · 1");
+  await expect(panel).toBeVisible();
+
+  // Escape closes the panel and returns focus to the button.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+
+  // Pressing the button again closes an open panel and keeps focus on the button.
+  await toggle.click();
+  await expect(panel).toBeFocused();
+  await toggle.click();
+  await expect(panel).toBeHidden();
+  await expect(toggle).toBeFocused();
 });
 
 installedTest("Publication groups fit 390 px with full-size targets", async ({ page }) => {
