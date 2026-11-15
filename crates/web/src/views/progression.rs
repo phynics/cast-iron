@@ -17,18 +17,40 @@ pub struct Progression {
     pub spells: Option<Table>,
 }
 
-/// Whether a header names a spell column: a spell level (`0`, `1st`, `2nd`, `9th`) or the
-/// single `Spells Per Day` column of a prestige class.
+/// The one prestige-class column that holds spellcasting progression as text.
+const SPELLS_PER_DAY: &str = "spells per day";
+
+/// Whether a header names a spell column: a spell level (a bare `0`–`9`, or an ordinal such as
+/// `1st`, `2nd`, `9th`) or the single `Spells Per Day` column of a prestige class. The corpus
+/// spells that one both `Spells Per Day` and `Spells per Day`, so the match ignores case; do not
+/// make it case-sensitive. Any other header, including a number above 9, is not a spell column.
 pub fn is_spell_header(header: &str) -> bool {
     let header = header.trim().to_lowercase();
-    if header == "spells per day" {
+    if header == SPELLS_PER_DAY {
         return true;
     }
     let digits = header.trim_end_matches(|c: char| c.is_ascii_alphabetic());
     let suffix = &header[digits.len()..];
-    !digits.is_empty()
-        && digits.chars().all(|c| c.is_ascii_digit())
-        && (suffix.is_empty() || matches!(suffix, "st" | "nd" | "rd" | "th"))
+    let numeric = !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit());
+    match suffix {
+        "" => numeric && digits.len() == 1,
+        "st" | "nd" | "rd" | "th" => numeric,
+        _ => false,
+    }
+}
+
+/// The wording of the disclosure for a spell table, and of the table's region: slots by spell
+/// level read `Spells per day`; a prestige class's single `Spells Per Day` column reads
+/// `Spellcasting`, so the disclosure does not repeat the column header under it.
+pub fn spells_labels(spells: &Table) -> (&'static str, &'static str) {
+    let single = spells.head.first().is_some_and(|head| {
+        matches!(head.cells.as_slice(), [_, only] if plain_text(&only.content).trim().to_lowercase() == SPELLS_PER_DAY)
+    });
+    if single {
+        ("Spellcasting", "Spellcasting by level")
+    } else {
+        ("Spells per day", "Spells per day by level")
+    }
 }
 
 /// The parts of an iterative attack bonus such as `+11/+6/+1`, each part keeping its trailing
@@ -168,7 +190,18 @@ mod tests {
 
     #[test]
     fn spell_headers_are_levels_and_the_prestige_column() {
-        for yes in ["0", "1st", "2nd", "3rd", "9th", " 4th ", "Spells Per Day"] {
+        for yes in [
+            "0",
+            "9",
+            "1st",
+            "2nd",
+            "3rd",
+            "9th",
+            "10th",
+            " 4th ",
+            "Spells Per Day",
+            "Spells per Day",
+        ] {
             assert!(is_spell_header(yes), "{yes}");
         }
         for no in [
@@ -181,6 +214,9 @@ mod tests {
             "th",
             "",
             "Spells",
+            "10",
+            "Spells Known",
+            "Cantrips",
         ] {
             assert!(!is_spell_header(no), "{no}");
         }
@@ -237,6 +273,56 @@ mod tests {
         let spells = split.spells.as_ref().unwrap();
         assert_eq!(spells.head[0].cells.len(), 2);
         assert_eq!(column(spells, 1), ["Spells Per Day", "+1 level"]);
+    }
+
+    #[test]
+    fn an_unknown_header_in_a_progression_stays_in_the_core_table() {
+        // A column the split does not know, such as a new `Spells Known`, is never dropped and
+        // never moved: it stays beside Special, and the spell table is what it was.
+        let head = head_of(&["Spells Known", "0", "1st"]);
+        let head: Vec<&str> = head.iter().map(String::as_str).collect();
+        let body: &[&[&str]] = &[&["1st", "+0", "+0", "+0", "+2", "Hex", "4", "3", "1"]];
+        let t = table(&head, body);
+        let split = split(&t).expect("still a progression");
+        let spells = split.spells.as_ref().unwrap();
+        assert_eq!(column(&split.core, 6), ["Spells Known", "4"]);
+        assert_eq!(split.core.head[0].cells.len(), 7);
+        assert_eq!(column(spells, 0), ["Level", "1st"]);
+        assert_eq!(column(spells, 1), ["0", "3"]);
+        assert_eq!(column(spells, 2), ["1st", "1"]);
+        // Every printed column is in exactly one table, except Level, which is in both.
+        let cells = |t: &Table| t.head[0].cells.len() + t.body[0].cells.len();
+        assert_eq!(cells(&split.core) + cells(spells) - 2, cells(&t));
+    }
+
+    #[test]
+    fn a_table_without_any_known_column_shape_renders_unchanged() {
+        // No Level-first header, so there is no split at all and the whole table is kept.
+        let t = table(
+            &["Spells Known", "Level", "Base Attack Bonus"],
+            &[&["x", "1st", "+1"]],
+        );
+        assert_eq!(split(&t), None);
+    }
+
+    #[test]
+    fn the_disclosure_is_worded_by_what_it_holds() {
+        let slots = split(&wizard_like()).unwrap().spells.unwrap();
+        assert_eq!(
+            spells_labels(&slots),
+            ("Spells per day", "Spells per day by level")
+        );
+        let head = head_of(&["Spells per Day"]);
+        let head: Vec<&str> = head.iter().map(String::as_str).collect();
+        let t = table(
+            &head,
+            &[&["1st", "+0", "+0", "+0", "+1", "Hex", "+1 level"]],
+        );
+        let single = split(&t).unwrap().spells.unwrap();
+        assert_eq!(
+            spells_labels(&single),
+            ("Spellcasting", "Spellcasting by level")
+        );
     }
 
     #[test]

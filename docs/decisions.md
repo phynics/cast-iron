@@ -1777,3 +1777,12 @@ Refs [#170](https://github.com/phynics/cast-iron/issues/170), part C (the sectio
 - **Checked pages** (light and dark, 390 and 1280 px): Wizard, Fighter, Arcanist (hybrid), Bard, Magus (6-level casters), Kineticist (no table columns for slots), Psychic (occult), Monk, Eldritch Knight (prestige, `Spells Per Day`), Adept (NPC).
 - **Not done here.** The optional "tap a level for a card" of the issue; it needs a design decision of its own.
 
+
+### Part C review round, 2026-11-15
+
+- **Pinned edge.** A 2 px `--ink-muted` line plus an 8 px shadow, drawn with `::before` and `::after` on the sticky cell. A `box-shadow` on the cell did not paint in Chromium captures of this collapsed-border table, so the first round's edge was invisible. The strip of the previous column that shows between Level and the next grid line while scrolling stays; the edge now makes it read as a clipped column.
+- **Type size.** Cell padding 3 px, header type 13 px, and the 13 px slot table apply below 30 rem only. From 30 rem up the slot table shares the core table's size and padding.
+- **Special and BAB.** At 390 px Special is 96 px (it was about 85). Each part of an iterative attack bonus is an `.atk` span, shown one per line below 30 rem (`+16/`, `+11/`, `+6/`, `+1`), so the breaks are even and never inside a value. Rows with a long bonus are taller; Fighter's level 20 row is 87 px.
+- **Labels.** A prestige class's single `Spells Per Day` column sits under the summary `Spellcasting`, so the disclosure does not repeat the column header. The region names are `Spells per day by level` and `Spellcasting by level`, so a screen reader does not hear the summary twice. The corpus caption "Class Features and Spells Per Day" is corpus text and stays.
+- **Header matching.** A bare number is a spell level only for `0`–`9`; an ordinal (`1st`…) matches at any size. An unrecognised header in a progression stays in the core table, and a table that is not progression-shaped renders whole; both are unit tests.
+- **Closed disclosure** keeps the accent-coloured chevron row already used by `.backlink-more`; no new summary style.

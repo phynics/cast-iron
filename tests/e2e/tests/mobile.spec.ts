@@ -1047,6 +1047,10 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   expect(Math.abs(after.x - before.x), "Level keeps its left edge").toBeLessThanOrEqual(1);
   const background = await pinned.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(background, "pinned cell is opaque").not.toMatch(/rgba|transparent|\//);
+  // The pinned edge is a 2 px line, heavier than the 1 px grid lines.
+  const edge = await pinned.evaluate((el) => { const s = getComputedStyle(el, "::after"); return [s.width, s.backgroundColor]; });
+  expect(edge[0], "pinned edge is 2 px wide").toBe("2px");
+  expect(edge[1], "pinned edge is drawn").not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
   const headBackground = await monk.locator("thead th").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(headBackground, "pinned header is opaque").not.toMatch(/rgba|transparent|\//);
   expect(await overflow()).toBeLessThanOrEqual(0);
@@ -1056,4 +1060,27 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   await expect(page.locator(".progression-table").first()).toBeVisible();
   await expect(page.locator("details.progression-spells")).toHaveCount(0);
   expect(await overflow()).toBeLessThanOrEqual(0);
+  // Special keeps at least 90 px, and the iterative attack bonus of level 20 takes one value per
+  // line: four lines, all at one left edge, none broken inside a value.
+  const fighter = page.locator(".table-wrap:has(> .progression-table)").first();
+  expect((await fighter.locator("thead th").last().boundingBox())!.width, "Special width").toBeGreaterThanOrEqual(90);
+  const parts = await fighter.locator("tbody tr").last().locator("td").first().locator(".atk").evaluateAll(
+    (nodes) => nodes.map((n) => { const r = n.getBoundingClientRect(); return { text: n.textContent, x: r.x, y: r.y, h: r.height }; }));
+  expect(parts.map((p) => p.text)).toEqual(["+20/", "+15/", "+10/", "+5"]);
+  expect(new Set(parts.map((p) => Math.round(p.x))).size, "one left edge").toBe(1);
+  for (let i = 1; i < parts.length; i++) {
+    expect(Math.abs(parts[i].y - (parts[i - 1].y + parts[i - 1].h)), `value ${i} follows the previous line`).toBeLessThanOrEqual(1);
+  }
+});
+
+installedTest("Class progression at 1280 px: the spells table has the core table's type size", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await installLibrary(page);
+  await page.goto("#/entry/ref/class/wizard");
+  const core = page.locator(".progression-table").first();
+  await expect(core).toBeVisible();
+  const disclosure = page.locator("details.progression-spells").first();
+  await disclosure.locator("summary").click();
+  const size = (table: Locator) => table.evaluate((el) => getComputedStyle(el).fontSize);
+  expect(await size(disclosure.locator(".progression-table"))).toBe(await size(core));
 });

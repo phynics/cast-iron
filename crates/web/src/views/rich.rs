@@ -264,10 +264,11 @@ fn progression_tables(split: progression::Progression) -> AnyView {
         Some("Class progression"),
     );
     let spells = split.spells.map(|spells| {
-        let table = rules_table(&spells, Some("progression-table"), Some("Spells per day"));
+        let (summary, region) = progression::spells_labels(&spells);
+        let table = rules_table(&spells, Some("progression-table"), Some(region));
         view! {
             <details class="progression-spells">
-                <summary>"Spells per day"</summary>
+                <summary>{summary}</summary>
                 {table}
             </details>
         }
@@ -305,7 +306,8 @@ fn rules_table(table: &Table, class: Option<&'static str>, label: Option<&'stati
 }
 
 /// A cell's content. In a progression table an iterative attack bonus gets a break opportunity
-/// after each slash, so the column can narrow and leave room for Special.
+/// after each slash, so the column can narrow and leave room for Special. Each part is its own
+/// `.atk` span, which a phone shows one per line.
 fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
     if breakable
         && let [Inline::Text { v }] = content
@@ -313,7 +315,7 @@ fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
     {
         return parts
             .into_iter()
-            .map(|part| view! { {part.to_string()}<wbr /> }.into_any())
+            .map(|part| view! { <span class="atk">{part.to_string()}</span><wbr /> }.into_any())
             .collect();
     }
     inlines(content)

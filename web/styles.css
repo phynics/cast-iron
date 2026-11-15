@@ -2141,14 +2141,35 @@ mark {
   max-width: 14rem;
 }
 
-/* The slot table is all short numbers; a smaller size and tighter cells fit more of it. */
-.progression-spells .progression-table {
-  font-size: 0.8125rem;
+.progression-table .atk {
+  white-space: nowrap;
 }
 
-.progression-spells .progression-table th,
-.progression-spells .progression-table td {
-  padding-inline: 0.1875rem;
+/* A phone: tighter cells and header type give Special more room, and each part of an iterative
+   attack bonus takes its own line, so the breaks are even. The slot table is all short numbers,
+   so it gets a smaller size too; from 30rem up both tables share the rules-table size. */
+@media (max-width: 30rem) {
+  .progression-table th,
+  .progression-table td {
+    padding-inline: 0.1875rem;
+  }
+
+  .progression-table thead th {
+    font-size: 0.8125rem;
+  }
+
+  .progression-table .atk {
+    display: block;
+  }
+
+  /* The blocks already break; the break hint would add an empty line between them. */
+  .progression-table .atk + wbr {
+    display: none;
+  }
+
+  .progression-spells .progression-table {
+    font-size: 0.8125rem;
+  }
 }
 
 .progression-table thead th:not(:first-child) {
@@ -2161,7 +2182,30 @@ mark {
   z-index: 1;
   background: var(--surface);
   white-space: nowrap;
-  box-shadow: 1px 0 0 var(--line), 5px 0 6px -4px var(--shadow-edge);
+}
+
+/* A 2 px edge, heavier than the 1 px grid lines, and a short shadow beside it: Level reads as its
+   own layer when the other columns scroll under it. Pseudo-elements: a box-shadow on the cell did
+   not paint in Chromium captures of this collapsed-border table. */
+.progression-table :is(th, td):first-child::before,
+.progression-table :is(th, td):first-child::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.progression-table :is(th, td):first-child::after {
+  right: -2px;
+  width: 2px;
+  background: var(--ink-muted);
+}
+
+.progression-table :is(th, td):first-child::before {
+  right: -10px;
+  width: 8px;
+  background: linear-gradient(to right, var(--shadow-edge), transparent);
 }
 
 .progression-table thead th:first-child {
@@ -2199,6 +2243,11 @@ mark {
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
   transition: transform 0.15s;
+}
+
+.progression-spells[open] > summary {
+  /* Room for the focus ring above the table. */
+  margin-bottom: var(--space-1);
 }
 
 .progression-spells[open] > summary::before {
