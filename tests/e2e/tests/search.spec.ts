@@ -1501,3 +1501,30 @@ installedTest("A former catch-all rule is found by exact title and opens", async
   await hit.click();
   await expect(page.getByRole("heading", { level: 1, name: rule.title })).toBeVisible();
 });
+
+installedTest("Desktop results page: the sidebar stays open, there is no Filters button, and the scope row is one row", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fireball");
+  await waitResults(page, "fireball");
+  expect(page.viewportSize()!.width).toBeGreaterThanOrEqual(1024);
+
+  // Results are live: no Search button beside the field.
+  await expect(page.locator(".search-form button:not(.search-clear)")).toHaveCount(0);
+  // The sidebar is always open, so the compact Filters button is hidden.
+  await expect(page.locator(".filters-toggle")).toBeHidden();
+  await expect(page.locator("#filters-panel")).toBeVisible();
+  await expect(page.locator(".filters .filter-group").first()).toBeVisible();
+
+  // The quick kinds sit in one row of 44 px pills with the check on the selected one.
+  const pills = page.locator(".search-scopes .scope-choice");
+  await expect(pills).toHaveCount(4);
+  const tops = await pills.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  await expect(page.getByRole("button", { name: "All entries", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  // Choosing a kind from the row filters the results and the sidebar shows the same choice.
+  await page.getByRole("button", { name: "Spells", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Spells", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".filters .chip", { hasText: /^Spells/ }).locator("input")).toBeChecked();
+  await expect(page.locator("#filters-panel")).toBeVisible();
+});

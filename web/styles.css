@@ -1262,14 +1262,35 @@ mark {
 
 .search-layout {
   display: grid;
-  gap: var(--space-4);
-  margin-top: var(--space-4);
+  gap: 0;
+  margin-top: var(--space-2);
 }
 
+/* The Filters button of the results page: a Filter-menu control (44 px, card radius, 1 px line,
+   accent border while facets are on), compact and fixed at the end of the scope row. */
 .filters-toggle {
-  width: 100%;
-  justify-content: space-between;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
   gap: var(--space-2);
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filters-toggle:hover {
+  background: var(--surface-2);
+}
+
+.filters-toggle.filters-active {
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
 .filters-toggle-icon {
@@ -1281,13 +1302,22 @@ mark {
   transform: rotate(180deg);
 }
 
+/* Below 56rem the panel is a filter-menu panel: in the page flow under the scope row, at most
+   half the viewport with its own scroll, no backdrop and no focus trap. */
 .filters-panel {
   display: none;
-  padding-top: var(--space-3);
 }
 
 .filters-panel.open {
   display: block;
+  max-height: 50dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-3) 0;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .filter-group {
@@ -1482,10 +1512,17 @@ mark {
   }
 }
 
+/* The status area under the scope row: the count line and, when an inactive book holds more
+   matches, the hint. Both stay small. */
+.results-status {
+  margin: 0 0 var(--space-2);
+}
+
 .result-count {
   min-height: 1.5em;
-  margin: 0 0 var(--space-2);
+  margin: 0;
   color: var(--ink-muted);
+  font-size: var(--step--1);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1493,21 +1530,23 @@ mark {
   font-size: var(--step--1);
 }
 
-.inactive-books-hint {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--accent);
-  background: var(--surface-2);
-  border-radius: var(--radius);
-  color: var(--ink-muted);
+/* The timing is a diagnostic; on a phone it would wrap the count line onto a second row. */
+@media (max-width: 47.99rem) {
+  .result-count .ms {
+    display: none;
+  }
 }
 
-.inactive-books-hint .btn {
-  margin-left: auto;
+.inactive-books-hint {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-2);
+  border-left: 3px solid var(--accent);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.inactive-books-hint .count-action {
+  margin-left: var(--space-1);
 }
 
 .results,
@@ -1597,7 +1636,15 @@ mark {
 
   .filters-panel {
     display: block;
-    padding-top: 0;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .search-layout {
+    margin-top: var(--space-4);
   }
 }
 
@@ -3516,11 +3563,33 @@ a.home-row-link:hover .home-row-title { text-decoration: underline; }
   .nav-link[aria-current="page"] { border: 0; }
 }
 
+/* One row that never wraps: the quick kinds scroll sideways, and the Filters button after
+   them stays in view. The row has no scrollbar; a focused pill scrolls itself into view. */
+.search-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: var(--space-2) 0;
+}
 .search-scopes {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
   gap: var(--space-2);
-  margin-block: var(--space-3);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  /* Room for the focus ring, which the scroll box would clip. */
+  padding: 3px;
+  margin: -3px;
+}
+.search-scopes::-webkit-scrollbar {
+  display: none;
+}
+.search-scopes .scope-choice {
+  flex: none;
+  white-space: nowrap;
 }
 .scope-choice {
   min-height: var(--touch);
