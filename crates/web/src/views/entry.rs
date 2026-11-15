@@ -14,7 +14,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
-use crate::views::sources::source_line;
+use crate::views::sources::{aon_line, source_line};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
@@ -842,6 +842,7 @@ fn EntryView(
         <ArticleContents body=contents_body id=entry.id.clone() />
         <RichBody body=rendered_body anchor=anchor changed=changed_labels />
         {source_line(&body_sources, &library, None)}
+        {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
         <aside class="entry-refs" aria-label="Entry links">

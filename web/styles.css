@@ -2237,16 +2237,13 @@ main,
   min-width: 0;
 }
 
-/* Wide entries: references sit beside the body. */
+/* Wide entries: references sit beside the body. The grid areas themselves are declared once, in
+   the entry-screen block at the end of this file; this rule owns the columns, the gap and the
+   panel. */
 @media (min-width: 64rem) {
   .entry:has(> .rich) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 15rem;
-    grid-template-areas:
-      "crumbs crumbs"
-      "head head"
-      "body refs"
-      "foot foot";
     column-gap: var(--space-5);
   }
 
@@ -2854,6 +2851,42 @@ main,
   font-size: var(--step--1);
 }
 
+/* The Archives of Nethys link is its own quiet line under the Sources citation, and it is
+   secondary to that citation: the line's regular weight and muted colour, with the underline and
+   the icon carrying the link cue. The class is not an extra `.sources-line`, so the entry's
+   typed line stays the only one of those. `.meta-link` keeps its 44 px hit area, which the
+   compact text box does not show. */
+/* The AoN link's 44 px target reaches 11 px above its text box, so the citation block keeps more
+   than that below it when the link follows; otherwise a tap on the bottom edge of the last book
+   link would land on the AoN anchor. Adjacent block margins collapse to the larger value, which
+   is why this widens the citation's own bottom margin rather than the link's top margin. */
+.entry > .sources-line:has(+ .aon-line) {
+  margin-bottom: var(--space-3);
+}
+
+.aon-line {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.aon-line .meta-link {
+  font-weight: inherit;
+}
+
+/* The original-text disclosure is a block of its own, so the body's first line does not touch
+   its summary. */
+.entry > .rel-original {
+  margin-bottom: var(--space-3);
+}
+
+.aon-link .external-link-icon {
+  width: 1em;
+  height: 1em;
+  margin-left: 0.15em;
+  vertical-align: -0.125em;
+}
+
 .rel-addon .rich > :first-child {
   margin-top: 0;
 }
@@ -3438,19 +3471,9 @@ main,
   }
 }
 
-/* The entry screen at desktop width: panels above the body, book position below it. */
+/* The entry screen at desktop width: the book position gets a row of its own. The areas are
+   declared once, in the last `.entry:has(> .rich)` block at the end of this file. */
 @media (min-width: 64rem) {
-  .entry:has(> .rich) {
-    grid-template-areas:
-      "crumbs crumbs"
-      "head head"
-      "rel refs"
-      "body refs"
-      "book refs"
-      "foot foot";
-  }
-
-  .entry > .entry-rel { grid-area: rel; }
   .entry > .book-bar { grid-area: book; }
 }
 
@@ -3689,19 +3712,38 @@ input::placeholder {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
 @media (min-width: 64rem) {
+  /* The one grid-template-areas for a wide entry; the earlier rules set the columns and the
+     panel only. Every direct child that can appear between the header and the footer owns a
+     row: an unnamed child is auto-placed into the first free cell, which put the typed Sources
+     line above the body, the AoN link (#197) in the panel column, and the revision nodes at the
+     notice's row. */
   .entry:has(> .rich) {
     grid-template-areas:
       "crumbs crumbs"
       "head head"
       "disabled disabled"
+      "revision ."
+      "sentence ."
+      "collision ."
+      "original ."
       "contents refs"
       "body refs"
+      "sources refs"
+      "aon refs"
       "rel refs"
       "book refs"
       "foot foot";
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
+  .entry > .revision-notice { grid-area: revision; }
+  /* A removed revision renders a second `.rich`, so it needs its own row rather than the
+     body's area. */
+  .entry > .revision-sentence { grid-area: sentence; }
+  .entry > .revision-collision { grid-area: collision; }
+  .entry > .rel-original { grid-area: original; }
   .entry > .article-contents { grid-area: contents; }
+  .entry > .sources-line { grid-area: sources; }
+  .entry > .aon-line { grid-area: aon; }
   .entry > #entry-related { grid-area: rel; }
 }
 .article-contents .contents-level-3 { margin-inline-start: .75rem; }
