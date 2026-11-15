@@ -28,6 +28,20 @@ pub fn star_filled() -> impl IntoView {
     }
 }
 
+/// A box with an arrow leaving it: the link opens in another app, the device browser. The
+/// control around it keeps the accessible name.
+pub fn external_link() -> impl IntoView {
+    view! {
+        <svg class="external-link-icon" viewBox="0 0 24 24" width="16" height="16" fill="none"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 4h6v6"/>
+            <path d="m20 4-9 9"/>
+            <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>
+        </svg>
+    }
+}
+
 /// A down chevron for a filter toggle. Its open state rotates it in CSS.
 pub fn chevron_down(class: &'static str) -> impl IntoView {
     view! {

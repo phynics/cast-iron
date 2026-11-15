@@ -2807,6 +2807,21 @@ main,
   font-size: var(--step--1);
 }
 
+/* The Archives of Nethys link is its own quiet line under the Sources citation. The class is
+   not an extra `.sources-line`: the entry's typed line is still the only one of those. */
+.aon-line {
+  margin: calc(var(--space-1) * -1) 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.aon-link .external-link-icon {
+  width: 1em;
+  height: 1em;
+  margin-left: 0.15em;
+  vertical-align: -0.125em;
+}
+
 .rel-addon .rich > :first-child {
   margin-top: 0;
 }
@@ -3620,6 +3635,10 @@ input::placeholder {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
 @media (min-width: 64rem) {
+  /* This list replaces the short one near the wide-entry rule above. The typed Sources line and
+     the Archives of Nethys link (#197) get rows of their own: an unnamed child of the grid is
+     auto-placed into the first free cell, which put it above the body and inside the panel
+     column. */
   .entry:has(> .rich) {
     grid-template-areas:
       "crumbs crumbs"
@@ -3627,12 +3646,16 @@ input::placeholder {
       "disabled disabled"
       "contents refs"
       "body refs"
+      "sources refs"
+      "aon refs"
       "rel refs"
       "book refs"
       "foot foot";
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
   .entry > .article-contents { grid-area: contents; }
+  .entry > .sources-line { grid-area: sources; }
+  .entry > .aon-line { grid-area: aon; }
   .entry > #entry-related { grid-area: rel; }
 }
 .article-contents .contents-level-3 { margin-inline-start: .75rem; }

@@ -1,12 +1,49 @@
-//! The muted `Sources:` line of an entry and of an attached add-on.
+//! The muted `Sources:` line of an entry and of an attached add-on, and the optional
+//! Archives of Nethys link that follows it.
 //!
 //! The formatting is pure: [`rows`] turns the typed citations into display rows, and
-//! [`line_text`] gives the whole line for tests. The view only adds the book links.
+//! [`line_text`] gives the whole line for tests. [`aon_href`] turns a stored `aon` path into
+//! its full URL. The view only adds the book and Archives of Nethys links.
 
 use crate::library::Library;
 use crate::route::Route;
+use crate::views::icons;
 use cast_iron_schema::Citation;
 use leptos::prelude::*;
+
+/// The Archives of Nethys base. Every stored `aon` value is a path below it.
+pub const AON_BASE: &str = "https://aonprd.com/";
+
+/// The full Archives of Nethys URL for a stored path, or `None` when the entry or publication
+/// has none, which is the only case that renders no link.
+///
+/// The corpus stores the path already percent-encoded, so this prefixes it and never
+/// re-encodes: encoding again would turn `%20` into `%2520`.
+pub fn aon_href(path: Option<&str>) -> Option<String> {
+    path.map(|path| format!("{AON_BASE}{path}"))
+}
+
+/// The quiet `View on Archives of Nethys` line, in the Metadata role, directly under the
+/// Sources line. Nothing when the record has no stored path.
+///
+/// The link opens in the device browser and fetches nothing itself, so reading stays offline.
+/// The wording names the reference site and never implies official status (AGENTS.md rule 11).
+pub fn aon_line(path: Option<&str>) -> AnyView {
+    let Some(href) = aon_href(path) else {
+        return ().into_any();
+    };
+    view! {
+        <p class="aon-line">
+            <a class="meta-link aon-link" href=href target="_blank" rel="noopener noreferrer"
+                data-testid="aon-link">
+                "View on Archives of Nethys"
+                {icons::external_link()}
+                <span class="sr-only">" (opens in a new tab)"</span>
+            </a>
+        </p>
+    }
+    .into_any()
+}
 
 /// One citation as the line renders it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,5 +210,22 @@ mod tests {
     #[test]
     fn no_rows_means_no_line() {
         assert_eq!(line_text(&rows(&[], lookup)), "");
+    }
+
+    #[test]
+    fn a_stored_path_becomes_a_full_url_without_re_encoding() {
+        assert_eq!(
+            aon_href(Some("FeatDisplay.aspx?ItemName=Power%20Attack")).as_deref(),
+            Some("https://aonprd.com/FeatDisplay.aspx?ItemName=Power%20Attack")
+        );
+        assert_eq!(
+            aon_href(Some("SourceDisplay.aspx?FixedSource=Core%20Rulebook")).as_deref(),
+            Some("https://aonprd.com/SourceDisplay.aspx?FixedSource=Core%20Rulebook")
+        );
+    }
+
+    #[test]
+    fn no_stored_path_means_no_link() {
+        assert_eq!(aon_href(None), None);
     }
 }
