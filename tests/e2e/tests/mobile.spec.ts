@@ -236,9 +236,8 @@ installedTest("Search results at 390 px: one scope row with a Filters button, an
     expect(box.height).toBeGreaterThanOrEqual(44);
     expect(box.radius).toBe("999px");
   }
-  // The row never wraps; whether it overflows depends on the pill sizes, so that is not required.
+  // The row never wraps; whether it overflows depends on the pill sizes, so that is not asserted.
   expect(await scopes.evaluate((el) => getComputedStyle(el).flexWrap)).toBe("nowrap");
-  expect(await scopes.evaluate((el) => el.scrollWidth >= el.clientWidth)).toBe(true);
   await expect(page.getByRole("button", { name: "All entries", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // The Filters button sits at the end of the same row: compact, 44 px, never a pill.
@@ -356,16 +355,24 @@ installedTest("Search results at 390 px: the filter panel opens in the page flow
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
   await expect(toggle).toBeFocused();
 
-  // After a resize to the desktop layout the button is hidden: Escape in the open panel still
-  // closes the state and does not send focus to the hidden button.
+  // After a resize to the desktop layout the button is hidden: Escape in the open panel closes
+  // the state and does not try to give focus to the hidden button. focus() on a display:none
+  // element is a silent no-op in Chromium, so the page looks the same either way; a spy on the
+  // button (installed by the test, not by the app) records whether the app asked for focus.
   await toggle.click();
   await expect(panel).toBeFocused();
   await page.setViewportSize({ width: 1024, height: 800 });
   await expect(toggle).toBeHidden();
   await panel.locator(".chip input").first().focus();
+  await page.evaluate(() => {
+    const button = document.querySelector(".filters-toggle") as HTMLElement;
+    (window as any).__toggleFocusCalls = 0;
+    button.focus = () => { (window as any).__toggleFocusCalls++; };
+  });
   await page.keyboard.press("Escape");
   // A role query skips hidden elements, so the hidden button is read by its class.
   await expect(page.locator(".filters-toggle")).toHaveAttribute("aria-expanded", "false");
+  expect(await page.evaluate(() => (window as any).__toggleFocusCalls)).toBe(0);
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
   await expect(panel.locator(".chip input").first()).toBeFocused();
 });
