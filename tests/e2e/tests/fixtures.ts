@@ -56,6 +56,8 @@ export interface Entry {
   title: string;
   source_ids: string[];
   sources?: { publication: string; page?: string }[];
+  /** Archives of Nethys page, as a path relative to `https://aonprd.com/` (#197). */
+  aon?: string;
   fields: Record<string, any>;
   race_group?: string;
   body: any[];
