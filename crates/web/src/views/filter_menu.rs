@@ -422,6 +422,8 @@ pub fn MultiFilterMenuPanel(
     chosen: Signal<Vec<String>>,
     /// The list with nothing chosen.
     all_href: String,
+    /// What a row's count counts, for its accessible name: `spell`, `spells`.
+    count_noun: (&'static str, &'static str),
     on_change: Callback<Vec<String>>,
 ) -> impl IntoView {
     let all_id = format!("{}-all", panel_id(&spec));
@@ -440,7 +442,11 @@ pub fn MultiFilterMenuPanel(
         .map(|option| {
             let value = option.value.clone();
             let for_checked = option.value.clone();
-            let name = format!("{}, {}", option.label, fmt::count(option.count as u32));
+            let name = format!(
+                "{}, {}",
+                option.label,
+                fmt::pluralize(option.count, count_noun.0, count_noun.1)
+            );
             view! {
                 <li>
                     <label class="choice-row">
@@ -479,9 +485,20 @@ pub fn MultiFilterMenuPanel(
                         id=all_id
                         href=all_href
                         aria-current=move || none_chosen().then_some("true")
+                        on:click=move |event| {
+                            // The current choice only closes the panel, as in a single-choice menu.
+                            if none_chosen() {
+                                event.prevent_default();
+                                state.dismiss(&spec);
+                            }
+                        }
                     >
+                        // The same box as the rows, drawn: it is ticked while nothing is chosen.
+                        // It is a link, so it carries no checkbox role; `aria-current` says it.
+                        <span class="choice-box" aria-hidden="true">
+                            {move || none_chosen().then(icons::choice_check)}
+                        </span>
                         <span class="choice-label">{spec.all_label}</span>
-                        {move || none_chosen().then(icons::choice_check)}
                     </a>
                 </li>
                 {rows}

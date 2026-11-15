@@ -889,6 +889,12 @@ test("The spell hub is a list page: a count of spell lists, the class picker, an
   await expect(main.getByText("By school")).toHaveCount(0);
   await expect(main.getByRole("link", { name: "All spells, A to Z" })).toHaveCount(0);
 
+  // The A to Z list of every spell is one tap away: the `Spells` crumb.
+  await main.locator("nav.crumbs").getByRole("link", { name: "Spells", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/spell");
+  await page.goBack();
+  await expect(main.getByRole("heading", { level: 1, name: "Spell lists" })).toBeVisible();
+
   // The header search on the hub searches spells, and says so.
   await openQuickSearch(page);
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells");
@@ -911,6 +917,13 @@ test("A class list opens with the list-page head: title, count line, then the fi
   expect((await school.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   const classPage = row.getByRole("link", { name: "Wizard class page" });
   await expect(classPage).toHaveClass(/page-link/);
+  // The name field has the block gap under the filter row, not a shared edge (12 px at least).
+  const gap = await page.evaluate(() => {
+    const row = document.querySelector("main .filter-row")!.getBoundingClientRect();
+    const field = document.querySelector("main .list-filter")!.getBoundingClientRect();
+    return field.top - row.bottom;
+  });
+  expect(gap).toBeGreaterThanOrEqual(11.5);
   // The old disclosure of pills and the bordered class rectangle are gone.
   await expect(main.locator("details.school-filter, .class-page, .chip-count")).toHaveCount(0);
   // The order from the top: title, count line, filter row, level bar, rows.
@@ -979,6 +992,7 @@ test("The school menu on a list is a multi-select: the route holds the schools, 
 
   // A shared link opens the same state, closed; the level links keep the schools; Show all clears them.
   await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await page.reload();
   await expect(button("School: 2 chosen")).toHaveAttribute("aria-expanded", "false");
   await expect(main.locator(".list-count")).toHaveText(`${count(of("evocation", "conjuration"))} of ${count(here.length)} spells · Show all`);
   await main.locator(".level-nav").getByRole("link", { name: /^Level 4, / }).click();
@@ -1020,4 +1034,60 @@ test("Quick search on a spell list names the class and the chosen schools, and o
   expect(hash.toLowerCase()).toContain("facet=class:wizard");
   for (const meta of await page.locator(".results .hit-meta").allInnerTexts()) expect(meta).toMatch(/^Spell/);
   await expect(page.getByRole("button", { name: "Remove scope: Evocation or Conjuration Wizard spells", exact: true })).toBeVisible();
+});
+
+test("In the school menu All schools only closes the panel while nothing is chosen, and clears the choices otherwise", async ({ page }) => {
+  await installLibrary(page);
+  const main = page.locator("main");
+  await page.goto("#/spells/Wizard/3");
+  const button = main.getByRole("button", { name: "School: All schools", exact: true });
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  const all = panel.getByRole("link", { name: "All schools" });
+  // The current row shows its state with the same box as the school rows, ticked.
+  await expect(all).toHaveAttribute("aria-current", "true");
+  await expect(all.locator(".choice-box .choice-check")).toBeVisible();
+  const history = await page.evaluate(() => window.history.length);
+  await all.click();
+  await expect(panel).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  // Nothing navigated: no new history entry, the same address.
+  expect(await page.evaluate(() => window.history.length)).toBe(history);
+  expect(new URL(page.url()).hash).toBe("#/spells/Wizard/3");
+
+  // With a school chosen the row is not current, its box is empty, and it clears the choices.
+  await button.click();
+  await panel.getByRole("checkbox", { name: /^Evocation, / }).check();
+  await expect(all).not.toHaveAttribute("aria-current", "true");
+  await expect(all.locator(".choice-check")).toHaveCount(0);
+  await all.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3");
+  await expect(main.getByRole("button", { name: "School: All schools", exact: true })).toBeVisible();
+  await expect(panel.getByRole("checkbox", { name: /^Evocation, / })).not.toBeChecked();
+  await expect(all).toHaveAttribute("aria-current", "true");
+});
+
+test("A school checkbox is named with its label and its spell count", async ({ page }) => {
+  await installLibrary(page);
+  const main = page.locator("main");
+  await page.goto("#/spells/Wizard/3");
+  await main.getByRole("button", { name: "School: All schools", exact: true }).click();
+  const evocation = main.getByRole("checkbox", { name: /^Evocation, / });
+  const n = wizardSpells(3).filter((spell) => spell.school === "evocation").length;
+  await expect(evocation).toHaveAccessibleName(`Evocation, ${count(n)} ${n === 1 ? "spell" : "spells"}`);
+});
+
+test("A level heading in the whole-list view keeps the chosen schools", async ({ page }) => {
+  await installLibrary(page);
+  const main = page.locator("main");
+  // The whole-list view: a level heading is a link to that level, and keeps the schools.
+  await page.goto("#/spells/Wizard?school=evocation&school=conjuration");
+  const heading = main.locator(".level-head a", { hasText: "Level 3" });
+  await expect(heading).toBeVisible();
+  expect(await heading.getAttribute("href")).toBe("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await heading.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await expect(main.getByRole("button", { name: "School: 2 chosen", exact: true })).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(/^[\d,]+ of [\d,]+ spells · Show all$/);
 });

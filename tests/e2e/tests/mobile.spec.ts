@@ -627,7 +627,7 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   expect(box390.x).toBeGreaterThanOrEqual(0);
   expect(box390.x + box390.width).toBeLessThanOrEqual(390);
   const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
-  const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+)$/)![1]);
+  const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+) spells?$/)![1]);
   await evocation.check();
   await expect(page.getByRole("button", { name: "School: Evocation", exact: true })).toBeVisible();
   await expect(rows.first()).toBeVisible();
@@ -1003,4 +1003,36 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(typeButton).toBeFocused();
+});
+
+installedTest("Spell list at 390 px: the name field clears the filter row, and a long scope wraps in the Quick search pill", async ({ page }) => {
+  await installLibrary(page);
+  const viewport = page.viewportSize()!;
+  await page.goto("#/spells/Wizard/3");
+  const gap = await page.evaluate(() => {
+    const row = document.querySelector("main .filter-row")!.getBoundingClientRect();
+    const field = document.querySelector("main .list-filter")!.getBoundingClientRect();
+    return field.top - row.bottom;
+  });
+  expect(gap).toBeGreaterThanOrEqual(11.5);
+
+  // Four schools: the scope is long. The pill shows all of it, on two lines or more, and the
+  // cross at the right is still one 44 px target with the text.
+  await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration&school=illusion&school=necromancy");
+  const layer = await openQuickSearch(page);
+  const name = "Remove scope: Evocation or Conjuration or Illusion or Necromancy Wizard spells";
+  const pill = layer.getByRole("button", { name, exact: true });
+  await expect(pill).toBeVisible();
+  const box = (await pill.boundingBox())!;
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  const text = pill.locator("span");
+  const lineHeight = await text.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await text.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
+  // Nothing is cut: the text fits its box and the cross sits inside the pill.
+  expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(pill.locator("svg")).toBeVisible();
+  await pill.click();
+  await expect(pill).toHaveCount(0);
 });

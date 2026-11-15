@@ -580,7 +580,13 @@ fn ListPage(
                     })
                     .collect_view();
                 let head = level.is_none().then(|| {
-                    let href = Route::spell_list(list_name.clone(), Some(l)).href();
+                    // A level link keeps the chosen schools, like the level bar's links.
+                    let href = Route::SpellList {
+                        class: list_name.clone(),
+                        level: Some(l),
+                        schools: chosen.clone(),
+                    }
+                    .href();
                     view! {
                         <h2 class="level-head">
                             <a href=href>{level_label(l)}</a>
@@ -679,7 +685,7 @@ fn ListPage(
             </div>
         };
         let panel = view! {
-            <MultiFilterMenuPanel spec state options chosen all_href=route_with(Vec::new()).href()
+            <MultiFilterMenuPanel spec state options chosen all_href=route_with(Vec::new()).href() count_noun=("spell", "spells")
                 on_change />
         };
         (button, panel)

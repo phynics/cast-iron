@@ -709,6 +709,11 @@ pub fn navigate(route: &Route) {
 /// asked for it reads the new state in the same turn. A plain hash change reaches the signal one
 /// event later, which a control that shows the route's state would miss. Back and Forward fire
 /// `hashchange` as usual.
+///
+/// The new entry starts with no history state, on purpose. Its fields describe one entry:
+/// `scrollId` is that entry's scroll offset, and `quickSearch` marks the entry that Quick search
+/// pushed. Copying them (as [`push_flagged_entry`] does for the page that is on screen) would
+/// give two entries one scroll offset and mark this one as a Quick search entry.
 pub fn push(route: &Route) {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return;
