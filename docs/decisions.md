@@ -12,9 +12,10 @@ optional stored paths (`aon` on an entry and on a publication), the harvest, and
   is its own muted line directly under the Sources line, at the end of the entry's own text
   (`.aon-line`, `.meta-link`). It keeps the line's regular weight and muted colour, because the
   underline and the icon already say "link"; `.meta-link` supplies the 44 px target through its
-  `::after`, so the visible line stays compact. On a book page it sits in the colophon, above the
-  copyright notices. Both use the same `views::sources::aon_line` component, so the form cannot
-  drift.
+  `::after`, so the visible line stays compact. Because that target reaches 11 px above the text,
+  the citation block keeps `space-3` below it when the link follows, so the target cannot cover
+  the last book link. On a book page the link sits in the colophon, above the copyright notices.
+  Both use the same `views::sources::aon_line` component, so the form cannot drift.
 - **The wording never implies official status.** The label is `View on Archives of Nethys`. The
   app is not official and does not claim compatibility (AGENTS.md rule 11).
 - **It opens in the device browser, after the tap.** `target="_blank"` with

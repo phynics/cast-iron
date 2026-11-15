@@ -14,6 +14,7 @@ function storedEntry(id: string, kind: string) {
 const POWER_ATTACK = storedEntry("ref/feat/power-attack", "feat");
 const FIREBALL = storedEntry("ref/spell/fireball", "spell");
 const GOBLIN = storedEntry("ref/monster/goblin", "creature");
+const DODGE = storedEntry("ref/feat/dodge", "feat");
 const CASTING_CONDUIT = storedEntry("ref/feat/casting-conduit", "feat");
 const CORE_RULEBOOK = sources.find((row) => row.id === "core-rulebook");
 const ARTIFACTS_AND_LEGENDS = sources.find((row) => row.id === "artifacts-and-legends");
@@ -124,6 +125,49 @@ test("A creature links and an entry without a stored path shows no link", async 
   expect(guard.problems(), "console errors or third-party requests").toEqual([]);
 });
 
+test("The AoN target leaves its neighbours their own edges at a phone width", async ({ page, guard }) => {
+  // Dodge's citation wraps to two lines at 390 px, so the last book link sits directly above the
+  // AoN line: the tightest case for the 44 px target's reach.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`#/entry/${DODGE.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: DODGE.title })).toBeVisible();
+  await noAonResources(page);
+
+  const owns = await page.evaluate(() => {
+    const paragraph = document.querySelector(".entry > .sources-line") as HTMLElement;
+    const links = [...paragraph.querySelectorAll("a")] as HTMLElement[];
+    const lastCitation = links[links.length - 1];
+    const aon = document.querySelector(".entry > .aon-line a") as HTMLElement;
+    const related = document.querySelector(".entry > #entry-related") as HTMLElement;
+    aon.scrollIntoView({ block: "center" });
+    const citation = lastCitation.getBoundingClientRect();
+    const block = paragraph.getBoundingClientRect();
+    const below = related.getBoundingClientRect();
+    const ownedBy = (element: Element, x: number, y: number) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit !== null && (hit === element || element.contains(hit));
+    };
+    return {
+      // A point 1 px inside the citation link's own bottom edge.
+      citationEdge: ownedBy(
+        lastCitation,
+        citation.x + citation.width / 2,
+        citation.bottom - 1,
+      ),
+      // A point 1 px inside the citation block's bottom edge: the target may not reach into it,
+      // even in the space below the link's own box.
+      citationBlockEdge: ownedBy(paragraph, block.x + block.width / 2, block.bottom - 1),
+      // The related panel's top edge stays its own.
+      relatedEdge: ownedBy(related, below.x + 20, below.top),
+    };
+  });
+  expect(owns.citationEdge, "the last citation link owns a point inside its bottom edge").toBe(true);
+  expect(owns.citationBlockEdge, "the citation block owns a point inside its bottom edge").toBe(true);
+  expect(owns.relatedEdge, "the related panel owns its top edge").toBe(true);
+
+  expect(guard.problems(), "console errors or third-party requests").toEqual([]);
+});
+
 test("A book with a source page links and one without shows no link", async ({ page, guard }) => {
   await page.goto(`#/browse/book/${CORE_RULEBOOK.id}`);
   await expect(page.getByRole("heading", { level: 1, name: CORE_RULEBOOK.title })).toBeVisible();
@@ -136,6 +180,12 @@ test("A book with a source page links and one without shows no link", async ({ p
   await expect(link).toHaveAttribute("target", "_blank");
   await expect(link).toHaveAttribute("rel", "noopener noreferrer");
   await expect(link).toHaveAccessibleName(/View on Archives of Nethys \(opens in a new tab\)/);
+
+  // The colophon keeps the same compact line and the same 44 px target.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const target = await hitHeight(page, ".colophon .aon-line a");
+  expect(target.box, "the visible text box stays compact").toBeLessThan(44);
+  expect(target.hit, "the hit area reaches the 44 px target").toBeGreaterThanOrEqual(44);
 
   await page.goto(`#/browse/book/${ARTIFACTS_AND_LEGENDS.id}`);
   await expect(

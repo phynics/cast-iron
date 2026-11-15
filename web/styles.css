@@ -2856,6 +2856,14 @@ main,
    the icon carrying the link cue. The class is not an extra `.sources-line`, so the entry's
    typed line stays the only one of those. `.meta-link` keeps its 44 px hit area, which the
    compact text box does not show. */
+/* The AoN link's 44 px target reaches 11 px above its text box, so the citation block keeps more
+   than that below it when the link follows; otherwise a tap on the bottom edge of the last book
+   link would land on the AoN anchor. Adjacent block margins collapse to the larger value, which
+   is why this widens the citation's own bottom margin rather than the link's top margin. */
+.entry > .sources-line:has(+ .aon-line) {
+  margin-bottom: var(--space-3);
+}
+
 .aon-line {
   margin: 0 0 var(--space-2);
   color: var(--ink-muted);
