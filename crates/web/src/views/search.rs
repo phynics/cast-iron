@@ -1781,9 +1781,12 @@ pub fn Search() -> impl IntoView {
     // out of sight, so the pressed choice is brought into view after each change of kinds.
     Effect::new(move |_| {
         state.with(|s| s.kinds.clone());
-        spawn_local(async {
+        spawn_local(async move {
             js::sleep(0).await;
-            reveal_pressed_scope();
+            // A screen that was left meanwhile has disposed its signals: touch no page node.
+            if filters_open.try_get_untracked().is_some() {
+                reveal_pressed_scope();
+            }
         });
     });
     let filters_button = NodeRef::<leptos::html::Button>::new();
@@ -1795,7 +1798,10 @@ pub fn Search() -> impl IntoView {
             spawn_local(async move {
                 // The panel is displayed after the class change; focus needs a shown element.
                 js::sleep(0).await;
-                if let Some(panel) = filters_panel.get_untracked() {
+                // Skip when the reader left the screen before the frame (the owner is disposed).
+                if filters_open.try_get_untracked() == Some(true)
+                    && let Some(panel) = filters_panel.get_untracked()
+                {
                     let _ = panel.focus();
                 }
             });
@@ -1805,7 +1811,12 @@ pub fn Search() -> impl IntoView {
         if ev.key() == "Escape" && filters_open.get_untracked() {
             ev.prevent_default();
             filters_open.set(false);
-            if let Some(button) = filters_button.get_untracked() {
+            // After a resize to 56rem or wider the button is hidden and the panel is the
+            // sidebar: the state closes either way, but focus stays where it is, because a
+            // hidden button cannot take it (it would fall to <body>).
+            if let Some(button) = filters_button.get_untracked()
+                && button.offset_parent().is_some()
+            {
                 let _ = button.focus();
             }
         }

@@ -1701,9 +1701,9 @@ Refs [#196](https://github.com/phynics/cast-iron/issues/196). The corpus already
 
 ## Search results page: compact controls, 2026-11-15
 
-Refs [#167](https://github.com/phynics/cast-iron/issues/167). Layout and layout only: no filter, count or URL behaviour changed. The Search button, the wrapping quick kinds and the full-width `Filters` bar were measured on current `main` at 390 px: the first result row started at 565 px, and the first entry row at 1,170 px, because 45 book-section rows come first.
+Refs [#167](https://github.com/phynics/cast-iron/issues/167). Layout only: no filter, count or URL behaviour changed. The Search button, the wrapping quick kinds and the full-width `Filters` bar were measured on current `main` at 390 px: the first result row started at 565 px, and the first entry row at 1,170 px, because 45 book-section rows come first.
 
-- **Threshold.** The first result row starts at most 280 px down without a hint, and at most 330 px with the inactive-books hint (measured 257 and 304). The issue's "about 180 px" cannot hold: the header (61 px), the field, the scope row (44 px each with gaps) and one status line already take about 190 px before any row.
+- **Threshold (proposed, pending owner acceptance).** The first result row starts at most 280 px down without a hint, and at most 330 px with the inactive-books hint (measured 257 and 304). The issue's "about 180 px" cannot hold: the header (61 px), the field, the scope row (44 px each with gaps) and one status line already take about 190 px before any row.
 - **One scope row.** The quick kinds scroll sideways and the `Filters` button is fixed at the end of the row, so it stays reachable. The scrollbar is hidden; a focused pill scrolls itself into view, and the pressed kind is scrolled into view when the kinds change (a link, the panel or Back can choose a kind that sits out of sight).
 - **`Filters · N`.** N is the existing count (kinds, publications and facets). A kind chosen in the row counts, because the Kind chips in the panel show it as checked too.
 - **Panel.** The same panel as before, now following the #193 filter-menu pattern: in flow, `50dvh`, no dialog. It is a named `group` with `tabindex="-1"` and takes focus when it opens, so a screen reader hears its name before the chips.
