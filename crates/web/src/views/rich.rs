@@ -307,15 +307,21 @@ fn rules_table(table: &Table, class: Option<&'static str>, label: Option<&'stati
 
 /// A cell's content. In a progression table an iterative attack bonus gets a break opportunity
 /// after each slash, so the column can narrow and leave room for Special. Each part is its own
-/// `.atk` span, which a phone shows one per line.
+/// `.atk` span. A bonus of three or more parts is stacked, one per line, on a phone (`atk-stack`);
+/// a two-part bonus such as `+6/+1` stays on one line while it fits.
 fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
     if breakable
         && let [Inline::Text { v }] = content
         && let Some(parts) = progression::attack_bonus_parts(v)
     {
+        let class = if parts.len() > 2 {
+            "atk atk-stack"
+        } else {
+            "atk"
+        };
         return parts
             .into_iter()
-            .map(|part| view! { <span class="atk">{part.to_string()}</span><wbr /> }.into_any())
+            .map(|part| view! { <span class=class>{part.to_string()}</span><wbr /> }.into_any())
             .collect();
     }
     inlines(content)

@@ -2122,11 +2122,19 @@ mark {
 
 /* Class progression: Level stays pinned while the table scrolls, and the spell columns sit in a
    disclosure below. Pinned cells are opaque, so a cell that scrolls under them never shows through.
-   The right edge carries a strong shadow that the scroll position removes at the end. */
+   Both scroll cues are the scroll-shadow technique, with no script. A shadow gradient is fixed to
+   the scroll box (`scroll`); a solid cover of the same size moves with the content (`local`) and
+   hides it while the content has not moved from that edge (the cover is 2 px larger, so the
+   shadow's antialiased edge never shows). So a table that fits shows no cue, and
+   a table that scrolls shows a 2 px edge and a short shadow beside the pinned Level column, and a
+   shadow at the right edge until the end. `--pin-w` is the width of the pinned column. */
 .table-wrap:has(> .progression-table) {
+  --pin-w: 3rem;
   background:
-    linear-gradient(var(--surface), var(--surface)) right / 1.5rem 100% no-repeat local,
+    linear-gradient(var(--surface), var(--surface)) right / calc(1.5rem + 2px) 100% no-repeat local,
+    linear-gradient(var(--surface), var(--surface)) left calc(var(--pin-w) - 1px) top / calc(0.5rem + 2px) 100% no-repeat local,
     linear-gradient(to left, var(--shadow-edge), transparent) right / 1.5rem 100% no-repeat scroll,
+    linear-gradient(to right, var(--ink-muted) 0 2px, var(--shadow-edge) 2px, transparent 100%) left var(--pin-w) top / 0.5rem 100% no-repeat scroll,
     var(--surface);
 }
 
@@ -2141,29 +2149,39 @@ mark {
   max-width: 14rem;
 }
 
+/* The first column after Level keeps clear of the pinned edge. */
+.progression-table :is(th, td):nth-child(2) {
+  padding-left: 0.5rem;
+}
+
 .progression-table .atk {
   white-space: nowrap;
 }
 
-/* A phone: tighter cells and header type give Special more room, and each part of an iterative
-   attack bonus takes its own line, so the breaks are even. The slot table is all short numbers,
-   so it gets a smaller size too; from 30rem up both tables share the rules-table size. */
+/* A phone: tighter cells and header type give Special more room, and a bonus of three or more
+   parts takes one line per part, so the breaks are even and never inside a value. A two-part
+   bonus stays on one line while it fits. The slot table is all short numbers, so it gets a
+   smaller size too; from 30rem up both tables share the rules-table size. */
 @media (max-width: 30rem) {
   .progression-table th,
   .progression-table td {
     padding-inline: 0.1875rem;
   }
 
+  .progression-table :is(th, td):nth-child(2) {
+    padding-left: 0.5rem;
+  }
+
   .progression-table thead th {
     font-size: 0.8125rem;
   }
 
-  .progression-table .atk {
+  .progression-table .atk-stack {
     display: block;
   }
 
   /* The blocks already break; the break hint would add an empty line between them. */
-  .progression-table .atk + wbr {
+  .progression-table .atk-stack + wbr {
     display: none;
   }
 
@@ -2173,39 +2191,17 @@ mark {
 }
 
 .progression-table thead th:not(:first-child) {
-  background: color-mix(in srgb, var(--surface-2) 75%, transparent);
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
 }
 
 .progression-table :is(th, td):first-child {
   position: sticky;
   left: 0;
   z-index: 1;
+  width: var(--pin-w);
+  min-width: var(--pin-w);
   background: var(--surface);
   white-space: nowrap;
-}
-
-/* A 2 px edge, heavier than the 1 px grid lines, and a short shadow beside it: Level reads as its
-   own layer when the other columns scroll under it. Pseudo-elements: a box-shadow on the cell did
-   not paint in Chromium captures of this collapsed-border table. */
-.progression-table :is(th, td):first-child::before,
-.progression-table :is(th, td):first-child::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-.progression-table :is(th, td):first-child::after {
-  right: -2px;
-  width: 2px;
-  background: var(--ink-muted);
-}
-
-.progression-table :is(th, td):first-child::before {
-  right: -10px;
-  width: 8px;
-  background: linear-gradient(to right, var(--shadow-edge), transparent);
 }
 
 .progression-table thead th:first-child {

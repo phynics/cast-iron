@@ -994,6 +994,31 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await expect(typeButton).toBeFocused();
 });
 
+/**
+ * Whether the scroll cues of a progression table paint anything. The wrap's own background carries
+ * both cues (the pinned-edge line and shadow, and the right-edge shadow), so the check screenshots
+ * the wrap, paints the same wrap with a plain surface background, and compares the two images. A
+ * table that fits must give identical images. A pseudo-element on the pinned cell counts as a cue.
+ */
+async function cuePaints(page: Page, wrap: Locator): Promise<boolean> {
+  // A cue drawn on the pinned cell itself (a pseudo-element) would show whether or not the table
+  // scrolls, so the cell must not have one.
+  const pseudo = await wrap.locator("tbody th").first().evaluate((el) =>
+    [getComputedStyle(el, "::before").content, getComputedStyle(el, "::after").content]);
+  if (pseudo.some((content) => content !== "none" && content !== "normal")) return true;
+  await wrap.scrollIntoViewIfNeeded();
+  const top = (await wrap.boundingBox())!.y;
+  await page.evaluate((delta) => window.scrollBy(0, delta), top - 120);
+  const box = (await wrap.boundingBox())!;
+  // Inset from the rounded corners, whose antialiasing differs between a layered and a plain background.
+  const clip = { x: box.x + 8, y: box.y + 8, width: box.width - 16, height: Math.min(box.height, 400) - 8 };
+  const cued = await page.screenshot({ clip });
+  await wrap.evaluate((el) => el.style.setProperty("background", "var(--surface)", "important"));
+  const plain = await page.screenshot({ clip });
+  await wrap.evaluate((el) => el.style.removeProperty("background"));
+  return !cued.equals(plain);
+}
+
 installedTest("Class progression at 390 px: Level stays pinned, the core columns fit, and spells per day sits in a disclosure", async ({ page }) => {
   await installLibrary(page);
   const overflow = () =>
@@ -1015,6 +1040,7 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   }
   expect(await overflow()).toBeLessThanOrEqual(0);
   expect(await wrap.evaluate((el) => el.scrollWidth - el.clientWidth), "the core table needs no sideways scroll").toBeLessThanOrEqual(0);
+  expect(await cuePaints(page, wrap), "Wizard's core table fits and shows no cue").toBe(false);
 
   // The spell columns are not in this table; they sit in a closed disclosure with the slot table.
   const disclosure = page.locator("details.progression-spells").first();
@@ -1027,6 +1053,7 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   await expect(slots.locator("thead th")).toHaveText(["Level", "0", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]);
   await expect(slots.locator("tbody tr")).toHaveCount(20);
   expect(await overflow()).toBeLessThanOrEqual(0);
+  expect(await cuePaints(page, disclosure.locator(".table-wrap")), "Wizard's slot table fits and shows no cue").toBe(false);
 
   // The spell columns are out of the core table, so a Wizard needs no sideways scroll. Monk has
   // four more columns, so its table scrolls. Level keeps its left edge and its opaque background
@@ -1047,10 +1074,12 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   expect(Math.abs(after.x - before.x), "Level keeps its left edge").toBeLessThanOrEqual(1);
   const background = await pinned.evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(background, "pinned cell is opaque").not.toMatch(/rgba|transparent|\//);
-  // The pinned edge is a 2 px line, heavier than the 1 px grid lines.
-  const edge = await pinned.evaluate((el) => { const s = getComputedStyle(el, "::after"); return [s.width, s.backgroundColor]; });
-  expect(edge[0], "pinned edge is 2 px wide").toBe("2px");
-  expect(edge[1], "pinned edge is drawn").not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+  // The pinned edge and its shadow show once the content has scrolled away from the start, and
+  // not before: at the end of the scroll only the left cue paints.
+  expect(await cuePaints(page, monk), "Monk's scrolled table shows its cues").toBe(true);
+  await monk.evaluate((el) => { el.scrollLeft = 0; });
+  expect(await cuePaints(page, monk), "Monk at the start shows the right-edge cue").toBe(true);
+  await monk.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
   const headBackground = await monk.locator("thead th").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(headBackground, "pinned header is opaque").not.toMatch(/rgba|transparent|\//);
   expect(await overflow()).toBeLessThanOrEqual(0);
@@ -1067,9 +1096,20 @@ installedTest("Class progression at 390 px: Level stays pinned, the core columns
   const parts = await fighter.locator("tbody tr").last().locator("td").first().locator(".atk").evaluateAll(
     (nodes) => nodes.map((n) => { const r = n.getBoundingClientRect(); return { text: n.textContent, x: r.x, y: r.y, h: r.height }; }));
   expect(parts.map((p) => p.text)).toEqual(["+20/", "+15/", "+10/", "+5"]);
-  expect(new Set(parts.map((p) => Math.round(p.x))).size, "one left edge").toBe(1);
+  const xs = parts.map((p) => p.x);
+  expect(Math.max(...xs) - Math.min(...xs), "one left edge").toBeLessThanOrEqual(1);
   for (let i = 1; i < parts.length; i++) {
     expect(Math.abs(parts[i].y - (parts[i - 1].y + parts[i - 1].h)), `value ${i} follows the previous line`).toBeLessThanOrEqual(1);
+  }
+  // A two-part bonus (level 6, +6/+1) stays on one line while it fits.
+  const two = await fighter.locator("tbody tr").nth(5).locator("td").first().locator(".atk").evaluateAll(
+    (nodes) => nodes.map((n) => ({ text: n.textContent, y: n.getBoundingClientRect().y })));
+  expect(two.map((p) => p.text)).toEqual(["+6/", "+1"]);
+  expect(Math.abs(two[0].y - two[1].y), "+6/+1 on one line").toBeLessThanOrEqual(1);
+  // A table that fits shows no scroll cue, in either theme.
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    expect(await cuePaints(page, fighter), `Fighter ${scheme}: no cue on a table that fits`).toBe(false);
   }
 });
 
@@ -1083,4 +1123,10 @@ installedTest("Class progression at 1280 px: the spells table has the core table
   await disclosure.locator("summary").click();
   const size = (table: Locator) => table.evaluate((el) => getComputedStyle(el).fontSize);
   expect(await size(disclosure.locator(".progression-table"))).toBe(await size(core));
+  // Nothing scrolls at this width, so neither table shows a cue.
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    expect(await cuePaints(page, page.locator(".table-wrap:has(> .progression-table)").first()), `core ${scheme}`).toBe(false);
+    expect(await cuePaints(page, disclosure.locator(".table-wrap")), `slots ${scheme}`).toBe(false);
+  }
 });
