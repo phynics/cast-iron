@@ -205,11 +205,12 @@ installedTest("Mobile entry header is compact: one metadata line and an icon sta
 
 // The first result row may start no lower than 280 px at 390 px (330 px with the hint of an
 // inactive book). The header, the field, the scope row and one status line already take about
-// 190 px, so the issue's "about 180 px" is the floor before any row. The numbers are proposed in
-// docs/decisions.md and wait for the owner. Book sections come before the entry hits, so the two
-// are measured separately: the first section row and the first entry hit.
+// 190 px, so the issue's "about 180 px" is the floor before any row. The numbers are in
+// docs/decisions.md. Book sections fold into one row above the entries (#387), so the two are
+// measured separately: the fold row and the first entry hit. The first entry hit starts no lower
+// than 330 px, or 380 px with the hint.
 const pageTop = (locator: Locator) => locator.first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
-const firstSectionTop = (page: Page) => pageTop(page.locator(".section-results li"));
+const firstSectionTop = (page: Page) => pageTop(page.locator(".section-fold > summary"));
 const firstHitTop = (page: Page) => pageTop(page.locator(".results > .hit"));
 const pageOverflow = (page: Page) => page.evaluate(
   () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
@@ -260,14 +261,16 @@ installedTest("Search results at 390 px: one scope row with a Filters button, an
   expect(status.y - (row.y + row.height)).toBeLessThan(row.height / 2);
   expect(await page.locator(".result-count").evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeLessThan(
     await page.locator(".hit-title").first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize)));
-  // `fireball` has no hint and book sections lead: pin the section row, then the first entry hit.
+  // `fireball` has no hint and one folded Book sections row leads: pin the row, then the first
+  // entry hit, which must start no lower than 330 px.
   await expect(page.locator(".inactive-books-hint")).toHaveCount(0);
   const sectionTop = await firstSectionTop(page);
   expect(sectionTop).toBeLessThan(280);
   expect(sectionTop).toBeGreaterThan(status.y);
   const hitTop = await firstHitTop(page);
-  console.log(`390 px: first section row ${Math.round(sectionTop)} px, first entry hit ${Math.round(hitTop)} px`);
+  console.log(`390 px: section fold row ${Math.round(sectionTop)} px, first entry hit ${Math.round(hitTop)} px`);
   expect(hitTop).toBeGreaterThan(sectionTop);
+  expect(hitTop).toBeLessThanOrEqual(330);
   expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
 
   // Choosing a kind in the row keeps its pressed pill inside the row.
@@ -298,8 +301,66 @@ installedTest("Search results at 390 px: the hidden-matches hint sits in the sta
   const sectionTop = await firstSectionTop(page);
   expect(sectionTop).toBeLessThan(330);
   expect(sectionTop).toBeGreaterThan((await hint.boundingBox())!.y);
-  console.log(`390 px with the hint: first section row ${Math.round(sectionTop)} px, first entry hit ${Math.round(await firstHitTop(page))} px`);
+  const hitTop = await firstHitTop(page);
+  console.log(`390 px with the hint: section fold row ${Math.round(sectionTop)} px, first entry hit ${Math.round(hitTop)} px`);
+  expect(hitTop).toBeGreaterThan(sectionTop);
+  expect(hitTop).toBeLessThanOrEqual(380);
   expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+installedTest("Search results at 390 px: book sections fold into one row that opens the list", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const fold = page.locator(".section-fold");
+  const summary = fold.locator("> summary");
+  // One 44 px Navigation row (a 6 px rectangle, never a pill) whose name carries the count.
+  await expect(summary).toHaveAccessibleName(/^Book sections · [\d,]+ (match|matches)$/);
+  const box = (await summary.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(await summary.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("6px");
+  // Folded: no section row is in the flow, and the entries are right under the row.
+  await expect(fold).not.toHaveAttribute("open", /.*/);
+  await expect(page.locator(".section-results li").first()).toBeHidden();
+  const folded = await firstHitTop(page);
+  expect(folded).toBeLessThanOrEqual(380);
+
+  // One activation opens the list; focus stays on the row, and the entries move down. The toggle
+  // replaces the history entry: the URL records the open row and Back has nothing extra to undo.
+  const historyLength = await page.evaluate(() => history.length);
+  await summary.click();
+  await expect(fold).toHaveAttribute("open", /.*/);
+  await expect(page).toHaveURL(/#\/search\?q=fire&sections=1$/);
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
+  await expect(summary).toBeFocused();
+  const rows = page.locator(".section-results li");
+  await expect(rows.first()).toBeVisible();
+  for (const row of await rows.all()) {
+    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(await firstHitTop(page)).toBeGreaterThan(folded);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+
+  // The open list ends inside the group's own bordered container, with space before the entries.
+  expect(await fold.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe("1px");
+  const group = (await fold.boundingBox())!;
+  const lastRow = (await rows.last().boundingBox())!;
+  expect(lastRow.y + lastRow.height).toBeLessThanOrEqual(group.y + group.height);
+  expect((await page.locator(".results > .hit").first().boundingBox())!.y).toBeGreaterThanOrEqual(group.y + group.height + 8);
+
+  // The keyboard folds the row again and the URL follows.
+  await page.keyboard.press("Enter");
+  await expect(fold).not.toHaveAttribute("open", /.*/);
+  await expect(page).toHaveURL(/#\/search\?q=fire$/);
+  await expect(summary).toBeFocused();
+
+  // A new query folds an open row: the flag is not part of the next route.
+  await summary.click();
+  await expect(fold).toHaveAttribute("open", /.*/);
+  await page.locator("#search-input").fill("fireball");
+  await waitResults(page, "fireball");
+  await expect(fold).not.toHaveAttribute("open", /.*/);
+  await expect(page).not.toHaveURL(/sections=1/);
 });
 
 installedTest("Search results at 390 px: the filter panel opens in the page flow with focus management", async ({ page }) => {

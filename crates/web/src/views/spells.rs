@@ -256,6 +256,7 @@ pub fn SpellsHub() -> impl IntoView {
                                 kinds: vec![EntryKind::Spell],
                                 sources: Vec::new(),
                                 facets: vec![("school".into(), value.clone())],
+                                sections: false,
                             }
                             .href();
                             view! {

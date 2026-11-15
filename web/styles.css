@@ -1556,11 +1556,82 @@ mark {
   margin: 0 0 var(--space-4);
 }
 
-.book-sections h2 {
+/* Entries come first: the book sections fold into one Navigation row (a 6 px rectangle, not a
+   pill) that names their count. The group owns the border, so an open list ends inside its own
+   container and the entry results start below it. */
+.book-sections {
+  margin-bottom: var(--space-3);
+}
+
+.section-fold {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.section-fold:has(> summary:hover) {
+  border-color: var(--accent);
+}
+
+.section-fold > summary {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.section-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.section-fold[open] > summary {
+  border-bottom: var(--border);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.section-fold-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.section-fold-label {
+  font-weight: 600;
+}
+
+.section-fold-count {
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.section-fold > .section-results {
+  margin: 0;
+  padding: 0 var(--space-2);
+}
+
+.section-fold > .section-results > .hit:last-child {
+  border-bottom: 0;
+}
+
+.section-results-note {
+  margin: 0 0 var(--space-1);
+  font-size: var(--step--1);
+}
+
+.section-fold > .section-results-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) 0;
+}
+
+.book-sections > .section-heading {
+  display: block;
   margin-bottom: var(--space-2);
+  font-size: var(--step-0);
 }
 
 .hit {

@@ -1467,10 +1467,15 @@ installedTest("A book section result opens its chapter page at the section and B
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
 
-  // The section is its own result, under its own heading, and names its book.
+  // The section is its own result, behind the folded Book sections row, and names its book.
   const sections = page.getByTestId("book-sections");
   await expect(sections).toBeVisible();
-  await expect(sections.locator("h2")).toContainText("Book sections");
+  const fold = sections.locator("summary");
+  await expect(fold).toContainText("Book sections");
+  await expect(fold).toContainText(/\d+ match(es)?/);
+  await expect(sections.locator("a.section-hit-link").first()).toBeHidden();
+  await fold.click();
+  await expect(page).toHaveURL(/sections=1/);
   const link = sections.locator("a.section-hit-link", { hasText: query }).first();
   await expect(link).toContainText(fixture!.book.title);
   await expect(link).toHaveAttribute(
@@ -1485,9 +1490,50 @@ installedTest("A book section result opens its chapter page at the section and B
   );
   await expect(page.locator(`#${anchor}`)).toBeInViewport();
 
+  // Back returns to the results with the row still open, so the next section is one tap away.
   await page.goBack();
   await expect(page.locator("#search-input")).toHaveValue(query);
   await expect(sections).toBeVisible();
+  await expect(sections.locator("summary")).toContainText(/\d+ match(es)?/);
+  await expect(page.locator(".section-fold")).toHaveAttribute("open", /.*/);
+  await expect(link).toBeVisible();
+});
+
+installedTest("A query that matches only book sections lists them open, with the count and the cap", async ({ page }) => {
+  // A section title that no entry's title or text contains, so the results hold sections alone.
+  const entryText = [...corpus.entries.values()]
+    .map((entry: any) => `${entry.title} ${JSON.stringify(entry.body ?? "")}`.toLowerCase())
+    .join("\n");
+  let query: string | undefined;
+  const walk = (node: any) => {
+    const word = node.title.toLowerCase();
+    if (!query && !node.entry && /^[a-z]{6,}$/.test(word) && !entryText.includes(word)) query = node.title;
+    for (const child of node.children ?? []) walk(child);
+  };
+  for (const book of bookTrees()) for (const chapter of book.chapters) walk(chapter);
+  expect(query, "the corpus needs a section title that no entry mentions").toBeTruthy();
+
+  await installLibrary(page);
+  await page.goto(`#/search?q=${encodeURIComponent(query!)}`);
+  // `waitResults` waits for an entry row, and this query has none.
+  await expect(page.locator(".results-region")).toHaveAttribute("data-query", query!);
+  await expect(page.getByTestId("book-sections")).toBeVisible();
+  await expect(page.locator(".result-count")).toContainText("No entry results");
+  await expect(page.locator(".results > .hit")).toHaveCount(0);
+
+  // Nothing sits below the sections, so they are listed open, under a heading that reads like
+  // the folded row (a separator between the words and the count).
+  const sections = page.getByTestId("book-sections");
+  await expect(sections.locator("details")).toHaveCount(0);
+  const heading = sections.getByRole("heading", { level: 2 });
+  await expect(heading).toHaveText(/^Book sections · [\d,]+ (match|matches)$/);
+  const total = Number((await heading.innerText()).match(/· ([\d,]+)/)![1].replace(/,/g, ""));
+  expect(total, "the fixture needs more matches than the list shows").toBeGreaterThan(8);
+  await expect(sections.locator("a.section-hit-link")).toHaveCount(8);
+  await expect(sections.locator(".section-results-note")).toHaveText(
+    `Top 8 of ${total.toLocaleString("en-US")} book sections. Refine the search to see the rest.`,
+  );
+  await expect(sections.locator("a.section-hit-link").first()).toBeVisible();
 });
 
 installedTest("A former catch-all rule is found by exact title and opens", async ({ page }) => {
