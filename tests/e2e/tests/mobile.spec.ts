@@ -1,3 +1,4 @@
+import type { Locator, Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, quickGroup, searchIcon, seedHome, waitResults } from "./helpers";
 
@@ -200,6 +201,180 @@ installedTest("Mobile entry header is compact: one metadata line and an icon sta
   const meta = page.locator(".entry-meta");
   const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 2.6);
+});
+
+// The first result row may start no lower than 280 px at 390 px (330 px with the hint of an
+// inactive book). The header, the field, the scope row and one status line already take about
+// 190 px, so the issue's "about 180 px" is the floor before any row. The numbers are proposed in
+// docs/decisions.md and wait for the owner. Book sections come before the entry hits, so the two
+// are measured separately: the first section row and the first entry hit.
+const pageTop = (locator: Locator) => locator.first().evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
+const firstSectionTop = (page: Page) => pageTop(page.locator(".section-results li"));
+const firstHitTop = (page: Page) => pageTop(page.locator(".results > .hit"));
+const pageOverflow = (page: Page) => page.evaluate(
+  () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+);
+
+installedTest("Search results at 390 px: one scope row with a Filters button, and results start near the top", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fireball");
+  await waitResults(page, "fireball");
+
+  // No Search button: results are live. The field only has its clear control.
+  await expect(page.locator(".search-form button:not(.search-clear)")).toHaveCount(0);
+
+  // The quick kinds are one row that scrolls sideways and never wraps; every pill is a 44 px target.
+  const scopes = page.locator(".search-scopes");
+  const pills = scopes.locator(".scope-choice");
+  await expect(pills).toHaveCount(4);
+  const boxes = await pills.evaluateAll((els) => els.map((el) => {
+    const r = el.getBoundingClientRect();
+    return { top: r.top, height: r.height, radius: getComputedStyle(el).borderRadius };
+  }));
+  for (const box of boxes) {
+    expect(Math.round(box.top)).toBe(Math.round(boxes[0].top));
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.radius).toBe("999px");
+  }
+  // The row never wraps; whether it overflows depends on the pill sizes, so that is not asserted.
+  expect(await scopes.evaluate((el) => getComputedStyle(el).flexWrap)).toBe("nowrap");
+  await expect(page.getByRole("button", { name: "All entries", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  // The Filters button sits at the end of the same row: compact, 44 px, never a pill.
+  const filters = page.getByRole("button", { name: "Filters", exact: true });
+  await expect(filters).toBeVisible();
+  const row = (await page.locator(".search-controls").boundingBox())!;
+  const button = (await filters.boundingBox())!;
+  expect(button.height).toBeGreaterThanOrEqual(44);
+  // Inside the row, at its end, on the same line as the pills, and narrower than the pills' row.
+  expect(button.x).toBeGreaterThanOrEqual(row.x - 1);
+  expect(button.x + button.width).toBeLessThanOrEqual(row.x + row.width + 1);
+  expect(Math.round(button.y)).toBe(Math.round(boxes[0].top));
+  expect(button.width).toBeLessThan(row.width / 2);
+  expect(button.x).toBeGreaterThan((await scopes.boundingBox())!.x);
+  expect(await filters.evaluate((el) => getComputedStyle(el).borderRadius)).not.toBe("999px");
+
+  // The status line sits directly under the row, and the first result row starts near the top.
+  const status = (await page.locator(".results-status").boundingBox())!;
+  expect(status.y).toBeGreaterThanOrEqual(row.y + row.height);
+  expect(status.y - (row.y + row.height)).toBeLessThan(row.height / 2);
+  expect(await page.locator(".result-count").evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeLessThan(
+    await page.locator(".hit-title").first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize)));
+  // `fireball` has no hint and book sections lead: pin the section row, then the first entry hit.
+  await expect(page.locator(".inactive-books-hint")).toHaveCount(0);
+  const sectionTop = await firstSectionTop(page);
+  expect(sectionTop).toBeLessThan(280);
+  expect(sectionTop).toBeGreaterThan(status.y);
+  const hitTop = await firstHitTop(page);
+  console.log(`390 px: first section row ${Math.round(sectionTop)} px, first entry hit ${Math.round(hitTop)} px`);
+  expect(hitTop).toBeGreaterThan(sectionTop);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+
+  // Choosing a kind in the row keeps its pressed pill inside the row.
+  const feats = page.getByRole("button", { name: "Feats", exact: true });
+  await feats.click();
+  await expect(feats).toHaveAttribute("aria-pressed", "true");
+  // The scroll into view runs a tick after the click, so the geometry is read until it settles.
+  await expect.poll(async () => {
+    const rowBox = (await scopes.boundingBox())!;
+    const pressed = (await feats.boundingBox())!;
+    return pressed.x >= rowBox.x - 1 && pressed.x + pressed.width <= rowBox.x + rowBox.width + 1;
+  }).toBe(true);
+  await expect(page.getByRole("button", { name: /^Filters/ })).toHaveText("Filters · 1");
+});
+
+installedTest("Search results at 390 px: the hidden-matches hint sits in the status area and stays small", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const hint = page.locator(".results-status .inactive-books-hint");
+  await expect(hint).toBeVisible();
+  // The action keeps its full name for assistive technology and shows a short label.
+  const action = hint.getByRole("button", { name: /^Turn on .+/ });
+  await expect(action).toHaveText("Turn on");
+  // Like "Show all": a line of text whose ::after pseudo-element is the 44 px hit area.
+  const hit = await action.evaluate((el) => parseFloat(getComputedStyle(el, "::after").height));
+  expect(Math.round(hit)).toBeGreaterThanOrEqual(44);
+  const sectionTop = await firstSectionTop(page);
+  expect(sectionTop).toBeLessThan(330);
+  expect(sectionTop).toBeGreaterThan((await hint.boundingBox())!.y);
+  console.log(`390 px with the hint: first section row ${Math.round(sectionTop)} px, first entry hit ${Math.round(await firstHitTop(page))} px`);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+installedTest("Search results at 390 px: the filter panel opens in the page flow with focus management", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=fireball");
+  await waitResults(page, "fireball");
+  const toggle = page.getByRole("button", { name: /^Filters/ });
+  const panel = page.locator("#filters-panel");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(panel).toBeHidden();
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(panel).toBeVisible();
+  // Focus moves into the panel.
+  await expect(panel).toBeFocused();
+  // Non-modal and in flow: static, under the row, at most half the viewport, no dialog.
+  expect(await panel.evaluate((el) => getComputedStyle(el).position)).toBe("static");
+  const row = (await page.locator(".search-controls").boundingBox())!;
+  const box = (await panel.boundingBox())!;
+  expect(box.y).toBeGreaterThanOrEqual(row.y + row.height);
+  const viewportHeight = page.viewportSize()!.height;
+  expect(box.height).toBeLessThanOrEqual(viewportHeight / 2 + 1);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
+  // The Kind chips inside are full-size targets.
+  for (const chip of await panel.locator(".filter-group").first().locator(".chip").all()) {
+    expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+
+  // The count follows the active filters.
+  await panel.locator(".chip", { hasText: /^Spells/ }).click();
+  await expect(toggle).toHaveText("Filters · 1");
+  await expect(panel).toBeVisible();
+
+  // Escape closes the panel and returns focus to the button.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+
+  // From the keyboard alone: Enter opens the panel and focus moves into it; Shift+Tab leaves it
+  // for the button, and Enter there closes it. No mouse click touches the button, so a focus
+  // that is on the button afterwards was not put there by the pointer.
+  await toggle.focus();
+  await page.keyboard.press("Enter");
+  await expect(panel).toBeVisible();
+  await expect(panel).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(toggle).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(panel).toBeHidden();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toBeFocused();
+
+  // After a resize to the desktop layout the button is hidden: Escape in the open panel closes
+  // the state and does not try to give focus to the hidden button. focus() on a display:none
+  // element is a silent no-op in Chromium, so the page looks the same either way; a spy on the
+  // button (installed by the test, not by the app) records whether the app asked for focus.
+  await toggle.click();
+  await expect(panel).toBeFocused();
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await expect(toggle).toBeHidden();
+  await panel.locator(".chip input").first().focus();
+  await page.evaluate(() => {
+    const button = document.querySelector(".filters-toggle") as HTMLElement;
+    (window as any).__toggleFocusCalls = 0;
+    button.focus = () => { (window as any).__toggleFocusCalls++; };
+  });
+  await page.keyboard.press("Escape");
+  // A role query skips hidden elements, so the hidden button is read by its class.
+  await expect(page.locator(".filters-toggle")).toHaveAttribute("aria-expanded", "false");
+  expect(await page.evaluate(() => (window as any).__toggleFocusCalls)).toBe(0);
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+  await expect(panel.locator(".chip input").first()).toBeFocused();
 });
 
 installedTest("Publication groups fit 390 px with full-size targets", async ({ page }) => {
