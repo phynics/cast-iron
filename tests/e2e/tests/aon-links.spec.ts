@@ -37,6 +37,29 @@ async function noAonResources(page: Page) {
   expect(named, "a preconnect hint, image, script or frame names aonprd.com").toEqual([]);
 }
 
+/**
+ * The compact line keeps a text box shorter than the 44 px target. Scan outward from that box
+ * with `elementFromPoint`, as a tap would, to measure the box the anchor really reaches; the
+ * extra height comes from `.meta-link::after`, so the layout does not move.
+ */
+async function hitHeight(page: Page, selector: string) {
+  return page.evaluate((sel) => {
+    const link = document.querySelector(sel) as HTMLElement;
+    link.scrollIntoView({ block: "center" });
+    const rect = link.getBoundingClientRect();
+    const x = rect.x + rect.width / 2;
+    const hits = (y: number) => {
+      const element = document.elementFromPoint(x, y);
+      return element !== null && (element === link || link.contains(element));
+    };
+    let top = Math.round(rect.top);
+    let bottom = Math.round(rect.bottom);
+    while (top > 0 && hits(top - 1)) top -= 1;
+    while (bottom < window.innerHeight - 1 && hits(bottom + 1)) bottom += 1;
+    return { box: Math.round(rect.height), hit: bottom - top + 1 };
+  }, selector);
+}
+
 test("The pin carries the harvested paths these tests need", () => {
   for (const entry of [POWER_ATTACK, FIREBALL, GOBLIN]) {
     expect(entry.aon, `${entry.id} has an AoN path`).toBeTruthy();
@@ -66,6 +89,19 @@ test("A feat and a spell link to their stored Archives of Nethys page", async ({
   // related panels.
   await page.goto(`#/entry/${POWER_ATTACK.id}`);
   await expect(page.locator(".entry > .sources-line + .aon-line + #entry-related")).toHaveCount(1);
+
+  // The line reads as secondary: the same weight as the citation line it follows.
+  const weights = await page.evaluate(() => ({
+    sources: getComputedStyle(document.querySelector(".entry > .sources-line")!).fontWeight,
+    aon: getComputedStyle(document.querySelector(".entry > .aon-line a")!).fontWeight,
+  }));
+  expect(weights.aon, "the trail link is no heavier than the citation line").toBe(weights.sources);
+
+  // The line stays compact and still reaches the 44 px target at a phone width.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const target = await hitHeight(page, ".entry > .aon-line a");
+  expect(target.box, "the visible text box stays compact").toBeLessThan(44);
+  expect(target.hit, "the hit area reaches the 44 px target").toBeGreaterThanOrEqual(44);
 
   // Browsing the pages made no request to the reference site; the link waits for the tap.
   expect(guard.problems(), "console errors or third-party requests").toEqual([]);
