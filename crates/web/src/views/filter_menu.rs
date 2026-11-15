@@ -5,6 +5,10 @@
 //! scroll and the phone's keyboard cannot cover it, and it needs no focus trap. Every choice is
 //! a link to the filtered list, so the route stays the only state: choosing navigates, Back
 //! undoes it. The rules for the labels and the find field are plain functions, tested natively.
+//!
+//! A multi-select menu ([`MultiFilterMenuPanel`]) is the same button and panel with checkbox rows.
+//! The route is still the only state, but a choice is one more history entry that the page reads
+//! without being rebuilt, so the panel stays open while the reader ticks several rows.
 
 use crate::fmt;
 use crate::views::icons;
@@ -90,6 +94,40 @@ pub fn find_status(spec: &MenuSpec, shown: usize, query: &str) -> String {
                 spec.plural
             }
         )
+    }
+}
+
+/// One row of a multi-select menu: the value the route carries, its label and its count.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MultiOption {
+    pub value: String,
+    pub label: String,
+    pub count: usize,
+}
+
+/// The button's text of a multi-select menu: `School: All schools`, `School: Evocation` for one
+/// choice, `School: 2 chosen` for more. `labels` are the labels of the chosen rows.
+pub fn multi_trigger_text(spec: &MenuSpec, labels: &[String]) -> String {
+    match labels {
+        [] => format!("{}: {}", spec.group, spec.all_label),
+        [one] => format!("{}: {one}", spec.group),
+        many => format!("{}: {} chosen", spec.group, fmt::count(many.len())),
+    }
+}
+
+/// The chosen values with `value` ticked or unticked. A new choice goes last, so the route lists
+/// the choices in the order they were made; values compare without regard to case.
+pub fn toggled_choice(chosen: &[String], value: &str) -> Vec<String> {
+    if chosen.iter().any(|c| c.eq_ignore_ascii_case(value)) {
+        chosen
+            .iter()
+            .filter(|c| !c.eq_ignore_ascii_case(value))
+            .cloned()
+            .collect()
+    } else {
+        let mut next = chosen.to_vec();
+        next.push(value.to_lowercase());
+        next
     }
 }
 
@@ -371,6 +409,108 @@ pub fn FilterMenuPanel(
     }
 }
 
+/// The multi-select panel under the filter row: an `All` link, then one checkbox row per option,
+/// each with its count. A tick calls `on_change` with the new set of values; the page turns it
+/// into a history entry. Below ten options there is no find field, and the menus that use it
+/// have fewer (the nine schools).
+#[component]
+pub fn MultiFilterMenuPanel(
+    spec: MenuSpec,
+    state: MenuState,
+    options: Vec<MultiOption>,
+    /// The values the route chooses now.
+    chosen: Signal<Vec<String>>,
+    /// The list with nothing chosen.
+    all_href: String,
+    on_change: Callback<Vec<String>>,
+) -> impl IntoView {
+    let all_id = format!("{}-all", panel_id(&spec));
+    // Opening puts focus on the first ticked row, or on `All` when nothing is chosen.
+    Effect::new({
+        let all_id = all_id.clone();
+        move |_| {
+            if state.open.get() {
+                let (panel, all_id) = (panel_id(&spec), all_id.clone());
+                request_animation_frame(move || focus_first_checked(&panel, &all_id));
+            }
+        }
+    });
+    let rows = options
+        .into_iter()
+        .map(|option| {
+            let value = option.value.clone();
+            let for_checked = option.value.clone();
+            let name = format!("{}, {}", option.label, fmt::count(option.count as u32));
+            view! {
+                <li>
+                    <label class="choice-row">
+                        <input
+                            type="checkbox"
+                            aria-label=name
+                            prop:checked=move || {
+                                chosen.with(|c| c.iter().any(|v| v.eq_ignore_ascii_case(&for_checked)))
+                            }
+                            on:change=move |_| on_change.run(toggled_choice(&chosen.get_untracked(), &value))
+                        />
+                        <span class="choice-label">{option.label.clone()}</span>
+                        <span class="choice-count">{fmt::count(option.count as u32)}</span>
+                    </label>
+                </li>
+            }
+        })
+        .collect_view();
+    let none_chosen = move || chosen.with(Vec::is_empty);
+    view! {
+        <div
+            id=panel_id(&spec)
+            class="filter-panel"
+            hidden=move || !state.open.get()
+            on:keydown=move |event| {
+                if event.key() == "Escape" {
+                    event.prevent_default();
+                    state.dismiss(&spec);
+                }
+            }
+        >
+            <ul class="choice-list" aria-label=spec.list_label>
+                <li>
+                    <a
+                        class="choice-row"
+                        id=all_id
+                        href=all_href
+                        aria-current=move || none_chosen().then_some("true")
+                    >
+                        <span class="choice-label">{spec.all_label}</span>
+                        {move || none_chosen().then(icons::choice_check)}
+                    </a>
+                </li>
+                {rows}
+            </ul>
+        </div>
+    }
+}
+
+/// Focuses the first ticked checkbox in the panel, or the element `fallback` when none is.
+fn focus_first_checked(panel: &str, fallback: &str) {
+    let ticked = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| {
+            document
+                .query_selector(&format!("#{panel} input:checked"))
+                .ok()
+                .flatten()
+        })
+        .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok());
+    match ticked {
+        Some(element) => {
+            let options = web_sys::FocusOptions::new();
+            options.set_prevent_scroll(true);
+            let _ = element.focus_with_options(&options);
+        }
+        None => focus_by_id(fallback),
+    }
+}
+
 /// A click on a choice. The current choice only closes the panel (its link would not change the
 /// route). Any other choice navigates, and asks the new page to focus the button.
 fn choose(event: web_sys::MouseEvent, is_current: bool, state: MenuState, spec: &MenuSpec) {
@@ -454,6 +594,38 @@ mod tests {
         assert_eq!(labels("  CRIT "), ["Critical"]);
         assert_eq!(labels("ral"), ["General"]);
         assert!(labels("xyz").is_empty());
+    }
+
+    #[test]
+    fn a_multi_select_button_names_one_choice_and_counts_several() {
+        let schools = MenuSpec {
+            field: "school",
+            group: "School",
+            all_label: "All schools",
+            find_label: "Find a school",
+            list_label: "Spell school",
+            singular: "school",
+            plural: "schools",
+        };
+        let one = |label: &str| vec![label.to_string()];
+        assert_eq!(multi_trigger_text(&schools, &[]), "School: All schools");
+        assert_eq!(
+            multi_trigger_text(&schools, &one("Evocation")),
+            "School: Evocation"
+        );
+        let two = ["Evocation".to_string(), "Illusion".to_string()];
+        assert_eq!(multi_trigger_text(&schools, &two), "School: 2 chosen");
+    }
+
+    #[test]
+    fn ticking_a_row_adds_it_last_and_ticking_it_again_removes_it() {
+        let chosen = vec!["evocation".to_string()];
+        assert_eq!(
+            toggled_choice(&chosen, "illusion"),
+            ["evocation", "illusion"]
+        );
+        assert_eq!(toggled_choice(&chosen, "Evocation"), Vec::<String>::new());
+        assert_eq!(toggled_choice(&[], "Illusion"), ["illusion"]);
     }
 
     #[test]

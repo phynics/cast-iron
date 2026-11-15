@@ -6,10 +6,13 @@ use crate::density::{self, Density};
 use crate::fmt;
 use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};
-use crate::route::Route;
+use crate::route::{Route, push, use_route};
 use crate::views::book_tier::Tier;
+use crate::views::categories;
+use crate::views::filter_menu::{
+    FilterMenuButton, MenuState, MultiFilterMenuPanel, MultiOption, multi_trigger_text,
+};
 use crate::views::icons;
-use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{EntryKind, SpellListClass, SpellListDetail, SpellLists};
 use leptos::prelude::*;
@@ -165,11 +168,7 @@ fn spell_crumbs(last: Option<(&'static str, Route)>) -> impl IntoView {
 }
 
 fn class_jump(list: &SpellListClass) -> impl IntoView + use<> {
-    let href = Route::SpellList {
-        class: list.name.clone(),
-        level: None,
-    }
-    .href();
+    let href = Route::spell_list(list.name.clone(), None).href();
     let total = list_total(list);
     let label = format!("{} spells, {}", list.name, spells_noun(total));
     view! {
@@ -182,7 +181,9 @@ fn class_jump(list: &SpellListClass) -> impl IntoView + use<> {
     }
 }
 
-/// `#/spells`: the way into every spell list.
+/// `#/spells`: the way into every spell list. A list page's head: the crumb, the title and the
+/// count line, then the class picker. The picker's classes are navigation, not a filter, so the
+/// page has no filter row; a school is chosen on a list, or on the Spells page.
 #[component]
 pub fn SpellsHub() -> impl IntoView {
     set_title("Spell lists");
@@ -195,23 +196,11 @@ pub fn SpellsHub() -> impl IntoView {
             library.discovery().spell_lists().await
         })
     };
-    let schools = {
-        let library = library.clone();
-        let revision = library.selection_revision();
-        local_resource(async move {
-            let _ = revision.get();
-            let discovery = library.discovery();
-            discovery.facet_values("school").await.map(|mut values| {
-                sort_facet_pairs("school", &mut values);
-                values
-            })
-        })
-    };
     let body = {
         move || {
             lists.with(|state| match state {
                 None => {
-                    view! { <p class="status" role="status">"Loading spell lists…"</p> }.into_any()
+                    view! { <p class="muted list-count" role="status" aria-live="polite">"Loading spell lists…"</p> }.into_any()
                 }
                 Some(Err(error)) => load_failed(error).into_any(),
                 Some(Ok(None)) => missing_lists().into_any(),
@@ -228,6 +217,9 @@ pub fn SpellsHub() -> impl IntoView {
                         }
                     });
                     view! {
+                        <p class="muted list-count" role="status" aria-live="polite">
+                            {fmt::pluralize(lists.classes.len(), "spell list", "spell lists")}
+                        </p>
                         <section aria-labelledby="class-lists">
                             <h2 id="class-lists" class="sub-head">"Choose a class"</h2>
                             <ul class="jump-list class-picker" aria-labelledby="class-lists">
@@ -242,43 +234,15 @@ pub fn SpellsHub() -> impl IntoView {
         }
     };
     view! {
-        <div class="wide">
+        <div class="wide list-page">
             {spell_crumbs(None)}
-            <h1>"Spell lists"</h1>
+            <h1 tabindex="-1">"Spell lists"</h1>
             {body}
-            <section class="lens" aria-labelledby="by-school">
-                <h2 id="by-school" class="sub-head">"By school"</h2>
-                {move || schools.with(|state| match state {
-                    Some(Ok(values)) => {
-                        let chips = values.iter().map(|(value, n)| {
-                            let href = Route::Search {
-                                q: String::new(),
-                                kinds: vec![EntryKind::Spell],
-                                sources: Vec::new(),
-                                facets: vec![("school".into(), value.clone())],
-                                sections: false,
-                            }
-                            .href();
-                            view! {
-                                <li>
-                                    <a class="lens-chip" href=href>
-                                        {facet_label("school", value)}<small>{*n}</small>
-                                    </a>
-                                </li>
-                            }
-                        }).collect_view();
-                        view! { <ul class="lens-chips">{chips}</ul> }.into_any()
-                    }
-                    Some(Err(_)) => ().into_any(),
-                    None => view! { <p class="hint lens-wait" role="status">"Loading schools…"</p> }.into_any(),
-                })}
-                <p><a href=Route::browse_kind(EntryKind::Spell).href()>"All spells, A to Z"</a></p>
-            </section>
         </div>
     }
 }
 
-/// `#/spells/<class>` and `#/spells/<class>/<level>`.
+/// `#/spells/<class>` and `#/spells/<class>/<level>`, with the schools of the query.
 #[component]
 pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
     let library = use_library();
@@ -292,31 +256,42 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
         })
     };
     let filter = RwSignal::new(String::new());
-    let schools = RwSignal::new(Vec::<String>::new());
     move || {
         let (class, library) = (class.clone(), library.clone());
         lists.with(|state| match state {
             None => view! {
-                <div class="wide">
+                <div class="wide list-page">
                     {spell_crumbs(None)}
-                    <h1>{format!("{class} spells")}</h1>
-                    <p class="status" role="status">"Loading spell list…"</p>
+                    <h1 tabindex="-1">{format!("{class} spells")}</h1>
+                    <p class="muted list-count" role="status" aria-live="polite">"Loading spell list…"</p>
                 </div>
             }
             .into_any(),
             Some(Err(error)) => view! {
-                <div class="wide">{spell_crumbs(None)}<h1>"Spell list"</h1>{load_failed(error)}</div>
+                <div class="wide list-page">{spell_crumbs(None)}<h1 tabindex="-1">"Spell list"</h1>{load_failed(error)}</div>
             }
             .into_any(),
             Some(Ok(None)) => view! {
-                <div class="wide">{spell_crumbs(None)}<h1>"Spell list"</h1>{missing_lists()}</div>
+                <div class="wide list-page">{spell_crumbs(None)}<h1 tabindex="-1">"Spell list"</h1>{missing_lists()}</div>
             }
             .into_any(),
             Some(Ok(Some(lists))) => {
-                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level filter schools library /> }.into_any()
+                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level filter library /> }.into_any()
             }
         })
     }
+}
+
+/// True when `next` is the list that `previous` already shows, with other schools chosen. The
+/// frame then leaves scroll and focus alone: the reader is looking at it.
+pub fn same_spell_list(previous: &Route, next: &Route) -> bool {
+    matches!(
+        (previous, next),
+        (
+            Route::SpellList { class: a, level: la, .. },
+            Route::SpellList { class: b, level: lb, .. },
+        ) if a == b && la == lb
+    )
 }
 
 /// One row of a list: the spell, what its second line says, and the tier of its book.
@@ -418,27 +393,50 @@ fn density_toggle() -> impl IntoView {
     }
 }
 
+/// The count line of a list: `199 spells`, `1 cantrip`, or `12 of 199 spells` once a school or the
+/// name filter narrows it. `total` is what the page lists with nothing chosen.
+fn count_line(level: Option<u8>, shown: usize, total: usize, narrowed: bool) -> String {
+    let noun = |n: usize| {
+        if level == Some(0) {
+            fmt::pluralize(n, "cantrip", "cantrips")
+        } else {
+            spells_noun(n)
+        }
+    };
+    if narrowed {
+        format!("{} of {}", fmt::count(shown), noun(total))
+    } else {
+        noun(total)
+    }
+}
+
 #[component]
 fn ListPage(
     lists: Shared<SpellLists>,
     class: String,
     level: Option<u8>,
     filter: RwSignal<String>,
-    schools: RwSignal<Vec<String>>,
     library: Library,
 ) -> impl IntoView {
     let app = use_app();
     let Some(list) = find_list(&lists, &class) else {
         return view! {
-            <div class="wide">
+            <div class="wide list-page">
                 {spell_crumbs(Some(("Spell lists", Route::Spells)))}
-                <h1>"No such spell list"</h1>
+                <h1 tabindex="-1">"No such spell list"</h1>
                 <p>{format!("No spell is listed for the class {class:?} in this library.")}</p>
                 <p><a href=Route::Spells.href()>"See all spell lists"</a></p>
             </div>
         }
         .into_any();
     };
+    // The schools are the route's: a choice is one more history entry that this page reads
+    // without being rebuilt.
+    let route = use_route();
+    let schools = Memo::new(move |_| match route.get() {
+        Route::SpellList { schools, .. } => schools,
+        _ => Vec::new(),
+    });
     let name = list.name.clone();
     let counts = level_counts(list);
     let known_level = level.is_none_or(|l| counts.iter().any(|(c, _)| *c == l));
@@ -446,22 +444,48 @@ fn ListPage(
         .class
         .as_ref()
         .map(|id| Route::entry(id.clone()).href());
-    let total = list_total(list);
+    // What the page lists with nothing chosen: the whole list, or its one level.
+    let total = match level {
+        Some(wanted) => counts
+            .iter()
+            .find(|(l, _)| *l == wanted)
+            .map_or(0, |(_, n)| *n),
+        None => list_total(list),
+    };
+    let route_class = class.clone();
+    let route_with = {
+        let route_class = route_class.clone();
+        move |schools: Vec<String>| Route::SpellList {
+            class: route_class.clone(),
+            level,
+            schools,
+        }
+    };
 
     let level_links = {
-        let all_href = Route::SpellList {
-            class: name.clone(),
-            level: None,
-        }
-        .href();
+        let all_href = {
+            let route_class = route_class.clone();
+            move || {
+                Route::SpellList {
+                    class: route_class.clone(),
+                    level: None,
+                    schools: schools.get(),
+                }
+                .href()
+            }
+        };
         let items = counts
             .iter()
             .map(|&(l, n)| {
-                let href = Route::SpellList {
-                    class: name.clone(),
-                    level: Some(l),
-                }
-                .href();
+                let route_class = route_class.clone();
+                let href = move || {
+                    Route::SpellList {
+                        class: route_class.clone(),
+                        level: Some(l),
+                        schools: schools.get(),
+                    }
+                    .href()
+                };
                 let label = format!("{}, {}", level_label(l), spells_noun(n));
                 view! {
                     <li>
@@ -517,7 +541,6 @@ fn ListPage(
             }
             .into_any();
         }
-        let shown: usize = groups.iter().map(|(_, s)| s.len()).sum();
         // Tier headings appear once the list spans more than one tier.
         let tiered: Vec<(u8, Vec<(Tier, SpellRow)>)> = groups
             .into_iter()
@@ -557,11 +580,7 @@ fn ListPage(
                     })
                     .collect_view();
                 let head = level.is_none().then(|| {
-                    let href = Route::SpellList {
-                        class: list_name.clone(),
-                        level: Some(l),
-                    }
-                    .href();
+                    let href = Route::spell_list(list_name.clone(), Some(l)).href();
                     view! {
                         <h2 class="level-head">
                             <a href=href>{level_label(l)}</a>
@@ -580,14 +599,39 @@ fn ListPage(
         // `data-density` is the reader's choice of row layout: "wide" keeps three lines on a
         // phone, "compact" always shows two. The CSS under each value selects the layout.
         view! {
-            <p class="muted" role="status" data-testid="list-count">{spells_noun(shown)}</p>
             <div class="spell-list" data-density=move || app.density.get().slug()>{sections}</div>
         }
         .into_any()
     };
 
-    // Counts follow the page: on a level page they are that level's. A school that is still
-    // chosen stays listed, with its count, so it can be cleared.
+    // The count line follows the page: what the list shows now, out of what it holds.
+    let shown = {
+        let (lists, list_name) = (lists.clone(), name.clone());
+        Memo::new(move |_| {
+            find_list(&lists, &list_name).map_or(0, |list| {
+                filter_list(&lists, list, level, &filter.get(), &schools.get())
+                    .iter()
+                    .map(|(_, spells)| spells.len())
+                    .sum()
+            })
+        })
+    };
+    let show_all_href = route_with(Vec::new()).href();
+    let count_view = move || {
+        let narrowed = schools.with(|s| !s.is_empty()) || !filter.with(|f| f.trim().is_empty());
+        let show_all = narrowed.then(|| {
+            view! {
+                " · "
+                <a class="count-action" href=show_all_href.clone()
+                    aria-label=if level == Some(0) { "Show all cantrips" } else { "Show all spells" }
+                    on:click=move |_| filter.set(String::new())>"Show all"</a>
+            }
+        });
+        view! { {count_line(level, shown.get(), total, narrowed)}{show_all} }
+    };
+
+    // Counts follow the page: on a level page they are that level's. A school that is chosen
+    // stays listed, with its count, so it can be cleared.
     let mut school_counts = list_schools(&lists, list, level);
     for chosen in schools.get_untracked() {
         if !school_counts.iter().any(|(s, _)| *s == chosen) {
@@ -595,70 +639,73 @@ fn ListPage(
         }
     }
     school_counts.sort();
-    let school_filter = (school_counts.len() > 1).then(|| {
-        let chips = school_counts
-            .into_iter()
-            .map(|(school, n)| {
-                let label = school_label(&school);
-                let value = school.clone();
-                let checked = Signal::derive({
-                    let school = school.clone();
-                    move || schools.with(|chosen| chosen.contains(&school))
-                });
-                let toggle = move |_| {
-                    schools.update(|chosen| match chosen.iter().position(|s| *s == value) {
-                        Some(i) => {
-                            chosen.remove(i);
-                        }
-                        None => chosen.push(value.clone()),
-                    })
-                };
-                let aria = format!("{label}, {}", spells_noun(n));
-                view! {
-                    <label class="chip">
-                        <input type="checkbox" prop:checked=checked aria-label=aria on:change=toggle />
-                        <span>{label}<small class="chip-count">{fmt::count(n)}</small></span>
-                    </label>
-                }
-            })
-            .collect_view();
+    let options: Vec<MultiOption> = school_counts
+        .into_iter()
+        .map(|(value, count)| MultiOption {
+            label: school_label(&value),
+            value,
+            count,
+        })
+        .collect();
+    let school_menu = (options.len() > 1).then(|| {
+        let spec = categories::SCHOOL_MENU;
+        let state = MenuState::new();
+        let labels: Vec<(String, String)> = options
+            .iter()
+            .map(|o| (o.value.clone(), o.label.clone()))
+            .collect();
+        let text = Signal::derive(move || {
+            let chosen = schools.get();
+            let names: Vec<String> = chosen
+                .iter()
+                .map(|value| {
+                    labels
+                        .iter()
+                        .find(|(v, _)| v.eq_ignore_ascii_case(value))
+                        .map_or_else(|| school_label(value), |(_, label)| label.clone())
+                })
+                .collect();
+            Some(multi_trigger_text(&spec, &names))
+        });
+        let narrowed = Signal::derive(move || schools.with(|s| !s.is_empty()));
+        let chosen = Signal::derive(move || schools.get());
+        let on_change = {
+            let route_with = route_with.clone();
+            Callback::new(move |next: Vec<String>| push(&route_with(next)))
+        };
+        let button = view! {
+            <div class="filter-menu">
+                <FilterMenuButton spec state text narrowed focus=false />
+            </div>
+        };
+        let panel = view! {
+            <MultiFilterMenuPanel spec state options chosen all_href=route_with(Vec::new()).href()
+                on_change />
+        };
+        (button, panel)
+    });
+    let (school_button, school_panel) = match school_menu {
+        Some((button, panel)) => (Some(button), Some(panel)),
+        None => (None, None),
+    };
+    let class_page = class_href.map(|href| {
         view! {
-            <details class="lens-more school-filter">
-                <summary>
-                    {icons::chevron_right("disclosure-chevron")}
-                    "Filter by school"
-                    {move || {
-                        let n = schools.with(Vec::len);
-                        (n > 0).then(|| view! { <span class="muted">{format!("{} chosen", fmt::count(n))}</span> })
-                    }}
-                </summary>
-                <div class="chips">{chips}</div>
-            </details>
+            <a class="page-link" href=href aria-label=format!("{name} class page")>
+                <span>"Class page"</span>
+                {icons::chevron_right_large()}
+            </a>
         }
     });
+    let filter_row = (school_button.is_some() || class_page.is_some())
+        .then(|| view! { <div class="filter-row">{school_button}{class_page}</div> });
 
     view! {
-        <div class="wide">
+        <div class="wide list-page">
             {spell_crumbs(Some(("Spell lists", Route::Spells)))}
-            <h1>{heading}</h1>
-            <p class="muted">{format!("{} on this list", spells_noun(total))}</p>
-            {class_href.map(|href| view! {
-                <p>
-                    <a class="jump class-page" href=href aria-label=format!("{name} class page")>
-                        "Class page"
-                    </a>
-                </p>
-            })}
-            {level_links}
-            {(!known_level).then(|| view! {
-                <p class="notice">
-                    {match level {
-                        Some(0) => format!("{name} has no cantrips. The levels it has are listed above."),
-                        Some(l) => format!("{name} has no spells at level {l}. The levels it has are listed above."),
-                        None => format!("{name} has no spells at this level. The levels it has are listed above."),
-                    }}
-                </p>
-            })}
+            <h1 tabindex="-1">{heading}</h1>
+            <p class="muted list-count" role="status" aria-live="polite">{count_view}</p>
+            {filter_row}
+            {school_panel}
             <form class="search-form list-filter" role="search" on:submit=|ev| ev.prevent_default()>
                 <label class="sr-only" for="list-filter">"Filter this list by name"</label>
                 <input
@@ -672,7 +719,16 @@ fn ListPage(
                     on:input=move |ev| filter.set(event_target_value(&ev))
                 />
             </form>
-            {school_filter}
+            {level_links}
+            {(!known_level).then(|| view! {
+                <p class="notice">
+                    {match level {
+                        Some(0) => format!("{name} has no cantrips. The levels it has are listed above."),
+                        Some(l) => format!("{name} has no spells at level {l}. The levels it has are listed above."),
+                        None => format!("{name} has no spells at this level. The levels it has are listed above."),
+                    }}
+                </p>
+            })}
             {density_toggle()}
             {body}
         </div>

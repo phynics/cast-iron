@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, waitControlled } from "./helpers";
+import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
@@ -854,4 +854,170 @@ test("An inactive book's list still shows its entries with the pill", async ({ p
   await expect(bookPill(page, core.title)).toBeVisible();
   await expect(main.locator(".list-count")).toHaveText(`${count(spells)} spells`);
   await expect(main.locator('.entry-list a[href^="#/entry/"]').first()).toBeVisible();
+});
+
+// ---- Spell lists: the hub, a class list, and the school multi-select (#193 PR 5) ----
+
+/** The active spells of a class (any case) at a level, with the school word the index holds. */
+function wizardSpells(level: number, klass = "wizard") {
+  return [...corpus.entries.values()]
+    .filter((entry: any) => entry.kind === "spell" && activeIds.has(entry.id))
+    .filter((entry: any) => entry.fields?.levels?.some((l: any) => l.class.toLowerCase() === klass && l.level === level))
+    .map((entry: any) => ({
+      title: entry.title as string,
+      school: ((entry.fields?.school ?? "") as string).toLowerCase().split(/[[(]/)[0].trim(),
+    }));
+}
+
+test("The spell hub is a list page: a count of spell lists, the class picker, and no school pill wall", async ({ page }) => {
+  await installLibrary(page);
+  const classes = new Set<string>();
+  for (const entry of corpus.entries.values() as Iterable<any>) {
+    if (entry.kind !== "spell" || !activeIds.has(entry.id)) continue;
+    for (const l of entry.fields?.levels ?? []) classes.add(l.class);
+  }
+  await page.goto("#/spells");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Spell lists" })).toBeVisible();
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(classes.size)} spell lists`);
+  await expect(line).toHaveAttribute("aria-live", "polite");
+  await expect(main.locator("nav.crumbs li")).toHaveText(["Spells"]);
+  await expect(main.locator(".class-picker").first().getByRole("link", { name: /^Wizard spells,/ })).toBeVisible();
+  // The wall of school pills that linked into search, and the extra link back, are gone.
+  await expect(main.locator(".lens-chip, .lens-chips, .lens")).toHaveCount(0);
+  await expect(main.getByText("By school")).toHaveCount(0);
+  await expect(main.getByRole("link", { name: "All spells, A to Z" })).toHaveCount(0);
+
+  // The header search on the hub searches spells, and says so.
+  await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells");
+  await expect(page.getByRole("button", { name: "Remove scope: Spells", exact: true })).toBeVisible();
+});
+
+test("A class list opens with the list-page head: title, count line, then the filter row with the school menu and the class page", async ({ page }) => {
+  await installLibrary(page);
+  const here = wizardSpells(3);
+  expect(here.length).toBeGreaterThan(20);
+  await page.goto("#/spells/Wizard/3");
+  const main = page.locator("main");
+  const title = main.getByRole("heading", { level: 1, name: "Wizard spells, level 3" });
+  await expect(title).toBeVisible();
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(here.length)} spells`);
+  const row = main.locator(".filter-row");
+  const school = row.getByRole("button", { name: "School: All schools", exact: true });
+  await expect(school).toBeVisible();
+  expect((await school.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const classPage = row.getByRole("link", { name: "Wizard class page" });
+  await expect(classPage).toHaveClass(/page-link/);
+  // The old disclosure of pills and the bordered class rectangle are gone.
+  await expect(main.locator("details.school-filter, .class-page, .chip-count")).toHaveCount(0);
+  // The order from the top: title, count line, filter row, level bar, rows.
+  const tops = await page.evaluate(() => {
+    const top = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().top;
+    return [top("main h1"), top("main .list-count"), top("main .filter-row"), top("main .level-nav"), top("main .spell-rows")];
+  });
+  expect([...tops].sort((a, b) => a - b)).toEqual(tops);
+  // Cantrips name themselves.
+  await page.goto("#/spells/Wizard/0");
+  await expect(main.locator(".list-count")).toHaveText(`${count(wizardSpells(0).length)} cantrips`);
+});
+
+test("The school menu on a list is a multi-select: the route holds the schools, the list narrows in place, and Back walks the choices", async ({ page }) => {
+  await installLibrary(page);
+  const here = wizardSpells(3);
+  const of = (...schools: string[]) => here.filter((spell) => schools.includes(spell.school)).length;
+  expect(of("evocation")).toBeGreaterThan(0);
+  expect(of("conjuration")).toBeGreaterThan(0);
+  const main = page.locator("main");
+  await page.goto("#/spells/Wizard/3");
+  const button = (name: string) => main.getByRole("button", { name, exact: true });
+  await button("School: All schools").click();
+  const panel = page.locator(`#${await button("School: All schools").getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
+  // Opening focuses the All row while nothing is chosen. The box never covers the page.
+  await expect(panel.getByRole("link", { name: "All schools" })).toBeFocused();
+  expect((await panel.boundingBox())!.height).toBeLessThanOrEqual(page.viewportSize()!.height * 0.5 + 1);
+  // A marker that a rebuild would clear proves a choice does not rebuild the page.
+  await page.evaluate(() => ((window as any).__kept = "yes"));
+
+  const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
+  await evocation.check();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation");
+  await expect(button("School: Evocation")).toHaveClass(/filter-btn-on/);
+  await expect(main.locator(".list-count")).toHaveText(`${count(of("evocation"))} of ${count(here.length)} spells · Show all`);
+  // The panel stays open and the tick stays under the reader's finger.
+  await expect(panel).toBeVisible();
+  await expect(evocation).toBeChecked();
+  await expect(evocation).toBeFocused();
+  const shown = await main.locator(".spell-school").allInnerTexts();
+  expect(shown).toHaveLength(of("evocation"));
+  expect(new Set(shown)).toEqual(new Set(["Evocation"]));
+
+  const conjuration = panel.getByRole("checkbox", { name: /^Conjuration, / });
+  await conjuration.check();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await expect(button("School: 2 chosen")).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(`${count(of("evocation", "conjuration"))} of ${count(here.length)} spells · Show all`);
+  expect(new Set(await main.locator(".spell-school").allInnerTexts())).toEqual(new Set(["Evocation", "Conjuration"]));
+  expect(await page.evaluate(() => (window as any).__kept)).toBe("yes");
+
+  // Back undoes the last choice, then the first; Forward replays it.
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation");
+  await expect(conjuration).not.toBeChecked();
+  await expect(evocation).toBeChecked();
+  await expect(button("School: Evocation")).toBeVisible();
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3");
+  await expect(button("School: All schools")).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(`${count(here.length)} spells`);
+  await page.goForward();
+  await expect(button("School: Evocation")).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__kept)).toBe("yes");
+
+  // A shared link opens the same state, closed; the level links keep the schools; Show all clears them.
+  await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await expect(button("School: 2 chosen")).toHaveAttribute("aria-expanded", "false");
+  await expect(main.locator(".list-count")).toHaveText(`${count(of("evocation", "conjuration"))} of ${count(here.length)} spells · Show all`);
+  await main.locator(".level-nav").getByRole("link", { name: /^Level 4, / }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/4?school=evocation&school=conjuration");
+  await expect(button("School: 2 chosen")).toBeVisible();
+  await main.getByRole("link", { name: "Show all spells" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/4");
+  await expect(button("School: All schools")).toBeVisible();
+
+  // Escape closes the panel and returns focus to the button.
+  await button("School: All schools").click();
+  await page.keyboard.press("Escape");
+  await expect(button("School: All schools")).toBeFocused();
+  await expect(button("School: All schools")).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Quick search on a spell list names the class and the chosen schools, and one tap removes the scope", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/spells/Wizard/3");
+  await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Wizard spells");
+  await page.getByRole("button", { name: "Remove scope: Wizard spells", exact: true }).click();
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells, feats, rules…");
+  await page.keyboard.press("Escape");
+
+  await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration");
+  await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Evocation or Conjuration Wizard spells");
+  const pill = page.getByRole("button", { name: "Remove scope: Evocation or Conjuration Wizard spells", exact: true });
+  await expect(pill).toBeVisible();
+  // Enter opens the results with the class and both schools applied; every hit is a spell.
+  await quickField(page).fill("fire");
+  await page.keyboard.press("Enter");
+  await waitResults(page, "fire");
+  const hash = new URL(page.url()).hash;
+  expect(hash).toContain("kind=spell");
+  expect(hash).toContain("facet=school:evocation");
+  expect(hash).toContain("facet=school:conjuration");
+  expect(hash.toLowerCase()).toContain("facet=class:wizard");
+  for (const meta of await page.locator(".results .hit-meta").allInnerTexts()) expect(meta).toMatch(/^Spell/);
+  await expect(page.getByRole("button", { name: "Remove scope: Evocation or Conjuration Wizard spells", exact: true })).toBeVisible();
 });

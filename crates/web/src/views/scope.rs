@@ -91,6 +91,30 @@ impl Scope {
                 source: source.clone(),
                 source_title: None,
             }),
+            // The spell hub searches spells.
+            Route::Spells => Some(Self {
+                kind: EntryKind::Spell,
+                facets: Vec::new(),
+                source: None,
+                source_title: None,
+            }),
+            // A class's list searches that class's spells, narrowed to the schools chosen. The
+            // level is left out on purpose: the index holds the class and the level of a spell
+            // as two independent facets, so a Wizard and level 3 pair would also match a spell
+            // that is level 3 for another class and level 5 for the Wizard.
+            Route::SpellList { class, schools, .. } => {
+                let mut facets: Vec<(String, String)> = schools
+                    .iter()
+                    .map(|school| ("school".to_string(), school.clone()))
+                    .collect();
+                facets.push(("class".to_string(), class.clone()));
+                Some(Self {
+                    kind: EntryKind::Spell,
+                    facets,
+                    source: None,
+                    source_title: None,
+                })
+            }
             _ => None,
         }
     }
@@ -136,20 +160,34 @@ impl Scope {
             .facets
             .iter()
             .any(|(field, value)| is_cantrips(field, value));
-        let mut facets: Vec<(bool, String)> = self
-            .facets
-            .iter()
-            .map(|(field, value)| {
-                (
-                    // Cantrips already names the category, so it is not a leading number here.
-                    numeric_facet_name(field).is_some() && !is_cantrips(field, value),
-                    facet_phrase(field, value),
-                )
-            })
+        // Values of one field read as one phrase joined by "or" (`Evocation or Illusion`), as the
+        // engine matches them: a spell has one school, so any of them keeps it.
+        let mut groups: Vec<(&str, Vec<String>)> = Vec::new();
+        for (field, value) in &self.facets {
+            let phrase = facet_phrase(field, value);
+            match groups.iter_mut().find(|(name, _)| name == field) {
+                Some((_, phrases)) => phrases.push(phrase),
+                None => groups.push((field, vec![phrase])),
+            }
+        }
+        // Numbers lead so the phrase reads as a qualifier on the noun (`CR 10 Dragon creatures`),
+        // and a class comes last, next to the noun (`Evocation Wizard spells`).
+        let rank = |field: &str, phrases: &[String]| -> u8 {
+            if field == "class" {
+                2
+            } else if numeric_facet_name(field).is_some()
+                && !phrases.iter().any(|p| p == "Cantrips")
+            {
+                0
+            } else {
+                1
+            }
+        };
+        groups.sort_by_key(|(field, phrases)| rank(field, phrases));
+        let facets: Vec<String> = groups
+            .into_iter()
+            .map(|(_, phrases)| phrases.join(" or "))
             .collect();
-        // Numbers lead so the phrase reads as a qualifier on the noun: `CR 10 Dragon creatures`.
-        facets.sort_by_key(|(numeric, _)| !numeric);
-        let facets: Vec<String> = facets.into_iter().map(|(_, text)| text).collect();
         let mut phrase = if facets.is_empty() {
             noun
         } else if (self.kind == EntryKind::Item
@@ -312,7 +350,6 @@ mod tests {
         for route in [
             Route::Home,
             Route::Books,
-            Route::Spells,
             Route::FeatChains,
             Route::Settings,
             Route::search("fire"),
@@ -320,6 +357,47 @@ mod tests {
         ] {
             assert_eq!(Scope::of_page(&route), None, "{route:?}");
         }
+    }
+
+    #[test]
+    fn the_spell_hub_and_a_class_list_scope_the_search_to_spells() {
+        let spells = scope(EntryKind::Spell, Vec::new());
+        assert_eq!(Scope::of_page(&Route::Spells), Some(spells.clone()));
+        assert_eq!(spells.placeholder(), "Search spells");
+
+        // A class list names its class; the level is not part of the scope, because the index
+        // cannot pair a class with a level.
+        let wizard = Route::spell_list("Wizard", Some(3));
+        let scope_of = Scope::of_page(&wizard).unwrap();
+        assert_eq!(
+            scope_of.facets,
+            [("class".to_string(), "Wizard".to_string())]
+        );
+        assert_eq!(scope_of.placeholder(), "Search Wizard spells");
+        assert_eq!(
+            Scope::of_page(&Route::spell_list("Wizard", None)),
+            Some(scope_of)
+        );
+
+        // Chosen schools come first and several read as one phrase, in the order chosen.
+        let narrowed = Route::SpellList {
+            class: "Elementalist Wizard".into(),
+            level: Some(5),
+            schools: vec!["evocation".into(), "conjuration".into()],
+        };
+        let narrowed = Scope::of_page(&narrowed).unwrap();
+        assert_eq!(
+            narrowed.placeholder(),
+            "Search Evocation or Conjuration Elementalist Wizard spells"
+        );
+        assert_eq!(
+            narrowed.filters().facets,
+            [
+                ("school".to_string(), "evocation".to_string()),
+                ("school".to_string(), "conjuration".to_string()),
+                ("class".to_string(), "Elementalist Wizard".to_string()),
+            ]
+        );
     }
 
     #[test]

@@ -568,9 +568,9 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   expect(await overflow()).toBeLessThanOrEqual(0);
   await wizard.click();
   await expect(page.getByRole("heading", { level: 1, name: "Wizard spells" })).toBeVisible();
-  // The class page is a navigation rectangle on the list page, not on the hub.
+  // The class page is a related-page link in the filter row, beside the school menu.
   const classPage = page.getByRole("link", { name: "Wizard class page" });
-  await expect(classPage).toHaveClass(/jump/);
+  await expect(classPage).toHaveClass(/page-link/);
   expect((await classPage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
   // Level 5: two-line rows with the school, the facts and the book. Expectations come from the corpus.
@@ -612,20 +612,31 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   expect(at(adventure!.id)).toBeGreaterThan(at("ref/spell/cone-of-cold"));
   await expect(page.locator(".tier-head").first()).toHaveText("Rulebooks");
 
-  // The school filter narrows the list; the chips live in a disclosure so the rows stay near the top.
-  const filter = page.locator("details.school-filter");
-  await filter.locator("summary").click();
+  // The school menu narrows the list in place; its panel opens in the page flow under the row.
+  const menu = page.getByRole("button", { name: "School: All schools", exact: true });
+  await menu.click();
+  const panel = page.locator(`#${await menu.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
   // The counts are this level's: together they add up to the rows on the page, and the chosen
-  // school's count is the number of rows left.
-  const counts = (await filter.locator(".chip-count").allInnerTexts()).map(Number);
+  // school's count is the number of rows left. Every row is a 44 px target.
+  const counts = (await panel.locator("input[type=checkbox] ~ .choice-count").allInnerTexts()).map(Number);
   expect(counts.reduce((a, b) => a + b, 0)).toBe(total);
-  const evocation = filter.getByRole("checkbox", { name: /^Evocation,/ });
-  const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+) spells?$/)![1]);
+  const rowHeights = await panel.locator(".choice-row").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(rowHeights.filter((height) => height < 43.5)).toEqual([]);
+  const box390 = (await panel.boundingBox())!;
+  expect(box390.x).toBeGreaterThanOrEqual(0);
+  expect(box390.x + box390.width).toBeLessThanOrEqual(390);
+  const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
+  const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+)$/)![1]);
   await evocation.check();
+  await expect(page.getByRole("button", { name: "School: Evocation", exact: true })).toBeVisible();
   await expect(rows.first()).toBeVisible();
   const schools = await page.locator(".spell-school").allInnerTexts();
   expect(schools.length).toBe(evocationCount);
   expect(new Set(schools)).toEqual(new Set(["Evocation"]));
+  await page.getByRole("checkbox", { name: /^Conjuration, / }).check();
+  await expect(page.getByRole("button", { name: "School: 2 chosen", exact: true })).toBeVisible();
+  expect(new Set(await page.locator(".spell-school").allInnerTexts())).toEqual(new Set(["Evocation", "Conjuration"]));
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
