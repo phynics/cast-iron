@@ -25,7 +25,11 @@ optional stored paths (`aon` on an entry and on a publication), the harvest, and
   areas, and an unnamed child was auto-placed into the first free cell: the typed Sources line
   appeared above the body, and the new link landed in the panel column. `.entry > .sources-line`
   and `.entry > .aon-line` now have the `sources` and `aon` rows, in that order, between the body
-  and the related panels. Nothing else about the wide layout changes.
+  and the related panels. Nothing else about the wide layout changes. The revision notice, the
+  removed-text sentence, the revision collision list, and the original-text disclosure had the
+  same problem (they landed after the footer), so they own the `revision`, `sentence`,
+  `collision`, and `original` rows between the header and the contents; a removed revision's
+  second `.rich` needs its own row rather than the body's.
 - **A revised page follows its visible text.** `effective_entry` already prefers the revision's
   own `aon` and keeps the base's when the revision has none, so the link and the citations agree.
 

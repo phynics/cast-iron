@@ -3418,7 +3418,6 @@ main,
       "foot foot";
   }
 
-  .entry > .entry-rel { grid-area: rel; }
   .entry > .book-bar { grid-area: book; }
 }
 
@@ -3644,6 +3643,10 @@ input::placeholder {
       "crumbs crumbs"
       "head head"
       "disabled disabled"
+      "revision ."
+      "sentence ."
+      "collision ."
+      "original ."
       "contents refs"
       "body refs"
       "sources refs"
@@ -3653,6 +3656,12 @@ input::placeholder {
       "foot foot";
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
+  .entry > .revision-notice { grid-area: revision; }
+  /* A removed revision renders a second `.rich`, so it needs its own row rather than the
+     body's area. */
+  .entry > .revision-sentence { grid-area: sentence; }
+  .entry > .revision-collision { grid-area: collision; }
+  .entry > .rel-original { grid-area: original; }
   .entry > .article-contents { grid-area: contents; }
   .entry > .sources-line { grid-area: sources; }
   .entry > .aon-line { grid-area: aon; }
