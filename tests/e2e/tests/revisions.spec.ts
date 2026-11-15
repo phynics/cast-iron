@@ -192,3 +192,72 @@ test("A facet count drops for a feat that an active revision removes", async ({ 
   await waitResults(page, "finesse");
   await expect(combatChip.locator(".chip-count")).toHaveText("0");
 });
+
+test("A revised page keeps its notice and original text above the body on a wide screen", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [CORE, ELEPHANT]);
+  // The wide entry is a grid with named areas. An unnamed child auto-places after the footer,
+  // so every closing notice needs a row of its own.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`#/entry/${DODGE}`);
+  await expect(page.getByRole("heading", { name: "Dodge", level: 1 })).toBeVisible();
+
+  const head = page.locator(".entry > .entry-head");
+  const notice = page.locator(".entry > .revision-notice");
+  const disclosure = page.locator(".entry > .rel-original");
+  const body = page.locator(".entry > .rich");
+  const foot = page.locator(".entry > .entry-foot");
+  await expect(notice).toContainText("Revised by The Elephant in the Room");
+  await expect(disclosure).toBeVisible();
+
+  const [headBox, noticeBox, disclosureBox, bodyBox, footBox] = await Promise.all(
+    [head, notice, disclosure, body, foot].map(async (locator) => {
+      const box = await locator.boundingBox();
+      expect(box, "the element is laid out").not.toBeNull();
+      return box!;
+    }),
+  );
+  const inContentColumn = (box: { x: number }) => Math.abs(box.x - bodyBox.x) < 1;
+  expect(noticeBox.y, "the notice is under the header").toBeGreaterThanOrEqual(
+    headBox.y + headBox.height,
+  );
+  expect(inContentColumn(noticeBox), "the notice is in the content column").toBe(true);
+  expect(inContentColumn(disclosureBox), "the original text is in the content column").toBe(true);
+  expect(noticeBox.y + noticeBox.height, "the original text follows the notice").toBeLessThanOrEqual(
+    disclosureBox.y,
+  );
+  expect(disclosureBox.y + disclosureBox.height, "the original text is above the body").toBeLessThanOrEqual(
+    bodyBox.y,
+  );
+  expect(disclosureBox.y + disclosureBox.height, "the original text is above the footer").toBeLessThanOrEqual(
+    footBox.y,
+  );
+});
+
+test("A removed entry keeps its printed sentence in the content column on a wide screen", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await onlyBooks(page, [CORE, ELEPHANT]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`#/entry/${POWER_ATTACK}`);
+  await expect(page.getByRole("heading", { name: "Power Attack", level: 1 })).toBeVisible();
+
+  // A removed revision renders its printed sentence as a second `.rich`, so it needs its own
+  // row; without one it takes the body's area and the two overlap.
+  const sentence = page.locator(".entry > .revision-sentence");
+  const body = page.locator(".entry > .rich:not(.revision-sentence)");
+  const foot = page.locator(".entry > .entry-foot");
+  await expect(sentence).toContainText("This feat has been removed");
+
+  const sentenceBox = (await sentence.boundingBox())!;
+  const bodyBox = (await body.boundingBox())!;
+  const footBox = (await foot.boundingBox())!;
+  expect(Math.abs(sentenceBox.x - bodyBox.x), "the sentence is in the content column").toBeLessThan(1);
+  expect(sentenceBox.y + sentenceBox.height, "the sentence is above the body").toBeLessThanOrEqual(
+    bodyBox.y,
+  );
+  expect(sentenceBox.y + sentenceBox.height, "the sentence is above the footer").toBeLessThanOrEqual(
+    footBox.y,
+  );
+});

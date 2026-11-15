@@ -19,6 +19,7 @@ use crate::library::{Library, use_library};
 use crate::route::{Route, toc_id, use_route};
 use crate::views::continue_reading;
 use crate::views::icons;
+use crate::views::sources::aon_line;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
     ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, listed_children,
@@ -153,6 +154,9 @@ pub fn BookView(source: String) -> impl IntoView {
         fmt::book_meta(s.publication_date.as_deref(), entries)
     });
     // The notices are printed once, at the bottom, each distinct notice once.
+    // The publication's Archives of Nethys page, when the harvest stored one. Near the
+    // copyright lines, where the reader looks for the book's own references.
+    let aon = info.as_ref().and_then(|s| s.aon.clone());
     let notices = info
         .as_ref()
         .and_then(|s| s.copyright.as_deref())
@@ -269,6 +273,7 @@ pub fn BookView(source: String) -> impl IntoView {
                 }}
             </section>
             <footer class="colophon">
+                {aon_line(aon.as_deref())}
                 {notices}
                 <p class="muted"><a href=Route::Legal.href()>"Legal and attribution"</a></p>
             </footer>

@@ -156,12 +156,16 @@ test("A converted entry ends its text with one typed Sources line", async ({ pag
   }
 
   // The description is the first paragraph after the stat card; the typed line is last in the
-  // entry's own text, immediately above the related panels.
+  // entry's own text. The optional Archives of Nethys link (#197) is the one line that may
+  // follow it; the related panels come next.
   await expect(page.locator(".entry > .rich > p").first()).toContainText("This spell creates");
   await expect(line).toHaveText("Sources: Ultimate Combat p. 221");
   const book = line.getByRole("link", { name: "Ultimate Combat", exact: true });
   await expect(book).toHaveAttribute("href", "#/browse/book/ultimate-combat");
-  await expect(page.locator(".entry > .sources-line + #entry-related")).toHaveCount(1);
+  const after = abjuring.aon
+    ? ".entry > .sources-line + .aon-line + #entry-related"
+    : ".entry > .sources-line + #entry-related";
+  await expect(page.locator(after)).toHaveCount(1);
 });
 
 test("Home is category-only and Books is the publication directory", async ({ page }) => {
