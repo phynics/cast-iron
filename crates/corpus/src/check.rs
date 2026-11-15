@@ -1968,6 +1968,23 @@ mod tests {
     }
 
     #[test]
+    fn a_marker_at_the_start_of_a_body_fails() {
+        let dirty = rule(
+            "ref/rule/p-first",
+            vec![paragraph(vec![Inline::text(
+                "p!These bonuses increase to +2.",
+            )])],
+        );
+        let report = check(&corpus(vec![dirty]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains("left-over import marker `p!`"),
+            "{}",
+            report.problems[0]
+        );
+    }
+
+    #[test]
     fn a_left_over_upstream_token_in_a_typed_field_fails() {
         let mut feat = rule("ref/feat/a", vec![]);
         feat.kind = EntryKind::Feat;
