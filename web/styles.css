@@ -2237,16 +2237,13 @@ main,
   min-width: 0;
 }
 
-/* Wide entries: references sit beside the body. */
+/* Wide entries: references sit beside the body. The grid areas themselves are declared once, in
+   the entry-screen block at the end of this file; this rule owns the columns, the gap and the
+   panel. */
 @media (min-width: 64rem) {
   .entry:has(> .rich) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 15rem;
-    grid-template-areas:
-      "crumbs crumbs"
-      "head head"
-      "body refs"
-      "foot foot";
     column-gap: var(--space-5);
   }
 
@@ -2854,12 +2851,25 @@ main,
   font-size: var(--step--1);
 }
 
-/* The Archives of Nethys link is its own quiet line under the Sources citation. The class is
-   not an extra `.sources-line`: the entry's typed line is still the only one of those. */
+/* The Archives of Nethys link is its own quiet line under the Sources citation, and it is
+   secondary to that citation: the line's regular weight and muted colour, with the underline and
+   the icon carrying the link cue. The class is not an extra `.sources-line`, so the entry's
+   typed line stays the only one of those. `.meta-link` keeps its 44 px hit area, which the
+   compact text box does not show. */
 .aon-line {
-  margin: calc(var(--space-1) * -1) 0 var(--space-2);
+  margin: 0 0 var(--space-2);
   color: var(--ink-muted);
   font-size: var(--step--1);
+}
+
+.aon-line .meta-link {
+  font-weight: inherit;
+}
+
+/* The original-text disclosure is a block of its own, so the body's first line does not touch
+   its summary. */
+.entry > .rel-original {
+  margin-bottom: var(--space-3);
 }
 
 .aon-link .external-link-icon {
@@ -3453,18 +3463,9 @@ main,
   }
 }
 
-/* The entry screen at desktop width: panels above the body, book position below it. */
+/* The entry screen at desktop width: the book position gets a row of its own. The areas are
+   declared once, in the last `.entry:has(> .rich)` block at the end of this file. */
 @media (min-width: 64rem) {
-  .entry:has(> .rich) {
-    grid-template-areas:
-      "crumbs crumbs"
-      "head head"
-      "rel refs"
-      "body refs"
-      "book refs"
-      "foot foot";
-  }
-
   .entry > .book-bar { grid-area: book; }
 }
 
@@ -3703,10 +3704,11 @@ input::placeholder {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
 @media (min-width: 64rem) {
-  /* This list replaces the short one near the wide-entry rule above. The typed Sources line and
-     the Archives of Nethys link (#197) get rows of their own: an unnamed child of the grid is
-     auto-placed into the first free cell, which put it above the body and inside the panel
-     column. */
+  /* The one grid-template-areas for a wide entry; the earlier rules set the columns and the
+     panel only. Every direct child that can appear between the header and the footer owns a
+     row: an unnamed child is auto-placed into the first free cell, which put the typed Sources
+     line above the body, the AoN link (#197) in the panel column, and the revision nodes at the
+     notice's row. */
   .entry:has(> .rich) {
     grid-template-areas:
       "crumbs crumbs"

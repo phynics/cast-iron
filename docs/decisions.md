@@ -8,10 +8,13 @@ optional stored paths (`aon` on an entry and on a publication), the harvest, and
 - **One link per record, and no link without a stored path.** The entry page renders it from
   `RuleEntry.aon`, the book page from `SourceInfo.aon`. A record with no field renders nothing,
   so an unmatched or ambiguous record simply has no link. The app never builds or guesses a URL.
-- **Placement is the Metadata role.** On an entry the link is its own muted line directly under
-  the Sources line, at the end of the entry's own text (`.aon-line`, `.meta-link`). On a book
-  page it sits in the colophon, above the copyright notices. Both use the same
-  `views::sources::aon_line` component, so the form cannot drift.
+- **Placement is the Metadata role, quieter than the citation it follows.** On an entry the link
+  is its own muted line directly under the Sources line, at the end of the entry's own text
+  (`.aon-line`, `.meta-link`). It keeps the line's regular weight and muted colour, because the
+  underline and the icon already say "link"; `.meta-link` supplies the 44 px target through its
+  `::after`, so the visible line stays compact. On a book page it sits in the colophon, above the
+  copyright notices. Both use the same `views::sources::aon_line` component, so the form cannot
+  drift.
 - **The wording never implies official status.** The label is `View on Archives of Nethys`. The
   app is not official and does not claim compatibility (AGENTS.md rule 11).
 - **It opens in the device browser, after the tap.** `target="_blank"` with
@@ -29,7 +32,9 @@ optional stored paths (`aon` on an entry and on a publication), the harvest, and
   removed-text sentence, the revision collision list, and the original-text disclosure had the
   same problem (they landed after the footer), so they own the `revision`, `sentence`,
   `collision`, and `original` rows between the header and the contents; a removed revision's
-  second `.rich` needs its own row rather than the body's.
+  second `.rich` needs its own row rather than the body's. The disclosure also keeps a `space-3`
+  block gap below it, because its summary no longer touches the body's first line once it sits in
+  the content column.
 - **A revised page follows its visible text.** `effective_entry` already prefers the revision's
   own `aon` and keeps the base's when the revision has none, so the link and the citations agree.
 
