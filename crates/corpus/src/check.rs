@@ -153,6 +153,37 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
+/// The 1-based lines of `text` that hold a left-over `p!` import marker.
+///
+/// The upstream import wrote a literal `p!` where a paragraph or list break had been, so the
+/// marker now reads as text: `At 6th level: p!These bonuses +2.` A marker sits at a word
+/// boundary and directly before a capital letter. The same sequence inside a word, as in `Help!`
+/// or `35,150 gp!`, is real text and stays out.
+fn p_markers(text: &str) -> Vec<usize> {
+    let bytes = text.as_bytes();
+    let mut out: Vec<usize> = Vec::new();
+    let mut line = 1;
+    for (i, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' {
+            line += 1;
+            continue;
+        }
+        if *byte != b'p' || bytes.get(i + 1) != Some(&b'!') {
+            continue;
+        }
+        if i > 0 {
+            let before = bytes[i - 1];
+            if before.is_ascii_alphanumeric() || before == b'_' {
+                continue;
+            }
+        }
+        if bytes.get(i + 2).is_some_and(u8::is_ascii_uppercase) && out.last() != Some(&line) {
+            out.push(line);
+        }
+    }
+    out
+}
+
 /// Every string that `[fields]` shows to a reader, paired with the key that holds it.
 ///
 /// Handles and numbers are not display text: `prerequisite_feats`, `levels[].level`, `cr`,
@@ -703,6 +734,13 @@ pub fn check(corpus: &Corpus) -> Report {
             ));
         }
         let (body_start, body) = body_text(&stored.text);
+        for line in p_markers(body) {
+            report.problems.push(format!(
+                "{}:{}: left-over import marker `p!`. Remove it and restore the printed wording.",
+                path.display(),
+                body_start + line - 1
+            ));
+        }
         for (line, token) in upstream_markup_tokens(body) {
             report.problems.push(format!(
                 "{}:{}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
@@ -1894,6 +1932,39 @@ mod tests {
             )])],
         );
         assert!(check(&corpus(vec![clean])).problems.is_empty());
+    }
+
+    #[test]
+    fn a_left_over_import_marker_fails() {
+        let dirty = rule(
+            "ref/rule/p-marker",
+            vec![paragraph(vec![Inline::text(
+                "At 6th level: p!These bonuses increase to +2.",
+            )])],
+        );
+        let report = check(&corpus(vec![dirty]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(
+            problem.starts_with("entries/rule/p-marker.md:"),
+            "{problem}"
+        );
+        assert!(
+            problem.contains("left-over import marker `p!`"),
+            "{problem}"
+        );
+    }
+
+    #[test]
+    fn p_before_an_exclamation_inside_a_word_is_not_a_marker() {
+        let clean = rule(
+            "ref/rule/p-real-text",
+            vec![paragraph(vec![Inline::text(
+                "A buoy with the word \"Help!\" scratched on it, worth 35,150 gp!",
+            )])],
+        );
+        let report = check(&corpus(vec![clean]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]
