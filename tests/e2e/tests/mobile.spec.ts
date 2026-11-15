@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
+import { differingPixels } from "./png-diff";
 import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, quickGroup, searchIcon, seedHome, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
@@ -994,29 +995,41 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await expect(typeButton).toBeFocused();
 });
 
+/** A table that fits may differ in a few fringe pixels; a table that scrolls differs by thousands. */
+const CUE_TOLERANCE_PIXELS = 50;
+
 /**
  * Whether the scroll cues of a progression table paint anything. The wrap's own background carries
  * both cues (the pinned-edge line and shadow, and the right-edge shadow), so the check screenshots
- * the wrap, paints the same wrap with a plain surface background, and compares the two images. A
- * table that fits must give identical images. A pseudo-element on the pinned cell counts as a cue.
+ * the wrap, paints the same wrap with a plain surface background, and counts the pixels that
+ * differ. A table that fits stays within `CUE_TOLERANCE_PIXELS`. A pseudo-element on a header
+ * cell counts as a cue.
  */
 async function cuePaints(page: Page, wrap: Locator): Promise<boolean> {
-  // A cue drawn on the pinned cell itself (a pseudo-element) would show whether or not the table
-  // scrolls, so the cell must not have one.
-  const pseudo = await wrap.locator("tbody th").first().evaluate((el) =>
-    [getComputedStyle(el, "::before").content, getComputedStyle(el, "::after").content]);
+  // A cue drawn on a pinned cell itself (a pseudo-element) would show whether or not the table
+  // scrolls, so no header cell may have one.
+  const pseudo = await wrap.evaluate((el) =>
+    [...el.querySelectorAll("th")].flatMap((th) => [getComputedStyle(th, "::before").content, getComputedStyle(th, "::after").content]));
   if (pseudo.some((content) => content !== "none" && content !== "normal")) return true;
   await wrap.scrollIntoViewIfNeeded();
   const top = (await wrap.boundingBox())!.y;
-  await page.evaluate((delta) => window.scrollBy(0, delta), top - 120);
-  const box = (await wrap.boundingBox())!;
+  await page.evaluate((delta) => window.scrollBy({ top: delta, behavior: "instant" }), top - 120);
+  // Wait until the box has stopped moving before the screenshot.
+  let box = (await wrap.boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(50);
+    const next = (await wrap.boundingBox())!;
+    const still = next.x === box.x && next.y === box.y && next.width === box.width && next.height === box.height;
+    box = next;
+    if (still) break;
+  }
   // Inset from the rounded corners, whose antialiasing differs between a layered and a plain background.
   const clip = { x: box.x + 8, y: box.y + 8, width: box.width - 16, height: Math.min(box.height, 400) - 8 };
   const cued = await page.screenshot({ clip });
   await wrap.evaluate((el) => el.style.setProperty("background", "var(--surface)", "important"));
   const plain = await page.screenshot({ clip });
   await wrap.evaluate((el) => el.style.removeProperty("background"));
-  return !cued.equals(plain);
+  return differingPixels(cued, plain) > CUE_TOLERANCE_PIXELS;
 }
 
 installedTest("Class progression at 390 px: Level stays pinned, the core columns fit, and spells per day sits in a disclosure", async ({ page }) => {

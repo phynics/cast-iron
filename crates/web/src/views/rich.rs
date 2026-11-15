@@ -314,14 +314,16 @@ fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
         && let [Inline::Text { v }] = content
         && let Some(parts) = progression::attack_bonus_parts(v)
     {
-        let class = if parts.len() > 2 {
+        let span_class = if parts.len() > 2 {
             "atk atk-stack"
         } else {
             "atk"
         };
         return parts
             .into_iter()
-            .map(|part| view! { <span class=class>{part.to_string()}</span><wbr /> }.into_any())
+            .map(|part| {
+                view! { <span class=span_class>{part.to_string()}</span><wbr /> }.into_any()
+            })
             .collect();
     }
     inlines(content)

@@ -2125,7 +2125,9 @@ mark {
    Both scroll cues are the scroll-shadow technique, with no script. A shadow gradient is fixed to
    the scroll box (`scroll`); a solid cover of the same size moves with the content (`local`) and
    hides it while the content has not moved from that edge (the cover is 2 px larger, so the
-   shadow's antialiased edge never shows). So a table that fits shows no cue, and
+   shadow's antialiased edge never shows). `--pin-w` must equal the width of the sticky first
+   column (`width` and `min-width` below): the cue sits at that column's right edge, so a Level
+   column that grew past it would put the cue under the cell. So a table that fits shows no cue, and
    a table that scrolls shows a 2 px edge and a short shadow beside the pinned Level column, and a
    shadow at the right edge until the end. `--pin-w` is the width of the pinned column. */
 .table-wrap:has(> .progression-table) {
