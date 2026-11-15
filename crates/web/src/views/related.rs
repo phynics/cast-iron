@@ -941,6 +941,7 @@ fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
         kinds: vec![EntryKind::Trait],
         sources: Vec::new(),
         facets: vec![("trait_category".into(), fields.category.to_lowercase())],
+        sections: false,
     };
     let detail = fields.detail.clone();
     Some(

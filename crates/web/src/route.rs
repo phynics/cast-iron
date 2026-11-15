@@ -34,6 +34,10 @@ pub enum Route {
         kinds: Vec<EntryKind>,
         sources: Vec<String>,
         facets: Vec<(String, String)>,
+        /// The folded Book sections row is open (`sections=1`). It rides on the history entry so
+        /// that Back from a section returns with the row open. Any new query or filter writes a
+        /// route without it, so the row folds again.
+        sections: bool,
     },
     /// A kind's A to Z list. `letter` selects one letter group; `None` shows the first group.
     /// `facets` narrow the list in place, with the same `facet=field:value` pairs as search.
@@ -99,6 +103,7 @@ impl Route {
             kinds: Vec::new(),
             sources: Vec::new(),
             facets: Vec::new(),
+            sections: false,
         }
     }
 
@@ -308,6 +313,7 @@ impl Route {
                 kinds,
                 sources,
                 facets,
+                sections,
             } => {
                 let mut pairs: Vec<String> = Vec::new();
                 if !q.is_empty() {
@@ -320,6 +326,9 @@ impl Route {
                     pairs.push(format!("source={}", percent_encode(source)));
                 }
                 pairs.extend(facets.iter().map(facet_pair));
+                if *sections {
+                    pairs.push("sections=1".into());
+                }
                 if pairs.is_empty() {
                     "#/search".into()
                 } else {
@@ -455,9 +464,11 @@ pub use cast_iron_schema::books::toc_id;
 
 fn parse_search(query: Option<&str>) -> Route {
     let (mut q, mut kinds, mut sources) = (String::new(), Vec::new(), Vec::new());
+    let mut sections = false;
     for (key, value) in query.into_iter().flat_map(query_pairs) {
         match key.as_str() {
             "q" => q = value,
+            "sections" => sections = value == "1",
             "kind" => kinds.extend(EntryKind::from_slug(&value)),
             "source" => sources.push(value),
             _ => {}
@@ -468,6 +479,7 @@ fn parse_search(query: Option<&str>) -> Route {
         kinds,
         sources,
         facets: parse_facets(query),
+        sections,
     }
 }
 
@@ -1011,6 +1023,7 @@ mod tests {
                 kinds: vec![EntryKind::Feat],
                 sources: vec!["core".into()],
                 facets: vec![("feat_type".into(), "Combat".into())],
+                sections: false,
             }
             .href(),
             "#/search?q=grapple&kind=feat&source=core&facet=feat_type:Combat"
@@ -1370,8 +1383,39 @@ mod tests {
                 ("school".into(), "evocation".into()),
                 ("level".into(), "a:b c".into()),
             ],
+            sections: false,
         });
         round_trip(Route::search(""));
+    }
+
+    #[test]
+    fn the_open_sections_row_rides_in_the_search_url() {
+        let open = Route::Search {
+            q: "fire".into(),
+            kinds: vec![EntryKind::Spell],
+            sources: Vec::new(),
+            facets: vec![("school".into(), "evocation".into())],
+            sections: true,
+        };
+        assert_eq!(
+            open.href(),
+            "#/search?q=fire&kind=spell&facet=school:evocation&sections=1"
+        );
+        round_trip(open.clone());
+        // Only the value `1` opens the row, and a folded search has no marker.
+        let Route::Search { sections, .. } = Route::parse("#/search?q=fire&sections=0") else {
+            panic!("not a search route");
+        };
+        assert!(!sections);
+        assert_eq!(Route::search("fire").href(), "#/search?q=fire");
+        // An open row with no text is still a distinct route.
+        round_trip(Route::Search {
+            q: String::new(),
+            kinds: Vec::new(),
+            sources: Vec::new(),
+            facets: Vec::new(),
+            sections: true,
+        });
     }
 
     #[test]
@@ -1418,7 +1462,8 @@ mod tests {
                 q: "x".into(),
                 kinds: vec![EntryKind::Spell],
                 sources: vec![],
-                facets: vec![]
+                facets: vec![],
+                sections: false,
             }
         );
     }

@@ -315,7 +315,7 @@ installedTest("Search results at 390 px: book sections fold into one row that op
   const fold = page.locator(".section-fold");
   const summary = fold.locator("> summary");
   // One 44 px Navigation row (a 6 px rectangle, never a pill) whose name carries the count.
-  await expect(summary).toHaveAccessibleName(/^Book sections · [\d,]+ matches$/);
+  await expect(summary).toHaveAccessibleName(/^Book sections · [\d,]+ (match|matches)$/);
   const box = (await summary.boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(await summary.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("6px");
@@ -325,9 +325,13 @@ installedTest("Search results at 390 px: book sections fold into one row that op
   const folded = await firstHitTop(page);
   expect(folded).toBeLessThanOrEqual(380);
 
-  // One activation opens the list; focus stays on the row, and the entries move down.
+  // One activation opens the list; focus stays on the row, and the entries move down. The toggle
+  // replaces the history entry: the URL records the open row and Back has nothing extra to undo.
+  const historyLength = await page.evaluate(() => history.length);
   await summary.click();
   await expect(fold).toHaveAttribute("open", /.*/);
+  await expect(page).toHaveURL(/#\/search\?q=fire&sections=1$/);
+  expect(await page.evaluate(() => history.length)).toBe(historyLength);
   await expect(summary).toBeFocused();
   const rows = page.locator(".section-results li");
   await expect(rows.first()).toBeVisible();
@@ -337,14 +341,26 @@ installedTest("Search results at 390 px: book sections fold into one row that op
   expect(await firstHitTop(page)).toBeGreaterThan(folded);
   expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
 
-  // The choice survives a new query on the same screen, and the keyboard closes the row again.
-  await page.locator("#search-input").fill("fireball");
-  await waitResults(page, "fireball");
-  await expect(fold).toHaveAttribute("open", /.*/);
-  await summary.focus();
+  // The open list ends inside the group's own bordered container, with space before the entries.
+  expect(await fold.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe("1px");
+  const group = (await fold.boundingBox())!;
+  const lastRow = (await rows.last().boundingBox())!;
+  expect(lastRow.y + lastRow.height).toBeLessThanOrEqual(group.y + group.height);
+  expect((await page.locator(".results > .hit").first().boundingBox())!.y).toBeGreaterThanOrEqual(group.y + group.height + 8);
+
+  // The keyboard folds the row again and the URL follows.
   await page.keyboard.press("Enter");
   await expect(fold).not.toHaveAttribute("open", /.*/);
+  await expect(page).toHaveURL(/#\/search\?q=fire$/);
   await expect(summary).toBeFocused();
+
+  // A new query folds an open row: the flag is not part of the next route.
+  await summary.click();
+  await expect(fold).toHaveAttribute("open", /.*/);
+  await page.locator("#search-input").fill("fireball");
+  await waitResults(page, "fireball");
+  await expect(fold).not.toHaveAttribute("open", /.*/);
+  await expect(page).not.toHaveURL(/sections=1/);
 });
 
 installedTest("Search results at 390 px: the filter panel opens in the page flow with focus management", async ({ page }) => {

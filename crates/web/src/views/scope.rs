@@ -213,6 +213,7 @@ impl Scope {
             kinds: vec![self.kind],
             sources: self.source.iter().cloned().collect(),
             facets: self.facets.clone(),
+            sections: false,
         }
     }
 }
@@ -488,6 +489,7 @@ mod tests {
                 kinds: vec![EntryKind::Feat],
                 sources: Vec::new(),
                 facets: Vec::new(),
+                sections: false,
             }
         );
         assert_eq!(

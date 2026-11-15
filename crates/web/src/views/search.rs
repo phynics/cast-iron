@@ -577,6 +577,7 @@ impl SearchState {
                 kinds,
                 sources,
                 facets,
+                ..
             } => Self {
                 q: q.clone(),
                 kinds: kinds.clone(),
@@ -587,12 +588,15 @@ impl SearchState {
         }
     }
 
+    /// The results route. It never carries the open Book sections row, so a new query or a
+    /// filter change folds the row again.
     fn route(&self) -> Route {
         Route::Search {
             q: self.q.clone(),
             kinds: self.kinds.clone(),
             sources: self.sources.clone(),
             facets: self.facets.clone(),
+            sections: false,
         }
     }
 
@@ -815,9 +819,12 @@ pub fn Search() -> impl IntoView {
     let written = StoredValue::new(text.get_untracked());
     let typing_gen = RwSignal::new(0u64);
     let pages = RwSignal::new(1usize);
-    // Whether the folded Book sections row is open. It lives with the screen, so a new query,
-    // a filter or `Show more results` keeps the reader's choice; leaving the page resets it.
-    let sections_open = RwSignal::new(false);
+    // Whether the folded Book sections row is open. The flag is part of the URL, so Back from a
+    // section returns with the row open; a toggle replaces the entry instead of adding one. A
+    // memo of its own keeps a toggle from re-running the search. Typing or a filter writes a
+    // route without the flag, which folds the row.
+    let sections_open =
+        Memo::new(move |_| matches!(route.get(), Route::Search { sections: true, .. }));
     let phase = RwSignal::new(Phase::Idle);
     let search_ms = RwSignal::new(None::<f64>);
     let index_ms = RwSignal::new(None::<f64>);
@@ -1636,7 +1643,7 @@ pub fn Search() -> impl IntoView {
             let list_caption = (section_total > section_shown).then(|| {
                 view! {
                     <p class="muted section-results-note">
-                        {format!("Top {} of {} book sections", fmt::count(section_shown), fmt::count(section_total))}
+                        {format!("Top {} of {} book sections. Refine the search to see the rest.", fmt::count(section_shown), fmt::count(section_total))}
                     </p>
                 }
             });
@@ -1646,9 +1653,9 @@ pub fn Search() -> impl IntoView {
                 if sections_only {
                     return view! {
                         <section class="book-sections" aria-labelledby="book-sections-head" data-testid="book-sections">
-                            <h2 id="book-sections-head">
-                                "Book sections"
-                                <small class="chip-count">{fmt::count(section_total)}</small>
+                            <h2 id="book-sections-head" class="section-heading">
+                                "Book sections · "
+                                <span class="section-fold-count">{fmt::pluralize(section_total, "match", "matches")}</span>
                             </h2>
                             {list_caption}
                             <ol class="section-results">{section_rows}</ol>
@@ -1658,9 +1665,13 @@ pub fn Search() -> impl IntoView {
                 }
                 let on_toggle = move |event: leptos::ev::Event| {
                     let open = event_target::<web_sys::HtmlDetailsElement>(&event).open();
-                    // The signal sets the attribute too; only the reader's own toggle changes it.
+                    // The route sets the attribute too; only the reader's own toggle changes it.
                     if open != sections_open.get_untracked() {
-                        sections_open.set(open);
+                        let mut next = state.get_untracked().route();
+                        if let Route::Search { sections, .. } = &mut next {
+                            *sections = open;
+                        }
+                        replace(&next);
                     }
                 };
                 view! {
