@@ -568,9 +568,9 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   expect(await overflow()).toBeLessThanOrEqual(0);
   await wizard.click();
   await expect(page.getByRole("heading", { level: 1, name: "Wizard spells" })).toBeVisible();
-  // The class page is a navigation rectangle on the list page, not on the hub.
+  // The class page is a related-page link in the filter row, beside the school menu.
   const classPage = page.getByRole("link", { name: "Wizard class page" });
-  await expect(classPage).toHaveClass(/jump/);
+  await expect(classPage).toHaveClass(/page-link/);
   expect((await classPage.boundingBox())!.height).toBeGreaterThanOrEqual(44);
 
   // Level 5: two-line rows with the school, the facts and the book. Expectations come from the corpus.
@@ -612,20 +612,31 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   expect(at(adventure!.id)).toBeGreaterThan(at("ref/spell/cone-of-cold"));
   await expect(page.locator(".tier-head").first()).toHaveText("Rulebooks");
 
-  // The school filter narrows the list; the chips live in a disclosure so the rows stay near the top.
-  const filter = page.locator("details.school-filter");
-  await filter.locator("summary").click();
+  // The school menu narrows the list in place; its panel opens in the page flow under the row.
+  const menu = page.getByRole("button", { name: "School: All schools", exact: true });
+  await menu.click();
+  const panel = page.locator(`#${await menu.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
   // The counts are this level's: together they add up to the rows on the page, and the chosen
-  // school's count is the number of rows left.
-  const counts = (await filter.locator(".chip-count").allInnerTexts()).map(Number);
+  // school's count is the number of rows left. Every row is a 44 px target.
+  const counts = (await panel.locator("input[type=checkbox] ~ .choice-count").allInnerTexts()).map(Number);
   expect(counts.reduce((a, b) => a + b, 0)).toBe(total);
-  const evocation = filter.getByRole("checkbox", { name: /^Evocation,/ });
+  const rowHeights = await panel.locator(".choice-row").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+  expect(rowHeights.filter((height) => height < 43.5)).toEqual([]);
+  const box390 = (await panel.boundingBox())!;
+  expect(box390.x).toBeGreaterThanOrEqual(0);
+  expect(box390.x + box390.width).toBeLessThanOrEqual(390);
+  const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
   const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+) spells?$/)![1]);
   await evocation.check();
+  await expect(page.getByRole("button", { name: "School: Evocation", exact: true })).toBeVisible();
   await expect(rows.first()).toBeVisible();
   const schools = await page.locator(".spell-school").allInnerTexts();
   expect(schools.length).toBe(evocationCount);
   expect(new Set(schools)).toEqual(new Set(["Evocation"]));
+  await page.getByRole("checkbox", { name: /^Conjuration, / }).check();
+  await expect(page.getByRole("button", { name: "School: 2 chosen", exact: true })).toBeVisible();
+  expect(new Set(await page.locator(".spell-school").allInnerTexts())).toEqual(new Set(["Evocation", "Conjuration"]));
   expect(await overflow()).toBeLessThanOrEqual(0);
 });
 
@@ -992,4 +1003,36 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(typeButton).toBeFocused();
+});
+
+installedTest("Spell list at 390 px: the name field clears the filter row, and a long scope wraps in the Quick search pill", async ({ page }) => {
+  await installLibrary(page);
+  const viewport = page.viewportSize()!;
+  await page.goto("#/spells/Wizard/3");
+  const gap = await page.evaluate(() => {
+    const row = document.querySelector("main .filter-row")!.getBoundingClientRect();
+    const field = document.querySelector("main .list-filter")!.getBoundingClientRect();
+    return field.top - row.bottom;
+  });
+  expect(gap).toBeGreaterThanOrEqual(11.5);
+
+  // Four schools: the scope is long. The pill shows all of it, on two lines or more, and the
+  // cross at the right is still one 44 px target with the text.
+  await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration&school=illusion&school=necromancy");
+  const layer = await openQuickSearch(page);
+  const name = "Remove scope: Evocation or Conjuration or Illusion or Necromancy Wizard spells";
+  const pill = layer.getByRole("button", { name, exact: true });
+  await expect(pill).toBeVisible();
+  const box = (await pill.boundingBox())!;
+  expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+  const text = pill.locator("span");
+  const lineHeight = await text.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+  expect((await text.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
+  // Nothing is cut: the text fits its box and the cross sits inside the pill.
+  expect(await text.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(pill.locator("svg")).toBeVisible();
+  await pill.click();
+  await expect(pill).toHaveCount(0);
 });

@@ -200,11 +200,7 @@ fn level_pills(list: &SpellListClass) -> impl IntoView + use<> {
     let items = level_counts(list)
         .into_iter()
         .map(|(level, n)| {
-            let href = Route::SpellList {
-                class: name.clone(),
-                level: Some(level),
-            }
-            .href();
+            let href = Route::spell_list(name.clone(), Some(level)).href();
             let label = format!(
                 "{name} {}, {}",
                 fmt::spell_level(level).to_lowercase(),
@@ -321,11 +317,7 @@ fn class_panels(
 ) -> Vec<AnyView> {
     let mut out = Vec::new();
     if let Some(list) = lists.and_then(|l| list_of_class_entry(l, id)) {
-        let href = Route::SpellList {
-            class: list.name.clone(),
-            level: None,
-        }
-        .href();
+        let href = Route::spell_list(list.name.clone(), None).href();
         out.push(
             view! {
                 <section class="rel" aria-labelledby="rel-spells">
@@ -1045,11 +1037,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
                 format!("{} {}", l.class, l.level)
             };
             if lists.is_some() {
-                let href = Route::SpellList {
-                    class: l.class.clone(),
-                    level: Some(l.level),
-                }
-                .href();
+                let href = Route::spell_list(l.class.clone(), Some(l.level)).href();
                 view! { <li><a class="jump" href=href>{text}</a></li> }.into_any()
             } else {
                 view! { <li><span class="tag">{text}</span></li> }.into_any()
