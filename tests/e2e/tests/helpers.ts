@@ -670,7 +670,8 @@ function isCatchAll(node: TocNode): boolean {
 
 /**
  * Mirror of `is_listing_chapter` in `schema/books.rs`: the catch-all and the page-ordered lists.
- * A printed chapter of another book outranks them when the app picks the book that owns an entry.
+ * The titles are the constants `CATCH_ALL_TITLE`, `PAGE_ORDER_TITLE` and `UNPAGED_TITLE` there;
+ * change them together. A printed chapter of another book outranks them when the app picks the book that owns an entry.
  */
 function isListingChapter(node: TocNode): boolean {
   return isCatchAll(node) || node.title === "Page order" || node.title === "Unpaged";

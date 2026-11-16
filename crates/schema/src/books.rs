@@ -145,16 +145,18 @@ pub fn mark_listed_children(books: &mut BookIndex, entries: &[RuleEntry]) {
 /// The title that the compiler gives the chapter of entries that no curated chapter places.
 pub const CATCH_ALL_TITLE: &str = "New entries (page order)";
 
+/// The titles of the corpus's page-ordered lists. A book with no known chapter structure holds
+/// its entries in these; its `books.toml` basis says "this is a page-ordered list, not a chapter
+/// structure". The tests in `tests/e2e/tests/helpers.ts` (`isListingChapter`) repeat the strings
+/// and must change with these constants.
+pub const PAGE_ORDER_TITLE: &str = "Page order";
+pub const UNPAGED_TITLE: &str = "Unpaged";
+
 /// Whether a node is the compiler's catch-all chapter. The app does not show it: its entries
 /// reach the reader through their printed chapters, links, or list pages (#363).
 pub fn is_catch_all(node: &BookNode) -> bool {
     node.title == CATCH_ALL_TITLE
 }
-
-/// The titles of the corpus's page-ordered lists: a book with no known chapter structure holds
-/// its entries in these (`books.toml` says so in each book's basis).
-pub const PAGE_ORDER_TITLE: &str = "Page order";
-pub const UNPAGED_TITLE: &str = "Unpaged";
 
 /// Whether a top-level chapter only lists entries instead of placing them in a printed chapter:
 /// the catch-all, or a page-ordered list. Contents shows the page-ordered lists (unlike the
