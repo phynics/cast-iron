@@ -175,35 +175,38 @@ test("Starred cells sit over the category card columns, in reading order", async
       cells: [...document.querySelectorAll(".home-bookmarks > li")].map(box),
     };
   });
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1;
+  /** Every cell has the left and right edge of the card column it falls in. */
+  const expectColumns = async (width: number, count: number) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { cards, cells } = await columns();
+    expect(cells, `${width} cells`).toHaveLength(6);
+    const perRow = cards.filter((card) => near(card.top, cards[0].top)).length;
+    expect(perRow, `card columns at ${width}`).toBe(count);
+    cells.forEach((cell, i) => {
+      const card = cards[i % count];
+      expect(near(cell.left, card.left), `${width} cell ${i} left`).toBe(true);
+      expect(near(cell.right, card.right), `${width} cell ${i} right`).toBe(true);
+    });
+    return cells;
+  };
 
-  // 1280 px: three columns, and each cell has the left and right edge of a card column.
-  await page.setViewportSize({ width: 1280, height: 900 });
-  let { cards, cells } = await columns();
-  expect(cells).toHaveLength(6);
-  const columnCount = cards.findIndex((card) => card.top !== cards[0].top);
-  expect(columnCount, "three card columns at 1280").toBe(3);
-  cells.forEach((cell, i) => {
-    const card = cards[i % 3];
-    expect(Math.abs(cell.left - card.left), `cell ${i} left`).toBeLessThanOrEqual(1);
-    expect(Math.abs(cell.right - card.right), `cell ${i} right`).toBeLessThanOrEqual(1);
-  });
-  // DOM order is the reading order: left to right along a row, then the next row.
-  expect(cells[1].left).toBeGreaterThan(cells[0].left);
-  expect(cells[2].left).toBeGreaterThan(cells[1].left);
-  expect(cells[3].top).toBeGreaterThan(cells[0].top);
-  expect(cells[3].left).toBe(cells[0].left);
-  expect(cells[3].top).toBe(cells[4].top);
+  // 1280 px: three columns. DOM order is the reading order: along a row, then the next row.
+  const wide = await expectColumns(1280, 3);
+  expect(wide[1].left).toBeGreaterThan(wide[0].left);
+  expect(wide[2].left).toBeGreaterThan(wide[1].left);
+  expect(wide[3].top).toBeGreaterThan(wide[0].top + 1);
+  expect(near(wide[3].left, wide[0].left)).toBe(true);
+  expect(near(wide[3].top, wide[4].top)).toBe(true);
+  expect(near(wide[0].top, wide[2].top)).toBe(true);
 
-  // 800 px: two columns, matching the cards. 390 px: one column.
-  await page.setViewportSize({ width: 800, height: 900 });
-  ({ cards, cells } = await columns());
-  cells.forEach((cell, i) => {
-    expect(Math.abs(cell.left - cards[i % 2].left), `800 cell ${i} left`).toBeLessThanOrEqual(1);
-    expect(Math.abs(cell.right - cards[i % 2].right), `800 cell ${i} right`).toBeLessThanOrEqual(1);
-  });
-  await page.setViewportSize({ width: 390, height: 844 });
-  ({ cards, cells } = await columns());
-  expect(new Set(cells.map((cell) => cell.left)).size).toBe(1);
-  expect(Math.abs(cells[0].left - cards[0].left)).toBeLessThanOrEqual(1);
-  expect(Math.abs(cells[0].right - cards[0].right)).toBeLessThanOrEqual(1);
+  // 800 px and 600 px (inside the 36rem to 48rem band): two columns.
+  await expectColumns(800, 2);
+  const mid = await expectColumns(600, 2);
+  expect(near(mid[0].top, mid[1].top)).toBe(true);
+  expect(mid[2].top).toBeGreaterThan(mid[0].top + 1);
+
+  // 390 px: one column, every cell the width of a card.
+  const narrow = await expectColumns(390, 1);
+  narrow.slice(1).forEach((cell, i) => expect(cell.top, `390 cell ${i + 1} below`).toBeGreaterThan(narrow[i].top + 1));
 });
