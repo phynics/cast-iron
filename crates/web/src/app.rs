@@ -523,7 +523,6 @@ fn RouteView() -> impl IntoView {
         Route::SpellList { class, level, .. } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
         Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
-        Route::Bookmarks | Route::Collection(_) => view! { <Home /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
         Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),

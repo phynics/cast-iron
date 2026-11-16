@@ -4,7 +4,8 @@
 //! - `meta`: out-of-line string keys. `active_library`, `pending_install`, `theme`,
 //!   `spell_density`, `update_check`, `auto_update_check`, `recent`, `continue_points`.
 //! - `bookmarks`: key path `entry_id`.
-//! - `collections`: key path `id`.
+//! - `collections`: key path `id`. Still created, never read or written: the collections
+//!   feature was dropped (2026-11-16). Records in an old profile stay in place, unread.
 //!
 //! To change the shape, raise [`DB_VERSION`] and add an `if old_version < N` step in
 //! [`stores_to_create`] and [`upgrade`]. Never edit an earlier step.
@@ -25,6 +26,7 @@ pub const DB_VERSION: u32 = 1;
 
 pub const META: &str = "meta";
 pub const BOOKMARKS: &str = "bookmarks";
+/// Kept only so the store still exists in a new database, as in an old one.
 pub const COLLECTIONS: &str = "collections";
 
 pub const KEY_ACTIVE_LIBRARY: &str = "active_library";
@@ -126,8 +128,6 @@ pub struct Bookmark {
     pub title_snapshot: String,
     pub kind: EntryKind,
     pub added_at: f64,
-    #[serde(default)]
-    pub collection_ids: Vec<String>,
 }
 
 impl Bookmark {
@@ -137,38 +137,9 @@ impl Bookmark {
             title_snapshot: title.into(),
             kind,
             added_at: now,
-            collection_ids: Vec::new(),
         }
     }
-
-    pub fn in_collection(&self, collection_id: &str) -> bool {
-        self.collection_ids.iter().any(|id| id == collection_id)
-    }
-
-    /// Adds a collection id once. Returns whether the bookmark changed.
-    pub fn add_collection(&mut self, collection_id: &str) -> bool {
-        if self.in_collection(collection_id) {
-            return false;
-        }
-        self.collection_ids.push(collection_id.to_string());
-        true
-    }
-
-    /// Removes a collection id. Returns whether the bookmark changed.
-    pub fn remove_collection(&mut self, collection_id: &str) -> bool {
-        let before = self.collection_ids.len();
-        self.collection_ids.retain(|id| id != collection_id);
-        self.collection_ids.len() != before
-    }
 }
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Collection {
-    pub id: String,
-    pub name: String,
-    pub created_at: f64,
-}
-
 /// One recently viewed entry. Newest first in the stored list.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recent {
@@ -264,16 +235,6 @@ pub fn sort_bookmarks(bookmarks: &mut [Bookmark]) {
         b.added_at
             .total_cmp(&a.added_at)
             .then_with(|| a.entry_id.cmp(&b.entry_id))
-    });
-}
-
-/// Collections by name, case-insensitively, then by creation time.
-pub fn sort_collections(collections: &mut [Collection]) {
-    collections.sort_by(|a, b| {
-        a.name
-            .to_lowercase()
-            .cmp(&b.name.to_lowercase())
-            .then_with(|| a.created_at.total_cmp(&b.created_at))
     });
 }
 
@@ -708,27 +669,6 @@ pub async fn list_bookmarks() -> Result<Vec<Bookmark>> {
     Ok(bookmarks)
 }
 
-pub async fn get_bookmark(id: &EntryId) -> Result<Option<Bookmark>> {
-    let tx = Tx::begin(&[BOOKMARKS], false).await?;
-    let store = tx.store(BOOKMARKS)?;
-    let value = request(
-        store
-            .get(&JsValue::from_str(id.as_str()))
-            .map_err(Into::into),
-    )
-    .await?;
-    tx.finish().await?;
-    from_js(value)
-}
-
-pub async fn put_bookmark(bookmark: &Bookmark) -> Result<()> {
-    let value = to_js(bookmark)?;
-    let tx = Tx::begin(&[BOOKMARKS], true).await?;
-    let store = tx.store(BOOKMARKS)?;
-    request(store.put(&value).map_err(Into::into)).await?;
-    tx.finish().await
-}
-
 /// The rows whose stored kind no longer matches the library. An entry the catalog lacks, or a
 /// row whose kind already matches, is left alone.
 fn refreshed_kinds(
@@ -767,41 +707,6 @@ pub async fn refresh_bookmark_kinds(
     Ok(updates.len())
 }
 
-/// Atomically merges a previously validated batch; existing records are never replaced.
-pub async fn merge_bookmarks(incoming: &[Bookmark]) -> Result<usize> {
-    let tx = Tx::begin(&[BOOKMARKS], true).await?;
-    let store = tx.store(BOOKMARKS)?;
-    let all = request(store.get_all().map_err(Into::into)).await?;
-    let current = from_js_all::<Bookmark>(all);
-    let mut known: std::collections::BTreeSet<EntryId> =
-        current.iter().map(|b| b.entry_id.clone()).collect();
-    let mut added = 0;
-    let mut prepared = Vec::new();
-    for b in incoming {
-        if known.insert(b.entry_id.clone()) {
-            prepared.push(b);
-            added += 1;
-        }
-    }
-    for b in prepared {
-        request(store.add(&to_js(b)?).map_err(Into::into)).await?;
-    }
-    tx.finish().await?;
-    Ok(added)
-}
-
-pub async fn delete_bookmark(id: &EntryId) -> Result<()> {
-    let tx = Tx::begin(&[BOOKMARKS], true).await?;
-    let store = tx.store(BOOKMARKS)?;
-    request(
-        store
-            .delete(&JsValue::from_str(id.as_str()))
-            .map_err(Into::into),
-    )
-    .await?;
-    tx.finish().await
-}
-
 // ---- saved items that resolve through the alias map -------------------------------------------
 //
 // A star is "some stored row resolves to this canonical id" (design 6.2). The callers build
@@ -827,20 +732,11 @@ pub fn matching_rows(bookmarks: &[Bookmark], matches: impl Fn(&EntryId) -> bool)
 }
 
 /// Writes one saved item for the rows that `matches` accepts: the newest row keeps its title,
-/// kind, and time, and the collection ids are the union across the group. `None` when no row
-/// matches.
+/// kind, and time. `None` when no row matches.
 pub fn combine_saved_rows(rows: &[Bookmark]) -> Option<Bookmark> {
     let mut rows = rows.to_vec();
     sort_bookmarks(&mut rows);
-    let mut combined = rows.first()?.clone();
-    let mut collection_ids: Vec<String> = rows
-        .iter()
-        .flat_map(|row| row.collection_ids.iter().cloned())
-        .collect();
-    collection_ids.sort();
-    collection_ids.dedup();
-    combined.collection_ids = collection_ids;
-    Some(combined)
+    rows.first().cloned()
 }
 
 /// Adds a bookmark only when no stored row `matches`. Returns whether it was added, so a
@@ -926,18 +822,11 @@ fn merge_rows(target: &EntryId, rows: &[&Bookmark], target_kind: Option<EntryKin
         .min()
         .expect("non-empty")
         .to_string();
-    let mut collection_ids: Vec<String> = rows
-        .iter()
-        .flat_map(|row| row.collection_ids.iter().cloned())
-        .collect();
-    collection_ids.sort();
-    collection_ids.dedup();
     Bookmark {
         entry_id: target.clone(),
         title_snapshot,
         kind,
         added_at,
-        collection_ids,
     }
 }
 
@@ -1092,150 +981,6 @@ pub async fn migrate_entry_ids(
     Ok(plan.changed())
 }
 
-// ---- collections ----------------------------------------------------------------------------
-
-pub async fn list_collections() -> Result<Vec<Collection>> {
-    let tx = Tx::begin(&[COLLECTIONS], false).await?;
-    let store = tx.store(COLLECTIONS)?;
-    let all = request(store.get_all().map_err(Into::into)).await?;
-    tx.finish().await?;
-    let mut collections: Vec<Collection> = from_js_all(all);
-    sort_collections(&mut collections);
-    Ok(collections)
-}
-
-pub async fn put_collection(collection: &Collection) -> Result<()> {
-    let value = to_js(collection)?;
-    let tx = Tx::begin(&[COLLECTIONS], true).await?;
-    let store = tx.store(COLLECTIONS)?;
-    request(store.put(&value).map_err(Into::into)).await?;
-    tx.finish().await
-}
-
-/// Creates and saves a collection with a fresh id (`crypto.randomUUID()`).
-pub async fn create_collection(name: &str) -> Result<Collection> {
-    let collection = Collection {
-        id: js::random_uuid(),
-        name: name.trim().to_string(),
-        created_at: js::now_ms(),
-    };
-    put_collection(&collection).await?;
-    Ok(collection)
-}
-
-/// Deletes a collection and removes its id from every bookmark, in one transaction.
-/// The bookmarks themselves stay.
-pub async fn delete_collection(id: &str) -> Result<()> {
-    let tx = Tx::begin(&[COLLECTIONS, BOOKMARKS], true).await?;
-    let bookmark_store = tx.store(BOOKMARKS)?;
-    let all = request(bookmark_store.get_all().map_err(Into::into)).await?;
-    for mut bookmark in from_js_all::<Bookmark>(all) {
-        if bookmark.remove_collection(id) {
-            request(bookmark_store.put(&to_js(&bookmark)?).map_err(Into::into)).await?;
-        }
-    }
-    let collections = tx.store(COLLECTIONS)?;
-    request(
-        collections
-            .delete(&JsValue::from_str(id))
-            .map_err(Into::into),
-    )
-    .await?;
-    tx.finish().await
-}
-
-/// Puts an existing bookmark into an existing collection.
-pub async fn add_to_collection(entry_id: &EntryId, collection_id: &str) -> Result<()> {
-    change_membership(entry_id, collection_id, true).await
-}
-
-pub async fn remove_from_collection(entry_id: &EntryId, collection_id: &str) -> Result<()> {
-    change_membership(entry_id, collection_id, false).await
-}
-
-async fn change_membership(entry_id: &EntryId, collection_id: &str, add: bool) -> Result<()> {
-    change_membership_matching(
-        collection_id,
-        add,
-        |stored| stored == entry_id,
-        format!("bookmark {entry_id}"),
-    )
-    .await
-}
-
-/// Collection membership on every stored row that `matches`. The picker on an entry uses
-/// this so a legacy row that a refused migration left behind still joins the collection.
-pub async fn add_to_collection_matching(
-    collection_id: &str,
-    matches: impl Fn(&EntryId) -> bool,
-) -> Result<()> {
-    change_membership_matching(
-        collection_id,
-        true,
-        matches,
-        format!("a bookmark in collection {collection_id}"),
-    )
-    .await
-}
-
-pub async fn remove_from_collection_matching(
-    collection_id: &str,
-    matches: impl Fn(&EntryId) -> bool,
-) -> Result<()> {
-    change_membership_matching(
-        collection_id,
-        false,
-        matches,
-        format!("a bookmark in collection {collection_id}"),
-    )
-    .await
-}
-
-async fn change_membership_matching(
-    collection_id: &str,
-    add: bool,
-    matches: impl Fn(&EntryId) -> bool,
-    missing: String,
-) -> Result<()> {
-    let tx = Tx::begin(&[BOOKMARKS, COLLECTIONS], true).await?;
-    if add {
-        let found = request(
-            tx.store(COLLECTIONS)?
-                .get_key(&JsValue::from_str(collection_id))
-                .map_err(Into::into),
-        )
-        .await?;
-        if found.is_undefined() {
-            tx.tx.abort()?;
-            let _ = tx.finish().await;
-            return Err(StoreError::NotFound(format!("collection {collection_id}")));
-        }
-    }
-    let bookmarks = tx.store(BOOKMARKS)?;
-    let all = request(bookmarks.get_all().map_err(Into::into)).await?;
-    let mut found = false;
-    for mut bookmark in from_js_all::<Bookmark>(all) {
-        if !matches(&bookmark.entry_id) {
-            continue;
-        }
-        found = true;
-        let changed = if add {
-            bookmark.add_collection(collection_id)
-        } else {
-            bookmark.remove_collection(collection_id)
-        };
-        if changed {
-            request(bookmarks.put(&to_js(&bookmark)?).map_err(Into::into)).await?;
-        }
-    }
-    if !found {
-        tx.tx.abort()?;
-        let _ = tx.finish().await;
-        return Err(StoreError::NotFound(missing));
-    }
-    tx.finish().await
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1277,30 +1022,13 @@ mod tests {
     #[test]
     fn key_paths_match_the_record_fields() {
         let record = serde_json::to_value(bookmark("a/b", 1.0)).unwrap();
-        let collection = serde_json::to_value(Collection {
-            id: "c".into(),
-            name: "n".into(),
-            created_at: 1.0,
-        })
-        .unwrap();
         for spec in stores_to_create(0) {
             match spec.name {
                 BOOKMARKS => assert!(record.get(spec.key_path.unwrap()).is_some()),
-                COLLECTIONS => assert!(collection.get(spec.key_path.unwrap()).is_some()),
+                COLLECTIONS => assert_eq!(spec.key_path, Some("id")),
                 _ => assert!(spec.key_path.is_none()),
             }
         }
-    }
-
-    #[test]
-    fn membership_changes_report_whether_anything_changed() {
-        let mut b = bookmark("a/b", 1.0);
-        assert!(b.add_collection("c1"));
-        assert!(!b.add_collection("c1"));
-        assert!(b.add_collection("c2"));
-        assert!(b.remove_collection("c1"));
-        assert!(!b.remove_collection("c1"));
-        assert_eq!(b.collection_ids, ["c2"]);
     }
 
     #[test]
@@ -1309,18 +1037,6 @@ mod tests {
         sort_bookmarks(&mut list);
         let ids: Vec<_> = list.iter().map(|b| b.entry_id.as_str()).collect();
         assert_eq!(ids, ["c", "a", "b"]);
-    }
-
-    #[test]
-    fn collections_sort_by_name_ignoring_case() {
-        let c = |id: &str, name: &str| Collection {
-            id: id.into(),
-            name: name.into(),
-            created_at: 0.0,
-        };
-        let mut list = vec![c("1", "banana"), c("2", "Apple")];
-        sort_collections(&mut list);
-        assert_eq!(list[0].name, "Apple");
     }
 
     fn aliases() -> AliasIndex {
@@ -1345,13 +1061,12 @@ mod tests {
         EntryId::parse(value).unwrap()
     }
 
-    fn row(entry: &str, title: &str, kind: EntryKind, at: f64, collections: &[&str]) -> Bookmark {
+    fn row(entry: &str, title: &str, kind: EntryKind, at: f64) -> Bookmark {
         Bookmark {
             entry_id: id(entry),
             title_snapshot: title.into(),
             kind,
             added_at: at,
-            collection_ids: collections.iter().map(|value| value.to_string()).collect(),
         }
     }
 
@@ -1367,10 +1082,10 @@ mod tests {
     }
 
     #[test]
-    fn migration_merges_by_target_with_min_time_sorted_union_and_target_kind() {
+    fn migration_merges_by_target_with_min_time_and_target_kind() {
         let rows = vec![
-            row("legacy/a", "Zulu", EntryKind::Spell, 10.0, &["b"]),
-            row("legacy/b", "Alpha", EntryKind::Rule, 5.0, &["a", "b"]),
+            row("legacy/a", "Zulu", EntryKind::Spell, 10.0),
+            row("legacy/b", "Alpha", EntryKind::Rule, 5.0),
         ];
         let plan = plan_migration(&rows, &[], &aliases(), known, |_| Some(EntryKind::Feat));
         assert_eq!(plan.puts.len(), 1);
@@ -1379,7 +1094,6 @@ mod tests {
         assert_eq!(merged.added_at, 5.0);
         assert_eq!(merged.kind, EntryKind::Feat);
         assert_eq!(merged.title_snapshot, "Alpha"); // the earliest row
-        assert_eq!(merged.collection_ids, ["a", "b"]);
         assert_eq!(plan.deletes, [id("legacy/a"), id("legacy/b")]);
     }
 
@@ -1388,8 +1102,8 @@ mod tests {
         // Spell is declared before Feat, so the old declaration-order min chose Spell.
         // The serialized slugs are "feat" < "spell", which is the documented tie-break.
         let rows = vec![
-            row("legacy/a", "Zulu", EntryKind::Spell, 7.0, &[]),
-            row("legacy/b", "Alpha", EntryKind::Feat, 7.0, &[]),
+            row("legacy/a", "Zulu", EntryKind::Spell, 7.0),
+            row("legacy/b", "Alpha", EntryKind::Feat, 7.0),
         ];
         let plan = plan_migration(&rows, &[], &aliases(), known, |_| None);
         let merged = &plan.puts[0];
@@ -1399,8 +1113,8 @@ mod tests {
 
         // Read order does not change the result.
         let reversed = vec![
-            row("legacy/b", "Alpha", EntryKind::Feat, 7.0, &[]),
-            row("legacy/a", "Zulu", EntryKind::Spell, 7.0, &[]),
+            row("legacy/b", "Alpha", EntryKind::Feat, 7.0),
+            row("legacy/a", "Zulu", EntryKind::Spell, 7.0),
         ];
         let again = plan_migration(&reversed, &[], &aliases(), known, |_| None);
         assert_eq!(again.puts[0].kind, EntryKind::Feat);
@@ -1410,9 +1124,9 @@ mod tests {
     #[test]
     fn migration_leaves_canonical_retired_and_unknown_rows_untouched() {
         let rows = vec![
-            row("ref/rule/merged", "Canonical", EntryKind::Rule, 1.0, &[]),
-            row("legacy/retired", "Retired", EntryKind::Spell, 2.0, &[]),
-            row("legacy/missing", "Missing", EntryKind::Spell, 3.0, &[]),
+            row("ref/rule/merged", "Canonical", EntryKind::Rule, 1.0),
+            row("legacy/retired", "Retired", EntryKind::Spell, 2.0),
+            row("legacy/missing", "Missing", EntryKind::Spell, 3.0),
         ];
         let plan = plan_migration(&rows, &[], &aliases(), known, |_| None);
         assert!(plan.puts.is_empty());
@@ -1422,14 +1136,13 @@ mod tests {
     #[test]
     fn migration_joins_an_existing_canonical_row_to_the_alias_group() {
         let rows = vec![
-            row("legacy/a", "Old", EntryKind::Spell, 3.0, &["x"]),
-            row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["y"]),
+            row("legacy/a", "Old", EntryKind::Spell, 3.0),
+            row("ref/rule/merged", "New", EntryKind::Rule, 1.0),
         ];
         let plan = plan_migration(&rows, &[], &aliases(), known, |_| None);
         assert_eq!(plan.puts.len(), 1);
         assert_eq!(plan.puts[0].entry_id, id("ref/rule/merged"));
         assert_eq!(plan.puts[0].title_snapshot, "New");
-        assert_eq!(plan.puts[0].collection_ids, ["x", "y"]);
         assert_eq!(plan.deletes, [id("legacy/a")]);
     }
 
@@ -1437,8 +1150,8 @@ mod tests {
     fn migration_is_idempotent_on_its_own_output() {
         let aliases = aliases();
         let rows = vec![
-            row("legacy/a", "Zulu", EntryKind::Spell, 10.0, &["b"]),
-            row("legacy/b", "Alpha", EntryKind::Rule, 5.0, &["a"]),
+            row("legacy/a", "Zulu", EntryKind::Spell, 10.0),
+            row("legacy/b", "Alpha", EntryKind::Rule, 5.0),
         ];
         let recents = vec![recent("legacy/a", "Zulu"), recent("legacy/b", "Alpha")];
         let plan = plan_migration(&rows, &recents, &aliases, known, |_| None);
@@ -1456,9 +1169,9 @@ mod tests {
         // maps `legacy/a` there, and the canonical row is already there.
         let target = id("ref/rule/merged");
         let rows = vec![
-            row("legacy/a", "Old", EntryKind::Spell, 2.0, &["c"]),
-            row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["d"]),
-            row("legacy/c", "Other", EntryKind::Rule, 3.0, &[]),
+            row("legacy/a", "Old", EntryKind::Spell, 2.0),
+            row("ref/rule/merged", "New", EntryKind::Rule, 1.0),
+            row("legacy/c", "Other", EntryKind::Rule, 3.0),
         ];
         let matches = |stored: &EntryId| *stored == target || *stored == id("legacy/a");
         let owned = matching_rows(&rows, matches);
@@ -1471,16 +1184,15 @@ mod tests {
     }
 
     #[test]
-    fn combining_saved_rows_keeps_the_newest_row_and_unions_collections() {
+    fn combining_saved_rows_keeps_the_newest_row() {
         let rows = vec![
-            row("legacy/a", "Old", EntryKind::Spell, 5.0, &["b", "a"]),
-            row("ref/rule/merged", "New", EntryKind::Rule, 1.0, &["c", "a"]),
+            row("legacy/a", "Old", EntryKind::Spell, 5.0),
+            row("ref/rule/merged", "New", EntryKind::Rule, 1.0),
         ];
         let combined = combine_saved_rows(&rows).expect("two rows");
         assert_eq!(combined.title_snapshot, "Old");
         assert_eq!(combined.kind, EntryKind::Spell);
         assert_eq!(combined.added_at, 5.0);
-        assert_eq!(combined.collection_ids, ["a", "b", "c"]);
         assert!(combine_saved_rows(&[]).is_none());
     }
 
@@ -1515,17 +1227,16 @@ mod tests {
     }
 
     #[test]
-    fn records_round_trip_through_json_and_accept_missing_collections() {
+    fn records_round_trip_through_json_and_ignore_stored_collection_ids() {
         let b = bookmark("core/x", 3.0);
         let json = serde_json::to_string(&b).unwrap();
         assert_eq!(serde_json::from_str::<Bookmark>(&json).unwrap(), b);
-        let old = r#"{"entry_id":"core/x","title_snapshot":"X","kind":"spell","added_at":1}"#;
-        assert!(
-            serde_json::from_str::<Bookmark>(old)
-                .unwrap()
-                .collection_ids
-                .is_empty()
-        );
+        // Rows written while collections existed still read: the field is ignored.
+        let old = r#"{"entry_id":"core/x","title_snapshot":"X","kind":"spell","added_at":1,"collection_ids":["c"]}"#;
+        let read = serde_json::from_str::<Bookmark>(old).unwrap();
+        assert_eq!(read.entry_id, id("core/x"));
+        let plain = r#"{"entry_id":"core/x","title_snapshot":"X","kind":"spell","added_at":1}"#;
+        assert!(serde_json::from_str::<Bookmark>(plain).is_ok());
     }
 
     fn point(source: &str, entry: &str, at: f64) -> ContinuePoint {

@@ -5,7 +5,6 @@ pub mod backlinks;
 pub mod book;
 pub mod book_series;
 pub mod book_tier;
-pub mod bookmark_control;
 pub mod bookmarks;
 pub mod browse;
 pub mod categories;

@@ -17,7 +17,7 @@
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
-//! #/bookmarks                        #/collection/<id>
+//! #/bookmarks                        #/collection/<id>   old addresses: they open Home
 //! #/settings[?section=updates]       #/legal
 //! ```
 
@@ -89,9 +89,6 @@ pub enum Route {
         /// book after the page is opened again.
         book: Option<String>,
     },
-    /// Retained for internal compatibility; parser redirects legacy URLs to Home.
-    Bookmarks,
-    Collection(String),
     Settings,
     Legal,
     /// Holds the hash that did not match any route.
@@ -431,8 +428,6 @@ impl Route {
                     format!("#/entry/{id}?{}", pairs.join("&"))
                 }
             }
-            Route::Bookmarks => "#/bookmarks".into(),
-            Route::Collection(id) => format!("#/collection/{}", percent_encode(id)),
             Route::Settings => "#/settings".into(),
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),

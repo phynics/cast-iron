@@ -41,10 +41,6 @@ export async function sha256Hex(buffer) {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export function randomUUID() {
-  return crypto.randomUUID();
-}
-
 /** Asks for persistent storage. Resolves false when unsupported or refused. */
 export async function storagePersist() {
   return navigator.storage?.persist ? navigator.storage.persist() : false;
