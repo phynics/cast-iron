@@ -1227,3 +1227,306 @@ fn book_section_bytes_are_identical_whatever_the_insertion_order() {
     reversed.reverse();
     assert_eq!(build(docs).to_bytes(), build(reversed).to_bytes());
 }
+
+// ---- Did you mean ----
+
+fn suggest(idx: &SearchIndex, text: &str) -> Option<String> {
+    idx.suggest_correction(text, &Filters::default(), |_| true)
+        .map(|c| c.text)
+}
+
+#[test]
+fn a_misspelled_title_word_is_corrected_and_the_correction_finds_the_entry() {
+    let idx = build(corpus());
+    assert!(
+        ids(&idx, &q("magic missle")).is_empty()
+            || !ids(&idx, &q("magic missle")).contains(&"spell:mm".to_string())
+    );
+    let fixed = suggest(&idx, "magic missle").expect("a correction");
+    assert_eq!(fixed, "magic missile");
+    assert_eq!(ids(&idx, &q(&fixed))[0], "spell:mm");
+}
+
+#[test]
+fn one_misspelled_word_of_several_is_the_only_one_changed() {
+    let idx = build(corpus());
+    assert_eq!(
+        suggest(&idx, "power atack").as_deref(),
+        Some("power attack")
+    );
+    assert_eq!(
+        suggest(&idx, "SKILL  Focsu!").as_deref(),
+        Some("skill focus")
+    );
+    // Unfinished typing counts too: the last word is compared with the start of a name.
+    assert_eq!(suggest(&idx, "power atac").as_deref(), Some("power attack"));
+    let fixed = idx
+        .suggest_correction("power atack", &Filters::default(), |_| true)
+        .unwrap();
+    assert_eq!(fixed.distance, 1);
+}
+
+#[test]
+fn a_swap_of_neighbours_is_one_edit() {
+    let idx = build(corpus());
+    let fixed = idx.suggest_correction("firebal wal", &Filters::default(), |_| true);
+    // "firebal" is the start of "fireball", so only "wal" (under four letters) would change.
+    assert_eq!(fixed, None);
+    let fixed = idx
+        .suggest_correction("fierball", &Filters::default(), |_| true)
+        .expect("a swap");
+    assert_eq!((fixed.text.as_str(), fixed.distance), ("fireball", 1));
+}
+
+#[test]
+fn queries_that_need_no_correction_get_none() {
+    let idx = build(corpus());
+    for text in [
+        "fireball",         // an exact title word with strong results
+        "firebal",          // the start of a title word: the reader is still typing
+        "fire",             // a prefix
+        "magic missile",    // exact
+        "delayed fireball", // all words in a title
+        "will o wisp",      // punctuation folds away
+        "",                 // empty
+        "   ",
+        "mgc", // very short input is never changed
+        "orc",
+        "wil",
+        "1234", // numbers
+        "4d6",
+        "magic 1234",
+    ] {
+        assert_eq!(suggest(&idx, text), None, "{text:?}");
+    }
+}
+
+#[test]
+fn words_that_are_not_close_to_any_name_get_none() {
+    let idx = build(corpus());
+    assert_eq!(suggest(&idx, "zzzzzz"), None);
+    assert_eq!(suggest(&idx, "magic xylophone"), None);
+    // More than three words that are not names is not a typo.
+    assert_eq!(suggest(&idx, "mgaic msisile pwoer atack"), None);
+    // A long query is left alone.
+    assert_eq!(suggest(&idx, "a b c d e f g magic missle"), None);
+}
+
+#[test]
+fn a_query_with_a_strong_result_is_left_alone_even_when_a_word_is_a_typo() {
+    let mut docs = corpus();
+    // Four entries hold the plural in their text, so "kobolds" is not a weak query.
+    for n in 0..4 {
+        docs.push(doc(
+            &format!("mon:k{n}"),
+            &format!("Tribe {n}"),
+            "monster",
+            "bestiary",
+            "Kobolds dwell here.",
+            &[],
+        ));
+    }
+    docs.push(doc(
+        "mon:kobold",
+        "Kobold",
+        "monster",
+        "bestiary",
+        "A small reptile.",
+        &[],
+    ));
+    let idx = build(docs);
+    assert!(
+        ids(&idx, &q("kobolds")).len() > CORRECTION_MAX_HITS,
+        "the fixture needs more hits than the limit"
+    );
+    assert_eq!(suggest(&idx, "kobolds"), None);
+
+    // One body hit that names no title word is still weak, so it is corrected.
+    let mut docs = corpus();
+    docs.push(doc(
+        "mon:kobold",
+        "Kobold",
+        "monster",
+        "bestiary",
+        "A small reptile.",
+        &[],
+    ));
+    docs.push(doc(
+        "mon:k",
+        "Tribe",
+        "monster",
+        "bestiary",
+        "Kobolds dwell here.",
+        &[],
+    ));
+    let idx = build(docs);
+    assert_eq!(ids(&idx, &q("kobolds")), vec!["mon:k"]);
+    assert_eq!(suggest(&idx, "kobolds").as_deref(), Some("kobold"));
+}
+
+#[test]
+fn a_result_that_names_every_word_is_strong() {
+    let mut docs = corpus();
+    // A typo in the source book: the title itself holds "missle".
+    docs.push(doc(
+        "spell:typo",
+        "Magic Missle",
+        "spell",
+        "apg",
+        "A misspelt page.",
+        &[],
+    ));
+    let idx = build(docs);
+    assert_eq!(suggest(&idx, "magic missle"), None);
+}
+
+#[test]
+fn only_names_in_active_books_are_suggested() {
+    let mut docs = corpus();
+    docs.push(doc(
+        "spell:mistle",
+        "Magic Mistle",
+        "spell",
+        "apg",
+        "A different spell.",
+        &[],
+    ));
+    let idx = build(docs);
+    let on = |d: DocView<'_>| d.source != "core";
+    let off = |d: DocView<'_>| d.source == "core";
+    // Everything on: ties on edits and document count go to the earlier term.
+    assert_eq!(
+        suggest(&idx, "magic missle").as_deref(),
+        Some("magic missile")
+    );
+    // Core off: "missile" only lives there, so the other near name is offered.
+    let got = idx.suggest_correction("magic missle", &Filters::default(), on);
+    assert_eq!(got.map(|c| c.text).as_deref(), Some("magic mistle"));
+    // Apg off: back to the Core spell.
+    let got = idx.suggest_correction("magic missle", &Filters::default(), off);
+    assert_eq!(got.map(|c| c.text).as_deref(), Some("magic missile"));
+    // Nothing allowed: nothing to suggest.
+    assert_eq!(
+        idx.suggest_correction("magic missle", &Filters::default(), |_| false),
+        None
+    );
+
+    // The only near name lives in a book that is off.
+    let idx = build(corpus());
+    let got = idx.suggest_correction("magic missle", &Filters::default(), |d| d.source != "core");
+    assert_eq!(got, None);
+}
+
+#[test]
+fn filters_apply_to_the_corrected_query() {
+    let idx = build(corpus());
+    let spells = Filters {
+        kinds: vec!["spell".into()],
+        ..Default::default()
+    };
+    let feats = Filters {
+        kinds: vec!["feat".into()],
+        ..Default::default()
+    };
+    assert_eq!(
+        idx.suggest_correction("magic missle", &spells, |_| true)
+            .map(|c| c.text)
+            .as_deref(),
+        Some("magic missile")
+    );
+    assert_eq!(
+        idx.suggest_correction("magic missle", &feats, |_| true),
+        None
+    );
+}
+
+#[test]
+fn equally_good_corrections_are_chosen_the_same_way_every_time() {
+    let forward = vec![
+        doc("a", "Bolt", "spell", "core", "x", &[]),
+        doc("b", "Bolo", "item", "core", "x", &[]),
+        doc("c", "Bola", "item", "core", "x", &[]),
+    ];
+    let mut backward = forward.clone();
+    backward.reverse();
+    let (one, two) = (build(forward), build(backward));
+    for idx in [&one, &two, &one.clone()] {
+        assert_eq!(suggest(idx, "bolx").as_deref(), Some("bola"));
+        assert_eq!(suggest(idx, "bolx"), suggest(idx, "bolx"));
+    }
+    // A term that more documents carry wins before the alphabet does.
+    let idx = build(vec![
+        doc("a", "Bolt", "spell", "core", "x", &[]),
+        doc("b", "Bolo", "item", "core", "x", &[]),
+        doc("c", "Bolo Tie", "item", "core", "x", &[]),
+    ]);
+    assert_eq!(suggest(&idx, "bolx").as_deref(), Some("bolo"));
+}
+
+#[test]
+fn a_correction_survives_a_round_trip_and_leaves_the_format_alone() {
+    let idx = build(corpus());
+    let before = idx.to_bytes();
+    let first = suggest(&idx, "magic missle");
+    let after = idx.to_bytes();
+    assert_eq!(
+        before, after,
+        "asking for a correction must not change the index"
+    );
+    let decoded = SearchIndex::from_bytes(&after).unwrap();
+    assert_eq!(decoded, idx, "the name-term cache is not part of equality");
+    assert_eq!(suggest(&decoded, "magic missle"), first);
+    assert_eq!(INDEX_FORMAT_VERSION, 2);
+}
+
+#[test]
+fn edit_distance_counts_a_swap_as_one() {
+    use crate::correct::edit_distance_for_tests as d;
+    assert_eq!(d("missile", "missile", 2), Some(0));
+    assert_eq!(d("missle", "missile", 2), Some(1));
+    assert_eq!(d("fierball", "fireball", 2), Some(1));
+    assert_eq!(d("fierbal", "fireball", 2), Some(2));
+    assert_eq!(d("abcd", "wxyz", 2), None);
+    assert_eq!(d("abcd", "abcdefg", 2), None);
+}
+
+#[test]
+fn a_rare_prefix_is_a_word_however_many_names_sort_before_it() {
+    // "zebr" starts "zebrzz", an allowed name. Seventy names from a turned-off book start with
+    // it too and sort first, so a probe that stopped early would call "zebr" a typo and offer
+    // the near name "zebu" instead.
+    let mut docs = vec![
+        doc("a", "Magic Zebu", "spell", "core", "x", &[]),
+        doc("b", "Zebrzz Mark", "item", "core", "x", &[]),
+    ];
+    for n in 0..70 {
+        docs.push(doc(
+            &format!("off{n}"),
+            &format!("Zebra{n:03}"),
+            "item",
+            "off",
+            "x",
+            &[],
+        ));
+    }
+    let idx = build(docs);
+    let on = |d: DocView<'_>| d.source != "off";
+    assert_eq!(
+        idx.suggest_correction("magic zebr", &Filters::default(), on),
+        None
+    );
+    // The same query does get the near name once the prefix has no allowed carrier.
+    let got = idx.suggest_correction("magic zebr", &Filters::default(), |d| d.id != "b" && on(d));
+    assert_eq!(got.map(|c| c.text).as_deref(), Some("magic zebu"));
+}
+
+#[test]
+fn a_number_in_any_script_is_never_rewritten() {
+    let idx = build(vec![
+        doc("a", "Magic 1234", "spell", "core", "x", &[]),
+        doc("b", "Magic ١٢٣٥", "spell", "core", "x", &[]),
+    ]);
+    // Each is one edit from a name, and neither is a word.
+    assert_eq!(suggest(&idx, "magic 1235"), None);
+    assert_eq!(suggest(&idx, "magic ١٢٣٤"), None);
+}
