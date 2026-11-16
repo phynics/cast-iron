@@ -525,6 +525,19 @@ fn book_slot_problems(base: &str, current: &str) -> Vec<String> {
     problems
 }
 
+/// Reads what `git ls-tree --name-only <base> -- <path>` said: `true` when the file is in the
+/// base's tree, `false` when the base has no such file (the change that introduces it), and an
+/// error for any git failure, with git's own message.
+fn baseline_present(success: bool, stdout: &str, stderr: &str, base: &str) -> Result<bool> {
+    if !success {
+        return Err(format!(
+            "check-book-slots: cannot list the tree of {base} ({}); fetch it, or pass a base that is here",
+            stderr.trim()
+        ));
+    }
+    Ok(!stdout.trim().is_empty())
+}
+
 /// Fails unless `sources/published-books.txt` only appends to the file at `--base` (default
 /// `origin/main`). A slot is permanent: a share code names slots, so a reorder, replacement or
 /// deletion would silently change what every code already shared means. A base that does not
@@ -568,10 +581,26 @@ fn check_book_slots(args: &[String]) -> Result {
         return Ok(());
     }
     let spec = format!("{base}:{PUBLISHED_BOOKS}");
-    let shown = git(&["show", &spec])?;
-    if !shown.status.success() {
+    // Ask the tree whether the file exists before reading it, so that "absent at base" is the
+    // only thing that passes: a git failure (a tree that is not here, a broken repository) must
+    // not look like a base without the file.
+    let listed = git(&["ls-tree", "--name-only", &base, "--", PUBLISHED_BOOKS])?;
+    let present = baseline_present(
+        listed.status.success(),
+        &String::from_utf8_lossy(&listed.stdout),
+        &String::from_utf8_lossy(&listed.stderr),
+        &base,
+    )?;
+    if !present {
         println!("check-book-slots: {base} has no {PUBLISHED_BOOKS} yet; nothing to keep");
         return Ok(());
+    }
+    let shown = git(&["show", &spec])?;
+    if !shown.status.success() {
+        return Err(format!(
+            "check-book-slots: cannot read {spec}: {}",
+            String::from_utf8_lossy(&shown.stderr).trim()
+        ));
     }
     let base_text = String::from_utf8(shown.stdout).map_err(|_| format!("{spec} is not UTF-8"))?;
     let path = root().join(PUBLISHED_BOOKS);
@@ -890,6 +919,23 @@ mod tests {
         );
         // The change that introduces the file has nothing to keep.
         assert!(book_slot_problems("", BASE).is_empty());
+    }
+
+    #[test]
+    fn only_an_absent_baseline_file_passes() {
+        // The tree lists the file: compare. The tree is fine but has no file: nothing to keep.
+        assert_eq!(
+            baseline_present(true, "sources/published-books.txt\n", "", "b"),
+            Ok(true)
+        );
+        assert_eq!(baseline_present(true, "", "", "b"), Ok(false));
+        // Any git failure is an error that carries git's message, never a pass.
+        let failed =
+            baseline_present(false, "", "fatal: bad object abc123\n", "abc123").unwrap_err();
+        assert!(
+            failed.contains("fatal: bad object abc123") && failed.contains("abc123"),
+            "{failed}"
+        );
     }
 
     #[test]

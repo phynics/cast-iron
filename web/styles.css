@@ -3758,7 +3758,7 @@ input::placeholder {
 .share-body { padding-block: var(--space-2) var(--space-4); }
 .share-body > p { margin: 0 0 var(--space-3); }
 .share-code-line { margin: 0 0 var(--space-3); }
-.share-code { display: block; padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); font: 600 var(--step-1)/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: 0.04em; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.share-code { display: block; padding: var(--space-3); border: 0; border-radius: var(--radius); background: var(--surface-2); font: 600 var(--step-1)/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: 0.08em; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
 .share-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-3); }
 .share-note { min-height: 1.5em; margin: 0 0 var(--space-3); }
 .share-form label { display: block; margin-block-end: var(--space-1); font-weight: 600; }
@@ -3768,7 +3768,7 @@ input::placeholder {
 .share-form .error { margin: var(--space-3) 0 0; }
 .share-confirm { max-width: 52rem; margin-block: var(--space-3) var(--space-4); }
 .share-notice { max-width: 52rem; margin-block: var(--space-3); }
-.share-status { min-height: 0; }
+.share-status { min-height: 0; font-size: var(--step-0); }
 .share-status.has-status { min-height: var(--touch); }
 .share-confirm h2 { margin-block: 0 var(--space-2); }
 .share-confirm h2:focus { outline: none; }

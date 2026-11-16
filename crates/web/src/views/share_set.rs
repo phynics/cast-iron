@@ -7,7 +7,7 @@
 //! only the page around them.
 
 use crate::book_code::{self, Shared};
-use crate::book_presets::Change;
+use crate::book_presets::{self, Change};
 use crate::book_share::{self, Offer};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, use_route};
@@ -49,6 +49,8 @@ impl Panel {
     /// has not opened.
     fn review(&self, text: &str, from_link: bool) {
         self.notice.set(None);
+        // A copy note describes the code that was on screen; a new question makes it stale.
+        self.copied.set(None);
         match book_code::decode(text) {
             Ok(shared) => {
                 self.problem.set(None);
@@ -59,10 +61,7 @@ impl Panel {
                 self.pending.set(None);
                 if from_link {
                     self.problem.set(None);
-                    self.notice.set(Some(format!(
-                        "This link did not open a set of books. {}",
-                        error.message()
-                    )));
+                    self.notice.set(Some(link_message(error)));
                 } else {
                     self.problem.set(Some(error.message()));
                 }
@@ -99,9 +98,7 @@ impl Panel {
             match result {
                 Ok(change) if change.is_empty() => {}
                 Ok(change) => {
-                    panel
-                        .status
-                        .set(Some("Now using the shared set of books.".to_string()));
+                    panel.status.set(Some(applied_line(&panel.library)));
                     panel.undo.set(Some(change.inverse()));
                 }
                 Err(failure) => panel.notice.set(Some(format!(
@@ -149,6 +146,36 @@ impl Panel {
                 )),
             }
         });
+    }
+}
+
+/// What a bad link says. It names the link's code, then the same advice as a typed code.
+fn link_message(error: book_code::CodeError) -> String {
+    let advice = error.message();
+    match advice.strip_prefix("This code ") {
+        Some(rest) => format!("This link's code {rest}"),
+        None => format!("This link's code could not be read. {advice}"),
+    }
+}
+
+/// The status line after a set was applied: the preset it made, else how many books are on.
+/// Read from the library after the write, so it describes what the reader now has.
+fn applied_line(library: &Library) -> String {
+    let books = book_presets::books_of(library.sources());
+    match book_presets::matching(&books, |id| library.book_active(id)) {
+        Some(preset) => format!("Applied {}.", preset.label()),
+        None => {
+            let active = library
+                .sources()
+                .iter()
+                .filter(|source| library.book_active(&source.id))
+                .count();
+            format!(
+                "Now using {} {}.",
+                crate::fmt::count(active),
+                if active == 1 { "book" } else { "books" }
+            )
+        }
     }
 }
 

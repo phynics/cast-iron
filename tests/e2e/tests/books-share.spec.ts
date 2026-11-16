@@ -212,6 +212,11 @@ installedTest("Books shows the code of the active set, and Copy puts it on the c
     await expect(page.getByRole("status").filter({ hasText: "Copied the link." })).toBeVisible();
     const link = await page.evaluate(() => navigator.clipboard.readText());
     expect(link).toBe(`${new URL(page.url()).origin}/cast-iron/#/books?set=${code}`);
+    // A link opened on this page asks a new question, so the note about the old code goes.
+    await page.goto(`#/books?set=${codeFor(rulebooks)}`);
+    await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
+    await expect(page.getByText("Copied the link.")).toHaveCount(0);
+    await expect(page.getByText("Copied the code.")).toHaveCount(0);
   }
 });
 
@@ -284,7 +289,8 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
   await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
   await expect(heading).toHaveCount(0);
   await expect(page).toHaveURL(/#\/books$/);
-  await expect(page.getByRole("status").filter({ hasText: "Now using the shared set of books." })).toBeVisible();
+  // The status names the preset the set made.
+  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
 
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
@@ -341,7 +347,9 @@ installedTest("A typo is rejected with a clear message and changes nothing", asy
   await expect(problem).toHaveCount(0);
   // A bad link says so, shows no question, and leaves the address clean.
   await page.goto(`#/books?set=${cases[0]}`);
-  await expect(page.getByTestId("share-notice")).toContainText("This code does not look right");
+  await expect(page.getByTestId("share-notice")).toContainText(
+    "This link's code does not look right. Check it for typos or a missing part. Your books did not change.",
+  );
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/#\/books$/);
   await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
@@ -358,9 +366,15 @@ installedTest("A bad link from another route explains itself while the disclosur
     await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
     await page.goto(`#/books?set=${bad}`);
     await waitReady(page);
-    const notice = page.getByRole("alert").filter({ hasText: "This link did not open a set of books." });
+    const notice = page.getByRole("alert").filter({ hasText: "This link's code" });
     await expect(notice).toBeVisible();
     await expect(notice).toContainText("Your books did not change");
+    // One subject: the link's code, then the advice.
+    await expect(notice).toContainText(
+      "This link's code does not look right. Check it for typos or a missing part. Your books did not change.",
+    );
+    await expect(notice).not.toContainText("This link did not open");
+    await expect(notice).not.toContainText("This code");
     await expect(page.getByTestId("share-notice")).toBeVisible();
     // The disclosure is closed, so the error is not inside it.
     expect(await disclosure(page).evaluate((element: HTMLDetailsElement) => element.open)).toBe(false);
@@ -480,6 +494,8 @@ installedTest("A code from a newer library skips the books this one lacks, and s
   await expect(page.getByTestId("share-skipped")).toBeVisible();
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
   await expect(countText(page)).toHaveText(countLine(rulebooks.length + 1, "Custom"));
+  // No preset matches, so the status gives the count.
+  await expect(page.getByRole("status").filter({ hasText: `Now using ${count(rulebooks.length + 1)} books.` })).toBeVisible();
 });
 
 installedTest("A code made before a library gained books leaves those books as they are", async ({ page }) => {
