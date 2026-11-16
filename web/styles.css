@@ -4193,6 +4193,21 @@ html:has(.quick-search[open]) {
   font-weight: 600;
 }
 
+/* "Did you mean": the corrected words read as a link (accent, underlined), the question as
+   plain text. A row, never a pill. */
+.correction-text,
+.did-you-mean .count-action {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.did-you-mean {
+  margin: var(--space-3) 0;
+}
+
 /* Metadata role: one muted line. */
 .quick-search-meta {
   font-size: var(--step--1);

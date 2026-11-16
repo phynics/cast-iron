@@ -24,7 +24,7 @@ use crate::views::scope::{Scope, ScopePill};
 use crate::views::search::discovery_for;
 use crate::views::util::{addon_name, kind_name};
 use cast_iron_schema::{EntryId, EntryKind};
-use cast_iron_search::Query;
+use cast_iron_search::{CORRECTION_MAX_HITS, Query};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::rc::Rc;
@@ -59,6 +59,8 @@ pub struct QuickSearch {
     /// False after Escape closed the suggestion list, until the reader types or presses Down.
     list_open: RwSignal<bool>,
     suggestions: RwSignal<Vec<Suggestion>>,
+    /// A corrected spelling of the typed text, offered when the lookup finds little.
+    correction: RwSignal<Option<String>>,
     recents: RwSignal<Vec<RecentSearch>>,
     /// The most recently read book's Continue row, when that book is active.
     continue_row: RwSignal<Option<ViewedRow>>,
@@ -207,6 +209,7 @@ impl QuickSearch {
             active: RwSignal::new(None),
             list_open: RwSignal::new(true),
             suggestions: RwSignal::new(Vec::new()),
+            correction: RwSignal::new(None),
             recents: RwSignal::new(Vec::new()),
             continue_row: RwSignal::new(None),
             viewed_expanded: RwSignal::new(false),
@@ -390,7 +393,7 @@ impl QuickSearch {
                 anchor: None,
                 book: None,
             }),
-            Row::SeeAll(text) | Row::Starter(text) => self.search(text),
+            Row::Correction(text) | Row::SeeAll(text) | Row::Starter(text) => self.search(text),
             Row::Search(search) => self.run(search.clone()),
         }
     }
@@ -479,6 +482,7 @@ fn watch_suggestions(quick: QuickSearch) {
         quick.lookup.set_value(id);
         if !quick.open.get() || query.is_empty() {
             quick.suggestions.set(Vec::new());
+            quick.correction.set(None);
             return;
         }
         let discovery = discovery_for(&library, cache, revision);
@@ -495,6 +499,7 @@ fn watch_suggestions(quick: QuickSearch) {
                 filters: scope.map(|scope| scope.filters()).unwrap_or_default(),
                 limit: LOOKUP_LIMIT,
             };
+            let filters = query.filters.clone();
             let Ok(hits) = discovery.search_summaries(&query).await else {
                 return;
             };
@@ -510,6 +515,18 @@ fn watch_suggestions(quick: QuickSearch) {
                     discovery.is_eligible(id)
                 }),
                 None => hits,
+            };
+            // A query that finds little may be a misspelling. The engine decides, in a few
+            // milliseconds, only for such a query; a broad one never asks.
+            let fixed = if hits.len() <= CORRECTION_MAX_HITS {
+                discovery
+                    .suggest_correction(&typed, &filters, false)
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|correction| correction.text)
+            } else {
+                None
             };
             let hits = shortest_completion_first(hits, &typed);
             let list: Vec<Suggestion> = dedupe_hits(hits, MAX_SUGGESTIONS)
@@ -552,6 +569,7 @@ fn watch_suggestions(quick: QuickSearch) {
                 .collect();
             // Only the newest lookup may show: the reader has typed on since the others began.
             if quick.lookup.try_get_value() == Some(id) {
+                quick.correction.try_set(fixed);
                 quick.suggestions.try_set(list);
             }
         });
@@ -591,6 +609,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
         let _ = memo_library.selection_revision().get();
         let text = quick.text.get();
         let suggestions = quick.suggestions.get();
+        let correction = quick.correction.get();
         let recents = quick.recents.get();
         let continue_row = quick.continue_row.get();
         let expanded = quick.viewed_expanded.get();
@@ -600,6 +619,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
         quick_rows::list(
             &text,
             &suggestions,
+            correction.as_deref(),
             &recents,
             &STARTERS,
             continue_row,
@@ -810,10 +830,16 @@ pub fn QuickSearchLayer() -> impl IntoView {
                 {move || {
                     // Say nothing while the list is closed: it shows no suggestions.
                     let typed = quick.text.with(|text| !text.trim().is_empty());
-                    (typed && expanded()).then(|| match quick.suggestions.with(Vec::len) {
-                        0 => "No suggestions".to_string(),
-                        1 => "1 suggestion".to_string(),
-                        n => format!("{} suggestions", crate::fmt::count(n)),
+                    (typed && expanded()).then(|| {
+                        let count = match quick.suggestions.with(Vec::len) {
+                            0 => "No suggestions".to_string(),
+                            1 => "1 suggestion".to_string(),
+                            n => format!("{} suggestions", crate::fmt::count(n)),
+                        };
+                        match quick.correction.get() {
+                            Some(fixed) => format!("{count}. Did you mean {fixed}?"),
+                            None => count,
+                        }
                     })
                 }}
             </p>
@@ -891,6 +917,13 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                         <span class="quick-search-name">{viewed.title.clone()}</span>
                                         <span class="quick-search-meta">{viewed.detail.clone()}</span>
                                     }.into_any(),
+                                    Row::Correction(text) => view! {
+                                        <span class="quick-search-name">
+                                            "Did you mean "
+                                            <span class="correction-text">{text.clone()}</span>
+                                            "?"
+                                        </span>
+                                    }.into_any(),
                                     Row::SeeAll(text) => view! {
                                         <span class="quick-search-name">
                                             {format!("See all results for “{text}”")}
@@ -907,12 +940,14 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                     }.into_any(),
                                 };
                                 let all = matches!(row, Row::SeeAll(_));
+                                let correction = matches!(row, Row::Correction(_));
                                 view! {
                                     <li class="quick-search-item" role="presentation">
                                         <div
                                             id=option_id(i)
                                             class="quick-search-row"
                                             class:quick-search-all=all
+                                            class:quick-search-correction=correction
                                             role="option"
                                             aria-selected=move || (quick.active.get() == Some(i)).to_string()
                                             // Keep focus in the field, so the keyboard stays open.
