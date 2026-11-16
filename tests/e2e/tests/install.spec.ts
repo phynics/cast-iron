@@ -11,6 +11,26 @@ const contentPaths = (requests: string[]) =>
 const entryShards = manifest.files.map((f) => f.path).filter((p) => /(^|\/)entries\/[a-z_]+-\d+\.json$/.test(p));
 const shardName = (index: number) => path.posix.basename(entryShards[index]);
 
+test("From 48rem up the install screen starts at the brand's left edge", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();
+  for (const width of [1024, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const edges = await page.evaluate(() => {
+      const left = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().left;
+      return {
+        brand: left("header.app-header .brand"),
+        title: left("main h1"),
+        footer: left("footer.app-footer p"),
+        content: document.querySelector("main h1")!.getBoundingClientRect().width,
+      };
+    });
+    expect(Math.abs(edges.brand - edges.title), `h1 vs brand at ${width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(edges.brand - edges.footer), `footer vs brand at ${width}`).toBeLessThanOrEqual(1);
+    expect(edges.content, `content width at ${width}`).toBeLessThanOrEqual(44 * 16 + 1);
+  }
+});
+
 test("Representative rules dataset installs completely", async ({ page }) => {
   await page.goto("./");
   await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();

@@ -4646,16 +4646,30 @@ label.choice-row {
   }
 }
 
-/* ---- Header shares the wide column on desktop ---------------------------------------------- */
+/* ---- Header, measure pages and footer share the wide column on desktop ------------------- */
 
 /* Where the top nav replaces the bottom bar, the header's content lines up with `main`: its
    inline padding is the gap beside the `--wide` column (zero when the window is narrower than
    the column) plus main's own `--space-5` padding. The background and the border stay
-   full-bleed. The safe-area insets still apply as a floor. */
+   full-bleed. The safe-area insets still apply as a floor.
+
+   Pages at the reading measure (Settings, Legal, the installer) keep their line length but
+   start at the same left edge: `main` is left-aligned inside the `--wide` column instead of
+   centred. The footer paragraphs do the same. A `--wide` main is unchanged, because its
+   offset equals the one the auto margin gave it. */
 @media (min-width: 48rem) {
-  .app-header {
-    --header-gutter: calc(max(0px, (100% - var(--wide)) / 2) + var(--space-5));
-    padding-inline-start: max(var(--header-gutter), env(safe-area-inset-left));
-    padding-inline-end: max(var(--header-gutter), env(safe-area-inset-right));
+  .app-header,
+  .app-footer {
+    --column-gutter: calc(max(0px, (100% - var(--wide)) / 2) + var(--space-5));
+    padding-inline-start: max(var(--column-gutter), env(safe-area-inset-left));
+    padding-inline-end: max(var(--column-gutter), env(safe-area-inset-right));
+  }
+
+  main {
+    margin-inline: max(0px, calc((100% - var(--wide)) / 2)) auto;
+  }
+
+  .app-footer p {
+    margin-inline: 0;
   }
 }
