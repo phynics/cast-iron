@@ -149,4 +149,19 @@ test("From 48rem up the header content shares the wide column with Home", async 
     expect(edges.header.left).toBe(0);
     expect(edges.header.width).toBe(edges.viewport);
   }
+
+  // Below 48rem the header keeps its own 16 px padding: the brand at 16 px, the last control 16 px
+  // short of the right edge.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrow = await page.evaluate(() => {
+    const header = document.querySelector("header.app-header")!;
+    const last = [...header.children]
+      .filter((el) => !el.classList.contains("sr-only"))
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.width > 0)
+      .pop()!;
+    return { brand: document.querySelector("header.app-header .brand")!.getBoundingClientRect().left, last: last.right };
+  });
+  expect(Math.abs(narrow.brand - 16), "brand left at 390").toBeLessThanOrEqual(1);
+  expect(Math.abs(narrow.last - 374), "last control right at 390").toBeLessThanOrEqual(1);
 });
