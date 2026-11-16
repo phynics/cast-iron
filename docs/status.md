@@ -32,11 +32,14 @@ Local verification, 2026-11-16 (no CI or deployment claim; CI is pending):
 |---|---|
 | `generated/content` | Content version `v65d35c593e7620bd`, schema 4, index format 2, 31,800 entries, corpus tag `v0.1.23` (was `va53c5afc9bcdf057`). Links: 147,603 resolved, 0 broken |
 | `python3 scripts/check-publication.py` | 0 issues; 439 sources, 31,800 entries, 1,686 entries that name Community Use material |
+| `cargo xtask corpus-check .cache/sources/cast-iron-data` | Exit 0: 31,800 entries, 439 publications, 448 books, 1 licence |
 | Verbless-row scan on the pinned corpus | 0 rows in 0 files |
 | `cargo xtask check` | Passed (exit 0): fmt, clippy for native and WASM, workspace tests, WASM build |
 | `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `64ecde687d84d9fe`, 11 files; `generated/content` and `dist/content` manifests are identical |
 | Chromium: `relationships` (with the new #402 test), `variants`, `class-options`, `reference`, `search`, `journeys`, `browse-groups` | 115 passed |
 | mobile-chromium: `class-options`, `variants` | 11 passed |
+
+The browser specs ran on a build of `main` at `2446d8c` plus this change; later `main` commits (#411, #413) touch Home and the measure page, not these specs.
 
 The new test in `relationships.spec.ts` ("numbered spell series list each member at its own
 level") checks that Summon Nature's Ally II is on the Druid list at level 2 and not at level 1,
