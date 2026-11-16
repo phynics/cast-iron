@@ -19,7 +19,7 @@ this exact commit. The tag holds data #83 and data #84.
   Variants panel (#402).
 - Data #84 is the last batch of #390. The verbless-row scan
   (`scripts/scan-verbless-level-rows.py` in the data corpus) finds 0 rows in 0 files on this
-  commit (1,321 rows in 278 files when batch 2 began).
+  commit (1,321 rows in 278 files when batch 2 began; the issue's 1,220 rows in 256 files came from an earlier scan that missed rows whose value ends in a unit and rows ending in `+2d6` or `20%`, and the fixed scan also dropped 65 rows that already carry a verb).
 
 The corpus still holds 31,800 entries, 439 publications and 448 books; this pin changes entry
 levels, fields and body text only. The library schema stays 4 and the search index format stays
@@ -37,14 +37,14 @@ Local verification, 2026-11-16 (no CI or deployment claim; CI is pending):
 | Verbless-row scan on the pinned corpus | 0 rows in 0 files |
 | `cargo xtask check` | Passed (exit 0): fmt, clippy for native and WASM, workspace tests, WASM build |
 | `cargo xtask build-site --public-url /cast-iron/` | Passed; shell `64ecde687d84d9fe`, 11 files; `generated/content` and `dist/content` manifests are identical |
-| Chromium: `relationships` (with the new #402 test), `variants`, `class-options`, `reference`, `search`, `journeys`, `browse-groups` | 115 passed |
+| Chromium: `relationships` (with the new #402 test), `variants`, `class-options`, `reference`, `search`, `journeys`, `browse-groups` | 115 passed before `main` merged #414; after the merge, `relationships`, `journeys` and `reference`: 29 passed |
 | mobile-chromium: `class-options`, `variants` | 11 passed |
 
-The browser specs ran on a build of `main` at `2446d8c` plus this change; later `main` commits (#411, #413) touch Home and the measure page, not these specs.
+The first browser run used a build of `main` at `2446d8c` plus this change. After Muse's review, `main` (with #414) was merged into the branch, the site was rebuilt (shell `485cb6305dbc98cf`) and `relationships`, `journeys` and `reference` ran again.
 
 The new test in `relationships.spec.ts` ("numbered spell series list each member at its own
 level") checks that Summon Nature's Ally II is on the Druid list at level 2 and not at level 1,
-that IX is at level 9, that Summon Monster II is on the Wizard list at level 2 and not at level
+that V is at level 5 and IX at level 9, that Summon Monster II is on the Wizard list at level 2 and not at level
 1, and that the Variants panel of Summon Nature's Ally I shows each variant's own levels. No
 existing spec asserted an old wrong level, so no assertion changed.
 

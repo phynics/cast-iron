@@ -82,47 +82,50 @@ test("spell lists filter by class, level, and query; search supports source filt
 });
 
 test("numbered spell series list each member at its own level (#402)", async ({ page }) => {
-  const SNA_BASE = "ref/spell/summon-natures-ally-1";
+  const sna = (n: number) => `ref/spell/summon-natures-ally-${n}`;
+  const sm = (n: number) => `ref/spell/summon-monster-${n}`;
   const levelOf = (id: string, cls: string) =>
     corpus.entries.get(id)!.fields.levels.find((row: any) => row.class === cls)?.level;
   // The compiled corpus must already hold the printed levels, not the base spell's.
-  expect(levelOf("ref/spell/summon-natures-ally-2", "Druid")).toBe(2);
-  expect(levelOf("ref/spell/summon-natures-ally-9", "Druid")).toBe(9);
-  expect(levelOf("ref/spell/summon-monster-2", "Wizard")).toBe(2);
+  expect(levelOf(sna(2), "Druid")).toBe(2);
+  expect(levelOf(sna(5), "Druid")).toBe(5);
+  expect(levelOf(sna(9), "Druid")).toBe(9);
+  expect(levelOf(sm(2), "Wizard")).toBe(2);
 
-  const links = (level: number) =>
-    page.locator(`.level-group[data-level="${level}"] .spell-rows`).getByRole("link");
+  // A spell row at a level, selected by the exact entry, since titles repeat across books.
+  const row = (level: number, id: string) =>
+    page.locator(`.level-group[data-level="${level}"] .spell-rows a[href="#/entry/${id}"]`);
+  const openLevel = async (cls: string, level: number) => {
+    await page.goto(`#/spells/${cls}/${level}`);
+    await expect(page.getByRole("heading", { name: `${cls} spells, level ${level}`, level: 1 })).toBeVisible();
+  };
 
-  // Druid: Summon Nature's Ally II sits at level 2 only, and IX at level 9 only.
-  await page.goto("#/spells/Druid/2");
-  await expect(page.getByRole("heading", { name: "Druid spells, level 2", level: 1 })).toBeVisible();
-  await expect(links(2).filter({ hasText: /^Summon Nature's Ally II$/ })).toHaveCount(1);
-  await page.goto("#/spells/Druid/1");
-  await expect(page.getByRole("heading", { name: "Druid spells, level 1", level: 1 })).toBeVisible();
-  await expect(links(1).filter({ hasText: /^Summon Nature's Ally I$/ })).toHaveCount(1);
-  await expect(links(1).filter({ hasText: /^Summon Nature's Ally II$/ })).toHaveCount(0);
-  await expect(links(1).filter({ hasText: /^Summon Nature's Ally (IX|V|VI)/ })).toHaveCount(0);
-  await page.goto("#/spells/Druid/9");
-  await expect(page.getByRole("heading", { name: "Druid spells, level 9", level: 1 })).toBeVisible();
-  await expect(links(9).filter({ hasText: /^Summon Nature's Ally IX$/ })).toHaveCount(1);
+  // Druid: each Summon Nature's Ally sits at its own level only.
+  await openLevel("Druid", 1);
+  await expect(row(1, sna(1))).toHaveCount(1);
+  for (const n of [2, 5, 9]) await expect(row(1, sna(n))).toHaveCount(0);
+  await openLevel("Druid", 2);
+  await expect(row(2, sna(2))).toHaveCount(1);
+  await openLevel("Druid", 5);
+  await expect(row(5, sna(5))).toHaveCount(1);
+  await openLevel("Druid", 9);
+  await expect(row(9, sna(9))).toHaveCount(1);
 
   // Wizard: Summon Monster II sits at level 2 and not at level 1.
-  await page.goto("#/spells/Wizard/2");
-  await expect(page.getByRole("heading", { name: "Wizard spells, level 2", level: 1 })).toBeVisible();
-  await expect(links(2).filter({ hasText: /^Summon Monster II$/ })).toHaveCount(1);
-  await page.goto("#/spells/Wizard/1");
-  await expect(page.getByRole("heading", { name: "Wizard spells, level 1", level: 1 })).toBeVisible();
-  await expect(links(1).filter({ hasText: /^Summon Monster I$/ })).toHaveCount(1);
-  await expect(links(1).filter({ hasText: /^Summon Monster II$/ })).toHaveCount(0);
+  await openLevel("Wizard", 1);
+  await expect(row(1, sm(1))).toHaveCount(1);
+  await expect(row(1, sm(2))).toHaveCount(0);
+  await openLevel("Wizard", 2);
+  await expect(row(2, sm(2))).toHaveCount(1);
 
   // The base spell's Variants panel names each variant with its own levels.
-  await page.goto(`#/entry/${SNA_BASE}`);
+  await page.goto(`#/entry/${sna(1)}`);
   const section = page.locator(".rel-variants");
   await expect(section.getByRole("heading", { name: "Variants", level: 2 })).toBeVisible();
-  for (const [id, level] of [["ref/spell/summon-natures-ally-2", 2], ["ref/spell/summon-natures-ally-9", 9]] as const) {
-    const row = section.locator(".rel-list li").filter({ has: page.locator(`a[href="#/entry/${id}"]`) });
-    await expect(row).toHaveCount(1);
-    await expect(row.locator(".rel-meta")).toHaveText(new RegExp(`^Druid ${level}(,| ·)`));
+  for (const [id, level] of [[sna(2), 2], [sna(5), 5], [sna(9), 9]] as const) {
+    const variant = section.locator(".rel-list li").filter({ has: page.locator(`a[href="#/entry/${id}"]`) });
+    await expect(variant).toHaveCount(1);
+    await expect(variant.locator(".rel-meta")).toHaveText(new RegExp(`^Druid ${level}(,| ·)`));
   }
 });
 
