@@ -774,6 +774,7 @@ mod tests {
     fn books_of_reads_the_tier_from_the_category() {
         let sources = vec![
             SourceInfo {
+                share_slot: None,
                 id: "core".into(),
                 title: "Core".into(),
                 aon: None,
@@ -788,6 +789,7 @@ mod tests {
                 third_party: false,
             },
             SourceInfo {
+                share_slot: None,
                 id: "indie".into(),
                 title: "Indie".into(),
                 aon: None,

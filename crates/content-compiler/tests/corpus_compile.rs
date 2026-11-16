@@ -1,6 +1,6 @@
 //! The corpus build, end to end, on a tiny synthetic corpus.
 
-use cast_iron_content_compiler::corpus_build::compile_corpus;
+use cast_iron_content_compiler::corpus_build::{compile_corpus, compile_corpus_with_slots};
 use cast_iron_corpus::{
     Config, Exclusions, entry_path, write_books, write_config, write_entry, write_exclusions,
     write_history, write_legal, write_publications,
@@ -72,6 +72,7 @@ fn write_corpus(dir: &Path) {
         fs::write(path, write_entry(&entry, &config)).unwrap();
     }
     let sources = [SourceInfo {
+        share_slot: None,
         id: "core-rulebook".into(),
         title: "Core Rulebook".into(),
         aon: None,
@@ -374,4 +375,59 @@ fn a_published_id_that_stops_resolving_fails_the_build_before_anything_is_writte
     let text = failure.lines.join("\n");
     assert!(text.contains("ref/rule/dropped"), "{text}");
     assert!(!out.join("manifest.json").exists());
+}
+
+#[test]
+fn a_book_gets_its_slot_from_the_published_books_file_and_a_new_book_fails_the_build() {
+    let corpus = temp("slots");
+    write_corpus(&corpus);
+    let slots = temp("slots-file").join("books.txt");
+    // A book that left the library keeps its line; the slot is the line among the id lines.
+    fs::write(&slots, "# header\nremoved-book\ncore-rulebook\n").unwrap();
+    let out = temp("slots-out");
+    compile_corpus_with_slots(
+        &corpus,
+        &out,
+        &temp("slots-reports"),
+        None,
+        Some(&slots),
+        None,
+    )
+    .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    let catalog: cast_iron_schema::Catalog = serde_json::from_slice(
+        &fs::read(out.join(&manifest.content_version).join("catalog.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(catalog.sources[0].id, "core-rulebook");
+    assert_eq!(catalog.sources[0].share_slot, Some(1));
+
+    // Without the file the catalog carries no slot, as before.
+    let plain = temp("slots-plain");
+    compile_corpus(&corpus, &plain, &temp("slots-plain-reports"), None, None).unwrap();
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(plain.join("manifest.json")).unwrap()).unwrap();
+    let catalog: cast_iron_schema::Catalog = serde_json::from_slice(
+        &fs::read(plain.join(&manifest.content_version).join("catalog.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(catalog.sources[0].share_slot, None);
+
+    // A book with no line stops the build, names the book and the command, and writes nothing.
+    fs::write(&slots, "removed-book\n").unwrap();
+    let bad = temp("slots-bad");
+    let failure = compile_corpus_with_slots(
+        &corpus,
+        &bad,
+        &temp("slots-bad-reports"),
+        None,
+        Some(&slots),
+        None,
+    )
+    .expect_err("a book without a slot must fail");
+    let text = failure.lines.join("\n");
+    assert!(text.contains("core-rulebook"), "{text}");
+    assert!(text.contains("cargo xtask published-books"), "{text}");
+    assert!(!bad.join("manifest.json").exists());
 }

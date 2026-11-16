@@ -149,6 +149,7 @@ mod tests {
 
     fn source(id: &str, title: &str) -> SourceInfo {
         SourceInfo {
+            share_slot: None,
             id: id.into(),
             title: title.into(),
             aon: None,
