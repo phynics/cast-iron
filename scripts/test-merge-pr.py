@@ -84,6 +84,12 @@ class ClassifyTests(unittest.TestCase):
     def test_nested_markdown_is_not_a_root_document(self):
         self.assertEqual(merge.classify(['crates/web/README.md'])[1], True)
 
+    def test_agents_and_design_are_anchored_to_the_root(self):
+        self.assertEqual(merge.classify(['AGENTS.md', 'DESIGN.md']), (['docs only'], False))
+        for path in ('crates/foo/AGENTS.md', 'crates/web/DESIGN.md', 'web/AGENTS.md'):
+            with self.subTest(path=path):
+                self.assertTrue(merge.classify([path])[1])
+
     def test_no_files(self):
         self.assertEqual(merge.classify([]), ([], False))
 
@@ -92,7 +98,7 @@ class JobTests(unittest.TestCase):
     def test_all_green(self):
         problems, results = merge.evaluate_jobs(full_jobs(), merge.REQUIRED_JOBS)
         self.assertEqual(problems, [])
-        self.assertEqual(len(results['Chromium shard']), 3)
+        self.assertEqual([len(results[f'Chromium shard {n}/3']) for n in (1, 2, 3)], [1, 1, 1])
         self.assertEqual(results['Content determinism'],
                          [('Content determinism (NFR-05)', 'success')])
 
@@ -109,9 +115,29 @@ class JobTests(unittest.TestCase):
         self.assertIn('in_progress', problems[1])
 
     def test_missing_job(self):
+        jobs = [j for j in full_jobs() if j['name'] != 'Build the site']
+        problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
+        self.assertEqual(problems, ['job "Build the site" is missing from the run'])
+
+    def test_each_chromium_shard_is_required(self):
+        for missing in (1, 2, 3):
+            with self.subTest(missing=missing):
+                jobs = [j for j in full_jobs()
+                        if not j['name'].startswith(f'Chromium shard {missing}/3')]
+                problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
+                self.assertEqual(problems,
+                                 [f'job "Chromium shard {missing}/3" is missing from the run'])
+
+    def test_no_chromium_shard_at_all(self):
         jobs = [j for j in full_jobs() if not j['name'].startswith('Chromium shard')]
         problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
-        self.assertEqual(problems, ['job "Chromium shard" is missing from the run'])
+        self.assertEqual(len(problems), 3)
+
+    def test_run_with_two_of_three_shards_is_refused(self):
+        jobs = [j for j in full_jobs() if not j['name'].startswith('Chromium shard 3/3')]
+        picked, _, problems = merge.pick_run([run(1)], SHA, 'workflow_dispatch', lambda r: jobs)
+        self.assertIsNone(picked)
+        self.assertIn('Chromium shard 3/3', problems[0])
 
     def test_name_prefix_needs_a_word_boundary(self):
         jobs = [job('Content compiler extra'), job('Content compilerX')]

@@ -37,19 +37,22 @@ ROWS = (
     ('corpus pin', True, ('sources/corpus.toml',)),
     ('Rust outside crates/web', True, ('crates/',)),
     # AGENTS.md lists docs/, AGENTS.md, DESIGN.md, .agents/skills/ and the research
-    # scripts scripts/*-nested.py. Root Markdown files (README.md, CONTRIBUTING.md,
-    # PRODUCT.md) are documents too.
+    # scripts scripts/*-nested.py. AGENTS.md and DESIGN.md are anchored to the root, so
+    # a file of that name in a crate is not a document. Other root Markdown files
+    # (README.md, CONTRIBUTING.md, PRODUCT.md) are documents too.
     ('docs only', False,
-     ('docs/', 'AGENTS.md', 'DESIGN.md', '.agents/skills/', 'scripts/*-nested.py', '/*.md')),
+     ('docs/', '/AGENTS.md', '/DESIGN.md', '.agents/skills/', 'scripts/*-nested.py', '/*.md')),
 )
 # A file that no row names is not known to be safe, so it needs the full run.
 UNCLASSIFIED = 'unclassified (no row names it)'
 
 # Job names of ci.yml. A name matches a job that equals it or starts with it and a
-# space, so "Chromium shard" matches "Chromium shard 2/3 (required)".
+# space, so "Chromium shard 2/3" matches "Chromium shard 2/3 (required)". The shards
+# are listed one by one, so a run that lacks one fails; if ci.yml changes the shard
+# count, change this list with it.
 REQUIRED_JOBS = (
     'Rust checks', 'Content compiler', 'Content determinism', 'Build the site',
-    'Chromium shard', 'Chromium report',
+    'Chromium shard 1/3', 'Chromium shard 2/3', 'Chromium shard 3/3', 'Chromium report',
 )
 PR_JOBS = ('Rust checks',)
 INFORMATIONAL_PREFIX = 'WebKit'
@@ -66,8 +69,12 @@ def matches(path, pattern):
 
 
 def classify(paths):
-    """Return (rows, needs_full): the names of the matched rows, in table order, and
-    whether any file falls in a row that needs a full CI run."""
+    """Return (rows, needs_full). Each file counts for the first row that names it, so
+    `rows` lists the rows that are the first match of some file, in table order, and
+    not every row a file could match (web/sw.js shows the service worker row, not UI
+    too). `needs_full` says whether any file falls in a row that needs a full CI run;
+    a file's other rows could not change that, because the first match is the more
+    specific row."""
     found = {}
     for path in paths:
         for name, needs_full, patterns in ROWS:
@@ -180,7 +187,7 @@ def main():
         raise SystemExit('Refused: ' + '; '.join(refusals))
 
     rows, needs_full = classify(paths)
-    print('Rows matched:', '; '.join(rows) or '(no files)', flush=True)
+    print('Rows matched (first row per file):', '; '.join(rows) or '(no files)', flush=True)
     event = 'workflow_dispatch' if needs_full else 'pull_request'
     print('CI required:', 'full run (workflow_dispatch of ci.yml) on this head' if needs_full
           else 'PR-event "Rust checks" on this head', flush=True)
