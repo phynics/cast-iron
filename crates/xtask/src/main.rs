@@ -14,6 +14,11 @@ cargo xtask <command>
   content                    Compile the library from the pinned corpus into generated/content;
                              fails when an id in sources/published-ids.txt stops resolving
   published-ids              Add the ids of generated/content to sources/published-ids.txt
+  published-books            Append the books of the pinned corpus that have no slot yet to
+                             sources/published-books.txt (`content` fails until you do)
+  check-book-slots [--base REF]
+                             Fail unless sources/published-books.txt keeps every id line that
+                             REF (default origin/main) has, in place; only appends are allowed
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
@@ -37,6 +42,8 @@ fn main() -> ExitCode {
         Some("corpus-tree-hash") => corpus_tree_hash(&args[1..]),
         Some("content") => content(&args[1..]),
         Some("published-ids") => published_ids(),
+        Some("published-books") => published_books(),
+        Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
@@ -324,6 +331,8 @@ fn content(args: &[String]) -> Result {
             "generated/reports",
             "--published",
             PUBLISHED_IDS,
+            "--book-slots",
+            PUBLISHED_BOOKS,
             "--corpus-tag",
             &tag,
         ],
@@ -409,6 +418,212 @@ fn published_ids() -> Result {
         ids.len() - before
     );
     Ok(())
+}
+
+/// Every book that a library has shipped, one id per line; the line number is the book's
+/// permanent share slot (#408). `content` fails when a book of the corpus has no line.
+const PUBLISHED_BOOKS: &str = "sources/published-books.txt";
+
+const PUBLISHED_BOOKS_HEADER: &str = "\
+# Every book id of a Cast Iron library, one per line. A book's slot is its position among the
+# id lines, counted from 0. Share codes (the Books page, #408) name slots, so a code keeps its
+# meaning when the library gains books or changes order. See docs/decisions.md, \"Book share
+# codes, 2026-11-16\".
+#
+# The file only grows, and its order is the data. `cargo xtask content` fails when a book of the
+# pinned corpus has no line; run `cargo xtask published-books` and commit the added lines. Never
+# edit, move or delete a line: that would change what every code already shared means.
+# `cargo xtask check-book-slots` enforces this by comparing the file with its version on the
+# base branch (CI runs it on every pull request, and `cargo xtask check` runs it against
+# origin/main). A book that leaves the library keeps its line, and a code that names it is
+# skipped on the receiver.
+#
+# The first lines are in Books order (tier, then oldest first), so a preset is a few runs of
+# neighbouring slots and its code stays short. Later books are appended oldest first.
+";
+
+/// Appends the books of the pinned corpus that have no line in `sources/published-books.txt`,
+/// oldest first (undated last, ties by id), after the lines that exist.
+fn published_books() -> Result {
+    verify_corpus_cache()?;
+    let corpus = root().join(".cache/sources/cast-iron-data/publications.toml");
+    let text = fs::read_to_string(&corpus)
+        .map_err(|e| format!("cannot read {}: {e}", corpus.display()))?;
+    let publications = cast_iron_corpus::read_publications(&corpus, &text)
+        .map_err(|e| format!("{}: {e}", corpus.display()))?;
+    let path = root().join(PUBLISHED_BOOKS);
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let listed: std::collections::BTreeSet<&str> = existing
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect();
+    let mut new: Vec<&cast_iron_corpus::Publication> = publications
+        .iter()
+        .filter(|publication| !listed.contains(publication.id.as_str()))
+        .collect();
+    new.sort_by(|a, b| {
+        (a.publication_date.is_none(), &a.publication_date, &a.id).cmp(&(
+            b.publication_date.is_none(),
+            &b.publication_date,
+            &b.id,
+        ))
+    });
+    let mut text = if existing.is_empty() {
+        PUBLISHED_BOOKS_HEADER.to_string()
+    } else {
+        existing.clone()
+    };
+    if !text.ends_with('\n') {
+        text.push('\n');
+    }
+    for publication in &new {
+        text.push_str(&publication.id);
+        text.push('\n');
+    }
+    fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    println!(
+        "{PUBLISHED_BOOKS}: {} books ({} added)",
+        listed.len() + new.len(),
+        new.len()
+    );
+    Ok(())
+}
+
+/// The id lines of a `published-books.txt`: everything except blank lines and `#` comments.
+fn book_slot_lines(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect()
+}
+
+/// One line per way `current` breaks the slots that `base` established. Every id line of `base`
+/// must be at the same position in `current`; `current` may only add lines at the end. Empty
+/// when that holds, including when `current` equals `base`.
+fn book_slot_problems(base: &str, current: &str) -> Vec<String> {
+    let established = book_slot_lines(base);
+    let now = book_slot_lines(current);
+    let mut problems = Vec::new();
+    for (slot, id) in established.iter().enumerate() {
+        match now.get(slot) {
+            Some(found) if found == id => {}
+            Some(found) => {
+                let moved = now.iter().position(|line| line == id);
+                problems.push(match moved {
+                    Some(at) => format!(
+                        "slot {slot} was {id:?}, now {found:?}; {id:?} moved to slot {at} (a reorder)"
+                    ),
+                    // The next established line took its place: the line was deleted.
+                    None if established.get(slot + 1) == Some(found) => format!(
+                        "slot {slot} ({id:?}) was removed, so every later slot moved up"
+                    ),
+                    None => format!("slot {slot} was {id:?}, now {found:?} (a replacement)"),
+                });
+            }
+            None => problems.push(format!("slot {slot} ({id:?}) was removed")),
+        }
+    }
+    problems
+}
+
+/// Reads what `git ls-tree --name-only <base> -- <path>` said: `true` when the file is in the
+/// base's tree, `false` when the base has no such file (the change that introduces it), and an
+/// error for any git failure, with git's own message.
+fn baseline_present(success: bool, stdout: &str, stderr: &str, base: &str) -> Result<bool> {
+    if !success {
+        return Err(format!(
+            "check-book-slots: cannot list the tree of {base} ({}); fetch it, or pass a base that is here",
+            stderr.trim()
+        ));
+    }
+    Ok(!stdout.trim().is_empty())
+}
+
+/// Fails unless `sources/published-books.txt` only appends to the file at `--base` (default
+/// `origin/main`). A slot is permanent: a share code names slots, so a reorder, replacement or
+/// deletion would silently change what every code already shared means. A base that does not
+/// have the file yet (the change that introduces it) passes. With no `--base` and no
+/// `origin/main` to compare with, the check says so and passes: CI always names the base.
+fn check_book_slots(args: &[String]) -> Result {
+    let mut base: Option<String> = None;
+    let mut rest = args.iter();
+    while let Some(argument) = rest.next() {
+        match argument.as_str() {
+            "--base" => {
+                base = Some(rest.next().ok_or("--base needs a ref")?.clone());
+            }
+            other => {
+                return Err(format!(
+                    "unknown argument {other:?} for check-book-slots\nusage: check-book-slots [--base REF]"
+                ));
+            }
+        }
+    }
+    let explicit = base.is_some();
+    let base = base.unwrap_or_else(|| "origin/main".to_string());
+    let git = |args: &[&str]| {
+        Command::new("git")
+            .args(args)
+            .current_dir(root())
+            .output()
+            .map_err(|e| format!("cannot start git: {e}"))
+    };
+    let commit = format!("{base}^{{commit}}");
+    if !git(&["rev-parse", "--verify", "--quiet", &commit])?
+        .status
+        .success()
+    {
+        if explicit {
+            return Err(format!(
+                "check-book-slots: {base} is not a commit here; fetch it first"
+            ));
+        }
+        println!("check-book-slots: no {base} to compare with, skipped (CI passes --base)");
+        return Ok(());
+    }
+    let spec = format!("{base}:{PUBLISHED_BOOKS}");
+    // Ask the tree whether the file exists before reading it, so that "absent at base" is the
+    // only thing that passes: a git failure (a tree that is not here, a broken repository) must
+    // not look like a base without the file.
+    let listed = git(&["ls-tree", "--name-only", &base, "--", PUBLISHED_BOOKS])?;
+    let present = baseline_present(
+        listed.status.success(),
+        &String::from_utf8_lossy(&listed.stdout),
+        &String::from_utf8_lossy(&listed.stderr),
+        &base,
+    )?;
+    if !present {
+        println!("check-book-slots: {base} has no {PUBLISHED_BOOKS} yet; nothing to keep");
+        return Ok(());
+    }
+    let shown = git(&["show", &spec])?;
+    if !shown.status.success() {
+        return Err(format!(
+            "check-book-slots: cannot read {spec}: {}",
+            String::from_utf8_lossy(&shown.stderr).trim()
+        ));
+    }
+    let base_text = String::from_utf8(shown.stdout).map_err(|_| format!("{spec} is not UTF-8"))?;
+    let path = root().join(PUBLISHED_BOOKS);
+    let current =
+        fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let problems = book_slot_problems(&base_text, &current);
+    if problems.is_empty() {
+        println!(
+            "check-book-slots: {PUBLISHED_BOOKS} keeps all {} slots of {base}",
+            book_slot_lines(&base_text).len()
+        );
+        return Ok(());
+    }
+    let mut message = format!(
+        "{PUBLISHED_BOOKS} changes slots that {base} already established; a share code names slots, so it only appends:"
+    );
+    for problem in problems.iter().take(20) {
+        message.push_str(&format!("\n  {problem}"));
+    }
+    if problems.len() > 20 {
+        message.push_str(&format!("\n  ... and {} more", problems.len() - 20));
+    }
+    Err(message)
 }
 
 fn read_json(path: &Path) -> Result<serde_json::Value> {
@@ -673,6 +888,7 @@ fn check() -> Result {
         ],
     )?;
     run("cargo", &["test", "--workspace"])?;
+    check_book_slots(&[])?;
     run(
         "cargo",
         &[
@@ -690,6 +906,67 @@ fn check() -> Result {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const BASE: &str = "# header\nalpha\nbeta\ngamma\n";
+
+    #[test]
+    fn book_slots_may_only_be_appended() {
+        // The same file, a different header, and a valid append all keep the slots.
+        assert!(book_slot_problems(BASE, BASE).is_empty());
+        assert!(book_slot_problems(BASE, "# other header\n\nalpha\nbeta\ngamma\n").is_empty());
+        assert!(
+            book_slot_problems(BASE, "# header\nalpha\nbeta\ngamma\ndelta\nepsilon\n").is_empty()
+        );
+        // The change that introduces the file has nothing to keep.
+        assert!(book_slot_problems("", BASE).is_empty());
+    }
+
+    #[test]
+    fn only_an_absent_baseline_file_passes() {
+        // The tree lists the file: compare. The tree is fine but has no file: nothing to keep.
+        assert_eq!(
+            baseline_present(true, "sources/published-books.txt\n", "", "b"),
+            Ok(true)
+        );
+        assert_eq!(baseline_present(true, "", "", "b"), Ok(false));
+        // Any git failure is an error that carries git's message, never a pass.
+        let failed =
+            baseline_present(false, "", "fatal: bad object abc123\n", "abc123").unwrap_err();
+        assert!(
+            failed.contains("fatal: bad object abc123") && failed.contains("abc123"),
+            "{failed}"
+        );
+    }
+
+    #[test]
+    fn a_reorder_a_replacement_and_a_deletion_are_named() {
+        let reorder = book_slot_problems(BASE, "alpha\ngamma\nbeta\n");
+        assert_eq!(reorder.len(), 2, "{reorder:?}");
+        assert!(
+            reorder[0].contains("slot 1") && reorder[0].contains("reorder"),
+            "{reorder:?}"
+        );
+        let replacement = book_slot_problems(BASE, "alpha\nBETA\ngamma\n");
+        assert_eq!(replacement.len(), 1, "{replacement:?}");
+        assert!(replacement[0].contains("replacement"), "{replacement:?}");
+        // Deleting a line in the middle shifts the rest: every later slot is wrong.
+        let middle = book_slot_problems(BASE, "alpha\ngamma\n");
+        assert!(
+            middle
+                .iter()
+                .any(|p| p.contains("slot 2") && p.contains("removed")),
+            "{middle:?}"
+        );
+        // Deleting the last line.
+        let last = book_slot_problems(BASE, "alpha\nbeta\n");
+        assert_eq!(last.len(), 1, "{last:?}");
+        assert!(
+            last[0].contains("gamma") && last[0].contains("removed"),
+            "{last:?}"
+        );
+        // Deleting everything.
+        assert_eq!(book_slot_problems(BASE, "# only a header\n").len(), 3);
+    }
 
     #[test]
     fn reads_toml_strings() {

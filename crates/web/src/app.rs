@@ -412,7 +412,11 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::FeatChains,
         ) | (
             Route::Books,
-            Route::Books | Route::BooksManage | Route::Book { .. } | Route::BookChapter { .. },
+            Route::Books
+                | Route::BooksSet(_)
+                | Route::BooksManage
+                | Route::Book { .. }
+                | Route::BookChapter { .. },
         ) | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
@@ -476,6 +480,9 @@ fn RouteView() -> impl IntoView {
                 source: id,
                 chapter: None,
             },
+            // A share link is Books with a question on top. Clearing the code after the reader
+            // answers must not rebuild the page, which would drop the Undo line it just wrote.
+            Route::BooksSet(_) => Route::Books,
             // The schools of a spell list are the list's own state: it reads them from the route
             // and must not be rebuilt for a choice, which would close its open menu.
             Route::SpellList { class, level, .. } => Route::spell_list(class, level),
@@ -487,7 +494,11 @@ fn RouteView() -> impl IntoView {
         // a rebuild after each toggle would drop focus and the scroll position.
         let selection = if matches!(
             route,
-            Route::Books | Route::BooksManage | Route::Book { .. } | Route::BookChapter { .. }
+            Route::Books
+                | Route::BooksSet(_)
+                | Route::BooksManage
+                | Route::Book { .. }
+                | Route::BookChapter { .. }
         ) {
             0
         } else {
@@ -511,7 +522,7 @@ fn RouteView() -> impl IntoView {
             _ => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
         },
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
-        Route::Books => view! { <Books /> }.into_any(),
+        Route::Books | Route::BooksSet(_) => view! { <Books /> }.into_any(),
         Route::BooksManage => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::BookChapter {

@@ -13,7 +13,9 @@
 //! panic if run natively; tests only touch the pure parts.
 
 pub mod app;
+pub mod book_code;
 pub mod book_presets;
+pub mod book_share;
 pub mod book_source;
 pub mod class_options;
 pub mod content_cache;

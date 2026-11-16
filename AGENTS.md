@@ -23,6 +23,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
+| Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Check before you finish | `cargo xtask check` |
