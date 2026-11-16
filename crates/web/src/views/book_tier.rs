@@ -239,6 +239,7 @@ mod tests {
 
     fn source(id: &str, category: Option<&str>) -> SourceInfo {
         SourceInfo {
+            share_slot: None,
             id: id.into(),
             title: id.into(),
             aon: None,

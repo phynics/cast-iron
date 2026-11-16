@@ -455,6 +455,7 @@ mod tests {
     fn catalog(entries: &[RuleEntry]) -> Catalog {
         Catalog {
             sources: vec![SourceInfo {
+                share_slot: None,
                 id: "cr".into(),
                 title: "CR".into(),
                 aon: None,

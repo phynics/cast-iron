@@ -1,14 +1,15 @@
-use cast_iron_content_compiler::corpus_build::compile_corpus;
+use cast_iron_content_compiler::corpus_build::compile_corpus_with_slots;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir> [--published <file>] [--corpus-tag <tag>]";
+const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir> [--published <file>] [--book-slots <file>] [--corpus-tag <tag>]";
 
 struct Args {
     corpus: PathBuf,
     out: PathBuf,
     reports: PathBuf,
     published: Option<PathBuf>,
+    book_slots: Option<PathBuf>,
     corpus_tag: Option<String>,
 }
 
@@ -17,6 +18,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut out = None;
     let mut reports = None;
     let mut published = None;
+    let mut book_slots = None;
     let mut corpus_tag = None;
     let mut args = args;
     while let Some(arg) = args.next() {
@@ -26,6 +28,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--out" => out = Some(PathBuf::from(value("--out")?)),
             "--reports" => reports = Some(PathBuf::from(value("--reports")?)),
             "--published" => published = Some(PathBuf::from(value("--published")?)),
+            "--book-slots" => book_slots = Some(PathBuf::from(value("--book-slots")?)),
             "--corpus-tag" => corpus_tag = Some(value("--corpus-tag")?),
             "--help" | "-h" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
@@ -37,6 +40,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
         out: need(out, "--out")?,
         reports: need(reports, "--reports")?,
         published,
+        book_slots,
         corpus_tag: corpus_tag.filter(|tag| !tag.is_empty()),
     })
 }
@@ -53,11 +57,12 @@ fn main() -> ExitCode {
     let worker = std::thread::Builder::new()
         .stack_size(256 * 1024 * 1024)
         .spawn(move || {
-            compile_corpus(
+            compile_corpus_with_slots(
                 &args.corpus,
                 &args.out,
                 &args.reports,
                 args.published.as_deref(),
+                args.book_slots.as_deref(),
                 args.corpus_tag.as_deref(),
             )
         });

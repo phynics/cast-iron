@@ -1275,6 +1275,10 @@ pub enum SeriesKind {
     Society,
 }
 
+/// The most book slots a share code can describe (#408). `sources/published-books.txt` may not
+/// list more books than this.
+pub const MAX_SHARE_SLOTS: u32 = 4096;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceInfo {
     /// Slug, such as `core-rulebook`.
@@ -1328,6 +1332,17 @@ pub struct SourceInfo {
     /// AoN source name in `FixedSource`, and an older catalog has no field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aon: Option<String>,
+    /// The book's permanent slot for share codes (#408): its line number in
+    /// `sources/published-books.txt`, counted from 0. A code names slots, not ids and not catalog
+    /// order, so it keeps its meaning when books are added or reordered. The compiler assigns it
+    /// from the append-only file and fails when a book has no line, so a library from this
+    /// compiler has one on every source.
+    ///
+    /// Optional and additive, like [`Self::category`]: an older catalog has no field and an
+    /// older reader ignores it, so `SCHEMA_VERSION` stays. A reader that finds a source
+    /// without a slot cannot share a set and hides the control.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub share_slot: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1805,6 +1820,7 @@ mod tests {
         // Unset values disappear from the serialized form, so an unchanged source looks
         // the same as it did before the fields existed.
         let empty = SourceInfo {
+            share_slot: None,
             id: "a".into(),
             title: "A".into(),
             aon: None,

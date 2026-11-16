@@ -8,6 +8,7 @@
 //!
 //! The corpus is the source of truth.
 
+use crate::book_slots;
 use crate::corpus_coverage;
 use crate::pipeline::{
     ALIASES_FILE, Failure, Library, Outcome, canonical_facets, check_no_markup_leaks, failure,
@@ -32,6 +33,18 @@ use std::path::Path;
 pub fn build_from_corpus(
     dir: &Path,
     published: Option<&Path>,
+    corpus_tag: Option<&str>,
+) -> Result<Library, Failure> {
+    build_with_slots(dir, published, None, corpus_tag)
+}
+
+/// [`build_from_corpus`] with the share-slot guard. With `book_slots`
+/// (`sources/published-books.txt`), every publication gets its permanent slot
+/// (`SourceInfo.share_slot`), and the build fails when one has no line in the file.
+pub fn build_with_slots(
+    dir: &Path,
+    published: Option<&Path>,
+    book_slots: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Library, Failure> {
     let corpus = Corpus::load(dir).map_err(|errors| Failure {
@@ -92,6 +105,16 @@ pub fn build_from_corpus(
         })
         .collect();
     sources.sort_by(|a, b| a.id.cmp(&b.id));
+    if let Some(path) = book_slots {
+        let text = std::fs::read_to_string(path).map_err(|e| {
+            failure(format!(
+                "cannot read the published books {}: {e}",
+                path.display()
+            ))
+        })?;
+        let listed = book_slots::parse(&text).map_err(|lines| Failure { lines })?;
+        book_slots::assign(&listed, &mut sources).map_err(|lines| Failure { lines })?;
+    }
 
     let coverage = corpus_coverage::derive(
         &entries,
@@ -196,4 +219,20 @@ pub fn compile_corpus(
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
     package(build_from_corpus(dir, published, corpus_tag)?, out, reports)
+}
+
+/// [`compile_corpus`] with the share-slot guard of [`build_with_slots`].
+pub fn compile_corpus_with_slots(
+    dir: &Path,
+    out: &Path,
+    reports: &Path,
+    published: Option<&Path>,
+    book_slots: Option<&Path>,
+    corpus_tag: Option<&str>,
+) -> Result<Outcome, Failure> {
+    package(
+        build_with_slots(dir, published, book_slots, corpus_tag)?,
+        out,
+        reports,
+    )
 }

@@ -14,6 +14,8 @@ cargo xtask <command>
   content                    Compile the library from the pinned corpus into generated/content;
                              fails when an id in sources/published-ids.txt stops resolving
   published-ids              Add the ids of generated/content to sources/published-ids.txt
+  published-books            Append the books of the pinned corpus that have no slot yet to
+                             sources/published-books.txt (`content` fails until you do)
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
@@ -37,6 +39,7 @@ fn main() -> ExitCode {
         Some("corpus-tree-hash") => corpus_tree_hash(&args[1..]),
         Some("content") => content(&args[1..]),
         Some("published-ids") => published_ids(),
+        Some("published-books") => published_books(),
         Some("build-site") => build_site(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
@@ -324,6 +327,8 @@ fn content(args: &[String]) -> Result {
             "generated/reports",
             "--published",
             PUBLISHED_IDS,
+            "--book-slots",
+            PUBLISHED_BOOKS,
             "--corpus-tag",
             &tag,
         ],
@@ -407,6 +412,72 @@ fn published_ids() -> Result {
         "{PUBLISHED_IDS}: {} ids ({} added)",
         ids.len(),
         ids.len() - before
+    );
+    Ok(())
+}
+
+/// Every book that a library has shipped, one id per line; the line number is the book's
+/// permanent share slot (#408). `content` fails when a book of the corpus has no line.
+const PUBLISHED_BOOKS: &str = "sources/published-books.txt";
+
+const PUBLISHED_BOOKS_HEADER: &str = "\
+# Every book id of a Cast Iron library, one per line. A book's slot is its position among the
+# id lines, counted from 0. Share codes (the Books page, #408) name slots, so a code keeps its
+# meaning when the library gains books or changes order. See docs/decisions.md, \"Book share
+# codes, 2026-11-16\".
+#
+# The file only grows, and its order is the data. `cargo xtask content` fails when a book of the
+# pinned corpus has no line; run `cargo xtask published-books` and commit the added lines. Never
+# edit, move or delete a line: that would change what every code already shared means. A book
+# that leaves the library keeps its line, and a code that names it is skipped on the receiver.
+#
+# The first lines are in Books order (tier, then oldest first), so a preset is a few runs of
+# neighbouring slots and its code stays short. Later books are appended oldest first.
+";
+
+/// Appends the books of the pinned corpus that have no line in `sources/published-books.txt`,
+/// oldest first (undated last, ties by id), after the lines that exist.
+fn published_books() -> Result {
+    verify_corpus_cache()?;
+    let corpus = root().join(".cache/sources/cast-iron-data/publications.toml");
+    let text = fs::read_to_string(&corpus)
+        .map_err(|e| format!("cannot read {}: {e}", corpus.display()))?;
+    let publications = cast_iron_corpus::read_publications(&corpus, &text)
+        .map_err(|e| format!("{}: {e}", corpus.display()))?;
+    let path = root().join(PUBLISHED_BOOKS);
+    let existing = fs::read_to_string(&path).unwrap_or_default();
+    let listed: std::collections::BTreeSet<&str> = existing
+        .lines()
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect();
+    let mut new: Vec<&cast_iron_corpus::Publication> = publications
+        .iter()
+        .filter(|publication| !listed.contains(publication.id.as_str()))
+        .collect();
+    new.sort_by(|a, b| {
+        (a.publication_date.is_none(), &a.publication_date, &a.id).cmp(&(
+            b.publication_date.is_none(),
+            &b.publication_date,
+            &b.id,
+        ))
+    });
+    let mut text = if existing.is_empty() {
+        PUBLISHED_BOOKS_HEADER.to_string()
+    } else {
+        existing.clone()
+    };
+    if !text.ends_with('\n') {
+        text.push('\n');
+    }
+    for publication in &new {
+        text.push_str(&publication.id);
+        text.push('\n');
+    }
+    fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    println!(
+        "{PUBLISHED_BOOKS}: {} books ({} added)",
+        listed.len() + new.len(),
+        new.len()
     );
     Ok(())
 }

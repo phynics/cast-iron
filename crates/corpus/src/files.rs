@@ -75,6 +75,7 @@ impl Publication {
 
     pub fn to_source(&self, entry_count: u32) -> SourceInfo {
         SourceInfo {
+            share_slot: None,
             id: self.id.clone(),
             title: self.title.clone(),
             entry_count,
@@ -308,6 +309,7 @@ mod tests {
     #[test]
     fn publication_metadata_round_trips_without_derived_counts() {
         let sources = vec![SourceInfo {
+            share_slot: None,
             id: "core-rulebook".into(),
             title: "Core Rulebook".into(),
             aon: None,
@@ -361,6 +363,7 @@ mod tests {
         assert_eq!(
             read[0].to_source(0),
             SourceInfo {
+                share_slot: None,
                 id: "tome-of-horrors".into(),
                 title: "Tome of Horrors".into(),
                 aon: None,
