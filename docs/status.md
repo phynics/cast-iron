@@ -13,8 +13,10 @@ verified). The data corpus CI run
 [43771444322](https://github.com/phynics/cast-iron-data/actions/runs/43771444322) succeeded for
 this exact commit. The tag merges data #71, #72 and #73. #72 aliases the seven Core Rulebook race
 chapters (Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans) to the typed
-`ref/race/*` records and gives the Bestiary lycanthropic player-character section another kind,
-so every entry of kind race carries a `race_group`. #71 and #73 restore verbs.
+`ref/race/*` records, merges the one sentence only a chapter held (the Common sentence in
+Human), makes each typed core record cite the Core Rulebook first, and resolves the Bestiary
+lycanthrope section, so every entry of kind race carries a `race_group`. #71 and #73 restore the
+printed verb in 98 "At Nth level:" rows.
 
 The corpus holds 31,800 entries (was 31,807: the seven chapters are aliases now), 439
 publications and 448 books. The Races list holds 75 entries in four groups: core 7, featured 16,
