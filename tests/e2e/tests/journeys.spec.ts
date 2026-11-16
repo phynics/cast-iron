@@ -93,7 +93,9 @@ test("Home categories connect races, class options, spell levels, and reference 
   await revealSourceChoice(raceChoice);
   await raceChoice.click();
   await expect(page.getByRole("heading", { level: 1, name: race.title })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: raceTrait.title, exact: true }).click();
+  // A race can list the same trait from more than one book (an APG and an ARG printing of
+  // one alternate racial trait), so pick the link by the exact entry, not by its title.
+  await page.locator(`.entry-rel a[href="#/entry/${raceTrait.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: raceTrait.title })).toBeVisible();
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /racial trait of/i })).toBeVisible();
 
