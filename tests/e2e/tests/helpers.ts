@@ -668,6 +668,14 @@ function isCatchAll(node: TocNode): boolean {
   return node.title === "New entries (page order)";
 }
 
+/**
+ * Mirror of `is_listing_chapter` in `schema/books.rs`: the catch-all and the page-ordered lists.
+ * A printed chapter of another book outranks them when the app picks the book that owns an entry.
+ */
+function isListingChapter(node: TocNode): boolean {
+  return isCatchAll(node) || node.title === "Page order" || node.title === "Unpaged";
+}
+
 /** Mirror of `shows_in_contents` in `views/book.rs`. */
 function shownInContents(node: TocNode, kinds: Map<string, string>): boolean {
   if (isCatchAll(node)) return false;
@@ -736,15 +744,15 @@ export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): 
 let cachedOwners: Map<string, string> | undefined;
 /**
  * The book the client shows an entry under: the first book in `books.json` order that places it
- * in a curated chapter. A catch-all chapter counts only for an entry no curated chapter places
- * (`BookLookup::new` in `graph.rs`).
+ * in a printed chapter. A listing chapter (catch-all, `Page order`, `Unpaged`) counts only for an
+ * entry no printed chapter places (`BookLookup::new` in `graph.rs`).
  */
 export function bookOwners(): Map<string, string> {
   if (!cachedOwners) {
     const owners = new Map<string, string>();
-    for (const catchAll of [false, true]) {
+    for (const listing of [false, true]) {
       for (const book of bookTrees()) {
-        for (const id of bookEntryOrder(book, catchAll)) if (!owners.has(id)) owners.set(id, book.source);
+        for (const id of bookEntryOrder(book, listing)) if (!owners.has(id)) owners.set(id, book.source);
       }
     }
     cachedOwners = owners;
@@ -759,10 +767,10 @@ export function firstBookPlacement(entryId: string): BookTree | undefined {
 }
 
 /**
- * Entries of a book in reading order: a node's own entry, then its children. `catchAll` picks only
- * the compiler's catch-all chapter (true) or only the curated chapters (false); omitted, both.
+ * Entries of a book in reading order: a node's own entry, then its children. `listing` picks only
+ * the listing chapters (true) or only the printed chapters (false); omitted, both.
  */
-export function bookEntryOrder(book: BookTree, catchAll?: boolean): string[] {
+export function bookEntryOrder(book: BookTree, listing?: boolean): string[] {
   const order: string[] = [];
   const walk = (nodes: TocNode[]) => {
     for (const node of nodes) {
@@ -770,7 +778,7 @@ export function bookEntryOrder(book: BookTree, catchAll?: boolean): string[] {
       walk(node.children ?? []);
     }
   };
-  walk(book.chapters.filter((chapter) => catchAll === undefined || isCatchAll(chapter) === catchAll));
+  walk(book.chapters.filter((chapter) => listing === undefined || isListingChapter(chapter) === listing));
   return order;
 }
 

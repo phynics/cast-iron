@@ -4,7 +4,7 @@
 //! these types, parsed once. Every function that walks a graph has a cycle guard and a size cap,
 //! because the data is untrusted input.
 
-use cast_iron_schema::books::is_catch_all;
+use cast_iron_schema::books::is_listing_chapter;
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, EntryId, Inline, RelationIndex, RelationKind,
     SpellListClass, SpellListDetail, SpellLists,
@@ -674,8 +674,8 @@ pub(crate) fn demote_headings(block: &Block) -> Block {
 // ---- book order -------------------------------------------------------------------------
 
 /// `books.json` with each entry's first placement indexed. Every entry holds one canonical book
-/// (the first book that places it in a curated chapter, in book order; a catch-all chapter counts
-/// only for an entry that no curated chapter places), so the map answers "where is this?" without
+/// (the first book that places it in a printed chapter, in book order; a listing chapter such as
+/// the catch-all or a page-ordered list counts only for an entry that no printed chapter places), so the map answers "where is this?" without
 /// a second walk. The Contents reading order itself lives in [`crate::reading`], built per active
 /// library because it depends on the catalog kinds.
 #[derive(Debug, Clone, Default)]
@@ -688,20 +688,20 @@ pub struct BookLookup {
 impl BookLookup {
     pub fn new(index: BookIndex) -> Self {
         let mut places = HashMap::new();
-        // The catch-all chapter is hidden from Contents, so it owns an entry only when no curated
+        // A listing chapter carries no authored placement, so it owns an entry only when no printed
         // chapter of any book places it (#394).
-        let mut catch_all = HashMap::new();
+        let mut listings = HashMap::new();
         for (book_i, book) in index.books.iter().enumerate() {
             for chapter in &book.chapters {
-                let target = if is_catch_all(chapter) {
-                    &mut catch_all
+                let target = if is_listing_chapter(chapter) {
+                    &mut listings
                 } else {
                     &mut places
                 };
                 place(chapter, book_i, target);
             }
         }
-        for (entry, book) in catch_all {
+        for (entry, book) in listings {
             places.entry(entry).or_insert(book);
         }
         Self { index, places }
@@ -711,8 +711,9 @@ impl BookLookup {
         &self.index.books
     }
 
-    /// Canonical source ID for an entry: the first book in book order that places it in a curated
-    /// chapter, else the first book whose catch-all chapter places it.
+    /// Canonical source ID for an entry: the first book in book order that places it in a printed
+    /// chapter, else the first book whose listing chapter (catch-all, `Page order`, `Unpaged`)
+    /// places it.
     pub fn source_for_entry(&self, id: &EntryId) -> Option<&str> {
         let book = *self.places.get(id)?;
         self.index.books.get(book).map(|book| book.source.as_str())
@@ -1452,6 +1453,30 @@ mod tests {
         });
         assert_eq!(lookup.source_for_entry(&id("x/two")), Some("a"));
         assert_eq!(lookup.source_for_entry(&id("x/both")), Some("a"));
+    }
+
+    #[test]
+    fn page_ordered_lists_rank_with_the_catch_all_below_a_printed_chapter() {
+        let listed = |title: &str, entry: &str| node(title, Some(entry), vec![]);
+        // Unchained Monk: the catch-all of book `a`, an `Unpaged` list of `b` and a `Page order`
+        // list of `c` all place it, and no book prints it in a chapter. Book order decides.
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![
+                tree_of("a", vec![catch_all(&["c/monk"])]),
+                tree_of("b", vec![listed("Unpaged", "c/monk")]),
+                tree_of("c", vec![listed("Page order", "c/monk")]),
+            ],
+        });
+        assert_eq!(lookup.source_for_entry(&id("c/monk")), Some("a"));
+        // A printed chapter of a later book outranks all three lists.
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![
+                tree_of("a", vec![listed("Unpaged", "c/monk")]),
+                tree_of("b", vec![listed("Page order", "c/monk")]),
+                tree_of("c", vec![listed("Classes", "c/monk")]),
+            ],
+        });
+        assert_eq!(lookup.source_for_entry(&id("c/monk")), Some("c"));
     }
 
     #[test]

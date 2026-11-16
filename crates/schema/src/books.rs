@@ -151,6 +151,19 @@ pub fn is_catch_all(node: &BookNode) -> bool {
     node.title == CATCH_ALL_TITLE
 }
 
+/// The titles of the corpus's page-ordered lists: a book with no known chapter structure holds
+/// its entries in these (`books.toml` says so in each book's basis).
+pub const PAGE_ORDER_TITLE: &str = "Page order";
+pub const UNPAGED_TITLE: &str = "Unpaged";
+
+/// Whether a top-level chapter only lists entries instead of placing them in a printed chapter:
+/// the catch-all, or a page-ordered list. Contents shows the page-ordered lists (unlike the
+/// catch-all), but they carry no authored placement, so a printed chapter of another book
+/// outranks them when the app picks the book that owns an entry (#394).
+pub fn is_listing_chapter(node: &BookNode) -> bool {
+    is_catch_all(node) || node.title == PAGE_ORDER_TITLE || node.title == UNPAGED_TITLE
+}
+
 /// The paths of the rows at the top of Contents. Every listed chapter is one row; the catch-all
 /// is never listed. Paths are real: they index the whole tree, not the listed rows.
 pub fn contents_roots(chapters: &[BookNode], hide: Hide<'_>) -> Vec<Vec<usize>> {
