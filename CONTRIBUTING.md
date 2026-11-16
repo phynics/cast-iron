@@ -28,6 +28,11 @@ local to the browser profile. Existing install and update requests are
 [#8](https://github.com/phynics/cast-iron/issues/8) and
 [#9](https://github.com/phynics/cast-iron/issues/9).
 
+## Review comments
+
+Start each review comment with the name of the model that wrote it, for example
+`Reviewed by Opus 5.5:`. The owner uses these names to audit which model finds which defects.
+
 ## Editing rules content
 
 Rules content lives in [phynics/cast-iron-data](https://github.com/phynics/cast-iron-data), not in
