@@ -31,7 +31,8 @@ local to the browser profile. Existing install and update requests are
 ## Review comments
 
 Start each review comment with the name of the model that wrote it, for example
-`Reviewed by Opus 5.5:`. The owner uses these names to audit which model finds which defects.
+`Reviewed by Muse Spark 1.3:`. All comments come from one GitHub account, so the model name is the only
+record that the reviewer was independent of the implementer.
 
 ## Editing rules content
 
