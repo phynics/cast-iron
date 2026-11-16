@@ -1846,3 +1846,11 @@ These are the owner's answers to the 2026-11-15 architecture review. Each decisi
 - **Outside corpus contributors are not a goal.** Corpus pipeline work is limited to two items: fix the checker version mismatch, and split `books.toml`. Reason: with no outside contributors, a contributor-friendly pipeline has no reader.
 - **Each review comment names the model that wrote it.** The rule is in the review section of `CONTRIBUTING.md`. Reason: all comments come from one GitHub account, so the independence of implementer and reviewer models cannot be audited without it.
 - **A ruleset on `main` requires the `Rust checks` PR check, and a merge helper script refuses a UI PR without a green full CI run on its head SHA.** Both are follow-up work. Reason: the full CI run is the only check that covers the browser suite, and nothing enforces it today.
+
+## Collections code deleted, 2026-11-16
+
+Refs [#400](https://github.com/phynics/cast-iron/issues/400). This carries out the collections bullet of "Owner decisions from the architecture review, 2026-11-16".
+
+- **Deleted.** The unmounted bookmarks and collections screen, the entry-page collection picker, the collection functions of `store.rs`, the unused star import (`merge_bookmarks`), the unused single-row bookmark functions, `random_uuid`, the `Route::Bookmarks` and `Route::Collection` variants, and the CSS that only they used. Stars on Home and on the entry page are unchanged.
+- **Old addresses.** `#/bookmarks` and `#/collection/<id>` still parse to `Route::Home`, and the legacy redirect in `read_location_route` still rewrites them.
+- **Stored data stays.** The IndexedDB `collections` store is still created (the version stays 1; no migration) and is never read or written. `Bookmark` no longer has `collection_ids`: an old row still reads (serde ignores the field), and the next write of that row (a kind refresh or an id migration) drops it. The star itself is kept.

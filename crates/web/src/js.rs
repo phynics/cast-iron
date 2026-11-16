@@ -20,8 +20,6 @@ extern "C" {
     pub fn idb_tx_done(transaction: &IdbTransaction) -> Promise;
     #[wasm_bindgen(js_name = sha256Hex, catch)]
     async fn sha256_hex_js(buffer: &JsValue) -> Result<JsValue, JsValue>;
-    #[wasm_bindgen(js_name = randomUUID)]
-    pub fn random_uuid() -> String;
     #[wasm_bindgen(js_name = storagePersist, catch)]
     async fn storage_persist_js() -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = storagePersisted, catch)]
