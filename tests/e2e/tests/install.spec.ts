@@ -1,5 +1,5 @@
 import { test, expect, distManifest } from "./fixtures";
-import { activeLibrary, cacheContents, contentCaches, installLibrary, waitReady } from "./helpers";
+import { activeLibrary, cacheContents, columnEdges, contentCaches, installLibrary, waitReady } from "./helpers";
 import path from "node:path";
 
 const manifest = distManifest();
@@ -10,6 +10,27 @@ const contentPaths = (requests: string[]) =>
 /** Entry shards of the built library, in manifest order. Both libraries shard by kind. */
 const entryShards = manifest.files.map((f) => f.path).filter((p) => /(^|\/)entries\/[a-z_]+-\d+\.json$/.test(p));
 const shardName = (index: number) => path.posix.basename(entryShards[index]);
+
+test("From 48rem up the install screen starts at the brand's left edge", async ({ page }) => {
+  await page.goto("./");
+  await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();
+  for (const width of [1024, 1280, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const edges = await columnEdges(page);
+    expect(Math.abs(edges.brand - edges.title), `h1 vs brand at ${width}`).toBeLessThanOrEqual(1);
+    expect(edges.content, `content width at ${width}`).toBeLessThanOrEqual(edges.measure + 1);
+    for (const line of edges.footer) {
+      expect(Math.abs(edges.brand - line.left), `footer vs brand at ${width}`).toBeLessThanOrEqual(1);
+      expect(line.width, `footer line length at ${width}`).toBeLessThanOrEqual(edges.measure + 1);
+    }
+  }
+
+  // The phone layout keeps its 16 px header and footer padding.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrow = await columnEdges(page);
+  expect(narrow.brand, "brand left at 390").toBeCloseTo(16, 0);
+  expect(narrow.footer[0].left, "footer left at 390").toBeCloseTo(16, 0);
+});
 
 test("Representative rules dataset installs completely", async ({ page }) => {
   await page.goto("./");

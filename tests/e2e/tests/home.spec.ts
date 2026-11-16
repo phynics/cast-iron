@@ -1,5 +1,5 @@
 import { installedTest as test, expect, distManifest, loadCorpus } from "./fixtures";
-import { installLibrary, seedHome } from "./helpers";
+import { columnEdges, installLibrary, seedHome } from "./helpers";
 
 const corpus = loadCorpus();
 const spells = corpus.catalog.entries.filter((entry) => entry.kind === "spell");
@@ -164,6 +164,40 @@ test("From 48rem up the header content shares the wide column with Home", async 
   });
   expect(Math.abs(narrow.brand - 16), "brand left at 390").toBeLessThanOrEqual(1);
   expect(Math.abs(narrow.last - 374), "last control right at 390").toBeLessThanOrEqual(1);
+});
+
+test("From 48rem up Settings, Legal and the footer start at the brand's left edge", async ({ page }) => {
+  for (const hash of ["#/settings", "#/legal"]) {
+    await page.goto(hash);
+    for (const width of [1024, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      const edges = await columnEdges(page);
+      expect(Math.abs(edges.brand - edges.title), `${hash} h1 vs brand at ${width}`).toBeLessThanOrEqual(1);
+      expect(edges.content, `${hash} content width at ${width}`).toBeLessThanOrEqual(edges.measure + 1);
+      for (const line of edges.footer) {
+        expect(Math.abs(edges.brand - line.left), `${hash} footer vs brand at ${width}`).toBeLessThanOrEqual(1);
+        expect(line.width, `${hash} footer line length at ${width}`).toBeLessThanOrEqual(edges.measure + 1);
+      }
+    }
+  }
+
+  // A `--wide` route does not move: an entry page starts at the brand's left edge too, and its
+  // column is wider than the measure.
+  await page.goto(`#/entry/${spells[0].id}`);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const entry = await columnEdges(page, "main > .entry");
+  expect(Math.abs(entry.brand - entry.title), "entry vs brand at 1280").toBeLessThanOrEqual(1);
+  expect(entry.content, "entry column is wider than the measure at 1280").toBeGreaterThan(entry.measure);
+  for (const line of entry.footer) {
+    expect(Math.abs(entry.brand - line.left), "entry footer vs brand at 1280").toBeLessThanOrEqual(1);
+  }
+
+  // The phone layout keeps its centred measure column and its 16 px footer padding.
+  await page.goto("#/settings");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrow = await columnEdges(page);
+  expect(narrow.footer[0].left, "footer left at 390").toBeCloseTo(16, 0);
+  expect(narrow.title, "h1 left at 390").toBeLessThanOrEqual(24);
 });
 
 test("Starred cells sit over the category card columns, in reading order", async ({ page }) => {
