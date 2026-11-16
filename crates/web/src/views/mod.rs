@@ -20,6 +20,7 @@ pub mod icons;
 pub mod installer;
 pub mod legal;
 pub mod not_found;
+pub mod progression;
 pub mod quick_rows;
 pub mod quick_search;
 pub mod recent;

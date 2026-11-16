@@ -25,7 +25,7 @@ use crate::views::{
     recent::{self, Recent},
     search::Search,
     settings::Settings,
-    spells::{SpellListView, SpellsHub},
+    spells::{self, SpellListView, SpellsHub},
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -292,7 +292,9 @@ fn Reader(library: Library) -> impl IntoView {
         let within_search = matches!(
             (&previous, &route),
             (Some(Route::Search { .. }), Route::Search { .. })
-        ) || previous.as_ref().is_some_and(|p| same_book(p, &route));
+        ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
+            // Choosing a school edits the schools in the URL of the spell list that is on screen.
+            || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route));
         // The Search screen focuses its own box, so the frame leaves focus alone there.
         let to_search = matches!(route, Route::Search { .. });
         if let Some(title) = static_title(&route) {
@@ -474,6 +476,9 @@ fn RouteView() -> impl IntoView {
                 source: id,
                 chapter: None,
             },
+            // The schools of a spell list are the list's own state: it reads them from the route
+            // and must not be rebuilt for a choice, which would close its open menu.
+            Route::SpellList { class, level, .. } => Route::spell_list(class, level),
             other => other,
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
@@ -515,7 +520,7 @@ fn RouteView() -> impl IntoView {
             anchor,
         } => view! { <ChapterView source chapter anchor=anchor /> }.into_any(),
         Route::Spells => view! { <SpellsHub /> }.into_any(),
-        Route::SpellList { class, level } => view! { <SpellListView class level /> }.into_any(),
+        Route::SpellList { class, level, .. } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
         Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
         Route::Bookmarks | Route::Collection(_) => view! { <Home /> }.into_any(),
@@ -559,6 +564,7 @@ mod tests {
             Route::SpellList {
                 class: "Wizard".into(),
                 level: Some(3),
+                schools: Vec::new(),
             },
             Route::FeatChains,
         ] {
