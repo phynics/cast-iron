@@ -3,6 +3,7 @@
 //! Compiles for native and `wasm32-unknown-unknown`.
 
 mod build;
+mod correct;
 mod query;
 mod store;
 mod text;
@@ -11,6 +12,7 @@ mod text;
 mod tests;
 
 pub use build::IndexBuilder;
+pub use correct::{CORRECTION_MAX_HITS, Correction};
 #[cfg(feature = "profile")]
 pub use query::SearchTiming;
 pub use query::{Highlighter, HitSummary};
@@ -202,6 +204,9 @@ pub struct SearchIndex {
     /// Tie-break rank per document ordinal, empty until [`SearchIndex::set_source_ranks`] runs.
     /// Not serialized: the client derives it from the catalog, so the format is unchanged.
     pub(crate) doc_ranks: Vec<u8>,
+    /// The words of titles and aliases, built when the first correction is asked for. Not
+    /// serialized, so the format is unchanged.
+    pub(crate) names: correct::LazyNames,
 }
 
 impl SearchIndex {
@@ -217,6 +222,7 @@ impl SearchIndex {
             texts,
             doc_lists,
             doc_ranks: Vec::new(),
+            names: correct::LazyNames::default(),
         }
     }
 

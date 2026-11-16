@@ -14,7 +14,8 @@ use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{addon_name, kind_name, local_resource, set_title};
 use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
 use cast_iron_search::{
-    BOOK_SECTION_KIND, FilterCounts, Filters, Hit, HitSummary, Query, SearchIndex,
+    BOOK_SECTION_KIND, CORRECTION_MAX_HITS, FilterCounts, Filters, Hit, HitSummary, Query,
+    SearchIndex,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -617,6 +618,21 @@ impl SearchState {
     }
 }
 
+/// "Did you mean magic missile?": one link that runs the corrected text. It keeps the kinds,
+/// books and facets of the search it corrects, so the scope survives the tap.
+fn did_you_mean(state: &SearchState, fixed: &str) -> impl IntoView + use<> {
+    let mut next = state.clone();
+    next.q = fixed.to_owned();
+    let href = next.route().href();
+    view! {
+        <p class="did-you-mean" data-testid="did-you-mean">
+            "Did you mean "
+            <a class="count-action" href=href>{fixed.to_owned()}</a>
+            "?"
+        </p>
+    }
+}
+
 /// Keep the best ranked record as the group position, retaining every publication choice.
 fn grouped_hits(hits: Vec<HitSummary>) -> Vec<SearchHit> {
     let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
@@ -650,6 +666,8 @@ enum Phase {
         groups: usize,
         sections: Vec<SectionHit>,
         section_total: usize,
+        /// A corrected spelling of the query, when it found little and a near name exists.
+        correction: Option<String>,
     },
     Failed(String),
 }
@@ -1009,6 +1027,23 @@ pub fn Search() -> impl IntoView {
                     }
                 }));
                 let total = all_hits.len();
+                // A query that finds little may be a misspelling. The engine only looks when
+                // the page would show this few results, so a broad query never pays for it.
+                let correction = if !current.q.trim().is_empty()
+                    && total + section_hits.len() <= CORRECTION_MAX_HITS
+                {
+                    discovery
+                        .suggest_correction(&current.q, &query.filters, true)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|correction| correction.text)
+                } else {
+                    None
+                };
+                if !alive() {
+                    return;
+                }
                 let grouped = grouped_hits(all_hits);
                 let groups = grouped.len();
                 let mut hits = grouped.into_iter().take(page_limit).collect::<Vec<_>>();
@@ -1120,6 +1155,7 @@ pub fn Search() -> impl IntoView {
                     groups,
                     sections,
                     section_total,
+                    correction,
                 });
             });
             previous_value
@@ -1566,13 +1602,22 @@ pub fn Search() -> impl IntoView {
             groups,
             sections,
             section_total,
+            correction,
             ..
         } if hits.is_empty() && sections.is_empty() => {
             let _ = (groups, section_total);
+            // The correction already says to check the spelling, so the advice drops that part.
+            let advice = if correction.is_some() {
+                "Use fewer words, or clear a filter."
+            } else {
+                "Check the spelling, use fewer words, or clear a filter."
+            };
+            let did_you_mean = correction.map(|fixed| did_you_mean(&state.get_untracked(), &fixed));
             view! {
                 <div class="empty">
                     <p>"No entries match."</p>
-                    <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
+                    {did_you_mean}
+                    <p class="muted">{advice}</p>
                 </div>
             }
             .into_any()
@@ -1582,8 +1627,10 @@ pub fn Search() -> impl IntoView {
             groups,
             sections,
             section_total,
+            correction,
             ..
         } => {
+            let did_you_mean = correction.map(|fixed| did_you_mean(&state.get_untracked(), &fixed));
             let full = hits.len() < groups;
             let all_relations = addon_labels.with(|state| state.clone().flatten());
             let all_groups = option_groups.with(|state| state.clone().flatten());
@@ -1693,6 +1740,7 @@ pub fn Search() -> impl IntoView {
                 .into_any()
             });
             view! {
+                {did_you_mean}
                 {section_block}
                 <ol class="results">{items}</ol>
                 {full.then(|| view! {

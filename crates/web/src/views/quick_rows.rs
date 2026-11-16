@@ -41,6 +41,8 @@ pub enum Row {
     Continue(ViewedRow),
     /// A recently viewed entry.
     Viewed(ViewedRow),
+    /// "Did you mean …?": opens the results page for the corrected text.
+    Correction(String),
     /// "See all results for …": opens the results page for the typed text.
     SeeAll(String),
     /// A recent search: runs it again in the scope it ran in.
@@ -139,12 +141,14 @@ impl List {
     }
 }
 
-/// The rows for the field's text: suggestions with a final "See all" row while the reader has
-/// typed something, otherwise the recent searches (or the starter searches when none) and then
+/// The rows for the field's text: suggestions, then a "Did you mean" row when the search engine
+/// offered a correction, then a final "See all" row while the reader has typed something, otherwise the recent searches (or the starter searches when none) and then
 /// the recently viewed entries. The Continue row leads Recently viewed and counts toward the cap.
+#[allow(clippy::too_many_arguments)]
 pub fn list(
     text: &str,
     suggestions: &[Suggestion],
+    correction: Option<&str>,
     recents: &[RecentSearch],
     starters: &[&str],
     continue_row: Option<ViewedRow>,
@@ -154,6 +158,7 @@ pub fn list(
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if !text.is_empty() {
         let mut rows: Vec<Row> = suggestions.iter().cloned().map(Row::Entry).collect();
+        rows.extend(correction.map(|fixed| Row::Correction(fixed.to_owned())));
         rows.push(Row::SeeAll(text));
         return List {
             groups: vec![Group {
@@ -279,7 +284,27 @@ pub fn step(active: Option<usize>, len: usize, down: bool) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::list as build;
+    /// The rows for a field's text, with no correction offered.
+    fn build(
+        text: &str,
+        suggestions: &[Suggestion],
+        recents: &[RecentSearch],
+        starters: &[&str],
+        continue_row: Option<ViewedRow>,
+        viewed: &[ViewedRow],
+        viewed_expanded: bool,
+    ) -> List {
+        super::list(
+            text,
+            suggestions,
+            None,
+            recents,
+            starters,
+            continue_row,
+            viewed,
+            viewed_expanded,
+        )
+    }
     use super::*;
     use crate::views::scope::Scope;
     use cast_iron_schema::EntryKind;
@@ -386,6 +411,40 @@ mod tests {
                 Row::SeeAll("fireb".to_owned())
             ]
         );
+    }
+
+    #[test]
+    fn a_correction_sits_between_the_suggestions_and_see_all() {
+        let with = |suggestions: &[Suggestion]| {
+            super::list(
+                "magic missle",
+                suggestions,
+                Some("magic missile"),
+                &[],
+                &[],
+                None,
+                &[],
+                false,
+            )
+        };
+        assert_eq!(
+            with(&[]).groups[0].rows,
+            [
+                Row::Correction("magic missile".to_owned()),
+                Row::SeeAll("magic missle".to_owned())
+            ]
+        );
+        assert_eq!(
+            with(&[suggestion("Mirror")]).groups[0].rows,
+            [
+                Row::Entry(suggestion("Mirror")),
+                Row::Correction("magic missile".to_owned()),
+                Row::SeeAll("magic missle".to_owned())
+            ]
+        );
+        // An empty field never shows one, whatever is passed.
+        let empty = super::list("", &[], Some("x"), &[], &[], None, &[], false);
+        assert!(empty.is_empty());
     }
 
     #[test]

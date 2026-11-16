@@ -181,7 +181,7 @@ pub struct Highlighter {
 }
 
 impl SearchIndex {
-    fn passes(&self, ord: usize, f: &Filters) -> bool {
+    pub(crate) fn passes(&self, ord: usize, f: &Filters) -> bool {
         let d = &self.meta.docs[ord];
         if !f.kinds.is_empty() && !f.kinds.iter().any(|k| k.eq_ignore_ascii_case(&d.kind)) {
             return false;
@@ -608,7 +608,7 @@ impl SearchIndex {
         Some((scored, matcher))
     }
 
-    fn view(&self, ord: usize) -> DocView<'_> {
+    pub(crate) fn view(&self, ord: usize) -> DocView<'_> {
         let d = &self.meta.docs[ord];
         DocView {
             id: &d.id,
@@ -648,6 +648,20 @@ impl SearchIndex {
             }
         }
         Some(matcher)
+    }
+
+    /// Every document that holds all `words` (the last as a prefix) and that `accept` allows,
+    /// with its score. `None` when a word matches no term at all. Used by corrections.
+    pub(crate) fn matching_docs(
+        &self,
+        words: &[String],
+        accept: impl Fn(usize) -> bool,
+    ) -> Option<Vec<(u32, f32)>> {
+        if words.is_empty() {
+            return None;
+        }
+        self.score_docs(words, accept, &mut NoTimer)
+            .map(|(scored, _)| scored)
     }
 
     /// Scores every document that holds all query tokens and that `accept` allows. `None` when a

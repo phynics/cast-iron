@@ -234,9 +234,9 @@ export const quickOptions = (page: Page) => quickSearch(page).getByRole("option"
 export const quickGroup = (page: Page, name: string) =>
   quickSearch(page).getByRole("listbox", { name }).getByRole("option");
 
-/** The names of the entries that Quick search suggests, without the "See all results" row. */
+/** The names of the entries that Quick search suggests, without the "Did you mean" and "See all results" rows. */
 export async function suggestionTitles(page: Page) {
-  return quickSearch(page).locator('[role="option"]:not(.quick-search-all) .quick-search-name').allInnerTexts();
+  return quickSearch(page).locator('[role="option"]:not(.quick-search-all):not(.quick-search-correction) .quick-search-name').allInnerTexts();
 }
 
 /**
