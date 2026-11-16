@@ -668,6 +668,15 @@ function isCatchAll(node: TocNode): boolean {
   return node.title === "New entries (page order)";
 }
 
+/**
+ * Mirror of `is_listing_chapter` in `schema/books.rs`: the catch-all and the page-ordered lists.
+ * The titles are the constants `CATCH_ALL_TITLE`, `PAGE_ORDER_TITLE` and `UNPAGED_TITLE` there;
+ * change them together. A printed chapter of another book outranks them when the app picks the book that owns an entry.
+ */
+function isListingChapter(node: TocNode): boolean {
+  return isCatchAll(node) || node.title === "Page order" || node.title === "Unpaged";
+}
+
 /** Mirror of `shows_in_contents` in `views/book.rs`. */
 function shownInContents(node: TocNode, kinds: Map<string, string>): boolean {
   if (isCatchAll(node)) return false;
@@ -735,29 +744,34 @@ export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): 
 
 let cachedOwners: Map<string, string> | undefined;
 /**
- * The book the client shows an entry under: its first placement in `books.json` order.
- * A canonical entry can appear in several publications, and the reader takes the first.
+ * The book the client shows an entry under: the first book in `books.json` order that places it
+ * in a printed chapter. A listing chapter (catch-all, `Page order`, `Unpaged`) counts only for an
+ * entry no printed chapter places (`BookLookup::new` in `graph.rs`).
  */
 export function bookOwners(): Map<string, string> {
   if (!cachedOwners) {
     const owners = new Map<string, string>();
-    for (const book of bookTrees()) {
-      for (const id of bookEntryOrder(book)) if (!owners.has(id)) owners.set(id, book.source);
+    for (const listing of [false, true]) {
+      for (const book of bookTrees()) {
+        for (const id of bookEntryOrder(book, listing)) if (!owners.has(id)) owners.set(id, book.source);
+      }
     }
     cachedOwners = owners;
   }
   return cachedOwners;
 }
 
+/** The book that owns an entry, as `bookOwners` decides it. */
 export function firstBookPlacement(entryId: string): BookTree | undefined {
-  for (const book of bookTrees()) {
-    if (pathToEntry(book.chapters, entryId)) return book;
-  }
-  return undefined;
+  const source = bookOwners().get(entryId);
+  return bookTrees().find((book) => book.source === source);
 }
 
-/** Entries of a book in reading order: a node's own entry, then its children. */
-export function bookEntryOrder(book: BookTree): string[] {
+/**
+ * Entries of a book in reading order: a node's own entry, then its children. `listing` picks only
+ * the listing chapters (true) or only the printed chapters (false); omitted, both.
+ */
+export function bookEntryOrder(book: BookTree, listing?: boolean): string[] {
   const order: string[] = [];
   const walk = (nodes: TocNode[]) => {
     for (const node of nodes) {
@@ -765,7 +779,7 @@ export function bookEntryOrder(book: BookTree): string[] {
       walk(node.children ?? []);
     }
   };
-  walk(book.chapters);
+  walk(book.chapters.filter((chapter) => listing === undefined || isListingChapter(chapter) === listing));
   return order;
 }
 

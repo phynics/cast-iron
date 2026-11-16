@@ -1524,4 +1524,51 @@ mod tests {
             "legacy-source-id"
         );
     }
+
+    #[test]
+    fn a_catch_all_placement_does_not_hide_an_entry_a_curated_chapter_places() {
+        // The same builders live in `graph::tests` (`node`, `tree_of`, `catch_all`); that module is
+        // private, so this test keeps its own small copies.
+        let node = |title: &str, entry: Option<&str>, children| cast_iron_schema::BookNode {
+            title: title.into(),
+            entry: entry.map(|e| EntryId::parse(e).unwrap()),
+            anchor: None,
+            review: None,
+            collapse: false,
+            lists_children: false,
+            children,
+        };
+        let book = |source: &str, chapters| cast_iron_schema::BookTree {
+            source: source.into(),
+            title: source.into(),
+            basis: String::new(),
+            review: vec![],
+            chapters,
+        };
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![
+                book(
+                    "a",
+                    vec![node(
+                        cast_iron_schema::books::CATCH_ALL_TITLE,
+                        None,
+                        vec![
+                            node("Dwarf", Some("r/dwarf"), vec![]),
+                            node("Gnoll", Some("r/gnoll"), vec![]),
+                        ],
+                    )],
+                ),
+                book("b", vec![node("Dwarf", Some("r/dwarf"), vec![])]),
+            ],
+        });
+        let disabled: std::collections::BTreeSet<String> = ["a".to_owned()].into();
+        let hidden = |id: &str| {
+            let id = EntryId::parse(id).unwrap();
+            is_book_disabled(&disabled, canonical_book_source(Some(&lookup), &id, "a"))
+        };
+        // Book A is off and B is on: the curated placement keeps Dwarf active.
+        assert!(!hidden("r/dwarf"));
+        // Only A's catch-all places Gnoll, so it still hides with A.
+        assert!(hidden("r/gnoll"));
+    }
 }

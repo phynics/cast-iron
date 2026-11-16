@@ -3,6 +3,7 @@ import {
   cacheContents,
   contentCaches,
   count,
+  bookEntryOrder,
   bookOwners,
   bookTrees,
   buildLibraryWithoutBooks,
@@ -116,6 +117,43 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
   await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled for search and browsing.");
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+});
+
+installedTest("A hidden catch-all placement does not hide an entry that a curated chapter places in an active book", async ({ page }) => {
+  const dwarf = corpusEntry("race", "Dwarf");
+  // The bug needs this data: a book that places Dwarf only in its catch-all comes first in book
+  // order, and a curated chapter of a later book places it. Book order is the order in `books.json`.
+  const trees = bookTrees();
+  const owner = bookOwners().get(dwarf.id);
+  expect(owner, "a book owns Dwarf").toBeTruthy();
+  const on = owner as string;
+  const off = trees.find((tree) => bookEntryOrder(tree, true).includes(dwarf.id))?.source;
+  expect(off, "a catch-all chapter places Dwarf").toBeTruthy();
+  expect(bookEntryOrder(trees.find((tree) => tree.source === on)!, false), "the owner places Dwarf in a curated chapter")
+    .toContain(dwarf.id);
+  expect(trees.findIndex((tree) => tree.source === off), "the catch-all comes first in book order")
+    .toBeLessThan(trees.findIndex((tree) => tree.source === on));
+  const titleOf = (id: string | undefined) => corpus.catalog.sources.find((row: any) => row.id === id)!.title;
+
+  await installLibrary(page);
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const toggle = page.locator(`.book-directory-item[data-book-id="${off}"]`)
+    .getByRole("checkbox", { name: `Active ${titleOf(off)}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+  await expect(toggle).toBeEnabled();
+  await expect(
+    page.locator(`.book-directory-item[data-book-id="${on}"]`)
+      .getByRole("checkbox", { name: `Active ${titleOf(on)}`, exact: true }),
+  ).toBeChecked();
+
+  await page.goto(`#/browse/kind/race?l=${encodeURIComponent(groupLetter(dwarf.title))}`);
+  await expect(page.locator(".entry-list").getByRole("link", { name: dwarf.title, exact: true })).toBeVisible();
+
+  await page.goto("#/search?q=Dwarf&kind=race");
+  await waitResults(page, "Dwarf");
+  await expect(page.locator(`.results a[href="#/entry/${dwarf.id}"]`).first()).toBeVisible();
 });
 
 const adventureCategories = ["Adventure Path", "Module", "Society"];
