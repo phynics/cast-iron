@@ -1606,12 +1606,18 @@ pub fn Search() -> impl IntoView {
             ..
         } if hits.is_empty() && sections.is_empty() => {
             let _ = (groups, section_total);
+            // The correction already says to check the spelling, so the advice drops that part.
+            let advice = if correction.is_some() {
+                "Use fewer words, or clear a filter."
+            } else {
+                "Check the spelling, use fewer words, or clear a filter."
+            };
             let did_you_mean = correction.map(|fixed| did_you_mean(&state.get_untracked(), &fixed));
             view! {
                 <div class="empty">
                     <p>"No entries match."</p>
                     {did_you_mean}
-                    <p class="muted">"Check the spelling, use fewer words, or clear a filter."</p>
+                    <p class="muted">{advice}</p>
                 </div>
             }
             .into_any()

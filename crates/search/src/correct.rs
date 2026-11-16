@@ -24,8 +24,6 @@ const MAX_CHANGED_WORDS: usize = 3;
 const CANDIDATES_PER_WORD: usize = 3;
 /// Corrected queries that are searched, in order of total edit distance.
 const MAX_COMBINATIONS: usize = 6;
-/// Name terms checked for the active books when deciding whether a prefix is already a word.
-const PREFIX_PROBE: usize = 64;
 
 /// A suggested replacement for a query.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -263,10 +261,11 @@ impl SearchIndex {
             return false;
         }
         let start = names.terms.partition_point(|t| t.as_str() < word);
+        // The whole contiguous range, stopping at the first allowed carrier. A cap here would
+        // call a correct but rare prefix a typo when its only allowed completion sorts late.
         names.terms[start..]
             .iter()
             .take_while(|t| t.starts_with(word))
-            .take(PREFIX_PROBE)
             .enumerate()
             .any(|(k, _)| viable(start + k))
     }
@@ -333,9 +332,10 @@ impl SearchIndex {
     }
 }
 
-/// A word is corrected only if it is long enough and holds a letter.
+/// A word is corrected only if it is long enough and holds a letter. A number in any script
+/// (`4d6`, `١٢٣٤`) is alphanumeric but not alphabetic, so a digit string is never rewritten.
 fn is_correctable(word: &str) -> bool {
-    word.chars().count() >= MIN_WORD_LEN && word.chars().any(|c| !c.is_ascii_digit())
+    word.chars().count() >= MIN_WORD_LEN && word.chars().any(char::is_alphabetic)
 }
 
 /// Edits allowed for a word of `len` letters.

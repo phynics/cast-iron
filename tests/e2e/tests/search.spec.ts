@@ -1587,6 +1587,26 @@ installedTest("A misspelled query offers one correction, and tapping it finds Ma
   await expect(hint).toHaveText("Did you mean magic missile?");
   // The correction is a link, not a pill: underlined accent text with no border.
   const link = hint.getByRole("link", { name: "magic missile" });
+  // The correction replaces the generic advice's "Check the spelling"; a miss with no near
+  // name keeps it.
+  await expect(page.locator(".empty")).not.toContainText("Check the spelling");
+  await expect(page.locator(".empty")).toContainText("Use fewer words, or clear a filter.");
+  // The word pair is one line of text, so the 44 px target is the link's hit area (DESIGN.md):
+  // the pseudo-element is 44 px high, and a point 21 px above or below the line still hits it.
+  const target = await link.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    const hit = (dy: number) => document.elementFromPoint(x, y + dy)?.closest("a") === el;
+    return {
+      height: parseFloat(getComputedStyle(el, "::after").height),
+      above: hit(-21),
+      below: hit(21),
+    };
+  });
+  expect(target.height).toBeGreaterThanOrEqual(44);
+  expect(target.above).toBe(true);
+  expect(target.below).toBe(true);
   await expect(link).toHaveCSS("text-decoration-line", "underline");
   await expect(link).toHaveCSS("border-top-width", "0px");
 
@@ -1599,6 +1619,12 @@ installedTest("A misspelled query offers one correction, and tapping it finds Ma
   await expect(page.getByRole("button", { name: "Spells", exact: true })).toHaveAttribute("aria-pressed", "true");
   // The corrected query is strong, so no second correction follows it.
   await expect(page.getByTestId("did-you-mean")).toHaveCount(0);
+
+  // A miss that has no near name keeps the generic advice and shows no correction.
+  await page.goto("#/search?q=zzzzqqqq");
+  await waitResults(page, "zzzzqqqq");
+  await expect(page.getByTestId("did-you-mean")).toHaveCount(0);
+  await expect(page.locator(".empty")).toContainText("Check the spelling, use fewer words, or clear a filter.");
 
   // Queries that find results, and a word that is spelled right, get none.
   for (const text of ["fireball", "magic", "firebal"]) {
@@ -1630,4 +1656,28 @@ installedTest("Quick search offers the same correction as a row, and tapping it 
   await quickField(page).fill("fireball");
   await expect(quickOptions(page).first()).toBeVisible();
   await expect(quickSearch(page).getByRole("option", { name: /^Did you mean/ })).toHaveCount(0);
+});
+
+installedTest("A weak query that still finds a few entries shows the correction above them", async ({ page }) => {
+  await installLibrary(page);
+  // "sprit summoner" matches one or two entries by body text only, none named for it.
+  await page.goto("#/search?q=sprit%20summoner");
+  await waitResults(page, "sprit summoner");
+  const hint = page.getByTestId("did-you-mean");
+  await expect(hint).toHaveText("Did you mean spirit summoner?");
+  expect(await page.locator(".results > .hit").count()).toBeGreaterThan(0);
+  expect(await page.locator(".results > .hit").count()).toBeLessThanOrEqual(3);
+  // The hint comes before the list in the page, not after it.
+  const above = await hint.evaluate((el) => {
+    const list = document.querySelector(".results")!;
+    return !!(el.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  expect(above).toBe(true);
+  // No generic advice box is shown while there are results.
+  await expect(page.locator(".empty")).toHaveCount(0);
+
+  await hint.getByRole("link", { name: "spirit summoner" }).click();
+  await waitResults(page, "spirit summoner");
+  await expect(page.getByTestId("did-you-mean")).toHaveCount(0);
+  expect(await page.locator(".results > .hit").count()).toBeGreaterThan(0);
 });

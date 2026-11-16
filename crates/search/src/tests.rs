@@ -1489,3 +1489,44 @@ fn edit_distance_counts_a_swap_as_one() {
     assert_eq!(d("abcd", "wxyz", 2), None);
     assert_eq!(d("abcd", "abcdefg", 2), None);
 }
+
+#[test]
+fn a_rare_prefix_is_a_word_however_many_names_sort_before_it() {
+    // "zebr" starts "zebrzz", an allowed name. Seventy names from a turned-off book start with
+    // it too and sort first, so a probe that stopped early would call "zebr" a typo and offer
+    // the near name "zebu" instead.
+    let mut docs = vec![
+        doc("a", "Magic Zebu", "spell", "core", "x", &[]),
+        doc("b", "Zebrzz Mark", "item", "core", "x", &[]),
+    ];
+    for n in 0..70 {
+        docs.push(doc(
+            &format!("off{n}"),
+            &format!("Zebra{n:03}"),
+            "item",
+            "off",
+            "x",
+            &[],
+        ));
+    }
+    let idx = build(docs);
+    let on = |d: DocView<'_>| d.source != "off";
+    assert_eq!(
+        idx.suggest_correction("magic zebr", &Filters::default(), on),
+        None
+    );
+    // The same query does get the near name once the prefix has no allowed carrier.
+    let got = idx.suggest_correction("magic zebr", &Filters::default(), |d| d.id != "b" && on(d));
+    assert_eq!(got.map(|c| c.text).as_deref(), Some("magic zebu"));
+}
+
+#[test]
+fn a_number_in_any_script_is_never_rewritten() {
+    let idx = build(vec![
+        doc("a", "Magic 1234", "spell", "core", "x", &[]),
+        doc("b", "Magic ١٢٣٥", "spell", "core", "x", &[]),
+    ]);
+    // Each is one edit from a name, and neither is a word.
+    assert_eq!(suggest(&idx, "magic 1235"), None);
+    assert_eq!(suggest(&idx, "magic ١٢٣٤"), None);
+}
