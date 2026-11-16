@@ -4322,6 +4322,29 @@ html:has(.quick-search[open]) {
   font-weight: 600;
 }
 
+/* "Did you mean": in a Quick search row the corrected words read as a link (accent, underlined),
+   the question as plain text. On the results page the link is a `.count-action`. A row, never a
+   pill. */
+.correction-text {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.did-you-mean {
+  margin: var(--space-3) 0;
+}
+
+/* The shared hit area is derived from the line height and measured 38 px here. A line of text
+   that stays compact gets exactly the touch size, centred on the words. */
+.did-you-mean .count-action::after {
+  inset: auto -0.35rem;
+  top: 50%;
+  height: var(--touch);
+  transform: translateY(-50%);
+}
+
 /* Metadata role: one muted line. */
 .quick-search-meta {
   font-size: var(--step--1);

@@ -27,6 +27,9 @@ use std::fmt;
 use std::rc::Rc;
 use web_sys::Cache;
 
+/// How long after the search index loads its correction table is built.
+const CORRECTION_WARM_DELAY_MS: u32 = 1500;
+
 /// Parsed shards to keep in memory.
 const SHARD_CACHE: usize = 8;
 /// Parsed reverse-link shards to keep in memory.
@@ -627,6 +630,15 @@ impl Library {
         index.set_source_ranks(source_ranks(&self.0.catalog.sources));
         let index = Rc::new(index);
         *self.0.index.borrow_mut() = Some(index.clone());
+        // "Did you mean" needs the title-word table, which takes tens of milliseconds to build.
+        // Build it in its own task a moment after the index is ready, so the first misspelled
+        // query does not pay for it on the keystroke. A correction asked for sooner builds it
+        // itself; the table is built once either way.
+        let warm = index.clone();
+        leptos::task::spawn_local(async move {
+            crate::js::sleep(CORRECTION_WARM_DELAY_MS).await;
+            warm.warm_corrections();
+        });
         Ok(index)
     }
 

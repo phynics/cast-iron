@@ -695,10 +695,12 @@ pub fn check(corpus: &Corpus) -> Report {
         .collect();
 
     // `race_group` arrived after the pinned corpus, so a library that has no value anywhere is
-    // an older corpus and passes. Once one typed race carries it, every typed race must.
-    let typed_races_have_groups = corpus.entries.iter().any(|(id, stored)| {
-        id.as_str().starts_with("ref/race/") && stored.entry.race_group.is_some()
-    });
+    // an older corpus and passes. Once one race carries it, every entry of kind race must,
+    // whatever its id: a race without a group is missing from every Races list facet.
+    let races_have_groups = corpus
+        .entries
+        .values()
+        .any(|stored| stored.entry.kind == EntryKind::Race && stored.entry.race_group.is_some());
 
     check_publication_notices(corpus, &mut report);
     check_publication_series(corpus, &mut report);
@@ -774,14 +776,11 @@ pub fn check(corpus: &Corpus) -> Report {
                 ));
             }
         }
-        // The typed `ref/race/*` records are the canonical race records. A carried legacy race
-        // keeps its published id but has no group, because the data change never edits it.
-        if typed_races_have_groups
-            && entry.id.as_str().starts_with("ref/race/")
-            && entry.race_group.is_none()
-        {
+        // A race without a group is missing from the Races list facets, so it looks as if it
+        // does not exist. A carried chapter that repeats a typed race also shows up twice.
+        if races_have_groups && entry.kind == EntryKind::Race && entry.race_group.is_none() {
             report.problems.push(format!(
-                "{}: a typed race needs `race_group` ({})",
+                "{}: a race needs `race_group` ({})",
                 path.display(),
                 cast_iron_schema::RaceGroup::ALL
                     .iter()
@@ -2188,7 +2187,7 @@ mod tests {
     }
 
     #[test]
-    fn a_typed_race_needs_a_group_once_any_typed_race_has_one() {
+    fn a_race_needs_a_group_once_any_race_has_one() {
         let mut missing = rule("ref/race/hillfolk", vec![]);
         missing.kind = EntryKind::Race;
         // An older corpus has no value anywhere. It still loads, because the pin predates the
@@ -2199,20 +2198,27 @@ mod tests {
         let mut typed = missing.clone();
         typed.id = EntryId::parse("ref/race/hill-giant").unwrap();
         typed.race_group = Some(cast_iron_schema::RaceGroup::OtherRace);
-        let report = check(&corpus(vec![typed, missing]));
-        assert!(
-            report
-                .problems
-                .iter()
-                .any(|p| p.contains("needs `race_group`")),
-            "{:?}",
-            report.problems
-        );
-
         let mut carried = rule("ref/carried/old/race", vec![]);
         carried.kind = EntryKind::Race;
-        let report = check(&corpus(vec![carried]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let report = check(&corpus(vec![typed, missing, carried]));
+        // Both the typed race and the carried chapter need a group: either one without it is
+        // absent from the Races list facets.
+        let named: Vec<_> = report
+            .problems
+            .iter()
+            .filter(|p| p.contains("needs `race_group`"))
+            .collect();
+        assert_eq!(named.len(), 2, "{:?}", report.problems);
+        assert!(
+            named.iter().any(|p| p.contains("entries/race/hillfolk.md")),
+            "{named:?}"
+        );
+        assert!(
+            named
+                .iter()
+                .any(|p| p.contains("entries/carried/old/race.md")),
+            "{named:?}"
+        );
 
         let mut wrong = rule("ref/rule/x", vec![]);
         wrong.race_group = Some(cast_iron_schema::RaceGroup::CoreRace);

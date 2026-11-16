@@ -4,7 +4,9 @@ use crate::graph::{BookLookup, Relations, filtered_spell_lists};
 use crate::library::{Library, LibraryError, canonical_book_source, count_by_source};
 use cast_iron_schema::SpellLists;
 use cast_iron_schema::{EntryKind, EntryStub};
-use cast_iron_search::{BOOK_SECTION_KIND, FilterCounts, Filters, Hit, HitSummary, Query};
+use cast_iron_search::{
+    BOOK_SECTION_KIND, Correction, FilterCounts, Filters, Hit, HitSummary, Query,
+};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
@@ -120,6 +122,24 @@ impl Discovery {
     pub async fn search_summaries(&self, query: &Query) -> Result<Vec<HitSummary>, LibraryError> {
         let index = self.library.search_index().await?;
         Ok(index.search_summaries_eligible(query, |id| self.is_eligible(id)))
+    }
+    /// A corrected spelling for a query that finds little, over the entries of the active books
+    /// (and, with `sections`, the sections of active books). `None` when nothing needs fixing
+    /// or no near name is in an active book. The caller keeps its own filters and scope.
+    pub async fn suggest_correction(
+        &self,
+        text: &str,
+        filters: &Filters,
+        sections: bool,
+    ) -> Result<Option<Correction>, LibraryError> {
+        let index = self.library.search_index().await?;
+        Ok(index.suggest_correction(text, filters, |doc| {
+            if doc.kind == BOOK_SECTION_KIND {
+                sections && self.library.book_active(doc.source)
+            } else {
+                self.is_eligible(doc.id)
+            }
+        }))
     }
     /// Ranking data for book-section documents in active books, without snippets. A section
     /// document is not an entry id, so it is accepted by its kind and its book's state instead
