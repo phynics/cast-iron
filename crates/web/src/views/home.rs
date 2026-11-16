@@ -12,7 +12,7 @@ use leptos::task::spawn_local;
 use std::collections::BTreeSet;
 
 /// Starred rows shown before the reader asks for the rest.
-const STARRED_PREVIEW: usize = 5;
+const STARRED_PREVIEW: usize = 6;
 
 /// What one Home row shows.
 struct RowData {
