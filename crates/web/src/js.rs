@@ -166,3 +166,26 @@ pub const INSTALL_CHANGE_EVENT: &str = "cast-iron:install-change";
 pub async fn prompt_install() -> Option<String> {
     prompt_install_js().await.ok().and_then(|v| v.as_string())
 }
+
+/// Writes `text` to the clipboard with `navigator.clipboard.writeText`. The call goes through
+/// reflection, so it needs no bridge code and no unstable `web-sys` API. It fails when the
+/// page has no clipboard (an insecure context) or the browser refuses.
+pub async fn copy_text(text: &str) -> Result<(), String> {
+    let window = web_sys::window().ok_or("There is no window.")?;
+    let clipboard = Reflect::get(&window.navigator(), &JsValue::from_str("clipboard"))
+        .map_err(|e| describe(&e))?;
+    if clipboard.is_undefined() || clipboard.is_null() {
+        return Err("This browser has no clipboard here.".to_string());
+    }
+    let write: Function = Reflect::get(&clipboard, &JsValue::from_str("writeText"))
+        .map_err(|e| describe(&e))?
+        .dyn_into()
+        .map_err(|_| "This browser cannot copy here.".to_string())?;
+    let promise: Promise = write
+        .call1(&clipboard, &JsValue::from_str(text))
+        .map_err(|e| describe(&e))?
+        .dyn_into()
+        .map_err(|_| "This browser cannot copy here.".to_string())?;
+    JsFuture::from(promise).await.map_err(|e| describe(&e))?;
+    Ok(())
+}
