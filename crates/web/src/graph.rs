@@ -4,6 +4,7 @@
 //! these types, parsed once. Every function that walks a graph has a cycle guard and a size cap,
 //! because the data is untrusted input.
 
+use cast_iron_schema::books::is_catch_all;
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, EntryId, Inline, RelationIndex, RelationKind,
     SpellListClass, SpellListDetail, SpellLists,
@@ -741,7 +742,6 @@ impl BookLookup {
     }
 }
 
-use cast_iron_schema::books::is_catch_all;
 pub use cast_iron_schema::books::{ChapterId, chapter_base, chapter_ids, node_at_path};
 
 /// The node at a path, or `None` when the path leaves the tree.

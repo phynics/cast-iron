@@ -1515,6 +1515,8 @@ mod tests {
 
     #[test]
     fn a_catch_all_placement_does_not_hide_an_entry_a_curated_chapter_places() {
+        // The same builders live in `graph::tests` (`node`, `tree_of`, `catch_all`); that module is
+        // private, so this test keeps its own small copies.
         let node = |title: &str, entry: Option<&str>, children| cast_iron_schema::BookNode {
             title: title.into(),
             entry: entry.map(|e| EntryId::parse(e).unwrap()),

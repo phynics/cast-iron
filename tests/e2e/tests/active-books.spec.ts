@@ -124,7 +124,9 @@ installedTest("A hidden catch-all placement does not hide an entry that a curate
   // The bug needs this data: a book that places Dwarf only in its catch-all comes first in book
   // order, and a curated chapter of a later book places it. Book order is the order in `books.json`.
   const trees = bookTrees();
-  const on = bookOwners().get(dwarf.id)!;
+  const owner = bookOwners().get(dwarf.id);
+  expect(owner, "a book owns Dwarf").toBeTruthy();
+  const on = owner as string;
   const off = trees.find((tree) => bookEntryOrder(tree, true).includes(dwarf.id))?.source;
   expect(off, "a catch-all chapter places Dwarf").toBeTruthy();
   expect(bookEntryOrder(trees.find((tree) => tree.source === on)!, false), "the owner places Dwarf in a curated chapter")
