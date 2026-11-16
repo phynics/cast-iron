@@ -931,3 +931,31 @@ export function featLeadsTo(moreThan = 5, eligible?: Set<string>): Map<string, n
   }
   return out;
 }
+
+/**
+ * Left edges and line lengths for the desktop column alignment checks (#406). One measure for
+ * every spec: `content` is the main column's width without its padding, `footer` holds each
+ * footer paragraph, and `measure` is 44rem in pixels at the document's root font size. It waits
+ * for the header, the page heading (or `titleSelector`) and the footer before reading.
+ */
+export async function columnEdges(page: Page, titleSelector = "main h1") {
+  await page.locator("header.app-header .brand").waitFor();
+  await page.locator(titleSelector).first().waitFor();
+  await page.locator("footer.app-footer p").first().waitFor();
+  return page.evaluate((title) => {
+    const left = (el: Element) => el.getBoundingClientRect().left;
+    const main = document.querySelector("main")!;
+    const style = getComputedStyle(main);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    return {
+      brand: left(document.querySelector("header.app-header .brand")!),
+      title: left(document.querySelector(title)!),
+      content: main.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+      footer: [...document.querySelectorAll("footer.app-footer p")].map((p) => ({
+        left: left(p),
+        width: p.getBoundingClientRect().width,
+      })),
+      measure: 44 * rem,
+    };
+  }, titleSelector);
+}
