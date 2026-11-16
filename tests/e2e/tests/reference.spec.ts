@@ -634,7 +634,7 @@ test("Entry reading puts rules first and exposes requirement links", async ({ pa
   for (const relation of (feat.relations ?? []).filter((candidate: any) => candidate.kind === "prerequisite")) {
     const target = corpus.entries.get(relation.target);
     if (!target) continue;
-    await expect(requirements.getByRole("link", { name: target.title, exact: true }).first()).toBeVisible();
+    await expect(requirements.locator(`a[href="#/entry/${target.id}"]`)).toBeVisible();
   }
 
   // A prestige class keeps its category crumb and its publication link.
