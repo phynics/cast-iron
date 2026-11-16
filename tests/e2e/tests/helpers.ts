@@ -735,29 +735,34 @@ export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): 
 
 let cachedOwners: Map<string, string> | undefined;
 /**
- * The book the client shows an entry under: its first placement in `books.json` order.
- * A canonical entry can appear in several publications, and the reader takes the first.
+ * The book the client shows an entry under: the first book in `books.json` order that places it
+ * in a curated chapter. A catch-all chapter counts only for an entry no curated chapter places
+ * (`BookLookup::new` in `graph.rs`).
  */
 export function bookOwners(): Map<string, string> {
   if (!cachedOwners) {
     const owners = new Map<string, string>();
-    for (const book of bookTrees()) {
-      for (const id of bookEntryOrder(book)) if (!owners.has(id)) owners.set(id, book.source);
+    for (const catchAll of [false, true]) {
+      for (const book of bookTrees()) {
+        for (const id of bookEntryOrder(book, catchAll)) if (!owners.has(id)) owners.set(id, book.source);
+      }
     }
     cachedOwners = owners;
   }
   return cachedOwners;
 }
 
+/** The book that owns an entry, as `bookOwners` decides it. */
 export function firstBookPlacement(entryId: string): BookTree | undefined {
-  for (const book of bookTrees()) {
-    if (pathToEntry(book.chapters, entryId)) return book;
-  }
-  return undefined;
+  const source = bookOwners().get(entryId);
+  return bookTrees().find((book) => book.source === source);
 }
 
-/** Entries of a book in reading order: a node's own entry, then its children. */
-export function bookEntryOrder(book: BookTree): string[] {
+/**
+ * Entries of a book in reading order: a node's own entry, then its children. `catchAll` picks only
+ * the compiler's catch-all chapter (true) or only the curated chapters (false); omitted, both.
+ */
+export function bookEntryOrder(book: BookTree, catchAll?: boolean): string[] {
   const order: string[] = [];
   const walk = (nodes: TocNode[]) => {
     for (const node of nodes) {
@@ -765,7 +770,7 @@ export function bookEntryOrder(book: BookTree): string[] {
       walk(node.children ?? []);
     }
   };
-  walk(book.chapters);
+  walk(book.chapters.filter((chapter) => catchAll === undefined || isCatchAll(chapter) === catchAll));
   return order;
 }
 

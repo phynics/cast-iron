@@ -673,8 +673,9 @@ pub(crate) fn demote_headings(block: &Block) -> Block {
 // ---- book order -------------------------------------------------------------------------
 
 /// `books.json` with each entry's first placement indexed. Every entry holds one canonical book
-/// (the first book that places it in book order), so the map answers "where is this?" without a
-/// second walk. The Contents reading order itself lives in [`crate::reading`], built per active
+/// (the first book that places it in a curated chapter, in book order; a catch-all chapter counts
+/// only for an entry that no curated chapter places), so the map answers "where is this?" without
+/// a second walk. The Contents reading order itself lives in [`crate::reading`], built per active
 /// library because it depends on the catalog kinds.
 #[derive(Debug, Clone, Default)]
 pub struct BookLookup {
@@ -686,10 +687,21 @@ pub struct BookLookup {
 impl BookLookup {
     pub fn new(index: BookIndex) -> Self {
         let mut places = HashMap::new();
+        // The catch-all chapter is hidden from Contents, so it owns an entry only when no curated
+        // chapter of any book places it (#394).
+        let mut catch_all = HashMap::new();
         for (book_i, book) in index.books.iter().enumerate() {
             for chapter in &book.chapters {
-                place(chapter, book_i, &mut places);
+                let target = if is_catch_all(chapter) {
+                    &mut catch_all
+                } else {
+                    &mut places
+                };
+                place(chapter, book_i, target);
             }
+        }
+        for (entry, book) in catch_all {
+            places.entry(entry).or_insert(book);
         }
         Self { index, places }
     }
@@ -698,7 +710,8 @@ impl BookLookup {
         &self.index.books
     }
 
-    /// Canonical source ID for an entry's curated book placement, when it has one.
+    /// Canonical source ID for an entry: the first book in book order that places it in a curated
+    /// chapter, else the first book whose catch-all chapter places it.
     pub fn source_for_entry(&self, id: &EntryId) -> Option<&str> {
         let book = *self.places.get(id)?;
         self.index.books.get(book).map(|book| book.source.as_str())
@@ -728,6 +741,7 @@ impl BookLookup {
     }
 }
 
+use cast_iron_schema::books::is_catch_all;
 pub use cast_iron_schema::books::{ChapterId, chapter_base, chapter_ids, node_at_path};
 
 /// The node at a path, or `None` when the path leaves the tree.
@@ -742,7 +756,8 @@ pub fn node_at<'a>(book: &'a BookTree, path: &[usize]) -> Option<&'a BookNode> {
 
 fn place(node: &BookNode, book: usize, places: &mut HashMap<EntryId, usize>) {
     if let Some(entry) = &node.entry {
-        // A second place for the same entry is ignored; the first one in book order wins.
+        // A second place for the same entry is ignored; the first one in book order wins. The
+        // caller keeps curated and catch-all placements apart.
         places.entry(entry.clone()).or_insert(book);
     }
     for child in &node.children {
@@ -1382,6 +1397,61 @@ mod tests {
             duplicate.source_for_entry(&id("shared/entry")),
             Some("first")
         );
+    }
+
+    fn tree_of(source: &str, chapters: Vec<BookNode>) -> BookTree {
+        BookTree {
+            source: source.into(),
+            title: source.into(),
+            basis: String::new(),
+            review: vec![],
+            chapters,
+        }
+    }
+
+    fn catch_all(entries: &[&str]) -> BookNode {
+        node(
+            cast_iron_schema::books::CATCH_ALL_TITLE,
+            None,
+            entries.iter().map(|e| node(e, Some(e), vec![])).collect(),
+        )
+    }
+
+    #[test]
+    fn a_curated_placement_beats_an_earlier_catch_all_placement() {
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![
+                tree_of("a", vec![catch_all(&["r/dwarf", "r/lonely"])]),
+                tree_of(
+                    "b",
+                    vec![node(
+                        "Races",
+                        None,
+                        vec![node("Dwarf", Some("r/dwarf"), vec![])],
+                    )],
+                ),
+            ],
+        });
+        assert_eq!(lookup.source_for_entry(&id("r/dwarf")), Some("b"));
+        // An entry that only a catch-all places keeps that book.
+        assert_eq!(lookup.source_for_entry(&id("r/lonely")), Some("a"));
+    }
+
+    #[test]
+    fn book_order_still_decides_between_curated_placements_and_between_catch_alls() {
+        let curated = |entry: &str| vec![node("Chapter", Some(entry), vec![])];
+        let lookup = BookLookup::new(BookIndex {
+            books: vec![
+                tree_of(
+                    "a",
+                    vec![catch_all(&["x/both"]), node("C", Some("x/two"), vec![])],
+                ),
+                tree_of("b", curated("x/two")),
+                tree_of("c", vec![catch_all(&["x/both"])]),
+            ],
+        });
+        assert_eq!(lookup.source_for_entry(&id("x/two")), Some("a"));
+        assert_eq!(lookup.source_for_entry(&id("x/both")), Some("a"));
     }
 
     #[test]
