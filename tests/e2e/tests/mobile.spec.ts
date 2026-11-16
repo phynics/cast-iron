@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
+import { differingPixels } from "./png-diff";
 import { bookTrees, firstEntry, hasBlock, headingAnchors, installLibrary, openBookGroups, openQuickSearch, quickField, quickGroup, searchIcon, seedHome, waitResults } from "./helpers";
 
 // Runs in the mobile-chromium project (390 px wide). Layout rules live in docs/decisions.md.
@@ -1003,6 +1004,155 @@ installedTest("Creatures at 390 px: two filter menus and the first row in the fi
   await page.keyboard.press("Escape");
   await expect(panel).toBeHidden();
   await expect(typeButton).toBeFocused();
+});
+
+/** A table that fits may differ in a few fringe pixels; a table that scrolls differs by thousands. */
+const CUE_TOLERANCE_PIXELS = 50;
+
+/**
+ * Whether the scroll cues of a progression table paint anything. The wrap's own background carries
+ * both cues (the pinned-edge line and shadow, and the right-edge shadow), so the check screenshots
+ * the wrap, paints the same wrap with a plain surface background, and counts the pixels that
+ * differ. A table that fits stays within `CUE_TOLERANCE_PIXELS`. A pseudo-element on a header
+ * cell counts as a cue.
+ */
+async function cuePaints(page: Page, wrap: Locator): Promise<boolean> {
+  // A cue drawn on a pinned cell itself (a pseudo-element) would show whether or not the table
+  // scrolls, so no header cell may have one.
+  const pseudo = await wrap.evaluate((el) =>
+    [...el.querySelectorAll("th")].flatMap((th) => [getComputedStyle(th, "::before").content, getComputedStyle(th, "::after").content]));
+  if (pseudo.some((content) => content !== "none" && content !== "normal")) return true;
+  await wrap.scrollIntoViewIfNeeded();
+  const top = (await wrap.boundingBox())!.y;
+  await page.evaluate((delta) => window.scrollBy({ top: delta, behavior: "instant" }), top - 120);
+  // Wait until the box has stopped moving before the screenshot.
+  let box = (await wrap.boundingBox())!;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(50);
+    const next = (await wrap.boundingBox())!;
+    const still = next.x === box.x && next.y === box.y && next.width === box.width && next.height === box.height;
+    box = next;
+    if (still) break;
+  }
+  // Inset from the rounded corners, whose antialiasing differs between a layered and a plain background.
+  const clip = { x: box.x + 8, y: box.y + 8, width: box.width - 16, height: Math.min(box.height, 400) - 8 };
+  const cued = await page.screenshot({ clip });
+  await wrap.evaluate((el) => el.style.setProperty("background", "var(--surface)", "important"));
+  const plain = await page.screenshot({ clip });
+  await wrap.evaluate((el) => el.style.removeProperty("background"));
+  return differingPixels(cued, plain) > CUE_TOLERANCE_PIXELS;
+}
+
+installedTest("Class progression at 390 px: Level stays pinned, the core columns fit, and spells per day sits in a disclosure", async ({ page }) => {
+  await installLibrary(page);
+  const overflow = () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+
+  await page.goto("#/entry/ref/class/wizard");
+  const table = page.locator(".progression-table").first();
+  await expect(table).toBeVisible();
+  const wrap = page.locator(".table-wrap:has(> .progression-table)").first();
+  await wrap.scrollIntoViewIfNeeded();
+
+  // Level, Base Attack Bonus, the three saves and Special all sit inside the viewport.
+  const headers = table.locator("thead th");
+  await expect(headers).toHaveText(["Level", "Base Attack Bonus", "Fort Save", "Ref Save", "Will Save", "Special"]);
+  for (let i = 0; i < 6; i++) {
+    const box = (await headers.nth(i).boundingBox())!;
+    expect(box.x, `column ${i} starts on screen`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `column ${i} ends on screen`).toBeLessThanOrEqual(390);
+  }
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  expect(await wrap.evaluate((el) => el.scrollWidth - el.clientWidth), "the core table needs no sideways scroll").toBeLessThanOrEqual(0);
+  expect(await cuePaints(page, wrap), "Wizard's core table fits and shows no cue").toBe(false);
+
+  // The spell columns are not in this table; they sit in a closed disclosure with the slot table.
+  const disclosure = page.locator("details.progression-spells").first();
+  await expect(disclosure.locator("summary")).toHaveText("Spells per day");
+  expect((await disclosure.locator("summary").boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expect(disclosure).not.toHaveAttribute("open", "");
+  await disclosure.locator("summary").click();
+  const slots = disclosure.locator(".progression-table");
+  await expect(slots).toBeVisible();
+  await expect(slots.locator("thead th")).toHaveText(["Level", "0", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]);
+  await expect(slots.locator("tbody tr")).toHaveCount(20);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  expect(await cuePaints(page, disclosure.locator(".table-wrap")), "Wizard's slot table fits and shows no cue").toBe(false);
+
+  // The spell columns are out of the core table, so a Wizard needs no sideways scroll. Monk has
+  // four more columns, so its table scrolls. Level keeps its left edge and its opaque background
+  // while the other columns move under it.
+  await page.goto("#/entry/ref/class/monk");
+  const monk = page.locator(".table-wrap:has(> .progression-table)").first();
+  await expect(monk).toBeVisible();
+  await monk.scrollIntoViewIfNeeded();
+  expect(await monk.evaluate((el) => el.scrollWidth - el.clientWidth), "Monk's table scrolls").toBeGreaterThan(100);
+  const pinned = monk.locator("tbody tr").nth(9).locator("th").first();
+  await expect(pinned).toHaveText("10th");
+  const before = (await pinned.boundingBox())!;
+  const lastBefore = (await monk.locator("tbody tr").nth(9).locator("td").last().boundingBox())!;
+  await monk.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  const after = (await pinned.boundingBox())!;
+  const lastAfter = (await monk.locator("tbody tr").nth(9).locator("td").last().boundingBox())!;
+  expect(lastAfter.x, "the other columns moved").toBeLessThan(lastBefore.x - 100);
+  expect(Math.abs(after.x - before.x), "Level keeps its left edge").toBeLessThanOrEqual(1);
+  const background = await pinned.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(background, "pinned cell is opaque").not.toMatch(/rgba|transparent|\//);
+  // The pinned edge and its shadow show once the content has scrolled away from the start, and
+  // not before: at the end of the scroll only the left cue paints.
+  expect(await cuePaints(page, monk), "Monk's scrolled table shows its cues").toBe(true);
+  await monk.evaluate((el) => { el.scrollLeft = 0; });
+  expect(await cuePaints(page, monk), "Monk at the start shows the right-edge cue").toBe(true);
+  await monk.evaluate((el) => { el.scrollLeft = el.scrollWidth; });
+  const headBackground = await monk.locator("thead th").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(headBackground, "pinned header is opaque").not.toMatch(/rgba|transparent|\//);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+
+  // A non-caster has no disclosure, and its core columns fit as well.
+  await page.goto("#/entry/ref/class/fighter");
+  await expect(page.locator(".progression-table").first()).toBeVisible();
+  await expect(page.locator("details.progression-spells")).toHaveCount(0);
+  expect(await overflow()).toBeLessThanOrEqual(0);
+  // Special keeps at least 90 px, and the iterative attack bonus of level 20 takes one value per
+  // line: four lines, all at one left edge, none broken inside a value.
+  const fighter = page.locator(".table-wrap:has(> .progression-table)").first();
+  expect((await fighter.locator("thead th").last().boundingBox())!.width, "Special width").toBeGreaterThanOrEqual(90);
+  const parts = await fighter.locator("tbody tr").last().locator("td").first().locator(".atk").evaluateAll(
+    (nodes) => nodes.map((n) => { const r = n.getBoundingClientRect(); return { text: n.textContent, x: r.x, y: r.y, h: r.height }; }));
+  expect(parts.map((p) => p.text)).toEqual(["+20/", "+15/", "+10/", "+5"]);
+  const xs = parts.map((p) => p.x);
+  expect(Math.max(...xs) - Math.min(...xs), "one left edge").toBeLessThanOrEqual(1);
+  for (let i = 1; i < parts.length; i++) {
+    expect(Math.abs(parts[i].y - (parts[i - 1].y + parts[i - 1].h)), `value ${i} follows the previous line`).toBeLessThanOrEqual(1);
+  }
+  // A two-part bonus (level 6, +6/+1) stays on one line while it fits.
+  const two = await fighter.locator("tbody tr").nth(5).locator("td").first().locator(".atk").evaluateAll(
+    (nodes) => nodes.map((n) => ({ text: n.textContent, y: n.getBoundingClientRect().y })));
+  expect(two.map((p) => p.text)).toEqual(["+6/", "+1"]);
+  expect(Math.abs(two[0].y - two[1].y), "+6/+1 on one line").toBeLessThanOrEqual(1);
+  // A table that fits shows no scroll cue, in either theme.
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    expect(await cuePaints(page, fighter), `Fighter ${scheme}: no cue on a table that fits`).toBe(false);
+  }
+});
+
+installedTest("Class progression at 1280 px: the spells table has the core table's type size", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await installLibrary(page);
+  await page.goto("#/entry/ref/class/wizard");
+  const core = page.locator(".progression-table").first();
+  await expect(core).toBeVisible();
+  const disclosure = page.locator("details.progression-spells").first();
+  await disclosure.locator("summary").click();
+  const size = (table: Locator) => table.evaluate((el) => getComputedStyle(el).fontSize);
+  expect(await size(disclosure.locator(".progression-table"))).toBe(await size(core));
+  // Nothing scrolls at this width, so neither table shows a cue.
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    expect(await cuePaints(page, page.locator(".table-wrap:has(> .progression-table)").first()), `core ${scheme}`).toBe(false);
+    expect(await cuePaints(page, disclosure.locator(".table-wrap")), `slots ${scheme}`).toBe(false);
+  }
 });
 
 installedTest("Spell list at 390 px: the name field clears the filter row, and a long scope wraps in the Quick search pill", async ({ page }) => {

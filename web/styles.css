@@ -2120,6 +2120,144 @@ mark {
   background: color-mix(in srgb, var(--surface-2) 45%, transparent);
 }
 
+/* Class progression: Level stays pinned while the table scrolls, and the spell columns sit in a
+   disclosure below. Pinned cells are opaque, so a cell that scrolls under them never shows through.
+   Both scroll cues are the scroll-shadow technique, with no script. A shadow gradient is fixed to
+   the scroll box (`scroll`); a solid cover of the same size moves with the content (`local`) and
+   hides it while the content has not moved from that edge (the cover is 2 px larger, so the
+   shadow's antialiased edge never shows). `--pin-w` must equal the width of the sticky first
+   column (`width` and `min-width` below): the cue sits at that column's right edge, so a Level
+   column that grew past it would put the cue under the cell. So a table that fits shows no cue, and
+   a table that scrolls shows a 2 px edge and a short shadow beside the pinned Level column, and a
+   shadow at the right edge until the end. `--pin-w` is the width of the pinned column. */
+.table-wrap:has(> .progression-table) {
+  --pin-w: 3rem;
+  background:
+    linear-gradient(var(--surface), var(--surface)) right / calc(1.5rem + 2px) 100% no-repeat local,
+    linear-gradient(var(--surface), var(--surface)) left calc(var(--pin-w) - 1px) top / calc(0.5rem + 2px) 100% no-repeat local,
+    linear-gradient(to left, var(--shadow-edge), transparent) right / 1.5rem 100% no-repeat scroll,
+    linear-gradient(to right, var(--ink-muted) 0 2px, var(--shadow-edge) 2px, transparent 100%) left var(--pin-w) top / 0.5rem 100% no-repeat scroll,
+    var(--surface);
+}
+
+.progression-table {
+  width: 100%;
+  min-width: 0;
+}
+
+.progression-table th,
+.progression-table td {
+  padding: 0.35rem var(--space-1);
+  max-width: 14rem;
+}
+
+/* The first column after Level keeps clear of the pinned edge. */
+.progression-table :is(th, td):nth-child(2) {
+  padding-left: 0.5rem;
+}
+
+.progression-table .atk {
+  white-space: nowrap;
+}
+
+/* A phone: tighter cells and header type give Special more room, and a bonus of three or more
+   parts takes one line per part, so the breaks are even and never inside a value. A two-part
+   bonus stays on one line while it fits. The slot table is all short numbers, so it gets a
+   smaller size too; from 30rem up both tables share the rules-table size. */
+@media (max-width: 30rem) {
+  .progression-table th,
+  .progression-table td {
+    padding-inline: 0.1875rem;
+  }
+
+  .progression-table :is(th, td):nth-child(2) {
+    padding-left: 0.5rem;
+  }
+
+  .progression-table thead th {
+    font-size: 0.8125rem;
+  }
+
+  .progression-table .atk-stack {
+    display: block;
+  }
+
+  /* The blocks already break; the break hint would add an empty line between them. */
+  .progression-table .atk-stack + wbr {
+    display: none;
+  }
+
+  .progression-spells .progression-table {
+    font-size: 0.8125rem;
+  }
+}
+
+.progression-table thead th:not(:first-child) {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+
+.progression-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: var(--pin-w);
+  min-width: var(--pin-w);
+  background: var(--surface);
+  white-space: nowrap;
+}
+
+.progression-table thead th:first-child {
+  background: var(--surface-2);
+  z-index: 2;
+}
+
+.progression-table tbody tr:nth-child(even) :is(th, td):first-child {
+  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface));
+}
+
+.progression-spells {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+}
+
+.progression-spells > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.progression-spells > summary::-webkit-details-marker {
+  display: none;
+}
+
+.progression-spells > summary::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+
+.progression-spells[open] > summary {
+  /* Room for the focus ring above the table. */
+  margin-bottom: var(--space-1);
+}
+
+.progression-spells[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progression-spells > summary::before {
+    transition: none;
+  }
+}
+
 .entry-refs {
   margin-top: var(--space-6);
 }
