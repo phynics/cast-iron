@@ -81,6 +81,54 @@ test("spell lists filter by class, level, and query; search supports source filt
   }
 });
 
+test("numbered spell series list each member at its own level (#402)", async ({ page }) => {
+  const sna = (n: number) => `ref/spell/summon-natures-ally-${n}`;
+  const sm = (n: number) => `ref/spell/summon-monster-${n}`;
+  const levelOf = (id: string, cls: string) =>
+    corpus.entries.get(id)!.fields.levels.find((row: any) => row.class === cls)?.level;
+  // The compiled corpus must already hold the printed levels, not the base spell's.
+  expect(levelOf(sna(2), "Druid")).toBe(2);
+  expect(levelOf(sna(5), "Druid")).toBe(5);
+  expect(levelOf(sna(9), "Druid")).toBe(9);
+  expect(levelOf(sm(2), "Wizard")).toBe(2);
+
+  // A spell row at a level, selected by the exact entry, since titles repeat across books.
+  const row = (level: number, id: string) =>
+    page.locator(`.level-group[data-level="${level}"] .spell-rows a[href="#/entry/${id}"]`);
+  const openLevel = async (cls: string, level: number) => {
+    await page.goto(`#/spells/${cls}/${level}`);
+    await expect(page.getByRole("heading", { name: `${cls} spells, level ${level}`, level: 1 })).toBeVisible();
+  };
+
+  // Druid: each Summon Nature's Ally sits at its own level only.
+  await openLevel("Druid", 1);
+  await expect(row(1, sna(1))).toHaveCount(1);
+  for (const n of [2, 5, 9]) await expect(row(1, sna(n))).toHaveCount(0);
+  await openLevel("Druid", 2);
+  await expect(row(2, sna(2))).toHaveCount(1);
+  await openLevel("Druid", 5);
+  await expect(row(5, sna(5))).toHaveCount(1);
+  await openLevel("Druid", 9);
+  await expect(row(9, sna(9))).toHaveCount(1);
+
+  // Wizard: Summon Monster II sits at level 2 and not at level 1.
+  await openLevel("Wizard", 1);
+  await expect(row(1, sm(1))).toHaveCount(1);
+  await expect(row(1, sm(2))).toHaveCount(0);
+  await openLevel("Wizard", 2);
+  await expect(row(2, sm(2))).toHaveCount(1);
+
+  // The base spell's Variants panel names each variant with its own levels.
+  await page.goto(`#/entry/${sna(1)}`);
+  const section = page.locator(".rel-variants");
+  await expect(section.getByRole("heading", { name: "Variants", level: 2 })).toBeVisible();
+  for (const [id, level] of [[sna(2), 2], [sna(5), 5], [sna(9), 9]] as const) {
+    const variant = section.locator(".rel-list li").filter({ has: page.locator(`a[href="#/entry/${id}"]`) });
+    await expect(variant).toHaveCount(1);
+    await expect(variant.locator(".rel-meta")).toHaveText(new RegExp(`^Druid ${level}(,| ·)`));
+  }
+});
+
 test("feat pages preserve printed prerequisites and label alternatives honestly", async ({ page }) => {
   const dependedOn = new Set(entries.flatMap((e) => related(e, "prerequisite").map((r: any) => r.target)));
   const feat = entries.find((e) => e.kind === "feat" && e.fields.prerequisites &&
