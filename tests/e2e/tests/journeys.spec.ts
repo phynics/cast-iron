@@ -110,12 +110,12 @@ test("Home categories connect races, class options, spell levels, and reference 
   await primary.getByRole("link", { name: "Home", exact: true }).click();
   await afterRouteFrame(page);
   await category("Classes").click();
-  await page.locator(".entry-list").getByRole("link", { name: classEntry.title, exact: true }).first().click();
+  await page.locator(`.entry-list a[href="#/entry/${classEntry.id}"]`).click();
   await page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ }).waitFor();
   await page.locator(".rel-disclosure > summary").click();
-  const archetypeGroup = page.locator(".rel-group").filter({ has: page.getByRole("link", { name: archetype.title, exact: true }) });
+  const archetypeGroup = page.locator(".rel-group").filter({ has: page.locator(`a[href="#/entry/${archetype.id}"]`) });
   if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
-  await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).first().click();
+  await page.locator(`.entry-rel a[href="#/entry/${archetype.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: archetype.title })).toBeVisible();
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /An archetype of/ })).toBeVisible();
 
@@ -135,7 +135,7 @@ test("Home categories connect races, class options, spell levels, and reference 
   await expect(page.getByRole("heading", { level: 1, name: `${listClass} spells` })).toBeVisible();
   const levelName = listLevel === 0 ? "Cantrips" : `Level ${listLevel}`;
   await page.locator(".level-nav").getByRole("link", { name: new RegExp(`^${levelName},`) }).click();
-  await page.locator(".spell-rows").getByRole("link", { name: listSpell.title, exact: true }).first().click();
+  await page.locator(`.spell-rows a[href="#/entry/${listSpell.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: listSpell.title })).toBeVisible();
 
   // The other reference categories lead to readable entries through their displayed links.

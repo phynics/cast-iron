@@ -19,11 +19,12 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.goto(`#/entry/${race.id}`);
   await expect(page.getByRole("heading", { name: race.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Racial traits/ })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: trait.title, exact: true }).first().click();
+  // A race can list one trait from two books, so pick the link by the exact entry, not by its title.
+  await page.locator(`.entry-rel a[href="#/entry/${traitId}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${traitId.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: trait.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /racial trait of/i })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: race.title, exact: true }).first().click();
+  await page.locator(`.entry-rel a[href="#/entry/${race.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${race.id.replaceAll("/", "\\/")}$`));
 
   const classEntry = entries.find((e) => e.kind === "class" &&
@@ -32,12 +33,12 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.goto(`#/entry/${classEntry.id}`);
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ })).toBeVisible();
   await page.locator(".rel-disclosure > summary").click();
-  const archetypeGroup = page.locator(".rel-group").filter({ has: page.getByRole("link", { name: archetype.title, exact: true }) });
+  const archetypeGroup = page.locator(".rel-group").filter({ has: page.locator(`a[href="#/entry/${archetype.id}"]`) });
   if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
-  await page.locator(".entry-rel").getByRole("link", { name: archetype.title, exact: true }).first().click();
+  await page.locator(`.entry-rel a[href="#/entry/${archetype.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${archetype.id.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: /An archetype of/ })).toBeVisible();
-  await page.locator(".entry-rel").getByRole("link", { name: classEntry.title, exact: true }).first().click();
+  await page.locator(`.entry-rel a[href="#/entry/${classEntry.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${classEntry.id.replaceAll("/", "\\/")}$`));
 });
 
@@ -53,7 +54,7 @@ test("spell lists filter by class, level, and query; search supports source filt
   await page.goto(`#/spells/${encodeURIComponent(listClass)}`);
   await expect(page.getByRole("heading", { name: `${listClass} spells`, level: 1 })).toBeVisible();
   await page.locator("#list-filter").fill(spell.title);
-  await expect(page.locator(".spell-rows").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  await expect(page.locator(`.spell-rows a[href="#/entry/${spell.id}"]`)).toBeVisible();
   const matching = entries.filter((entry) => entry.kind === "spell" &&
     entry.title.toLowerCase().includes(spell.title.toLowerCase()) &&
     entry.fields?.levels?.some((level: any) => level.class === listClass));
@@ -64,7 +65,7 @@ test("spell lists filter by class, level, and query; search supports source filt
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${level}`);
   const heading = level === 0 ? `${listClass} cantrips` : `${listClass} spells, level ${level}`;
   await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
-  await expect(page.locator(".spell-rows").getByRole("link", { name: spell.title, exact: true }).first()).toBeVisible();
+  await expect(page.locator(`.spell-rows a[href="#/entry/${spell.id}"]`)).toBeVisible();
   await expect(page.locator(".level-group")).toHaveAttribute("data-level", String(level));
 
   const stub = corpus.catalog.entries.find((candidate) => candidate.id === spell.id)!;
@@ -92,7 +93,7 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   const expected = related(feat, "prerequisite");
   for (const edge of expected) {
     const target = corpus.entries.get(edge.target)!;
-    const link = page.locator(".rel-prereq").getByRole("link", { name: target.title, exact: true }).first();
+    const link = page.locator(`.rel-prereq a[href="#/entry/${target.id}"]`);
     await expect(link).toBeVisible();
     if (edge.label === "or") await expect(link.locator("xpath=..")).toContainText("or");
   }
