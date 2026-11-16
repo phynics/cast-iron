@@ -120,3 +120,48 @@ test("Footer links to the source and one report control", async ({ page }) => {
   expect(url.searchParams.get("schema-version")).toBe(String(distManifest().schema_version));
   await expect(footer.getByText("Send feedback or report a problem")).toHaveCount(0);
 });
+
+test("From 48rem up the header content shares the wide column with Home", async ({ page }) => {
+  await seedHome(page, {});
+  for (const width of [1024, 1280, 1440, 1920]) {
+    await page.setViewportSize({ width, height: 900 });
+    const edges = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      const header = document.querySelector("header.app-header")!;
+      // The last control is the right-most visible direct child; the screen-reader status span is not one.
+      const last = [...header.children]
+        .filter((el) => !el.classList.contains("sr-only"))
+        .map((el) => el.getBoundingClientRect())
+        .filter((r) => r.width > 0)
+        .pop()!;
+      return {
+        brand: rect("header.app-header .brand").left,
+        title: rect("main h1").left,
+        last: last.right,
+        grid: rect("main ul.cats").right,
+        header: header.getBoundingClientRect(),
+        viewport: document.documentElement.clientWidth,
+      };
+    });
+    expect(Math.abs(edges.brand - edges.title), `brand vs h1 at ${width}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(edges.last - edges.grid), `last control vs grid at ${width}`).toBeLessThanOrEqual(1);
+    // The background and border stay full-bleed.
+    expect(edges.header.left).toBe(0);
+    expect(edges.header.width).toBe(edges.viewport);
+  }
+
+  // Below 48rem the header keeps its own 16 px padding: the brand at 16 px, the last control 16 px
+  // short of the right edge.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const narrow = await page.evaluate(() => {
+    const header = document.querySelector("header.app-header")!;
+    const last = [...header.children]
+      .filter((el) => !el.classList.contains("sr-only"))
+      .map((el) => el.getBoundingClientRect())
+      .filter((r) => r.width > 0)
+      .pop()!;
+    return { brand: document.querySelector("header.app-header .brand")!.getBoundingClientRect().left, last: last.right };
+  });
+  expect(Math.abs(narrow.brand - 16), "brand left at 390").toBeLessThanOrEqual(1);
+  expect(Math.abs(narrow.last - 374), "last control right at 390").toBeLessThanOrEqual(1);
+});

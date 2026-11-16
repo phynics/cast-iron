@@ -1864,3 +1864,12 @@ Refs [#400](https://github.com/phynics/cast-iron/issues/400). This carries out t
 - **Deleted.** The unmounted bookmarks and collections screen, the entry-page collection picker, the collection functions of `store.rs`, the unused star import (`merge_bookmarks`), the unused single-row bookmark functions, `random_uuid`, the `Route::Bookmarks` and `Route::Collection` variants, and the CSS that only they used. Stars on Home and on the entry page are unchanged.
 - **Old addresses.** `#/bookmarks` and `#/collection/<id>` still parse to `Route::Home`, and the legacy redirect in `read_location_route` still rewrites them.
 - **Stored data stays.** The IndexedDB `collections` store is still created (the version stays 1; no migration) and is never read or written. `Bookmark` no longer has `collection_ids`: an old row still reads (serde ignores the field), and the next write of that row (a kind refresh or an id migration) drops it. The star itself is kept.
+
+## Header content follows the wide column on desktop, 2026-11-16
+
+Refs [#403](https://github.com/phynics/cast-iron/issues/403).
+
+- **From 48rem up, the header's content shares the `--wide` column.** The header's inline padding is `max(max(0, (100% - --wide) / 2) + --space-5, safe-area inset)`, the same edge `main` uses. The brand then sits at the left edge of the Home heading, and the last header control sits at the right edge of the category grid. The header background and border stay full-bleed. Below 48rem the header is unchanged. Reason: the brand at 16 px and the content at about 128 px (at 1280 px) had no shared edge.
+- **The install screen's header follows the same rule.** `installer.rs` uses `.app-header`, so at 1280 px its brand sits at 136 px while the install card, a `--measure` column, starts at 312 px. It shows only the brand: no nav, search or action. It looks like Settings does, with a wider header over a narrower column. [#406](https://github.com/phynics/cast-iron/issues/406) covers it with the other measure pages.
+- **The header aligns to `--wide` on every route.** Settings and Legal use the `--measure` column, so there the header is wider than the content. [#406](https://github.com/phynics/cast-iron/issues/406) decides how measure pages align. Reason: one header position on all routes, and no route-dependent header.
+
