@@ -803,9 +803,15 @@ export async function openBookEntry(
   // also the navigation a reader takes, so the test never invents an entry URL.
   await activate(page.locator(`a#${tocId(chapter.path)}`));
   await expect(page.getByTestId("chapter-title")).toBeVisible();
+  // Every route change moves focus to <main> on the next animation frame, which can run after
+  // the new content is visible. Wait for that move before the next key: a key sent between
+  // Playwright's focus() on a control and the frame lands on <main>, and the control never
+  // sees it (#121).
+  await expect(page.locator("main#main")).toBeFocused();
   const link = page.locator(`main a[href^="#/entry/${entryId}"]`).first();
   await expect(link).toBeVisible();
   await activate(link);
+  await expect(page.locator("main#main")).toBeFocused();
 }
 
 /** True when `path` starts with `prefix`. */
