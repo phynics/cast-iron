@@ -28,6 +28,27 @@ local to the browser profile. Existing install and update requests are
 [#8](https://github.com/phynics/cast-iron/issues/8) and
 [#9](https://github.com/phynics/cast-iron/issues/9).
 
+## Merge a pull request
+
+Merge with `scripts/merge-pr.py`, which needs Python 3 and an authenticated GitHub CLI.
+Pull requests run only the Rust checks, so the helper reads which CI the changed files
+need, using the Test scope table in [AGENTS.md](AGENTS.md):
+
+```sh
+python3 scripts/merge-pr.py PR_NUMBER FULL_HEAD_SHA          # preview
+python3 scripts/merge-pr.py PR_NUMBER FULL_HEAD_SHA --merge  # merge commit
+```
+
+It refuses a PR that is not open, does not target `main`, has a head other than the
+given SHA, or is not `CLEAN`. When any changed file needs a full CI run (any file the
+table does not name counts), it requires a successful `workflow_dispatch` run of
+`ci.yml` on that exact SHA, with these jobs green: Rust checks, Content compiler,
+Content determinism, Build the site, every Chromium shard, and Chromium report. Start
+one with `gh workflow run ci.yml --ref BRANCH`. WebKit jobs are printed and do not block.
+Otherwise the PR-event Rust checks on that SHA must pass. `--merge` runs
+`gh pr merge --merge --match-head-commit`, so it never squashes or rebases, never deletes
+the branch, and fails if the branch moved. Test it with `python3 scripts/test-merge-pr.py`.
+
 ## Review comments
 
 Start each review comment with the name of the model that wrote it, for example
