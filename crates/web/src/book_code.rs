@@ -36,6 +36,10 @@
 //!     file starts in Books order), a preset is a handful of runs.
 //!   * `1`, **bits**: Elias-gamma of `described + 1`, then one bit per slot.
 //!
+//! A code is at most [`MAX_CODE_CHARS`] characters (about 1,240). The decoder stops reading a
+//! longer text at that length, before it stores or unpacks anything, so a pasted code or a link
+//! cannot make it allocate in proportion to its own size.
+//!
 //! An Elias-gamma code of `n >= 1` is `bit_length(n) - 1` zero bits, then `n` in binary. It
 //! always contains a one, so zero padding can never be read as a number.
 
@@ -50,6 +54,16 @@ pub const VERSION: u8 = 1;
 
 /// The most slots a code may describe. A hostile code cannot ask for more memory than this.
 pub const MAX_SLOTS: u32 = cast_iron_schema::MAX_SHARE_SLOTS;
+
+/// The most payload bits a valid code can hold. Bit mode needs about `MAX_SLOTS + 26`; run mode
+/// is worst with runs of two (3 gamma bits per 2 slots), about `MAX_SLOTS * 3 / 2 + 2`. The
+/// margin covers the mode bit and the rounding.
+const MAX_PAYLOAD_BITS: usize = MAX_SLOTS as usize * 3 / 2 + 64;
+
+/// The most characters a valid code can have: the version, the payload and the check. The
+/// decoder stops reading at this length, before it stores or unpacks anything, so no input
+/// makes it allocate more than this.
+pub const MAX_CODE_CHARS: usize = MAX_PAYLOAD_BITS.div_ceil(5) + 2;
 
 /// How many characters the app shows between hyphens.
 const GROUP: usize = 4;
@@ -76,6 +90,8 @@ pub enum CodeError {
     BadCharacter(char),
     /// Fewer characters than a version, a payload character and a check.
     TooShort,
+    /// More characters than any code can have ([`MAX_CODE_CHARS`]). It is not read further.
+    TooLong,
     /// The check does not match: a typo, a missing character, or an incomplete copy.
     Checksum,
     /// The check matches, but the version is not one this app reads.
@@ -92,7 +108,10 @@ impl CodeError {
             CodeError::BadCharacter(character) => format!(
                 "A code has no “{character}”. Check it for typos. Your books did not change."
             ),
-            CodeError::TooShort | CodeError::Checksum | CodeError::Malformed => {
+            CodeError::TooShort
+            | CodeError::TooLong
+            | CodeError::Checksum
+            | CodeError::Malformed => {
                 "This code does not look right. Check it for typos or a missing part. \
                  Your books did not change."
                     .to_string()
@@ -228,7 +247,8 @@ pub fn decode(text: &str) -> Result<Shared, CodeError> {
     read_payload(&body[1..])
 }
 
-/// The character values of `text`, with separators dropped.
+/// The character values of `text`, with separators dropped. It reads at most
+/// [`MAX_CODE_CHARS`] of them.
 fn normalize(text: &str) -> Result<Vec<u8>, CodeError> {
     // A pasted link carries the code after `set=`; a bare code has no `=`.
     let text = text
@@ -252,6 +272,11 @@ fn normalize(text: &str) -> Result<Vec<u8>, CodeError> {
             .iter()
             .position(|&symbol| symbol as char == mapped)
             .ok_or(CodeError::BadCharacter(upper))?;
+        // Stop here, before the vector grows: a code is never longer than this, so a longer
+        // text is not one, whatever its check says.
+        if values.len() == MAX_CODE_CHARS {
+            return Err(CodeError::TooLong);
+        }
         values.push(value as u8);
     }
     if values.is_empty() {
@@ -609,6 +634,7 @@ mod tests {
             CodeError::Empty,
             CodeError::BadCharacter('!'),
             CodeError::TooShort,
+            CodeError::TooLong,
             CodeError::Checksum,
             CodeError::UnsupportedVersion(2),
             CodeError::Malformed,
@@ -618,5 +644,92 @@ mod tests {
                 assert!(message.contains("did not change"), "{message}");
             }
         }
+    }
+
+    /// A code of exactly `length` characters with a correct check, whose payload is zeros.
+    fn sealed_of_length(length: usize) -> String {
+        sealed([vec![1], vec![0; length - 2]].concat())
+    }
+
+    #[test]
+    fn the_longest_valid_code_is_under_the_bound() {
+        // Run mode is worst with runs of two slots: a zero-length off run, then 2048 runs of 2.
+        let mut bits = vec![false];
+        push_gamma(&mut bits, 1);
+        for _ in 0..2048 {
+            push_gamma(&mut bits, 2);
+        }
+        let code = sealed([vec![1], pack(&bits)].concat());
+        assert!(
+            code.len() <= MAX_CODE_CHARS,
+            "{} > {MAX_CODE_CHARS}",
+            code.len()
+        );
+        let read = decode(&code).unwrap();
+        assert_eq!(read.described, MAX_SLOTS);
+        assert_eq!(read.on.len(), 2048);
+        // Bit mode at the limit of slots.
+        let full = shared(MAX_SLOTS, (0..MAX_SLOTS).filter(|slot| slot % 2 == 0));
+        let code = encode_plain(&full);
+        assert!(code.len() <= MAX_CODE_CHARS);
+        assert_eq!(decode(&code), Ok(full));
+        // Nothing the encoder writes is longer than the bound.
+        assert!(
+            encode_plain(&shared(MAX_SLOTS, (0..MAX_SLOTS).filter(|s| s % 3 == 0))).len()
+                <= MAX_CODE_CHARS
+        );
+    }
+
+    #[test]
+    fn an_oversized_code_is_refused_whatever_its_check_says() {
+        // One character past the bound, with a correct check and with a wrong one.
+        let valid = sealed_of_length(MAX_CODE_CHARS + 1);
+        assert_eq!(valid.len(), MAX_CODE_CHARS + 1);
+        assert_eq!(decode(&valid), Err(CodeError::TooLong));
+        let mut invalid = valid.clone();
+        let last = invalid.pop().unwrap();
+        invalid.push(if last == '0' { '1' } else { '0' });
+        assert_eq!(decode(&invalid), Err(CodeError::TooLong));
+        // Exactly at the bound it is read as a code, and the check decides.
+        let at_bound = sealed_of_length(MAX_CODE_CHARS);
+        assert_ne!(decode(&at_bound), Err(CodeError::TooLong));
+        assert_eq!(decode(&at_bound), Err(CodeError::Malformed));
+        let mut wrong = at_bound.clone();
+        let last = wrong.pop().unwrap();
+        wrong.push(if last == '0' { '1' } else { '0' });
+        assert_eq!(decode(&wrong), Err(CodeError::Checksum));
+    }
+
+    #[test]
+    fn a_huge_text_is_refused_without_reading_it_all() {
+        // Valid characters, a million of them, and with separators between: still too long.
+        for text in [
+            "7".repeat(1_000_000),
+            "7-".repeat(500_000),
+            format!("#/books?set={}", "A".repeat(1_000_000)),
+            format!("1{}", "0".repeat(100_000)),
+        ] {
+            assert_eq!(decode(&text), Err(CodeError::TooLong));
+        }
+        // Separators do not count toward the bound.
+        let spaced = sealed_of_length(MAX_CODE_CHARS)
+            .chars()
+            .flat_map(|c| [c, '-', ' '])
+            .collect::<String>();
+        assert_ne!(decode(&spaced), Err(CodeError::TooLong));
+        // The normalizer itself stops at the bound: it never holds more than one past it.
+        assert_eq!(
+            normalize(&"7".repeat(MAX_CODE_CHARS + 1)),
+            Err(CodeError::TooLong)
+        );
+        assert_eq!(
+            normalize(&"7".repeat(MAX_CODE_CHARS)).map(|v| v.len()),
+            Ok(MAX_CODE_CHARS)
+        );
+        // A bad character before the bound is still named.
+        assert_eq!(
+            decode(&format!("!{}", "7".repeat(MAX_CODE_CHARS * 2))),
+            Err(CodeError::BadCharacter('!'))
+        );
     }
 }

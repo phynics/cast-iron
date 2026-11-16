@@ -62,6 +62,15 @@ jobs:
           key: ${{ steps.corpus.outputs.cache-primary-key }}
       - name: Release promotion safety checks
         run: python3 scripts/test-promote-release.py
+      # A share code names book slots, so sources/published-books.txt may only append to the
+      # file on the base branch. The checkout has no history, so fetch the base commit itself.
+      - name: Book slots only grow
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          cargo xtask check-book-slots --base "$BASE_SHA"
       - name: cargo xtask check
         run: cargo xtask check
 

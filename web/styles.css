@@ -3767,6 +3767,7 @@ input::placeholder {
 .share-entry input::placeholder { text-transform: none; }
 .share-form .error { margin: var(--space-3) 0 0; }
 .share-confirm { max-width: 52rem; margin-block: var(--space-3) var(--space-4); }
+.share-notice { max-width: 52rem; margin-block: var(--space-3); }
 .share-status { min-height: 0; }
 .share-status.has-status { min-height: var(--touch); }
 .share-confirm h2 { margin-block: 0 var(--space-2); }

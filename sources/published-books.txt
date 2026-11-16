@@ -5,8 +5,11 @@
 #
 # The file only grows, and its order is the data. `cargo xtask content` fails when a book of the
 # pinned corpus has no line; run `cargo xtask published-books` and commit the added lines. Never
-# edit, move or delete a line: that would change what every code already shared means. A book
-# that leaves the library keeps its line, and a code that names it is skipped on the receiver.
+# edit, move or delete a line: that would change what every code already shared means.
+# `cargo xtask check-book-slots` enforces this by comparing the file with its version on the
+# base branch (CI runs it on every pull request, and `cargo xtask check` runs it against
+# origin/main). A book that leaves the library keeps its line, and a code that names it is
+# skipped on the receiver.
 #
 # The first lines are in Books order (tier, then oldest first), so a preset is a few runs of
 # neighbouring slots and its code stays short. Later books are appended oldest first.

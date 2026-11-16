@@ -26,8 +26,12 @@ struct Panel {
     route: ReadSignal<Route>,
     /// The text in the `Enter a code` field.
     entered: RwSignal<String>,
-    /// The line under the field when a code could not be read.
+    /// The line under the field when a typed code could not be read. It sits inside the
+    /// disclosure, which the reader has open while typing.
     problem: RwSignal<Option<String>>,
+    /// An error the reader must see whatever the disclosure's state: a link that did not open a
+    /// set, or a write that failed. It sits outside the disclosure.
+    notice: RwSignal<Option<String>>,
     /// The code that waits for an answer.
     pending: RwSignal<Option<Shared>>,
     /// `Used the shared set.` and `Restored your earlier choice.`
@@ -40,10 +44,11 @@ struct Panel {
 
 impl Panel {
     /// Reads `text` as a code. A good code waits for an answer; a bad one says why and changes
-    /// nothing.
-    fn review(&self, text: &str) {
-        self.status.set(None);
-        self.undo.set(None);
+    /// nothing. Neither touches Undo: the earlier answer stays undoable until another selection
+    /// change succeeds. `from_link` puts an error outside the disclosure, which a link's reader
+    /// has not opened.
+    fn review(&self, text: &str, from_link: bool) {
+        self.notice.set(None);
         match book_code::decode(text) {
             Ok(shared) => {
                 self.problem.set(None);
@@ -52,7 +57,15 @@ impl Panel {
             }
             Err(error) => {
                 self.pending.set(None);
-                self.problem.set(Some(error.message()));
+                if from_link {
+                    self.problem.set(None);
+                    self.notice.set(Some(format!(
+                        "This link did not open a set of books. {}",
+                        error.message()
+                    )));
+                } else {
+                    self.problem.set(Some(error.message()));
+                }
             }
         }
     }
@@ -91,8 +104,7 @@ impl Panel {
                         .set(Some("Now using the shared set of books.".to_string()));
                     panel.undo.set(Some(change.inverse()));
                 }
-                // The status line is outside the disclosure, so a link's reader sees it too.
-                Err(failure) => panel.status.set(Some(format!(
+                Err(failure) => panel.notice.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
             }
@@ -162,6 +174,7 @@ pub fn ShareSet() -> impl IntoView {
         route,
         entered: RwSignal::new(String::new()),
         problem: RwSignal::new(None),
+        notice: RwSignal::new(None),
         pending: RwSignal::new(None),
         status: RwSignal::new(None),
         undo: RwSignal::new(None),
@@ -173,9 +186,9 @@ pub fn ShareSet() -> impl IntoView {
     Effect::new(move |_| {
         if let Route::BooksSet(code) = route.get() {
             linked.entered.set(String::new());
-            linked.review(&code);
+            linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
-                // A bad link has nothing left to answer.
+                // A bad link has nothing left to answer; its error stays on the page.
                 replace(&Route::Books);
             }
         }
@@ -242,8 +255,12 @@ pub fn ShareSet() -> impl IntoView {
     let status = panel.status;
     let undo_signal = panel.undo;
     let problem = panel.problem;
+    let notice = panel.notice;
     let copied = panel.copied;
     view! {
+        {move || notice.get().map(|message| view! {
+            <p class="error share-notice" role="alert" data-testid="share-notice">{message}</p>
+        })}
         {question}
         <details class="share-set">
             <summary>
@@ -272,7 +289,7 @@ pub fn ShareSet() -> impl IntoView {
                 <form class="share-form" on:submit=move |event| {
                     event.prevent_default();
                     let text = submit.entered.get_untracked();
-                    submit.review(&text);
+                    submit.review(&text, false);
                 }>
                     <label for="share-entry">"Enter a code"</label>
                     <div class="share-entry">

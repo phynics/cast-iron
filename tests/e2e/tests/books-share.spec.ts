@@ -341,10 +341,74 @@ installedTest("A typo is rejected with a clear message and changes nothing", asy
   await expect(problem).toHaveCount(0);
   // A bad link says so, shows no question, and leaves the address clean.
   await page.goto(`#/books?set=${cases[0]}`);
-  await expect(page.getByTestId("share-problem")).toContainText("This code does not look right");
+  await expect(page.getByTestId("share-notice")).toContainText("This code does not look right");
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/#\/books$/);
   await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+});
+
+installedTest("A bad link from another route explains itself while the disclosure is closed", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const good = codeFor(paizoBooks);
+  const typo = good.slice(0, 4) + (good[4] === "7" ? "8" : "7") + good.slice(5);
+  for (const bad of [typo, "7".repeat(5000), "1"]) {
+    // Arrive from another route, so Books mounts with the link and the disclosure starts closed.
+    await page.goto("#/settings");
+    await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+    await page.goto(`#/books?set=${bad}`);
+    await waitReady(page);
+    const notice = page.getByRole("alert").filter({ hasText: "This link did not open a set of books." });
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("Your books did not change");
+    await expect(page.getByTestId("share-notice")).toBeVisible();
+    // The disclosure is closed, so the error is not inside it.
+    expect(await disclosure(page).evaluate((element: HTMLDetailsElement) => element.open)).toBe(false);
+    expect(await disclosure(page).getByTestId("share-notice").count()).toBe(0);
+    await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
+    await expect(page).toHaveURL(/#\/books$/);
+    await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  }
+  // A later good link replaces the error with the question.
+  await page.goto(`#/books?set=${good}`);
+  await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
+  await expect(page.getByTestId("share-notice")).toHaveCount(0);
+});
+
+installedTest("Undo stays through a rejected typo, a bad link and a cancelled review, until another change succeeds", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const everything = codeFor(paizoBooks);
+  const undo = page.getByRole("button", { name: "Undo", exact: true });
+  await page.goto(`#/books?set=${everything}`);
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(undo).toBeVisible();
+
+  // A typo changes nothing, so Undo stays.
+  await disclosure(page).locator("summary").click();
+  await enterCode(page, everything.slice(0, -1));
+  await expect(page.getByTestId("share-problem")).toBeVisible();
+  await expect(undo).toBeVisible();
+  // So does a bad link opened on this page.
+  await page.goto(`#/books?set=${everything.slice(0, -1)}`);
+  await expect(page.getByTestId("share-notice")).toBeVisible();
+  await expect(undo).toBeVisible();
+  // Reviewing another set and cancelling changes nothing either.
+  await enterCode(page, codeFor(rulebooks));
+  await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
+  await expect(undo).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(undo).toBeVisible();
+  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+
+  // A second set that is applied replaces Undo: it now restores the set before it.
+  await enterCode(page, codeFor(more));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(countLine(more.length, "Paizo Rulebooks & More"));
+  await undo.click();
+  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(undo).toHaveCount(0);
 });
 
 installedTest("Typing is forgiving: lower case, groups, look-alikes and a pasted link", async ({ page }) => {

@@ -2,11 +2,18 @@
 //! has none.
 //!
 //! `sources/published-books.txt` lists book ids, one per line, with `#` comment lines. A book's
-//! slot is its position among the id lines, counted from 0. The file only grows: a line is never
-//! edited, moved or deleted, so a share code (`crates/web/src/book_code.rs`) keeps its meaning
-//! across library updates. The build gives each catalog source its slot (`SourceInfo.share_slot`)
-//! and fails when a source has no line. A line whose book is no longer in the library keeps its
-//! slot; a code that names it is skipped on the receiver, which is what a removed book needs.
+//! slot is its position among the id lines, counted from 0. The build gives each catalog source
+//! its slot (`SourceInfo.share_slot`) and fails when a source has no line. A line whose book is
+//! no longer in the library keeps its slot; a code that names it is skipped on the receiver,
+//! which is what a removed book needs.
+//!
+//! **Permanence is enforced outside this crate, against git history.** A share code
+//! (`crates/web/src/book_code.rs`) names slots, so an edited, moved or deleted line would change
+//! what every code already shared means. The compiler cannot see that: it trusts the file it is
+//! given. `cargo xtask check-book-slots` compares the file with its version on the base branch
+//! and fails unless every id line the base has is at the same position (only appends pass). CI
+//! runs it on every pull request with the base commit; `cargo xtask check` runs it against
+//! `origin/main`. What it does not cover is a direct push to the base branch, which skips review.
 //!
 //! Unlike `sources/published-ids.txt`, the file is not sorted: the order is the assignment.
 
