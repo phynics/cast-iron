@@ -38,12 +38,12 @@ test("Home with nothing recent and no stars shows only the teaching line", async
   await expect(page.locator(".home-hint")).toBeVisible();
 });
 
-test("Home lists up to five stars above the category directory, and See all expands the rest", async ({ page }) => {
+test("Home lists up to six stars above the category directory, and See all expands the rest", async ({ page }) => {
   const stars = pick(0, 7);
   await seedHome(page, { recents: pick(10, 2), stars });
   await expect(page.locator(".home-hint")).toHaveCount(0);
   const rows = page.locator(".home-bookmarks > li");
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(6);
   const order = await page.evaluate(() => ["home-bookmarks", "by-kind"].map((id) => document.getElementById(id)!.getBoundingClientRect().top));
   expect(order[0]).toBeLessThan(order[1]);
   const first = rows.first();
@@ -59,7 +59,7 @@ test("Home lists up to five stars above the category directory, and See all expa
   await expect(rows).toHaveCount(7);
   await expect(page.getByRole("status").filter({ hasText: "Showing all 7 starred entries" })).toHaveCount(1);
   await page.getByRole("button", { name: "Show fewer" }).first().click();
-  await expect(rows).toHaveCount(5);
+  await expect(rows).toHaveCount(6);
 });
 
 test("Unstarring from Home is one tap and the last star brings back the teaching line", async ({ page }) => {
@@ -164,4 +164,46 @@ test("From 48rem up the header content shares the wide column with Home", async 
   });
   expect(Math.abs(narrow.brand - 16), "brand left at 390").toBeLessThanOrEqual(1);
   expect(Math.abs(narrow.last - 374), "last control right at 390").toBeLessThanOrEqual(1);
+});
+
+test("Starred cells sit over the category card columns, in reading order", async ({ page }) => {
+  await seedHome(page, { stars: pick(0, 7) });
+  const columns = async () => page.evaluate(() => {
+    const box = (el: Element) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top }; };
+    return {
+      cards: [...document.querySelectorAll("main ul.cats > li")].map(box),
+      cells: [...document.querySelectorAll(".home-bookmarks > li")].map(box),
+    };
+  });
+
+  // 1280 px: three columns, and each cell has the left and right edge of a card column.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  let { cards, cells } = await columns();
+  expect(cells).toHaveLength(6);
+  const columnCount = cards.findIndex((card) => card.top !== cards[0].top);
+  expect(columnCount, "three card columns at 1280").toBe(3);
+  cells.forEach((cell, i) => {
+    const card = cards[i % 3];
+    expect(Math.abs(cell.left - card.left), `cell ${i} left`).toBeLessThanOrEqual(1);
+    expect(Math.abs(cell.right - card.right), `cell ${i} right`).toBeLessThanOrEqual(1);
+  });
+  // DOM order is the reading order: left to right along a row, then the next row.
+  expect(cells[1].left).toBeGreaterThan(cells[0].left);
+  expect(cells[2].left).toBeGreaterThan(cells[1].left);
+  expect(cells[3].top).toBeGreaterThan(cells[0].top);
+  expect(cells[3].left).toBe(cells[0].left);
+  expect(cells[3].top).toBe(cells[4].top);
+
+  // 800 px: two columns, matching the cards. 390 px: one column.
+  await page.setViewportSize({ width: 800, height: 900 });
+  ({ cards, cells } = await columns());
+  cells.forEach((cell, i) => {
+    expect(Math.abs(cell.left - cards[i % 2].left), `800 cell ${i} left`).toBeLessThanOrEqual(1);
+    expect(Math.abs(cell.right - cards[i % 2].right), `800 cell ${i} right`).toBeLessThanOrEqual(1);
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  ({ cards, cells } = await columns());
+  expect(new Set(cells.map((cell) => cell.left)).size).toBe(1);
+  expect(Math.abs(cells[0].left - cards[0].left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(cells[0].right - cards[0].right)).toBeLessThanOrEqual(1);
 });
