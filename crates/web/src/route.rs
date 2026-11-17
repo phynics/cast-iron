@@ -18,7 +18,7 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
-//! #/settings[?section=updates]       #/legal
+//! #/settings[?section=updates]       #/settings/diagnostics       #/legal
 //! ```
 
 use cast_iron_schema::{EntryId, EntryKind};
@@ -94,6 +94,9 @@ pub enum Route {
         book: Option<String>,
     },
     Settings,
+    /// Timings and storage that this device recorded, for a bug report (#423). It belongs to
+    /// Settings in the navigation.
+    Diagnostics,
     Legal,
     /// Holds the hash that did not match any route.
     NotFound(String),
@@ -329,6 +332,7 @@ impl Route {
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
             ["bookmarks"] | ["collection", _] => Route::Home,
             ["settings"] => Route::Settings,
+            ["settings", "diagnostics"] => Route::Diagnostics,
             ["legal"] => Route::Legal,
             _ => not_found(),
         }
@@ -446,6 +450,7 @@ impl Route {
                 }
             }
             Route::Settings => "#/settings".into(),
+            Route::Diagnostics => "#/settings/diagnostics".into(),
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
             Route::NotFound(_) => "#/".into(),
@@ -960,6 +965,7 @@ mod tests {
         for route in [
             Route::Home,
             Route::Settings,
+            Route::Diagnostics,
             Route::Legal,
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
@@ -1663,6 +1669,7 @@ mod tests {
     #[test]
     fn trailing_slashes_are_tolerated() {
         assert_eq!(Route::parse("#/settings/"), Route::Settings);
+        assert_eq!(Route::parse("#/settings/diagnostics/"), Route::Diagnostics);
     }
 
     #[test]

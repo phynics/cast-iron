@@ -88,9 +88,12 @@ pub fn Home() -> impl IntoView {
         let library = library.clone();
         spawn_local(async move {
             let _ = library.search_index().await;
+            crate::diagnostics::mark_index_ready();
             index_ready.try_set(true);
         });
     }
+    // Two frames on, the categories are on screen: the launch is usable (#423).
+    request_animation_frame(|| request_animation_frame(crate::diagnostics::mark_home));
     let star_error = RwSignal::new(None::<String>);
     let unstarring = RwSignal::new(false);
     let expanded = RwSignal::new(false);

@@ -8,6 +8,7 @@
 pub mod plan;
 
 use crate::content_cache::{self, FetchError};
+use crate::diagnostics::{self, InstallRecord};
 use crate::js;
 use crate::store::{self, ActiveLibrary, PendingInstall};
 use cast_iron_schema::{ContentManifest, ManifestFile};
@@ -80,8 +81,10 @@ pub async fn install(
     let plan = RefCell::new(InstallPlan::new(manifest.clone())?);
     let say = |phase: Phase| report(phase, plan.borrow().progress());
 
+    let started = diagnostics::now();
+    let started_at = js::now_ms();
     // Best effort: the answer shows in Settings.
-    let _ = js::storage_persist().await;
+    let persist_granted = js::storage_persist().await;
     store::set_pending_install(&PendingInstall {
         content_version: version.clone(),
         started_at: js::now_ms(),
@@ -94,14 +97,18 @@ pub async fn install(
         .map_err(storage_message)?;
 
     say(Phase::Scanning);
+    let scan_started = diagnostics::now();
     let file_count = plan.borrow().file_count();
+    let mut resumed_files = 0u32;
     for index in 0..file_count {
         let file = plan.borrow().file(index).clone();
         if cached_file_is_good(&cache, &file).await {
             plan.borrow_mut().mark_verified(index);
+            resumed_files += 1;
             say(Phase::Scanning);
         }
     }
+    let download_started = diagnostics::now();
 
     let needed = plan.borrow().remaining_bytes();
     let estimate = js::storage_estimate().await;
@@ -142,7 +149,9 @@ pub async fn install(
         .await
         .map_err(storage_message)?;
 
+    let verify_started = diagnostics::now();
     verify_installed(manifest, report).await?;
+    let activate_started = diagnostics::now();
 
     say(Phase::Activating);
     let active = ActiveLibrary {
@@ -155,6 +164,24 @@ pub async fn install(
     store::activate_library(&active)
         .await
         .map_err(storage_failure)?;
+
+    let finished = diagnostics::now();
+    diagnostics::record_install(InstallRecord {
+        content_version: version.clone(),
+        started_at,
+        total_ms: finished - started,
+        scan_ms: download_started - scan_started,
+        download_ms: verify_started - download_started,
+        verify_ms: activate_started - verify_started,
+        activate_ms: finished - activate_started,
+        files: u32::try_from(manifest.files.len()).unwrap_or(u32::MAX),
+        resumed_files,
+        bytes: manifest.total_bytes,
+        // What the scan left to fetch.
+        downloaded_bytes: needed,
+        persist_granted,
+        standalone: crate::pwa::detect_standalone(),
+    });
 
     // Only now is it safe to drop the previous library and any stale pending install.
     remove_other_caches(&version).await;
