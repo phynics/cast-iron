@@ -872,7 +872,11 @@ pub(crate) fn adventure_tier_section(
 /// link row per book in the tier groups. There is one order (tier order, oldest first) and no
 /// sort control. The checkboxes and the presets live on Manage books.
 #[component]
-pub fn Books() -> impl IntoView {
+pub fn Books(
+    /// The address that opened this page named a book that was removed from the library.
+    #[prop(optional)]
+    removed: bool,
+) -> impl IntoView {
     set_title("Books");
     let library = use_library();
     // Back from Manage books lands here: Done asks for focus on the link it was left from.
@@ -954,6 +958,9 @@ pub fn Books() -> impl IntoView {
     view! {
         <div class="wide">
             <h1>"Books"</h1>
+            {removed.then(|| view! {
+                <p class="error" role="alert" data-testid="book-removed">{BOOK_REMOVED_LINE}</p>
+            })}
             <p class="muted books-count" aria-live="polite">{count_line}</p>
             <div class="filter-row">
                 <a class="page-link" id=MANAGE_LINK_ID href=Route::BooksManage.href()
@@ -967,6 +974,11 @@ pub fn Books() -> impl IntoView {
         </div>
     }
 }
+
+/// The line above Books when an old address named a book that was removed from the library.
+/// Its entries are not gone: each sits in the printed book it came from.
+pub const BOOK_REMOVED_LINE: &str =
+    "That book is no longer in the library. Its entries are still in the books they came from.";
 
 /// The count at the right of a group heading: `31 books` when every book in it is active,
 /// otherwise `28 of 31 active` (including `0 of 151 active`).
@@ -1842,10 +1854,10 @@ pub fn browse_all_label(kind: EntryKind) -> String {
 }
 
 /// The notice for a source id that the library does not publish. It is never a missing page, so
-/// a bookmark survives a renamed book.
-pub fn unknown_source_notice(kind: EntryKind, source: &str) -> String {
+/// a bookmark survives a renamed book. It says what the page does instead, and shows no id.
+pub fn unknown_source_notice(kind: EntryKind) -> String {
     format!(
-        "Unknown book \"{source}\". Showing all {}.",
+        "That book isn't in your library, so this list shows all {}.",
         kind.label().to_lowercase()
     )
 }
@@ -2418,8 +2430,8 @@ fn BrowseList(
         }
     });
     let notice = unknown
-        .as_deref()
-        .map(|id| view! { <p class="notice" role="status">{unknown_source_notice(kind, id)}</p> });
+        .is_some()
+        .then(|| view! { <p class="notice" role="status">{unknown_source_notice(kind)}</p> });
     let revision_note = revisions
         .as_ref()
         .and_then(|state| state.rows().removed_note())
@@ -2484,15 +2496,7 @@ fn tree_view(nodes: &[TreeNode], stubs: &[EntryStub]) -> Vec<AnyView> {
 pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
     let library = use_library();
     let Some(source) = library.source(&id).cloned() else {
-        set_title("Publication not found");
-        return view! {
-            <div class="wide">
-            <h1>"Publication not found"</h1>
-            <p>{format!("This library has no publication {id:?}.")}</p>
-            <p><a href=Route::Home.href()>"Back to Home"</a></p>
-            </div>
-        }
-        .into_any();
+        return view! { <crate::views::book::BookUnavailable /> }.into_any();
     };
     set_title(&source.title);
     let groups = EntryKind::ALL
@@ -2657,12 +2661,12 @@ mod tests {
         );
         assert_eq!(browse_all_label(EntryKind::Spell), "Browse all spells");
         assert_eq!(
-            unknown_source_notice(EntryKind::Spell, "no-such-book"),
-            "Unknown book \"no-such-book\". Showing all spells."
+            unknown_source_notice(EntryKind::Spell),
+            "That book isn't in your library, so this list shows all spells."
         );
         assert_eq!(
-            unknown_source_notice(EntryKind::PrestigeClass, "gone"),
-            "Unknown book \"gone\". Showing all prestige classes."
+            unknown_source_notice(EntryKind::PrestigeClass),
+            "That book isn't in your library, so this list shows all prestige classes."
         );
     }
 

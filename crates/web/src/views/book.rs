@@ -104,9 +104,35 @@ pub fn review_line(review: &[String]) -> Option<&'static str> {
 pub const BOOK_OFF_LINE: &str =
     "This book is turned off. Its entries don't appear in search or lists.";
 
+/// What a book address says when the library holds no such book, in the words of a player. It
+/// mirrors `Entry unavailable`: an alert, a way to Books and a way Home, and no id.
+pub const BOOK_UNAVAILABLE_TITLE: &str = "Book unavailable";
+pub const BOOK_UNAVAILABLE_LINE: &str =
+    "This book isn't in your library. The link may be old or mistyped.";
+
+#[component]
+pub fn BookUnavailable() -> impl IntoView {
+    set_title(BOOK_UNAVAILABLE_TITLE);
+    view! {
+        <div class="wide book">
+            <h1>{BOOK_UNAVAILABLE_TITLE}</h1>
+            <div class="error" role="alert" data-testid="book-unavailable">
+                <p>{BOOK_UNAVAILABLE_LINE}</p>
+                <p>
+                    <a href=Route::Books.href()>"Browse all books"</a>" or "
+                    <a href=Route::Home.href()>"go to Home"</a>"."
+                </p>
+            </div>
+        </div>
+    }
+}
+
 #[component]
 pub fn BookView(source: String) -> impl IntoView {
     let library = use_library();
+    if library.source(&source).is_none() {
+        return view! { <BookUnavailable /> }.into_any();
+    }
     let info = library.source(&source).cloned();
     set_title(info.as_ref().map_or("Book", |s| s.title.as_str()));
     let lookup = {
@@ -279,6 +305,7 @@ pub fn BookView(source: String) -> impl IntoView {
             </footer>
         </div>
     }
+    .into_any()
 }
 
 /// One chapter page: the chapter at full width, its first-level sections as headings and every
@@ -292,6 +319,9 @@ pub fn ChapterView(
     anchor: Option<String>,
 ) -> impl IntoView {
     let library = use_library();
+    if library.source(&source).is_none() {
+        return view! { <BookUnavailable /> }.into_any();
+    }
     let lookup = {
         let library = library.clone();
         local_resource(async move { library.books().await })
@@ -403,6 +433,7 @@ pub fn ChapterView(
             }}
         </div>
     }
+    .into_any()
 }
 
 /// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.

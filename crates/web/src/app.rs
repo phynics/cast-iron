@@ -229,35 +229,49 @@ pub fn App() -> impl IntoView {
     }
 }
 
+/// What the book-choice recovery screen says, in the words of a player at the table. The
+/// engine's own text stays out of it (it sits under the technical-details disclosure), and so
+/// does every word the reader would have to look up.
+pub const RECOVERY_HEADING: &str = "Your book choices can't be read";
+pub const RECOVERY_WHAT: &str = "Cast Iron couldn't read which books you have turned on. Your downloaded library and your stars are safe.";
+pub const RECOVERY_NEXT: &str = "Try again. If that doesn't help, reset your book choices: every book turns back on, and you can change that in Manage books.";
+pub const RECOVERY_RESET_FAILED: &str =
+    "Your book choices could not be reset, so nothing was changed. Try again.";
+
 #[component]
 fn BookSelectionRecovery(active: ActiveLibrary, message: String) -> impl IntoView {
     let app = use_app();
     let busy = RwSignal::new(false);
-    let failure = RwSignal::new(None::<String>);
+    let failure = RwSignal::new(false);
     let retry = active.clone();
     view! {
-        <main id="main" class="app install-main">
-            <h1>"Book choices could not be opened"</h1>
-            <p class="error" role="alert">{message}</p>
-            <p>"Your downloaded library and stars are kept. You can retry, or reset the choices to make every book active."</p>
+        <main id="main" class="app install-main recovery-main">
+            <h1>{RECOVERY_HEADING}</h1>
+            <p class="error" role="alert">{RECOVERY_WHAT}</p>
+            <p>{RECOVERY_NEXT}</p>
             <div class="actions">
-                <button class="btn" disabled=move || busy.get() on:click=move |_| {
+                <button class="btn btn-primary" disabled=move || busy.get() on:click=move |_| {
                     busy.set(true);
                     app.activate(retry.clone());
-                }>"Retry"</button>
+                }>"Try again"</button>
                 <button class="btn" disabled=move || busy.get() on:click=move |_| {
                     if busy.get_untracked() { return; }
                     busy.set(true);
+                    failure.set(false);
                     let active = active.clone();
                     spawn_local(async move {
                         match store::set_disabled_books(&Default::default()).await {
                             Ok(()) => app.activate(active),
-                            Err(error) => { failure.set(Some(error.to_string())); busy.set(false); }
+                            Err(_) => { failure.set(true); busy.set(false); }
                         }
                     });
-                }>"Reset active books"</button>
+                }>"Reset book choices"</button>
             </div>
-            {move || failure.get().map(|error| view! { <p class="error" role="alert">{error}</p> })}
+            {move || failure.get().then(|| view! { <p class="error" role="alert">{RECOVERY_RESET_FAILED}</p> })}
+            <details class="recovery-details">
+                <summary>"Details for a bug report"</summary>
+                <p class="muted"><code>{message}</code></p>
+            </details>
         </main>
     }
 }
@@ -424,6 +438,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
             Route::Books,
             Route::Books
                 | Route::BooksSet(_)
+                | Route::BookRemoved(_)
                 | Route::BooksManage
                 | Route::Book { .. }
                 | Route::BookChapter { .. },
@@ -511,6 +526,7 @@ fn RouteView() -> impl IntoView {
             route,
             Route::Books
                 | Route::BooksSet(_)
+                | Route::BookRemoved(_)
                 | Route::BooksManage
                 | Route::Book { .. }
                 | Route::BookChapter { .. }
@@ -538,6 +554,7 @@ fn RouteView() -> impl IntoView {
         },
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
         Route::Books | Route::BooksSet(_) => view! { <Books /> }.into_any(),
+        Route::BookRemoved(_) => view! { <Books removed=true /> }.into_any(),
         Route::BooksManage => view! { <ActiveBooks /> }.into_any(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
         Route::BookChapter {

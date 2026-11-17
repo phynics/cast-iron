@@ -301,6 +301,38 @@ main {
   align-self: start;
 }
 
+/* The recovery screen reads top to bottom: the page grid would stretch its third row and push
+   the buttons away from the reassurance. */
+.recovery-main {
+  display: block;
+  min-height: 0;
+}
+
+.recovery-main .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+/* The recovery screen keeps the engine's own words behind one quiet disclosure. */
+.recovery-details {
+  margin-top: var(--space-4);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.recovery-details > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--touch);
+  cursor: pointer;
+}
+
+.recovery-details code {
+  overflow-wrap: anywhere;
+}
+
 .lede {
   font-size: var(--step-1);
   line-height: 1.4;

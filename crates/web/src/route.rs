@@ -60,6 +60,10 @@ pub enum Route {
     /// changes anything; the route only carries the code. The text is the code as written, so a
     /// typo is the page's to report, not the router's.
     BooksSet(String),
+    /// An old address of a book that the corpus deleted and that has no replacement (a blog
+    /// post, a comic issue). The page is Books with a plain line on top that says so, and the
+    /// route only carries the id the address named.
+    BookRemoved(String),
     /// One book's contents in original chapter order. `chapter` is the 0-based path of the
     /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
     Book {
@@ -247,7 +251,7 @@ impl Route {
                     }
                 }),
             ["browse", "source", id] => match percent_decode(id) {
-                Some(id) if retirement(&id) == Some(Retirement::Books) => Route::Books,
+                Some(id) if retirement(&id) == Some(Retirement::Books) => Route::BookRemoved(id),
                 Some(id) if !id.is_empty() => {
                     Route::BrowseSource(aliased_book_source(&id).to_string())
                 }
@@ -397,6 +401,7 @@ impl Route {
             Route::Books => "#/books".into(),
             Route::BooksManage => "#/books/manage".into(),
             Route::BooksSet(code) => format!("#/books?set={}", percent_encode(code)),
+            Route::BookRemoved(source) => format!("#/browse/book/{}", percent_encode(source)),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
                     "#/browse/book/{}?c={}",
@@ -561,7 +566,7 @@ fn retired_book_route(source: &str) -> Route {
             source: book.to_string(),
             chapter: None,
         },
-        _ => Route::Books,
+        _ => Route::BookRemoved(source.to_string()),
     }
 }
 
@@ -1369,21 +1374,21 @@ mod tests {
                 }
             );
         }
-        // A one-off tree has no replacement: its book, chapter and source addresses open Books.
+        // A one-off tree has no replacement: its book, chapter and source addresses open Books
+        // with a line that says the book was removed.
         for old in ["paizo-blog-sable-company-marine", "pathfinder-comics-3"] {
-            assert_eq!(Route::parse(&format!("#/browse/book/{old}")), Route::Books);
+            let removed = Route::BookRemoved(old.into());
+            assert_eq!(Route::parse(&format!("#/browse/book/{old}")), removed);
             assert_eq!(
                 Route::parse(&format!("#/browse/book/{old}/page-order")),
-                Route::Books
+                removed
             );
             assert_eq!(
                 Route::parse(&format!("#/browse/book/{old}/unpaged")),
-                Route::Books
+                removed
             );
-            assert_eq!(
-                Route::parse(&format!("#/browse/source/{old}")),
-                Route::Books
-            );
+            assert_eq!(Route::parse(&format!("#/browse/source/{old}")), removed);
+            round_trip(removed);
         }
     }
 

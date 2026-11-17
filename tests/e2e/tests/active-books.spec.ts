@@ -577,9 +577,9 @@ installedTest("Invalid book choices recover without removing the library or star
     };
   }));
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Book choices could not be opened" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Your book choices can't be read" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Download", exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Reset active books" }).click();
+  await page.getByRole("button", { name: "Reset book choices" }).click();
   await waitReady(page);
   await page.goto("#/");
   await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
