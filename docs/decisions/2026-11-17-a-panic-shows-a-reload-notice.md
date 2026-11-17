@@ -14,7 +14,7 @@ area: ui
 
 `panic_notice::install` replaces `console_error_panic_hook::set_once`. The hook still writes the
 panic to `console.error`, and adds a notice with a Reload button, built from typed DOM nodes
-outside the reactive tree.
+outside the reactive tree. The notice is a modal `<dialog>`: Quick search is a modal dialog too, anything outside the topmost modal is inert, and `z-index` cannot lift a node above the top layer, so a plain banner could not be clicked while Quick search was open. A modal opened later is the topmost one. The hook does not close the other dialog, because its close handler is reactive code.
 
 ## Why
 
@@ -38,5 +38,5 @@ uses the checked read.
 
 ## How to apply
 
-If #468 shows again, the notice and the console message hold the panic text and its source line.
+If #468 shows again, the console holds the panic text and its source line (the notice only tells the reader to reload).
 Do not remove the hook to silence a test: a test that sees `#panic-notice` found a panic.

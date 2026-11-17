@@ -58,9 +58,11 @@ for (const gap of [2500, 250, 0]) {
       await setHash(page, step.hash);
       if (gap > 0) await page.waitForTimeout(gap);
     }
-    // The last hash is the one that counts, however the burst went.
-    await expect(page.getByRole("heading", { level: 1, name: "Diagnostics" })).toBeVisible();
-    expect(await page.evaluate(() => location.hash)).toBe("#/settings/diagnostics");
+    // The burst ends on Diagnostics, where it began, so a screen stuck since the start would pass
+    // for it. One more hash, to another screen, proves that routing went on.
+    await setHash(page, "#/settings");
+    await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+    expect(await page.evaluate(() => location.hash)).toBe("#/settings");
 
     // Every step of a second, slower pass lands on its own page.
     for (const step of BURST) {

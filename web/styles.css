@@ -4943,23 +4943,21 @@ label.choice-row {
 
 /* ---- Panic notice (#468) ----------------------------------------------------------------- */
 
-/* Added by `panic_notice.rs` when the app panics. It sits over the page, outside the app. */
+/* Added by `panic_notice.rs` when the app panics: a modal dialog, so that it stays above and
+   reachable when Quick search (also a modal dialog) is open. */
 .panic-notice {
-  position: fixed;
-  inset: auto var(--space-3) var(--space-3) var(--space-3);
-  z-index: 1000;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  max-width: min(32rem, calc(100vw - 2 * var(--space-3)));
+  padding: var(--space-4);
   background: var(--error-bg);
   color: var(--ink);
   border: 1px solid var(--error);
   border-radius: var(--radius);
 }
 
+.panic-notice::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 .panic-notice p {
-  margin: 0;
-  flex: 1 1 16rem;
+  margin: 0 0 var(--space-3);
 }
