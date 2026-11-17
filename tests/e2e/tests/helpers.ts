@@ -803,9 +803,19 @@ export async function openBookEntry(
   // also the navigation a reader takes, so the test never invents an entry URL.
   await activate(page.locator(`a#${tocId(chapter.path)}`));
   await expect(page.getByTestId("chapter-title")).toBeVisible();
+  // The Reader frame moves focus to <main> on the animation frame after a Book, BookChapter or
+  // Entry route change, and that frame can run after the new content is visible. A key sent
+  // between Playwright's focus() on a control and that frame lands on <main>, and the control
+  // never sees it (#121). Focus on <main> proves nothing here: a mouse-down on a link can leave
+  // the persistent <main> focused before the frame runs. So wait for the destination to render,
+  // then for the pending frame to drain.
+  await afterRouteFrame(page);
   const link = page.locator(`main a[href^="#/entry/${entryId}"]`).first();
   await expect(link).toBeVisible();
   await activate(link);
+  // The placeholder shows the stub title in an <h1> without this test id; only the loaded view has it.
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  await afterRouteFrame(page);
 }
 
 /** True when `path` starts with `prefix`. */
