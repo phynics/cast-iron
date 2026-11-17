@@ -1,6 +1,7 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::class_options;
+use crate::class_sections::Sections;
 use crate::class_summary;
 use crate::fmt;
 use crate::js;
@@ -18,6 +19,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
+use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, source_line};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
@@ -268,10 +270,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
         _ => (id, false),
     };
     if aliased {
+        // The route that the page keys on has no section (see `RouteView`), so the section of
+        // the address is read from the live route and kept.
         let route = Route::Entry {
             id: id.clone(),
             anchor: anchor.clone(),
             book: book.clone(),
+            section: route::use_route().get_untracked().section(),
         };
         Effect::new(move |_| route::replace(&route));
     }
@@ -592,6 +597,7 @@ fn EntryView(
                 id: reference.target.clone(),
                 anchor: reference.anchor.clone(),
                 book: None,
+                section: None,
             }
             .href();
             view! {
@@ -834,7 +840,7 @@ fn EntryView(
     // A class page opens with its summary card. The printed paragraphs that the card replaces
     // leave the body, so no fact shows twice; every other paragraph stays.
     let is_class = matches!(kind, EntryKind::Class | EntryKind::PrestigeClass);
-    let (class_card, rendered_body) = match is_class && !hide_body {
+    let (class_card, rendered_body, class_sections) = match is_class && !hide_body {
         true => {
             let read = class_summary::read(&entry.fields, &entry.body);
             let list = indexes
@@ -845,13 +851,75 @@ fn EntryView(
                     name: list.name.clone(),
                     href: Route::spell_list(list.name.clone(), None).href(),
                 });
-            (
-                class_card(&read.summary, list),
-                class_summary::without(&entry.body, &read.consumed),
-            )
+            let body = class_summary::without(&entry.body, &read.consumed);
+            // The switcher's stops come from the body that is rendered, so the heading keys
+            // they name are the ones on the page. A class with fewer than three stops keeps
+            // the contents disclosure instead.
+            let sections =
+                Some(Sections::read(&body, list.is_some())).filter(Sections::worth_a_switcher);
+            (class_card(&read.summary, list), body, sections)
         }
-        false => (None, rendered_body),
+        false => (None, rendered_body, None),
     };
+    let switcher = class_sections.as_ref().map(|sections| {
+        view! { <SectionSwitcher id=entry.id.clone() book=book.clone() stops=sections.present() /> }
+    });
+    let section_marks = class_sections
+        .as_ref()
+        .map(Sections::body_marks)
+        .unwrap_or_default();
+    // A link to `?s=archetypes` opens at that section once the page has rendered. The page keys
+    // on the route without its section, so the address is read from the live route.
+    let live = route::use_route().get_untracked();
+    let live_anchor = match &live {
+        Route::Entry { anchor, .. } => anchor.clone(),
+        _ => anchor.clone(),
+    };
+    if let Some(section) = live.section()
+        && live_anchor.is_none()
+        && class_sections
+            .as_ref()
+            .is_some_and(|sections| sections.has(section))
+    {
+        // This frame moves focus to the section's heading and has the same race as the move to
+        // <main> in `Reader`: no cancel when a newer navigation supersedes it, and no yield to a
+        // control the reader focused since (#419).
+        request_animation_frame(move || {
+            route::scroll_to_section(section);
+        });
+    }
+    // An address that names a section this page lacks (`?s=spells` on a fighter, or any section
+    // on a prestige class or a spell) opens at the top, and the address stops claiming it, so
+    // the address and the page agree. The effect follows the route, so an address typed into the
+    // page that is on screen is dropped too, not only the one it was opened with.
+    let present = class_sections
+        .as_ref()
+        .map(Sections::present)
+        .unwrap_or_default();
+    let (entry_id, entry_book) = (entry.id.clone(), book.clone());
+    let current = route::use_route();
+    Effect::new(move |_| {
+        if let Route::Entry {
+            id,
+            anchor,
+            book,
+            section: Some(section),
+        } = current.get()
+            && id == entry_id
+            && book == entry_book
+            && !present.contains(&section)
+        {
+            route::replace(&Route::Entry {
+                id,
+                anchor,
+                book,
+                section: None,
+            });
+        }
+    });
+    let contents = class_sections.is_none().then(|| {
+        view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
+    });
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
@@ -878,8 +946,9 @@ fn EntryView(
         {collision_block}
         {original_disclosure}
         {class_card}
-        <ArticleContents body=contents_body id=entry.id.clone() />
-        <RichBody body=rendered_body anchor=anchor changed=changed_labels />
+        {switcher}
+        {contents}
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks />
         {source_line(&body_sources, &library, None)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
