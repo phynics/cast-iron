@@ -16,7 +16,8 @@
 //! <content_version>/lists.json     SpellLists (schema 3)
 //! <content_version>/books.json     BookIndex (schema 3)
 //! <content_version>/option-groups.json OptionGroupIndex (schema 4)
-//! <content_version>/replaces.json  ReplacesIndex (schema 4)
+//! <content_version>/replaces.json  ReplacesIndex (schema 4 and 5; schema 6 replaces it)
+//! <content_version>/trades.json    TradeIndex (schema 6)
 //! <content_version>/aliases.json   AliasIndex (optional, after the canonical cutover)
 //! <content_version>/backlinks.json BacklinkIndex descriptor (optional)
 //! <content_version>/backlinks/<NN>.json   Vec<BacklinkTarget> shards (optional)
@@ -54,18 +55,27 @@ pub mod validate;
 /// `books.json` is presentation only (#394). A schema-4 catalog has no `books`, and the reader
 /// then takes [`EntryStub::source`] as the one member book.
 ///
+/// 6: typed trades (#450). `ArchetypeFields` and `ClassOptionFields` hold [`Trade`]s in place of
+/// the `replaces`, `alters`, `replaces_features` and `alters_features` lists, and the compiler
+/// writes no trades into entry shards: the derived `trades.json` ([`TradeIndex`]) carries them
+/// and replaces `replaces.json`. A schema-4 or schema-5 library has `replaces.json` and no
+/// `trades.json`; the reader then shows printed names only and offers no compatibility filter
+/// (see [`TradeIndex::from_replaces`]).
+///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
-/// version. The optional `replaces_features` and `alters_features` lists on the attached fields
-/// are additive for the same reason.
-pub const SCHEMA_VERSION: u32 = 5;
+/// version.
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Name of the relation index, relative to the version directory.
 pub const RELATIONS_FILE: &str = "relations.json";
 /// Name of the class-option group index, relative to the version directory (schema 4).
 pub const OPTION_GROUPS_FILE: &str = "option-groups.json";
-/// Name of the typed replacement index, relative to the version directory (schema 4).
+/// Name of the printed replacement index of a schema-4 or schema-5 library, relative to the
+/// version directory. A schema-6 library has [`TRADES_FILE`] instead.
 pub const REPLACES_FILE: &str = "replaces.json";
+/// Name of the typed trade index, relative to the version directory (schema 6).
+pub const TRADES_FILE: &str = "trades.json";
 /// Name of the spell-list index, relative to the version directory.
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
@@ -811,55 +821,150 @@ pub struct RacialTraitFields {
     pub alternate: bool,
 }
 
+/// What an archetype or class option does to one feature of its base class.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TradeOp {
+    /// The feature is gone: another feature takes its place.
+    Replaces,
+    /// The feature stays, in a changed form.
+    Alters,
+}
+
+impl TradeOp {
+    /// The corpus key and the wire name: `replaces` or `alters`.
+    pub const fn slug(self) -> &'static str {
+        match self {
+            TradeOp::Replaces => "replaces",
+            TradeOp::Alters => "alters",
+        }
+    }
+
+    /// The label of the printed line: `Replaces` or `Alters`.
+    pub const fn label(self) -> &'static str {
+        match self {
+            TradeOp::Replaces => "Replaces",
+            TradeOp::Alters => "Alters",
+        }
+    }
+}
+
+/// The feature of a base class that a [`Trade`] reaches.
+///
+/// `anchor` is a heading anchor of a base class entry. `class` names that entry, and the
+/// compiler fills it only when the anchor exists in more than one base class of the trading
+/// entry (an archetype of several classes, or a class option whose group has several classes),
+/// so a one-class feature keeps no `class`. `levels` and `power` narrow the feature: the levels
+/// at which the trade applies, and a named power inside a feature (a bloodline power, a domain
+/// power) rather than the whole feature.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize)]
+pub struct FeatureRef {
+    pub anchor: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class: Option<EntryId>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub levels: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub power: Option<String>,
+}
+
+/// One printed trade of an archetype or class option: it replaces or alters a feature.
+///
+/// `printed` is the name as the book prints it, and it is always kept. `feature` is the
+/// resolved reference. `None` is legal and means the trade is not resolved: a filter must never
+/// treat an unresolved trade as compatible with anything.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Trade {
+    pub op: TradeOp,
+    pub printed: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<FeatureRef>,
+}
+
+impl Trade {
+    /// An unresolved trade: a printed name and nothing else.
+    pub fn unresolved(op: TradeOp, printed: impl Into<String>) -> Self {
+        Self {
+            op,
+            printed: printed.into(),
+            feature: None,
+        }
+    }
+}
+
+/// The printed names of the trades with `op`, in order.
+pub fn printed_trades(trades: &[Trade], op: TradeOp) -> Vec<String> {
+    trades
+        .iter()
+        .filter(|trade| trade.op == op)
+        .map(|trade| trade.printed.clone())
+        .collect()
+}
+
+/// The heading anchors that a corpus-format-1 `replaces_features` or `alters_features` list
+/// held when it did not line up one to one with the printed list. The format-1 reader keeps
+/// them so that `fmt` writes the file back unchanged; the lowering to [`Trade`]s cannot say
+/// which printed name each anchor belongs to. They are never serialized, and the compiler drops
+/// them.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LegacyFeatureLists {
+    pub replaces: Vec<String>,
+    pub alters: Vec<String>,
+}
+
+impl LegacyFeatureLists {
+    pub fn is_empty(&self) -> bool {
+        self.replaces.is_empty() && self.alters.is_empty()
+    }
+}
+
 /// Fields of an archetype: the printed class features it replaces and alters, in print order.
-/// Empty vectors are omitted from the serialized form.
+/// An empty `trades` is omitted from the serialized form.
 ///
-/// `replaces_features` and `alters_features` hold the heading anchors of the base class
-/// entry for the printed names in `replaces` and `alters`, in the same order. A printed name
-/// that no heading resolves is omitted from the feature list. The anchors are stable, so a
-/// client can compare two archetypes, or an archetype with a class option, without parsing
-/// display names.
-///
-/// The flat list describes a whole-feature trade. Per-power trades (#251), such as a bloodline
-/// power or a domain power, will add a separate optional pair beside these fields; this list
-/// keeps its meaning and stays valid.
+/// The corpus holds the trades and the compiler lowers them (#450). The compiler writes none of
+/// them into an entry shard: `trades.json` carries them, and a client reads it for the Replaces
+/// line and for the compatibility filter.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ArchetypeFields {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub replaces: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub alters: Vec<String>,
-    /// Heading anchors in the base class entry, aligned with the confidently resolved
-    /// entries of `replaces`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub replaces_features: Vec<String>,
-    /// Heading anchors in the base class entry, aligned with the confidently resolved
-    /// entries of `alters`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub alters_features: Vec<String>,
+    pub trades: Vec<Trade>,
+    /// Corpus format 1 only; see [`LegacyFeatureLists`].
+    #[serde(skip)]
+    pub legacy_features: LegacyFeatureLists,
 }
 
 /// Fields of a class option: the option group it belongs to and the printed features it
-/// replaces and alters, in print order.
-///
-/// `replaces_features` and `alters_features` hold heading anchors of the option group's
-/// class entries, with the same resolution rule as [`ArchetypeFields`].
+/// replaces and alters, in print order. `trades` follows the rules of [`ArchetypeFields`]; a
+/// feature of a class option reaches the classes of its group.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ClassOptionFields {
     /// A slug from the corpus `option-groups.toml`.
     pub group: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub replaces: Vec<String>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub alters: Vec<String>,
-    /// Heading anchors in the option group's class entries, aligned with the confidently
-    /// resolved entries of `replaces`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub replaces_features: Vec<String>,
-    /// Heading anchors in the option group's class entries, aligned with the confidently
-    /// resolved entries of `alters`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub alters_features: Vec<String>,
+    pub trades: Vec<Trade>,
+    /// Corpus format 1 only; see [`LegacyFeatureLists`].
+    #[serde(skip)]
+    pub legacy_features: LegacyFeatureLists,
+}
+
+impl TypedFields {
+    /// The trades of an archetype or class option; empty for every other kind.
+    pub fn trades(&self) -> &[Trade] {
+        match self {
+            TypedFields::Archetype(fields) => &fields.trades,
+            TypedFields::ClassOption(fields) => &fields.trades,
+            _ => &[],
+        }
+    }
+
+    /// The trade list of an archetype or class option, for the compiler to lower or clear.
+    pub fn trades_mut(&mut self) -> Option<&mut Vec<Trade>> {
+        match self {
+            TypedFields::Archetype(fields) => Some(&mut fields.trades),
+            TypedFields::ClassOption(fields) => Some(&mut fields.trades),
+            _ => None,
+        }
+    }
 }
 
 /// `relations.json` (schema 3): every `Relation` of every entry, flattened so that the
@@ -919,8 +1024,9 @@ pub struct OptionGroup {
     pub entries: Vec<EntryId>,
 }
 
-/// `replaces.json` (schema 4): the printed items that an archetype or class option replaces.
-/// Sorted by id. The typed value also stays on the entry; this file only indexes it.
+/// `replaces.json` (schema 4 and 5): the printed items that an archetype or class option
+/// replaces. Sorted by id. A schema-6 library has [`TradeIndex`] instead; the reader keeps this
+/// type to open an older library.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ReplacesIndex {
     pub entries: Vec<ReplacesRow>,
@@ -931,6 +1037,63 @@ pub struct ReplacesRow {
     pub id: EntryId,
     /// Printed feature names, in print order.
     pub replaces: Vec<String>,
+}
+
+/// `trades.json` (schema 6): the trades of every archetype and class option that has any, one
+/// row per entry, sorted by id. An entry without trades has no row. Derived from the corpus,
+/// and the only place the compiler writes trades (the entry shards hold none).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TradeIndex {
+    pub entries: Vec<TradeRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TradeRow {
+    pub id: EntryId,
+    /// In print order: the replaced features, then the altered ones.
+    pub trades: Vec<Trade>,
+}
+
+impl TradeIndex {
+    /// The row of an entry. The rows are sorted by id.
+    pub fn row(&self, id: &EntryId) -> Option<&TradeRow> {
+        self.entries
+            .binary_search_by(|row| row.id.cmp(id))
+            .ok()
+            .map(|index| &self.entries[index])
+    }
+
+    /// Reads the `replaces.json` of a schema-4 or schema-5 library as trades: every item is a
+    /// `Replaces` trade with a printed name and no feature, because that file holds neither
+    /// anchors nor `alters`. The client then shows the names and offers no filter.
+    pub fn from_replaces(index: ReplacesIndex) -> Self {
+        let mut entries: Vec<TradeRow> = index
+            .entries
+            .into_iter()
+            .filter(|row| !row.replaces.is_empty())
+            .map(|row| TradeRow {
+                id: row.id,
+                trades: row
+                    .replaces
+                    .into_iter()
+                    .map(|printed| Trade::unresolved(TradeOp::Replaces, printed))
+                    .collect(),
+            })
+            .collect();
+        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        Self { entries }
+    }
+}
+
+impl TradeRow {
+    /// The printed names of the trades with `op`, in order.
+    pub fn printed(&self, op: TradeOp) -> Vec<&str> {
+        self.trades
+            .iter()
+            .filter(|trade| trade.op == op)
+            .map(|trade| trade.printed.as_str())
+            .collect()
+    }
 }
 
 /// `backlinks.json` (optional): the descriptor of the reverse body-link index.
@@ -1938,7 +2101,7 @@ mod tests {
     }
 
     #[test]
-    fn attached_fields_omit_empty_vectors() {
+    fn attached_fields_omit_empty_vectors_and_never_serialize_the_legacy_lists() {
         let archetype = TypedFields::Archetype(ArchetypeFields::default());
         assert_eq!(
             serde_json::to_string(&archetype).unwrap(),
@@ -1946,10 +2109,7 @@ mod tests {
         );
         let option = TypedFields::ClassOption(ClassOptionFields {
             group: "arcane-discovery".into(),
-            replaces: vec![],
-            alters: vec![],
-            replaces_features: vec![],
-            alters_features: vec![],
+            ..Default::default()
         });
         assert_eq!(
             serde_json::to_string(&option).unwrap(),
@@ -1957,15 +2117,80 @@ mod tests {
         );
         let option = TypedFields::ClassOption(ClassOptionFields {
             group: "arcane-discovery".into(),
-            replaces: vec!["Arcane bond".into()],
-            alters: vec!["Arcane school".into()],
-            replaces_features: vec!["arcane-bond".into()],
-            alters_features: vec!["arcane-school".into()],
+            trades: vec![
+                Trade {
+                    op: TradeOp::Replaces,
+                    printed: "Arcane bond".into(),
+                    feature: Some(FeatureRef {
+                        anchor: "arcane-bond".into(),
+                        ..Default::default()
+                    }),
+                },
+                Trade::unresolved(TradeOp::Alters, "Arcane school"),
+            ],
+            legacy_features: LegacyFeatureLists {
+                replaces: vec!["kept-out".into()],
+                alters: vec![],
+            },
         });
+        let json = serde_json::to_string(&option).unwrap();
         assert_eq!(
-            serde_json::to_string(&option).unwrap(),
-            r#"{"kind":"class_option","group":"arcane-discovery","replaces":["Arcane bond"],"alters":["Arcane school"],"replaces_features":["arcane-bond"],"alters_features":["arcane-school"]}"#
+            json,
+            r#"{"kind":"class_option","group":"arcane-discovery","trades":[{"op":"replaces","printed":"Arcane bond","feature":{"anchor":"arcane-bond"}},{"op":"alters","printed":"Arcane school"}]}"#
         );
+        let back: TypedFields = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.trades().len(), 2);
+        assert!(match &back {
+            TypedFields::ClassOption(fields) => fields.legacy_features.is_empty(),
+            _ => false,
+        });
+        // A schema-5 shard still names the old lists; the reader ignores them.
+        let old = r#"{"kind":"archetype","replaces":["Bravery"],"replaces_features":["bravery"]}"#;
+        let old: TypedFields = serde_json::from_str(old).unwrap();
+        assert!(old.trades().is_empty());
+    }
+
+    #[test]
+    fn a_feature_reference_serializes_its_narrowing_keys_only_when_set() {
+        let reference = FeatureRef {
+            anchor: "bloodline-powers".into(),
+            class: Some(EntryId::parse("ref/class/sorcerer").unwrap()),
+            levels: vec![1, 9],
+            power: Some("Acidic ray".into()),
+        };
+        let json = serde_json::to_string(&reference).unwrap();
+        assert_eq!(
+            json,
+            r#"{"anchor":"bloodline-powers","class":"ref/class/sorcerer","levels":[1,9],"power":"Acidic ray"}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<FeatureRef>(&json).unwrap(),
+            reference
+        );
+    }
+
+    #[test]
+    fn an_older_replaces_file_reads_as_unresolved_replaces_trades() {
+        let id = |value: &str| EntryId::parse(value).unwrap();
+        let legacy = ReplacesIndex {
+            entries: vec![
+                ReplacesRow {
+                    id: id("ref/archetype/a"),
+                    replaces: vec!["Bravery".into(), "Trap sense".into()],
+                },
+                ReplacesRow {
+                    id: id("ref/archetype/b"),
+                    replaces: vec![],
+                },
+            ],
+        };
+        let trades = TradeIndex::from_replaces(legacy);
+        assert_eq!(trades.entries.len(), 1);
+        let row = trades.row(&id("ref/archetype/a")).unwrap();
+        assert_eq!(row.printed(TradeOp::Replaces), ["Bravery", "Trap sense"]);
+        assert!(row.printed(TradeOp::Alters).is_empty());
+        assert!(row.trades.iter().all(|trade| trade.feature.is_none()));
+        assert!(trades.row(&id("ref/archetype/b")).is_none());
     }
 
     #[test]

@@ -92,7 +92,15 @@ fn printed_chapter() -> BookIndex {
 }
 
 fn write_corpus(dir: &Path) {
-    let config = Config::default();
+    write_corpus_in(dir, Config::default().format);
+}
+
+/// The synthetic corpus declared as corpus format `format`.
+fn write_corpus_in(dir: &Path, format: u32) {
+    let config = Config {
+        format,
+        ..Config::default()
+    };
     for entry in [
         rule(
             "ref/rule/grapple",
@@ -219,19 +227,23 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
             .iter()
             .map(|file| file.path.clone())
             .collect();
-        for name in ["relations.json", "option-groups.json", "replaces.json"] {
+        for name in ["relations.json", "option-groups.json", "trades.json"] {
             assert!(
                 derived.iter().any(|path| path.ends_with(name)),
                 "{name} is not in the manifest: {derived:?}"
             );
         }
+        assert!(
+            !derived.iter().any(|path| path.ends_with("replaces.json")),
+            "a schema-6 library has no replaces.json: {derived:?}"
+        );
         let version = out.join(&outcome.content_version);
         assert_eq!(
             fs::read_to_string(version.join("option-groups.json")).unwrap(),
             r#"{"groups":[]}"#
         );
         assert_eq!(
-            fs::read_to_string(version.join("replaces.json")).unwrap(),
+            fs::read_to_string(version.join("trades.json")).unwrap(),
             r#"{"entries":[]}"#
         );
         versions.push(outcome.content_version);
@@ -241,20 +253,137 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     assert_eq!(trees[0], trees[1]);
 }
 
-#[test]
-fn attached_entry_indexes_are_derived_from_the_corpus() {
-    let corpus = temp("attached");
-    write_corpus(&corpus);
-    let class_option = RuleEntry {
-        id: EntryId::parse("ref/arcanedisc/example").unwrap(),
-        kind: EntryKind::ClassOption,
-        title: "Example Discovery".into(),
+fn typed_entry(
+    id: &str,
+    kind: EntryKind,
+    title: &str,
+    body: Vec<Block>,
+    fields: TypedFields,
+    relations: Vec<cast_iron_schema::Relation>,
+) -> RuleEntry {
+    RuleEntry {
+        id: EntryId::parse(id).unwrap(),
+        kind,
+        title: title.into(),
         aon: None,
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
         section: vec![],
         parent: None,
-        body: vec![Block::Paragraph {
+        body,
+        fields,
+        tags: vec![],
+        race_group: None,
+        links: vec![],
+        provenance: vec![],
+        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+        relations,
+    }
+}
+
+/// A class whose body holds one level-2 heading per `(anchor, text)`.
+fn class_entry(id: &str, headings: &[(&str, &str)]) -> RuleEntry {
+    let body = headings
+        .iter()
+        .map(|(anchor, text)| Block::Heading {
+            level: 2,
+            anchor: Some((*anchor).into()),
+            content: vec![Inline::text(*text)],
+        })
+        .collect();
+    typed_entry(
+        id,
+        EntryKind::Class,
+        id.rsplit('/').next().unwrap(),
+        body,
+        TypedFields::Class(Default::default()),
+        vec![],
+    )
+}
+
+/// An archetype of `classes` with a printed `Replaces:` line and the given trades.
+fn archetype_entry(
+    id: &str,
+    classes: &[&str],
+    printed: &str,
+    trades: Vec<cast_iron_schema::Trade>,
+    legacy: cast_iron_schema::LegacyFeatureLists,
+) -> RuleEntry {
+    typed_entry(
+        id,
+        EntryKind::Archetype,
+        "Example Archetype",
+        vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Replaces:")],
+                },
+                Inline::text(format!(" {printed}.")),
+            ],
+        }],
+        TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            trades,
+            legacy_features: legacy,
+        }),
+        classes
+            .iter()
+            .map(|class| cast_iron_schema::Relation {
+                kind: cast_iron_schema::RelationKind::Archetype,
+                target: EntryId::parse(*class).unwrap(),
+                label: None,
+            })
+            .collect(),
+    )
+}
+
+fn replaces(printed: &str, anchor: Option<&str>, class: Option<&str>) -> cast_iron_schema::Trade {
+    cast_iron_schema::Trade {
+        op: cast_iron_schema::TradeOp::Replaces,
+        printed: printed.into(),
+        feature: anchor.map(|anchor| cast_iron_schema::FeatureRef {
+            anchor: anchor.into(),
+            class: class.map(|class| EntryId::parse(class).unwrap()),
+            ..Default::default()
+        }),
+    }
+}
+
+fn write_entries(corpus: &Path, format: u32, entries: &[RuleEntry]) {
+    let config = Config {
+        format,
+        ..Config::default()
+    };
+    for entry in entries {
+        let path = corpus.join(entry_path(&entry.id));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, write_entry(entry, &config)).unwrap();
+    }
+}
+
+/// Compiles `corpus` and returns the parsed `trades.json` and every entry shard's text.
+fn compile_trades(corpus: &Path, name: &str) -> Result<(serde_json::Value, String), String> {
+    let out = temp(&format!("{name}-out"));
+    let outcome = compile_corpus(corpus, &out, &temp(&format!("{name}-reports")), None, None)
+        .map_err(|failure| failure.lines.join("\n"))?;
+    let version = out.join(&outcome.content_version);
+    let trades = serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
+    let mut shards = String::new();
+    for item in fs::read_dir(version.join("entries")).unwrap() {
+        shards.push_str(&fs::read_to_string(item.unwrap().path()).unwrap());
+    }
+    Ok((trades, shards))
+}
+
+#[test]
+fn attached_entry_indexes_are_derived_from_the_corpus() {
+    let corpus = temp("attached");
+    write_corpus(&corpus);
+    let class_option = typed_entry(
+        "ref/arcanedisc/example",
+        EntryKind::ClassOption,
+        "Example Discovery",
+        vec![Block::Paragraph {
             style: ParagraphStyle::Normal,
             content: vec![
                 Inline::Strong {
@@ -263,77 +392,27 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
                 Inline::text(" Arcane bond."),
             ],
         }],
-        fields: TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+        TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "discoveries".into(),
-            replaces: vec!["Arcane bond".into()],
-            alters: vec![],
+            trades: vec![replaces("Arcane bond", None, None)],
             ..Default::default()
         }),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![],
-    };
-    let archetype = RuleEntry {
-        id: EntryId::parse("ref/arc-fighter/example").unwrap(),
-        kind: EntryKind::Archetype,
-        title: "Example Archetype".into(),
-        aon: None,
-        source_ids: vec!["core-rulebook".into()],
-        sources: vec![],
-        section: vec![],
-        parent: None,
-        body: vec![Block::Paragraph {
-            style: ParagraphStyle::Normal,
-            content: vec![
-                Inline::Strong {
-                    c: vec![Inline::text("Replaces:")],
-                },
-                Inline::text(" Trap sense."),
-            ],
-        }],
-        fields: TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-            replaces: vec!["Trap sense".into()],
-            alters: vec![],
-            ..Default::default()
-        }),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![cast_iron_schema::Relation {
-            kind: cast_iron_schema::RelationKind::Archetype,
-            target: EntryId::parse("ref/class/fighter").unwrap(),
-            label: None,
-        }],
-    };
-    // The archetype relation needs its class entry.
-    let fighter = RuleEntry {
-        id: EntryId::parse("ref/class/fighter").unwrap(),
-        kind: EntryKind::Class,
-        title: "Fighter".into(),
-        aon: None,
-        source_ids: vec!["core-rulebook".into()],
-        sources: vec![],
-        section: vec![],
-        parent: None,
-        body: vec![],
-        fields: TypedFields::Class(Default::default()),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![],
-    };
-    for entry in [class_option, archetype, fighter] {
-        let path = corpus.join(entry_path(&entry.id));
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, write_entry(&entry, &Config::default())).unwrap();
-    }
+        vec![],
+    );
+    let archetype = archetype_entry(
+        "ref/arc-fighter/example",
+        &["ref/class/fighter"],
+        "Trap sense",
+        // The class is written although only one class holds the anchor; the compiler drops it.
+        vec![replaces(
+            "Trap sense",
+            Some("trap-sense"),
+            Some("ref/class/fighter"),
+        )],
+        Default::default(),
+    );
+    let fighter = class_entry("ref/class/fighter", &[("trap-sense", "Trap Sense (Ex)")]);
+    write_entries(&corpus, 2, &[class_option, archetype, fighter]);
     fs::write(
         corpus.join("option-groups.toml"),
         "[groups.discoveries]\nlabel = \"Discoveries\"\nsingular = \"Discovery\"\nclasses = [\"ref/class/fighter\"]\n",
@@ -348,15 +427,169 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         serde_json::from_slice(&fs::read(version.join("option-groups.json")).unwrap()).unwrap();
     assert_eq!(groups["groups"][0]["slug"], "discoveries");
     assert_eq!(groups["groups"][0]["entries"][0], "ref/arcanedisc/example");
-    let replaces: serde_json::Value =
-        serde_json::from_slice(&fs::read(version.join("replaces.json")).unwrap()).unwrap();
+    let trades: serde_json::Value =
+        serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
     assert_eq!(
-        replaces["entries"],
+        trades["entries"],
         serde_json::json!([
-            {"id": "ref/arc-fighter/example", "replaces": ["Trap sense"]},
-            {"id": "ref/arcanedisc/example", "replaces": ["Arcane bond"]},
+            {"id": "ref/arc-fighter/example", "trades": [
+                {"op": "replaces", "printed": "Trap sense", "feature": {"anchor": "trap-sense"}}
+            ]},
+            {"id": "ref/arcanedisc/example", "trades": [
+                {"op": "replaces", "printed": "Arcane bond"}
+            ]},
         ])
     );
+    // The shards hold no trades; the old file is gone.
+    assert!(!version.join("replaces.json").exists());
+    for item in fs::read_dir(version.join("entries")).unwrap() {
+        let shard = fs::read_to_string(item.unwrap().path()).unwrap();
+        assert!(!shard.contains("\"trades\""), "{shard}");
+        assert!(!shard.contains("\"printed\""), "{shard}");
+    }
+}
+
+#[test]
+fn a_class_is_filled_only_where_the_anchor_is_ambiguous_and_a_missing_one_fails() {
+    let bard = class_entry(
+        "ref/class/bard",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let skald = class_entry(
+        "ref/class/skald",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let classes = ["ref/class/bard", "ref/class/skald"];
+
+    let corpus = temp("ambiguous");
+    write_corpus(&corpus);
+    write_entries(
+        &corpus,
+        2,
+        &[
+            bard.clone(),
+            skald.clone(),
+            archetype_entry(
+                "ref/arc-bard/example",
+                &classes,
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    None,
+                )],
+                Default::default(),
+            ),
+        ],
+    );
+    let error = compile_trades(&corpus, "ambiguous").unwrap_err();
+    assert!(
+        error.contains("`ref/class/bard` and `ref/class/skald` hold; add `class` to say which"),
+        "{error}"
+    );
+
+    let corpus = temp("settled");
+    write_corpus(&corpus);
+    write_entries(
+        &corpus,
+        2,
+        &[
+            bard,
+            skald,
+            archetype_entry(
+                "ref/arc-bard/example",
+                &classes,
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    Some("ref/class/skald"),
+                )],
+                Default::default(),
+            ),
+        ],
+    );
+    let (trades, _) = compile_trades(&corpus, "settled").unwrap();
+    assert_eq!(
+        trades["entries"][0]["trades"][0]["feature"],
+        serde_json::json!({"anchor": "bardic-performance", "class": "ref/class/skald"})
+    );
+}
+
+#[test]
+fn a_format_1_corpus_keeps_every_printed_name_and_resolves_only_what_lines_up() {
+    let bard = class_entry(
+        "ref/class/bard",
+        &[
+            ("bardic-performance", "Bardic Performance"),
+            ("bravery", "Bravery"),
+        ],
+    );
+    let skald = class_entry(
+        "ref/class/skald",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let corpus = temp("format-1");
+    write_corpus_in(&corpus, 1);
+    write_entries(
+        &corpus,
+        1,
+        &[
+            bard,
+            skald,
+            // Lines up, one class holds each anchor: both resolve.
+            archetype_entry(
+                "ref/arc-bard/aligned",
+                &["ref/class/bard"],
+                "Bravery",
+                vec![replaces("Bravery", Some("bravery"), None)],
+                Default::default(),
+            ),
+            // Lines up, but two classes hold the anchor and format 1 cannot name one: unresolved.
+            archetype_entry(
+                "ref/arc-bard/shared",
+                &["ref/class/bard", "ref/class/skald"],
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    None,
+                )],
+                Default::default(),
+            ),
+            // The anchor list is shorter than the printed list: names kept, none resolved.
+            archetype_entry(
+                "ref/arc-bard/short",
+                &["ref/class/bard"],
+                "Bravery, Third-level feat",
+                vec![
+                    replaces("Bravery", None, None),
+                    replaces("Third-level feat", None, None),
+                ],
+                cast_iron_schema::LegacyFeatureLists {
+                    replaces: vec!["bravery".into()],
+                    alters: vec![],
+                },
+            ),
+        ],
+    );
+    let (trades, shards) = compile_trades(&corpus, "format-1").unwrap();
+    assert_eq!(
+        trades["entries"],
+        serde_json::json!([
+            {"id": "ref/arc-bard/aligned", "trades": [
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}}
+            ]},
+            {"id": "ref/arc-bard/shared", "trades": [
+                {"op": "replaces", "printed": "Bardic Performance"}
+            ]},
+            {"id": "ref/arc-bard/short", "trades": [
+                {"op": "replaces", "printed": "Bravery"},
+                {"op": "replaces", "printed": "Third-level feat"}
+            ]},
+        ])
+    );
+    assert!(!shards.contains("\"trades\""), "{shards}");
 }
 
 #[test]

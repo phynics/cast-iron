@@ -128,7 +128,14 @@ pub fn build_with_slots(
     let spell_lists = lists::build(&entries);
     let relations = relations::index_over(&entries, RelationCoverage::default());
     let option_groups = crate::attached::option_groups(&corpus, &entries);
-    let replaces = crate::attached::replaces(&entries);
+    let trades = crate::attached::trades(&corpus, &mut entries).map_err(|lines| Failure {
+        lines: std::iter::once(format!(
+            "{} trade(s) of archetypes and class options cannot be settled:",
+            lines.len()
+        ))
+        .chain(lines.into_iter().take(50))
+        .collect(),
+    })?;
     let aliases = search_aliases(&entries);
     let facets = canonical_facets(&entries);
     check_no_markup_leaks(&entries, &facets, &aliases, &coverage)?;
@@ -170,7 +177,7 @@ pub fn build_with_slots(
         spell_lists: spell_lists.lists,
         books,
         option_groups,
-        replaces,
+        trades,
         legal: corpus.legal.clone(),
         coverage,
         aliases,

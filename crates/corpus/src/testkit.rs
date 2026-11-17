@@ -58,11 +58,20 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
     entry
 }
 
-/// A corpus holding `entries`, one publication, and one licence.
+/// A corpus holding `entries`, one publication, and one licence, in the current format.
 pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
+    corpus_in_format(crate::config::CORPUS_FORMAT, entries)
+}
+
+/// [`corpus`] declared as corpus format `format`: every entry text is written in that format.
+pub fn corpus_in_format(format: u32, entries: Vec<RuleEntry>) -> Corpus {
+    let config = Config {
+        format,
+        ..Config::default()
+    };
     let mut by_id = BTreeMap::new();
     for entry in entries {
-        let text = write_entry(&entry, &Config::default());
+        let text = write_entry(&entry, &config);
         by_id.insert(
             entry.id.to_string(),
             Stored {
@@ -74,7 +83,7 @@ pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
     }
     Corpus {
         dir: PathBuf::from("corpus"),
-        config: Config::default(),
+        config,
         entries: by_id,
         publications: vec![Publication {
             id: "core-rulebook".into(),
