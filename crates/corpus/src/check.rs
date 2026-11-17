@@ -918,7 +918,16 @@ pub fn check(corpus: &Corpus) -> Report {
         }
         let mut placed = BTreeSet::new();
         for chapter in &tree.chapters {
-            check_book_node(corpus, tree, chapter, &ids, &keys, &mut placed, &mut report);
+            check_book_node(
+                corpus,
+                tree,
+                &chapter.title,
+                chapter,
+                &ids,
+                &keys,
+                &mut placed,
+                &mut report,
+            );
         }
     }
     if let Some(aliases) = &corpus.aliases {
@@ -1682,9 +1691,12 @@ fn placement_line(text: &str, source: &str, entry: &str) -> usize {
         .map_or(start, |(index, _)| index + 1)
 }
 
+/// `chapter` is the title of the top-level chapter that holds `node`.
+#[allow(clippy::too_many_arguments)]
 fn check_book_node(
     corpus: &Corpus,
     tree: &BookTree,
+    chapter: &str,
     node: &BookNode,
     ids: &BTreeSet<&str>,
     keys: &BTreeMap<&str, Vec<(String, String)>>,
@@ -1706,7 +1718,7 @@ fn check_book_node(
             let stored = &corpus.entries[entry.as_str()].entry;
             if !stored.source_ids.contains(&tree.source) {
                 report.problems.push(format!(
-                    "books.toml:{}: book `{}` places `{entry}` in `{}`, but the entry's `source_ids` ({}) do not name that book. Remove the placement, or add the book to `source_ids` in {} when it prints the entry",
+                    "books.toml:{}: book `{}` places `{entry}` in `{}` (chapter `{chapter}`), but the entry's `source_ids` ({}) do not name that book. Remove the placement, or add the book to `source_ids` in {} when it prints the entry",
                     placement_line(&corpus.books_text, &tree.source, entry.as_str()),
                     tree.source,
                     node.title,
@@ -1755,7 +1767,7 @@ fn check_book_node(
         }
     }
     for child in &node.children {
-        check_book_node(corpus, tree, child, ids, keys, placed, report);
+        check_book_node(corpus, tree, chapter, child, ids, keys, placed, report);
     }
 }
 
@@ -2395,9 +2407,116 @@ mod tests {
         let report = check(&corpus);
         assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            report.problems[0].contains("places `ref/rule/b` in `Section`"),
+            report.problems[0].contains("places `ref/rule/b` in `Section` (chapter `Chapter`)"),
             "{:?}",
             report.problems
+        );
+    }
+
+    fn anchored(title: &str, entry: &str, anchor: &str) -> BookNode {
+        BookNode {
+            anchor: Some(anchor.into()),
+            ..placed(title, entry, vec![])
+        }
+    }
+
+    #[test]
+    fn a_listing_or_catch_all_chapter_is_not_exempt_from_the_membership_rule() {
+        for chapter in ["New entries (page order)", "Page order", "Unpaged"] {
+            let mut corpus = two_books();
+            corpus.books = BookIndex {
+                books: vec![tree(
+                    "other-book",
+                    vec![placed(chapter, "ref/rule/a", vec![])],
+                )],
+            };
+            let report = check(&corpus);
+            assert_eq!(report.problems.len(), 1, "{chapter}: {:?}", report.problems);
+            assert!(
+                report.problems[0].contains(&format!("in `{chapter}` (chapter `{chapter}`)")),
+                "{chapter}: {:?}",
+                report.problems
+            );
+            // The same placement passes once the entry names the book.
+            corpus
+                .entries
+                .get_mut("ref/rule/a")
+                .unwrap()
+                .entry
+                .source_ids
+                .push("other-book".into());
+            let report = check(&corpus);
+            assert!(
+                report.problems.is_empty(),
+                "{chapter}: {:?}",
+                report.problems
+            );
+        }
+    }
+
+    #[test]
+    fn a_repeated_anchored_placement_is_checked_each_time() {
+        let heading = vec![heading(Some("effects"), "Effects")];
+        let mut corpus = corpus(vec![
+            rule("ref/rule/a", heading.clone()),
+            rule("ref/rule/b", vec![]),
+        ]);
+        add_publication(&mut corpus, "other-book", None);
+        corpus
+            .legal
+            .section_15
+            .push(cast_iron_schema::CopyrightNotice {
+                title: "other-book".into(),
+                notice: "Core Rulebook, (c) Paizo Inc.".into(),
+            });
+        // An anchored node may repeat its entry within one book; each node is a placement.
+        let repeated = || {
+            vec![placed(
+                "Page order",
+                "ref/rule/b",
+                vec![
+                    anchored("First", "ref/rule/a", "effects"),
+                    anchored("Second", "ref/rule/a", "effects"),
+                ],
+            )]
+        };
+        corpus
+            .entries
+            .get_mut("ref/rule/a")
+            .unwrap()
+            .entry
+            .source_ids = vec!["other-book".into()];
+        corpus
+            .entries
+            .get_mut("ref/rule/b")
+            .unwrap()
+            .entry
+            .source_ids = vec!["other-book".into()];
+        corpus.books = BookIndex {
+            books: vec![tree("other-book", repeated())],
+        };
+        let report = check(&corpus);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        // Outside `source_ids`, both anchored nodes fail, not only the first.
+        corpus
+            .entries
+            .get_mut("ref/rule/a")
+            .unwrap()
+            .entry
+            .source_ids = vec!["core-rulebook".into()];
+        let report = check(&corpus);
+        let membership: Vec<_> = report
+            .problems
+            .iter()
+            .filter(|problem| problem.contains("do not name that book"))
+            .collect();
+        assert_eq!(membership.len(), 2, "{:?}", report.problems);
+        assert!(membership[0].contains("in `First`"), "{membership:?}");
+        assert!(membership[1].contains("in `Second`"), "{membership:?}");
+        assert!(
+            membership[0].contains("(chapter `Page order`)"),
+            "{membership:?}"
         );
     }
 

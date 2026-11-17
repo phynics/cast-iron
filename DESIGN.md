@@ -175,6 +175,20 @@ a native `details.progression-spells` below the core table: a 44 px summary `Spe
 chevron, closed by default. A non-caster has no disclosure. Do not hide a stat column in a
 disclosure on any other table.
 
+## Class summary card
+
+A class page opens with `section.class-card.stat-block`, directly under the metadata line: the spell
+statistics card's ledger and left accent rule. Rows, in order: Hit Die, Base attack (`Good · +1 per
+level`), Good saves, Skill ranks, Class skills, Alignment, Starting wealth, Spellcasting. A row
+appears only with a reliable value, so a prestige class shows four rows and a non-caster has no
+Spellcasting. Class skills is a `details.class-skills` with a 44 px summary (`16 skills`) that
+opens the names by ability. Spellcasting ends with a `.page-link` to the class's spell list. The
+card replaces the printed bold-label paragraphs it shows; it does not repeat them.
+
+On a class or prestige-class page, References and Referenced by are closed `details.ref-fold` rows
+at the page end, on every width: a 44 px summary with a chevron, the name and the count. A wide
+class page is one column with no side panel. Other entries keep them open, in the side panel.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.

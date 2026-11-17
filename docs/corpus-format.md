@@ -703,7 +703,7 @@ file and line, when:
   the fix);
 - a `books.toml` node places an entry in a book that is not in the entry's `source_ids`. This holds
   for every node with an entry, in a printed chapter, a catch-all, `Page order` or `Unpaged`
-  chapter alike. The message names the line, the book, the chapter title, the entry and its
+  chapter alike. The message names the line, the book, the node title, its top-level chapter, the entry and its
   `source_ids`. Remove the placement, or add the book to `source_ids` when it prints the entry;
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;

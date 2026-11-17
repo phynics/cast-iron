@@ -218,7 +218,14 @@ pub fn compile_corpus(
     published: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
-    package(build_from_corpus(dir, published, corpus_tag)?, out, reports)
+    // The lock is held from here to the end of `package`, across recovery, gates and publication.
+    let lock = crate::publish::OutLock::acquire(out)?;
+    crate::publish::recover_out(&lock)?;
+    package(
+        build_from_corpus(dir, published, corpus_tag)?,
+        &lock,
+        reports,
+    )
 }
 
 /// [`compile_corpus`] with the share-slot guard of [`build_with_slots`].
@@ -230,9 +237,12 @@ pub fn compile_corpus_with_slots(
     book_slots: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
+    // The lock is held from here to the end of `package`, across recovery, gates and publication.
+    let lock = crate::publish::OutLock::acquire(out)?;
+    crate::publish::recover_out(&lock)?;
     package(
         build_with_slots(dir, published, book_slots, corpus_tag)?,
-        out,
+        &lock,
         reports,
     )
 }

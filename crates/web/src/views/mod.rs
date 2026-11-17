@@ -9,6 +9,7 @@ pub mod bookmarks;
 pub mod browse;
 pub mod categories;
 pub mod chains;
+pub mod class_card;
 pub mod continue_reading;
 pub mod entry;
 pub mod entry_contents;
