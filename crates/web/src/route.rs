@@ -24,7 +24,7 @@
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
-use crate::book_source::aliased_book_source;
+use crate::book_source::{Retirement, aliased_book_source, retirement};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
@@ -244,6 +244,7 @@ impl Route {
                     }
                 }),
             ["browse", "source", id] => match percent_decode(id) {
+                Some(id) if retirement(&id) == Some(Retirement::Books) => Route::Books,
                 Some(id) if !id.is_empty() => {
                     Route::BrowseSource(aliased_book_source(&id).to_string())
                 }
@@ -261,6 +262,7 @@ impl Route {
                 _ => Route::Books,
             },
             ["browse", "book", id] => match percent_decode(id) {
+                Some(source) if retirement(&source).is_some() => retired_book_route(&source),
                 Some(source) if !source.is_empty() => Route::Book {
                     source: aliased_book_source(&source).to_string(),
                     chapter: query
@@ -273,6 +275,9 @@ impl Route {
             // the issue's `#/books/<source>/<chapter>` shape opens the same page.
             ["browse", "book", source, chapter] | ["books", source, chapter] => {
                 match (percent_decode(source), percent_decode(chapter)) {
+                    (Some(source), Some(_)) if retirement(&source).is_some() => {
+                        retired_book_route(&source)
+                    }
                     (Some(source), Some(chapter)) if !source.is_empty() && !chapter.is_empty() => {
                         Route::BookChapter {
                             source: aliased_book_source(&source).to_string(),
@@ -541,6 +546,18 @@ fn parse_schools(query: Option<&str>) -> Vec<String> {
 }
 
 /// The `source=<id>` of a list page's query, when it has one.
+/// The route for an address of a book tree that the corpus deleted. A chapter address uses the
+/// book's destination too, because the old chapters did not carry over.
+fn retired_book_route(source: &str) -> Route {
+    match retirement(source) {
+        Some(Retirement::Book(book)) => Route::Book {
+            source: book.to_string(),
+            chapter: None,
+        },
+        _ => Route::Books,
+    }
+}
+
 fn parse_source(query: Option<&str>) -> Option<String> {
     query
         .and_then(|q| query_pairs(q).find(|(key, _)| key == "source"))
@@ -1266,6 +1283,62 @@ mod tests {
                     chapter: None
                 },
                 "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_address_of_a_deleted_book_tree_opens_its_destination() {
+        let book = |source: &str| Route::Book {
+            source: source.into(),
+            chapter: None,
+        };
+        // A listing tree opens the printed book. Its chapter and path addresses have no
+        // equivalent, so they open the book's page as well.
+        for (old, new) in [
+            ("prpg-core-rulebook", "core-rulebook"),
+            ("pathfinder-rpg-bestiary", "bestiary"),
+        ] {
+            assert_eq!(Route::parse(&format!("#/browse/book/{old}")), book(new));
+            assert_eq!(Route::parse(&format!("#/browse/book/{old}?c=1")), book(new));
+            for chapter in ["page-order", "unpaged"] {
+                assert_eq!(
+                    Route::parse(&format!("#/browse/book/{old}/{chapter}")),
+                    book(new),
+                    "{old}/{chapter}"
+                );
+                assert_eq!(
+                    Route::parse(&format!("#/books/{old}/{chapter}?a=toc-1")),
+                    book(new)
+                );
+            }
+            assert_eq!(
+                Route::parse(&format!("#/browse/source/{old}")),
+                Route::BrowseSource(new.into())
+            );
+            assert_eq!(
+                Route::parse(&format!("#/entry/ref/rule/getting-started?book={old}")),
+                Route::Entry {
+                    id: EntryId::parse("ref/rule/getting-started").unwrap(),
+                    anchor: None,
+                    book: Some(new.into())
+                }
+            );
+        }
+        // A one-off tree has no replacement: its book, chapter and source addresses open Books.
+        for old in ["paizo-blog-sable-company-marine", "pathfinder-comics-3"] {
+            assert_eq!(Route::parse(&format!("#/browse/book/{old}")), Route::Books);
+            assert_eq!(
+                Route::parse(&format!("#/browse/book/{old}/page-order")),
+                Route::Books
+            );
+            assert_eq!(
+                Route::parse(&format!("#/browse/book/{old}/unpaged")),
+                Route::Books
+            );
+            assert_eq!(
+                Route::parse(&format!("#/browse/source/{old}")),
+                Route::Books
             );
         }
     }
