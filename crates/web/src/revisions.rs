@@ -7,7 +7,7 @@
 //! Removed and merged revisions leave the list but keep their original findable in search.
 
 use crate::graph::Relations;
-use cast_iron_schema::{Citation, EntryId, RelationLabel, RuleEntry, TypedFields};
+use cast_iron_schema::{Citation, EntryId, Expansion, RelationLabel, RuleEntry, TypedFields};
 use cast_iron_search::HitSummary;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -318,6 +318,20 @@ pub fn effective_sources<'a>(base: &'a [Citation], revision: &'a [Citation]) -> 
     if revision.is_empty() { base } else { revision }
 }
 
+/// The `Expanded in` credits of the page. A credit names a book that expands the rule; it is
+/// not part of one printing's text, so a revision in force does not replace the base's credits
+/// the way it replaces citations. The base's credits come first, then any credit the revision
+/// adds, with a repeated credit shown once. A revision with none keeps every base credit.
+pub fn effective_expanded_in(base: &[Expansion], revision: &[Expansion]) -> Vec<Expansion> {
+    let mut credits = base.to_vec();
+    for credit in revision {
+        if !credits.contains(credit) {
+            credits.push(credit.clone());
+        }
+    }
+    credits
+}
+
 /// The page's effective entry: the original id and metadata, with the revision's fields,
 /// body, links, and prerequisite edges. The revision edge itself is not copied, so the page
 /// never says "Revision of" about its own text. Citations follow the visible text through
@@ -333,7 +347,7 @@ pub fn effective_entry(base: &RuleEntry, revision: &RuleEntry) -> RuleEntry {
         aon: revision.aon.clone().or_else(|| base.aon.clone()),
         source_ids: base.source_ids.clone(),
         sources: effective_sources(&base.sources, &revision.sources).to_vec(),
-        expanded_in: base.expanded_in.clone(),
+        expanded_in: effective_expanded_in(&base.expanded_in, &revision.expanded_in),
         section: base.section.clone(),
         parent: base.parent.clone(),
         body: revision.body.clone(),
@@ -849,5 +863,30 @@ mod tests {
         assert_eq!(effective_sources(&base, &revision), &revision);
         assert_eq!(effective_sources(&base, &[]), &base);
         assert_eq!(effective_sources(&[], &[]), &[] as &[Citation]);
+    }
+
+    #[test]
+    fn a_revision_keeps_the_base_expanded_in_credits_and_adds_its_own_once() {
+        let credit = |publication: &str, page: &str| Expansion {
+            publication: publication.into(),
+            page: Some(page.into()),
+            via: None,
+        };
+        let base = [credit("monster-summoners-handbook", "18")];
+        // A revision with no credits leaves the base's credits on the page.
+        assert_eq!(effective_expanded_in(&base, &[]), base.to_vec());
+        // A revision's own credit follows, and a repeated credit appears once.
+        let revision = [
+            credit("monster-summoners-handbook", "18"),
+            credit("elephant", "7"),
+        ];
+        assert_eq!(
+            effective_expanded_in(&base, &revision),
+            vec![
+                credit("monster-summoners-handbook", "18"),
+                credit("elephant", "7")
+            ]
+        );
+        assert!(effective_expanded_in(&[], &[]).is_empty());
     }
 }

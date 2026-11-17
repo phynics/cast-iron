@@ -3125,6 +3125,29 @@ main,
   margin-bottom: var(--space-3);
 }
 
+/* The `Expanded in` credit (#460) sits directly under the Sources line in the same muted role.
+   An inactive book's credit is dimmed and carries the `Inactive` Label, so the dimming is never
+   the only cue. The opacity keeps the credit readable: muted ink at .85 over the page ground is
+   about 4.6:1 in the light theme and 6.2:1 in the dark one, so it stays above 4.5:1. */
+.expanded-line {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.expanded-credit[data-inactive="true"] {
+  opacity: 0.85;
+}
+
+/* The same 44 px AoN target rule as for the Sources line. */
+.entry > .expanded-line:has(+ .aon-line) {
+  margin-bottom: var(--space-3);
+}
+
+.entry > .sources-line:has(+ .expanded-line) {
+  margin-bottom: var(--space-1);
+}
+
 .aon-line {
   margin: 0 0 var(--space-2);
   color: var(--ink-muted);
@@ -4019,6 +4042,7 @@ input::placeholder {
       "contents refs"
       "body refs"
       "sources refs"
+      "expanded refs"
       "aon refs"
       "rel refs"
       "book refs"
@@ -4033,6 +4057,7 @@ input::placeholder {
   .entry > .rel-original { grid-area: original; }
   .entry > .article-contents { grid-area: contents; }
   .entry > .sources-line { grid-area: sources; }
+  .entry > .expanded-line { grid-area: expanded; }
   .entry > .aon-line { grid-area: aon; }
   .entry > #entry-related { grid-area: rel; }
 }
@@ -4052,6 +4077,7 @@ input::placeholder {
       "contents"
       "body"
       "sources"
+      "expanded"
       "aon"
       "rel"
       "book"

@@ -20,7 +20,7 @@ use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
 use crate::views::section_switcher::SectionSwitcher;
-use crate::views::sources::{aon_line, source_line};
+use crate::views::sources::{aon_line, expanded_line, source_line};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
@@ -950,6 +950,7 @@ fn EntryView(
         {contents}
         <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks />
         {source_line(&body_sources, &library, None)}
+        {expanded_line(&entry.expanded_in, &library)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
