@@ -844,8 +844,15 @@ pub fn check(corpus: &Corpus) -> Report {
         // `[[expanded_in]]` credits a book that expands the entry without printing it, so the
         // book must exist, must not be a member book, and any `via` entry must itself be
         // printed there.
-        for expansion in &entry.expanded_in {
+        for (index, expansion) in entry.expanded_in.iter().enumerate() {
             let needle = format!("publication = \"{}\"", expansion.publication);
+            if entry.expanded_in[..index].contains(expansion) {
+                report.problems.push(format!(
+                    "{}: `[[expanded_in]]`: duplicate row for publication `{}`; drop the repeated row",
+                    at(&needle),
+                    expansion.publication
+                ));
+            }
             if !publication_ids.contains(expansion.publication.as_str()) {
                 report.problems.push(format!(
                     "{}: `[[expanded_in]]`: unknown publication `{}`",
@@ -3011,6 +3018,29 @@ mod tests {
             text.contains("[[expanded_in]]`: unknown publication `missing-book`"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn an_exact_duplicate_expansion_row_is_refused() {
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "monster-handbook", None);
+        let entry = with_expansion(entry, "monster-handbook", None);
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("[[expanded_in]]`: duplicate row for publication `monster-handbook`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn expansion_rows_that_differ_in_page_or_via_are_not_duplicates() {
+        let mut entry = with_expansion(rule("ref/rule/a", vec![]), "monster-handbook", None);
+        entry.expanded_in.push(cast_iron_schema::Expansion {
+            publication: "monster-handbook".into(),
+            page: Some("20".into()),
+            via: None,
+        });
+        let report = check(&expansion_corpus(vec![entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]

@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.25`, commit `17a24be58973da097bdff73500a182b60b122ec7` (`sources/corpus.toml`). Pin entry: [2026-11-17](status/2026-11-17-corpus-pinned-to-v0-1-25.md) |
-| Content version | `v46f539381d0000c3` (`cargo xtask content` on `main` at `c14d7f0`, 2026-11-17) |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.26`, commit `a4b3ef61952098358e62274be1d0e17da99ea2c8` (`sources/corpus.toml`). Pin entry: [2026-11-17](status/2026-11-17-corpus-pinned-to-v0-1-26.md) |
+| Content version | `vb4ec72f397a03202` (`cargo xtask content` on `main` at `2f1d4ca` plus the v0.1.26 pin, 2026-11-17) |
 | Library | 31,800 entries, 439 publications, 439 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
@@ -17,7 +17,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 ## Main and release
 
 - **`release` is at `6365dba`**, published 2026-11-09: corpus `v0.1.17`, schema 4, index format 2 ([release entry](status/2026-11-09-release-6365dba-corpus-v0-1-17-schema-4-index-format-2.md)). That is what Pages serves.
-- **`main` is 219 commits ahead** (2026-11-17). It carries corpus `v0.1.25` and schema 6 (book membership in the catalog stub, [#394](https://github.com/phynics/cast-iron/issues/394); typed trades in `trades.json`, [#450](https://github.com/phynics/cast-iron/issues/450)). None of it is published.
+- **`main` is 219 commits ahead** (2026-11-17). It carries corpus `v0.1.26` and schema 6 (book membership in the catalog stub, [#394](https://github.com/phynics/cast-iron/issues/394); typed trades in `trades.json`, [#450](https://github.com/phynics/cast-iron/issues/450)). None of it is published.
 - **Promotion is on hold.** Breaking format changes ship together as "format 5" (owner decision 2026-11-16, [decision](decisions/2026-11-16-owner-decisions-from-the-architecture-review.md)). Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 
 ## Open release gates
