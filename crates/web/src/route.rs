@@ -19,7 +19,7 @@
 //! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
 //! #/quick                            Quick reference: the rules a table looks up mid-play
-//! #/settings[?section=updates]       #/legal
+//! #/settings[?section=updates]       #/settings/diagnostics       #/legal
 //! ```
 
 use cast_iron_schema::{EntryId, EntryKind};
@@ -97,6 +97,9 @@ pub enum Route {
     /// Quick reference (#437): chips to the rules a table looks up mid-play. The Table tab.
     Quick,
     Settings,
+    /// Timings and storage that this device recorded, for a bug report (#423). It belongs to
+    /// Settings in the navigation.
+    Diagnostics,
     Legal,
     /// Holds the hash that did not match any route.
     NotFound(String),
@@ -333,6 +336,7 @@ impl Route {
             ["bookmarks"] | ["collection", _] => Route::Home,
             ["quick"] => Route::Quick,
             ["settings"] => Route::Settings,
+            ["settings", "diagnostics"] => Route::Diagnostics,
             ["legal"] => Route::Legal,
             _ => not_found(),
         }
@@ -451,6 +455,7 @@ impl Route {
             }
             Route::Quick => "#/quick".into(),
             Route::Settings => "#/settings".into(),
+            Route::Diagnostics => "#/settings/diagnostics".into(),
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
             Route::NotFound(_) => "#/".into(),
@@ -966,6 +971,7 @@ mod tests {
             Route::Home,
             Route::Quick,
             Route::Settings,
+            Route::Diagnostics,
             Route::Legal,
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
@@ -1669,6 +1675,7 @@ mod tests {
     #[test]
     fn trailing_slashes_are_tolerated() {
         assert_eq!(Route::parse("#/settings/"), Route::Settings);
+        assert_eq!(Route::parse("#/settings/diagnostics/"), Route::Diagnostics);
     }
 
     #[test]

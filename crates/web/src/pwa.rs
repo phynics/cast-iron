@@ -110,7 +110,7 @@ fn record_launch_in_browser() -> Option<u32> {
 
 /// True when the app runs as an installed app: the display modes of an installed web app, or
 /// iOS Safari's own `navigator.standalone`.
-fn detect_standalone() -> bool {
+pub fn detect_standalone() -> bool {
     let Some(window) = web_sys::window() else {
         return false;
     };

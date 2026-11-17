@@ -15,6 +15,7 @@ use crate::views::{
     book::{BookView, ChapterView, same_book},
     browse::{Books, BrowseKind, BrowseSource, FeatBrowseKind},
     chains::FeatChains,
+    diagnostics::Diagnostics,
     entry::Entry,
     header_action::{HeaderAction, InstallGuide},
     home::Home,
@@ -150,6 +151,7 @@ fn normalize_location() {
 
 #[component]
 pub fn App() -> impl IntoView {
+    crate::diagnostics::start();
     normalize_location();
     provide_route();
     let online = web_sys::window().is_none_or(|w| w.navigator().on_line());
@@ -200,7 +202,13 @@ pub fn App() -> impl IntoView {
             js::sleep(250).await;
         }
     });
-    spawn_local(async move { app.boot.set(boot_check().await) });
+    spawn_local(async move {
+        let boot = boot_check().await;
+        if matches!(boot, Boot::Ready(_)) {
+            crate::diagnostics::mark_ready();
+        }
+        app.boot.set(boot);
+    });
 
     view! {
         <a class="skip-link" href="#main" on:click=skip_to_main>"Skip to content"</a>
@@ -420,7 +428,10 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::Book { .. }
                 | Route::BookChapter { .. },
         ) | (Route::Quick, Route::Quick)
-            | (Route::Settings, Route::Settings | Route::Legal)
+            | (
+                Route::Settings,
+                Route::Settings | Route::Diagnostics | Route::Legal,
+            )
     )
 }
 
@@ -444,6 +455,7 @@ fn NavLink(label: &'static str, route: Route) -> impl IntoView {
 fn static_title(route: &Route) -> Option<&'static str> {
     match route {
         Route::Settings => Some("Settings"),
+        Route::Diagnostics => Some("Diagnostics"),
         Route::Legal => Some("Legal and attribution"),
         Route::NotFound(_) => Some("Page not found"),
         _ => None,
@@ -539,6 +551,7 @@ fn RouteView() -> impl IntoView {
         Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
         Route::Quick => view! { <Quick /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
+        Route::Diagnostics => view! { <Diagnostics /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
         Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),
     }
@@ -573,6 +586,7 @@ mod tests {
             &Route::BrowseSource("core-rulebook".into())
         ));
         assert!(in_section(&Route::Settings, &Route::Legal));
+        assert!(in_section(&Route::Settings, &Route::Diagnostics));
         for inside in [
             Route::Spells,
             Route::SpellList {
@@ -609,6 +623,7 @@ mod tests {
             Route::Home,
             Route::Books,
             Route::Settings,
+            Route::Diagnostics,
             Route::Legal,
             Route::search("fire"),
             Route::entry(cast_iron_schema::EntryId::parse("ref/rule/bleed").unwrap()),
