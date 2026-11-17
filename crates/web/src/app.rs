@@ -21,6 +21,7 @@ use crate::views::{
     installer::InstallerScreen,
     legal::Legal,
     not_found::NotFound,
+    quick::Quick,
     quick_search::{QuickSearch, QuickSearchButton, QuickSearchLayer},
     recent::{self, Recent},
     search::Search,
@@ -335,6 +336,7 @@ fn Reader(library: Library) -> impl IntoView {
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
                     <NavLink label="Books" route=Route::Books />
+                    <NavLink label="Table" route=Route::Quick />
                     <NavLink label="Settings" route=Route::Settings />
                 </nav>
                 <QuickSearchButton />
@@ -417,7 +419,8 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::BooksManage
                 | Route::Book { .. }
                 | Route::BookChapter { .. },
-        ) | (Route::Settings, Route::Settings | Route::Legal)
+        ) | (Route::Quick, Route::Quick)
+            | (Route::Settings, Route::Settings | Route::Legal)
     )
 }
 
@@ -534,6 +537,7 @@ fn RouteView() -> impl IntoView {
         Route::SpellList { class, level, .. } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
         Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
+        Route::Quick => view! { <Quick /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
         Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),

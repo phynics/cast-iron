@@ -18,6 +18,7 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
+//! #/quick                            Quick reference: the rules a table looks up mid-play
 //! #/settings[?section=updates]       #/legal
 //! ```
 
@@ -93,6 +94,8 @@ pub enum Route {
         /// book after the page is opened again.
         book: Option<String>,
     },
+    /// Quick reference (#437): chips to the rules a table looks up mid-play. The Table tab.
+    Quick,
     Settings,
     Legal,
     /// Holds the hash that did not match any route.
@@ -323,6 +326,7 @@ impl Route {
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
             ["bookmarks"] | ["collection", _] => Route::Home,
+            ["quick"] => Route::Quick,
             ["settings"] => Route::Settings,
             ["legal"] => Route::Legal,
             _ => not_found(),
@@ -440,6 +444,7 @@ impl Route {
                     format!("#/entry/{id}?{}", pairs.join("&"))
                 }
             }
+            Route::Quick => "#/quick".into(),
             Route::Settings => "#/settings".into(),
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
@@ -942,6 +947,7 @@ mod tests {
     fn simple_routes_round_trip() {
         for route in [
             Route::Home,
+            Route::Quick,
             Route::Settings,
             Route::Legal,
             Route::browse_kind(EntryKind::Spell),
