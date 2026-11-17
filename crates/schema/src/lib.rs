@@ -370,6 +370,75 @@ impl RelationKind {
             RelationKind::Revision => "revision",
         }
     }
+
+    /// Whether a relation of this kind may carry `label` (`None` is no label). The table is
+    /// closed: an `addon` must carry exactly one of its three labels, and `variant` and
+    /// `archetype` carry none.
+    pub fn allows(self, label: Option<RelationLabel>) -> bool {
+        use RelationLabel as L;
+        match self {
+            RelationKind::Prerequisite => matches!(label, None | Some(L::Or)),
+            RelationKind::Part => matches!(label, None | Some(L::Alternate)),
+            RelationKind::Addon => matches!(label, Some(L::Mythic | L::Stamina | L::Changes)),
+            RelationKind::Revision => matches!(label, None | Some(L::Removed | L::Merged)),
+            RelationKind::Variant | RelationKind::Archetype => label.is_none(),
+        }
+    }
+}
+
+/// The qualifier of a [`Relation`]. The set is closed: serde refuses any other string, and
+/// [`RelationKind::allows`] says which kind may carry which label. The wire form is the
+/// lowercase word, the same string the schema used before the type existed.
+///
+/// The variants stay in alphabetical order of their wire strings. `RelationEdge` sorts by its
+/// derived `Ord`, and the index order must not change from when the label was a string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RelationLabel {
+    /// An alternate racial trait ([`RelationKind::Part`]).
+    Alternate,
+    /// A third-party change to the target ([`RelationKind::Addon`]).
+    Changes,
+    /// A revision that merges the target into another entry ([`RelationKind::Revision`]).
+    Merged,
+    /// A mythic version of the target ([`RelationKind::Addon`]).
+    Mythic,
+    /// One alternative of an either-or requirement ([`RelationKind::Prerequisite`]).
+    Or,
+    /// A revision that removes the target ([`RelationKind::Revision`]).
+    Removed,
+    /// Stamina rules for the target ([`RelationKind::Addon`]).
+    Stamina,
+}
+
+impl RelationLabel {
+    /// Every label, in the alphabetical order of its wire string.
+    pub const ALL: [RelationLabel; 7] = [
+        RelationLabel::Alternate,
+        RelationLabel::Changes,
+        RelationLabel::Merged,
+        RelationLabel::Mythic,
+        RelationLabel::Or,
+        RelationLabel::Removed,
+        RelationLabel::Stamina,
+    ];
+
+    /// The wire string.
+    pub fn slug(self) -> &'static str {
+        match self {
+            RelationLabel::Alternate => "alternate",
+            RelationLabel::Changes => "changes",
+            RelationLabel::Merged => "merged",
+            RelationLabel::Mythic => "mythic",
+            RelationLabel::Or => "or",
+            RelationLabel::Removed => "removed",
+            RelationLabel::Stamina => "stamina",
+        }
+    }
+
+    pub fn from_slug(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|label| label.slug() == value)
+    }
 }
 
 /// One edge from the holding entry to `target`.
@@ -381,7 +450,7 @@ pub struct Relation {
     /// either-or requirement in the original wording; `alternate` on a [`RelationKind::Part`]
     /// marks an alternate racial trait.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
+    pub label: Option<RelationLabel>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -807,7 +876,7 @@ pub struct RelationEdge(
     pub EntryId,
     pub RelationKind,
     pub EntryId,
-    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] pub Option<RelationLabel>,
 );
 
 impl RelationEdge {
@@ -816,8 +885,8 @@ impl RelationEdge {
         Self(source, kind, target, None)
     }
 
-    pub fn label(&self) -> Option<&str> {
-        self.3.as_deref()
+    pub fn label(&self) -> Option<RelationLabel> {
+        self.3
     }
 }
 
@@ -1659,7 +1728,7 @@ mod tests {
         let relation = Relation {
             kind: RelationKind::Prerequisite,
             target: EntryId::parse("core-rulebook/feats/dodge").unwrap(),
-            label: Some("or".into()),
+            label: Some(RelationLabel::Or),
         };
         assert_eq!(
             serde_json::to_string(&relation).unwrap(),
@@ -1675,7 +1744,7 @@ mod tests {
             EntryId::parse("a").unwrap(),
             RelationKind::Addon,
             EntryId::parse("b").unwrap(),
-            Some("mythic".into()),
+            Some(RelationLabel::Mythic),
         );
         assert_eq!(
             serde_json::to_string(&labelled).unwrap(),
@@ -1689,6 +1758,62 @@ mod tests {
             serde_json::from_str::<RelationEdge>(r#"["a","addon","b","mythic"]"#).unwrap(),
             labelled
         );
+    }
+
+    #[test]
+    fn labels_use_their_wire_strings_and_refuse_unknown_ones() {
+        for label in RelationLabel::ALL {
+            let json = format!("\"{}\"", label.slug());
+            assert_eq!(serde_json::to_string(&label).unwrap(), json);
+            assert_eq!(serde_json::from_str::<RelationLabel>(&json).unwrap(), label);
+            assert_eq!(RelationLabel::from_slug(label.slug()), Some(label));
+        }
+        assert_eq!(RelationLabel::ALL.len(), 7);
+        let mut by_slug = RelationLabel::ALL;
+        by_slug.sort_by_key(|label| label.slug());
+        assert_eq!(by_slug, RelationLabel::ALL, "ALL is alphabetical");
+        let mut by_ord = RelationLabel::ALL;
+        by_ord.sort();
+        assert_eq!(
+            by_ord,
+            RelationLabel::ALL,
+            "Ord matches the old string order"
+        );
+        assert_eq!(RelationLabel::from_slug("Or"), None);
+        for bad in ["\"unknown\"", "\"\"", "\"Mythic\"", "null", "1"] {
+            assert!(serde_json::from_str::<RelationLabel>(bad).is_err(), "{bad}");
+        }
+        assert!(
+            serde_json::from_str::<Relation>(r#"{"kind":"part","target":"a","label":"bogus"}"#)
+                .is_err()
+        );
+        assert!(serde_json::from_str::<RelationEdge>(r#"["a","part","b","bogus"]"#).is_err());
+    }
+
+    #[test]
+    fn every_kind_allows_exactly_its_closed_set_of_labels() {
+        use RelationKind as K;
+        use RelationLabel as L;
+        let allowed = |kind: K| -> Vec<Option<L>> {
+            let mut all = vec![None];
+            all.extend(L::ALL.into_iter().map(Some));
+            all.into_iter()
+                .filter(|label| kind.allows(*label))
+                .collect()
+        };
+        assert_eq!(allowed(K::Prerequisite), [None, Some(L::Or)]);
+        assert_eq!(allowed(K::Part), [None, Some(L::Alternate)]);
+        assert_eq!(
+            allowed(K::Addon),
+            [Some(L::Changes), Some(L::Mythic), Some(L::Stamina)]
+        );
+        assert_eq!(
+            allowed(K::Revision),
+            [None, Some(L::Merged), Some(L::Removed)]
+        );
+        assert_eq!(allowed(K::Variant), [None]);
+        assert_eq!(allowed(K::Archetype), [None]);
+        assert_eq!(K::ALL.len(), 6, "a new kind needs a row in this test");
     }
 
     #[test]

@@ -63,7 +63,7 @@ pub fn validate_derived(
         .flat_map(|e| {
             e.relations
                 .iter()
-                .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone(), r.label.clone()))
+                .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone(), r.label))
         })
         .collect();
     let actual: BTreeSet<RelationEdge> = relations.edges.iter().cloned().collect();

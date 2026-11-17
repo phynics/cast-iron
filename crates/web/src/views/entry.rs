@@ -635,7 +635,7 @@ fn EntryView(
         .iter()
         .find_map(|relation| {
             let phrase = match relation.kind {
-                RelationKind::Addon => addon_base_phrase(relation.label.as_deref()?, &addon_book)?,
+                RelationKind::Addon => addon_base_phrase(relation.label?, &addon_book)?,
                 RelationKind::Variant => "Variant of".to_string(),
                 // The revision's own page names the feat it revises. A base page never shows
                 // this: its effective entry drops the revision edge.

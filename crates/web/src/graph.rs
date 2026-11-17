@@ -7,14 +7,14 @@
 use cast_iron_schema::books::is_listing_chapter;
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, EntryId, Inline, RelationIndex, RelationKind,
-    SpellListClass, SpellListDetail, SpellLists,
+    RelationLabel, SpellListClass, SpellListDetail, SpellLists,
 };
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ---- relations --------------------------------------------------------------------------
 
 /// One entry's edges: kind, target, and an optional label.
-type Edges = Vec<(RelationKind, EntryId, Option<String>)>;
+type Edges = Vec<(RelationKind, EntryId, Option<RelationLabel>)>;
 
 /// `relations.json` indexed both ways. The index holds each edge once, from the entry that
 /// states it; this adds the inverse lookup that the entry screens need.
@@ -54,16 +54,14 @@ const MAX_NODES: usize = 200;
 
 impl Relations {
     pub fn new(index: RelationIndex) -> Self {
-        let mut outgoing: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>> =
-            HashMap::new();
-        let mut incoming: HashMap<EntryId, Vec<(RelationKind, EntryId, Option<String>)>> =
-            HashMap::new();
+        let mut outgoing: HashMap<EntryId, Edges> = HashMap::new();
+        let mut incoming: HashMap<EntryId, Edges> = HashMap::new();
         for edge in index.edges {
             let cast_iron_schema::RelationEdge(source, kind, target, label) = edge;
             outgoing
                 .entry(source.clone())
                 .or_default()
-                .push((kind, target.clone(), label.clone()));
+                .push((kind, target.clone(), label));
             incoming
                 .entry(target)
                 .or_default()
@@ -93,11 +91,11 @@ impl Relations {
                 outgoing
                     .entry(source.clone())
                     .or_insert_with(Vec::new)
-                    .push((*kind, target.clone(), label.clone()));
+                    .push((*kind, target.clone(), *label));
                 incoming
                     .entry(target.clone())
                     .or_insert_with(Vec::new)
-                    .push((*kind, source.clone(), label.clone()));
+                    .push((*kind, source.clone(), *label));
                 *counts.entry(kind.slug().to_owned()).or_default() += 1;
             }
         }
@@ -138,38 +136,36 @@ impl Relations {
 
     /// The add-ons that attach to `target` with `label` (`mythic`, `stamina`, `changes`), in
     /// index order. The ids are the add-ons' own entries, not their bases.
-    pub fn addons_of(&self, target: &EntryId, label: &str) -> Vec<&EntryId> {
+    pub fn addons_of(&self, target: &EntryId, label: RelationLabel) -> Vec<&EntryId> {
         self.incoming
             .get(target)
             .into_iter()
             .flatten()
-            .filter(|(kind, _, found)| {
-                *kind == RelationKind::Addon && found.as_deref() == Some(label)
-            })
+            .filter(|(kind, _, found)| *kind == RelationKind::Addon && *found == Some(label))
             .map(|(_, id, _)| id)
             .collect()
     }
 
     /// The label of the add-on relation that `id` holds, when it is an add-on: `mythic`,
     /// `stamina` or `changes`. An add-on attaches to one base, so the first edge answers.
-    pub fn addon_label(&self, id: &EntryId) -> Option<&str> {
+    pub fn addon_label(&self, id: &EntryId) -> Option<RelationLabel> {
         self.outgoing
             .get(id)
             .into_iter()
             .flatten()
             .find(|(kind, _, _)| *kind == RelationKind::Addon)
-            .and_then(|(_, _, label)| label.as_deref())
+            .and_then(|(_, _, label)| *label)
     }
 
     /// Every revision edge as `(revision, label, base)`, sorted by revision id and then base,
     /// so a caller that lists revisions gets one stable order without reading shards.
-    pub fn revision_edges(&self) -> Vec<(&EntryId, Option<&str>, &EntryId)> {
-        let mut edges: Vec<(&EntryId, Option<&str>, &EntryId)> = self
+    pub fn revision_edges(&self) -> Vec<(&EntryId, Option<RelationLabel>, &EntryId)> {
+        let mut edges: Vec<(&EntryId, Option<RelationLabel>, &EntryId)> = self
             .outgoing
             .iter()
             .flat_map(|(source, edges)| {
                 edges.iter().filter_map(move |(kind, target, label)| {
-                    (*kind == RelationKind::Revision).then_some((source, label.as_deref(), target))
+                    (*kind == RelationKind::Revision).then_some((source, *label, target))
                 })
             })
             .collect();
@@ -179,13 +175,13 @@ impl Relations {
 
     /// The base that `revision` revises, with the edge's label (`None` means revised).
     /// An entry holds at most one revision edge, so the first match answers.
-    pub fn revision_base(&self, revision: &EntryId) -> Option<(&EntryId, Option<&str>)> {
+    pub fn revision_base(&self, revision: &EntryId) -> Option<(&EntryId, Option<RelationLabel>)> {
         self.outgoing
             .get(revision)
             .into_iter()
             .flatten()
             .find_map(|(kind, target, label)| {
-                (*kind == RelationKind::Revision).then_some((target, label.as_deref()))
+                (*kind == RelationKind::Revision).then_some((target, *label))
             })
     }
 
@@ -198,7 +194,7 @@ impl Relations {
         if let Some(edges) = view.outgoing.get_mut(base) {
             edges.retain(|(kind, _, _)| *kind != RelationKind::Prerequisite);
         }
-        let revised: Vec<(RelationKind, EntryId, Option<String>)> = self
+        let revised: Vec<(RelationKind, EntryId, Option<RelationLabel>)> = self
             .outgoing
             .get(revision)
             .into_iter()
@@ -217,13 +213,13 @@ impl Relations {
 
     /// The outgoing prerequisite edges of one entry, with their either-or labels. A revision
     /// carries the prerequisites of its revised text this way.
-    pub fn prerequisite_edges(&self, source: &EntryId) -> Vec<(EntryId, Option<String>)> {
+    pub fn prerequisite_edges(&self, source: &EntryId) -> Vec<(EntryId, Option<RelationLabel>)> {
         self.outgoing
             .get(source)
             .into_iter()
             .flatten()
             .filter(|(kind, _, _)| *kind == RelationKind::Prerequisite)
-            .map(|(_, target, label)| (target.clone(), label.clone()))
+            .map(|(_, target, label)| (target.clone(), *label))
             .collect()
     }
 
@@ -235,7 +231,7 @@ impl Relations {
         &self,
         hidden: impl Fn(&EntryId) -> bool,
         redirect: &BTreeMap<EntryId, EntryId>,
-        prerequisites: &BTreeMap<EntryId, Vec<(EntryId, Option<String>)>>,
+        prerequisites: &BTreeMap<EntryId, Vec<(EntryId, Option<RelationLabel>)>>,
     ) -> Self {
         fn push(
             outgoing: &mut HashMap<EntryId, Edges>,
@@ -244,16 +240,16 @@ impl Relations {
             source: &EntryId,
             kind: RelationKind,
             target: &EntryId,
-            label: &Option<String>,
+            label: Option<RelationLabel>,
         ) {
             outgoing
                 .entry(source.clone())
                 .or_default()
-                .push((kind, target.clone(), label.clone()));
+                .push((kind, target.clone(), label));
             incoming
                 .entry(target.clone())
                 .or_default()
-                .push((kind, source.clone(), label.clone()));
+                .push((kind, source.clone(), label));
             *counts.entry(kind.slug().to_owned()).or_default() += 1;
         }
         let resolve = |target: &EntryId| -> Option<EntryId> {
@@ -284,7 +280,7 @@ impl Relations {
                         source,
                         *kind,
                         &target,
-                        label,
+                        *label,
                     );
                 }
             }
@@ -302,7 +298,7 @@ impl Relations {
                         source,
                         RelationKind::Prerequisite,
                         &target,
-                        label,
+                        *label,
                     );
                 }
             }
@@ -316,14 +312,12 @@ impl Relations {
 
     /// Every add-on entry and the label of the edge it holds, for rows that name their kind
     /// without opening the add-on's shard. The graph's edges decide the label; an id never does.
-    pub fn addon_labels(&self) -> HashMap<EntryId, String> {
+    pub fn addon_labels(&self) -> HashMap<EntryId, RelationLabel> {
         self.outgoing
             .iter()
             .filter_map(|(id, edges)| {
                 let label = edges.iter().find_map(|(kind, _, label)| {
-                    (*kind == RelationKind::Addon)
-                        .then(|| label.clone())
-                        .flatten()
+                    (*kind == RelationKind::Addon).then_some(*label).flatten()
                 })?;
                 Some((id.clone(), label))
             })
@@ -800,7 +794,7 @@ mod tests {
                 id("c/a"),
                 RelationKind::Addon,
                 id("c/b"),
-                Some("mythic".into()),
+                Some(RelationLabel::Mythic),
             )],
         });
         assert_eq!(r.targets_of(&id("c/a"), RelationKind::Addon), [&id("c/b")]);
@@ -810,7 +804,12 @@ mod tests {
     #[test]
     fn add_ons_are_found_by_label_and_never_count_as_chain_followers() {
         let edge = |source: &str, kind, target: &str, label: Option<&str>| {
-            RelationEdge(id(source), kind, id(target), label.map(String::from))
+            RelationEdge(
+                id(source),
+                kind,
+                id(target),
+                label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
+            )
         };
         let r = Relations::new(RelationIndex {
             counts: BTreeMap::new(),
@@ -822,18 +821,27 @@ mod tests {
             ],
         });
         // The label selects the edge; source and target keep their directions.
-        assert_eq!(r.addons_of(&id("c/base"), "mythic"), [&id("c/base/mythic")]);
         assert_eq!(
-            r.addons_of(&id("c/base"), "stamina"),
+            r.addons_of(&id("c/base"), RelationLabel::Mythic),
+            [&id("c/base/mythic")]
+        );
+        assert_eq!(
+            r.addons_of(&id("c/base"), RelationLabel::Stamina),
             [&id("c/base/stamina")]
         );
-        assert!(r.addons_of(&id("c/base"), "changes").is_empty());
-        assert_eq!(r.addon_label(&id("c/base/mythic")), Some("mythic"));
+        assert!(
+            r.addons_of(&id("c/base"), RelationLabel::Changes)
+                .is_empty()
+        );
+        assert_eq!(
+            r.addon_label(&id("c/base/mythic")),
+            Some(RelationLabel::Mythic)
+        );
         assert_eq!(r.addon_label(&id("c/base")), None);
         let labels = r.addon_labels();
         assert_eq!(
-            labels.get(&id("c/other/change")).map(String::as_str),
-            Some("changes")
+            labels.get(&id("c/other/change")).copied(),
+            Some(RelationLabel::Changes)
         );
         // An add-on is not a follower: only prerequisite edges make a chain.
         assert_eq!(r.leads_to(&id("c/base")), [&id("c/follower")]);
@@ -851,7 +859,7 @@ mod tests {
                 id(source),
                 RelationKind::Revision,
                 id(target),
-                label.map(String::from),
+                label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
             )
         };
         let r = Relations::new(RelationIndex {
@@ -873,7 +881,7 @@ mod tests {
         );
         assert_eq!(
             r.revision_base(&id("c/base/removed-eitr")),
-            Some((&id("c/base"), Some("removed")))
+            Some((&id("c/base"), Some(RelationLabel::Removed)))
         );
         assert_eq!(r.revision_base(&id("c/revision")), None);
         // Only revision edges are listed; a prerequisite is not a revision.
@@ -974,13 +982,13 @@ mod tests {
                     id("c/base/mythic"),
                     Addon,
                     id("c/base"),
-                    Some("mythic".into()),
+                    Some(RelationLabel::Mythic),
                 ),
                 RelationEdge(
                     id("c/base/stamina"),
                     Addon,
                     id("c/base"),
-                    Some("stamina".into()),
+                    Some(RelationLabel::Stamina),
                 ),
             ],
         });
@@ -988,20 +996,28 @@ mod tests {
         // page filters only the add-on's eligibility.
         assert!(all.addon_label(&id("c/base/mythic")).is_some());
         assert_eq!(
-            all.addons_of(&id("c/base"), "mythic"),
+            all.addons_of(&id("c/base"), RelationLabel::Mythic),
             [&id("c/base/mythic")]
         );
         // A graph projected both ways drops the edge once either end is inactive.
         let base_off = all.filtered(|id| id.as_str() != "c/base");
         assert!(base_off.addon_label(&id("c/base/mythic")).is_none());
-        assert!(base_off.addons_of(&id("c/base"), "mythic").is_empty());
+        assert!(
+            base_off
+                .addons_of(&id("c/base"), RelationLabel::Mythic)
+                .is_empty()
+        );
         // Disabling the add-on's book removes the edge, so the base page shows nothing.
         let holder_off = all.filtered(|id| id.as_str() != "c/base/mythic");
         assert_eq!(
-            holder_off.addons_of(&id("c/base"), "stamina"),
+            holder_off.addons_of(&id("c/base"), RelationLabel::Stamina),
             [&id("c/base/stamina")]
         );
-        assert!(holder_off.addons_of(&id("c/base"), "mythic").is_empty());
+        assert!(
+            holder_off
+                .addons_of(&id("c/base"), RelationLabel::Mythic)
+                .is_empty()
+        );
     }
 
     #[test]
