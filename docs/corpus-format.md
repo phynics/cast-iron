@@ -15,7 +15,8 @@ can hold.
 corpus.toml                     format version and the defaults entries omit
 entries/<id without ref/>.md    one entry per file
 publications.toml               publication metadata used by the catalogue
-books.toml                      curated chapter order (BookIndex)
+books.toml                      curated chapter order (BookIndex); formats 1 and 2
+books/<publication-id>.toml     one curated book; format 3 (replaces books.toml)
 legal.toml                      licences, Product Identity, Section 15, dataset pins
 exclusions.toml                 what the import left out and why; rows are only appended
 history.toml                    frozen results of the import; never edited
@@ -221,7 +222,8 @@ anchor several base classes hold has no `class` (in format 1 it leaves that trad
 #### Migrating to format 2
 
 `cargo xtask corpus-migrate-trades <dir> [--review <file>]` (`cast-iron-corpus migrate-trades`;
-the generic `migrate` runs the same step without the review file) converts a format 1 corpus
+the generic `migrate` runs the same step without the review file, and then the layout step of
+format 3) converts a format 1 corpus
 in place and writes `format = 2` to `corpus.toml`. It is idempotent: a second run on a migrated
 corpus changes no byte, and it never changes a trade that already has a `feature`, so a fix from
 the review queue survives. Run it on a clean checkout, then `check` and `fmt --check`.
@@ -293,8 +295,8 @@ format = 1
 license_refs = ["ogl-1.0a", "legal#community-use"]
 ```
 
-`format` is the corpus format version. This tool reads format 1 and format 2 (the trade
-keys differ; see [Trades](#trades)). A reader refuses a corpus whose format it
+`format` is the corpus format version. This tool reads formats 1, 2 and 3. Format 2 changes the trade
+keys (see [Trades](#trades)); format 3 changes the book layout (see [Books](#books-format-3)). A reader refuses a corpus whose format it
 does not know, and the message names the command that converts it
 (`cast-iron-corpus migrate`). `[defaults]` declares, once, the values an entry
 omits. Today that is `license_refs`.
@@ -413,7 +415,7 @@ reviewed source material that an entry cannot express.
 |---|---|---|
 | `entries/*.json` | **Stored** as `entries/**/*.md` | The rules text and typed metadata are the corpus. |
 | `catalog.json` | **Partly stored** | Publication metadata is reviewed source data in `publications.toml`. Entry stubs, `source`, `shard`, and `entry_count` are derived from the entries. |
-| `books.json` | **Stored** as `books.toml` | Chapter order is a curated decision, not a function of the body text. |
+| `books.json` | **Partly stored**: formats 1 and 2 store every book in `books.toml`; format 3 stores only the curated books in `books/<publication-id>.toml` | A printed chapter order is a curated decision, not a function of the body text. A page-order list is a function of the `[[sources]]` pages, so the compiler derives it (see [Books](#books-format-3)). |
 | `legal.json` | **Stored** as `legal.toml` | Licences and notices are reviewed legal text. |
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
 | `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. Each edge is `[source, kind, target]`, or `[source, kind, target, label]` when it carries a label. |
@@ -429,10 +431,12 @@ reviewed source material that an entry cannot express.
 The rule of thumb: if two people could disagree about it, store it; if a
 deterministic pass over the entries can produce it, derive it.
 
-### Book nodes (`books.toml`)
+### Book nodes (`books.toml`, `books/<publication-id>.toml`)
 
-`books.toml` is a `BookIndex`: one tree per publication, in the curated chapter order. A
-`[[books.chapters]]` row (or a nested `children` row) has a `title`, an optional `entry`, an
+A curated book is a `BookTree`: a tree of chapters in the curated order. Formats 1 and 2 store every
+book in one `books.toml`, a `BookIndex` with one `[[books]]` block per publication. Format 3 stores
+only the curated books, one block in each `books/<publication-id>.toml` (see [Books](#books-format-3)).
+A `[[books.chapters]]` row (or a nested `children` row) has a `title`, an optional `entry`, an
 optional `anchor`, an optional `review` note, and `children`.
 
 `collapse = true` is an optional authored marker. It is additive and omits when false, so older
@@ -456,6 +460,68 @@ not show. A marker on a heading with no entry has no body to check.
 
 The corpus reader recomputes this list from the body when it reads the entry, so a
 hand edit to a body cannot leave a stale link list.
+
+### Books (format 3)
+
+Format 3 (#425) stores the printed chapter structure of the curated books only. Of the 439 books of
+corpus v0.1.25, 16 have one (the printed contents of Core Rulebook, Bestiary, and so on). The other 423
+were page-order lists that the page of each entry already determines: 2.49 MB of the 4.40 MB
+`books.toml`, which the compiler can rebuild. The compiler now rebuilds them.
+
+```text
+books/<publication-id>.toml     one curated book: exactly one [[books]] block, `source` = the file stem
+```
+
+The file keeps the `[[books]]` block of formats 1 and 2 (`source`, `title`, `basis`, `review`,
+`[[books.chapters]]`). A curated file may not hold a top-level chapter titled `Page order`, `Unpaged` or
+`New entries (page order)`: those titles belong to the compiler, and `corpus-check` rejects them. A
+format 3 corpus has no `books.toml`, and a corpus holds one layout or the other.
+
+**What the compiler builds.** `book_index` (in `crates/corpus`, called by the compiler and by
+`corpus-check`) gives every publication one book, in this order:
+
+1. **A curated file wins.** Its chapters are kept as written. The compiler adds one last, hidden chapter,
+   `New entries (page order)`, that holds the members the curated tree does not place (formats 1 and 2
+   stored that chapter in the file). The app never shows it; reachability reads it.
+2. **Every other publication is derived.** The *members* are the entries whose `source_ids` name the
+   book. The *page* of a member is its first `[[sources]]` row for that book that has a page, read as
+   its leading integer: `12-14` and `12, 14` give 12; `inside cover` gives none. A member with a page
+   goes to the chapter `Page order`; the rest go to `Unpaged`. A chapter with no member is left out.
+3. **Order inside a chapter:** page, then the kind slug, then the lowercased title, then the id. Entries
+   with no page sort after the paged ones by the last three keys. The id makes the order total, so the
+   output never depends on hash order or file order. Entries on one page are not in printed order, so
+   the tie-break is a convention, not evidence.
+4. **Nesting.** A member whose `parent` chain reaches another member nests under the nearest one, in
+   that member's chapter, in the same order.
+5. **Texts.** A derived node is `{ title = <entry title>, entry = <id> }`, with no anchor and no marker.
+   `basis`, the book `review` and the chapter notes are fixed texts in the compiler, chosen by which
+   chapters exist.
+6. **Book order:** the curated books first, then the derived ones; each group by the title folded to
+   lowercase ASCII letters and digits, then the publication id. The title of a derived book is its
+   publication title.
+
+`corpus-check` gains these rules for format 3:
+
+- a curated file's name is its `source`, the `source` has a row in `publications.toml`, and the file has
+  exactly one block;
+- the reserved chapter titles are rejected in a curated file;
+- the placement rule of formats 1 and 2 still holds for the curated nodes (the book must be in the
+  entry's `source_ids`); a derived placement is a member by construction;
+- a `[[sources]]` `page` must be `N`, `N-N`, a comma list of those, or `inside cover`. In the
+  single `books.toml` layout a page that is not one only warns, because the stored lists do not read
+  pages. In the split layout it is a problem, whatever the `format` number says (a split corpus below
+  format 3 is a half-migrated one).
+
+`cargo xtask corpus-migrate-layout <dir>` (or `cast-iron-corpus migrate-layout`) cuts a `books.toml` into
+the curated files and removes it: a book with a top-level chapter other than the three above is curated;
+every other book gets no file. It is idempotent, and a crash leaves `books.toml` in place, so a rerun
+converges. It declares format 3 only for a format 2 corpus. A format 1 corpus still has the trades
+migration to run, and the reader accepts the split layout in a format below 3 with a warning. The
+registered `migrate` chain is 1 to 2 (trades), then 2 to 3 (this cut, writing `format = 3`), so
+`migrate` takes a format 1 corpus to format 3 in one run.
+
+The library does not change: `books.json` keeps its shape, so neither `SCHEMA_VERSION` nor
+`INDEX_FORMAT_VERSION` moves. The content version changes with the data, as for any pin.
 
 ### Coverage
 
@@ -936,10 +1002,10 @@ who do not build Cast Iron. It is copied into `cast-iron-data`.
 - `.github/pull_request_template.md`: the checklist for a data pull request.
 
 The `cast-iron-corpus` binary (`cargo install --git ... cast-iron-corpus`) has
-four commands: `check [DIR] [--drift-report FILE]`, `fmt [--check] [DIR]`,
-`migrate [DIR]`, and `migrate-trades [DIR] [--review FILE]`. It depends only on the
+five commands: `check [DIR] [--drift-report FILE]`, `fmt [--check] [DIR]`,
+`migrate [DIR]`, `migrate-trades [DIR] [--review FILE]`, and `migrate-layout [DIR]`. It depends only on the
 corpus and schema crates. The same code runs behind `cargo xtask corpus-check`,
-`corpus-fmt`, `corpus-migrate`, and `corpus-migrate-trades`.
+`corpus-fmt`, `corpus-migrate`, `corpus-migrate-trades`, and `corpus-migrate-layout`.
 
 ## Determinism
 

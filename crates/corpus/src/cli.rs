@@ -18,6 +18,9 @@ cast-iron-corpus <command>
         print the first differing line of each file that is not canonical and fail.
   migrate [DIR]
         Convert a corpus from an older format to this tool's format.
+  migrate-layout [DIR]
+        Split books.toml into books/<publication>.toml (the layout step of format 3) and
+        nothing else. Safe to repeat. It declares format 3 only from format 2.
   migrate-trades [DIR] [--review FILE]
         Lower the trades of archetypes and class options to format 2, resolving each to a
         feature of a base class only where the printed name proves it, and write the trades
@@ -110,9 +113,10 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
         ));
     }
     println!(
-        "corpus ok: {} entries, {} publications, {} books, {} licences",
+        "corpus ok: {} entries, {} publications, {} books ({} curated), {} licences",
         corpus.entries.len(),
         corpus.publications.len(),
+        corpus.book_index().books.len(),
         corpus.books.books.len(),
         corpus.legal.licenses.len()
     );
@@ -160,6 +164,12 @@ pub fn run_migrate(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+pub fn run_migrate_layout(args: &[String]) -> Result<(), String> {
+    let args = parse("migrate-layout", args, &[], &[])?;
+    println!("{}", crate::migrate_layout(&args.dir)?);
+    Ok(())
+}
+
 pub fn run_migrate_trades(args: &[String]) -> Result<(), String> {
     let args = parse("migrate-trades", args, &[], &["--review"])?;
     let review = args
@@ -195,7 +205,7 @@ pub fn run_migrate_trades(args: &[String]) -> Result<(), String> {
     println!(
         "migrated {} to format {}; review queue: {}; now run `cast-iron-corpus check` and `cast-iron-corpus fmt --check`",
         args.dir.display(),
-        crate::CORPUS_FORMAT,
+        crate::TRADES_FORMAT,
         review.display()
     );
     Ok(())
@@ -207,6 +217,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         Some("check") => run_check(&args[1..]),
         Some("fmt") => run_fmt(&args[1..]),
         Some("migrate") => run_migrate(&args[1..]),
+        Some("migrate-layout") => run_migrate_layout(&args[1..]),
         Some("migrate-trades") => run_migrate_trades(&args[1..]),
         Some("help" | "--help" | "-h") | None => {
             print!("{USAGE}");

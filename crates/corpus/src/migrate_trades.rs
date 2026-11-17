@@ -26,7 +26,7 @@
 //! checkout, and `git checkout .` to retry after an interruption.
 
 use crate::check::{base_class_ids, heading_keys};
-use crate::config::{CORPUS_FORMAT, Config, write_config};
+use crate::config::{Config, TRADES_FORMAT, write_config};
 use crate::drift::{printed_replaces_alters, printed_replaces_alters_anywhere};
 use crate::entry::write_entry;
 use crate::load::Corpus;
@@ -383,7 +383,7 @@ pub struct Plan {
 pub fn plan(corpus: &Corpus) -> Plan {
     let headings = class_headings(corpus);
     let target = Config {
-        format: CORPUS_FORMAT,
+        format: TRADES_FORMAT,
         license_refs: corpus.config.license_refs.clone(),
     };
     let mut report = TradesReport::default();
@@ -518,9 +518,10 @@ pub fn migrate_trades(dir: &Path) -> Result<TradesReport, String> {
         let full = dir.join(path);
         fs::write(&full, text).map_err(|e| format!("cannot write {}: {e}", full.display()))?;
     }
-    if corpus.config.format != CORPUS_FORMAT {
+    // Never write a corpus that is already past this step back to format 2.
+    if corpus.config.format < TRADES_FORMAT {
         let config = Config {
-            format: CORPUS_FORMAT,
+            format: TRADES_FORMAT,
             license_refs: corpus.config.license_refs.clone(),
         };
         let path = dir.join("corpus.toml");
@@ -1210,7 +1211,7 @@ mod tests {
     }
 
     #[test]
-    fn the_generic_migrate_command_runs_the_same_step() {
+    fn the_generic_migrate_command_runs_the_same_step_and_then_the_layout_step() {
         let source = corpus_in_format(
             1,
             vec![
@@ -1226,9 +1227,10 @@ mod tests {
         let dir = temp_dir("generic");
         write_corpus(&dir, &source);
         let message = crate::migrate(&dir).unwrap();
-        assert!(message.contains("from format 1 to 2"), "{message}");
+        // The chain goes on to the book layout step (#425): format 3.
+        assert!(message.contains("from format 1 to 3"), "{message}");
         let loaded = Corpus::load(&dir).unwrap();
-        assert_eq!(loaded.config.format, 2);
+        assert_eq!(loaded.config.format, 3);
         let trades = loaded.entries["ref/arc-fighter/a"].entry.fields.trades();
         assert_eq!(trades[0].feature.as_ref().unwrap().anchor, "bravery");
         let _ = fs::remove_dir_all(&dir);

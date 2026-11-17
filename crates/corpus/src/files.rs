@@ -8,8 +8,8 @@
 
 use crate::error::{Error, Result};
 use cast_iron_schema::{
-    AliasIndex, BookIndex, CoverageHistory, Exclusion, LegalNotices, Rejection, SeriesKind,
-    SourceInfo,
+    AliasIndex, BookIndex, BookTree, CoverageHistory, Exclusion, LegalNotices, Rejection,
+    SeriesKind, SourceInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -192,6 +192,45 @@ pub fn write_books(books: &BookIndex) -> String {
 pub fn read_books(path: &Path, text: &str) -> Result<BookIndex> {
     toml::from_str(text)
         .map_err(|error| Error::new(path, toml_line(&error, text), format!("books: {error}")))
+}
+
+/// One curated book as `books/<publication>.toml` stores it: today's `[[books]]` block, exactly one.
+pub fn write_curated_book(tree: &BookTree) -> String {
+    write_books(&BookIndex {
+        books: vec![tree.clone()],
+    })
+}
+
+/// Reads `books/<publication>.toml`. The file holds one `[[books]]` block, and its `source` is the
+/// file stem, so a file cannot name another book than its path does.
+pub fn read_curated_book(path: &Path, text: &str) -> Result<BookTree> {
+    let mut index = read_books(path, text)?;
+    if index.books.len() != 1 {
+        return Err(Error::new(
+            path,
+            1,
+            format!(
+                "a curated book file holds exactly one [[books]] block; this one holds {}",
+                index.books.len()
+            ),
+        ));
+    }
+    let tree = index.books.remove(0);
+    let stem = path.file_stem().and_then(|stem| stem.to_str());
+    if stem != Some(tree.source.as_str()) {
+        return Err(Error::new(
+            path,
+            text.lines()
+                .position(|line| line.starts_with("source ="))
+                .map_or(1, |index| index + 1),
+            format!(
+                "the file is for book `{}` but its name says `{}`; the file name is the publication id",
+                tree.source,
+                stem.unwrap_or("?")
+            ),
+        ));
+    }
+    Ok(tree)
 }
 
 pub fn write_aliases(aliases: &AliasIndex) -> String {
