@@ -407,8 +407,8 @@ hand edit to a body cannot leave a stale link list.
 
 Format 3 (#425) stores the printed chapter structure of the curated books only. Of the 439 books of
 corpus v0.1.25, 16 have one (the printed contents of Core Rulebook, Bestiary, and so on). The other 423
-were page-order lists that the page of each entry already determines, 4.4 MB of `books.toml` that the
-compiler can rebuild. The compiler now rebuilds them.
+were page-order lists that the page of each entry already determines: 2.49 MB of the 4.40 MB
+`books.toml`, which the compiler can rebuild. The compiler now rebuilds them.
 
 ```text
 books/<publication-id>.toml     one curated book: exactly one [[books]] block, `source` = the file stem
@@ -449,8 +449,10 @@ format 3 corpus has no `books.toml`, and a corpus holds one layout or the other.
 - the reserved chapter titles are rejected in a curated file;
 - the placement rule of formats 1 and 2 still holds for the curated nodes (the book must be in the
   entry's `source_ids`); a derived placement is a member by construction;
-- a `[[sources]]` `page` must be `N`, `N-N`, a comma list of those, or `inside cover`. In a corpus
-  below format 3 a page that is not one only warns, because the stored lists do not read pages.
+- a `[[sources]]` `page` must be `N`, `N-N`, a comma list of those, or `inside cover`. In the
+  single `books.toml` layout a page that is not one only warns, because the stored lists do not read
+  pages. In the split layout it is a problem, whatever the `format` number says (a split corpus below
+  format 3 is a half-migrated one).
 
 `cargo xtask corpus-migrate-layout <dir>` (or `cast-iron-corpus migrate-layout`) cuts a `books.toml` into
 the curated files and removes it: a book with a top-level chapter other than the three above is curated;
