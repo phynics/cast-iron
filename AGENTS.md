@@ -26,7 +26,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
-| Check before you finish | `cargo xtask check` (also fails when a spec in `tests/e2e/tests/` is missing from the verify skill's feature map, or the map names a spec that does not exist) |
+| Check before you finish | `cargo xtask check` (also fails when the verify skill's feature map and the specs in `tests/e2e/tests/` disagree: a spec or test the map does not reach, a name or `--grep` pattern that matches nothing) |
 | Browser acceptance tests (the affected specs; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
 | Full browser suite (CI only) | `gh workflow run ci.yml --ref <branch>` |
 

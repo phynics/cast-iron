@@ -1,7 +1,8 @@
 //! Repository automation. Run `cargo xtask help`.
 
+mod feature_map;
+
 use sha2::{Digest, Sha256};
-use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -862,99 +863,8 @@ fn corpus_fmt(args: &[String]) -> Result {
     cast_iron_corpus::cli::run_fmt(args)
 }
 
-/// The verify skill. Its feature map names the e2e spec that covers each feature.
-const VERIFY_SKILL: &str = ".agents/skills/verify/SKILL.md";
-/// The Playwright specs. Every file here that ends in `.spec.ts` must be in the feature map.
-const SPEC_DIR: &str = "tests/e2e/tests";
-
-/// The spec file names that the feature map table names. The map is the `|` rows under the
-/// heading that contains "Feature map", up to the next heading. A spec name is any run of
-/// letters, digits, `.`, `_` and `-` that ends in `.spec.ts`, so backticks, commas, parentheses
-/// and `\|` separators around a name do not matter. Prose elsewhere in the file may name a spec
-/// without putting it in the map.
-fn feature_map_specs(skill: &str) -> Result<BTreeSet<String>> {
-    let mut in_map = false;
-    let mut found_heading = false;
-    let mut specs = BTreeSet::new();
-    for line in skill.lines() {
-        if line.starts_with('#') {
-            in_map = line.contains("Feature map");
-            found_heading |= in_map;
-        } else if in_map && line.trim_start().starts_with('|') {
-            for word in line.split(|c: char| !(c.is_ascii_alphanumeric() || "._-".contains(c))) {
-                if word.len() > ".spec.ts".len() && word.ends_with(".spec.ts") {
-                    specs.insert(word.to_string());
-                }
-            }
-        }
-    }
-    if found_heading {
-        Ok(specs)
-    } else {
-        Err(format!("{VERIFY_SKILL} has no \"Feature map\" heading"))
-    }
-}
-
-/// Differences between the feature map and the spec files: specs the map lacks and map names
-/// that match no file. Empty when they agree.
-fn feature_map_problems(skill: &str, files: &[String]) -> Result<Vec<String>> {
-    let mapped = feature_map_specs(skill)?;
-    let on_disk: BTreeSet<&str> = files
-        .iter()
-        .map(String::as_str)
-        .filter(|name| name.ends_with(".spec.ts"))
-        .collect();
-    let mut problems = Vec::new();
-    for name in &on_disk {
-        if !mapped.contains(*name) {
-            problems.push(format!(
-                "{SPEC_DIR}/{name} is not in the feature map; add it to a row of {VERIFY_SKILL}"
-            ));
-        }
-    }
-    for name in &mapped {
-        if !on_disk.contains(name.as_str()) {
-            problems.push(format!(
-                "the feature map names {name}, but {SPEC_DIR}/{name} does not exist; fix or remove the row in {VERIFY_SKILL}"
-            ));
-        }
-    }
-    Ok(problems)
-}
-
-/// Fails when the feature map and `tests/e2e/tests` disagree (AGENTS.md sends agents to the map
-/// to choose local specs, so a spec outside it is skipped).
-fn check_feature_map() -> Result {
-    let skill_path = root().join(VERIFY_SKILL);
-    let skill = fs::read_to_string(&skill_path)
-        .map_err(|e| format!("cannot read {}: {e}", skill_path.display()))?;
-    let dir = root().join(SPEC_DIR);
-    let mut files = Vec::new();
-    for entry in fs::read_dir(&dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))? {
-        let entry = entry.map_err(|e| format!("cannot read {}: {e}", dir.display()))?;
-        files.push(entry.file_name().to_string_lossy().into_owned());
-    }
-    files.sort();
-    let problems = feature_map_problems(&skill, &files)?;
-    if problems.is_empty() {
-        println!(
-            "check-feature-map: all {} specs of {SPEC_DIR} are in the feature map",
-            files
-                .iter()
-                .filter(|name| name.ends_with(".spec.ts"))
-                .count()
-        );
-        Ok(())
-    } else {
-        Err(format!(
-            "check-feature-map: the feature map and {SPEC_DIR} disagree:\n  {}",
-            problems.join("\n  ")
-        ))
-    }
-}
-
 fn check() -> Result {
-    check_feature_map()?;
+    feature_map::check(&root())?;
     run("cargo", &["fmt", "--all", "--", "--check"])?;
     run(
         "cargo",
@@ -1121,43 +1031,6 @@ mod tests {
         assert_eq!(pin.tree_sha256.len(), 64);
         assert!(pin.repository.starts_with("https://github.com/"));
         assert!(pin.tag.as_deref().is_some_and(|tag| tag.starts_with('v')));
-    }
-
-    const MAP: &str = "# Verify\n\nSee `prose.spec.ts` first.\n\n## 5. Feature map\n\n| Feature | Grep | Source |\n|---|---|---|\n| One | `a\\|b` (`one.spec.ts`, `two.spec.ts`; also mobile) | `x.rs` |\n| Two | `c` (three.spec.ts) | `y.rs` |\n\n## Keep this file current\n\n| Not | in `later.spec.ts` | map |\n";
-
-    fn names(list: &[&str]) -> Vec<String> {
-        list.iter().map(|name| name.to_string()).collect()
-    }
-
-    #[test]
-    fn the_feature_map_reads_only_its_own_table_rows() {
-        let specs = feature_map_specs(MAP).unwrap();
-        let specs: Vec<&str> = specs.iter().map(String::as_str).collect();
-        assert_eq!(specs, ["one.spec.ts", "three.spec.ts", "two.spec.ts"]);
-        assert!(feature_map_specs("# Verify\n| a | b.spec.ts |\n").is_err());
-    }
-
-    #[test]
-    fn a_spec_missing_from_the_map_and_a_stale_map_name_are_both_listed() {
-        let files = names(&["one.spec.ts", "two.spec.ts", "three.spec.ts", "helpers.ts"]);
-        assert!(feature_map_problems(MAP, &files).unwrap().is_empty());
-        // A new spec the map lacks, and a mapped spec whose file is gone.
-        let files = names(&["one.spec.ts", "two.spec.ts", "new.spec.ts", "helpers.ts"]);
-        let problems = feature_map_problems(MAP, &files).unwrap();
-        assert_eq!(problems.len(), 2, "{problems:?}");
-        assert!(
-            problems[0].contains("new.spec.ts") && problems[0].contains("not in the feature map"),
-            "{problems:?}"
-        );
-        assert!(
-            problems[1].contains("three.spec.ts") && problems[1].contains("does not exist"),
-            "{problems:?}"
-        );
-    }
-
-    #[test]
-    fn the_committed_feature_map_matches_the_spec_files() {
-        check_feature_map().unwrap();
     }
 
     #[test]
