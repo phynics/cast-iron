@@ -798,6 +798,60 @@ test("The old Game Mastery Guide address opens the merged book", async ({ page }
   await expect(page.getByRole("navigation", { name: "Contents of GameMastery Guide" })).toBeVisible();
 });
 
+const titleOf = (id: string) => sources.find((source) => source.id === id)!.title as string;
+
+test("An old address of a deleted book tree opens the printed book (#420)", async ({ page }) => {
+  // v0.1.24 deleted the PRPG Core Rulebook and Pathfinder RPG Bestiary listings. The address
+  // opens the printed book that holds the same entries.
+  for (const [old, current] of [
+    ["prpg-core-rulebook", "core-rulebook"],
+    ["pathfinder-rpg-bestiary", "bestiary"],
+  ]) {
+    await page.goto("#/");
+    await page.goto(`#/browse/book/${old}`);
+    await expect(page.getByRole("heading", { level: 1, name: titleOf(current), exact: true })).toBeVisible();
+    await expect(page.locator(".toc")).toBeVisible();
+    await expect(page.getByText("This library has no chapter order for this book.")).toHaveCount(0);
+  }
+});
+
+test("An old chapter address of a deleted book tree opens the printed book, not an empty chapter (#420)", async ({ page }) => {
+  // The `Page order` and `Unpaged` chapters did not carry over; the same-named chapter address
+  // and a position address (`?c=`) land on the replacement book's page.
+  for (const address of [
+    "#/browse/book/prpg-core-rulebook/page-order",
+    "#/books/prpg-core-rulebook/unpaged",
+    "#/browse/book/prpg-core-rulebook?c=1",
+  ]) {
+    await page.goto("#/");
+    await page.goto(address);
+    await expect(page.getByRole("heading", { level: 1, name: titleOf("core-rulebook"), exact: true }), address).toBeVisible();
+    await expect(page.getByText("This chapter is not in this book.")).toHaveCount(0);
+    await expect(page.getByText("This library has no chapter order for this book.")).toHaveCount(0);
+    // The address stays a book page: no chapter heading, and the contents list is shown.
+    await expect(page.getByTestId("chapter-title")).toHaveCount(0);
+    await expect(page.locator(".toc")).toBeVisible();
+  }
+  await page.goto("#/");
+  await page.goto("#/browse/book/pathfinder-rpg-bestiary/page-order");
+  await expect(page.getByRole("heading", { level: 1, name: titleOf("bestiary"), exact: true })).toBeVisible();
+  await expect(page.locator(".toc")).toBeVisible();
+});
+
+test("An old address of a deleted one-off tree opens Books (#420)", async ({ page }) => {
+  // A blog post or comic issue was never a book. Its entries sit in the printed books they name.
+  for (const address of [
+    "#/browse/book/paizo-blog-sable-company-marine",
+    "#/browse/book/pathfinder-comics-3/page-order",
+    "#/browse/source/pathfinder-worldscape-2",
+  ]) {
+    await page.goto("#/");
+    await page.goto(address);
+    await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true }), address).toBeVisible();
+    await expect(page.getByText("This library has no chapter order for this book.")).toHaveCount(0);
+  }
+});
+
 test("A book page highlights the Books tab, also from an old publication link", async ({ page }) => {
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   await page.goto(`#/browse/book/${book.source}`);
