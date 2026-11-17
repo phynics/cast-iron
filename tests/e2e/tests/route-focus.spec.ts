@@ -43,34 +43,90 @@ test("A control focused after the navigation keeps focus when the frame fires", 
   expect(await page.evaluate(() => document.activeElement?.id)).not.toBe("main");
 });
 
-test("Without a focused control, the route change still moves focus to <main>", async ({ page }) => {
+/** Counts the calls that put focus on <main> and the calls that scroll the window, from now on. */
+const spyOnMoves = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { moves: { main: number; scroll: number } };
+    w.moves = { main: 0, scroll: 0 };
+    const focus = HTMLElement.prototype.focus;
+    HTMLElement.prototype.focus = function (this: HTMLElement, ...args: Parameters<HTMLElement["focus"]>) {
+      if (this.id === "main") w.moves.main += 1;
+      return focus.apply(this, args);
+    };
+    const scrollTo = window.scrollTo.bind(window);
+    window.scrollTo = ((...args: unknown[]) => {
+      w.moves.scroll += 1;
+      return (scrollTo as (...a: unknown[]) => void)(...args);
+    }) as typeof window.scrollTo;
+  });
+const moves = (page: Page) =>
+  page.evaluate(() => (window as unknown as { moves: { main: number; scroll: number } }).moves);
+
+// Each start has a known focus that is not <main>: nothing, or a link that stays on the page.
+for (const start of ["nothing focused", "a footer link focused"]) {
+  test(`With ${start}, the route change still moves focus to <main>`, async ({ page }) => {
+    await installLibrary(page);
+    await page.goto("#/");
+    await expect(page.getByRole("link", { name: "Legal and attribution" })).toBeVisible();
+    await frames(page);
+    await page.evaluate((start) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (start === "nothing focused") active?.blur();
+      else document.querySelector<HTMLElement>("footer a[href*='legal']")?.focus();
+    }, start);
+    const before = await page.evaluate(() => document.activeElement?.id ?? document.activeElement?.tagName);
+    expect(before).not.toBe("main");
+    await spyOnMoves(page);
+
+    await page.evaluate(() => {
+      location.hash = "#/books";
+    });
+    await expect(page.locator("main#main")).toBeFocused();
+    expect((await moves(page)).main).toBe(1);
+  });
+}
+
+test("A newer navigation cancels the focus move and the scroll of an older one", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/");
   await frames(page);
+  await spyOnMoves(page);
+  // Hold the animation frames, so that the order is the test's and not the host's.
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      held: FrameRequestCallback[];
+      release: () => void;
+    };
+    const original = window.requestAnimationFrame.bind(window);
+    w.held = [];
+    window.requestAnimationFrame = (callback) => w.held.push(callback);
+    w.release = () => {
+      window.requestAnimationFrame = original;
+      const callbacks = w.held.splice(0);
+      for (const callback of callbacks) callback(performance.now());
+    };
+  });
+  const held = () => page.evaluate(() => (window as unknown as { held: unknown[] }).held.length);
+
+  // Books is processed and its frame is waiting.
   await page.evaluate(() => {
     location.hash = "#/books";
   });
-  await expect(page.locator("main#main")).toBeFocused();
-});
+  await expect(page.getByRole("heading", { level: 1, name: "Books" })).toBeVisible();
+  const afterBooks = await held();
+  expect(afterBooks).toBeGreaterThan(0);
 
-test("A newer navigation cancels the focus move of an older one", async ({ page }) => {
-  await installLibrary(page);
-  await page.goto("#/");
-  await frames(page);
+  // Settings is processed and queued its own frame behind the first.
   await page.evaluate(() => {
-    const w = window as unknown as { mainFocusCalls: number };
-    w.mainFocusCalls = 0;
-    const focus = HTMLElement.prototype.focus;
-    HTMLElement.prototype.focus = function (this: HTMLElement, ...args: Parameters<HTMLElement["focus"]>) {
-      if (this.id === "main") w.mainFocusCalls += 1;
-      return focus.apply(this, args);
-    };
-    // Two navigations before the next frame: only the second may move focus.
-    location.hash = "#/books";
     location.hash = "#/settings";
   });
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  expect(await held()).toBeGreaterThan(afterBooks);
+  expect(await moves(page)).toEqual({ main: 0, scroll: 0 });
+
+  // Release the frames in the order they were queued: only the latest navigation acts.
+  await page.evaluate(() => (window as unknown as { release: () => void }).release());
   await expect(page.locator("main#main")).toBeFocused();
   await frames(page);
-  expect(await page.evaluate(() => (window as unknown as { mainFocusCalls: number }).mainFocusCalls)).toBe(1);
+  expect(await moves(page)).toEqual({ main: 1, scroll: 1 });
 });
