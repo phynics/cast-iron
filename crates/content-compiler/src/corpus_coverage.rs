@@ -119,6 +119,7 @@ mod tests {
             aon: None,
             source_ids: sources.iter().map(|s| s.to_string()).collect(),
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body: vec![],

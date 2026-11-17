@@ -1192,6 +1192,7 @@ mod tests {
             aon: None,
             source_ids: vec!["c".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body: vec![],

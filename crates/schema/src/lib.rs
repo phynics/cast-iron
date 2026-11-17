@@ -264,6 +264,12 @@ pub struct RuleEntry {
     /// [`Self::source_ids`].
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sources: Vec<Citation>,
+    /// Books that expand this entry without printing it (issue #458). Credit only: an entry is
+    /// never a member of these books, and membership, counts, filters, search sources and page
+    /// order never read the list. Optional and additive: an entry without rows omits the key,
+    /// and an older reader ignores it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub expanded_in: Vec<Expansion>,
     /// Breadcrumb path in the rules hierarchy, such as `["Combat", "Actions in Combat"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<String>,
@@ -477,6 +483,24 @@ pub struct Citation {
     /// Printed page, such as `221`, `12-14` or `inside cover`. Omitted when the citation has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page: Option<String>,
+}
+
+/// A book that expands an entry without being a member book of it (issue #458).
+///
+/// The expanding material has no entry of its own, so no relation can credit it. The book is
+/// not in [`RuleEntry::source_ids`]; this record is a credit and never a membership.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Expansion {
+    /// Publication id of the expanding book. It must exist and must not be in
+    /// [`RuleEntry::source_ids`].
+    pub publication: String,
+    /// Printed page, as in [`Citation::page`]. Omitted when the credit has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<String>,
+    /// The entry whose own text the book expands, when the expansion is shown through another
+    /// entry. It must resolve, and its `source_ids` must include [`Self::publication`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub via: Option<EntryId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
