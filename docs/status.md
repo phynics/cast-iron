@@ -16,22 +16,11 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 ## Main and release
 
-- **`release` is at `6365dba`**, published 2026-11-09: corpus `v0.1.17`, schema 4, index format 2 ([release entry](status/2026-11-09-release-6365dba-corpus-v0-1-17-schema-4-index-format-2.md)). That is what Pages serves.
-- **`main` is 219 commits ahead** (2026-11-17). It carries corpus `v0.1.26` and schema 6 (book membership in the catalog stub, [#394](https://github.com/phynics/cast-iron/issues/394); typed trades in `trades.json`, [#450](https://github.com/phynics/cast-iron/issues/450)). None of it is published.
-- **Promotion is on hold.** Breaking format changes ship together as "format 5" (owner decision 2026-11-16, [decision](decisions/2026-11-16-owner-decisions-from-the-architecture-review.md)). Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
-
-## Open release gates
-
-[#441](https://github.com/phynics/cast-iron/issues/441) is the checklist; copy of 2026-11-17, the issue is the record:
-
-- [ ] Real schema-4 to 5 upgrade check in a browser, on Chromium and WebKit: the old library keeps working until the new one is verified, stars, recents and active books survive, and membership visibility works after the update.
-- [ ] Fresh-install check on the promoted build.
-- [ ] Full CI green on the exact `main` SHA that is promoted.
-- [ ] iPhone measurement results ([#423](https://github.com/phynics/cast-iron/issues/423)) reviewed, if the session happened.
-- [ ] Release notes list the user-visible changes since the last promotion.
+- **`release` is at `1324e1d`**, published 2026-11-17: corpus `v0.1.26`, schema 6, index format 2 ([release entry](status/2026-11-17-release-1324e1d-corpus-v0-1-26-schema-6.md)). That is what Pages serves.
+- **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 
 ## Latest runs
 
-- **Full CI on `main`:** the dispatched run [44096836868](https://github.com/phynics/cast-iron/actions/runs/44096836868) on `c14d7f0`, 2026-11-17 13:50 UTC, succeeded. All runs: [ci.yml on `main`](https://github.com/phynics/cast-iron/actions/workflows/ci.yml?query=branch%3Amain).
-- **Pages:** the last deployment is [42683286107](https://github.com/phynics/cast-iron/actions/runs/42683286107) for `release` at `6365dba`, 2026-11-09, succeeded. All runs: [pages.yml](https://github.com/phynics/cast-iron/actions/workflows/pages.yml).
-- **Live verification:** recorded with the release entry above. Nothing newer exists.
+- **Full CI on `main`:** run [44167404059](https://github.com/phynics/cast-iron/actions/runs/44167404059) on `1324e1d`, 2026-11-17, succeeded with every job green. All runs: [ci.yml on `main`](https://github.com/phynics/cast-iron/actions/workflows/ci.yml?query=branch%3Amain).
+- **Pages:** the last deployment is [44180026338](https://github.com/phynics/cast-iron/actions/runs/44180026338) for `release` at `1324e1d`, 2026-11-17, succeeded. All runs: [pages.yml](https://github.com/phynics/cast-iron/actions/workflows/pages.yml).
+- **Live verification:** the live manifest and shell stamps match the release (see the release entry). The owner waived the live browser checks for this release.
