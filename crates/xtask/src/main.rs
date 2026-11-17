@@ -1,5 +1,6 @@
 //! Repository automation. Run `cargo xtask help`.
 
+mod aon_coverage;
 mod docs_index;
 mod feature_map;
 
@@ -19,6 +20,10 @@ cargo xtask <command>
   published-ids              Add the ids of generated/content to sources/published-ids.txt
   published-books            Append the books of the pinned corpus that have no slot yet to
                              sources/published-books.txt (`content` fails until you do)
+  aon-coverage [--check]     Write docs/research/aon-path-coverage.{md,tsv}: every canonical entry
+                             of the pinned corpus without an Archives of Nethys path, with
+                             per-kind matched/missing/total counts. --check writes nothing and
+                             fails when the committed files differ. Reads the corpus only
   check-book-slots [--base REF]
                              Fail unless sources/published-books.txt keeps every id line that
                              REF (default origin/main) has, in place; only appends are allowed
@@ -58,6 +63,7 @@ fn main() -> ExitCode {
         Some("content") => content(&args[1..]),
         Some("published-ids") => published_ids(),
         Some("published-books") => published_books(),
+        Some("aon-coverage") => aon_coverage::run(&args[1..]),
         Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
         Some("size-budget") => size_budget(&args[1..]),
