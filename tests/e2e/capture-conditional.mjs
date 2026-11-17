@@ -17,6 +17,10 @@
 //   combined-updates  Both are waiting, so the header and Settings say "Updates".
 //   ios-guide         The Add to Home Screen guide, in WebKit with an iPhone Safari user agent.
 //                     That is an engine simulation. It is not iOS Safari and not a device (#423).
+//
+// Two states sit below the first screen: the iOS Settings install row and the phone
+// combined-update reload row. Their `settings-install-row-scrolled` and `settings-reload-row`
+// captures scroll the subject to the middle and check its bounds and text (#448).
 
 import { chromium, webkit } from '@playwright/test';
 import fs from 'node:fs';
@@ -171,8 +175,9 @@ const GROUPS = [
       'Install the library from the built site.',
       'Do both of the shell-update and library-update fixtures: a different SHELL_VERSION and an overlay manifest with a newer content version.',
       'Settings → Updates → Check now. The header action and Settings both say that updates are waiting.',
+      'On a phone the first screen ends above the reload row. Scroll the reload row to the middle for the scrolled frame; desktop shows both rows already.',
     ],
-    async run({ page, capture }) {
+    async run({ page, capture, viewport }) {
       const overlay = newerLibraryOverlay();
       try {
         await control('shell', { version: `capture-next-${build.shell_version}` });
@@ -184,6 +189,13 @@ const GROUPS = [
         await capture('settings-updates', {
           description: 'Settings → Updates with the app reload row and the newer library offered together.',
           ready: '#set-updates .install-panel .facts',
+        });
+        // The phone frame above stops above the reload row, so the combined state needs a scrolled
+        // frame there. Desktop already shows both rows; it is not captured twice (#448).
+        if (viewport === 'phone') await capture('settings-reload-row', {
+          description: 'Settings → Updates scrolled so the app reload row ("App update ready." and Reload) and part of the library offer are in view.',
+          ready: '[data-testid="app-update"]',
+          scrollTo: { selector: '[data-testid="app-update"]', text: ['App update ready.', 'Reload'] },
         });
         await page.goto(FIREBALL);
         await header(page).getByRole('button', { name: UPDATE_BUTTONS.both }).waitFor();
@@ -207,6 +219,7 @@ const GROUPS = [
       'Install the library in WebKit.',
       'Reopen with the iPhone Safari user agent, touch and mobile emulation (the app detects iOS Safari from that user agent).',
       'The header shows Install. Tap it: the Add to Home Screen guide opens as a modal dialog. Settings → Install app offers the same guide.',
+      'Settings is taller than the viewport: the frame from the top shows no install row. Scroll the App section to the middle for the scrolled frame, which needs the row fully in view with its sentence and button.',
     ],
     async run({ page, capture }) {
       await page.goto(FIREBALL);
@@ -231,6 +244,13 @@ const GROUPS = [
       await capture('settings-install-row', {
         description: 'Settings with the Install app row that opens the same guide.',
         ready: 'main button:text("Install app")',
+      });
+      // The App section is below the first screen, so the frame above does not show the row it
+      // names. This frame scrolls the row into the middle and checks its bounds and text (#448).
+      await capture('settings-install-row-scrolled', {
+        description: 'Settings scrolled to the App section: the Install app row with its sentence and button in view.',
+        ready: '[data-testid="app-install"]',
+        scrollTo: { selector: '[data-testid="app-install"]', text: ['Install Cast Iron as an app', 'Install app'] },
       });
     },
   },
@@ -292,10 +312,11 @@ try {
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
-        const capture = async (state, { description, ready, mastheadExpected = true, note }) => {
+        const capture = async (state, { description, ready, mastheadExpected = true, note, scrollTo }) => {
           const file = path.join(out, `${tag.replace('%STATE%', state)}.png`);
-          // A click on Check now can leave the page scrolled; every state is shot from the top.
-          const record = await shoot(page, probePage, { file, readySelector: ready, resetScroll: true });
+          // A click on Check now can leave the page scrolled; every state is shot from the top,
+          // unless it names a subject that does not fit there (`scrollTo`).
+          const record = await shoot(page, probePage, { file, readySelector: ready, resetScroll: true, scrollTo });
           if (!mastheadExpected) { delete record.warning; record.masthead_expected = false; }
           if (record.warning) console.warn(`${path.basename(file)}: ${record.warning}`);
           captures.push({
@@ -312,7 +333,7 @@ try {
             console_errors_so_far: [...errors],
           });
         };
-        await group.run({ page, capture });
+        await group.run({ page, capture, viewport: viewportName });
       } catch (error) {
         failures.push(`${tag.replace('%STATE%', '*')}: ${error.message.split('\n')[0]}`);
         console.error(`${tag.replace('%STATE%', '*')}: ${error.message}`);

@@ -211,6 +211,46 @@ export async function waitControlled(page) {
 export const viewportName = size => (size.width <= 600 ? 'phone' : 'desktop');
 
 /**
+ * Scroll an element to the middle of the viewport and check that the reader can see it. A state
+ * whose subject sits below the first screen is not shown by a shot from the top (#448), so the
+ * scroll is part of the evidence and every check here throws rather than saving a frame that
+ * does not show the subject.
+ */
+export async function scrollToTarget(page, { selector, text = [] }) {
+  const target = page.locator(selector).first();
+  await target.waitFor();
+  await target.evaluate(el => el.scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  const found = await target.evaluate((el, expected) => {
+    const box = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    const header = document.querySelector('header.app-header')?.getBoundingClientRect();
+    const hit = box.width > 0 && box.height > 0
+      ? document.elementFromPoint(box.x + box.width / 2, box.y + Math.min(box.height / 2, 24))
+      : null;
+    const textContent = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+    return {
+      selector: expected.selector,
+      bounds: { x: box.x, y: box.y, width: box.width, height: box.height },
+      viewport: { width: innerWidth, height: innerHeight },
+      scroll_y: Math.round(scrollY * 100) / 100,
+      fully_in_viewport: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+      clear_of_header: !header || box.top >= header.bottom - 1,
+      visible_style: style.visibility === 'visible' && style.display !== 'none' && Number(style.opacity) > 0.99,
+      hit_is_inside_target: Boolean(hit && el.contains(hit)),
+      text: textContent,
+      missing_text: expected.text.filter(part => !textContent.includes(part)),
+    };
+  }, { selector, text });
+  if (!found.fully_in_viewport) throw new Error(`${selector} is not fully in the viewport after scrolling: ${JSON.stringify(found.bounds)} in ${JSON.stringify(found.viewport)}`);
+  if (!found.clear_of_header) throw new Error(`${selector} is under the sticky header after scrolling`);
+  if (!found.visible_style) throw new Error(`${selector} is not visibly rendered`);
+  if (!found.hit_is_inside_target) throw new Error(`${selector} is covered at its top centre by another element`);
+  if (found.missing_text.length) throw new Error(`${selector} is missing text: ${JSON.stringify(found.missing_text)}`);
+  return found;
+}
+
+/**
  * Settle, probe, shoot, and read the frame back. `fullPage` shots scroll to the top first:
  * Chromium places a sticky header at the scroll offset of a full-page frame, so a shot taken while
  * scrolled has no masthead at the top of the image (see the capture evidence record, #448). A
@@ -218,14 +258,19 @@ export const viewportName = size => (size.width <= 600 ? 'phone' : 'desktop');
  *
  * Returns the provenance record for the manifest. `masthead_in_frame` false on a viewport or
  * full-page shot is a warning the caller must show.
+ *
+ * `scrollTo` names the subject of a state that does not fit on the first screen: the element is
+ * scrolled to the middle, checked by `scrollToTarget`, and its bounds and text go into the record.
  */
-export async function shoot(page, probePage, { file, readySelector, fullPage = false, resetScroll = false }) {
+export async function shoot(page, probePage, { file, readySelector, fullPage = false, resetScroll = false, scrollTo = null }) {
   const settled = await settle(page, readySelector);
   const scrollBeforeReset = await page.evaluate(() => scrollY);
   if (fullPage || resetScroll) {
     await page.evaluate(() => scrollTo(0, 0));
     await settle(page, readySelector);
   }
+  const scrolled = scrollTo ? await scrollToTarget(page, scrollTo) : null;
+  if (scrolled) await settle(page, readySelector);
   const masthead = await probeMasthead(page);
   const png = await page.screenshot({ path: file, fullPage });
   const frame = await probeFrame(probePage, png, masthead, { offsetY: fullPage ? masthead.scroll_y : 0 });
@@ -233,6 +278,7 @@ export async function shoot(page, probePage, { file, readySelector, fullPage = f
     file: path.basename(file),
     capture_mode: fullPage ? 'full-page' : 'viewport',
     ...(fullPage || resetScroll ? { scroll_before_reset: Math.round(scrollBeforeReset) } : {}),
+    ...(scrolled ? { scroll_to: scrolled } : {}),
     settled,
     masthead,
     frame,
