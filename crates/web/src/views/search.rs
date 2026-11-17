@@ -2096,8 +2096,13 @@ async fn ensure_index(
     show: bool,
     alive: impl Fn() -> bool,
 ) -> Option<Rc<SearchIndex>> {
-    if let Some(idx) = index.get_untracked() {
-        return Some(idx);
+    // A run that starts after the reader left the screen finds the signal disposed. Reading a
+    // disposed signal panics, and a panic in a task that an effect started can stop the page
+    // from following the address bar (#468).
+    match index.try_get_untracked() {
+        None => return None,
+        Some(Some(idx)) => return Some(idx),
+        Some(None) => {}
     }
     if show {
         phase.set(Phase::LoadingIndex);

@@ -4940,3 +4940,26 @@ label.choice-row {
     margin-inline: 0;
   }
 }
+
+/* ---- Panic notice (#468) ----------------------------------------------------------------- */
+
+/* Added by `panic_notice.rs` when the app panics. It sits over the page, outside the app. */
+.panic-notice {
+  position: fixed;
+  inset: auto var(--space-3) var(--space-3) var(--space-3);
+  z-index: 1000;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--error-bg);
+  color: var(--ink);
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+}
+
+.panic-notice p {
+  margin: 0;
+  flex: 1 1 16rem;
+}
