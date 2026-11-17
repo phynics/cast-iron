@@ -87,7 +87,12 @@ impl Casting {
         let kind = match (self.tradition, self.style) {
             (Some(tradition), Some(style)) => Some(format!("{tradition}, {style}")),
             (Some(tradition), None) => Some(tradition.to_string()),
-            (None, Some(style)) => Some(style.to_string()),
+            (None, Some(style)) => {
+                let mut chars = style.chars();
+                chars
+                    .next()
+                    .map(|first| first.to_uppercase().chain(chars).collect())
+            }
             (None, None) => None,
         };
         [kind, self.ability.map(str::to_string)]
@@ -282,37 +287,46 @@ const ABILITIES: [&str; 6] = [
     "Charisma",
 ];
 
-fn casting(body: &[Block]) -> Casting {
-    let labelled = |block: &Block| match block {
-        Block::Paragraph { content, .. } => segments(content).and_then(|mut found| {
-            (found.len() == 1).then(|| {
-                let segment = found.remove(0);
-                (segment.label.to_lowercase(), plain_text(&segment.value))
-            })
-        }),
-        _ => None,
-    };
-    let Some(start) = body
+/// The blocks up to the next heading: a section's own text. A class page's body also holds every
+/// archetype, which prints its own `Key ability:` and `Casting:` lines after its own heading.
+fn until_heading(blocks: &[Block]) -> &[Block] {
+    let end = blocks
         .iter()
-        .position(|block| labelled(block).is_some_and(|(label, _)| label == "spell list"))
-    else {
-        return Casting::default();
+        .position(|block| matches!(block, Block::Heading { .. }))
+        .unwrap_or(blocks.len());
+    &blocks[..end]
+}
+
+/// `(label, value text)` of a paragraph that holds exactly one `**Label:**` run.
+fn single_label(block: &Block) -> Option<(String, String)> {
+    let Block::Paragraph { content, .. } = block else {
+        return None;
     };
+    let mut found = segments(content)?;
+    (found.len() == 1).then(|| {
+        let segment = found.remove(0);
+        (segment.label.to_lowercase(), plain_text(&segment.value))
+    })
+}
+
+/// The printed `Spell list:`, `Key ability:` and `Casting:` lines of the Spells section.
+fn casting_block(body: &[Block]) -> Option<Casting> {
+    let start = body
+        .iter()
+        .position(|block| single_label(block).is_some_and(|(label, _)| label == "spell list"))?;
     let mut out = Casting::default();
-    for (i, block) in body[start..].iter().take(5).enumerate() {
-        let Some((label, value)) = labelled(block) else {
+    for (i, block) in until_heading(&body[start..]).iter().take(5).enumerate() {
+        let Some((label, value)) = single_label(block) else {
             continue;
         };
         let value = value.trim();
         match (i, label.as_str()) {
             (0, _) => {
-                out.tradition = ["Arcane", "Divine", "Psychic"]
-                    .into_iter()
-                    .find(|tradition| {
-                        value
-                            .strip_prefix(tradition)
-                            .is_some_and(|rest| rest.starts_with(" spells from"))
-                    });
+                out.tradition = TRADITIONS.into_iter().find(|tradition| {
+                    value
+                        .strip_prefix(tradition)
+                        .is_some_and(|rest| rest.starts_with(" spells from"))
+                });
             }
             (_, "key ability") => {
                 let first = value.split('.').next().unwrap_or("").trim();
@@ -329,7 +343,119 @@ fn casting(body: &[Block]) -> Casting {
             _ => {}
         }
     }
-    out
+    Some(out)
+}
+
+const TRADITIONS: [&str; 3] = ["Arcane", "Divine", "Psychic"];
+
+/// The text of a class's own spellcasting feature: the blocks under a `Spells` or `Extracts`
+/// heading, or an NPC class's `**Spells:**` paragraph and the plain paragraphs after it.
+fn feature_text(body: &[Block]) -> Option<String> {
+    let heading = body.iter().position(|block| match block {
+        Block::Heading { content, .. } => {
+            matches!(
+                plain_text(content).trim().to_lowercase().as_str(),
+                "spells" | "extracts"
+            )
+        }
+        _ => false,
+    });
+    let scope: &[Block] = match heading {
+        Some(i) => until_heading(&body[i + 1..]),
+        None => {
+            let i = body.iter().position(|block| {
+                single_label(block).is_some_and(|(label, _)| label == "spells")
+            })?;
+            let rest = &body[i + 1..];
+            let end = rest
+                .iter()
+                .position(|block| {
+                    matches!(block, Block::Heading { .. }) || single_label(block).is_some()
+                })
+                .unwrap_or(rest.len());
+            &body[i..i + 1 + end]
+        }
+    };
+    let text: Vec<String> = scope
+        .iter()
+        .filter_map(|block| match block {
+            Block::Paragraph { content, .. } => Some(plain_text(content)),
+            _ => None,
+        })
+        .collect();
+    (!text.is_empty()).then(|| text.join(" ").to_lowercase())
+}
+
+/// Spellcasting read from the feature's own sentences, for a class without the printed block.
+///
+/// Each part must be stated plainly: one tradition (`divine spells drawn from the … list`); the preparing style
+/// (`prepare` or `do not need to prepare`); and a key ability that the text names twice, as
+/// `{Ability} score` and `{Ability} modifier`, with no other ability named that way. One
+/// mention is not enough: the Bloodrager's section names `Constitution modifier` once, and the
+/// corpus's own feat text gives its casting ability as Charisma, so it shows no ability.
+fn casting_prose(body: &[Block]) -> Casting {
+    let Some(text) = feature_text(body) else {
+        return Casting::default();
+    };
+    // A tradition counts where the text says whose spells the class casts: `divine spells drawn
+    // from the paladin spell list`. The word alone is not enough; the Alchemist's section names
+    // `divine spells` while it compares extracts to a cleric's.
+    let traditions: Vec<&'static str> = TRADITIONS
+        .into_iter()
+        .filter(|tradition| {
+            let phrase = format!("{} spells", tradition.to_lowercase());
+            text.match_indices(&phrase).any(|(at, _)| {
+                let after = &text[at + phrase.len()..];
+                after
+                    .chars()
+                    .take(30)
+                    .collect::<String>()
+                    .contains("drawn from")
+            })
+        })
+        .collect();
+    let style = if text.contains("do not need to prepare") || text.contains("don't need to prepare")
+    {
+        Some("spontaneous")
+    } else if text.contains("prepare") {
+        Some("prepared")
+    } else {
+        None
+    };
+    let named: Vec<&'static str> = ABILITIES
+        .into_iter()
+        .filter(|ability| {
+            let name = ability.to_lowercase();
+            text.contains(&format!("{name} score")) || text.contains(&format!("{name} modifier"))
+        })
+        .collect();
+    let ability = match named.as_slice() {
+        [only] => {
+            let name = only.to_lowercase();
+            (text.contains(&format!("{name} score")) && text.contains(&format!("{name} modifier")))
+                .then_some(*only)
+        }
+        _ => None,
+    };
+    Casting {
+        tradition: match traditions.as_slice() {
+            [only] => Some(only),
+            _ => None,
+        },
+        style,
+        ability,
+    }
+}
+
+fn casting(body: &[Block], prestige: bool) -> Casting {
+    if let Some(printed) = casting_block(body) {
+        return printed;
+    }
+    // A prestige class's `Spells:` line is a requirement, not a feature.
+    if prestige {
+        return Casting::default();
+    }
+    casting_prose(body)
 }
 
 /// The card's values and the blocks it replaces.
@@ -371,8 +497,13 @@ pub fn read(fields: &TypedFields, body: &[Block]) -> Read {
         // A printed value that disagrees with the typed one is a corpus problem the card must
         // not hide: the typed value shows and the printed paragraph stays.
         let agrees = fields.iter().all(|field| match field {
-            Field::HitDie(die) => typed_die.as_ref().is_none_or(|typed| typed == die),
-            Field::Ranks(ranks) => typed_ranks.as_ref().is_none_or(|typed| typed == ranks),
+            // The summary already holds the typed value, or the first printed one, so a second
+            // printed paragraph that differs from either stays in the body.
+            Field::HitDie(die) => summary.hit_die.as_ref().is_none_or(|have| have == die),
+            Field::Ranks(ranks) => summary
+                .skill_ranks
+                .as_ref()
+                .is_none_or(|have| have == ranks),
             Field::Alignment(_) => summary.alignment.is_none(),
             Field::Wealth(_) => summary.wealth.is_none(),
             Field::Skills(_) => true,
@@ -403,7 +534,8 @@ pub fn read(fields: &TypedFields, body: &[Block]) -> Read {
         summary.attack = attack;
         summary.good_saves = saves;
     }
-    summary.casting = casting(body);
+    let prestige = matches!(fields, TypedFields::Class(class) if class.class_type.as_deref() == Some("prestige"));
+    summary.casting = casting(body, prestige);
     Read { summary, consumed }
 }
 
@@ -775,5 +907,162 @@ mod tests {
         let body = vec![labelled("Hit Die", "d6"), labelled("Role", "Support")];
         let kept = without(&body, &BTreeSet::from([0]));
         assert_eq!(kept, vec![labelled("Role", "Support")]);
+    }
+
+    fn heading(title: &str) -> Block {
+        Block::Heading {
+            level: 4,
+            anchor: None,
+            content: vec![text(title)],
+        }
+    }
+
+    fn para(value: &str) -> Block {
+        Block::Paragraph {
+            style: Default::default(),
+            content: vec![text(value)],
+        }
+    }
+
+    #[test]
+    fn two_differing_printed_hit_dice_without_a_typed_one_keep_the_second() {
+        let body = vec![labelled("Hit Die", "d6"), labelled("Hit Die", "d8")];
+        let read = read(&class(None, None), &body);
+        assert_eq!(read.summary.hit_die.as_deref(), Some("d6"));
+        assert_eq!(read.consumed, BTreeSet::from([0]));
+        let body = vec![
+            labelled("Skill Points per Level", "2 + Int modifier"),
+            labelled("Skill Points per Level", "4 + Int modifier"),
+        ];
+        let read = read_without_typed(&body);
+        assert_eq!(
+            read.summary.skill_ranks.as_deref(),
+            Some("2 + Int modifier")
+        );
+        assert_eq!(read.consumed, BTreeSet::from([0]));
+    }
+
+    fn read_without_typed(body: &[Block]) -> Read {
+        read(&class(None, None), body)
+    }
+
+    #[test]
+    fn the_printed_block_stops_at_the_next_heading() {
+        let body = vec![
+            labelled(
+                "Spell list",
+                "Arcane spells from the wizard list, from 1st level",
+            ),
+            labelled("Key ability", "Intelligence. Minimum score 10."),
+            heading("Archetype"),
+            labelled("Casting", "Spontaneous: cast any spell known."),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Arcane · Intelligence");
+    }
+
+    #[test]
+    fn a_spells_feature_names_tradition_style_and_a_twice_stated_ability() {
+        let body = vec![
+            heading("Spells"),
+            labelled(
+                "Ability",
+                "You gain the ability to cast a small number of divine spells drawn from the \
+                 paladin spell list. The DC is 10 + the spell level + your Charisma modifier. \
+                 You must choose and prepare your spells in advance. You receive bonus spells \
+                 per day if you have a high Charisma score.",
+            ),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Divine, prepared · Charisma");
+    }
+
+    #[test]
+    fn an_ability_named_once_is_not_shown() {
+        let body = vec![
+            heading("Spells"),
+            labelled(
+                "Ability",
+                "You cast arcane spells drawn from its list. You do not need to prepare these spells in advance. \
+                 The DC is 10 + the spell level + your Constitution modifier.",
+            ),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Arcane, spontaneous");
+    }
+
+    #[test]
+    fn an_npc_spells_paragraph_and_its_plain_followers_are_read() {
+        let body = vec![
+            labelled(
+                "Spells",
+                "An adept casts divine spells, which are drawn from the adept list. An adept must choose and prepare her spells.",
+            ),
+            para("An adept must have a Wisdom score of at least 10 + the spell level."),
+            para("The DC is 10 + the spell level + the adept's Wisdom modifier."),
+            labelled("Weapon and Armor Proficiency", "Arcane spells and armor."),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Divine, prepared · Wisdom");
+    }
+
+    #[test]
+    fn extracts_give_a_style_and_an_ability_but_no_tradition() {
+        let body = vec![
+            heading("Extracts"),
+            labelled(
+                "Ability",
+                "You can prepare an extract of any formula you know. You must have an \
+                 Intelligence score of 10 + the level. The DC is 10 + the level + your \
+                 Intelligence modifier.",
+            ),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Prepared · Intelligence");
+    }
+
+    #[test]
+    fn a_prestige_class_requirement_is_not_spellcasting() {
+        let body = vec![labelled(
+            "Spells",
+            "Able to cast 3rd-level arcane spells. You prepare them.",
+        )];
+        let fields = TypedFields::Class(ClassFields {
+            class_type: Some("prestige".into()),
+            ..Default::default()
+        });
+        assert!(read(&fields, &body).summary.casting.is_empty());
+    }
+
+    #[test]
+    fn a_spells_feature_stops_at_the_next_heading() {
+        let body = vec![
+            heading("Spells"),
+            labelled(
+                "Ability",
+                "You cast arcane spells drawn from its list. You must prepare them.",
+            ),
+            heading("Familiar"),
+            labelled(
+                "Ability",
+                "Your divine spells use your Wisdom modifier and Wisdom score.",
+            ),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Arcane, prepared");
+    }
+
+    #[test]
+    fn a_tradition_named_in_passing_is_not_the_class_tradition() {
+        let body = vec![
+            heading("Extracts"),
+            labelled(
+                "Ability",
+                "You can prepare an extract. A cleric casts divine spells, and so on. You must \
+                 have an Intelligence score of 10 and add your Intelligence modifier.",
+            ),
+        ];
+        let casting = read_without_typed(&body).summary.casting;
+        assert_eq!(casting.line(), "Prepared · Intelligence");
     }
 }

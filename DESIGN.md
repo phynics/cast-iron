@@ -186,8 +186,8 @@ opens the names by ability. Spellcasting ends with a `.page-link` to the class's
 card replaces the printed bold-label paragraphs it shows; it does not repeat them.
 
 On a class or prestige-class page, References and Referenced by are closed `details.ref-fold` rows
-at the page end: a 44 px summary with a chevron, the name and the count. Other entries keep them
-open.
+at the page end, on every width: a 44 px summary with a chevron, the name and the count. A wide
+class page is one column with no side panel. Other entries keep them open, in the side panel.
 
 ## Tokens
 

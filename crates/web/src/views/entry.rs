@@ -872,7 +872,7 @@ fn EntryView(
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
-        <aside class="entry-refs" aria-label="Entry links">
+        <aside class=if fold_refs { "entry-refs entry-refs-fold" } else { "entry-refs" } aria-label="Entry links">
             {has_references.then(|| match fold_refs {
                 // A class page ends in long lists. They fold, with the count in the summary.
                 true => view! {

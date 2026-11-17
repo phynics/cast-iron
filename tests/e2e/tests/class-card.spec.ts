@@ -115,10 +115,11 @@ for (const width of WIDTHS) {
 test("A hybrid, a prestige class and an NPC class show only the rows they have a value for", async ({ page }) => {
   await installLibrary(page);
 
-  // Arcanist: the corpus has no printed spellcasting block, so the row is only the list link.
+  // Arcanist: no printed `Spell list:` block, so the tradition, style and key ability come from
+  // its Spells feature, and the list link ends the row.
   await openClass(page, "ref/class/arcanist", 390);
-  expect(await rowTexts(page)).toContain("Spellcasting");
-  await expect(rowOf(page, "Spellcasting").locator("dd")).toHaveText("Arcanist spell list");
+  await expect(rowOf(page, "Spellcasting").locator("dd")).toContainText("Arcane, prepared · Intelligence");
+  await expect(rowOf(page, "Spellcasting").getByRole("link", { name: "Arcanist spell list" })).toBeVisible();
   await expect(rowOf(page, "Base attack").locator("dd")).toContainText("Poor");
 
   // Eldritch Knight: Hit Die, attack, saves and skill ranks. Its alignment is a paragraph of
@@ -135,8 +136,31 @@ test("A hybrid, a prestige class and an NPC class show only the rows they have a
   await openClass(page, "ref/npcclass/adept", 390);
   expect(await rowTexts(page)).toEqual(["Hit Die", "Base attack", "Good saves", "Skill ranks", "Spellcasting"]);
   await expect(rowOf(page, "Good saves").locator("dd")).toHaveText("Will");
+  await expect(rowOf(page, "Spellcasting").locator("dd")).toContainText("Divine, prepared · Wisdom");
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
+
+// The casters without a printed `Spell list:` block read their row from the Spells feature. A part
+// the text does not state plainly stays out: the Bloodrager's section names its ability once, and
+// the Investigator has no spellcasting section.
+const FEATURE_CASTERS: [string, string, string | null][] = [
+  ["ref/class/paladin", "Paladin", "Divine, prepared · Charisma"],
+  ["ref/class/antipaladin", "Antipaladin", "Divine, prepared · Charisma"],
+  ["ref/class/ranger", "Ranger", "Divine, prepared · Wisdom"],
+  ["ref/class/bloodrager", "Bloodrager", "Arcane, spontaneous"],
+  ["ref/class/alchemist", "Alchemist", "Prepared · Intelligence"],
+  ["ref/class/investigator", "Investigator", null],
+];
+for (const [id, name, line] of FEATURE_CASTERS) {
+  test(`${name}'s summary card Spellcasting row reads ${line ?? "the list link only"}`, async ({ page }) => {
+    await installLibrary(page);
+    await openClass(page, id, 390);
+    const dd = rowOf(page, "Spellcasting").locator("dd");
+    await expect(dd.getByRole("link", { name: `${name} spell list` })).toBeVisible();
+    if (line) await expect(dd).toContainText(line);
+    else await expect(dd).toHaveText(`${name} spell list`);
+  });
+}
 
 async function foldCount(fold: Locator) {
   const text = (await fold.locator("> summary .rel-count").textContent())!;
@@ -154,6 +178,21 @@ for (const width of WIDTHS) {
     await expect(references).toHaveCount(1);
     await expect(referencedBy).toHaveCount(1);
     await references.scrollIntoViewIfNeeded();
+
+    // The panels end the page on every width: below the body, the related panels and the
+    // sources line, above the footer, and inside the text column (no side panel).
+    const bottom = async (selector: string) => {
+      const box = (await page.locator(selector).first().boundingBox())!;
+      return box.y + box.height;
+    };
+    const top = async (locator: Locator) => (await locator.boundingBox())!.y;
+    expect(await top(references)).toBeGreaterThanOrEqual(await bottom(".entry > .rich"));
+    expect(await top(references)).toBeGreaterThanOrEqual(await bottom("#entry-related"));
+    expect(await top(referencedBy)).toBeGreaterThan(await top(references));
+    expect(await bottom(".entry-refs")).toBeLessThanOrEqual(await top(page.locator(".entry-foot")));
+    const refsBox = (await page.locator(".entry-refs").boundingBox())!;
+    const bodyBox = (await page.locator(".entry > .rich").boundingBox())!;
+    expect(refsBox.x).toBe(bodyBox.x);
 
     // Both are closed, and each summary is a 44 px target that names its count.
     for (const fold of [references, referencedBy]) {
