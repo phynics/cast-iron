@@ -22,6 +22,7 @@
 
 mod block;
 mod check;
+mod check_trades;
 pub mod cli;
 mod config;
 mod drift;
@@ -32,9 +33,11 @@ mod fmt;
 mod inline;
 mod load;
 mod migrate;
+mod migrate_trades;
 #[cfg(test)]
 mod testkit;
 mod tomlutil;
+mod trade_match;
 mod trades;
 
 pub use check::{Report, base_class_ids, check, fields_kind, fields_match, heading_keys, line_of};
@@ -54,3 +57,4 @@ pub use files::{
 pub use fmt::{Change, FmtReport, format_corpus};
 pub use load::{Corpus, Stored, list_files};
 pub use migrate::{MIGRATIONS, Migration, migrate, migrate_with};
+pub use migrate_trades::{TradesReport, migrate_trades};
