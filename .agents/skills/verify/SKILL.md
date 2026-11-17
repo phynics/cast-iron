@@ -77,6 +77,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Body-link backlinks ("Referenced by") | `Referenced by` (`backlinks.spec.ts`) | `crates/content-compiler/src/backlinks.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/library.rs` |
 | Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
 | Books sorting and contents tree | `Books sort by category\|Expanded books show a hierarchical\|Expanded books, their contents tree` (`books.spec.ts`, `mobile.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs` |
+| Class summary card and folded class references | `summary card\|fold with their counts\|show only the rows` (`class-card.spec.ts`) | `crates/web/src/class_summary.rs`, `crates/web/src/views/class_card.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/views/progression.rs` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |

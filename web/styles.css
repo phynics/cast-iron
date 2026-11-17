@@ -2202,6 +2202,69 @@ mark {
   margin: 0 0 var(--space-2);
 }
 
+/* A class page folds its two long link lists under one summary line with the count. */
+.ref-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+
+.ref-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ref-fold-name {
+  flex: 1;
+}
+
+.ref-fold > summary .rel-count {
+  font-weight: 400;
+}
+
+/* The class summary card is a stat block. Its class-skills row opens in place. */
+.class-card {
+  margin-top: var(--space-3);
+}
+
+.class-card .page-link {
+  display: flex;
+  margin-left: 0;
+}
+
+.class-card .stat-row-action {
+  align-items: center;
+}
+
+.class-skills > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  margin: calc(var(--space-1) * -1) 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.class-skills > summary::-webkit-details-marker {
+  display: none;
+}
+
+.class-skill-list {
+  margin: 0 0 var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.class-skill-list li {
+  padding: 0.15rem 0;
+}
+
 .backlink-group {
   border-top: var(--border);
 }
