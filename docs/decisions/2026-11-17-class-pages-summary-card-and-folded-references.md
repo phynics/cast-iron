@@ -1,0 +1,33 @@
+---
+title: "Class pages: summary card and folded references"
+date: 2026-11-17
+status: current
+superseded_by: []
+issues: [170]
+prs: []
+area: ui
+---
+
+# Class pages: summary card and folded references, 2026-11-17
+
+Refs [#170](https://github.com/phynics/cast-iron/issues/170), parts B and F. Part C is in the entry above; the section switcher, archetype list and class options are other parts. The page opened with about 570 px of flavour text, and the class basics were separate bold-label paragraphs after it.
+
+- **The card is a `.stat-block`, so it reads like the spell statistics card.** It keeps the left accent rule and the `.stat-row` ledger, and sits directly under the metadata line, above the "On this page" disclosure and the flavour text. At 390 px the Wizard card ends about 520 px down. `class_summary.rs` reads the values; `views/class_card.rs` draws them. A row without a reliable value is not drawn, and a class that has no row at all gets no card.
+- **Where each value comes from.** The corpus types only `class_type`, `hit_die` (all 164 classes) and `skill_ranks` (44 of the 49 non-prestige classes); `class_skills` is declared but empty everywhere. The rest is read from the printed body or the progression table, and only when the value is unambiguous:
+
+  | Row | Source |
+  |---|---|
+  | Hit Die | typed `hit_die`, with a trailing full stop dropped (the corpus types a prestige class's die as `d10.`); the printed `Hit Die:` paragraph when the field is missing |
+  | Base attack | the progression table: every row must equal good (+1 per level), medium (3/4) or poor (1/2) at its level, and exactly one rate must fit |
+  | Good saves | the progression table: every row of a save column must follow the good formula (`2 + level/2`, or `level/2` rounded up for a prestige class) or the poor one (`level/3`, or `(level + 1)/3`). A column that follows neither removes the whole row |
+  | Skill ranks | typed `skill_ranks`; the printed `Skill Points per Level:` or `Skill Points at each Level:` paragraph otherwise |
+  | Class skills | the printed `Class Skills (Ability):` paragraphs of the 49 non-prestige classes, grouped by ability, behind a 44 px `details` that reads `16 skills` |
+  | Alignment, Starting wealth | the printed paragraph, when the value is short (40 and 60 characters, no sentence break) |
+  | Spellcasting | the printed `Spell list:`, `Key ability:` and `Casting:` paragraphs (20 classes: tradition, prepared or spontaneous, key ability), plus a `page-link` to the class's spell list from `lists.json` |
+
+- **A paragraph the card shows leaves the body; any other stays.** The card never repeats a fact. A paragraph is dropped only when every label in it became a row (a prestige class prints `Skill Points at each Level` and `Hit Die` in one paragraph, split by a break). A prestige class's long Alignment paragraph, its `Class Skills` section and an NPC class's `Class Skills` sentence have no compact value, so they stay in the body and the card has no row for them. A printed value that disagrees with the typed one, or with an earlier printed one when the field is untyped, shows the first value and keeps the later paragraph. Only paragraphs before the progression table are read, because the body past it holds every inlined archetype, which prints the same labels.
+- **The Spells section stays in the body.** The card says `Arcane, prepared · Intelligence`; the section's `Key ability` line carries the minimum score and the save DC, and its Notes line stays too. It is rules text, not a basics paragraph. The `Spell list` panel below the body stays as well: it holds the level links and the spell counts, which the card does not.
+- **Casters without the printed block read their Spells feature.** Eight casters (Alchemist, Antipaladin, Arcanist, Bloodrager, Investigator, Paladin, Ranger, and the NPC Adept) have no `Spell list:` block. For a non-prestige class, `casting_prose` reads the text under a `Spells` or `Extracts` heading (up to the next heading), or an NPC class's `**Spells:**` paragraph and the plain paragraphs after it. Each part must be stated plainly. The tradition is `{arcane|divine|psychic} spells … drawn from` within 30 characters, exactly one of them (the Alchemist's section names `divine spells` only to compare extracts with a cleric's). The style is `prepare`, or `do not need to prepare` for spontaneous. The key ability must appear as both `{Ability} score` and `{Ability} modifier`, with no other ability named that way. Results: Paladin and Antipaladin `Divine, prepared · Charisma`, Ranger `Divine, prepared · Wisdom`, Arcanist `Arcane, prepared · Intelligence`, Adept `Divine, prepared · Wisdom`, Alchemist `Prepared · Intelligence` (its text states no tradition), Bloodrager `Arcane, spontaneous · Charisma` (corpus v0.1.25, data #89), Investigator the link only. Before v0.1.25 the Bloodrager's Spells text named `Constitution modifier` once, and the corpus's Selective Spell feat gave its casting ability as Charisma, so the card showed no ability for it (#435); the corpus correction made the rule read Charisma with no code change. The Investigator's extract rules sit inside the Alchemy feature, with no spellcasting heading, so its row stays the link. A prestige class's `Spells:` line is a requirement and is never read. Prestige classes have no spell list; their `Spells Per Day` column stays in the progression table.
+- **References and Referenced by fold on class and prestige-class pages only.** Each is a `details.ref-block.ref-fold` with a 44 px summary: a chevron, the name, and the count in a `.rel-count` (`References 31`, `Referenced by 59`). Both are closed on load. The Referenced by groups inside keep their own disclosures. Every other entry kind keeps the open panels with their `h2` until a design decision extends the fold. The `Referenced by` panel keeps `id="entry-backlinks"`. Folded, it no longer prints the `N entries link here` line, because the summary holds the count. On a wide screen a class page has no side panel: the page is one column, the two rows end it above the footer (`.entry-refs-fold`, `:has` on the grid), and the card and body share the text measure. Other kinds keep the sticky panel beside the body.
+- **Checked pages** (light and dark, 390 and 1280 px): Wizard, Fighter, Arcanist (hybrid), Eldritch Knight (prestige), Adept (NPC). `class-card.spec.ts` covers the Wizard and Fighter cards at both widths, the three other kinds at 390, and the folded panels.
+- **Not done here.** The Class skills row shows a count, not names, until it is opened. Counts are listed entries (`Knowledge (arcana)` and `Knowledge (history)` count separately).
