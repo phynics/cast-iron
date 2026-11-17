@@ -4054,7 +4054,14 @@ input::placeholder {
       "aon refs"
       "rel refs"
       "book refs"
+      "slack refs"
       "foot foot";
+    /* The panel spans from `contents` to `slack`. When it is taller than the content beside it,
+       a spanning item shares its extra height equally among the auto rows it crosses, empty ones
+       included, so the empty `contents` row grew to about 200px above a short body (#446). Only
+       a flexible row takes the extra height instead, so `slack` is the one `1fr` row, and the
+       empty rows stay at 0. */
+    grid-template-rows: repeat(14, auto) 1fr auto;
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
   .entry > .revision-notice { grid-area: revision; }
@@ -4091,6 +4098,7 @@ input::placeholder {
       "book"
       "refs"
       "foot";
+    grid-template-rows: none;
   }
 
   .entry > .entry-refs.entry-refs-fold {
