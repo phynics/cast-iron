@@ -274,6 +274,12 @@ test("An address that names a section the page lacks drops it and opens at the t
       await expect.poll(() => scrollY(page)).toBe(0);
     }
     await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
+    // An address typed into the page that is already open is dropped too, with no reload.
+    await page.goto(`#/entry/${FIGHTER}`);
+    await expect(page.getByRole("heading", { level: 1, name: "Fighter" })).toBeVisible();
+    await page.evaluate((hash) => { location.hash = hash; }, `#/entry/${FIGHTER}?s=spells`);
+    await expect(page).toHaveURL(new RegExp(`#/entry/${FIGHTER}$`));
+    await expect(stop(page, "Overview")).toHaveAttribute("aria-current", "true");
     // A heading anchor in the same address stays.
     await page.goto(`#/entry/${FIGHTER}?a=bravery&s=spells`);
     await page.reload();

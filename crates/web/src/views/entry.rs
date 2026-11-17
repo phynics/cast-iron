@@ -875,30 +875,48 @@ fn EntryView(
         Route::Entry { anchor, .. } => anchor.clone(),
         _ => anchor.clone(),
     };
-    if let Some(section) = live.section() {
-        let has = class_sections
+    if let Some(section) = live.section()
+        && live_anchor.is_none()
+        && class_sections
             .as_ref()
-            .is_some_and(|sections| sections.has(section));
-        if has && live_anchor.is_none() {
-            // This frame moves focus to the section's heading and has the same race as the move
-            // to <main> in `Reader`: no cancel when a newer navigation supersedes it, and no
-            // yield to a control the reader focused since (#419).
-            request_animation_frame(move || {
-                route::scroll_to_section(section);
-            });
-        } else if !has {
-            // The address names a section this page lacks (`?s=spells` on a fighter, or any
-            // section on a prestige class or a spell). It opens at the top, and the address
-            // stops claiming it, so the address and the page agree.
-            let canonical = Route::Entry {
-                id: entry.id.clone(),
-                anchor: live_anchor.clone(),
-                book: book.clone(),
-                section: None,
-            };
-            Effect::new(move |_| route::replace(&canonical));
-        }
+            .is_some_and(|sections| sections.has(section))
+    {
+        // This frame moves focus to the section's heading and has the same race as the move to
+        // <main> in `Reader`: no cancel when a newer navigation supersedes it, and no yield to a
+        // control the reader focused since (#419).
+        request_animation_frame(move || {
+            route::scroll_to_section(section);
+        });
     }
+    // An address that names a section this page lacks (`?s=spells` on a fighter, or any section
+    // on a prestige class or a spell) opens at the top, and the address stops claiming it, so
+    // the address and the page agree. The effect follows the route, so an address typed into the
+    // page that is on screen is dropped too, not only the one it was opened with.
+    let present = class_sections
+        .as_ref()
+        .map(Sections::present)
+        .unwrap_or_default();
+    let (entry_id, entry_book) = (entry.id.clone(), book.clone());
+    let current = route::use_route();
+    Effect::new(move |_| {
+        if let Route::Entry {
+            id,
+            anchor,
+            book,
+            section: Some(section),
+        } = current.get()
+            && id == entry_id
+            && book == entry_book
+            && !present.contains(&section)
+        {
+            route::replace(&Route::Entry {
+                id,
+                anchor,
+                book,
+                section: None,
+            });
+        }
+    });
     let contents = class_sections.is_none().then(|| {
         view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
     });
