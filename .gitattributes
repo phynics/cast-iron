@@ -1,0 +1,5 @@
+# The generated indexes list one row per entry. Two pull requests that each add an entry
+# change the same table, so keep both sides; `cargo xtask check` fails until `cargo xtask
+# decisions-index` or `status-index` has put the rows back in order.
+docs/decisions/README.md merge=union
+docs/status/README.md merge=union

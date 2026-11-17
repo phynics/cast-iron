@@ -1,5 +1,6 @@
 //! Repository automation. Run `cargo xtask help`.
 
+mod docs_index;
 mod feature_map;
 
 use sha2::{Digest, Sha256};
@@ -34,7 +35,10 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
-  check                      Run fmt, clippy, tests, the feature-map check, and the WASM build
+  decisions-index            Write docs/decisions/README.md from the front matter of the decision files
+  status-index               Write docs/status/README.md from the front matter of the status log files
+  check                      Run fmt, clippy, tests, the feature-map check, the decisions and status
+                             checks, and the WASM build
 ";
 
 type Result<T = ()> = std::result::Result<T, String>;
@@ -54,6 +58,8 @@ fn main() -> ExitCode {
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
+        Some("decisions-index") => docs_index::decisions_index(&root()),
+        Some("status-index") => docs_index::status_index(&root()),
         Some("check") => check(),
         Some("help") | None => {
             print!("{HELP}");
@@ -432,8 +438,8 @@ const PUBLISHED_BOOKS: &str = "sources/published-books.txt";
 const PUBLISHED_BOOKS_HEADER: &str = "\
 # Every book id of a Cast Iron library, one per line. A book's slot is its position among the
 # id lines, counted from 0. Share codes (the Books page, #408) name slots, so a code keeps its
-# meaning when the library gains books or changes order. See docs/decisions.md, \"Book share
-# codes, 2026-11-16\".
+# meaning when the library gains books or changes order. See
+# docs/decisions/2026-11-16-book-share-codes.md.
 #
 # The file only grows, and its order is the data. `cargo xtask content` fails when a book of the
 # pinned corpus has no line; run `cargo xtask published-books` and commit the added lines. Never
@@ -1005,6 +1011,7 @@ fn corpus_fmt(args: &[String]) -> Result {
 
 fn check() -> Result {
     feature_map::check(&root())?;
+    docs_index::check(&root())?;
     run("cargo", &["fmt", "--all", "--", "--check"])?;
     run(
         "cargo",

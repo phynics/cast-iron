@@ -1,7 +1,7 @@
 # Every book id of a Cast Iron library, one per line. A book's slot is its position among the
 # id lines, counted from 0. Share codes (the Books page, #408) name slots, so a code keeps its
-# meaning when the library gains books or changes order. See docs/decisions.md, "Book share
-# codes, 2026-11-16".
+# meaning when the library gains books or changes order. See
+# docs/decisions/2026-11-16-book-share-codes.md.
 #
 # The file only grows, and its order is the data. `cargo xtask content` fails when a book of the
 # pinned corpus has no line; run `cargo xtask published-books` and commit the added lines. Never
