@@ -4,6 +4,7 @@ use crate::block::{parse_blocks, write_blocks};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::tomlutil;
+use crate::trades::{read_trades, write_trades};
 use cast_iron_schema::{
     Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference,
     Expansion, FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind,
@@ -143,7 +144,7 @@ pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
     write_sources(&mut out, &entry.sources);
     write_expanded_in(&mut out, &entry.expanded_in);
     out.push_str("\n[fields]\n");
-    write_fields(&mut out, &entry.fields);
+    write_fields(&mut out, &entry.fields, config.format);
     out.push_str("+++\n");
 
     let body = write_blocks(&entry.body);
@@ -247,7 +248,7 @@ fn write_string_array(out: &mut String, key: &str, values: &[String]) {
     out.push('\n');
 }
 
-fn write_fields(out: &mut String, fields: &TypedFields) {
+fn write_fields(out: &mut String, fields: &TypedFields, format: u32) {
     match fields {
         TypedFields::Spell(fields) => {
             out.push_str("kind = \"spell\"\n");
@@ -348,20 +349,14 @@ fn write_fields(out: &mut String, fields: &TypedFields) {
         }
         TypedFields::Archetype(fields) => {
             out.push_str("kind = \"archetype\"\n");
-            write_string_array(out, "replaces", &fields.replaces);
-            write_string_array(out, "alters", &fields.alters);
-            write_string_array(out, "replaces_features", &fields.replaces_features);
-            write_string_array(out, "alters_features", &fields.alters_features);
+            write_trades(out, &fields.trades, &fields.legacy_features, format);
         }
         TypedFields::ClassOption(fields) => {
             out.push_str("kind = \"class_option\"\n");
             out.push_str("group = ");
             out.push_str(&tomlutil::string(&fields.group));
             out.push('\n');
-            write_string_array(out, "replaces", &fields.replaces);
-            write_string_array(out, "alters", &fields.alters);
-            write_string_array(out, "replaces_features", &fields.replaces_features);
-            write_string_array(out, "alters_features", &fields.alters_features);
+            write_trades(out, &fields.trades, &fields.legacy_features, format);
         }
         TypedFields::None => out.push_str("kind = \"none\"\n"),
     }
@@ -500,7 +495,7 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         .map(EntryId::parse)
         .transpose()
         .map_err(|e| Error::new(path, key_line(&front, "parent"), e.to_string()))?;
-    let fields = parse_fields(path, &front, &raw.fields)?;
+    let fields = parse_fields(path, &front, &raw.fields, config.format)?;
     let relations = merge_relations(&fields, raw.relations);
     let sources: Vec<Citation> = raw
         .sources
@@ -565,7 +560,7 @@ fn normalized(path: &Path) -> PathBuf {
     PathBuf::from(path.to_string_lossy().replace('\\', "/"))
 }
 
-fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFields> {
+fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> Result<TypedFields> {
     let fields_line = front
         .lines()
         .position(|line| line.trim() == "[fields]")
@@ -636,21 +631,8 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
         ],
         "trait" => &["kind", "category", "detail"],
         "racial_trait" => &["kind", "alternate"],
-        "archetype" => &[
-            "kind",
-            "replaces",
-            "alters",
-            "replaces_features",
-            "alters_features",
-        ],
-        "class_option" => &[
-            "kind",
-            "group",
-            "replaces",
-            "alters",
-            "replaces_features",
-            "alters_features",
-        ],
+        "archetype" => &["kind"],
+        "class_option" => &["kind", "group"],
         "none" => &["kind"],
         other => {
             return Err(Error::new(
@@ -660,12 +642,25 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
             ));
         }
     };
+    let trade_keys: &[&str] = if matches!(kind, "archetype" | "class_option") {
+        crate::trades::field_keys(format)
+    } else {
+        &[]
+    };
     for key in table.keys() {
-        if !allowed.contains(&key.as_str()) {
+        if !allowed.contains(&key.as_str()) && !trade_keys.contains(&key.as_str()) {
+            let hint = if matches!(kind, "archetype" | "class_option")
+                && crate::trades::field_keys(if format == 1 { 2 } else { 1 })
+                    .contains(&key.as_str())
+            {
+                format!("; the corpus is format {format}, which does not write `{key}`")
+            } else {
+                String::new()
+            };
             return Err(Error::new(
                 path,
                 key_line(front, key),
-                format!("unexpected field `{key}` for `{kind}`"),
+                format!("unexpected field `{key}` for `{kind}`{hint}"),
             ));
         }
     }
@@ -764,19 +759,21 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table) -> Result<TypedFi
                     )
                 })?,
         }),
-        "archetype" => TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-            replaces: list("replaces")?,
-            alters: list("alters")?,
-            replaces_features: list("replaces_features")?,
-            alters_features: list("alters_features")?,
-        }),
-        "class_option" => TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
-            group: string("group")?,
-            replaces: list("replaces")?,
-            alters: list("alters")?,
-            replaces_features: list("replaces_features")?,
-            alters_features: list("alters_features")?,
-        }),
+        "archetype" => {
+            let (trades, legacy_features) = read_trades(path, table, format, &line)?;
+            TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+                trades,
+                legacy_features,
+            })
+        }
+        "class_option" => {
+            let (trades, legacy_features) = read_trades(path, table, format, &line)?;
+            TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+                group: string("group")?,
+                trades,
+                legacy_features,
+            })
+        }
         "none" => TypedFields::None,
         _ => unreachable!("kind was checked above"),
     })
@@ -969,7 +966,9 @@ mod tests {
     use super::*;
     use crate::block::write_blocks;
     use cast_iron_schema::RelationLabel;
-    use cast_iron_schema::{ParagraphStyle, StatRow, Table, TableCell, TableRow};
+    use cast_iron_schema::{
+        FeatureRef, ParagraphStyle, StatRow, Table, TableCell, TableRow, Trade, TradeOp,
+    };
 
     fn entry() -> RuleEntry {
         RuleEntry {
@@ -1270,17 +1269,19 @@ mod tests {
             }),
             TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields { alternate: true }),
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-                replaces: vec!["Trap sense".into()],
-                alters: vec!["Uncanny dodge".into()],
-                replaces_features: vec!["trap-sense".into()],
-                alters_features: vec!["uncanny-dodge".into()],
+                trades: vec![
+                    trade(TradeOp::Replaces, "Trap sense", Some("trap-sense")),
+                    trade(TradeOp::Alters, "Uncanny dodge", Some("uncanny-dodge")),
+                ],
+                ..Default::default()
             }),
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "arcane-discovery".into(),
-                replaces: vec!["Arcane bond".into()],
-                alters: vec!["Arcane school".into()],
-                replaces_features: vec!["arcane-bond".into()],
-                alters_features: vec!["arcane-school".into()],
+                trades: vec![
+                    trade(TradeOp::Replaces, "Arcane bond", Some("arcane-bond")),
+                    trade(TradeOp::Alters, "Arcane school", None),
+                ],
+                ..Default::default()
             }),
             TypedFields::None,
         ];
@@ -1297,6 +1298,257 @@ mod tests {
             }
             entry.fields = fields;
             round_trip_entry(entry);
+        }
+    }
+
+    fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
+        Trade {
+            op,
+            printed: printed.into(),
+            feature: anchor.map(|anchor| FeatureRef {
+                anchor: anchor.into(),
+                ..Default::default()
+            }),
+        }
+    }
+
+    fn archetype_entry(fields: cast_iron_schema::ArchetypeFields) -> RuleEntry {
+        let mut entry = entry();
+        entry.id = EntryId::parse("ref/archetype/scout").unwrap();
+        entry.kind = EntryKind::Archetype;
+        entry.fields = TypedFields::Archetype(fields);
+        entry
+    }
+
+    fn format(format: u32) -> Config {
+        Config {
+            format,
+            ..Config::default()
+        }
+    }
+
+    #[test]
+    fn format_2_trades_round_trip_with_every_narrowing_key() {
+        let entry = archetype_entry(cast_iron_schema::ArchetypeFields {
+            trades: vec![
+                trade(TradeOp::Replaces, "Trap sense (Ex)", Some("trap-sense")),
+                Trade {
+                    op: TradeOp::Alters,
+                    printed: "Bonus feats".into(),
+                    feature: Some(FeatureRef {
+                        anchor: "bonus-feats".into(),
+                        class: Some(EntryId::parse("ref/class/fighter").unwrap()),
+                        levels: vec![4, 8],
+                        power: None,
+                    }),
+                },
+                Trade {
+                    op: TradeOp::Replaces,
+                    printed: "Acidic ray".into(),
+                    feature: Some(FeatureRef {
+                        anchor: "bloodline-powers".into(),
+                        class: None,
+                        levels: vec![],
+                        power: Some("Warp Touch".into()),
+                    }),
+                },
+                trade(TradeOp::Replaces, "Unmatched", None),
+            ],
+            ..Default::default()
+        });
+        let text = round_trip_with(&entry, &format(2));
+        assert!(
+            text.contains(
+                "trades = [\n  { replaces = \"Trap sense (Ex)\", feature = \"trap-sense\" },\n  { alters = \"Bonus feats\", feature = \"bonus-feats\", class = \"ref/class/fighter\", levels = [4, 8] },\n  { replaces = \"Acidic ray\", feature = \"bloodline-powers\", power = \"Warp Touch\" },\n  { replaces = \"Unmatched\" },\n]\n"
+            ),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_format_1_list_that_lines_up_lowers_to_resolved_trades() {
+        let text = write_entry(
+            &archetype_entry(cast_iron_schema::ArchetypeFields {
+                trades: vec![
+                    trade(TradeOp::Replaces, "Trap sense", Some("trap-sense")),
+                    trade(TradeOp::Replaces, "Bravery", Some("bravery")),
+                    trade(TradeOp::Alters, "Uncanny dodge", Some("uncanny-dodge")),
+                ],
+                ..Default::default()
+            }),
+            &format(1),
+        );
+        assert!(
+            text.contains(
+                "replaces = [\"Trap sense\", \"Bravery\"]\nalters = [\"Uncanny dodge\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\nalters_features = [\"uncanny-dodge\"]\n"
+            ),
+            "{text}"
+        );
+        let read = read_entry(Path::new("entries/archetype/scout.md"), &text, &format(1)).unwrap();
+        let TypedFields::Archetype(fields) = &read.fields else {
+            panic!("an archetype");
+        };
+        assert_eq!(fields.trades.len(), 3);
+        assert_eq!(
+            fields.trades[1].feature.as_ref().map(|f| f.anchor.as_str()),
+            Some("bravery")
+        );
+        assert!(fields.legacy_features.is_empty());
+        assert_eq!(write_entry(&read, &format(1)), text);
+    }
+
+    /// Reads `fields` as a format 1 archetype, checks that `fmt` writes it back unchanged, and
+    /// returns the fields.
+    fn format_1_archetype(fields: &str) -> cast_iron_schema::ArchetypeFields {
+        let text = format!(
+            "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\n{fields}+++\n"
+        );
+        let config = format(1);
+        let path = Path::new("entries/archetype/scout.md");
+        let read = read_entry(path, &text, &config).unwrap();
+        assert_eq!(
+            write_entry(&read, &config),
+            text,
+            "not written back as read"
+        );
+        let TypedFields::Archetype(fields) = read.fields else {
+            panic!("an archetype");
+        };
+        fields
+    }
+
+    fn anchors_of(trades: &[Trade]) -> Vec<Option<&str>> {
+        trades
+            .iter()
+            .map(|trade| {
+                trade
+                    .feature
+                    .as_ref()
+                    .map(|feature| feature.anchor.as_str())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_format_1_name_resolves_when_it_is_the_slug_of_an_anchor_and_the_rest_stay_unresolved() {
+        let fields = format_1_archetype(
+            "replaces = [\"Trap sense\", \"Bravery\", \"2nd-level feat\"]\nalters = [\"Uncanny dodge\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\nalters_features = [\"uncanny-dodge\"]\n",
+        );
+        assert_eq!(
+            anchors_of(&fields.trades),
+            [
+                Some("trap-sense"),
+                Some("bravery"),
+                None,
+                Some("uncanny-dodge")
+            ]
+        );
+        // The resolved anchors are the lists as read, so nothing is kept on the side.
+        assert!(fields.legacy_features.is_empty());
+    }
+
+    #[test]
+    fn swapped_equal_length_lists_resolve_by_name_never_by_position() {
+        let fields = format_1_archetype(
+            "replaces = [\"Bravery\", \"Trap sense\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\n",
+        );
+        assert_eq!(
+            anchors_of(&fields.trades),
+            [Some("bravery"), Some("trap-sense")]
+        );
+        // The list's order is not the trades' order, so it is kept for the write-back.
+        assert_eq!(fields.legacy_features.replaces, ["trap-sense", "bravery"]);
+    }
+
+    #[test]
+    fn an_equal_length_list_whose_names_do_not_match_resolves_nothing() {
+        let fields = format_1_archetype(
+            "replaces = [\"Bravery\", \"Trap sense\"]\nreplaces_features = [\"weapon-training\", \"armor-training\"]\n",
+        );
+        assert_eq!(anchors_of(&fields.trades), [None, None]);
+        assert_eq!(
+            fields.legacy_features.replaces,
+            ["weapon-training", "armor-training"]
+        );
+    }
+
+    #[test]
+    fn a_composite_printed_name_is_not_resolved_to_its_first_anchor() {
+        // Drake Warden: two anchors for two names, but the first name is partly another
+        // feature (`2nd favored enemy`), which a single reference cannot state.
+        let fields = format_1_archetype(
+            "replaces = [\"Hunter's bond, 2nd favored enemy\", \"swift tracker\"]\nreplaces_features = [\"hunter-s-bond\", \"swift-tracker\"]\n",
+        );
+        assert_eq!(anchors_of(&fields.trades), [None, Some("swift-tracker")]);
+        assert_eq!(
+            fields.legacy_features.replaces,
+            ["hunter-s-bond", "swift-tracker"]
+        );
+    }
+
+    #[test]
+    fn an_anchor_list_without_printed_names_is_kept_for_the_write_back() {
+        let fields = format_1_archetype("alters_features = [\"missing-anchor\"]\n");
+        assert!(fields.trades.is_empty());
+        assert_eq!(fields.legacy_features.alters, ["missing-anchor"]);
+    }
+
+    #[test]
+    fn each_format_refuses_the_keys_of_the_other() {
+        let body = |fields: &str| {
+            format!(
+                "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\n{fields}+++\n"
+            )
+        };
+        let path = Path::new("entries/archetype/scout.md");
+        let error = read_entry(path, &body("trades = []\n"), &format(1)).unwrap_err();
+        assert!(
+            error.message.contains("unexpected field `trades`")
+                && error.message.contains("format 1"),
+            "{error}"
+        );
+        let error = read_entry(path, &body("replaces = [\"Bravery\"]\n"), &format(2)).unwrap_err();
+        assert!(
+            error.message.contains("unexpected field `replaces`")
+                && error.message.contains("format 2"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn a_malformed_format_2_trade_names_the_problem() {
+        let body = |trades: &str| {
+            format!(
+                "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\ntrades = [\n  {trades},\n]\n+++\n"
+            )
+        };
+        let path = Path::new("entries/archetype/scout.md");
+        for (row, fragment) in [
+            (
+                "{ feature = \"a\" }",
+                "exactly one of `replaces` and `alters`",
+            ),
+            (
+                "{ replaces = \"A\", alters = \"B\" }",
+                "exactly one of `replaces` and `alters`",
+            ),
+            ("{ replaces = \"A\", levels = [3] }", "no `feature`"),
+            ("{ replaces = \"A\", power = \"P\" }", "no `feature`"),
+            (
+                "{ replaces = \"A\", feature = \"a\", levels = [0] }",
+                "whole numbers from 1 to 255",
+            ),
+            (
+                "{ replaces = \"A\", feature = \"a\", class = \"Not An Id\" }",
+                "invalid entry id",
+            ),
+            (
+                "{ replaces = \"A\", note = \"x\" }",
+                "unexpected key `note`",
+            ),
+        ] {
+            let error = read_entry(path, &body(row), &format(2)).unwrap_err();
+            assert!(error.message.contains(fragment), "{row}: {error}");
         }
     }
 
@@ -1435,7 +1687,7 @@ mod tests {
     #[test]
     fn the_default_comes_from_the_corpus_config() {
         let config = Config {
-            format: 1,
+            format: 2,
             license_refs: vec!["other".into()],
         };
         let mut entry = entry();
