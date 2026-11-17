@@ -31,9 +31,13 @@ with every job green, all three WebKit shards included.
 
 **Not run.** The owner waived the separate browser acceptance run (upgrade from schema 4, interrupted
 download, persistence, offline, fresh install) and the live-site checks of
-[releasing.md](../releasing.md) "Verify publication" steps 2 and 3. The evidence for those behaviours
-is the CI suite above: the install, storage, offline and upgrade specs on Chromium and WebKit. No
-physical-device check was run; the owner accepts browser evidence (decision of 2026-11-17 on #441).
+[releasing.md](../releasing.md) "Verify publication" steps 2 and 3. **The upgrade from the published
+schema 4 release to schema 6, and the persistence of stars, recents and active books across it, were
+not verified for this release.** The CI suite above covers the individual install, update, storage
+and offline paths on Chromium and WebKit, but its update spec copies the current library and so
+exercises schema 6 to 6, not 4 to 6. The reader accepting schemas 1 to 6 is implementation evidence,
+not a completed upgrade check. No physical-device check was run; the owner accepts browser evidence
+(decision of 2026-11-17 on #441).
 
 **Known open issue.** [#121](https://github.com/phynics/cast-iron/issues/121): WebKit can raise
 `Context is stopped` around navigation. The cause is in something the app does and is not found.
@@ -47,9 +51,9 @@ Changes since the release at `6365dba` (corpus v0.1.17, library format 4, 2026-1
 
 The library format changes twice in this release, from 4 to 5 and from 5 to 6. Format 5 records every book that prints an entry. Format 6 stores archetype and class-option trades in a new file. The search index format does not change.
 
-The new library is about 223 MB (213 MiB), so download it on Wi-Fi. The new app opens a format 4 library. Most of the changes below need the new library, which you install from **Settings**. The app does not download it by itself. The old library stays in use until the new one has downloaded and passed its hash checks. If the download stops, you keep reading with the old one.
+The new library is about 223 MB (213 MiB), so download it on Wi-Fi. The new app opens a format 4 library. Most of the changes below need the new library, which you install from **Settings**. The app does not download it by itself. The app is built to keep the old library in use until the new one has downloaded and passed its hash checks, so a stopped download leaves you reading with the old one.
 
-After the update, your stars, recent entries, and active books stay as they were. A book that the new library no longer has (see "Books removed") is dropped from the list without an error.
+The update is designed to keep your stars, recent entries, and active books as they were. The upgrade from the previous release was not tested end to end for this release, so tell us if anything is lost. A book that the new library no longer has (see "Books removed") is dropped from the list without an error.
 
 ### New features
 
