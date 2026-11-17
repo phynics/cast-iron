@@ -949,13 +949,16 @@ mark {
   min-height: var(--touch);
 }
 
+/* The muted group and publication text of a browse row. It wraps between its own words and
+   never takes width from the title: the row wraps, so a long one drops to a second line. */
 .row-source {
   font-size: var(--step--1);
-  /* A publication title can be longer than a phone screen; the row must fit, not the page. */
   flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
+  margin-inline-start: auto;
   text-align: right;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .ref-list {
@@ -2506,18 +2509,16 @@ main,
   align-items: center;
 }
 
+/* A browse row wraps (#444). The title keeps its natural width, so it breaks only between
+   words; the muted source sits beside it when both fit and drops to its own line when not.
+   `overflow-wrap: break-word` (never `anywhere`, which lets a flex item shrink to one letter)
+   splits a single word only as a last resort, when it alone is wider than the row. */
 .entry-list li {
-  flex-wrap: nowrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .entry-list a {
   flex: 1 1 auto;
-  min-width: 0;
-}
-
-.row-source {
-  flex: 0 1 auto;
   min-width: 0;
 }
 
