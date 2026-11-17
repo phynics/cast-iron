@@ -31,6 +31,7 @@ pub mod related;
 pub mod rich;
 pub mod scope;
 pub mod search;
+pub mod section_switcher;
 pub mod settings;
 pub mod share_set;
 pub mod source_variants;

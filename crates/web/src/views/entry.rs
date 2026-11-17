@@ -1,6 +1,7 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::class_options;
+use crate::class_sections::Sections;
 use crate::class_summary;
 use crate::fmt;
 use crate::js;
@@ -17,6 +18,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
+use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, source_line};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
 use cast_iron_schema::{
@@ -271,6 +273,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
             id: id.clone(),
             anchor: anchor.clone(),
             book: book.clone(),
+            section: None,
         };
         Effect::new(move |_| route::replace(&route));
     }
@@ -591,6 +594,7 @@ fn EntryView(
                 id: reference.target.clone(),
                 anchor: reference.anchor.clone(),
                 book: None,
+                section: None,
             }
             .href();
             view! {
@@ -833,7 +837,7 @@ fn EntryView(
     // A class page opens with its summary card. The printed paragraphs that the card replaces
     // leave the body, so no fact shows twice; every other paragraph stays.
     let is_class = matches!(kind, EntryKind::Class | EntryKind::PrestigeClass);
-    let (class_card, rendered_body) = match is_class && !hide_body {
+    let (class_card, rendered_body, class_sections) = match is_class && !hide_body {
         true => {
             let read = class_summary::read(&entry.fields, &entry.body);
             let list = indexes
@@ -844,13 +848,35 @@ fn EntryView(
                     name: list.name.clone(),
                     href: Route::spell_list(list.name.clone(), None).href(),
                 });
-            (
-                class_card(&read.summary, list),
-                class_summary::without(&entry.body, &read.consumed),
-            )
+            let body = class_summary::without(&entry.body, &read.consumed);
+            // The switcher's stops come from the body that is rendered, so the heading keys
+            // they name are the ones on the page. A class with fewer than three stops keeps
+            // the contents disclosure instead.
+            let sections =
+                Some(Sections::read(&body, list.is_some())).filter(Sections::worth_a_switcher);
+            (class_card(&read.summary, list), body, sections)
         }
-        false => (None, rendered_body),
+        false => (None, rendered_body, None),
     };
+    let switcher = class_sections.as_ref().map(|sections| {
+        view! { <SectionSwitcher id=entry.id.clone() book=book.clone() stops=sections.present() /> }
+    });
+    let section_marks = class_sections
+        .as_ref()
+        .map(Sections::body_marks)
+        .unwrap_or_default();
+    // A link to `?s=archetypes` opens at that section once the page has rendered.
+    if class_sections.is_some()
+        && anchor.is_none()
+        && let Some(section) = route::use_route().get_untracked().section()
+    {
+        request_animation_frame(move || {
+            route::scroll_to_section(section);
+        });
+    }
+    let contents = class_sections.is_none().then(|| {
+        view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
+    });
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
@@ -877,8 +903,9 @@ fn EntryView(
         {collision_block}
         {original_disclosure}
         {class_card}
-        <ArticleContents body=contents_body id=entry.id.clone() />
-        <RichBody body=rendered_body anchor=anchor changed=changed_labels />
+        {switcher}
+        {contents}
+        <RichBody body=rendered_body anchor=anchor changed=changed_labels marks=section_marks />
         {source_line(&body_sources, &library, None)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>

@@ -1,4 +1,4 @@
-import { installedTest as test, expect, loadCorpus } from "./fixtures";
+import { installedTest as test, expect, loadCorpus, type Entry } from "./fixtures";
 import {
   bodyHeadings,
   bodyLinks,
@@ -294,23 +294,29 @@ test("Rules text search opens the matched heading and article contents link to r
   }, anchor)).toBe(true);
 });
 
-test("A class page's article contents lists sections, not its source books", async ({ page }) => {
-  const wizard = corpusEntry("class", "Wizard");
-  const publicationTitles = new Set(corpus.catalog.sources.map((source: { title: string }) => source.title));
-  await page.goto(`#/entry/${wizard.id}`);
-  await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+test("Article contents lists sections, not its source books", async ({ page }) => {
+  // A class page has a section switcher instead of this disclosure (class-sections.spec.ts), so
+  // the check reads an article that has both a publication-name heading and four other sections.
+  const publicationTitles = new Set<string>(
+    corpus.catalog.sources.map((source: { title: string }) => source.title.trim().toLowerCase()),
+  );
+  const headingTitles = (entry: Entry) =>
+    bodyHeadings(entry).map((heading) => heading.text.trim()).filter(Boolean);
+  const article = firstEntry("an article with a publication-name heading and four sections", (entry) =>
+    entry.kind !== "class" &&
+    headingTitles(entry).length >= 4 &&
+    headingTitles(entry).some((title) => publicationTitles.has(title.toLowerCase())));
+  const named = headingTitles(article).filter((title) => publicationTitles.has(title.toLowerCase()));
+  const sections = headingTitles(article).filter((title) => !publicationTitles.has(title.toLowerCase()));
+  await page.goto(`#/entry/${article.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: article.title })).toBeVisible();
   const contents = page.locator(".article-contents");
   await expect(contents).toBeVisible();
   await contents.locator("summary").click();
   const labels = (await contents.getByRole("link").allInnerTexts()).map((label) => label.trim());
-  expect(labels).toEqual(expect.arrayContaining([
-    "Class Features and Spells Per Day",
-    "Alternate Capstones",
-    "Archetypes",
-    "Archetypes by Feature",
-  ]));
+  expect(labels).toEqual(expect.arrayContaining(sections.slice(0, 3)));
   // A source attribution heading is not a section of the article.
-  expect(labels.filter((label) => publicationTitles.has(label))).toEqual([]);
+  expect(labels.filter((label) => named.includes(label))).toEqual([]);
 });
 
 test("Rule entries preserve complex formatting: stat block", async ({ page }) => {

@@ -5,6 +5,7 @@
 //! panel opens a shard. A library of schema 1 or 2 has neither file; its entries then get no
 //! panel, and nothing around them breaks.
 
+use crate::class_sections::Section;
 use crate::fmt;
 use crate::graph::{
     Relations, demote_headings, is_alternate_racial_trait, level_counts, list_of_class_entry,
@@ -321,7 +322,7 @@ fn class_panels(
         out.push(
             view! {
                 <section class="rel" aria-labelledby="rel-spells">
-                    <h2 id="rel-spells">"Spell list"</h2>
+                    <h2 id="rel-spells" data-class-section=Section::Spells.slug() tabindex="-1">"Spell list"</h2>
                     <p>
                         <a href=href>{format!("{} spell list", list.name)}</a>
                         <span class="muted">{format!(" · {}", spells_noun(list_total(list)))}</span>

@@ -3,6 +3,7 @@
 //! tests.
 
 use super::progression;
+use crate::class_sections::Section;
 use crate::route::{self, Route};
 use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
 use leptos::prelude::*;
@@ -98,6 +99,7 @@ fn inline(item: &Inline) -> AnyView {
                 id: target.clone(),
                 anchor: anchor.clone(),
                 book: None,
+                section: None,
             }
             .href();
             view! { <a class="xref" href=href>{inlines(c)}</a> }.into_any()
@@ -118,6 +120,8 @@ struct Renderer {
     keys: BTreeMap<*const Block, Option<String>>,
     /// Lowercase labels of the stat rows that a revision changed.
     changed: BTreeSet<String>,
+    /// The headings where a class page's sections start, by heading key.
+    marks: BTreeMap<String, Section>,
 }
 
 impl Renderer {
@@ -129,7 +133,13 @@ impl Renderer {
         Self {
             keys,
             changed: BTreeSet::new(),
+            marks: BTreeMap::new(),
         }
+    }
+
+    fn with_marks(mut self, marks: Vec<(String, Section)>) -> Self {
+        self.marks = marks.into_iter().collect();
+        self
     }
 
     fn with_changed(mut self, changed: BTreeSet<String>) -> Self {
@@ -169,7 +179,8 @@ impl Renderer {
                     "a rendered heading is missing from the heading traversal"
                 );
                 let id = key.as_deref().map(heading_dom_id);
-                heading(*level, id, inlines(content))
+                let section = key.as_ref().and_then(|key| self.marks.get(key)).copied();
+                heading(*level, id, section, inlines(content))
             }
             Block::Paragraph { style, content } => {
                 let class = match style {
@@ -208,13 +219,32 @@ impl Renderer {
     }
 }
 
-fn heading(level: u8, id: Option<String>, content: Vec<AnyView>) -> AnyView {
+/// A heading where a class page section starts is the target of the switcher's link: it carries
+/// `data-class-section` and can take focus (`tabindex="-1"`), and no other heading does.
+fn heading(
+    level: u8,
+    id: Option<String>,
+    section: Option<Section>,
+    content: Vec<AnyView>,
+) -> AnyView {
+    let slug = section.map(Section::slug);
+    let tabindex = section.map(|_| "-1");
     match level {
-        0..=2 => view! { <h2 id=id>{content}</h2> }.into_any(),
-        3 => view! { <h3 id=id>{content}</h3> }.into_any(),
-        4 => view! { <h4 id=id>{content}</h4> }.into_any(),
-        5 => view! { <h5 id=id>{content}</h5> }.into_any(),
-        _ => view! { <h6 id=id>{content}</h6> }.into_any(),
+        0..=2 => {
+            view! { <h2 id=id data-class-section=slug tabindex=tabindex>{content}</h2> }.into_any()
+        }
+        3 => {
+            view! { <h3 id=id data-class-section=slug tabindex=tabindex>{content}</h3> }.into_any()
+        }
+        4 => {
+            view! { <h4 id=id data-class-section=slug tabindex=tabindex>{content}</h4> }.into_any()
+        }
+        5 => {
+            view! { <h5 id=id data-class-section=slug tabindex=tabindex>{content}</h5> }.into_any()
+        }
+        _ => {
+            view! { <h6 id=id data-class-section=slug tabindex=tabindex>{content}</h6> }.into_any()
+        }
     }
 }
 
@@ -372,9 +402,15 @@ pub fn RichBody(
     /// Lowercase labels of stat rows that a revision changed.
     #[prop(optional)]
     changed: Vec<String>,
+    /// The headings where a class page's sections start, by heading key.
+    #[prop(optional)]
+    marks: Vec<(String, Section)>,
 ) -> impl IntoView {
     let changed = changed.into_iter().collect::<BTreeSet<_>>();
-    let content = Renderer::new(&body).with_changed(changed).blocks(&body);
+    let content = Renderer::new(&body)
+        .with_changed(changed)
+        .with_marks(marks)
+        .blocks(&body);
     if let Some(anchor) = anchor {
         request_animation_frame(move || {
             route::scroll_to_anchor(&anchor);

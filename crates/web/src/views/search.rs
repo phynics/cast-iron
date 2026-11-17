@@ -2175,6 +2175,7 @@ fn hit_view(
                 id: id.clone(),
                 anchor: anchor.map(str::to_owned),
                 book: None,
+                section: None,
             }
             .href()
         })

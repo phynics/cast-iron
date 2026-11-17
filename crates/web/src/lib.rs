@@ -18,6 +18,7 @@ pub mod book_presets;
 pub mod book_share;
 pub mod book_source;
 pub mod class_options;
+pub mod class_sections;
 pub mod class_summary;
 pub mod content_cache;
 pub mod density;

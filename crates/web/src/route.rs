@@ -16,7 +16,9 @@
 //! #/browse/book/<source>/<chapter>    one chapter page; the id is the anchor or title slug
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
-//! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
+//! #/entry/<entry id>?a=<anchor>&book=<source>&s=<section>   an entry, with the book it was
+//!                                    read from; `s` is a class page's section (`features`,
+//!                                    `archetypes`, `spells`), which jumps to it (#170)
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
 //! #/quick                            Quick reference: the rules a table looks up mid-play
 //! #/settings[?section=updates]       #/settings/diagnostics       #/legal
@@ -26,6 +28,7 @@ use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
 use crate::book_source::{Retirement, aliased_book_source, retirement};
+use crate::class_sections::Section;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
@@ -93,6 +96,9 @@ pub enum Route {
         /// The book the reader came from. It survives reload, so previous/next follows the same
         /// book after the page is opened again.
         book: Option<String>,
+        /// The part of a class page to open at (`?s=archetypes`). The entry id is the same:
+        /// a section is a place on the page, not another entry. Overview has no value.
+        section: Option<Section>,
     },
     /// Quick reference (#437): chips to the rules a table looks up mid-play. The Table tab.
     Quick,
@@ -131,6 +137,7 @@ impl Route {
             id,
             anchor: None,
             book: None,
+            section: None,
         }
     }
 
@@ -140,6 +147,7 @@ impl Route {
             id,
             anchor: None,
             book: Some(source.into()),
+            section: None,
         }
     }
 
@@ -330,7 +338,15 @@ impl Route {
                     .and_then(|q| query_pairs(q).find(|(k, _)| k == "book"))
                     .map(|(_, v)| aliased_book_source(&v).to_string())
                     .filter(|v| !v.is_empty());
-                Route::Entry { id, anchor, book }
+                let section = query
+                    .and_then(|q| query_pairs(q).find(|(k, _)| k == "s"))
+                    .and_then(|(_, v)| Section::from_slug(&v));
+                Route::Entry {
+                    id,
+                    anchor,
+                    book,
+                    section,
+                }
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
             ["bookmarks"] | ["collection", _] => Route::Home,
@@ -439,13 +455,21 @@ impl Route {
                 href
             }
             Route::FeatChains => "#/feats/chains".into(),
-            Route::Entry { id, anchor, book } => {
+            Route::Entry {
+                id,
+                anchor,
+                book,
+                section,
+            } => {
                 let mut pairs: Vec<String> = Vec::new();
                 if let Some(anchor) = anchor {
                     pairs.push(format!("a={}", percent_encode(anchor)));
                 }
                 if let Some(book) = book {
                     pairs.push(format!("book={}", percent_encode(book)));
+                }
+                if let Some(section) = section {
+                    pairs.push(format!("s={}", section.slug()));
                 }
                 if pairs.is_empty() {
                     format!("#/entry/{id}")
@@ -459,6 +483,42 @@ impl Route {
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
             Route::NotFound(_) => "#/".into(),
+        }
+    }
+
+    /// The section of a class page that this route opens at.
+    pub fn section(&self) -> Option<Section> {
+        match self {
+            Route::Entry { section, .. } => *section,
+            _ => None,
+        }
+    }
+
+    /// Whether `other` is the same entry page at another section: same id, anchor and book. The
+    /// page stays on screen, so a move between two such routes scrolls it and does not rebuild
+    /// it, and keeps focus where the reader put it.
+    pub fn only_section_differs(&self, other: &Route) -> bool {
+        match (self, other) {
+            (
+                Route::Entry {
+                    id,
+                    anchor,
+                    book,
+                    section,
+                },
+                Route::Entry {
+                    id: other_id,
+                    anchor: other_anchor,
+                    book: other_book,
+                    section: other_section,
+                },
+            ) => {
+                id == other_id
+                    && anchor == other_anchor
+                    && book == other_book
+                    && section != other_section
+            }
+            _ => false,
         }
     }
 
@@ -947,6 +1007,28 @@ pub fn scroll_to_anchor(anchor: &str) -> bool {
     true
 }
 
+/// Scrolls to the start of a class page's section and puts focus on its heading, so that the
+/// next Tab enters the section and a screen reader reads it. The target is the element that
+/// carries `data-class-section`. Returns false when the page has no such element, which is the
+/// case before the entry has rendered and on a class that lacks the section.
+pub fn scroll_to_section(section: Section) -> bool {
+    use wasm_bindgen::JsCast;
+    let Some(document) = web_sys::window().and_then(|w| w.document()) else {
+        return false;
+    };
+    let selector = format!("[data-class-section=\"{}\"]", section.slug());
+    let Some(target) = document.query_selector(&selector).ok().flatten() else {
+        return false;
+    };
+    target.scroll_into_view();
+    if let Ok(target) = target.dyn_into::<web_sys::HtmlElement>() {
+        let options = web_sys::FocusOptions::new();
+        options.set_prevent_scroll(true);
+        let _ = target.focus_with_options(&options);
+    }
+    true
+}
+
 pub fn scroll_to_top() {
     if let Some(window) = web_sys::window() {
         window.scroll_to_with_x_and_y(0.0, 0.0);
@@ -1277,7 +1359,8 @@ mod tests {
             Route::Entry {
                 id: EntryId::parse("ref/rule/getting-started").unwrap(),
                 anchor: None,
-                book: Some("game-mastery-guide".into())
+                book: Some("game-mastery-guide".into()),
+                section: None,
             }
         );
         // The surviving id and every other book id are unchanged.
@@ -1327,7 +1410,8 @@ mod tests {
                 Route::Entry {
                     id: EntryId::parse("ref/rule/getting-started").unwrap(),
                     anchor: None,
-                    book: Some(new.into())
+                    book: Some(new.into()),
+                    section: None,
                 }
             );
         }
@@ -1347,6 +1431,77 @@ mod tests {
                 Route::Books
             );
         }
+    }
+
+    #[test]
+    fn a_class_section_is_a_query_and_never_part_of_the_entry_id() {
+        let id = EntryId::parse("ref/class/wizard").unwrap();
+        let route = Route::Entry {
+            id: id.clone(),
+            anchor: None,
+            book: None,
+            section: Some(Section::Archetypes),
+        };
+        assert_eq!(route.href(), "#/entry/ref/class/wizard?s=archetypes");
+        round_trip(route.clone());
+        assert_eq!(route.section(), Some(Section::Archetypes));
+        // The id, the anchor and the book keep their own places.
+        let all = Route::Entry {
+            id: id.clone(),
+            anchor: Some("arcane-bond".into()),
+            book: Some("core-rulebook".into()),
+            section: Some(Section::Spells),
+        };
+        assert_eq!(
+            all.href(),
+            "#/entry/ref/class/wizard?a=arcane-bond&book=core-rulebook&s=spells"
+        );
+        round_trip(all);
+        // Overview is the page, so it has no value; an unknown or empty value is ignored.
+        for hash in [
+            "#/entry/ref/class/wizard?s=overview",
+            "#/entry/ref/class/wizard?s=",
+            "#/entry/ref/class/wizard?s=nope",
+            "#/entry/ref/class/wizard",
+        ] {
+            assert_eq!(Route::parse(hash), Route::entry(id.clone()), "{hash}");
+        }
+        assert_eq!(
+            Route::parse("#/entry/ref/class/wizard?s=FEATURES").section(),
+            Some(Section::Features)
+        );
+        // Another route has no section.
+        assert_eq!(Route::Home.section(), None);
+    }
+
+    #[test]
+    fn only_a_changed_section_keeps_the_page_on_screen() {
+        let id = EntryId::parse("ref/class/wizard").unwrap();
+        let at = |section| Route::Entry {
+            id: id.clone(),
+            anchor: None,
+            book: None,
+            section,
+        };
+        assert!(at(None).only_section_differs(&at(Some(Section::Features))));
+        assert!(at(Some(Section::Spells)).only_section_differs(&at(Some(Section::Features))));
+        assert!(!at(Some(Section::Spells)).only_section_differs(&at(Some(Section::Spells))));
+        // Another entry, another anchor or another book is a different page.
+        let other = Route::Entry {
+            id: EntryId::parse("ref/class/fighter").unwrap(),
+            anchor: None,
+            book: None,
+            section: Some(Section::Features),
+        };
+        assert!(!at(None).only_section_differs(&other));
+        let anchored = Route::Entry {
+            id: id.clone(),
+            anchor: Some("arcane-bond".into()),
+            book: None,
+            section: Some(Section::Features),
+        };
+        assert!(!at(None).only_section_differs(&anchored));
+        assert!(!at(None).only_section_differs(&Route::Home));
     }
 
     #[test]
@@ -1472,6 +1627,7 @@ mod tests {
             id: id("core-rulebook/spells/fireball"),
             anchor: Some("caster level & more/é".into()),
             book: None,
+            section: None,
         };
         assert_eq!(
             route.href(),
@@ -1493,6 +1649,7 @@ mod tests {
             id: id("core-rulebook/spells/fireball"),
             anchor: Some("casting".into()),
             book: Some("core-rulebook".into()),
+            section: None,
         };
         assert_eq!(
             both.href(),
@@ -1505,6 +1662,7 @@ mod tests {
                 id: id("core-rulebook/spells/fireball"),
                 anchor: Some("casting".into()),
                 book: Some("core-rulebook".into()),
+                section: None,
             }
         );
         // An empty context is no context.

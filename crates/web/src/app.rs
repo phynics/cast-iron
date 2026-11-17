@@ -304,6 +304,11 @@ fn Reader(library: Library) -> impl IntoView {
         ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
             // Choosing a school edits the schools in the URL of the spell list that is on screen.
             || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route));
+        // A jump to another section of the class page that is on screen. The page scrolls, and
+        // focus stays on the switcher (or moves to the section's heading), not on <main>.
+        let section_jump = previous
+            .as_ref()
+            .is_some_and(|p| p.only_section_differs(&route));
         // The Search screen focuses its own box, so the frame leaves focus alone there.
         let to_search = matches!(route, Route::Search { .. });
         if let Some(title) = static_title(&route) {
@@ -320,14 +325,19 @@ fn Reader(library: Library) -> impl IntoView {
             if within_search {
                 return;
             }
-            match (route.anchor(), restore) {
-                (Some(anchor), _) => {
+            match (route.anchor(), route.section(), restore) {
+                (Some(anchor), _, _) => {
                     route::scroll_to_anchor(&anchor);
                 }
-                (None, Some(y)) => route::scroll_to_offset(y),
-                (None, None) => route::scroll_to_top(),
+                // The page is not in the document yet on a first load: it jumps itself when it
+                // has rendered (`EntryView`).
+                (None, Some(section), _) => {
+                    route::scroll_to_section(section);
+                }
+                (None, None, Some(y)) => route::scroll_to_offset(y),
+                (None, None, None) => route::scroll_to_top(),
             }
-            if !first && !to_search {
+            if !first && !to_search && !section_jump {
                 focus_main();
             }
         });
@@ -501,6 +511,17 @@ fn RouteView() -> impl IntoView {
             // The schools of a spell list are the list's own state: it reads them from the route
             // and must not be rebuilt for a choice, which would close its open menu.
             Route::SpellList { class, level, .. } => Route::spell_list(class, level),
+            // The section of a class page is a place on the page that is already on screen: a
+            // jump scrolls it and must not rebuild it, which would drop open disclosures and the
+            // focus on the switcher. The page reads its section from the route itself.
+            Route::Entry {
+                id, anchor, book, ..
+            } => Route::Entry {
+                id,
+                anchor,
+                book,
+                section: None,
+            },
             other => other,
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
@@ -548,7 +569,9 @@ fn RouteView() -> impl IntoView {
         Route::Spells => view! { <SpellsHub /> }.into_any(),
         Route::SpellList { class, level, .. } => view! { <SpellListView class level /> }.into_any(),
         Route::FeatChains => view! { <FeatChains /> }.into_any(),
-        Route::Entry { id, anchor, book } => view! { <Entry id anchor book /> }.into_any(),
+        Route::Entry {
+            id, anchor, book, ..
+        } => view! { <Entry id anchor book /> }.into_any(),
         Route::Quick => view! { <Quick /> }.into_any(),
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Diagnostics => view! { <Diagnostics /> }.into_any(),
