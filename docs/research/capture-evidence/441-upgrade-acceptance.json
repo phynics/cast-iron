@@ -41,7 +41,7 @@
    "manifest_files_verified": 293,
    "shell_version": "831c17bb103a2600",
    "published_shell_version": "5464362442e5568f",
-   "shell_difference": "only the Rust WASM binary differs: CI 3aea756b22873ed3, local c2025da3ad68e7c8; local rustc 1.95.0, CI 1.99.1 from rust-toolchain.toml; every other shell file name matches the CI archive listing",
+   "shell_difference": "WASM filename hash: CI 3aea756b22873ed3, local c2025da3ad68e7c8. Other shell filenames match. Names without content hashes do not establish byte equality.",
    "sw_sha256": "e51d00f72a3609dd8a339482506634fc34a12cbd5da92bd00c0fd744253154a0"
   }
  },
@@ -52,11 +52,11 @@
    "ref/spell/magic-missile"
   ],
   "recents": [
-   "ref/spell/magic-missile",
-   "ref/spell/fireball",
    "ref/feat/acrobatic",
    "ref/feat/weapon-finesse",
    "ref/spell/summon-monster-1",
+   "ref/spell/fireball",
+   "ref/spell/magic-missile",
    "ref/feat/power-attack"
   ],
   "disabled_books": [
@@ -535,7 +535,7 @@
      {
       "step": "seeded state survives activation",
       "result": "pass",
-      "detail": "3 stars, 6 recents and 413 disabled book ids unchanged; one content cache, pending install cleared"
+      "detail": "3 stars and 413 disabled book ids unchanged. All six recent ids survived. Visits to Fireball and Magic Missile changed their order; one content cache, pending install cleared"
      },
      {
       "step": "book choices still off in Manage books",
@@ -668,7 +668,7 @@
      {
       "step": "seeded state survives activation",
       "result": "pass",
-      "detail": "3 stars, 6 recents and 413 disabled book ids unchanged; one content cache, pending install cleared"
+      "detail": "3 stars and 413 disabled book ids unchanged. All six recent ids survived. Visits to Fireball and Magic Missile changed their order; one content cache, pending install cleared"
      },
      {
       "step": "book choices still off in Manage books",

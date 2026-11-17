@@ -39,18 +39,11 @@ commit with the pinned corpus. Its library is the published library by identity:
 `content_version` is a SHA-256 over every content file's path and hash, and it
 equals the published `v17a954e5c0f1d11c`; all 293 files match their manifest. Its
 shell is not the published shell: the rebuild stamps `831c17bb103a2600` where the
-release published `5464362442e5568f`. The shell hash covers the Rust WASM binary,
-and the local dev shell compiles with rustc 1.95.0 while CI used 1.99.1 from
-`rust-toolchain.toml`. The CI archive listing and the rebuild share every file
-name except that binary (`cast-iron-web-3aea756b22873ed3_bg.wasm` in CI,
-`cast-iron-web-c2025da3ad68e7c8_bg.wasm` locally). Trunk names the JavaScript,
-the stylesheet and the bridge snippet after their contents, and all three names
-match the CI archive, which points to identical content for those three;
-`index.html`, the icons
-and the unstamped `sw.js` carry no content hash in their names, and the WASM
-differs. So the library side of this check is exact; the shell side is the same
-source built by a different compiler, not the bytes users downloaded in
-November.
+release published `5464362442e5568f`. The WASM filename hash was `3aea756b22873ed3` in CI and
+`c2025da3ad68e7c8` locally. The compiler versions differed (CI 1.99.1, local
+1.95.0), which may explain the WASM difference. The other shell filenames
+matched the archive listing. The names of `index.html`, the icons and `sw.js`
+contain no content hash, so the listing cannot establish byte equality.
 
 ## Seeded state
 
@@ -94,7 +87,7 @@ Adventures** off from the 28 active rulebooks, leaving **Core Rulebook** and
 | Shell update applied; old library stays active, Fireball opens | PASS | PASS |
 | Library download interrupted; old library stays active and readable in a second tab | PASS | PASS |
 | Retry activates the new library; format 6, 31,800 entries, 213 MB | PASS | PASS |
-| 3 stars and 6 recents unchanged; Ultimate Magic and Mythic Adventures still off; Core Rulebook and Bestiary still on | PASS | PASS |
+| 3 stars unchanged and all 6 recent IDs retained, with Fireball and Magic Missile moved forward by subsequent visits; Ultimate Magic and Mythic Adventures still off; Core Rulebook and Bestiary still on | PASS | PASS |
 | One content cache, no pending install, old cache removed | PASS | PASS |
 | Fireball: `Sources: Core Rulebook p. 283`; Summon Monster I: `Expanded in: Monster Summoner's Handbook p. 18 · Inactive`; Acrobatic opens with Mythic Adventures off | PASS | PASS |
 | Offline reload: Home keeps the star, Fireball opens, search finds a spell | PASS | PASS |
