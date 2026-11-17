@@ -1914,6 +1914,7 @@ Closes [#404](https://github.com/phynics/cast-iron/issues/404).
 - **The breakpoint is the cards' 36rem, not 48rem.** The issue text names 48rem for the two-column step, but `.cats` switches at 36rem. Matching the cards is the acceptance (edges equal), so Starred follows them. Changing the cards' breakpoint would be a separate decision.
 - **A partly filled row stays partly filled.** With one or two stars on a wide window, only those cells draw a hairline; the cell width is one card column. The list's own top rule applies only in the one-column layout.
 
+
 ## Search ranks prefix completions by frequency and reads one eligibility mask per selection, 2026-11-17
 
 Closes [#422](https://github.com/phynics/cast-iron/issues/422). The search format does not change: `INDEX_FORMAT_VERSION` stays 2, and a break would wait for format 5 (owner decision of 2026-11-16).
