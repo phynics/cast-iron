@@ -3033,6 +3033,7 @@ mod tests {
 
     #[test]
     fn expansion_rows_that_differ_in_page_or_via_are_not_duplicates() {
+        // Same publication and `via`, different page.
         let mut entry = with_expansion(rule("ref/rule/a", vec![]), "monster-handbook", None);
         entry.expanded_in.push(cast_iron_schema::Expansion {
             publication: "monster-handbook".into(),
@@ -3040,6 +3041,13 @@ mod tests {
             via: None,
         });
         let report = check(&expansion_corpus(vec![entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        // Same publication and page, different `via`.
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "monster-handbook", None);
+        let entry = with_expansion(entry, "monster-handbook", Some("ref/rule/b"));
+        let via = in_publication(rule("ref/rule/b", vec![]), "monster-handbook");
+        let report = check(&expansion_corpus(vec![entry, via]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
