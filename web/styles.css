@@ -2507,13 +2507,12 @@ main,
   min-width: 0;
 }
 
-/* Wide entries: references sit beside the body. The grid areas themselves are declared once, in
-   the entry-screen block at the end of this file; this rule owns the columns, the gap and the
-   panel. */
+/* Wide entries: references sit beside the body. The grid template itself (areas, rows and
+   columns) is declared once, in the entry-screen block at the end of this file; this rule owns the
+   display, the gap and the panel. */
 @media (min-width: 64rem) {
   .entry:has(> .rich) {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 15rem;
     column-gap: var(--space-5);
   }
 
@@ -4033,35 +4032,36 @@ input::placeholder {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
 @media (min-width: 64rem) {
-  /* The one grid-template-areas for a wide entry; the earlier rules set the columns and the
+  /* The one grid template for a wide entry; the earlier rules set the display, the gap and the
      panel only. Every direct child that can appear between the header and the footer owns a
      row: an unnamed child is auto-placed into the first free cell, which put the typed Sources
      line above the body, the AoN link (#197) in the panel column, and the revision nodes at the
-     notice's row. */
+     notice's row.
+
+     The panel spans from `contents` to `slack`. When it is taller than the content beside it,
+     a spanning item shares its extra height equally among the auto rows it crosses, empty ones
+     included, so the empty `contents` row grew to about 200px above a short body (#446). Only
+     a flexible row takes the extra height instead, so `slack` is the one `1fr` row, and the
+     empty rows stay at 0. Each row names its own size, so a new row needs no separate count. */
   .entry:has(> .rich) {
-    grid-template-areas:
-      "crumbs crumbs"
-      "head head"
-      "disabled disabled"
-      "revision ."
-      "sentence ."
-      "collision ."
-      "original ."
-      "contents refs"
-      "body refs"
-      "sources refs"
-      "expanded refs"
-      "aon refs"
-      "rel refs"
-      "book refs"
-      "slack refs"
-      "foot foot";
-    /* The panel spans from `contents` to `slack`. When it is taller than the content beside it,
-       a spanning item shares its extra height equally among the auto rows it crosses, empty ones
-       included, so the empty `contents` row grew to about 200px above a short body (#446). Only
-       a flexible row takes the extra height instead, so `slack` is the one `1fr` row, and the
-       empty rows stay at 0. */
-    grid-template-rows: repeat(14, auto) 1fr auto;
+    grid-template:
+      "crumbs crumbs" auto
+      "head head" auto
+      "disabled disabled" auto
+      "revision ." auto
+      "sentence ." auto
+      "collision ." auto
+      "original ." auto
+      "contents refs" auto
+      "body refs" auto
+      "sources refs" auto
+      "expanded refs" auto
+      "aon refs" auto
+      "rel refs" auto
+      "book refs" auto
+      "slack refs" 1fr
+      "foot foot" auto
+      / minmax(0, 1fr) 15rem;
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
   .entry > .revision-notice { grid-area: revision; }
