@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { installedTest as test, expect, loadCorpus, ROOT, type Page } from "./fixtures";
-import { installLibrary, waitControlled } from "./helpers";
+import { installLibrary, openQuickSearch, quickAllOptions, quickField, quickSearch, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -251,4 +251,85 @@ test("At 1024 px the header stays on one row with the column alignment of #409",
 
 test("At 1280 px the header stays on one row with the column alignment of #409", async ({ page }) => {
   await expectHeaderFits(page, 1280);
+});
+
+const referenceRow = (page: Page) => quickAllOptions(page).filter({ hasText: "Quick reference" });
+
+test("An empty unscoped Quick search leads with the Quick reference row, which typing and a scope hide", async ({ page }) => {
+  await page.goto("#/");
+  await expect(page.locator("#home-title")).toBeVisible();
+  const layer = await openQuickSearch(page);
+
+  // Empty and unscoped: the first option, with the muted line, in the existing row form.
+  const first = quickAllOptions(page).first();
+  await expect(first).toHaveText("Quick referenceConditions · Actions · Combat modifiers");
+  await expect(first.locator(".quick-search-name")).toHaveText("Quick reference");
+  await expect(first.locator(".quick-search-meta")).toHaveText("Conditions · Actions · Combat modifiers");
+  await expect(referenceRow(page)).toHaveCount(1);
+  // Nothing else is highlighted until a key moves the highlight.
+  await expect(quickAllOptions(page).locator("xpath=self::*[@aria-selected='true']")).toHaveCount(0);
+
+  // Typed text hides it, and clearing the text brings it back.
+  await quickField(page).fill("fire");
+  await expect(layer.getByRole("option", { name: /^See all results for/ })).toBeVisible();
+  await expect(referenceRow(page)).toHaveCount(0);
+  await quickField(page).fill("");
+  await expect(referenceRow(page)).toHaveCount(1);
+  await expect(quickAllOptions(page).first()).toContainText("Quick reference");
+  // Whitespace is not text.
+  await quickField(page).fill("   ");
+  await expect(quickAllOptions(page).first()).toContainText("Quick reference");
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+
+  // A scope hides it too, and removing the scope brings it back.
+  await page.goto("#/browse/kind/feat");
+  await expect(page.getByRole("heading", { level: 1, name: "Feats" })).toBeVisible();
+  await openQuickSearch(page);
+  const pill = page.getByRole("button", { name: "Remove scope: Feats", exact: true });
+  await expect(pill).toBeVisible();
+  await expect(referenceRow(page)).toHaveCount(0);
+  await pill.click();
+  await expect(pill).toHaveCount(0);
+  await expect(quickAllOptions(page).first()).toContainText("Quick reference");
+});
+
+test("Down then Enter on the Quick reference row opens the page, and Back returns to where the reader was", async ({ page }) => {
+  await page.goto("#/books");
+  await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+  const before = page.url();
+  await openQuickSearch(page, { keyboard: true });
+  await expect(referenceRow(page)).toHaveCount(1);
+
+  // The first Down highlights it, the field keeps focus, and Enter opens the page.
+  await page.keyboard.press("ArrowDown");
+  const row = quickAllOptions(page).first();
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await expect(quickField(page)).toHaveAttribute("aria-activedescendant", (await row.getAttribute("id"))!);
+  await expect(quickField(page)).toBeFocused();
+  // Up leaves the row and Down comes back to it.
+  await page.keyboard.press("ArrowUp");
+  await expect(row).toHaveAttribute("aria-selected", "false");
+  await page.keyboard.press("ArrowDown");
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+
+  await expect(page).toHaveURL(/#\/quick$/);
+  await expect(quickSearch(page)).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Quick reference", level: 1 })).toBeVisible();
+
+  // The layer's history entry became the page, so one Back returns to the page before it.
+  await page.goBack();
+  await expect(page).toHaveURL(before);
+  await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+});
+
+test("Tapping the Quick reference row opens the page", async ({ page }) => {
+  await page.goto("#/");
+  await expect(page.locator("#home-title")).toBeVisible();
+  await openQuickSearch(page);
+  await referenceRow(page).click();
+  await expect(page).toHaveURL(/#\/quick$/);
+  await expect(quickSearch(page)).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Quick reference", level: 1 })).toBeVisible();
 });
