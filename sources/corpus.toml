@@ -16,6 +16,6 @@
 # `tree_sha256` to `cargo xtask corpus-tree-hash <extracted dir>`, then run
 # `cargo xtask fetch-sources` and `cargo xtask content`.
 repository = "https://github.com/phynics/cast-iron-data"
-tag = "v0.1.24"
-commit = "fdb3fc2f24cf06a0c38aedfd92e22a65b78788aa"
-tree_sha256 = "707a8e583d7f44ef9fa78d849d94599d3841f4b55dc0544bb49584962b634724"
+tag = "v0.1.25"
+commit = "17a24be58973da097bdff73500a182b60b122ec7"
+tree_sha256 = "057d5b51d022bc97edc27c52ee06246510e402a2eee9922844607e2a8b54d8ce"

@@ -21,8 +21,8 @@ use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, ReplacesIndex, RuleEntry,
-    SpellListClass, SpellLists, TypedFields,
+    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, RelationLabel,
+    ReplacesIndex, RuleEntry, SpellListClass, SpellLists, TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -125,7 +125,7 @@ pub fn prerequisite_links(entry: &RuleEntry) -> Vec<(EntryId, bool)> {
         .relations
         .iter()
         .filter(|r| r.kind == RelationKind::Prerequisite)
-        .map(|r: &Relation| (r.target.clone(), r.label.as_deref() == Some("or")))
+        .map(|r: &Relation| (r.target.clone(), r.label == Some(RelationLabel::Or)))
         .collect();
     if !from_relations.is_empty() {
         return from_relations;
@@ -451,7 +451,7 @@ fn archetype_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
 pub fn addons_of_label(
     relations: &Relations,
     base: &EntryId,
-    label: &str,
+    label: RelationLabel,
     eligible: impl Fn(&EntryId) -> bool,
 ) -> Vec<EntryId> {
     relations
@@ -588,7 +588,7 @@ fn MythicAddon(library: Library, id: EntryId) -> impl IntoView {
 fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Option<AnyView> {
     let relations = all?;
     let discovery = library.discovery();
-    let addons = addons_of_label(relations, id, "mythic", |addon| {
+    let addons = addons_of_label(relations, id, RelationLabel::Mythic, |addon| {
         discovery.is_eligible(addon.as_str())
     });
     if addons.is_empty() {
@@ -639,7 +639,7 @@ fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
         return Vec::new();
     };
     let discovery = library.discovery();
-    addons_of_label(relations, id, "stamina", |addon| {
+    addons_of_label(relations, id, RelationLabel::Stamina, |addon| {
         discovery.is_eligible(addon.as_str())
     })
     .into_iter()
@@ -669,7 +669,7 @@ fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
         return Vec::new();
     };
     let discovery = library.discovery();
-    addons_of_label(relations, id, "changes", |addon| {
+    addons_of_label(relations, id, RelationLabel::Changes, |addon| {
         discovery.is_eligible(addon.as_str())
     })
     .into_iter()
@@ -1217,7 +1217,7 @@ mod tests {
         let rel = |target: &str, label: Option<&str>| Relation {
             kind: RelationKind::Prerequisite,
             target: id(target),
-            label: label.map(String::from),
+            label: label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
         };
         let entry = feat(&[], vec![rel("c/a", Some("or")), rel("c/b", None)]);
         assert_eq!(
@@ -1258,7 +1258,7 @@ mod tests {
                         id(source),
                         kind,
                         id(target),
-                        label.map(String::from),
+                        label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
                     )
                 })
                 .collect(),
@@ -1272,17 +1272,23 @@ mod tests {
             ("c/other/stamina", "addon", "c/other", Some("stamina")),
         ]);
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "mythic", |_| true),
+            addons_of_label(&relations, &id("c/base"), RelationLabel::Mythic, |_| true),
             [id("c/base/mythic")]
         );
         // The add-on's book is what gates the section; the base's book never does.
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "mythic", |addon| addon.as_str()
-                != "c/base/mythic"),
+            addons_of_label(
+                &relations,
+                &id("c/base"),
+                RelationLabel::Mythic,
+                |addon| addon.as_str() != "c/base/mythic"
+            ),
             Vec::<EntryId>::new()
         );
         // A Stamina add-on is not a mythic version.
-        assert!(addons_of_label(&relations, &id("c/other"), "mythic", |_| true).is_empty());
+        assert!(
+            addons_of_label(&relations, &id("c/other"), RelationLabel::Mythic, |_| true).is_empty()
+        );
     }
 
     #[test]
@@ -1292,23 +1298,33 @@ mod tests {
             ("c/base/stamina", "addon", "c/base", Some("stamina")),
         ]);
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "stamina", |_| true),
+            addons_of_label(&relations, &id("c/base"), RelationLabel::Stamina, |_| true),
             [id("c/base/stamina")]
         );
         // The add-on's own book gates the row; the base's book never does.
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "stamina", |addon| addon.as_str()
-                != "c/base/stamina"),
+            addons_of_label(
+                &relations,
+                &id("c/base"),
+                RelationLabel::Stamina,
+                |addon| addon.as_str() != "c/base/stamina"
+            ),
             Vec::<EntryId>::new()
         );
         // A mythic version is not a Stamina row.
         assert!(
-            addons_of_label(&relations, &id("c/base"), "stamina", |addon| addon.as_str()
-                == "c/base/mythic")
+            addons_of_label(
+                &relations,
+                &id("c/base"),
+                RelationLabel::Stamina,
+                |addon| addon.as_str() == "c/base/mythic"
+            )
             .is_empty()
         );
         // A base with no add-on gets no row.
-        assert!(addons_of_label(&relations, &id("c/none"), "stamina", |_| true).is_empty());
+        assert!(
+            addons_of_label(&relations, &id("c/none"), RelationLabel::Stamina, |_| true).is_empty()
+        );
     }
 
     #[test]
@@ -1318,23 +1334,33 @@ mod tests {
             ("c/base/stamina", "addon", "c/base", Some("stamina")),
         ]);
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "changes", |_| true),
+            addons_of_label(&relations, &id("c/base"), RelationLabel::Changes, |_| true),
             [id("c/base/teitr")]
         );
         // The add-on's own book gates the section; the base's book never does.
         assert_eq!(
-            addons_of_label(&relations, &id("c/base"), "changes", |addon| addon.as_str()
-                != "c/base/teitr"),
+            addons_of_label(
+                &relations,
+                &id("c/base"),
+                RelationLabel::Changes,
+                |addon| addon.as_str() != "c/base/teitr"
+            ),
             Vec::<EntryId>::new()
         );
         // A Stamina add-on is not a third-party change.
         assert!(
-            addons_of_label(&relations, &id("c/base"), "changes", |addon| addon.as_str()
-                == "c/base/stamina")
+            addons_of_label(
+                &relations,
+                &id("c/base"),
+                RelationLabel::Changes,
+                |addon| addon.as_str() == "c/base/stamina"
+            )
             .is_empty()
         );
         // A base with no add-on gets no section.
-        assert!(addons_of_label(&relations, &id("c/none"), "changes", |_| true).is_empty());
+        assert!(
+            addons_of_label(&relations, &id("c/none"), RelationLabel::Changes, |_| true).is_empty()
+        );
     }
 
     #[test]
@@ -1465,11 +1491,24 @@ mod tests {
             ),
         ]);
         assert_eq!(
-            addons_of_label(&relations, &id("c/spell/base"), "mythic", |_| true),
+            addons_of_label(
+                &relations,
+                &id("c/spell/base"),
+                RelationLabel::Mythic,
+                |_| true
+            ),
             [id("c/spell/base/mythic")]
         );
         // The panel reads the raw graph and tests only the add-on's id, as the feat page does.
-        assert!(addons_of_label(&relations, &id("c/spell/base"), "mythic", |_| false).is_empty());
+        assert!(
+            addons_of_label(
+                &relations,
+                &id("c/spell/base"),
+                RelationLabel::Mythic,
+                |_| false
+            )
+            .is_empty()
+        );
         // A spell page now loads the relation index that the mythic panel and Variants row need.
         assert!(needs(EntryKind::Spell).relations);
         assert!(needs(EntryKind::Spell).spell_lists);

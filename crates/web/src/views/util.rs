@@ -1,6 +1,6 @@
 //! Small helpers shared by views.
 
-use cast_iron_schema::EntryKind;
+use cast_iron_schema::{EntryKind, RelationLabel};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use send_wrapper::SendWrapper;
@@ -78,24 +78,30 @@ pub fn kind_name(kind: EntryKind) -> &'static str {
 
 /// The `Kind · Book` line of a row that is an add-on: the add-on's label stands where the
 /// entry's kind would. Unknown labels cannot come from a validated library.
-pub fn addon_name(label: &str) -> &'static str {
+pub fn addon_name(label: RelationLabel) -> &'static str {
     match label {
-        "mythic" => "Mythic",
-        "stamina" => "Stamina",
-        "changes" => "Changes",
-        _ => "Add-on",
+        RelationLabel::Mythic => "Mythic",
+        RelationLabel::Stamina => "Stamina",
+        RelationLabel::Changes => "Changes",
+        RelationLabel::Alternate
+        | RelationLabel::Merged
+        | RelationLabel::Or
+        | RelationLabel::Removed => "Add-on",
     }
 }
 
 /// How an add-on's own page names its base in the metadata line. `book` is the add-on's own
 /// publication title, which only a `changes` add-on puts inside the phrase. `None` for a label
 /// this app does not yet phrase, so the line never invents a sentence.
-pub fn addon_base_phrase(label: &str, book: &str) -> Option<String> {
+pub fn addon_base_phrase(label: RelationLabel, book: &str) -> Option<String> {
     match label {
-        "mythic" => Some("Mythic version of".to_string()),
-        "stamina" => Some("Stamina rules for".to_string()),
-        "changes" => Some(format!("Changes {book} makes to")),
-        _ => None,
+        RelationLabel::Mythic => Some("Mythic version of".to_string()),
+        RelationLabel::Stamina => Some("Stamina rules for".to_string()),
+        RelationLabel::Changes => Some(format!("Changes {book} makes to")),
+        RelationLabel::Alternate
+        | RelationLabel::Merged
+        | RelationLabel::Or
+        | RelationLabel::Removed => None,
     }
 }
 
@@ -174,27 +180,35 @@ mod tests {
 
     #[test]
     fn an_add_on_names_its_label_and_its_base_phrase() {
-        assert_eq!(addon_name("stamina"), "Stamina");
-        assert_eq!(addon_name("mythic"), "Mythic");
-        assert_eq!(addon_name("changes"), "Changes");
+        assert_eq!(addon_name(RelationLabel::Stamina), "Stamina");
+        assert_eq!(addon_name(RelationLabel::Mythic), "Mythic");
+        assert_eq!(addon_name(RelationLabel::Changes), "Changes");
         assert_eq!(
-            addon_base_phrase("stamina", "Pathfinder Unchained").as_deref(),
+            addon_base_phrase(RelationLabel::Stamina, "Pathfinder Unchained").as_deref(),
             Some("Stamina rules for")
         );
         assert_eq!(
-            addon_base_phrase("mythic", "Mythic Adventures").as_deref(),
+            addon_base_phrase(RelationLabel::Mythic, "Mythic Adventures").as_deref(),
             Some("Mythic version of")
         );
         // A third-party change names its own book inside the phrase.
         assert_eq!(
             addon_base_phrase(
-                "changes",
+                RelationLabel::Changes,
                 "The Elephant in the Room: Feat Taxes in Pathfinder"
             )
             .as_deref(),
             Some("Changes The Elephant in the Room: Feat Taxes in Pathfinder makes to")
         );
-        // A label this app cannot phrase leaves the metadata line alone.
-        assert_eq!(addon_base_phrase("unknown", "Any Book"), None);
+        // A label that is not an add-on label leaves the metadata line alone.
+        for label in [
+            RelationLabel::Alternate,
+            RelationLabel::Merged,
+            RelationLabel::Or,
+            RelationLabel::Removed,
+        ] {
+            assert_eq!(addon_base_phrase(label, "Any Book"), None);
+            assert_eq!(addon_name(label), "Add-on");
+        }
     }
 }

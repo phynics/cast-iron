@@ -54,9 +54,9 @@ pub fn relation(relation: &Relation) -> String {
     }));
     out.push_str(", target = ");
     out.push_str(&string(relation.target.as_str()));
-    if let Some(label) = &relation.label {
+    if let Some(label) = relation.label {
         out.push_str(", label = ");
-        out.push_str(&string(label));
+        out.push_str(&string(label.slug()));
     }
     out.push_str(" }");
     out
