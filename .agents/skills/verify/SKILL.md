@@ -68,40 +68,60 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 
 | Feature | `--grep` pattern (spec file) | Source files |
 |---|---|---|
-| Search and filters | `Search operates` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs` |
-| Book section search results | `book section result` (`search.spec.ts`) | `crates/schema/src/books.rs`, `crates/content-compiler/src/pipeline.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/book.rs` |
-| Installer, integrity, recovery | `installs completely\|integrity\|Interrupted` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
-| Offline launch, no runtime server | `Offline launch\|runtime server` | `web/sw.js`, `crates/web/src/app.rs` |
+| Search results, ranking, and offline search | `Search operates\|Equal relevance\|cold index\|catch-all\|Desktop results page` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs` |
+| Search filters, chip counts, and the Publication filter | `Filter chips\|Chip counts\|Publication filter\|Publication name box` (`search.spec.ts`) | `crates/web/src/views/search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/sources.rs` |
+| Search and inactive books | `hidden matches\|inactive first source` (`search.spec.ts`) | `crates/web/src/discovery.rs`, `crates/web/src/views/search.rs` |
+| Scoped Quick search and kind-list scopes | `scope` (`search.spec.ts`) | `crates/web/src/views/quick_search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/search.rs`, `crates/web/src/route.rs` |
+| Spelling corrections | `correction` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs`, `crates/web/src/views/quick_search.rs` |
+| Book section search results | `book section` (`search.spec.ts`, `mobile.spec.ts`) | `crates/schema/src/books.rs`, `crates/content-compiler/src/pipeline.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/book.rs` |
+| Installer, integrity, recovery | `installs completely\|integrity\|Interrupted\|install screen` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
+| Offline launch, no runtime server | `Offline launch\|runtime server` (`offline.spec.ts`) | `web/sw.js`, `crates/web/src/app.rs` |
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
-| Body-link backlinks ("Referenced by") | `Referenced by` (`backlinks.spec.ts`) | `crates/content-compiler/src/backlinks.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/library.rs` |
-| Browsing and class categories | `browsing\|Expanded books` | `crates/web/src/views/browse.rs` |
-| Books sorting and contents tree | `Books sort by category\|Expanded books show a hierarchical\|Expanded books, their contents tree` (`books.spec.ts`, `mobile.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs` |
+| Body-link backlinks ("Referenced by") | `Referenced by\|Show all` (`backlinks.spec.ts`) | `crates/content-compiler/src/backlinks.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/library.rs` |
+| Home categories and class categories | `Home categories\|category-only\|class categories` (`journeys.spec.ts`, `reference.spec.ts`) | `crates/web/src/views/browse.rs` |
+| Kind list pages, letter groups, and filter menus | whole file (`browse-groups.spec.ts`: letter groups, feat type, item category, creature type and CR and spell school menus, book-filtered lists) | `crates/web/src/views/browse.rs`, `crates/web/src/views/filter_menu.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/route.rs` |
+| Books page, book pages, and contents tree | whole file (`books.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs` |
+| Books tab opening speed | `Books tab opens` (`books-open.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/browse.rs`, `crates/web/src/discovery.rs` |
+| Adventure Path, Module, and Society series lines | `Adventures\|Modules\|Pathfinder Society\|bulk toggle` (`adventures-series.spec.ts`) | `crates/web/src/views/book_series.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/active_books.rs` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
-| Class spell lists and source filters | `spell lists filter` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
-| Feat prerequisites and chains | `feat pages\|category hub` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
-| Book contents and reading order | `book contents\|Expanded books\|hierarchical` | `crates/web/src/views/book.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/graph.rs`, `crates/web/src/reading.rs` |
+| Class spell lists and source filters | `spell lists filter\|numbered spell series` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
+| Class option groups on class pages and lists | whole file (`class-options.spec.ts`; also `mobile-chromium`) | `crates/web/src/class_options.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/views/entry.rs` |
+| Feat prerequisites and chains | `feat pages\|category hub\|every feat chain` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs` |
+| Book contents and reading order | `book contents\|book bar` (`relationships.spec.ts`) | `crates/web/src/views/book.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/graph.rs`, `crates/web/src/reading.rs` |
+| Revised, removed, and merged feats (Elephant revisions) | `Elephant\|revis\|merge\|remove` (`revisions.spec.ts`) | `crates/web/src/revisions.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/chains.rs`, `crates/web/src/views/search.rs` |
+| Add-on Changes section | `Elephant` (`changes.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/views/util.rs`, `crates/web/src/graph.rs` |
+| Mythic Adventures add-ons | `Mythic` (`mythic.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/related.rs`, `crates/web/src/views/quick_rows.rs`, `crates/web/src/views/util.rs`, `crates/web/src/graph.rs` |
+| Pathfinder Unchained Stamina add-ons | `Stamina\|Unchained\|Core only` (`stamina.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/related.rs`, `crates/web/src/views/util.rs`, `crates/web/src/graph.rs` |
+| Spell variants | `variant` (`variants.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/related.rs`, `crates/web/src/views/source_variants.rs`, `crates/web/src/views/quick_rows.rs` |
 | Publication choices | `Source variants` (`source-variants.spec.ts`) | `crates/web/src/views/source_variants.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/related.rs` |
+| Entry header: metadata line, star, and chip roles | `metadata line\|star is\|Chips keep\|Keyboard focus is visible\|A label has no border` (`entry-header.spec.ts`) | `crates/web/src/views/entry.rs`, `crates/web/src/views/sources.rs`, `web/styles.css`, `DESIGN.md` |
+| Archives of Nethys links | whole file (`aon-links.spec.ts`) | `crates/web/src/views/sources.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/book.rs` |
 | Keyboard and subsystem reading | `Keyboard` (`accessibility-reading.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/book.rs`, `web/styles.css` |
 | Home stars and legacy saved records | `Home keeps legacy\|More than six starred` (`bookmarks.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/entry.rs` |
-| Quick search suggestions, recent searches, and recently viewed | `Quick search\|Recent searches\|Recently viewed` (`search.spec.ts`) | `crates/web/src/views/quick_search.rs`, `crates/web/src/views/quick_rows.rs`, `crates/web/src/views/recent_searches.rs`, `crates/web/src/views/recent.rs`, `crates/web/src/store.rs` |
-| Continue reading per book | `Continue reading\|continue point` (`continue-reading.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/continue_reading.rs`, `crates/web/src/views/quick_search.rs`, `crates/web/src/views/book.rs`, `crates/web/src/views/entry.rs` |
-| Active books and preference recovery | `Book visibility\|No active books\|Invalid book choices` (`active-books.spec.ts`) | `crates/web/src/discovery.rs`, `crates/web/src/library.rs`, `crates/web/src/store.rs`, `crates/web/src/views/browse.rs` |
-| Book share codes (Books page, `#/books?set=`) | `books-share` (`books-share.spec.ts`; also `mobile-chromium`) | `crates/web/src/book_code.rs`, `crates/web/src/book_share.rs`, `crates/web/src/views/share_set.rs`, `crates/content-compiler/src/book_slots.rs`, `sources/published-books.txt` |
+| Quick search suggestions, recent searches, and recently viewed | `Quick search\|Recent search\|Recently viewed\|header icon\|highlight\|Suggestions` (`search.spec.ts`) | `crates/web/src/views/quick_search.rs`, `crates/web/src/views/quick_rows.rs`, `crates/web/src/views/recent_searches.rs`, `crates/web/src/views/recent.rs`, `crates/web/src/store.rs` |
+| Continue reading per book | `continue point` (`continue-reading.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/views/continue_reading.rs`, `crates/web/src/views/quick_search.rs`, `crates/web/src/views/book.rs`, `crates/web/src/views/entry.rs` |
+| Active books and preference recovery | whole file (`active-books.spec.ts`: book visibility, Manage books, presets, new-install default, recovery) | `crates/web/src/discovery.rs`, `crates/web/src/library.rs`, `crates/web/src/store.rs`, `crates/web/src/views/browse.rs` |
+| Book share codes (Books page, `#/books?set=`) | whole file (`books-share.spec.ts`; also `mobile-chromium`) | `crates/web/src/book_code.rs`, `crates/web/src/book_share.rs`, `crates/web/src/views/share_set.rs`, `crates/content-compiler/src/book_slots.rs`, `sources/published-books.txt` |
+| Home page: stars, teaching line, footer, wide layout | whole file (`home.spec.ts`) | `crates/web/src/views/home.rs`, `crates/web/src/views/bookmarks.rs`, `crates/web/src/app.rs`, `web/styles.css` |
+| Legacy ids to canonical ids after a library cutover | `Legacy bookmarks` (`canonical-cutover.spec.ts`) | `crates/web/src/store.rs`, `crates/web/src/library.rs`, `crates/web/src/route.rs` |
+| Slash opens Quick search | `slash` (`slash-shortcut.spec.ts`; also `mobile-chromium`) | `crates/web/src/app.rs`, `crates/web/src/views/quick_search.rs`, `crates/web/src/views/search.rs` |
+| Aliased ids, Level 0 spells, primary sources, and anchors | `aliased entry\|Level 0\|primary-source\|Sources line\|Duplicate heading\|article contents` (`reference.spec.ts`) | `crates/web/src/views/entry.rs`, `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/sources.rs`, `crates/web/src/library.rs` |
 | Rule heading links and primary reading | `Rules text search\|Entry reading` (`reference.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/search.rs` |
-| Search bar, Home saved entries, and end-to-end research | `Home search\|Browse connects\|Books navigation` (`journeys.spec.ts`) | `crates/web/src/app.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs` |
+| Search bar, Home saved entries, and end-to-end research | `Home search\|Home categories\|Books navigation` (`journeys.spec.ts`) | `crates/web/src/app.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs` |
+| Header Install button and Settings install option | whole file (`install-button.spec.ts`) | `crates/web/src/pwa.rs`, `crates/web/src/views/header_action.rs`, `crates/web/src/views/settings.rs`, `crates/web/js/bridge.js` |
 | App-shell update and offline bookmarks | `App update waits` (`shell-update.spec.ts`) | `web/sw.js`, `crates/web/js/bridge.js`, `tests/e2e/server.mjs` |
-| Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
-| PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
-| Mobile layout | `Mobile viewport\|Expanded books, their contents tree` (`mobile.spec.ts`) | `web/styles.css`, `crates/web/src/views/browse.rs` |
+| Content updates | whole file (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
+| PWA install metadata | `installable` (`pwa.spec.ts`) | `web/manifest.webmanifest`, `web/index.html` |
+| Mobile layout | whole file (`mobile.spec.ts`; the `mobile-chromium` project only) | `web/styles.css`, `crates/web/src/views/browse.rs` |
 | Legal and attribution | `Licensing` (`legal.spec.ts`) | `crates/web/src/views/legal.rs` |
-| Report a problem | `Report a problem` (`report-problem.spec.ts`) | `crates/web/src/report.rs`, `crates/web/src/app.rs`, `.github/ISSUE_TEMPLATE/app-problem.yml` |
+| Report a problem | whole file (`report-problem.spec.ts`; also `mobile-chromium`) | `crates/web/src/report.rs`, `crates/web/src/app.rs`, `.github/ISSUE_TEMPLATE/app-problem.yml` |
 | Publication scope | none: `python3 scripts/check-publication.py` after building the default | `scripts/check-publication.py`, `docs/research/licensing-audit.md` |
 | Content compiler and default library | none: `cargo test -p cast-iron-content-compiler`, CI determinism job (two corpus builds, same bytes) | `crates/content-compiler`, `crates/corpus`, `crates/xtask`, `sources/corpus.toml` |
 
 ## Keep this file current
 
-When you add a feature, add its row to the feature map, with its e2e test area and source files. When you rename or move a file listed here, update the row. A feature that is missing from this table cannot be verified by the next agent.
+When you add a feature, add its row to the feature map, with its e2e test area and source files. When you rename or move a file listed here, update the row. A feature that is missing from this table cannot be verified by the next agent. `cargo xtask check` reads this table and fails when it disagrees with `tests/e2e/tests` (all `*.spec.ts` files below it). It fails when a spec is not named, when a name matches no file, when a `--grep` pattern is not a regular expression or matches no test, and when a test is reached by no row. In the second column, write each selector followed by its specs in parentheses: `` `pattern` (`a.spec.ts`, `b.spec.ts`) `` or `whole file (`a.spec.ts`)`, with `\|` for `|` in a pattern. A pattern is matched as Playwright's `--grep` matches it: against the spec's file name, its `test.describe` titles and the test title. The check assumes `--grep` is case-insensitive, which Playwright's command line does (it builds the pattern with the `i` flag), so `race` matches `Race`; a spec's patterns need not repeat each case. A pattern must match a test in every spec it lists, and each top-level alternative (`a\|b`) must match a test, so a dead alternative fails the check. A row that has no e2e spec starts its second column with `none`. A test whose title is not a plain string (a template with `${}`, a variable) is listed as unverifiable; use plain titles.
 
 ## Corpus and schema changes
 
