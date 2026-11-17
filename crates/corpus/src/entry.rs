@@ -190,7 +190,7 @@ fn merge_relations(fields: &TypedFields, stored: Vec<Relation>) -> Vec<Relation>
             label: stored
                 .iter()
                 .find(|row| row.kind == RelationKind::Prerequisite && &row.target == feat)
-                .and_then(|row| row.label.clone()),
+                .and_then(|row| row.label),
         })
         .collect();
     relations.extend(stored.into_iter().filter(|row| {
@@ -917,6 +917,7 @@ fn toml_error_line(error: &toml::de::Error, text: &str) -> usize {
 mod tests {
     use super::*;
     use crate::block::write_blocks;
+    use cast_iron_schema::RelationLabel;
     use cast_iron_schema::{ParagraphStyle, StatRow, Table, TableCell, TableRow};
 
     fn entry() -> RuleEntry {
@@ -1041,7 +1042,7 @@ mod tests {
             relations: vec![Relation {
                 kind: RelationKind::Part,
                 target: EntryId::parse("ref/rule/fog").unwrap(),
-                label: Some("or".into()),
+                label: Some(RelationLabel::Or),
             }],
         }
     }
@@ -1413,7 +1414,7 @@ mod tests {
         Relation {
             kind: RelationKind::Prerequisite,
             target: EntryId::parse(target).unwrap(),
-            label: label.map(str::to_string),
+            label: label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
         }
     }
 
@@ -1426,6 +1427,22 @@ mod tests {
         let text = round_trip_with(&entry, &Config::default());
         assert!(!text.contains("relations"), "{text}");
         assert!(!text.contains("prerequisite\""), "{text}");
+    }
+
+    #[test]
+    fn a_relation_with_an_unknown_label_does_not_read() {
+        let config = Config::default();
+        let text = write_entry(&entry(), &config);
+        assert!(text.contains("label = \"or\""), "{text}");
+        let path = entry_path(&entry().id);
+        assert!(read_entry(&path, &text, &config).is_ok());
+        for bad in ["bogus", "Or", ""] {
+            let changed = text.replace("label = \"or\"", &format!("label = \"{bad}\""));
+            assert!(
+                read_entry(&path, &changed, &config).is_err(),
+                "label `{bad}` must not read"
+            );
+        }
     }
 
     #[test]
@@ -1454,7 +1471,7 @@ mod tests {
         feat.relations.push(Relation {
             kind: RelationKind::Addon,
             target: EntryId::parse("ref/feat/power-attack").unwrap(),
-            label: Some("mythic".into()),
+            label: Some(RelationLabel::Mythic),
         });
         let text = round_trip_with(&feat, &Config::default());
         assert!(text.contains("ref/feat/not-listed"), "{text}");
