@@ -31,6 +31,7 @@ pub mod js;
 pub mod library;
 pub mod lru;
 pub mod membership;
+pub mod panic_notice;
 pub mod pwa;
 pub mod reading;
 pub mod report;
@@ -43,7 +44,7 @@ pub mod views;
 
 /// Entry point for the browser build.
 pub fn start() {
-    console_error_panic_hook::set_once();
+    panic_notice::install();
     theme::apply_mirrored();
     leptos::mount::mount_to_body(app::App);
 }

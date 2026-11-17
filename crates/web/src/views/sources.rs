@@ -8,7 +8,7 @@
 use crate::library::Library;
 use crate::route::Route;
 use crate::views::icons;
-use cast_iron_schema::Citation;
+use cast_iron_schema::{Citation, EntryId, Expansion};
 use leptos::prelude::*;
 
 /// The Archives of Nethys base. Every stored `aon` value is a path below it.
@@ -150,6 +150,131 @@ pub fn source_line(citations: &[Citation], library: &Library, fallback: Option<&
     view! { <p class="sources-line">"Sources: "{parts}</p> }.into_any()
 }
 
+/// One `Expanded in` credit as the line renders it (#460).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpansionRow {
+    pub title: String,
+    /// Printed page, when the credit has one.
+    pub page: Option<String>,
+    /// The expanding book's page. `None` when the catalog does not know the publication or the
+    /// library has no book index.
+    pub href: Option<String>,
+    /// The expanding book is turned off. The credit stays, dimmed, and says so.
+    pub inactive: bool,
+    /// The `via` entry's address, only while that entry is visible. A hidden `via` entry never
+    /// gets a link, so the page number stays plain text.
+    pub via_href: Option<String>,
+}
+
+/// One row per credit, in corpus order. A publication the catalog does not know keeps its id
+/// as the title and gets no link, so no credit is dropped. `via_href` answers for a `via`
+/// entry id and returns `None` while the entry is hidden or unknown.
+pub fn expansion_rows(
+    expanded: &[Expansion],
+    lookup: impl Fn(&str) -> Option<(String, Option<String>)>,
+    book_active: impl Fn(&str) -> bool,
+    via_href: impl Fn(&EntryId) -> Option<String>,
+) -> Vec<ExpansionRow> {
+    expanded
+        .iter()
+        .map(|credit| {
+            let (title, href) =
+                lookup(&credit.publication).unwrap_or_else(|| (credit.publication.clone(), None));
+            ExpansionRow {
+                title,
+                page: credit.page.clone(),
+                href,
+                inactive: !book_active(&credit.publication),
+                via_href: credit.via.as_ref().and_then(&via_href),
+            }
+        })
+        .collect()
+}
+
+/// The page number as printed, `None` for a blank or missing page.
+fn printed_page(page: Option<&str>) -> Option<&str> {
+    page.map(str::trim).filter(|page| !page.is_empty())
+}
+
+/// The whole line, for tests: `Expanded in: Monster Summoner's Handbook p. 18`. An inactive
+/// book's credit ends with the same `Inactive` label the screen shows.
+pub fn expansion_text(rows: &[ExpansionRow]) -> String {
+    if rows.is_empty() {
+        return String::new();
+    }
+    let credits = rows
+        .iter()
+        .map(|row| {
+            let page = printed_page(row.page.as_deref())
+                .map(|page| format!(" p. {page}"))
+                .unwrap_or_default();
+            let label = if row.inactive { " · Inactive" } else { "" };
+            format!("{}{page}{label}", row.title)
+        })
+        .collect::<Vec<_>>();
+    format!("Expanded in: {}", credits.join("; "))
+}
+
+/// The muted `Expanded in:` line under the `Sources:` line. Nothing when the entry has no
+/// credit. The book links to its book page; the page number links to the `via` entry only
+/// while that entry is visible. An inactive book's credit is dimmed and labelled, and never
+/// links to a hidden entry. Typed nodes only (AGENTS.md rule 2).
+pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
+    let rows = expansion_rows(
+        expanded,
+        |publication| lookup(library, publication),
+        |publication| library.book_active(publication),
+        |id| {
+            library.is_entry_active(id).then(|| {
+                Route::Entry {
+                    id: id.clone(),
+                    anchor: None,
+                    book: None,
+                    section: None,
+                }
+                .href()
+            })
+        },
+    );
+    if rows.is_empty() {
+        return ().into_any();
+    }
+    let parts = rows
+        .iter()
+        .enumerate()
+        .map(|(at, row)| {
+            let separator = (at > 0).then_some(view! { "; " });
+            let title = match &row.href {
+                Some(href) => view! { <a href=href.clone()>{row.title.clone()}</a> }.into_any(),
+                None => view! { {row.title.clone()} }.into_any(),
+            };
+            let page = printed_page(row.page.as_deref()).map(|page| {
+                let page = page.to_string();
+                let number = match &row.via_href {
+                    Some(href) => {
+                        view! { <a href=href.clone() data-testid="expanded-via">{page}</a> }
+                            .into_any()
+                    }
+                    None => view! { {page} }.into_any(),
+                };
+                view! { " p. "{number} }
+            });
+            let label = row
+                .inactive
+                .then(|| view! { " · "<span class="tag">"Inactive"</span> });
+            view! {
+                {separator}
+                <span class="expanded-credit" data-inactive=row.inactive.then_some("true")>
+                    {title}{page}{label}
+                </span>
+            }
+            .into_any()
+        })
+        .collect_view();
+    view! { <p class="expanded-line" data-testid="expanded-line">"Expanded in: "{parts}</p> }
+        .into_any()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,5 +359,98 @@ mod tests {
     #[test]
     fn an_empty_stored_path_means_no_link() {
         assert_eq!(aon_href(Some("")), None);
+    }
+
+    fn expansion(publication: &str, page: Option<&str>, via: Option<&str>) -> Expansion {
+        Expansion {
+            publication: publication.into(),
+            page: page.map(String::from),
+            via: via.map(|id| EntryId::parse(id).unwrap()),
+        }
+    }
+
+    fn handbook_lookup(publication: &str) -> Option<(String, Option<String>)> {
+        (publication == "monster-summoners-handbook").then(|| {
+            (
+                "Monster Summoner's Handbook".to_string(),
+                Some("#/browse/book/monster-summoners-handbook".to_string()),
+            )
+        })
+    }
+
+    #[test]
+    fn a_credit_reads_book_and_page_and_links_the_book() {
+        let credits = [expansion("monster-summoners-handbook", Some("18"), None)];
+        let rows = expansion_rows(&credits, handbook_lookup, |_| true, |_| None);
+        assert_eq!(
+            expansion_text(&rows),
+            "Expanded in: Monster Summoner's Handbook p. 18"
+        );
+        assert_eq!(
+            rows[0].href.as_deref(),
+            Some("#/browse/book/monster-summoners-handbook")
+        );
+        assert!(!rows[0].inactive);
+        assert_eq!(rows[0].via_href, None);
+    }
+
+    #[test]
+    fn via_links_only_while_the_via_entry_is_visible() {
+        let credits = [expansion(
+            "monster-summoners-handbook",
+            Some("18"),
+            Some("ref/rule/simple-templates"),
+        )];
+        let visible = expansion_rows(
+            &credits,
+            handbook_lookup,
+            |_| true,
+            |id| Some(format!("#/entry/{id}")),
+        );
+        assert_eq!(
+            visible[0].via_href.as_deref(),
+            Some("#/entry/ref/rule/simple-templates")
+        );
+        let hidden = expansion_rows(&credits, handbook_lookup, |_| true, |_| None);
+        assert_eq!(hidden[0].via_href, None);
+        assert_eq!(expansion_text(&visible), expansion_text(&hidden));
+    }
+
+    #[test]
+    fn an_inactive_book_is_marked_and_a_hidden_via_never_links() {
+        let credits = [expansion(
+            "monster-summoners-handbook",
+            Some("18"),
+            Some("ref/rule/simple-templates"),
+        )];
+        let rows = expansion_rows(&credits, handbook_lookup, |_| false, |_| None);
+        assert!(rows[0].inactive);
+        assert_eq!(rows[0].via_href, None);
+        assert_eq!(
+            expansion_text(&rows),
+            "Expanded in: Monster Summoner's Handbook p. 18 · Inactive"
+        );
+    }
+
+    #[test]
+    fn an_unknown_book_keeps_its_id_and_a_blank_page_is_omitted() {
+        let credits = [
+            expansion("unknown-book", None, None),
+            expansion("monster-summoners-handbook", Some("  "), None),
+        ];
+        let rows = expansion_rows(&credits, handbook_lookup, |_| true, |_| None);
+        assert_eq!(rows[0].href, None);
+        assert_eq!(
+            expansion_text(&rows),
+            "Expanded in: unknown-book; Monster Summoner's Handbook"
+        );
+    }
+
+    #[test]
+    fn no_credit_means_no_line() {
+        assert_eq!(
+            expansion_text(&expansion_rows(&[], handbook_lookup, |_| true, |_| None)),
+            ""
+        );
     }
 }
