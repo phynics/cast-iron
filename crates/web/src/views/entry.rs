@@ -392,6 +392,17 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
         }
         Ok::<_, crate::library::LibraryError>(loaded)
     });
+    // The page is on screen two frames after its text arrives. The time and the size of the page
+    // go to the diagnostics (#423); nothing else reads them.
+    let opened = crate::diagnostics::now();
+    let sampled = StoredValue::new(false);
+    let sample_title = stub_title.clone().unwrap_or_else(|| "Entry".to_string());
+    Effect::new(move |_| {
+        if entry.with(|state| matches!(state, Some(Ok(_)))) && !sampled.get_value() {
+            sampled.set_value(true);
+            crate::diagnostics::sample_page(sample_title.clone(), opened);
+        }
+    });
     let shown_id = id.clone();
     view! {
         <article class="entry">
