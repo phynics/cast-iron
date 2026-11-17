@@ -583,3 +583,48 @@ fn a_compile_recovers_from_an_interrupted_handoff() {
     compile_corpus(&corpus, &out, &reports, None, None).unwrap();
     assert!(!beside(&out, "staging").exists());
 }
+
+#[test]
+fn a_second_compile_cannot_clean_a_live_writers_staging_directory() {
+    use cast_iron_content_compiler::publish::{OutLock, lock_file, staging_dir};
+    let corpus = temp("live-writer");
+    write_corpus(&corpus);
+    let out = temp("live-writer-base").join("content");
+    let reports = temp("live-writer-reports");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    let good = tree(&out);
+
+    // Compile A holds the lock and is part way through its write: a staging directory with files
+    // but no manifest yet.
+    let writer = OutLock::acquire(&out).unwrap();
+    let staging = staging_dir(&out);
+    fs::create_dir_all(staging.join("vnew")).unwrap();
+    fs::write(staging.join("vnew/catalog.json"), "{}").unwrap();
+    let staged = tree(&staging);
+
+    // Compile B fails its gates, and compile C would pass them. Neither runs, and neither
+    // touches the staging directory or the library.
+    fs::write(
+        corpus.join("books.toml"),
+        write_books(&BookIndex::default()),
+    )
+    .unwrap();
+    let failing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("B must stop");
+    assert!(failing.lines.join("\n").contains("another compile holds"));
+    fs::write(corpus.join("books.toml"), write_books(&printed_chapter())).unwrap();
+    let passing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("C must stop");
+    assert!(passing.lines.join("\n").contains("another compile holds"));
+    assert_eq!(
+        tree(&staging),
+        staged,
+        "a blocked compile changed the live staging"
+    );
+    assert_eq!(tree(&out), good, "a blocked compile changed the library");
+
+    // A finishes, and the next compile takes the lock and succeeds. Neither leaves a lock file.
+    drop(writer);
+    assert!(!lock_file(&out).exists());
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(!lock_file(&out).exists());
+    assert!(!staging.exists());
+}

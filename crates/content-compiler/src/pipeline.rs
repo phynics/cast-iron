@@ -112,7 +112,15 @@ pub struct Library {
 ///
 /// The step holds no source-specific knowledge; every alias and facet it needs is already
 /// part of the library.
-pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, Failure> {
+///
+/// `lock` is the compile's lock on the output directory (see [`publish::OutLock`]); the library
+/// is written there.
+pub fn package(
+    library: Library,
+    lock: &publish::OutLock,
+    reports: &Path,
+) -> Result<Outcome, Failure> {
+    let out = lock.out();
     let Library {
         entries,
         relations,
@@ -300,7 +308,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         corpus_tag,
     };
 
-    publish::publish_staged(out, &content_version, &files, &json_bytes(&manifest)?)?;
+    publish::publish_staged(lock, &content_version, &files, &json_bytes(&manifest)?)?;
 
     let largest_shard = manifest
         .files

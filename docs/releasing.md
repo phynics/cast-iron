@@ -267,17 +267,31 @@ WASM needs a second look first.
 published-id and book-slot guards, validation, and the reachability check. The reports are
 written earlier, so a failed run leaves them for the author.
 
-The library reaches `generated/content` in four steps: write `generated/content.staging` (the
-manifest last), rename `generated/content` to `generated/content.backup`, rename the staging
-directory to `generated/content`, delete the backup. What this guarantees:
+One compile at a time writes to `generated/content`. The compiler takes the lock file
+`generated/content.lock` (pid and start time) with an atomic create before it recovers, writes or
+publishes, and removes it when it ends, on success and on failure. A second compile into the same
+directory stops at once with a message that names the holder and changes nothing; it does not
+wait. A killed compile leaves the file, and the next compile reclaims it with a message when that
+pid is gone or was reused (the check reads `/proc`, so only on Linux; elsewhere the message names
+the file to delete). Run `cargo xtask content` from one shell at a time. Nothing guards the reports
+directory, which a second compile with the same `--reports` would overwrite.
+
+Under the lock, the library reaches `generated/content` in four steps: write
+`generated/content.staging` (the manifest last), rename `generated/content` to
+`generated/content.backup`, rename the staging directory to `generated/content`, delete the
+backup. What this guarantees, for one compile at a time:
 
 - A failed gate, or an error while the staging directory is written, leaves the previous
   `generated/content` as it was, and a failed first compile leaves no `manifest.json`.
 - An interruption (a killed process or an I/O error) between the steps leaves a state that the
-  next `cargo xtask content` repairs at its start: it finishes the move when the staging
-  directory is whole, restores the backup when it is not, and removes a leftover backup or staging
-  directory. It stops, and names the directories, only when `generated/content` holds something
-  that is not a Cast Iron library or when no whole library is left.
+  next `cargo xtask content` repairs at its start. When a backup exists it finishes the move if the
+  staging library is whole, and restores the backup if it is not; it removes a leftover backup once
+  `generated/content` is whole. "Whole" means the manifest passes the installer's structural check
+  and every listed file has the listed size and SHA-256, so a damaged copy is never kept over a good
+  one. It stops, and names the directories, when `generated/content` holds something that is not a
+  Cast Iron library or when no whole copy is left.
+- A compile that stops after it finished the staging directory but before the first rename has no
+  backup, so recovery discards that staging directory and the next compile builds it again.
 - Two renames are not one: between them `generated/content` does not exist, and `build-site` then
   compiles again (or the repair above runs first).
 - There is no `fsync`, so nothing is promised about a power loss or a crash of the host. After
