@@ -229,8 +229,10 @@ the review queue survives. Run it on a clean checkout, then `check` and `fmt --c
 For each archetype and class option it merges the printed names with what the base-class headings
 prove:
 
-1. A trade that the format 1 reader resolved by name keeps its feature, unless several base
-   classes hold the anchor.
+1. A trade that the format 1 reader linked by slug is judged again by the rules below (the
+   reader proves less: `Trap sense +3` and the anchor `trap-sense-3`). The same feature stays, a
+   better proof replaces it, and no proof leaves the trade unresolved. A feature written in
+   format 2 is never judged.
 2. A trade without a feature is resolved only when the printed name proves it. Each rule needs
    exactly one heading to match, and the name is read without an ability tag, article, or the base
    class's own name:

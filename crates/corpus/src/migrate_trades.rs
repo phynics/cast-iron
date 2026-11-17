@@ -137,6 +137,29 @@ pub fn lower_entry(
     let mut fates = Vec::with_capacity(trades.len());
     for trade in &mut trades {
         let fate = match &trade.feature {
+            // In format 1 every feature comes from the reader, which links a name to an anchor of
+            // its list by slug alone. That proves less than the resolver does (`Trap sense +3`
+            // and the anchor `trap-sense-3`, which may be a collision suffix), so the resolver
+            // judges it again: the same feature stays, a better proof replaces it, and no proof
+            // leaves the trade unresolved. A feature written in format 2 is never judged.
+            Some(feature) if format_1 && feature.class.is_none() => {
+                if classes.is_empty() {
+                    trade.feature = None;
+                    Fate::Unresolved(Why::NoBaseClass)
+                } else {
+                    match resolve(&trade.printed, &base, &words) {
+                        Verdict::Resolved(proved, _) if &proved == feature => Fate::Kept,
+                        Verdict::Resolved(proved, rule) => {
+                            trade.feature = Some(proved);
+                            Fate::Resolved(rule)
+                        }
+                        Verdict::Unresolved(why) => {
+                            trade.feature = None;
+                            Fate::Unresolved(why)
+                        }
+                    }
+                }
+            }
             Some(feature) => {
                 let several = feature.class.is_none()
                     && held
@@ -599,6 +622,19 @@ mod tests {
         lower_entry(&entry, &ids, &class_headings(&corpus), true).unwrap()
     }
 
+    /// [`lower`] for a corpus that is already format 2: features are the author's.
+    fn lower_in_format_2(entry: RuleEntry, classes: Vec<RuleEntry>) -> Lowered {
+        let mut all = classes;
+        all.push(entry.clone());
+        let corpus = corpus_in_format(2, all);
+        let ids = base_class_ids(&corpus, &entry)
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        let ids: Vec<&str> = ids.iter().map(String::as_str).collect();
+        lower_entry(&entry, &ids, &class_headings(&corpus), false).unwrap()
+    }
+
     fn anchors(lowered: &Lowered) -> Vec<Option<&str>> {
         lowered
             .trades
@@ -652,7 +688,7 @@ mod tests {
             anchor: "evasion".into(),
             ..Default::default()
         });
-        let lowered = lower(
+        let lowered = lower_in_format_2(
             archetype(
                 "ref/arc-fighter/a",
                 &["ref/class/fighter"],
@@ -1102,6 +1138,75 @@ mod tests {
         assert_eq!(second.unresolved, 2);
         assert_eq!(tree(&dir), after);
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// A format 1 corpus whose archetype names `Trap sense +3` with the anchor `trap-sense-3`,
+    /// as the reader links them by slug. Returns the migrated entry text and the report.
+    fn trap_sense_corpus(name: &str, headings: &[(&str, &str)]) -> (String, TradesReport) {
+        let rogue = class("ref/class/rogue", headings);
+        let mut trade = Trade::unresolved(TradeOp::Replaces, "Trap sense +3");
+        trade.feature = Some(cast_iron_schema::FeatureRef {
+            anchor: "trap-sense-3".into(),
+            ..Default::default()
+        });
+        let entry = archetype(
+            "ref/arc-rogue/a",
+            &["ref/class/rogue"],
+            vec![trade],
+            &[("Replaces", "Trap sense +3")],
+        );
+        let dir = temp_dir(name);
+        write_corpus(&dir, &corpus_in_format(1, vec![rogue, entry]));
+        let before = fs::read_to_string(dir.join("entries/arc-rogue/a.md")).unwrap();
+        assert!(
+            before.contains("replaces = [\"Trap sense +3\"]")
+                && before.contains("replaces_features = [\"trap-sense-3\"]"),
+            "{before}"
+        );
+        // The reader links them.
+        let loaded = Corpus::load(&dir).unwrap();
+        let read = loaded.entries["ref/arc-rogue/a"].entry.fields.trades();
+        assert_eq!(read[0].feature.as_ref().unwrap().anchor, "trap-sense-3");
+        let report = migrate_trades(&dir).unwrap();
+        let after = tree(&dir);
+        let text = String::from_utf8_lossy(&after["entries/arc-rogue/a.md"]).to_string();
+        // A second run changes nothing.
+        let second = migrate_trades(&dir).unwrap();
+        assert_eq!(tree(&dir), after);
+        assert_eq!(second.rewritten, 0);
+        assert_eq!(second.unresolved, report.unresolved);
+        let _ = fs::remove_dir_all(&dir);
+        (text, report)
+    }
+
+    #[test]
+    fn a_format_1_numeric_anchor_that_may_be_a_suffix_is_judged_again() {
+        // Two `Trap Sense` headings: the second got `trap-sense-3`. The name is the +3 step, which
+        // neither heading proves, so the reader's link does not survive.
+        let (text, report) = trap_sense_corpus(
+            "trap-twin",
+            &[
+                ("trap-sense", "Trap Sense (Ex)"),
+                ("trap-sense-3", "Trap Sense (Ex)"),
+            ],
+        );
+        assert!(!text.contains("feature ="), "{text}");
+        assert_eq!(report.kept, 0);
+        assert_eq!(report.unresolved, 1);
+        assert_eq!(report.reasons.get("ambiguous-heading"), Some(&1));
+    }
+
+    #[test]
+    fn a_format_1_numeric_anchor_with_one_heading_becomes_a_qualifier() {
+        let (text, report) = trap_sense_corpus("trap-one", &[("trap-sense-3", "Trap Sense (Ex)")]);
+        assert!(
+            text.contains(
+                "{ replaces = \"Trap sense +3\", feature = \"trap-sense-3\", power = \"+3\" }"
+            ),
+            "{text}"
+        );
+        assert_eq!(report.kept, 0);
+        assert_eq!(report.resolved.get(&Rule::Qualifier), Some(&1));
     }
 
     #[test]
