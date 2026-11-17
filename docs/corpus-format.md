@@ -213,7 +213,7 @@ trades = [
 | `levels` run from 1 to 20, ascending, each once. | Fails. |
 | No two trades of one key (two `replaces`, or two `alters`) name the same anchor with a shared level (no `levels` shares every level) and the same `power`. An archetype may alter a feature and replace one instance of it. | Fails in format 2, warns in format 1. |
 | A printed name resolves confidently to another anchor than the `feature`. | Warns. |
-| Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many `migrate-trades` would resolve, so the pinned corpus stays green until #452. |
+| Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many trades have a provable match that `migrate-trades` would write, and no per-trade warning, so the pinned corpus stays green until #452. |
 
 The compiler lowers the trades (see [Library files](#stored-and-derived-data)): it fails in format 2 when an
 anchor several base classes hold has no `class` (in format 1 it leaves that trade unresolved), and it writes the trades into `trades.json` only.

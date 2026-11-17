@@ -148,7 +148,7 @@ pub(crate) fn check_trades(
         let hint = if provable > 0 {
             if format_1 {
                 format!(
-                    "; `cast-iron-corpus migrate-trades` resolves {provable} of them to format 2"
+                    "; {provable} of them have a provable match that `cast-iron-corpus migrate-trades` writes in format 2"
                 )
             } else {
                 format!("; {provable} of them have a provable match")
@@ -544,7 +544,9 @@ mod tests {
         let text = warnings(&report);
         assert!(
             text.contains("1 of 1 trades in 1 entries are unresolved")
-                && text.contains("migrate-trades` resolves 1 of them"),
+                && text.contains(
+                    "1 of them have a provable match that `cast-iron-corpus migrate-trades` writes"
+                ),
             "{text}"
         );
         assert!(!text.contains("but its printed name resolves"), "{text}");
