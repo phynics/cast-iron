@@ -2206,12 +2206,20 @@ fn BrowseList(
     let count = stubs.len();
     let narrowed = !applied.is_empty();
     let book = source_title.is_some();
-    // A revised row names the book that revised it, not the book that printed the original.
+    // A revised row names the book that revised it, not the book that printed the original. Any
+    // other row names the book the list is filtered by, else the member book the active books
+    // select, so it never names a disabled primary book that another member keeps visible.
+    let chosen: Vec<String> = source.iter().cloned().collect();
     let row_source = |stub: &EntryStub| -> String {
-        revisions
-            .as_ref()
-            .and_then(|state| state.rows().source_of(&stub.id))
-            .map_or_else(|| stub.source.clone(), str::to_owned)
+        crate::membership::listed_book(
+            revisions
+                .as_ref()
+                .and_then(|state| state.rows().source_of(&stub.id)),
+            stub,
+            &chosen,
+            || library.row_book(stub),
+        )
+        .to_owned()
     };
     let multi_source = stubs
         .first()
@@ -2712,6 +2720,7 @@ mod tests {
             kind: EntryKind::Class,
             title: title.into(),
             source: "core-rulebook".into(),
+            books: vec![],
             parent: None,
             shard: "entries/class-000.json".into(),
         }

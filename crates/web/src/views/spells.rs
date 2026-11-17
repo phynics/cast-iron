@@ -306,8 +306,8 @@ struct SpellRow {
 impl SpellRow {
     fn new(library: &Library, spell: ListedSpell<'_>) -> Self {
         let source = library
-            .canonical_source_for_entry(spell.id)
-            .and_then(|id| library.source(&id).cloned());
+            .entry_row_book(spell.id)
+            .and_then(|id| library.source(id).cloned());
         let tier = source.as_ref().map_or(Tier::Other, Tier::of);
         let book = source.as_ref().map(|s| s.title.as_str());
         Self {

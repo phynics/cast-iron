@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { GENERATED, installedTest as test, expect, loadCorpus } from "./fixtures";
 import {
-  bookOwners,
   count,
   corpusEntry,
   installLibrary,
@@ -10,12 +9,12 @@ import {
   openQuickSearch,
   quickOptions,
   seedHome,
+  visibleWithout,
   waitControlled,
   waitHomeIdle,
 } from "./helpers";
 
 const corpus = loadCorpus();
-const owners = bookOwners();
 
 interface OptionGroup {
   slug: string;
@@ -42,9 +41,9 @@ const wizard = corpusEntry("class", "Wizard");
 const arcaneBuilder = corpusEntry("class_option", "Arcane Builder");
 const ultimateMagic = "ultimate-magic";
 
-/** The book the client shows an entry under: its first placement, else its catalog source. */
-const ownerOf = (id: string) =>
-  owners.get(id) ?? corpus.entries.get(id)?.source_ids[0] ?? "";
+/** True when the reader still sees the entry with Ultimate Magic off: another member book is on. */
+const keptWithoutUm = (id: string) =>
+  visibleWithout(corpus.catalog.entries.find((stub) => stub.id === id)!, [ultimateMagic]);
 
 const groupLink = (page: import("@playwright/test").Page, label: string) =>
   page.locator(".entry-rel .jump-list").getByRole("link", { name: new RegExp(`^${label} `) });
@@ -219,8 +218,8 @@ test("With Ultimate Magic inactive, its discoveries leave the class page and the
   await toggle.uncheck();
   await expect(toggle).not.toBeChecked();
 
-  const kept = discoveries.entries.filter((id) => ownerOf(id) !== ultimateMagic).length;
-  const keptAll = allOptions.filter((stub) => ownerOf(stub.id) !== ultimateMagic).length;
+  const kept = discoveries.entries.filter(keptWithoutUm).length;
+  const keptAll = allOptions.filter((stub) => keptWithoutUm(stub.id)).length;
   expect(kept).toBeLessThan(discoveries.entries.length);
 
   await page.goto(`#/entry/${wizard.id}`);
@@ -235,7 +234,7 @@ test("With Ultimate Magic inactive, its discoveries leave the class page and the
     links.map((link) => (link as HTMLAnchorElement).hash.replace(/^#\/entry\//, "")),
   );
   expect(rows.length).toBeGreaterThan(0);
-  for (const id of rows) expect(ownerOf(decodeURIComponent(id))).not.toBe(ultimateMagic);
+  for (const id of rows) expect(keptWithoutUm(decodeURIComponent(id))).toBe(true);
 });
 
 test("A starred class option refreshes its stored kind snapshot", async ({ page }) => {

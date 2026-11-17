@@ -3,14 +3,15 @@ import {
   cacheContents,
   contentCaches,
   count,
-  bookEntryOrder,
-  bookOwners,
   bookTrees,
   buildLibraryWithoutBooks,
+  bookEntryOrder,
   corpusEntry,
-  firstBookPlacement,
+  visibleWithout,
   groupLetter,
   installLibrary,
+  isMember,
+  memberBooks,
   openBookGroups,
   openQuickSearch,
   quickOptions,
@@ -20,19 +21,24 @@ import {
 } from "./helpers";
 
 const corpus = loadCorpus();
-const owners = bookOwners();
 
 /** "1 entry" or "N entries", matching the view's wording. */
 const noun = (n: number) => (n === 1 ? "entry" : "entries");
 
-/** A spell every library has, and the book the reader places it in first. */
+/** The catalog stub of an entry. */
+const stubOf = (id: string) => corpus.catalog.entries.find((stub) => stub.id === id)!;
+
+/**
+ * A spell every library has, printed in exactly one book: turning that book off hides it. (Fireball
+ * is printed in two, so it would stay visible. Membership, not placement, decides.)
+ */
 function target() {
-  const entry = corpusEntry("spell", "Fireball");
-  const book = firstBookPlacement(entry.id);
-  if (!book) throw new Error(`The compiled corpus does not place ${entry.id} in a book.`);
-  const source = corpus.catalog.sources.find((candidate) => candidate.id === book.source);
-  if (!source) throw new Error(`The compiled catalog has no source ${JSON.stringify(book.source)}.`);
-  return { entry, book, source };
+  const entry = corpusEntry("spell", "Magic Missile");
+  const [only, ...others] = memberBooks(stubOf(entry.id));
+  if (others.length > 0) throw new Error(`${entry.id} belongs to more than one book.`);
+  const source = corpus.catalog.sources.find((candidate) => candidate.id === only);
+  if (!source) throw new Error(`The compiled catalog has no source ${JSON.stringify(only)}.`);
+  return { entry, book: { source: only }, source };
 }
 
 installedTest("Quick search suggestions follow the active books", async ({ page }) => {
@@ -96,11 +102,11 @@ test("Book visibility persists offline and filters discovery while keeping stars
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
   await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(entry.title))}`);
-  // The reader places an entry in its first book, so an entry that a second book also
-  // holds disappears with this one. Only the selected letter group is in the document.
+  // An entry that a second book also prints stays; one that only this book prints disappears.
+  // Only the selected letter group is in the document.
   const expected = corpus.catalog.entries.filter((stub) =>
     stub.kind === "spell" && groupLetter(stub.title) === groupLetter(entry.title) &&
-    (owners.get(stub.id) ?? stub.source) !== book.source).length;
+    visibleWithout(stub, [book.source])).length;
   await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(expected);
   await expect(page.getByRole("link", { name: entry.title, exact: true })).toHaveCount(0);
 
@@ -110,7 +116,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   // the disabled book. The starred entry has no result at all.
   const hits = await page.locator(".results .hit-link").evaluateAll(links => links.map(link => (link as HTMLAnchorElement).hash.replace(/^#\/entry\//, "").split("?")[0]));
   expect(hits.length).toBeGreaterThan(0);
-  for (const id of hits) expect(owners.get(id)).not.toBe(book.source);
+  for (const id of hits) expect(visibleWithout(stubOf(id), [book.source])).toBe(true);
   await expect(page.locator(`.results a[href="#/entry/${entry.id}"]`)).toHaveCount(0);
   await page.goto("#/");
   await page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true }).click();
@@ -119,41 +125,106 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });
 
-installedTest("A hidden catch-all placement does not hide an entry that a curated chapter places in an active book", async ({ page }) => {
-  const dwarf = corpusEntry("race", "Dwarf");
-  // The bug needs this data: a book that places Dwarf only in its catch-all comes first in book
-  // order, and a curated chapter of a later book places it. Book order is the order in `books.json`.
-  const trees = bookTrees();
-  const owner = bookOwners().get(dwarf.id);
-  expect(owner, "a book owns Dwarf").toBeTruthy();
-  const on = owner as string;
-  const off = trees.find((tree) => bookEntryOrder(tree, true).includes(dwarf.id))?.source;
-  expect(off, "a catch-all chapter places Dwarf").toBeTruthy();
-  expect(bookEntryOrder(trees.find((tree) => tree.source === on)!, false), "the owner places Dwarf in a curated chapter")
-    .toContain(dwarf.id);
-  expect(trees.findIndex((tree) => tree.source === off), "the catch-all comes first in book order")
-    .toBeLessThan(trees.findIndex((tree) => tree.source === on));
-  const titleOf = (id: string | undefined) => corpus.catalog.sources.find((row: any) => row.id === id)!.title;
+installedTest("An entry stays visible while any of its books is active, whatever the books place", async ({ page }) => {
+  // The review's example (#394): Acrobatic is a Core Rulebook feat that Mythic Adventures lists
+  // in its catch-all. Turning Mythic Adventures off must not hide it; only Core Rulebook can.
+  const acrobatic = corpusEntry("feat", "Acrobatic");
+  const members = memberBooks(stubOf(acrobatic.id));
+  expect(members, "Acrobatic is a Core Rulebook feat").toContain("core-rulebook");
+  const mythic = "mythic-adventures";
+  expect(members, "Mythic Adventures does not print Acrobatic").not.toContain(mythic);
+  // The data this case needs: Mythic Adventures places Acrobatic in a chapter although it does not
+  // print it. If the corpus fix (#420) removes that placement, the case has nothing to prove.
+  const mythicTree = bookTrees().find((tree) => tree.source === mythic);
+  installedTest.skip(
+    !mythicTree || !bookEntryOrder(mythicTree).includes(acrobatic.id),
+    "Mythic Adventures no longer places Acrobatic (#420); the two-book case still proves the OR rule",
+  );
+  const titleOf = (id: string) => corpus.catalog.sources.find((row: any) => row.id === id)!.title;
 
   await installLibrary(page);
   await page.goto("#/books/manage");
   await openBookGroups(page);
-  const toggle = page.locator(`.book-directory-item[data-book-id="${off}"]`)
-    .getByRole("checkbox", { name: `Active ${titleOf(off)}`, exact: true });
-  await toggle.uncheck();
-  await expect(toggle).not.toBeChecked();
-  await expect(toggle).toBeEnabled();
-  await expect(
-    page.locator(`.book-directory-item[data-book-id="${on}"]`)
-      .getByRole("checkbox", { name: `Active ${titleOf(on)}`, exact: true }),
-  ).toBeChecked();
+  const toggle = (id: string) =>
+    page.locator(`.book-directory-item[data-book-id="${id}"]`)
+      .getByRole("checkbox", { name: `Active ${titleOf(id)}`, exact: true });
+  await toggle(mythic).uncheck();
+  await expect(toggle(mythic)).not.toBeChecked();
+  await expect(toggle(mythic)).toBeEnabled();
+  await expect(toggle("core-rulebook")).toBeChecked();
 
-  await page.goto(`#/browse/kind/race?l=${encodeURIComponent(groupLetter(dwarf.title))}`);
-  await expect(page.locator(".entry-list").getByRole("link", { name: dwarf.title, exact: true })).toBeVisible();
+  await page.goto(`#/browse/kind/feat?l=${encodeURIComponent(groupLetter(acrobatic.title))}`);
+  await expect(page.locator(".entry-list").getByRole("link", { name: acrobatic.title, exact: true })).toBeVisible();
+  await page.goto("#/search?q=Acrobatic&kind=feat");
+  await waitResults(page, "Acrobatic");
+  await expect(page.locator(`.results a[href="#/entry/${acrobatic.id}"]`).first()).toBeVisible();
 
-  await page.goto("#/search?q=Dwarf&kind=race");
-  await waitResults(page, "Dwarf");
-  await expect(page.locator(`.results a[href="#/entry/${dwarf.id}"]`).first()).toBeVisible();
+  // Core Rulebook is the one book that prints it: turn it off and the feat leaves search.
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  await toggle("core-rulebook").uncheck();
+  await expect(toggle("core-rulebook")).not.toBeChecked();
+  await expect(toggle("core-rulebook")).toBeEnabled();
+  await page.goto("#/search?q=Acrobatic&kind=feat");
+  await waitResults(page, "Acrobatic");
+  await expect(page.locator(`.results a[href="#/entry/${acrobatic.id}"]`)).toHaveCount(0);
+});
+
+installedTest("An entry printed in two books stays with one on, is named by the active one, and hides with both off", async ({ page }) => {
+  // Fireball is printed in Core Rulebook and Ultimate Intrigue. Pick any entry with two member
+  // books instead of a name, so a corpus change cannot break the test.
+  const stub = corpus.catalog.entries.find(
+    (candidate) =>
+      candidate.kind === "spell" &&
+      memberBooks(candidate).length === 2 &&
+      memberBooks(candidate).every((id) => !corpus.catalog.sources.find((row: any) => row.id === id)?.third_party) &&
+      corpus.catalog.entries.filter((other) => other.kind === "spell" && other.title === candidate.title).length === 1,
+  )!;
+  expect(stub, "a spell with two member books").toBeTruthy();
+  const [first, second] = memberBooks(stub);
+  const titleOf = (id: string) => corpus.catalog.sources.find((row: any) => row.id === id)!.title;
+
+  await installLibrary(page);
+  const toggle = (id: string) =>
+    page.locator(`.book-directory-item[data-book-id="${id}"]`)
+      .getByRole("checkbox", { name: `Active ${titleOf(id)}`, exact: true });
+  const setBook = async (id: string, on: boolean) => {
+    await page.goto("#/books/manage");
+    await openBookGroups(page);
+    if (on) await toggle(id).check();
+    else await toggle(id).uncheck();
+    await expect(toggle(id)).toBeEnabled();
+    await expect(toggle(id)).toBeChecked({ checked: on });
+  };
+  const hit = () => page.locator(`.results a[href="#/entry/${stub.id}"]`);
+  const search = async () => {
+    await page.goto(`#/search?q=${encodeURIComponent(stub.title)}&kind=spell`);
+    await waitResults(page, stub.title);
+  };
+
+  await setBook(first, false);
+  await search();
+  await expect(hit().first()).toBeVisible();
+  // The row names the book that is on.
+  await expect(hit().first().locator(".hit-meta")).toContainText(titleOf(second));
+  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(stub.title))}`);
+  await expect(page.locator(".entry-list").getByRole("link", { name: stub.title, exact: true })).toBeVisible();
+  // The browse row names the book that is on, not the primary book that is off.
+  const browseRow = page
+    .locator(".entry-list > li")
+    .filter({ has: page.locator(`a[href="#/entry/${stub.id}"]`) });
+  await expect(browseRow.locator(".row-source")).toContainText(titleOf(second));
+  await expect(browseRow.locator(".row-source")).not.toContainText(titleOf(first));
+
+  await setBook(first, true);
+  await setBook(second, false);
+  await search();
+  await expect(hit().first()).toBeVisible();
+  await expect(hit().first().locator(".hit-meta")).toContainText(titleOf(first));
+
+  await setBook(first, false);
+  await search();
+  await expect(hit()).toHaveCount(0);
 });
 
 const adventureCategories = ["Adventure Path", "Module", "Society"];
@@ -161,14 +232,12 @@ const adventureCategories = ["Adventure Path", "Module", "Society"];
 const isAdventure = (row: any) =>
   adventureCategories.includes(row.category as string) || Boolean(row.series_kind);
 
-/** An entry that an Adventures-tier book places first, so deactivating Adventures hides it. */
+/** An entry that only Adventures-tier books print, so deactivating Adventures hides it. */
 function adventureEntry() {
-  for (const source of corpus.catalog.sources) {
-    if (!isAdventure(source)) continue;
-    const id = [...owners].find(([, bookId]) => bookId === source.id)?.[0];
-    if (id) return { id, source, entry: corpus.entries.get(id)! };
-  }
-  throw new Error("The compiled corpus has no entry in an Adventures-tier book.");
+  const adventures = new Set(corpus.catalog.sources.filter(isAdventure).map((source) => source.id));
+  const stub = corpus.catalog.entries.find((candidate) => memberBooks(candidate).every((book) => adventures.has(book)));
+  if (!stub) throw new Error("The compiled corpus has no entry in an Adventures-tier book.");
+  return { id: stub.id, source: corpus.catalog.sources.find((row) => row.id === stub.source)!, entry: corpus.entries.get(stub.id)! };
 }
 
 const resultCount = (page: any) => page.locator(".result-count > span").first().innerText();
@@ -533,7 +602,7 @@ test("A source page count matches the entries its kind groups render", async ({ 
     await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
 
     // Without books every entry keeps its catalog source, which is what the groups show.
-    const expected = corpus.catalog.entries.filter((stub) => stub.source === book.source).length;
+    const expected = corpus.catalog.entries.filter((stub) => isMember(stub, book.source)).length;
     expect(expected).toBeGreaterThan(0);
     await expect(page.getByTestId("source-count")).toHaveText(`${count(expected)} ${noun(expected)} in your active books`);
 
@@ -560,8 +629,14 @@ test("A source page count matches the entries its kind groups render", async ({ 
     }), [book.source]);
     await page.reload();
     await waitReady(page);
-    await expect(page.getByTestId("source-count")).toHaveText("0 entries in your active books");
-    await expect(page.locator('.kind-groups a[href^="#/entry/"]')).toHaveCount(0);
+    // The book is off. Its entries that another active book also prints stay visible, so the
+    // page still lists those and no others (membership, not placement, decides: #394).
+    const stillVisible = corpus.catalog.entries.filter(
+      (stub) => isMember(stub, book.source) && visibleWithout(stub, [book.source]),
+    ).length;
+    await expect(page.getByTestId("source-count")).toHaveText(
+      `${count(stillVisible)} ${noun(stillVisible)} in your active books`,
+    );
   } finally {
     variant.cleanup();
   }
@@ -572,7 +647,7 @@ installedTest("The book page meta line is the book's size and survives deactivat
   // the entries the catalog holds for the book, whether or not the book is active.
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   const source = corpus.catalog.sources.find((row) => row.id === book.source)!;
-  const entries = corpus.catalog.entries.filter((stub) => (owners.get(stub.id) ?? stub.source) === book.source).length;
+  const entries = corpus.catalog.entries.filter((stub) => isMember(stub, book.source)).length;
 
   await installLibrary(page);
   await waitControlled(page);

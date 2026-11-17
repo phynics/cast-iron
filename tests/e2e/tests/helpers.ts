@@ -675,15 +675,6 @@ function isCatchAll(node: TocNode): boolean {
   return node.title === "New entries (page order)";
 }
 
-/**
- * Mirror of `is_listing_chapter` in `schema/books.rs`: the catch-all and the page-ordered lists.
- * The titles are the constants `CATCH_ALL_TITLE`, `PAGE_ORDER_TITLE` and `UNPAGED_TITLE` there;
- * change them together. A printed chapter of another book outranks them when the app picks the book that owns an entry.
- */
-function isListingChapter(node: TocNode): boolean {
-  return isCatchAll(node) || node.title === "Page order" || node.title === "Unpaged";
-}
-
 /** Mirror of `shows_in_contents` in `views/book.rs`. */
 function shownInContents(node: TocNode, kinds: Map<string, string>): boolean {
   if (isCatchAll(node)) return false;
@@ -749,36 +740,58 @@ export function pathToEntry(nodes: TocNode[], id: string, base: number[] = []): 
   return null;
 }
 
-let cachedOwners: Map<string, string> | undefined;
-/**
- * The book the client shows an entry under: the first book in `books.json` order that places it
- * in a printed chapter. A listing chapter (catch-all, `Page order`, `Unpaged`) counts only for an
- * entry no printed chapter places (`BookLookup::new` in `graph.rs`).
- */
-export function bookOwners(): Map<string, string> {
-  if (!cachedOwners) {
-    const owners = new Map<string, string>();
-    for (const listing of [false, true]) {
-      for (const book of bookTrees()) {
-        for (const id of bookEntryOrder(book, listing)) if (!owners.has(id)) owners.set(id, book.source);
-      }
-    }
-    cachedOwners = owners;
-  }
-  return cachedOwners;
+/** A catalog stub as the membership helpers read it. */
+interface MemberStub {
+  source: string;
+  books?: string[];
 }
 
-/** The book that owns an entry, as `bookOwners` decides it. */
+/**
+ * The books an entry belongs to: `books` on its catalog stub, which the compiler derives from the
+ * entry's `source_ids`, else its one `source` (`EntryStub::member_books` in the schema). Book
+ * placement in `books.json` plays no part (#394).
+ */
+export function memberBooks(stub: MemberStub): string[] {
+  return stub.books && stub.books.length > 0 ? stub.books : [stub.source];
+}
+
+/** True when the entry belongs to `book`, active or not. */
+export function isMember(stub: MemberStub, book: string): boolean {
+  return memberBooks(stub).includes(book);
+}
+
+/** True when the reader still sees the entry with the `off` books turned off: any member book is on. */
+export function visibleWithout(stub: MemberStub, off: Iterable<string>): boolean {
+  const disabled = new Set(off);
+  return memberBooks(stub).some((book) => !disabled.has(book));
+}
+
+let cachedPlacements: Map<string, string> | undefined;
+/**
+ * The first book in `books.json` order that places each entry in any chapter. This is where the
+ * Contents footer and the reading steps reach an entry, so a test that opens an entry through a
+ * book's Contents asks it. It says nothing about which books the entry belongs to or whether the
+ * reader sees it: that is `memberBooks`.
+ */
+export function bookPlacements(): Map<string, string> {
+  if (!cachedPlacements) {
+    const placements = new Map<string, string>();
+    for (const book of bookTrees()) {
+      for (const id of bookEntryOrder(book)) if (!placements.has(id)) placements.set(id, book.source);
+    }
+    cachedPlacements = placements;
+  }
+  return cachedPlacements;
+}
+
+/** The first book in book order that places an entry, as `bookPlacements` decides it. */
 export function firstBookPlacement(entryId: string): BookTree | undefined {
-  const source = bookOwners().get(entryId);
+  const source = bookPlacements().get(entryId);
   return bookTrees().find((book) => book.source === source);
 }
 
-/**
- * Entries of a book in reading order: a node's own entry, then its children. `listing` picks only
- * the listing chapters (true) or only the printed chapters (false); omitted, both.
- */
-export function bookEntryOrder(book: BookTree, listing?: boolean): string[] {
+/** Entries of a book in reading order: a node's own entry, then its children. Every chapter counts. */
+export function bookEntryOrder(book: BookTree): string[] {
   const order: string[] = [];
   const walk = (nodes: TocNode[]) => {
     for (const node of nodes) {
@@ -786,7 +799,7 @@ export function bookEntryOrder(book: BookTree, listing?: boolean): string[] {
       walk(node.children ?? []);
     }
   };
-  walk(book.chapters.filter((chapter) => listing === undefined || isListingChapter(chapter) === listing));
+  walk(book.chapters);
   return order;
 }
 
