@@ -91,6 +91,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Rule heading links and primary reading | `Rules text search\|Entry reading` (`reference.spec.ts`) | `crates/web/src/views/entry_contents.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/search.rs` |
 | Search bar, Home saved entries, and end-to-end research | `Home search\|Browse connects\|Books navigation` (`journeys.spec.ts`) | `crates/web/src/app.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs` |
 | App-shell update and offline bookmarks | `App update waits` (`shell-update.spec.ts`) | `web/sw.js`, `crates/web/js/bridge.js`, `tests/e2e/server.mjs` |
+| Diagnostics, install and start timings, Copy results (`#/settings/diagnostics`) | `Settings links to Diagnostics\|A search and a page\|Copy puts the text\|fits the screen\|Earlier launches\|restart with no network` (`diagnostics.spec.ts`; also `mobile-chromium`) | `crates/web/src/diagnostics.rs`, `crates/web/src/views/diagnostics.rs`, `crates/web/src/install.rs`, `crates/web/src/library.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/entry.rs`, `docs/research/iphone-measurement.md` |
 | Content updates | `Content update` (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` | `web/manifest.webmanifest`, `web/index.html` |
 | Mobile layout | `Mobile viewport\|Expanded books, their contents tree` (`mobile.spec.ts`) | `web/styles.css`, `crates/web/src/views/browse.rs` |

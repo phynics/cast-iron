@@ -24,7 +24,8 @@ use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 const PAGE: usize = 50;
-const DEBOUNCE_MS: u32 = 80;
+/// How long after the last key a search starts.
+pub const DEBOUNCE_MS: u32 = 80;
 /// Publications shown before the reader asks for the rest.
 const PUBLICATION_TOP: usize = 12;
 
@@ -953,12 +954,14 @@ pub fn Search() -> impl IntoView {
                     }
                     return;
                 }
+                let search_began = now();
                 let loaded = ensure_index(&library, index, index_ms, phase, true, &alive).await;
                 if !alive() {
                     return;
                 }
                 let Some(idx) = loaded else { return };
                 let started = now();
+                let index_wait_ms = started - search_began;
                 let all_hits = match discovery.search_summaries(&query).await {
                     Ok(hits) => hits,
                     Err(error) => {
@@ -1149,6 +1152,13 @@ pub fn Search() -> impl IntoView {
                     counts.set(Some(fresh));
                 }
                 search_ms.set(Some(engine_ms));
+                crate::diagnostics::record_search(crate::diagnostics::SearchSample {
+                    query_chars: u32::try_from(current.q.chars().count()).unwrap_or(u32::MAX),
+                    hits: u32::try_from(total).unwrap_or(u32::MAX),
+                    index_wait_ms,
+                    engine_ms,
+                    total_ms: now() - search_began,
+                });
                 phase.set(Phase::Done {
                     hits,
                     total,

@@ -3,6 +3,7 @@
 
 use crate::book_presets::{self, Change};
 use crate::content_cache;
+use crate::diagnostics::{self, IndexLoad};
 use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
@@ -222,12 +223,15 @@ impl Library {
     /// Loads an activated library: checks that its cache holds every manifest file, then reads
     /// the catalog. The search index, legal text, and coverage report load on first use.
     pub async fn load(active: &ActiveLibrary) -> Result<Library, LibraryError> {
+        let check_started = diagnostics::now();
         let manifest = install::check_installed(active)
             .await
             .map_err(LibraryError::Storage)?;
+        diagnostics::mark_library_check(diagnostics::now() - check_started);
         let cache = content_cache::open(&active.content_version)
             .await
             .map_err(LibraryError::Storage)?;
+        let catalog_started = diagnostics::now();
         let catalog: Catalog = read_json(&cache, &active.content_version, "catalog.json").await?;
         catalog
             .validate()
@@ -235,6 +239,7 @@ impl Library {
                 path: format!("{}/catalog.json", active.content_version),
                 message,
             })?;
+        diagnostics::mark_catalog(diagnostics::now() - catalog_started);
         let books = if manifest_has_file(&manifest, BOOKS_FILE) {
             let index: BookIndex = read_json(&cache, &active.content_version, BOOKS_FILE).await?;
             Some(Rc::new(BookLookup::new(index)))
@@ -635,11 +640,18 @@ impl Library {
         if let Some(index) = self.0.index.borrow().clone() {
             return Ok(index);
         }
+        let read_started = diagnostics::now();
         let bytes = read_file(&self.0.cache, self.version(), "search.bin").await?;
+        let decode_started = diagnostics::now();
         let mut index = SearchIndex::from_bytes(&bytes).map_err(|e| LibraryError::Corrupt {
             path: format!("{}/search.bin", self.version()),
             message: format!("{e:?}"),
         })?;
+        diagnostics::mark_index_load(IndexLoad {
+            read_ms: decode_started - read_started,
+            decode_ms: diagnostics::now() - decode_started,
+            bytes: bytes.len() as u64,
+        });
         // Equal relevance orders by product line. The ranks come from the catalog, so a library
         // installed before this ranking, or one without categories, still loads and searches.
         index.set_source_ranks(source_ranks(&self.0.catalog.sources));

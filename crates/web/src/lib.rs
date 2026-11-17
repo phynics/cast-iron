@@ -20,6 +20,7 @@ pub mod book_source;
 pub mod class_options;
 pub mod content_cache;
 pub mod density;
+pub mod diagnostics;
 pub mod discovery;
 pub mod fmt;
 pub mod graph;

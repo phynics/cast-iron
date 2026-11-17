@@ -53,6 +53,8 @@ pub const KEY_ID_MIGRATION: &str = "id_migration";
 pub const KEY_BOOK_SOURCE_MIGRATION: &str = "book_source_migration";
 pub const KEY_UPDATE_CHECK: &str = "update_check";
 pub const KEY_AUTO_UPDATE_CHECK: &str = "auto_update_check";
+/// The launches and the last install that Settings, Diagnostics shows (#423). Local only.
+pub const KEY_DIAGNOSTICS: &str = "diagnostics";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StoreError {

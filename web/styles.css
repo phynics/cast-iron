@@ -519,6 +519,15 @@ progress {
   margin-bottom: var(--space-5);
 }
 
+/* Diagnostics: the text that Copy puts on the clipboard, wrapped to the screen. */
+.diagnostics-section pre {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--surface-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* One waiting update and the control that applies it, kept apart from the next row. */
 .update-row {
   margin-bottom: var(--space-4);
