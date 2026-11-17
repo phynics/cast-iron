@@ -391,8 +391,8 @@ fn feature_text(body: &[Block]) -> Option<String> {
 /// Each part must be stated plainly: one tradition (`divine spells drawn from the … list`); the preparing style
 /// (`prepare` or `do not need to prepare`); and a key ability that the text names twice, as
 /// `{Ability} score` and `{Ability} modifier`, with no other ability named that way. One
-/// mention is not enough: the Bloodrager's section names `Constitution modifier` once, and the
-/// corpus's own feat text gives its casting ability as Charisma, so it shows no ability.
+/// mention is not enough. Before corpus v0.1.25 the Bloodrager's section named `Constitution modifier`
+/// once, and the card showed no ability for it; the corrected text names Charisma twice.
 fn casting_prose(body: &[Block]) -> Casting {
     let Some(text) = feature_text(body) else {
         return Casting::default();
