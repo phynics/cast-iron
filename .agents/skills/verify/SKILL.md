@@ -84,6 +84,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Books page, book pages, and contents tree | whole file (`books.spec.ts`) | `crates/web/src/views/browse.rs`, `crates/web/src/route.rs` |
 | Books tab opening speed | `Books tab opens` (`books-open.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/browse.rs`, `crates/web/src/discovery.rs` |
 | Adventure Path, Module, and Society series lines | `Adventures\|Modules\|Pathfinder Society\|bulk toggle` (`adventures-series.spec.ts`) | `crates/web/src/views/book_series.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/active_books.rs` |
+| Class summary card and folded class references | whole file (`class-card.spec.ts`) | `crates/web/src/class_summary.rs`, `crates/web/src/views/class_card.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/backlinks.rs` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter\|numbered spell series` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Class option groups on class pages and lists | whole file (`class-options.spec.ts`; also `mobile-chromium`) | `crates/web/src/class_options.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/views/entry.rs` |

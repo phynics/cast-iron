@@ -137,7 +137,13 @@ pub fn heading_text(body: &[Block]) -> BTreeMap<String, String> {
 }
 
 #[component]
-pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
+pub fn Backlinks(
+    library: Library,
+    entry: RuleEntry,
+    /// Fold the panel under a summary with the count (a class page). Other entries show it open.
+    #[prop(optional)]
+    fold: bool,
+) -> impl IntoView {
     let target = entry.id.clone();
     let current = entry.id.clone();
     let headings = heading_text(&entry.body);
@@ -167,17 +173,31 @@ pub fn Backlinks(library: Library, entry: RuleEntry) -> impl IntoView {
                         group_view(&library, &current, &headings, group)
                     })
                     .collect_view();
-                view! {
-                    <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
-                        <h2 id="backlinks-heading">"Referenced by"</h2>
-                        <p class="muted backlink-count">{format!(
-                            "{} {} here.",
-                            fmt::pluralize(total, "entry", "entries"),
-                            if total == 1 { "links" } else { "link" }
-                        )}</p>
-                        {groups_view}
-                    </section>
-                }.into_any()
+                let count_line = format!(
+                    "{} {} here.",
+                    fmt::pluralize(total, "entry", "entries"),
+                    if total == 1 { "links" } else { "link" }
+                );
+                if fold {
+                    view! {
+                        <details class="ref-block entry-backlinks ref-fold" id="entry-backlinks">
+                            <summary>
+                                {icons::chevron_right("disclosure-chevron")}
+                                <span class="ref-fold-name">"Referenced by"</span>
+                                <span class="rel-count">{fmt::count(total)}</span>
+                            </summary>
+                            {groups_view}
+                        </details>
+                    }.into_any()
+                } else {
+                    view! {
+                        <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
+                            <h2 id="backlinks-heading">"Referenced by"</h2>
+                            <p class="muted backlink-count">{count_line}</p>
+                            {groups_view}
+                        </section>
+                    }.into_any()
+                }
             }
         })}
     }
