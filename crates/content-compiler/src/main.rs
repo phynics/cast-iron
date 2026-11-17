@@ -132,45 +132,13 @@ fn main() -> ExitCode {
             for (k, n) in &o.stripped {
                 println!("  {k}: {n}");
             }
-            let mut failed = false;
-            if o.reachability.unreachable > 0 {
-                eprintln!(
-                    "error: {} distinct entries of {} are unreachable without the catch-all chapter `{}` ({} catch-all placements); see reachability.json",
-                    o.reachability.unreachable,
-                    o.reachability.entries,
-                    o.reachability.catch_all_title,
-                    o.reachability.unreachable_placements
-                );
-                for book in &o.reachability.by_book {
-                    if book.unreachable > 0 {
-                        eprintln!(
-                            "  {}: {} unreachable ({} rules) of {} catch-all entries",
-                            book.source_id,
-                            book.unreachable,
-                            book.unreachable_rules,
-                            book.catch_all_entries
-                        );
-                    }
-                }
-                if o.reachability.unplaced > 0 {
-                    eprintln!(
-                        "  {} unreachable entries are not placed in any book tree",
-                        o.reachability.unplaced
-                    );
-                }
-                failed = true;
-            }
             for problem in &o.reachability.search.problems {
                 eprintln!(
                     "warning: search index: {} (`{}`): {}",
                     problem.id, problem.title, problem.reason
                 );
             }
-            if failed {
-                ExitCode::FAILURE
-            } else {
-                ExitCode::SUCCESS
-            }
+            ExitCode::SUCCESS
         }
         Err(failure) => {
             for line in failure.lines {

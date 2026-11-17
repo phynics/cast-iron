@@ -4,6 +4,7 @@
 //! [`crate::corpus_build`] reads the corpus and fills a [`Library`]. [`package`] holds no
 //! knowledge of where the records came from.
 
+use crate::publish;
 use crate::reachability::{self, Report as ReachabilityReport};
 use crate::text::{blocks_text, inline_text};
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
@@ -125,7 +126,15 @@ fn catalog_stub(entry: &RuleEntry, shard: &str) -> EntryStub {
 ///
 /// The step holds no source-specific knowledge; every alias and facet it needs is already
 /// part of the library.
-pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, Failure> {
+///
+/// `lock` is the compile's lock on the output directory (see [`publish::OutLock`]); the library
+/// is written there.
+pub fn package(
+    library: Library,
+    lock: &publish::OutLock,
+    reports: &Path,
+) -> Result<Outcome, Failure> {
+    let out = lock.out();
     let Library {
         entries,
         relations,
@@ -243,6 +252,13 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         }
         return Err(Failure { lines });
     }
+    // The reachability gate also runs before anything is written to `out`: a failed compile
+    // leaves the previous library as it was.
+    if let Some(lines) = reachability.gate_failure() {
+        return Err(Failure { lines });
+    }
+    // Refuse a foreign output directory now, before the staging directory is written.
+    publish::check_out(out)?;
 
     // Files, manifest, version.
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -299,12 +315,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         corpus_tag,
     };
 
-    prepare_out(out)?;
-    for (path, bytes) in &files {
-        let target = out.join(&content_version).join(path);
-        write_file(&target, bytes)?;
-    }
-    write_file(&out.join("manifest.json"), &json_bytes(&manifest)?)?;
+    publish::publish_staged(lock, &content_version, &files, &json_bytes(&manifest)?)?;
 
     let largest_shard = manifest
         .files
@@ -547,51 +558,12 @@ fn json_bytes<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
     serde_json::to_vec(value).map_err(|e| e.to_string())
 }
 
-fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(crate) fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)
             .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
     }
     fs::write(path, bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
-}
-
-/// Empties the output directory, but only if it is empty or holds one of our manifests.
-pub fn prepare_out(out: &Path) -> Result<(), String> {
-    match fs::symlink_metadata(out) {
-        Err(_) => {
-            return fs::create_dir_all(out)
-                .map_err(|e| format!("cannot create {}: {e}", out.display()));
-        }
-        Ok(meta) if meta.file_type().is_symlink() => {
-            return Err(format!(
-                "refusing to clean {}: it is a symbolic link",
-                out.display()
-            ));
-        }
-        Ok(meta) if !meta.is_dir() => {
-            return Err(format!("{} exists and is not a directory", out.display()));
-        }
-        Ok(_) => {}
-    }
-    let empty = fs::read_dir(out)
-        .map_err(|e| format!("cannot read {}: {e}", out.display()))?
-        .next()
-        .is_none();
-    if !empty {
-        let manifest = out.join("manifest.json");
-        let ours = fs::read(&manifest)
-            .ok()
-            .and_then(|b| serde_json::from_slice::<ContentManifest>(&b).ok())
-            .is_some();
-        if !ours {
-            return Err(format!(
-                "refusing to clean {}: it is not empty and holds no Cast Iron manifest.json",
-                out.display()
-            ));
-        }
-    }
-    fs::remove_dir_all(out).map_err(|e| format!("cannot clean {}: {e}", out.display()))?;
-    fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))
 }
 
 fn write_reports(
@@ -791,18 +763,6 @@ mod tests {
             serde_json::to_string(&catalog_stub(&printed_twice, "entries/feat-000.json")).unwrap(),
             json
         );
-    }
-
-    #[test]
-    fn prepare_out_refuses_foreign_directories() {
-        let dir = std::env::temp_dir().join(format!("ci-prepare-out-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        prepare_out(&dir).unwrap(); // creates
-        fs::write(dir.join("keep.txt"), "x").unwrap();
-        let err = prepare_out(&dir).unwrap_err();
-        assert!(err.contains("refusing"), "{err}");
-        assert!(dir.join("keep.txt").exists());
-        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
