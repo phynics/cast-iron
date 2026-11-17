@@ -5,9 +5,9 @@ use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::tomlutil;
 use cast_iron_schema::{
-    Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference, Expansion,
-    FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind, RuleEntry,
-    SpellFields, SpellLevel, TypedFields,
+    Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference,
+    Expansion, FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind,
+    RuleEntry, SpellFields, SpellLevel, TypedFields,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;

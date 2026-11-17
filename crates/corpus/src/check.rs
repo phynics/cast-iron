@@ -2842,11 +2842,7 @@ mod tests {
         corpus
     }
 
-    fn with_expansion(
-        mut entry: RuleEntry,
-        publication: &str,
-        via: Option<&str>,
-    ) -> RuleEntry {
+    fn with_expansion(mut entry: RuleEntry, publication: &str, via: Option<&str>) -> RuleEntry {
         entry.expanded_in.push(cast_iron_schema::Expansion {
             publication: publication.into(),
             page: Some("18".into()),
@@ -2898,7 +2894,9 @@ mod tests {
             Some("ref/rule/b"),
         );
         let via = rule("ref/rule/b", vec![]);
-        let text = check(&expansion_corpus(vec![entry, via])).problems.join("\n");
+        let text = check(&expansion_corpus(vec![entry, via]))
+            .problems
+            .join("\n");
         assert!(
             text.contains("`via` entry `ref/rule/b` is not in publication `monster-handbook`"),
             "{text}"

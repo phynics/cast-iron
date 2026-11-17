@@ -7,7 +7,7 @@ use cast_iron_corpus::{
 };
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, ContentManifest, CoverageHistory, EntryId, EntryKind,
-    Exclusion, Inline, LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo,
+    Exclusion, Expansion, Inline, LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo,
     TypedFields,
 };
 use std::fs;
@@ -93,20 +93,31 @@ fn printed_chapter() -> BookIndex {
 }
 
 fn write_corpus(dir: &Path) {
+    write_corpus_with(dir, None);
+}
+
+/// `expansion` adds a second book, `monster-handbook`, that no entry prints. `Some(true)` makes
+/// the grapple rule name it in `expanded_in`; `Some(false)` leaves the rule as it was.
+fn write_corpus_with(dir: &Path, expansion: Option<bool>) {
     let config = Config::default();
-    for entry in [
-        rule(
-            "ref/rule/grapple",
-            "Grapple rules.",
-            Some("ref/rule/combat"),
-        ),
-        rule("ref/rule/combat", "Combat rules.", None),
-    ] {
+    let mut grapple = rule(
+        "ref/rule/grapple",
+        "Grapple rules.",
+        Some("ref/rule/combat"),
+    );
+    if expansion == Some(true) {
+        grapple.expanded_in = vec![Expansion {
+            publication: "monster-handbook".into(),
+            page: Some("18".into()),
+            via: None,
+        }];
+    }
+    for entry in [grapple, rule("ref/rule/combat", "Combat rules.", None)] {
         let path = dir.join(entry_path(&entry.id));
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, write_entry(&entry, &config)).unwrap();
     }
-    let sources = [SourceInfo {
+    let mut sources = vec![SourceInfo {
         share_slot: None,
         id: "core-rulebook".into(),
         title: "Core Rulebook".into(),
@@ -121,6 +132,13 @@ fn write_corpus(dir: &Path) {
         season: None,
         third_party: false,
     }];
+    if expansion.is_some() {
+        let mut handbook = sources[0].clone();
+        handbook.id = "monster-handbook".into();
+        handbook.title = "Monster Handbook".into();
+        handbook.copyright = Some("Monster Handbook. (c) Paizo Inc.".into());
+        sources.push(handbook);
+    }
     let legal = LegalNotices {
         licenses: vec![LicenseText {
             id: "ogl-1.0a".into(),
@@ -130,10 +148,19 @@ fn write_corpus(dir: &Path) {
         product_identity: "Product Identity.".into(),
         community_use_notice: "Cast Iron uses trademarks under Paizo's Community Use Policy."
             .into(),
-        section_15: vec![cast_iron_schema::CopyrightNotice {
-            title: "Core Rulebook".into(),
-            notice: "Core Rulebook. (c) Paizo Inc.".into(),
-        }],
+        section_15: {
+            let mut notices = vec![cast_iron_schema::CopyrightNotice {
+                title: "Core Rulebook".into(),
+                notice: "Core Rulebook. (c) Paizo Inc.".into(),
+            }];
+            if expansion.is_some() {
+                notices.push(cast_iron_schema::CopyrightNotice {
+                    title: "Monster Handbook".into(),
+                    notice: "Monster Handbook. (c) Paizo Inc.".into(),
+                });
+            }
+            notices
+        },
         notice_pending: vec![],
         datasets: vec![],
     };
@@ -641,4 +668,85 @@ fn a_second_compile_cannot_clean_a_live_writers_staging_directory() {
     compile_corpus(&corpus, &out, &reports, None, None).unwrap();
     assert!(!lock_file(&out).exists());
     assert!(!staging.exists());
+}
+
+/// Compiles `corpus` into a fresh directory and returns the library files by path.
+fn compile_tree(corpus: &Path, name: &str) -> Vec<(String, Vec<u8>)> {
+    let out = temp(&format!("{name}-out"));
+    let reports = temp(&format!("{name}-reports"));
+    compile_corpus(corpus, &out, &reports, None, Some("v0.1.6")).unwrap_or_else(|f| {
+        panic!("{}", f.lines.join("\n"));
+    });
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    let version = out.join(&manifest.content_version);
+    tree(&version)
+}
+
+#[test]
+fn a_book_that_only_expands_an_entry_is_not_a_member_of_that_book() {
+    let with = temp("expanded-with");
+    let without = temp("expanded-without");
+    write_corpus_with(&with, Some(true));
+    write_corpus_with(&without, Some(false));
+    let with_files = compile_tree(&with, "expanded-with");
+    let without_files = compile_tree(&without, "expanded-without");
+
+    // Everything the library derives from membership is identical with and without the credit:
+    // the catalog (book counts and each entry's books), the search index, and every other file.
+    // Only the shard that stores the credited entry may differ.
+    let paths = |files: &[(String, Vec<u8>)]| files.iter().map(|f| f.0.clone()).collect::<Vec<_>>();
+    assert_eq!(paths(&with_files), paths(&without_files));
+    let differing: Vec<&str> = with_files
+        .iter()
+        .zip(&without_files)
+        .filter(|(a, b)| a.1 != b.1)
+        .map(|(a, _)| a.0.as_str())
+        .collect();
+    assert!(
+        differing.iter().all(|path| path.starts_with("entries/")),
+        "only an entry shard may differ: {differing:?}"
+    );
+    assert!(
+        !differing.is_empty(),
+        "the credit must reach the stored entry"
+    );
+
+    let catalog: cast_iron_schema::Catalog = serde_json::from_slice(
+        &with_files
+            .iter()
+            .find(|f| f.0 == "catalog.json")
+            .expect("catalog.json")
+            .1,
+    )
+    .unwrap();
+    let handbook = catalog
+        .sources
+        .iter()
+        .find(|source| source.id == "monster-handbook")
+        .expect("the book is listed");
+    assert_eq!(handbook.entry_count, 0);
+    let core = catalog
+        .sources
+        .iter()
+        .find(|source| source.id == "core-rulebook")
+        .unwrap();
+    assert_eq!(core.entry_count, 2);
+    let grapple = catalog
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "ref/rule/grapple")
+        .unwrap();
+    assert_eq!(grapple.source, "core-rulebook");
+    assert!(grapple.books.is_empty(), "{:?}", grapple.books);
+}
+
+#[test]
+fn compiling_the_same_corpus_with_expansions_twice_is_byte_identical() {
+    let corpus = temp("expanded-twice");
+    write_corpus_with(&corpus, Some(true));
+    assert_eq!(
+        compile_tree(&corpus, "expanded-twice-a"),
+        compile_tree(&corpus, "expanded-twice-b")
+    );
 }

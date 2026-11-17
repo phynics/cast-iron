@@ -1760,7 +1760,6 @@ mod tests {
         };
         let catalog = |ids: &[&str]| Catalog {
             sources: vec![],
-            expanded_in: vec![],
             entries: ids.iter().map(|id| stub(id)).collect(),
         };
         assert!(catalog(&[]).validate().is_ok());
@@ -1818,7 +1817,6 @@ mod tests {
         };
         let catalog = |books: &[&str]| Catalog {
             sources: vec![],
-            expanded_in: vec![],
             entries: vec![stub(books)],
         };
         assert!(catalog(&[]).validate().is_ok());
