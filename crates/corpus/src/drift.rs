@@ -796,6 +796,17 @@ pub fn printed_replaces_alters(entry: &RuleEntry) -> (Vec<String>, Vec<String>) 
     )
 }
 
+/// The `**Replaces:**` and `**Alters:**` names printed anywhere in the body, variant and source
+/// subsections included. [`printed_replaces_alters`] reads only the normal part, which is what
+/// the typed trades are compared with; a domain page prints the lines of its subdomains below
+/// the normal part, and this reads those too.
+pub fn printed_replaces_alters_anywhere(entry: &RuleEntry) -> (Vec<String>, Vec<String>) {
+    (
+        printed_items(&labelled_texts(&entry.body, "Replaces")),
+        printed_items(&labelled_texts(&entry.body, "Alters")),
+    )
+}
+
 /// Every pair in the entry that states a value in both places and disagrees.
 pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
     let entry = &stored.entry;

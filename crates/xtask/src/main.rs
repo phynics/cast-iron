@@ -35,6 +35,9 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
+  corpus-migrate-trades <dir> [--review <file>]
+                             Lower the trades of a corpus to format 2 and write the review queue
+                             (TSV, default generated/trade-review.tsv). Idempotent
   decisions-index            Render the index of docs/decisions/ (by area) into target/docs-index/decisions.md;
                              nothing is committed or overwritten
   status-index               Render the index of docs/status/ into target/docs-index/status.md
@@ -59,6 +62,7 @@ fn main() -> ExitCode {
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
+        Some("corpus-migrate-trades") => corpus_migrate_trades(&args[1..]),
         Some("decisions-index") => docs_index::decisions_index(&root()),
         Some("status-index") => docs_index::status_index(&root()),
         Some("check") => check(),
@@ -1008,6 +1012,18 @@ fn corpus_check(args: &[String]) -> Result {
 
 fn corpus_fmt(args: &[String]) -> Result {
     cast_iron_corpus::cli::run_fmt(args)
+}
+
+/// The review queue goes to `generated/trade-review.tsv` unless `--review` says otherwise, so
+/// it never lands inside the corpus.
+fn corpus_migrate_trades(args: &[String]) -> Result {
+    let mut args = args.to_vec();
+    if !args.iter().any(|arg| arg == "--review") {
+        let review = root().join("generated").join("trade-review.tsv");
+        args.push("--review".to_string());
+        args.push(review.display().to_string());
+    }
+    cast_iron_corpus::cli::run_migrate_trades(&args)
 }
 
 fn check() -> Result {

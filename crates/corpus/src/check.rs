@@ -949,6 +949,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_third_party_sharing(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
+    crate::check_trades::check_trades(corpus, &keys, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
     let publication_ids: BTreeSet<&str> = corpus
@@ -1448,7 +1449,7 @@ pub fn base_class_ids<'a>(corpus: &'a Corpus, entry: &'a RuleEntry) -> Vec<&'a s
 
 /// A printed feature name without its ability tag: `Bravery (Ex)` becomes `Bravery`, and
 /// `Arcane Bond (Ex or Sp)` becomes `Arcane Bond`.
-fn strip_ability_tag(name: &str) -> &str {
+pub(crate) fn strip_ability_tag(name: &str) -> &str {
     let name = name.trim();
     let Some(open) = name.rfind('(') else {
         return name;
@@ -3726,11 +3727,17 @@ mod tests {
         };
         let report = check(&corpus_in_format(1, vec![fighter_class(), entry()]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        // The second warning is the count of unresolved trades (#451).
+        assert_eq!(report.warnings.len(), 2, "{:?}", report.warnings);
         assert!(
             report.warnings[0].contains(
                 "[fields] replaces_features = [\"bravery\"] disagrees with the `**Replaces:**` line; the confident matches in print order are [\"bravery\", \"trap-sense\"]"
             ),
+            "{:?}",
+            report.warnings
+        );
+        assert!(
+            report.warnings[1].contains("2 of 2 trades in 1 entries are unresolved"),
             "{:?}",
             report.warnings
         );
@@ -3848,7 +3855,13 @@ mod tests {
             ),
         ]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        // Only the count of unresolved trades (#451): the printed name is no drift.
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("1 of 2 trades in 1 entries are unresolved"),
+            "{:?}",
+            report.warnings
+        );
     }
 
     #[test]
