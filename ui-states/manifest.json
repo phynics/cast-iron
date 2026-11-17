@@ -1,0 +1,3369 @@
+{
+  "script": "tests/e2e/capture-ui.mjs",
+  "build": {
+    "commit": "8d45b9d6b0621b9c8912191f2f8183ba11932716",
+    "source_dirty": false,
+    "shell_version": "ea714651ab69553d",
+    "content_version": "veada5093fd101aa3",
+    "schema_version": 6,
+    "corpus_tag": "v0.1.25",
+    "entry_count": 31800,
+    "dist": "dist"
+  },
+  "fixtures": {
+    "source_variants": {
+      "kind": "creature",
+      "title": "Acolyte",
+      "letter": "A",
+      "count": 2
+    },
+    "search_query": "grapple",
+    "book_page": "Core Rulebook"
+  },
+  "captures": [
+    {
+      "state": "home-empty",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-home-empty.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": "#home-title",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1067,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-stars",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-home-stars.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".home-bookmarks a",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1125,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "source-variants",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-source-variants.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".source-variants[open]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/kind/creature?l=A",
+        "title": "Creatures"
+      },
+      "masthead": {
+        "scroll_y": 14,
+        "scrolling_element": "html",
+        "document_height": 4174,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "summary",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "books",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-books.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".book-directory-row",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/books",
+        "title": "Books"
+      },
+      "masthead": {
+        "scroll_y": 27427,
+        "scrolling_element": "html",
+        "document_height": 28565,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.tier-toggle",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.906,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "book-contents",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-book-contents.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".toc",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/book/core-rulebook",
+        "title": "Core Rulebook"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 11960,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.906,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "class",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-class.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/class/fighter",
+        "title": "Fighter"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 24486,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "race",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-race.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/race/dwarf",
+        "title": "Dwarf"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9112,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "prestige",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-prestige.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".rel-requirements",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/pclass/arcane-archer",
+        "title": "Arcane Archer"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 4772,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "spell-list",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-spell-list.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".level-group",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/spells/Wizard/1",
+        "title": "Wizard spells, level 1"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 11246,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-all",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-search-all.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 6891,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "input#search-input",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-rules",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "file": "desktop-light-search-rules.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple&kind=rule",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 6947,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.scope-choice",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-empty",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-home-empty.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": "#home-title",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1067,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-stars",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-home-stars.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".home-bookmarks a",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1125,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "source-variants",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-source-variants.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".source-variants[open]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/kind/creature?l=A",
+        "title": "Creatures"
+      },
+      "masthead": {
+        "scroll_y": 14,
+        "scrolling_element": "html",
+        "document_height": 4174,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "summary",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "books",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-books.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".book-directory-row",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/books",
+        "title": "Books"
+      },
+      "masthead": {
+        "scroll_y": 27427,
+        "scrolling_element": "html",
+        "document_height": 28565,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.tier-toggle",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.906,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "book-contents",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-book-contents.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".toc",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/book/core-rulebook",
+        "title": "Core Rulebook"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 11960,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.906,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "class",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-class.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/class/fighter",
+        "title": "Fighter"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 24486,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "race",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-race.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/race/dwarf",
+        "title": "Dwarf"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9112,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "prestige",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-prestige.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".rel-requirements",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/pclass/arcane-archer",
+        "title": "Arcane Archer"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 4772,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "spell-list",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-spell-list.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".level-group",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/spells/Wizard/1",
+        "title": "Wizard spells, level 1"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 11246,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.905,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-all",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-search-all.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 6891,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "input#search-input",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-rules",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "file": "desktop-dark-search-rules.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple&kind=rule",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 6947,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.scope-choice",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.957,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-empty",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-home-empty.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": "#home-title",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1959,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-stars",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-home-stars.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".home-bookmarks a",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2018,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "source-variants",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-source-variants.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".source-variants[open]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/kind/creature?l=A",
+        "title": "Creatures"
+      },
+      "masthead": {
+        "scroll_y": 357,
+        "scrolling_element": "html",
+        "document_height": 9785,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "summary",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "books",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-books.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".book-directory-row",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/books",
+        "title": "Books"
+      },
+      "masthead": {
+        "scroll_y": 27802,
+        "scrolling_element": "html",
+        "document_height": 28904,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.tier-toggle",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "book-contents",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-book-contents.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".toc",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/book/core-rulebook",
+        "title": "Core Rulebook"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 12268,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "class",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-class.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/class/fighter",
+        "title": "Fighter"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 33561,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "race",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-race.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/race/dwarf",
+        "title": "Dwarf"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 17822,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "prestige",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-prestige.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".rel-requirements",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/pclass/arcane-archer",
+        "title": "Arcane Archer"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7570,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "spell-list",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-spell-list.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".level-group",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/spells/Wizard/1",
+        "title": "Wizard spells, level 1"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 15004,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-all",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-search-all.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7145,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-rules",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "file": "mobile-light-search-rules.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple&kind=rule",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7222,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.scope-choice",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-empty",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-home-empty.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": "#home-title",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1959,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "home-stars",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-home-stars.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".home-bookmarks a",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/",
+        "title": "Your rules reference"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2018,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "source-variants",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-source-variants.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".source-variants[open]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/kind/creature?l=A",
+        "title": "Creatures"
+      },
+      "masthead": {
+        "scroll_y": 357,
+        "scrolling_element": "html",
+        "document_height": 9785,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "summary",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "books",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-books.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".book-directory-row",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/books",
+        "title": "Books"
+      },
+      "masthead": {
+        "scroll_y": 27802,
+        "scrolling_element": "html",
+        "document_height": 28904,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.tier-toggle",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "book-contents",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-book-contents.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".toc",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/browse/book/core-rulebook",
+        "title": "Core Rulebook"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 12268,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "class",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-class.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/class/fighter",
+        "title": "Fighter"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 33561,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "race",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-race.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".entry > .rich",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/race/dwarf",
+        "title": "Dwarf"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 17822,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "prestige",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-prestige.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".rel-requirements",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/pclass/arcane-archer",
+        "title": "Arcane Archer"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7570,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "spell-list",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-spell-list.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".level-group",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/spells/Wizard/1",
+        "title": "Wizard spells, level 1"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 15004,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-all",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-search-all.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7145,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    },
+    {
+      "state": "search-rules",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "file": "mobile-dark-search-rules.png",
+      "capture_mode": "viewport",
+      "settled": {
+        "ready_selector": ".results .hit-link:visible",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/search?q=grapple&kind=rule",
+        "title": "Search"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 7222,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.scope-choice",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.955,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      }
+    }
+  ]
+}

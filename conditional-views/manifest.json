@@ -1,0 +1,3272 @@
+{
+  "script": "tests/e2e/capture-conditional.mjs",
+  "issue": "https://github.com/phynics/cast-iron/issues/448",
+  "build": {
+    "commit": "8d45b9d6b0621b9c8912191f2f8183ba11932716",
+    "source_dirty": false,
+    "shell_version": "ea714651ab69553d",
+    "content_version": "veada5093fd101aa3",
+    "schema_version": 6,
+    "corpus_tag": "v0.1.25",
+    "entry_count": 31800,
+    "dist": "dist"
+  },
+  "known_console_artifacts": [
+    "WebKit: \"Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive\""
+  ],
+  "fixtures": {
+    "reading_page": "#/entry/ref/spell/fireball",
+    "library_update": "synthetic: a copy of the live manifest with content_version \"vcapturenext0000000\"; its files are never fetched",
+    "shell_update": "the test server serves sw.js with SHELL_VERSION \"capture-next-<shell version>\""
+  },
+  "tools": {
+    "playwright": "1.64.1",
+    "node": "v24.21.0",
+    "platform": "linux-x64"
+  },
+  "groups": [
+    {
+      "id": "storage-failure",
+      "engine": "chromium",
+      "steps": [
+        "Open the app in a fresh profile.",
+        "Before any app script runs, replace IDBFactory.prototype.open with a function that throws SecurityError (\"The operation is insecure.\"). Firefox private browsing and some locked-down WebViews fail this way.",
+        "Load ./ and wait for the failure screen. No library exists; the reader never starts."
+      ]
+    },
+    {
+      "id": "shell-update",
+      "engine": "chromium",
+      "steps": [
+        "Install the library from the built site.",
+        "POST /__test/shell {version} so the server hands out sw.js with a different SHELL_VERSION.",
+        "Settings → Updates → Check now. The new shell installs and waits; nothing reloads.",
+        "Open a reading page: the header shows \"Update ready\". Open Settings: the Updates section shows the reload row."
+      ]
+    },
+    {
+      "id": "library-update",
+      "engine": "chromium",
+      "steps": [
+        "Install the library from the built site.",
+        "POST /__test/overlay {dir}: the server answers content/manifest.json from a copy that names a newer content version (no content files; it is never downloaded).",
+        "Settings → Updates → Check now. The newer library is offered with its size and \"Download update\"; the app does not download it.",
+        "Open a reading page: the header shows \"Update ready\" for the library."
+      ]
+    },
+    {
+      "id": "combined-updates",
+      "engine": "chromium",
+      "steps": [
+        "Install the library from the built site.",
+        "Do both of the shell-update and library-update fixtures: a different SHELL_VERSION and an overlay manifest with a newer content version.",
+        "Settings → Updates → Check now. The header action and Settings both say that updates are waiting."
+      ]
+    },
+    {
+      "id": "ios-guide",
+      "engine": "webkit",
+      "steps": [
+        "Install the library in WebKit.",
+        "Reopen with the iPhone Safari user agent, touch and mobile emulation (the app detects iOS Safari from that user agent).",
+        "The header shows Install. Tap it: the Add to Home Screen guide opens as a modal dialog. Settings → Install app offers the same guide."
+      ],
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423."
+    }
+  ],
+  "captures": [
+    {
+      "group": "storage-failure",
+      "state": "cannot-start",
+      "description": "Boot::Fatal screen: heading \"Cast Iron cannot start\" and the alert naming the local database.",
+      "note": "This screen renders only <main>; the app has not started the reader, so there is no masthead by design.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "storage-failure-cannot-start-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main .error[role=alert]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Cast Iron cannot start"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 844,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": null,
+        "header_style": null,
+        "brand": null,
+        "hit_at_header_centre": null,
+        "hit_is_header": false
+      },
+      "frame": {
+        "masthead_in_frame": false,
+        "reason": "no header element"
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "storage-failure",
+      "state": "cannot-start",
+      "description": "Boot::Fatal screen: heading \"Cast Iron cannot start\" and the alert naming the local database.",
+      "note": "This screen renders only <main>; the app has not started the reader, so there is no masthead by design.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "storage-failure-cannot-start-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main .error[role=alert]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Cast Iron cannot start"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 844,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": null,
+        "header_style": null,
+        "brand": null,
+        "hit_at_header_centre": null,
+        "hit_is_header": false
+      },
+      "frame": {
+        "masthead_in_frame": false,
+        "reason": "no header element"
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "storage-failure",
+      "state": "cannot-start",
+      "description": "Boot::Fatal screen: heading \"Cast Iron cannot start\" and the alert naming the local database.",
+      "note": "This screen renders only <main>; the app has not started the reader, so there is no masthead by design.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "storage-failure-cannot-start-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main .error[role=alert]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Cast Iron cannot start"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 900,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": null,
+        "header_style": null,
+        "brand": null,
+        "hit_at_header_centre": null,
+        "hit_is_header": false
+      },
+      "frame": {
+        "masthead_in_frame": false,
+        "reason": "no header element"
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "storage-failure",
+      "state": "cannot-start",
+      "description": "Boot::Fatal screen: heading \"Cast Iron cannot start\" and the alert naming the local database.",
+      "note": "This screen renders only <main>; the app has not started the reader, so there is no masthead by design.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "storage-failure-cannot-start-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main .error[role=alert]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "",
+        "title": "Cast Iron cannot start"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 900,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": null,
+        "header_style": null,
+        "brand": null,
+        "hit_at_header_centre": null,
+        "hit_is_header": false
+      },
+      "frame": {
+        "masthead_in_frame": false,
+        "reason": "no header element"
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for an app update.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-reading-header-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"App update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app-update row and its Reload button; the library is unchanged.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-settings-updates-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "#set-updates .banner-inline",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2353,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for an app update.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-reading-header-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"App update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app-update row and its Reload button; the library is unchanged.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-settings-updates-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "#set-updates .banner-inline",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2353,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for an app update.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-reading-header-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"App update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app-update row and its Reload button; the library is unchanged.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-settings-updates-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "#set-updates .banner-inline",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1985,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for an app update.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-reading-header-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"App update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "shell-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app-update row and its Reload button; the library is unchanged.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "shell-update-settings-updates-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "#set-updates .banner-inline",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1985,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with a newer rules library offered (version, size, Download update). Nothing downloads.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-settings-updates-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 67,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2964,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for a library update.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-reading-header-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Library update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with a newer rules library offered (version, size, Download update). Nothing downloads.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-settings-updates-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 67,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2964,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for a library update.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-reading-header-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Library update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with a newer rules library offered (version, size, Download update). Nothing downloads.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-settings-updates-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 74,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2448,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for a library update.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-reading-header-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Library update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "settings-updates",
+      "description": "Settings → Updates with a newer rules library offered (version, size, Download update). Nothing downloads.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-settings-updates-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 74,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2448,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "library-update",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the header \"Update ready\" action for a library update.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "library-update-reading-header-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Library update ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app reload row and the newer library offered together.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-updates-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 67,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 3024,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the combined header action (\"Updates available\").",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-reading-header-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Updates ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app reload row and the newer library offered together.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-updates-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 67,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 3024,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the combined header action (\"Updates available\").",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-reading-header-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Updates ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 9660,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app reload row and the newer library offered together.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-updates-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 74,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2508,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the combined header action (\"Updates available\").",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-reading-header-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Updates ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "settings-updates",
+      "description": "Settings → Updates with the app reload row and the newer library offered together.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-updates-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 74,
+      "settled": {
+        "ready_selector": "#set-updates .install-panel .facts",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2508,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.837,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "reading-header",
+      "description": "Reading page (Fireball) with the combined header action (\"Updates available\").",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-reading-header-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header [role=status]:text(\"Updates ready.\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "span",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.897,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "ios-guide",
+      "state": "header-install-button",
+      "description": "Reading page (Fireball) in iOS-Safari emulation with the header Install button, before the guide opens.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-header-install-button-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header button[aria-label=\"Install Cast Iron as an app\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 10196,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.885,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "guide-dialog",
+      "description": "The Add to Home Screen guide (Share, Add to Home Screen, Add) over the reading page.",
+      "note": "A modal dialog: the backdrop dims the masthead by design, so the frame probe is not expected to find it.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-guide-dialog-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "dialog.install-sheet[open] .install-steps",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 10196,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.btn.install-sheet-done",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "dialog.install-sheet",
+        "hit_is_header": false
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "116,110,100",
+        "brand_ink_share": 1,
+        "masthead_in_frame": false
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row",
+      "description": "Settings with the Install app row that opens the same guide.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main button:text(\"Install app\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2349,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.885,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "header-install-button",
+      "description": "Reading page (Fireball) in iOS-Safari emulation with the header Install button, before the guide opens.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-header-install-button-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header button[aria-label=\"Install Cast Iron as an app\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 10196,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.886,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "guide-dialog",
+      "description": "The Add to Home Screen guide (Share, Add to Home Screen, Add) over the reading page.",
+      "note": "A modal dialog: the backdrop dims the masthead by design, so the frame probe is not expected to find it.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-guide-dialog-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "dialog.install-sheet[open] .install-steps",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 10196,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.btn.install-sheet-done",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "dialog.install-sheet",
+        "hit_is_header": false
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.004,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "41,36,32",
+        "brand_ink_share": 0.144,
+        "masthead_in_frame": false
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row",
+      "description": "Settings with the Install app row that opens the same guide.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main button:text(\"Install app\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2349,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.886,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "header-install-button",
+      "description": "Reading page (Fireball) in iOS-Safari emulation with the header Install button, before the guide opens.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-header-install-button-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header button[aria-label=\"Install Cast Iron as an app\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.927,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "guide-dialog",
+      "description": "The Add to Home Screen guide (Share, Add to Home Screen, Add) over the reading page.",
+      "note": "A modal dialog: the backdrop dims the masthead by design, so the frame probe is not expected to find it.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-guide-dialog-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "dialog.install-sheet[open] .install-steps",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.btn.install-sheet-done",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "dialog.install-sheet",
+        "hit_is_header": false
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "116,110,100",
+        "brand_ink_share": 1,
+        "masthead_in_frame": false
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row",
+      "description": "Settings with the Install app row that opens the same guide.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main button:text(\"Install app\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1981,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.866,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "header-install-button",
+      "description": "Reading page (Fireball) in iOS-Safari emulation with the header Install button, before the guide opens.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-header-install-button-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "header.app-header button[aria-label=\"Install Cast Iron as an app\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "body",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.927,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "guide-dialog",
+      "description": "The Add to Home Screen guide (Share, Add to Home Screen, Add) over the reading page.",
+      "note": "A modal dialog: the backdrop dims the masthead by design, so the frame probe is not expected to find it.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-guide-dialog-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "dialog.install-sheet[open] .install-steps",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/entry/ref/spell/fireball",
+        "title": "Fireball"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 2331,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "button.btn.install-sheet-done",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "dialog.install-sheet",
+        "hit_is_header": false
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.001,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "41,36,32",
+        "brand_ink_share": 0.144,
+        "masthead_in_frame": false
+      },
+      "masthead_expected": false,
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row",
+      "description": "Settings with the Install app row that opens the same guide.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "settled": {
+        "ready_selector": "main button:text(\"Install app\")",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 0,
+        "scrolling_element": "html",
+        "document_height": 1981,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.867,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    }
+  ],
+  "failures": []
+}

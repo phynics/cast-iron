@@ -1,0 +1,398 @@
+[
+  {
+    "tag": "desktop-light",
+    "name": "home-empty",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "home-stars",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "source-variants",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "books",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "book-contents",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "class",
+    "overflow": 0,
+    "primaryTop": 550.3125,
+    "relatedTop": 23166.609375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "race",
+    "overflow": 0,
+    "primaryTop": 284.125,
+    "relatedTop": 6779.9375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "prestige",
+    "overflow": 0,
+    "primaryTop": 369,
+    "relatedTop": 3989.421875,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "spell-list",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-light",
+    "name": "search-all",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "All entries",
+        "background": "rgb(162, 65, 26)",
+        "foreground": "rgb(255, 248, 239)"
+      }
+    ]
+  },
+  {
+    "tag": "desktop-light",
+    "name": "search-rules",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "Rules text",
+        "background": "rgb(162, 65, 26)",
+        "foreground": "rgb(255, 248, 239)"
+      }
+    ]
+  },
+  {
+    "tag": "desktop-light",
+    "errors": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "home-empty",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "home-stars",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "source-variants",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "books",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "book-contents",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "class",
+    "overflow": 0,
+    "primaryTop": 550.3125,
+    "relatedTop": 23166.609375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "race",
+    "overflow": 0,
+    "primaryTop": 284.125,
+    "relatedTop": 6779.9375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "prestige",
+    "overflow": 0,
+    "primaryTop": 369,
+    "relatedTop": 3989.421875,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "spell-list",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "search-all",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "All entries",
+        "background": "rgb(229, 134, 79)",
+        "foreground": "rgb(28, 25, 23)"
+      }
+    ]
+  },
+  {
+    "tag": "desktop-dark",
+    "name": "search-rules",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "Rules text",
+        "background": "rgb(229, 134, 79)",
+        "foreground": "rgb(28, 25, 23)"
+      }
+    ]
+  },
+  {
+    "tag": "desktop-dark",
+    "errors": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "home-empty",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "home-stars",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "source-variants",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "books",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "book-contents",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "class",
+    "overflow": 0,
+    "primaryTop": 537.90625,
+    "relatedTop": 31750.390625,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "race",
+    "overflow": 0,
+    "primaryTop": 268.125,
+    "relatedTop": 10729.5625,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "prestige",
+    "overflow": 0,
+    "primaryTop": 349,
+    "relatedTop": 6559.984375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "spell-list",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-light",
+    "name": "search-all",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "All entries",
+        "background": "rgb(162, 65, 26)",
+        "foreground": "rgb(255, 248, 239)"
+      }
+    ]
+  },
+  {
+    "tag": "mobile-light",
+    "name": "search-rules",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "Rules text",
+        "background": "rgb(162, 65, 26)",
+        "foreground": "rgb(255, 248, 239)"
+      }
+    ]
+  },
+  {
+    "tag": "mobile-light",
+    "errors": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "home-empty",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "home-stars",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "source-variants",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "books",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "book-contents",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "class",
+    "overflow": 0,
+    "primaryTop": 537.90625,
+    "relatedTop": 31750.390625,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "race",
+    "overflow": 0,
+    "primaryTop": 268.125,
+    "relatedTop": 10729.5625,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "prestige",
+    "overflow": 0,
+    "primaryTop": 349,
+    "relatedTop": 6559.984375,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "spell-list",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": []
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "search-all",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "All entries",
+        "background": "rgb(229, 134, 79)",
+        "foreground": "rgb(28, 25, 23)"
+      }
+    ]
+  },
+  {
+    "tag": "mobile-dark",
+    "name": "search-rules",
+    "overflow": 0,
+    "smallTargets": 0,
+    "activeScopes": [
+      {
+        "text": "Rules text",
+        "background": "rgb(229, 134, 79)",
+        "foreground": "rgb(28, 25, 23)"
+      }
+    ]
+  },
+  {
+    "tag": "mobile-dark",
+    "errors": []
+  }
+]
