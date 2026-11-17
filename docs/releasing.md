@@ -270,11 +270,20 @@ written earlier, so a failed run leaves them for the author.
 One compile at a time writes to `generated/content`. The compiler takes the lock file
 `generated/content.lock` (pid and start time) with an atomic create before it recovers, writes or
 publishes, and removes it when it ends, on success and on failure. A second compile into the same
-directory stops at once with a message that names the holder and changes nothing; it does not
-wait. A killed compile leaves the file, and the next compile reclaims it with a message when that
-pid is gone or was reused (the check reads `/proc`, so only on Linux; elsewhere the message names
-the file to delete). Run `cargo xtask content` from one shell at a time. Nothing guards the reports
-directory, which a second compile with the same `--reports` would overwrite.
+directory stops at once, names the holder and the time, says nothing was changed, and does not
+wait. Run `cargo xtask content` from one shell at a time. Nothing guards the reports directory,
+which a second compile with the same `--reports` would overwrite.
+
+A compile that is killed (SIGKILL, a power loss, an abort) leaves the lock file, and every later
+compile fails with the message above until you delete it. Manual recovery:
+
+1. Confirm that no compile is running (`pgrep -a cast-iron-compile`, or look at the CI job).
+2. Delete `generated/content.lock`. The message prints the path.
+3. Run `cargo xtask content`. Its first step repairs an interrupted handoff (below).
+
+The compiler never decides that a holder is dead. Deleting the lock of a compile that is still
+running lets two compiles write one directory, which can destroy the library. An empty or
+unreadable lock file (a compile killed while it wrote the file) is handled the same way.
 
 Under the lock, the library reaches `generated/content` in four steps: write
 `generated/content.staging` (the manifest last), rename `generated/content` to
@@ -284,7 +293,7 @@ backup. What this guarantees, for one compile at a time:
 - A failed gate, or an error while the staging directory is written, leaves the previous
   `generated/content` as it was, and a failed first compile leaves no `manifest.json`.
 - An interruption (a killed process or an I/O error) between the steps leaves a state that the
-  next `cargo xtask content` repairs at its start. When a backup exists it finishes the move if the
+  next `cargo xtask content` repairs at its start, once a lock left by a killed process is deleted. When a backup exists it finishes the move if the
   staging library is whole, and restores the backup if it is not; it removes a leftover backup once
   `generated/content` is whole. "Whole" means the manifest passes the installer's structural check
   and every listed file has the listed size and SHA-256, so a damaged copy is never kept over a good

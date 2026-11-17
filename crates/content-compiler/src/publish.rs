@@ -53,108 +53,17 @@ pub fn lock_file(out: &Path) -> PathBuf {
     sibling(out, "lock")
 }
 
-/// Who holds a lock, as written in the lock file.
-#[derive(Debug, PartialEq, Eq)]
-struct Holder {
-    pid: u32,
-    /// Seconds since the Unix epoch when the compile took the lock. Display only.
-    started: u64,
-    /// The process start time in clock ticks since boot (Linux), so a reused pid is not mistaken
-    /// for the holder.
-    proc_start: Option<u64>,
-}
-
-impl Holder {
-    fn this_process() -> Holder {
-        let started = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs());
-        Holder {
-            pid: std::process::id(),
-            started,
-            proc_start: proc_start(std::process::id()),
-        }
-    }
-
-    fn to_text(&self) -> String {
-        let mut text = format!("pid={}\nstarted={}\n", self.pid, self.started);
-        if let Some(ticks) = self.proc_start {
-            text.push_str(&format!("proc_start={ticks}\n"));
-        }
-        text
-    }
-
-    fn parse(text: &str) -> Option<Holder> {
-        let field = |name: &str| {
-            text.lines()
-                .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
-        };
-        Some(Holder {
-            pid: field("pid")?.trim().parse().ok()?,
-            started: field("started")?.trim().parse().ok()?,
-            proc_start: field("proc_start").and_then(|v| v.trim().parse().ok()),
-        })
-    }
-
-    fn describe(&self) -> String {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |d| d.as_secs());
-        format!(
-            "pid {}, started {} s ago",
-            self.pid,
-            now.saturating_sub(self.started)
-        )
-    }
-}
-
-/// The start time of process `pid` in clock ticks since boot: field 22 of `/proc/<pid>/stat`.
-/// `None` when the process does not exist, or on a system without `/proc`.
-#[cfg(target_os = "linux")]
-fn proc_start(pid: u32) -> Option<u64> {
-    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
-    // The command name is in parentheses and may hold spaces; the fields after it do not.
-    let after = &stat[stat.rfind(')')? + 1..];
-    after.split_whitespace().nth(19)?.parse().ok()
-}
-
-#[cfg(not(target_os = "linux"))]
-fn proc_start(_pid: u32) -> Option<u64> {
-    None
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum Liveness {
-    Running,
-    Dead,
-    /// This system cannot tell (no `/proc`).
-    Unknown,
-}
-
-fn liveness(holder: &Holder) -> Liveness {
-    if !cfg!(target_os = "linux") {
-        return Liveness::Unknown;
-    }
-    match proc_start(holder.pid) {
-        None => Liveness::Dead,
-        // The pid exists but belongs to a process that started later: the holder died and the
-        // number was reused.
-        Some(now) if holder.proc_start.is_some_and(|recorded| recorded != now) => Liveness::Dead,
-        Some(_) => Liveness::Running,
-    }
-}
-
 /// The exclusive right to recover, write and publish one output directory.
 ///
-/// It is a lock file `<out>.lock` that holds the pid and start time of the compile. Taking it with
-/// `create_new` is atomic, so two compiles cannot both succeed. A second compile fails at once
-/// with a message that names the holder; it does not wait and does not touch any directory but
-/// the parent of `<out>`. A lock whose process is gone is reclaimed with a message. The lock is
-/// removed when the value is dropped, on success and on failure alike. A process that is killed
-/// leaves the file, and the next compile reclaims it.
+/// It is a lock file `<out>.lock` holding the pid and the start time of the compile, taken with
+/// `create_new`, which is atomic, so two compiles cannot both succeed. A second compile fails at
+/// once and changes nothing; it does not wait. The file is removed when the value is dropped, on
+/// success and on failure alike, so a finished compile leaves nothing beside the output.
 ///
-/// Where `/proc` is missing (not Linux), the code cannot tell whether the holder is alive, so it
-/// never reclaims: the message names the file to delete.
+/// A compile that is killed (SIGKILL, power loss, an abort) leaves the file, and every later
+/// compile fails until a person deletes it. The message names the file and says who held it. The
+/// code never judges whether the holder is still alive: deleting the lock of a running compile
+/// lets two compiles write one directory.
 #[derive(Debug)]
 pub struct OutLock {
     out: PathBuf,
@@ -169,71 +78,29 @@ impl OutLock {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
         }
-        // One pass takes the lock or finds a live holder. A second pass follows a reclaim, and a
-        // third a lost race against another reclaim.
-        for _ in 0..3 {
-            match fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&file)
-            {
-                Ok(mut handle) => {
-                    let written = handle.write_all(Holder::this_process().to_text().as_bytes());
-                    return match written {
-                        Ok(()) => Ok(OutLock {
-                            out: out.to_path_buf(),
-                            file,
-                        }),
-                        Err(e) => {
-                            let _ = fs::remove_file(&file);
-                            Err(format!("cannot write {}: {e}", file.display()))
-                        }
-                    };
-                }
-                Err(e) if e.kind() == ErrorKind::AlreadyExists => {}
-                Err(e) => return Err(format!("cannot create {}: {e}", file.display())),
+        let mut handle = match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&file)
+        {
+            Ok(handle) => handle,
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                return Err(held_message(&file));
             }
-            let text = match fs::read_to_string(&file) {
-                Ok(text) => text,
-                Err(e) if e.kind() == ErrorKind::NotFound => continue, // released meanwhile
-                Err(e) => return Err(format!("cannot read {}: {e}", file.display())),
-            };
-            let Some(holder) = Holder::parse(&text) else {
-                return Err(format!(
-                    "{} exists and does not name a holder (a compile may be writing it right now); if no compile is running, delete it",
-                    file.display()
-                ));
-            };
-            match liveness(&holder) {
-                Liveness::Running => {
-                    return Err(format!(
-                        "another compile holds {} ({}); wait for it to finish. Nothing was changed",
-                        file.display(),
-                        holder.describe()
-                    ));
-                }
-                Liveness::Unknown => {
-                    return Err(format!(
-                        "{} is held by {}; this system cannot tell whether that compile is still running. If it is not, delete the file. Nothing was changed",
-                        file.display(),
-                        holder.describe()
-                    ));
-                }
-                Liveness::Dead => {
-                    if reclaim(&file, &text)? {
-                        eprintln!(
-                            "reclaimed {}: its holder ({}) is no longer running",
-                            file.display(),
-                            holder.describe()
-                        );
-                    }
-                }
-            }
+            Err(e) => return Err(format!("cannot create {}: {e}", file.display())),
+        };
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        let text = format!("pid={}\nstarted={now}\n", std::process::id());
+        if let Err(e) = handle.write_all(text.as_bytes()) {
+            let _ = fs::remove_file(&file);
+            return Err(format!("cannot write {}: {e}", file.display()));
         }
-        Err(format!(
-            "cannot take {}: another compile took it first. Run the command again",
-            file.display()
-        ))
+        Ok(OutLock {
+            out: out.to_path_buf(),
+            file,
+        })
     }
 
     /// The output directory that this lock covers.
@@ -248,38 +115,32 @@ impl Drop for OutLock {
     }
 }
 
-/// Removes the stale lock file `file` whose text was `seen`. Two processes that find the same
-/// stale lock must not both remove it, because the second could remove the lock that the first
-/// just took. A guard file serializes them, and the lock is removed only if it is still the stale
-/// text that the caller read. Returns whether it was removed.
-fn reclaim(file: &Path, seen: &str) -> Result<bool, String> {
-    let guard = file.with_extension("lock.reclaim");
-    match fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&guard)
-    {
-        Ok(_) => {}
-        Err(e) if e.kind() == ErrorKind::AlreadyExists => {
-            return Err(format!(
-                "another compile is reclaiming {}; run the command again (if none is running, delete {})",
-                file.display(),
-                guard.display()
-            ));
-        }
-        Err(e) => return Err(format!("cannot create {}: {e}", guard.display())),
-    }
-    let removed = match fs::read_to_string(file) {
-        Ok(now) if now == seen => fs::remove_file(file)
-            .map(|()| true)
-            .map_err(|e| format!("cannot remove {}: {e}", file.display())),
-        // Someone else already reclaimed it, or released it.
-        Ok(_) => Ok(false),
-        Err(e) if e.kind() == ErrorKind::NotFound => Ok(false),
-        Err(e) => Err(format!("cannot read {}: {e}", file.display())),
+/// The failure for a lock that exists: who holds it and since when, from the file when it can be
+/// read, and what to do.
+fn held_message(file: &Path) -> String {
+    let text = fs::read_to_string(file).unwrap_or_default();
+    let field = |name: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(name)?.strip_prefix('='))
+            .and_then(|value| value.trim().parse::<u64>().ok())
     };
-    let _ = fs::remove_file(&guard);
-    removed
+    let who = match (field("pid"), field("started")) {
+        (Some(pid), Some(started)) => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_secs());
+            format!(
+                "held by pid {pid}, since {} s ago",
+                now.saturating_sub(started)
+            )
+        }
+        _ => "the holder is not named in it".to_string(),
+    };
+    format!(
+        "another compile may be writing this output: {} exists ({who}). Nothing was changed. If no compile is running, delete {}",
+        file.display(),
+        file.display()
+    )
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -805,9 +666,9 @@ mod tests {
         let before = listing(&base);
 
         let error = OutLock::acquire(&out).unwrap_err();
-        assert!(error.contains("another compile holds"), "{error}");
+        assert!(error.contains("another compile may be writing"), "{error}");
         assert!(
-            error.contains(&format!("pid {}", std::process::id())),
+            error.contains(&format!("held by pid {}", std::process::id())),
             "{error}"
         );
         assert!(error.contains("Nothing was changed"), "{error}");
@@ -825,96 +686,34 @@ mod tests {
     }
 
     #[test]
-    fn a_lock_whose_process_is_gone_is_reclaimed() {
-        let base = temp("stale");
+    fn a_leftover_lock_fails_with_who_held_it_and_how_to_remove_it() {
+        let base = temp("leftover");
         let out = base.join("content");
         library(&out, "vold");
-        // A pid that is certainly dead: a child that has exited and been waited for.
-        let mut child = std::process::Command::new("true").spawn().unwrap();
-        let dead = child.id();
-        child.wait().unwrap();
-        fs::write(
-            lock_file(&out),
-            format!("pid={dead}\nstarted=1\nproc_start=1\n"),
-        )
-        .unwrap();
-        let lock = OutLock::acquire(&out);
-        if cfg!(target_os = "linux") {
-            let _lock = lock.unwrap();
-            let held = fs::read_to_string(lock_file(&out)).unwrap();
-            assert!(
-                held.contains(&format!("pid={}", std::process::id())),
-                "{held}"
-            );
-            assert!(!lock_file(&out).with_extension("lock.reclaim").exists());
-        } else {
-            // Without /proc the code cannot tell, so it names the file to delete.
-            assert!(lock.unwrap_err().contains("delete the file"));
-        }
-    }
+        // What a compile that was killed leaves behind.
+        fs::write(lock_file(&out), "pid=4242\nstarted=1\n").unwrap();
+        let before = listing(&base);
+        let error = OutLock::acquire(&out).unwrap_err();
+        assert!(error.contains("held by pid 4242"), "{error}");
+        assert!(error.contains("Nothing was changed"), "{error}");
+        assert!(
+            error.contains(&format!(
+                "If no compile is running, delete {}",
+                lock_file(&out).display()
+            )),
+            "{error}"
+        );
+        assert_eq!(listing(&base), before);
 
-    #[test]
-    fn a_reused_pid_does_not_keep_a_dead_holders_lock() {
-        let base = temp("reused");
-        let out = base.join("content");
-        // This very process, recorded with another start time: the pid was reused.
-        fs::write(
-            lock_file(&out),
-            format!("pid={}\nstarted=1\nproc_start=1\n", std::process::id()),
-        )
-        .unwrap();
-        let lock = OutLock::acquire(&out);
-        if cfg!(target_os = "linux") {
-            assert!(lock.is_ok(), "{lock:?}");
-        } else {
-            assert!(lock.is_err());
-        }
-    }
-
-    #[test]
-    fn a_lock_that_names_no_holder_is_not_reclaimed() {
-        let base = temp("nameless");
-        let out = base.join("content");
+        // A lock that names nobody (killed while writing it) fails the same way.
         fs::write(lock_file(&out), "").unwrap();
         let error = OutLock::acquire(&out).unwrap_err();
-        assert!(error.contains("does not name a holder"), "{error}");
-        assert!(lock_file(&out).exists());
-    }
+        assert!(error.contains("the holder is not named"), "{error}");
+        assert!(error.contains("delete"), "{error}");
 
-    #[test]
-    fn the_holder_text_round_trips() {
-        let holder = Holder {
-            pid: 42,
-            started: 7,
-            proc_start: Some(9),
-        };
-        assert_eq!(Holder::parse(&holder.to_text()), Some(holder));
-        assert_eq!(
-            Holder::parse("pid=1\nstarted=2\n").unwrap().proc_start,
-            None
-        );
-        assert_eq!(Holder::parse("pid=x\nstarted=2\n"), None);
-    }
-
-    #[test]
-    fn two_reclaimers_do_not_remove_each_others_lock() {
-        let base = temp("reclaim-race");
-        let out = base.join("content");
-        let stale = "pid=1\nstarted=1\nproc_start=1\n";
-        fs::write(lock_file(&out), stale).unwrap();
-        // The first reclaimer is part way: it holds the guard.
-        let guard = lock_file(&out).with_extension("lock.reclaim");
-        fs::write(&guard, "").unwrap();
-        let error = reclaim(&lock_file(&out), stale).unwrap_err();
-        assert!(error.contains("another compile is reclaiming"), "{error}");
-        assert!(lock_file(&out).exists());
-        fs::remove_file(&guard).unwrap();
-
-        // A reclaimer that read the stale text finds a fresh lock: it removes nothing.
-        let fresh = Holder::this_process().to_text();
-        fs::write(lock_file(&out), &fresh).unwrap();
-        assert_eq!(reclaim(&lock_file(&out), stale), Ok(false));
-        assert_eq!(fs::read_to_string(lock_file(&out)).unwrap(), fresh);
-        assert!(!guard.exists());
+        // After the person deletes it, the next compile runs.
+        fs::remove_file(lock_file(&out)).unwrap();
+        drop(OutLock::acquire(&out).unwrap());
+        assert!(!lock_file(&out).exists());
     }
 }

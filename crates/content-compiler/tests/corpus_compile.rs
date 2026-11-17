@@ -610,10 +610,20 @@ fn a_second_compile_cannot_clean_a_live_writers_staging_directory() {
     )
     .unwrap();
     let failing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("B must stop");
-    assert!(failing.lines.join("\n").contains("another compile holds"));
+    assert!(
+        failing
+            .lines
+            .join("\n")
+            .contains("another compile may be writing")
+    );
     fs::write(corpus.join("books.toml"), write_books(&printed_chapter())).unwrap();
     let passing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("C must stop");
-    assert!(passing.lines.join("\n").contains("another compile holds"));
+    assert!(
+        passing
+            .lines
+            .join("\n")
+            .contains("another compile may be writing")
+    );
     assert_eq!(
         tree(&staging),
         staged,
