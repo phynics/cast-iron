@@ -662,6 +662,36 @@ test("A top-level chapter collapses only when the corpus marks it", async ({ pag
   }
 });
 
+test("Bestiary 2 Contents lists its Universal Monster Rules chapter with the 28 rules it prints (corpus v0.1.25)", async ({ page }) => {
+  const bestiary2 = sources.find((row) => row.id === "bestiary-2")!;
+  const book = bookTrees().find((row) => row.source === bestiary2.id)!;
+  const chapter = book.chapters.find((node: any) => node.title === "Universal Monster Rules");
+  expect(chapter, "the Bestiary 2 tree carries Universal Monster Rules").toBeTruthy();
+  // The 28 carried rules sit directly in the chapter; Lycanthropic Empathy, which the book
+  // already placed, sits beside them.
+  const carried = (chapter!.children ?? []).filter((node: any) =>
+    String(node.entry).startsWith("ref/carried/bestiary/rules/universal-monster-rules/"),
+  );
+  expect(carried).toHaveLength(28);
+  expect(carried.every((node: any) => node.entry && !(node.children ?? []).length)).toBe(true);
+  // The chapter sits between Monsters A to Z and the catch-all, as the book prints it.
+  const titles = listedChapterTitles(book);
+  expect(titles.indexOf("Monsters A to Z")).toBeLessThan(titles.indexOf("Universal Monster Rules"));
+  expect(titles.indexOf("Universal Monster Rules")).toBeGreaterThan(-1);
+
+  await page.goto(`#/browse/book/${bestiary2.id}`);
+  const tree = page.getByRole("navigation", { name: new RegExp(`Contents of ${escape(bestiary2.title)}`) });
+  await expect(tree).toBeVisible();
+  const row = tree.locator(".toc-top > li").filter({ has: page.getByText("Universal Monster Rules", { exact: true }) }).first();
+  await expect(row).toBeVisible();
+  await row.locator(":scope > .toc-row a").first().click();
+  // Whether the corpus collapses the chapter into a page or keeps it open, every carried rule is reachable from it.
+  const rules = page.locator("main").locator('a[href^="#/entry/ref/carried/bestiary/rules/universal-monster-rules/"]');
+  await expect(rules.first()).toBeVisible();
+  const hrefs = new Set(await rules.evaluateAll((links) => links.map((a) => (a.getAttribute("href") as string).split("?")[0])));
+  for (const node of carried) expect(hrefs, node.title).toContain(`#/entry/${node.entry}`);
+});
+
 test("A nested hub whose own page lists its children is one Contents row with its count", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   const book = bookTrees().find((row) => row.source === core.id)!;

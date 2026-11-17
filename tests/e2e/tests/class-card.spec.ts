@@ -216,8 +216,8 @@ test("A hybrid, a prestige class and an NPC class show only the rows they have a
 });
 
 // The casters without a printed `Spell list:` block read their row from the Spells feature. A part
-// the text does not state plainly stays out: the Bloodrager's section names its ability once, and
-// the Investigator has no spellcasting section.
+// the text does not state plainly stays out: the Investigator has no spellcasting section. The
+// Bloodrager's save DC names Charisma from corpus v0.1.25 (#435).
 async function spellcastingRow(page: Page, id: string, name: string, line: string | null) {
   await installLibrary(page);
   await openClass(page, id, 390);
@@ -239,8 +239,8 @@ test("Ranger's summary card Spellcasting row reads Divine, prepared · Wisdom", 
   await spellcastingRow(page, "ref/class/ranger", "Ranger", "Divine, prepared · Wisdom");
 });
 
-test("Bloodrager's summary card Spellcasting row reads Arcane, spontaneous", async ({ page }) => {
-  await spellcastingRow(page, "ref/class/bloodrager", "Bloodrager", "Arcane, spontaneous");
+test("Bloodrager's summary card Spellcasting row reads Arcane, spontaneous · Charisma", async ({ page }) => {
+  await spellcastingRow(page, "ref/class/bloodrager", "Bloodrager", "Arcane, spontaneous · Charisma");
 });
 
 test("Alchemist's summary card Spellcasting row reads Prepared · Intelligence", async ({ page }) => {
