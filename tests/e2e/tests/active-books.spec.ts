@@ -5,6 +5,7 @@ import {
   count,
   bookTrees,
   buildLibraryWithoutBooks,
+  bookEntryOrder,
   corpusEntry,
   visibleWithout,
   groupLetter,
@@ -132,11 +133,13 @@ installedTest("An entry stays visible while any of its books is active, whatever
   expect(members, "Acrobatic is a Core Rulebook feat").toContain("core-rulebook");
   const mythic = "mythic-adventures";
   expect(members, "Mythic Adventures does not print Acrobatic").not.toContain(mythic);
-  // Mythic Adventures places it in a chapter (the catch-all), which is what used to own it.
-  expect(
-    bookTrees().find((tree) => tree.source === mythic)?.chapters.length,
-    "Mythic Adventures has a book tree",
-  ).toBeGreaterThan(0);
+  // The data this case needs: Mythic Adventures places Acrobatic in a chapter although it does not
+  // print it. If the corpus fix (#420) removes that placement, the case has nothing to prove.
+  const mythicTree = bookTrees().find((tree) => tree.source === mythic);
+  installedTest.skip(
+    !mythicTree || !bookEntryOrder(mythicTree).includes(acrobatic.id),
+    "Mythic Adventures no longer places Acrobatic (#420); the two-book case still proves the OR rule",
+  );
   const titleOf = (id: string) => corpus.catalog.sources.find((row: any) => row.id === id)!.title;
 
   await installLibrary(page);
@@ -206,6 +209,12 @@ installedTest("An entry printed in two books stays with one on, is named by the 
   await expect(hit().first().locator(".hit-meta")).toContainText(titleOf(second));
   await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(stub.title))}`);
   await expect(page.locator(".entry-list").getByRole("link", { name: stub.title, exact: true })).toBeVisible();
+  // The browse row names the book that is on, not the primary book that is off.
+  const browseRow = page
+    .locator(".entry-list > li")
+    .filter({ has: page.locator(`a[href="#/entry/${stub.id}"]`) });
+  await expect(browseRow.locator(".row-source")).toContainText(titleOf(second));
+  await expect(browseRow.locator(".row-source")).not.toContainText(titleOf(first));
 
   await setBook(first, true);
   await setBook(second, false);

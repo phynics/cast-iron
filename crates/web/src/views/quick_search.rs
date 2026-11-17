@@ -546,8 +546,19 @@ fn watch_suggestions(quick: QuickSearch) {
                         (None, Some(group)) => group,
                         (None, None) => kind,
                     };
-                    // The row names one member book (the same rule as the search result rows).
-                    let source_id = library.entry_row_book(&id).unwrap_or(&hit.source);
+                    // The row names the book that revised it, else one member book (the same rule
+                    // as the search result rows).
+                    let source_id = library
+                        .stub(&id)
+                        .map(|stub| {
+                            crate::membership::listed_book(
+                                crate::membership::revision_source(stub, &hit.source),
+                                stub,
+                                &[],
+                                || library.row_book(stub),
+                            )
+                        })
+                        .unwrap_or(&hit.source);
                     let book = library
                         .source(source_id)
                         .map_or(source_id, |source| source.title.as_str());

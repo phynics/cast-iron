@@ -917,6 +917,7 @@ test("A class list opens with the list-page head: title, count line, then the fi
   const classPage = row.getByRole("link", { name: "Wizard class page" });
   await expect(classPage).toHaveClass(/page-link/);
   // The name field has the block gap under the filter row, not a shared edge (12 px at least).
+  await expect(main.locator(".list-filter")).toBeVisible();
   const gap = await page.evaluate(() => {
     const row = document.querySelector("main .filter-row")!.getBoundingClientRect();
     const field = document.querySelector("main .list-filter")!.getBoundingClientRect();
@@ -926,6 +927,8 @@ test("A class list opens with the list-page head: title, count line, then the fi
   // The old disclosure of pills and the bordered class rectangle are gone.
   await expect(main.locator("details.school-filter, .class-page, .chip-count")).toHaveCount(0);
   // The order from the top: title, count line, filter row, level bar, rows.
+  await expect(main.locator(".level-nav")).toBeVisible();
+  await expect(main.locator(".spell-rows").first()).toBeVisible();
   const tops = await page.evaluate(() => {
     const top = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().top;
     return [top("main h1"), top("main .list-count"), top("main .filter-row"), top("main .level-nav"), top("main .spell-rows")];

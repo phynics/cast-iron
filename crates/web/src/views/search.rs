@@ -1243,18 +1243,16 @@ pub fn Search() -> impl IntoView {
     let source_totals = Memo::new(move |_| {
         let revision = source_totals_library.selection_revision().get();
         let state = revisions.get().flatten();
-        let mut totals: BTreeMap<String, usize> = BTreeMap::new();
-        for stub in discovery_for(&source_totals_library, discovery_cache, revision)
-            .entries()
-            .filter(|stub| {
-                state
-                    .as_ref()
-                    .is_none_or(|state| !state.hides(stub.id.as_str()))
-            })
-        {
-            *totals.entry(stub.source.clone()).or_default() += 1;
-        }
-        totals
+        // An entry counts once under every member book, like the index chips do.
+        crate::membership::count_by_book(
+            discovery_for(&source_totals_library, discovery_cache, revision)
+                .entries()
+                .filter(|stub| {
+                    state
+                        .as_ref()
+                        .is_none_or(|state| !state.hides(stub.id.as_str()))
+                }),
+        )
     });
     let kind_chips = kind_counts
         .into_iter()
@@ -2173,14 +2171,19 @@ fn hit_view(
         (None, Some(group)) => group.to_string(),
         (None, None) => kind.to_string(),
     };
-    // The row names the book the reader filtered by, when the entry belongs to it. Otherwise it
-    // names one member book: the first while it is active, else the best active one
-    // (`Library::row_book`). The entry header applies the same rule to the full `source_ids`.
+    // The row names the book that revised it, else the book the reader filtered by, else one
+    // member book: the first while it is active, else the best active one (`Library::row_book`).
+    // The entry header applies the same rule to the full `source_ids`.
     let source_id = entry_id
         .as_ref()
         .and_then(|id| library.stub(id))
         .map(|stub| {
-            crate::membership::chosen_book(stub, chosen).unwrap_or_else(|| library.row_book(stub))
+            crate::membership::listed_book(
+                crate::membership::revision_source(stub, &hit.source),
+                stub,
+                chosen,
+                || library.row_book(stub),
+            )
         })
         .unwrap_or(&hit.source);
     let source = library

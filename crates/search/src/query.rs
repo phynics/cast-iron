@@ -224,15 +224,28 @@ impl SearchIndex {
         let use_prefix = allow_prefix_always || exact.is_none();
         if use_prefix {
             let start = terms.partition_point(|t| t.as_str() < q);
-            out.extend(
-                terms[start..]
+            let end = start
+                + terms[start..]
                     .iter()
                     .take_while(|t| t.starts_with(q))
-                    .enumerate()
-                    .map(|(k, _)| (start + k, PREFIX_WEIGHT))
-                    .filter(|(i, _)| Some(*i) != exact)
-                    .take(MAX_PREFIX_TERMS),
-            );
+                    .count();
+            let mut found: Vec<usize> = (start..end).filter(|&i| Some(i) != exact).collect();
+            if found.len() > MAX_PREFIX_TERMS {
+                // A short prefix has more completions than the cap. Keep the ones that occur in
+                // the most documents, so "ma" keeps "magic" and "man" instead of whatever sorts
+                // first. Equal frequencies keep the alphabetically earlier term, so the choice
+                // does not depend on the sort algorithm.
+                let dfs = &self.postings.dfs;
+                let df = |i: usize| dfs.get(i).copied().unwrap_or(0);
+                found.select_nth_unstable_by(MAX_PREFIX_TERMS, |&a, &b| {
+                    df(b).cmp(&df(a)).then(a.cmp(&b))
+                });
+                found.truncate(MAX_PREFIX_TERMS);
+                // Back to term order: scores add up in this order, and a stable order keeps the
+                // floating-point sums the same between runs.
+                found.sort_unstable();
+            }
+            out.extend(found.into_iter().map(|i| (i, PREFIX_WEIGHT)));
         }
         (out, use_prefix)
     }
@@ -309,28 +322,32 @@ impl SearchIndex {
         filters: &Filters,
         eligible: impl Fn(&str) -> bool,
     ) -> FilterCounts {
+        self.filter_counts_masked(text, filters, &self.eligible_mask_ids(eligible))
+    }
+
+    /// [`SearchIndex::filter_counts_eligible`] over a mask that the caller built once for its
+    /// selection. The mask is read, not rebuilt.
+    pub fn filter_counts_masked(
+        &self,
+        text: &str,
+        filters: &Filters,
+        mask: &crate::EligibleMask,
+    ) -> FilterCounts {
         let n = self.meta.docs.len();
-        let mut eligible_mask = vec![false; n];
-        let mut all_eligible = true;
-        for (i, doc) in self.meta.docs.iter().enumerate() {
-            let ok = eligible(&doc.id);
-            eligible_mask[i] = ok;
-            all_eligible &= ok;
-        }
 
         // Nothing is filtered: the precomputed library totals are the answer.
-        if filters.is_empty() && text.trim().is_empty() && all_eligible {
+        if filters.is_empty() && text.trim().is_empty() && mask.len() == n && mask.allows_all() {
             return self.doc_lists.totals.clone();
         }
 
         let qtokens: Vec<String> = scan(text).into_iter().map(|t| t.norm).collect();
         let base: Vec<u32> = if qtokens.is_empty() {
             (0..n)
-                .filter(|&i| eligible_mask[i])
+                .filter(|&i| mask.allows(i))
                 .map(|i| i as u32)
                 .collect()
         } else {
-            match self.score_docs(&qtokens, |doc| eligible_mask[doc], &mut NoTimer) {
+            match self.score_docs(&qtokens, |doc| mask.allows(doc), &mut NoTimer) {
                 Some((scored, _)) => scored.into_iter().map(|(doc, _)| doc).collect(),
                 None => return FilterCounts::default(),
             }
@@ -439,7 +456,7 @@ impl SearchIndex {
 
     /// Search only eligible document IDs, applying eligibility before the result limit.
     pub fn search_eligible(&self, query: &Query, eligible: impl Fn(&str) -> bool) -> Vec<Hit> {
-        self.search_eligible_docs(query, |doc| eligible(doc.id), &mut NoTimer)
+        self.search_eligible_docs(query, |ord| eligible(&self.meta.docs[ord].id), &mut NoTimer)
     }
 
     /// Ranked results without snippets, for callers that only show a page.
@@ -463,6 +480,30 @@ impl SearchIndex {
         &self,
         query: &Query,
         accept: impl Fn(DocView<'_>) -> bool,
+    ) -> Vec<HitSummary> {
+        self.search_summaries_by(query, |ord| accept(self.view(ord)))
+    }
+
+    /// Ranked results without snippets over the documents that `mask` allows. The mask is built
+    /// once per book selection with [`SearchIndex::eligible_mask`]; a keystroke reads it by
+    /// ordinal and looks up no id.
+    pub fn search_summaries_masked(
+        &self,
+        query: &Query,
+        mask: &crate::EligibleMask,
+    ) -> Vec<HitSummary> {
+        self.search_summaries_by(query, |ord| mask.allows(ord))
+    }
+
+    /// [`SearchIndex::search_eligible`] over a prebuilt mask.
+    pub fn search_masked(&self, query: &Query, mask: &crate::EligibleMask) -> Vec<Hit> {
+        self.search_eligible_docs(query, |ord| mask.allows(ord), &mut NoTimer)
+    }
+
+    fn search_summaries_by(
+        &self,
+        query: &Query,
+        accept: impl Fn(usize) -> bool,
     ) -> Vec<HitSummary> {
         let limit = result_limit(query);
         let Some((ranked, _)) = self.ranked(query, accept, &mut NoTimer, limit) else {
@@ -522,7 +563,12 @@ impl SearchIndex {
             timing: SearchTiming::default(),
         };
         let limit = result_limit(query);
-        let summaries = match self.ranked(query, |doc| eligible(doc.id), &mut timer, limit) {
+        let summaries = match self.ranked(
+            query,
+            |ord| eligible(&self.meta.docs[ord].id),
+            &mut timer,
+            limit,
+        ) {
             Some((ranked, _)) => ranked
                 .into_iter()
                 .map(|(ord, score)| self.summary(ord, score))
@@ -542,13 +588,13 @@ impl SearchIndex {
         eligible: impl Fn(&str) -> bool,
         timer: &mut T,
     ) -> Vec<Hit> {
-        self.search_eligible_docs(query, |doc| eligible(doc.id), timer)
+        self.search_eligible_docs(query, |ord| eligible(&self.meta.docs[ord].id), timer)
     }
 
     fn search_eligible_docs<T: PhaseTimer>(
         &self,
         query: &Query,
-        accept: impl Fn(DocView<'_>) -> bool,
+        accept: impl Fn(usize) -> bool,
         timer: &mut T,
     ) -> Vec<Hit> {
         let limit = result_limit(query);
@@ -566,7 +612,7 @@ impl SearchIndex {
     fn ranked<T: PhaseTimer>(
         &self,
         query: &Query,
-        accept: impl Fn(DocView<'_>) -> bool,
+        accept: impl Fn(usize) -> bool,
         timer: &mut T,
         limit: usize,
     ) -> Option<(Vec<(u32, f32)>, Matcher)> {
@@ -579,7 +625,7 @@ impl SearchIndex {
             }
             timer.enter(Phase::Scoring);
             let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
-                .filter(|&i| accept(self.view(i)) && self.passes(i, &query.filters))
+                .filter(|&i| accept(i) && self.passes(i, &query.filters))
                 .map(|i| {
                     (
                         normalize(&self.meta.docs[i].title),
@@ -602,7 +648,7 @@ impl SearchIndex {
 
         let (mut scored, matcher) = self.score_docs(
             &qtokens,
-            |doc| accept(self.view(doc)) && self.passes(doc, &query.filters),
+            |doc| accept(doc) && self.passes(doc, &query.filters),
             timer,
         )?;
         timer.enter(Phase::Sort);

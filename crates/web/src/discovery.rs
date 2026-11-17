@@ -5,18 +5,55 @@ use crate::library::{Library, LibraryError};
 use cast_iron_schema::SpellLists;
 use cast_iron_schema::{EntryKind, EntryStub};
 use cast_iron_search::{
-    BOOK_SECTION_KIND, Correction, FilterCounts, Filters, Hit, HitSummary, Query,
+    BOOK_SECTION_KIND, Correction, EligibleMask, FilterCounts, Filters, Hit, HitSummary, Query,
+    SearchIndex,
 };
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-/// The eligible id set of one selection revision, shared by every [`Discovery`] at that
-/// revision. `Library::discovery` keeps one of these, so a page that asks once per entry kind
-/// does not rebuild the set each time.
+/// What one book selection allows in the search index, by document ordinal. The search page
+/// runs up to four passes per keystroke; each reads one of these instead of looking up every
+/// candidate's id.
+pub(crate) struct SelectionMasks {
+    /// Catalog entries with an active member book.
+    pub(crate) entries: EligibleMask,
+    /// Book-section documents of active books.
+    pub(crate) sections: EligibleMask,
+    /// The two together: what a correction searches when it includes sections.
+    pub(crate) both: EligibleMask,
+}
+
+impl SelectionMasks {
+    /// Evaluates the selection once for every document of `index`.
+    pub(crate) fn build(
+        index: &SearchIndex,
+        ids: &BTreeSet<String>,
+        book_active: impl Fn(&str) -> bool,
+    ) -> Self {
+        Self {
+            entries: index.eligible_mask_ids(|id| ids.contains(id)),
+            sections: index
+                .eligible_mask(|doc| doc.kind == BOOK_SECTION_KIND && book_active(doc.source)),
+            both: index.eligible_mask(|doc| {
+                if doc.kind == BOOK_SECTION_KIND {
+                    book_active(doc.source)
+                } else {
+                    ids.contains(doc.id)
+                }
+            }),
+        }
+    }
+}
+
+/// The eligible id set and the search masks of one selection revision, shared by every
+/// [`Discovery`] at that revision. `Library::discovery` keeps one of these, so a page that asks
+/// once per entry kind does not rebuild the set each time, and a keystroke does not rebuild the
+/// masks.
 #[derive(Default)]
 pub(crate) struct DiscoveryCache {
     cached: RefCell<Option<(u64, Rc<BTreeSet<String>>)>>,
+    masks: RefCell<Option<(u64, Rc<SelectionMasks>)>>,
 }
 
 impl DiscoveryCache {
@@ -37,6 +74,22 @@ impl DiscoveryCache {
         *self.cached.borrow_mut() = Some((revision, Rc::clone(&ids)));
         ids
     }
+
+    /// The masks for `revision`, built only when the cache is empty or holds another revision.
+    pub(crate) fn masks(
+        &self,
+        revision: u64,
+        build: impl FnOnce() -> SelectionMasks,
+    ) -> Rc<SelectionMasks> {
+        if let Some((cached_revision, masks)) = self.masks.borrow().as_ref()
+            && *cached_revision == revision
+        {
+            return Rc::clone(masks);
+        }
+        let masks = Rc::new(build());
+        *self.masks.borrow_mut() = Some((revision, Rc::clone(&masks)));
+        masks
+    }
 }
 
 #[derive(Clone)]
@@ -44,14 +97,29 @@ pub struct Discovery {
     library: Library,
     /// Shared with every other snapshot at the same selection revision.
     eligible_ids: Rc<BTreeSet<String>>,
+    /// The selection revision the ids belong to; it keys the search masks.
+    revision: u64,
 }
 
 impl Discovery {
-    pub(crate) fn new(library: Library, eligible_ids: Rc<BTreeSet<String>>) -> Self {
+    pub(crate) fn new(library: Library, eligible_ids: Rc<BTreeSet<String>>, revision: u64) -> Self {
         Self {
             library,
             eligible_ids,
+            revision,
         }
+    }
+
+    /// The search index and the masks of this selection. The masks are built on the first search
+    /// at a revision and read by every search after it.
+    async fn index_and_masks(&self) -> Result<(Rc<SearchIndex>, Rc<SelectionMasks>), LibraryError> {
+        let index = self.library.search_index().await?;
+        let masks = self.library.selection_masks(self.revision, || {
+            SelectionMasks::build(&index, &self.eligible_ids, |source| {
+                self.library.book_active(source)
+            })
+        });
+        Ok((index, masks))
     }
 
     pub fn active_ids(&self) -> &BTreeSet<String> {
@@ -94,14 +162,14 @@ impl Discovery {
             .collect()
     }
     pub async fn search(&self, query: &Query) -> Result<Vec<Hit>, LibraryError> {
-        let index = self.library.search_index().await?;
-        Ok(index.search_eligible(query, |id| self.is_eligible(id)))
+        let (index, masks) = self.index_and_masks().await?;
+        Ok(index.search_masked(query, &masks.entries))
     }
     /// Ranking data for the whole result set, without snippets. The page
     /// materializes only the rows it shows.
     pub async fn search_summaries(&self, query: &Query) -> Result<Vec<HitSummary>, LibraryError> {
-        let index = self.library.search_index().await?;
-        Ok(index.search_summaries_eligible(query, |id| self.is_eligible(id)))
+        let (index, masks) = self.index_and_masks().await?;
+        Ok(index.search_summaries_masked(query, &masks.entries))
     }
     /// A corrected spelling for a query that finds little, over the entries of the active books
     /// (and, with `sections`, the sections of active books). `None` when nothing needs fixing
@@ -112,23 +180,20 @@ impl Discovery {
         filters: &Filters,
         sections: bool,
     ) -> Result<Option<Correction>, LibraryError> {
-        let index = self.library.search_index().await?;
-        Ok(index.suggest_correction(text, filters, |doc| {
-            if doc.kind == BOOK_SECTION_KIND {
-                sections && self.library.book_active(doc.source)
-            } else {
-                self.is_eligible(doc.id)
-            }
-        }))
+        let (index, masks) = self.index_and_masks().await?;
+        let mask = if sections {
+            &masks.both
+        } else {
+            &masks.entries
+        };
+        Ok(index.suggest_correction_masked(text, filters, mask))
     }
     /// Ranking data for book-section documents in active books, without snippets. A section
     /// document is not an entry id, so it is accepted by its kind and its book's state instead
     /// of the catalog id set. An inactive book contributes no section.
     pub async fn section_summaries(&self, query: &Query) -> Result<Vec<HitSummary>, LibraryError> {
-        let index = self.library.search_index().await?;
-        Ok(index.search_summaries_docs(query, |doc| {
-            doc.kind == BOOK_SECTION_KIND && self.library.book_active(doc.source)
-        }))
+        let (index, masks) = self.index_and_masks().await?;
+        Ok(index.search_summaries_masked(query, &masks.sections))
     }
     /// Counts for the search filter chips: kinds, sources and facet values over the eligible
     /// entries that match `text`, each applying every active filter except its own group.
@@ -137,7 +202,8 @@ impl Discovery {
         text: &str,
         filters: &Filters,
     ) -> Result<FilterCounts, LibraryError> {
-        self.filter_counts_counted(text, filters, |_| true).await
+        let (index, masks) = self.index_and_masks().await?;
+        Ok(index.filter_counts_masked(text, filters, &masks.entries))
     }
     /// Counts over the rows a caller also counts. A revision selection passes its hidden set
     /// here so a base and its revision count once, and a removed or merged feat counts not at
@@ -148,8 +214,10 @@ impl Discovery {
         filters: &Filters,
         counted: impl Fn(&str) -> bool,
     ) -> Result<FilterCounts, LibraryError> {
-        let index = self.library.search_index().await?;
-        Ok(index.filter_counts_eligible(text, filters, |id| self.is_eligible(id) && counted(id)))
+        let (index, masks) = self.index_and_masks().await?;
+        // The caller's own test narrows the shared mask; it runs only for eligible documents.
+        let narrowed = index.narrow_mask(&masks.entries, |doc| counted(doc.id));
+        Ok(index.filter_counts_masked(text, filters, &narrowed))
     }
     pub async fn facet_fields(&self) -> Result<Vec<String>, LibraryError> {
         let index = self.library.search_index().await?;
@@ -258,5 +326,86 @@ mod tests {
         });
         assert!(built.get());
         assert_eq!(ids.as_ref(), &BTreeSet::from(["new".to_string()]));
+    }
+
+    fn masks_index() -> SearchIndex {
+        use cast_iron_search::{DocInput, IndexBuilder};
+        let mut builder = IndexBuilder::new();
+        let docs = [
+            ("a/one", "Fire One", "rule", "book-a"),
+            ("a/two", "Fire Two", "rule", "book-b"),
+            ("section:a", "Fire Section A", BOOK_SECTION_KIND, "book-a"),
+            ("section:b", "Fire Section B", BOOK_SECTION_KIND, "book-b"),
+        ];
+        for (id, title, kind, source) in docs {
+            builder.add(DocInput {
+                id: id.into(),
+                title: title.into(),
+                kind: kind.into(),
+                source: source.into(),
+                section: "S".into(),
+                text: "flame".into(),
+                ..DocInput::default()
+            });
+        }
+        builder.build()
+    }
+
+    #[test]
+    fn the_masks_are_built_once_per_selection_revision() {
+        let cache = DiscoveryCache::default();
+        let index = masks_index();
+        let builds = Cell::new(0);
+        let build = || {
+            builds.set(builds.get() + 1);
+            SelectionMasks::build(&index, &BTreeSet::from(["a/one".to_string()]), |source| {
+                source == "book-a"
+            })
+        };
+        let first = cache.masks(4, build);
+        // Searches at the same revision read the cached masks and never build again.
+        for _ in 0..5 {
+            let again = cache.masks(4, || unreachable!("the revision did not change"));
+            assert!(Rc::ptr_eq(&first, &again));
+        }
+        assert_eq!(builds.get(), 1);
+        // A changed selection is a new revision, and builds again.
+        let next = cache.masks(5, build);
+        assert_eq!(builds.get(), 2);
+        assert!(!Rc::ptr_eq(&first, &next));
+    }
+
+    #[test]
+    fn the_masks_follow_the_ids_and_the_active_books() {
+        let index = masks_index();
+        let masks =
+            SelectionMasks::build(&index, &BTreeSet::from(["a/one".to_string()]), |source| {
+                source == "book-a"
+            });
+        let allowed = |mask: &EligibleMask| {
+            (0..index.doc_count())
+                .filter(|&ord| mask.allows(ord))
+                .map(|ord| index.doc(ord as u32).unwrap().id.to_string())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(allowed(&masks.entries), ["a/one"]);
+        assert_eq!(allowed(&masks.sections), ["section:a"]);
+        assert_eq!(allowed(&masks.both), ["a/one", "section:a"]);
+        // The masked search answers like the closure search it replaces.
+        let query = Query {
+            text: "fire".into(),
+            limit: 50,
+            ..Default::default()
+        };
+        assert_eq!(
+            index.search_summaries_masked(&query, &masks.entries),
+            index.search_summaries_eligible(&query, |id| id == "a/one")
+        );
+        assert_eq!(
+            index.search_summaries_masked(&query, &masks.sections),
+            index.search_summaries_docs(&query, |doc| {
+                doc.kind == BOOK_SECTION_KIND && doc.source == "book-a"
+            })
+        );
     }
 }

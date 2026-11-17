@@ -25,13 +25,18 @@ Closes [#394](https://github.com/phynics/cast-iron/issues/394). This carries out
   and `Hit::source` still use `source_ids[0]`.
 - **A row names one member book.** The first while it is active, else the highest-priority active
   one (the former `preferred_source` rule, moved from `views/book_tier.rs`), else the first. The
-  entry header and every row use it. A search row can now name a third active book, which the old
-  entry said needed a format change.
+  entry header, the search and Quick search rows, the browse rows, the spell-list rows and the
+  Recently viewed rows use it. `membership::listed_book` fixes the precedence for a listed row: the
+  book that revised the entry (a third-party revision replaces its original in place and keeps
+  naming its own book), else the book a book filter chose when the entry belongs to it, else the
+  active-books choice above. A search row can now name a third active book, which the old entry
+  said needed a format change.
 - **Format.** `SCHEMA_VERSION` goes from 4 to 5, because the catalog stub gains `books`. This is a
   "format 5" change: it is on `main`; promotion to `release` waits (see the 2026-11-16 decisions).
   The reader still opens schema 1 to 4. A schema-4 stub has no `books`, so the entry belongs to its
   `source` alone, and the update route offers the schema-5 library. Rule 5 holds: the field follows
-  `source_ids` order and a test pins the serialization.
+  `source_ids` order and a test pins the serialization. `SelectionMasks` (#429) read the same
+  visible-id set and are rebuilt per selection revision, per Library instance.
 - **Removed.** `BookLookup::source_for_entry`, `canonical_book_source`, `count_by_source`,
   `Library::canonical_source_for_entry`, `eligible_ids`, `is_listing_chapter` and the
   `Page order`/`Unpaged` title constants (the catch-all title stays, for Contents and reachability).
@@ -65,15 +70,17 @@ Behaviour a reader sees:
 - Under a book filter on the results page, a row names the filtered book (`membership::chosen_book`)
   when the entry belongs to it, so a list filtered by Ultimate Intrigue does not label a row with
   Core Rulebook. Without a filter the rule below applies.
-- A row names `source_ids[0]` while that book is on. Spell-list rows and Recently viewed rows used
+- A row without a filter or a revision names `source_ids[0]` while that book is on. Spell-list rows and Recently viewed rows used
   to name the placement book, and now name this too. The hint "N matches in inactive books (X)"
   names the first member of the hidden entries, not the placement book.
 - Contents, chapter pages, the reading footer and previous/next do not change. A Contents row can
   still list an entry under a book that does not print it until the corpus placement rule of #420
-  lands; that is presentation, and it hides nothing.
+  lands; that is presentation, and it hides nothing. Contents counts are not membership counts even
+  after #420: Contents also leaves out the hidden kinds and the catch-all, and a placement inside a
+  member book does not make the two lists equal.
 - Interaction with #420: the corpus fix removes placements outside `source_ids`. It does not need
-  this change and this change does not need it. After #420 the Contents counts and the membership
-  counts agree for the printed books.
+  this change and this change does not need it. Placements then lie inside the member books, which
+  is a subset of membership, not equality with it.
 
 ## Archives of Nethys links are one quiet line, 2026-11-15
 
@@ -1989,3 +1996,13 @@ Closes [#404](https://github.com/phynics/cast-iron/issues/404).
 - **The breakpoint is the cards' 36rem, not 48rem.** The issue text names 48rem for the two-column step, but `.cats` switches at 36rem. Matching the cards is the acceptance (edges equal), so Starred follows them. Changing the cards' breakpoint would be a separate decision.
 - **A partly filled row stays partly filled.** With one or two stars on a wide window, only those cells draw a hairline; the cell width is one card column. The list's own top rule applies only in the one-column layout.
 
+
+## Search ranks prefix completions by frequency and reads one eligibility mask per selection, 2026-11-17
+
+Closes [#422](https://github.com/phynics/cast-iron/issues/422). The search format does not change: `INDEX_FORMAT_VERSION` stays 2, and a break would wait for format 5 (owner decision of 2026-11-16).
+
+- **A short prefix keeps its 512 most frequent completions.** `expand` used to keep the first 512 completions in alphabetical order, so "ma" lost "magic" to terms that sort before it. It now keeps the 512 terms with the highest document frequency. Frequency is the posting-list length that the index already stores per term (`dfs`), so no format change is needed. Equal frequencies keep the alphabetically earlier term, so the choice never depends on the sort algorithm. The kept terms go back to alphabetical order before scoring, so the floating-point sums keep the order they had. Only a prefix with more than 512 completions changes; every other query, and the 50 queries of the canonical golden, rank as before. In the 56-query comparison on the v0.1.23 library (the 50 golden queries plus "ma", "m", "c", "sp", "char" and "bl"), only "ma", "m", "c" and "sp" change their top 50. The benchmark's aggregate for "ma" across its four passes (entry, section and unfiltered hits plus the filter-count total, with overlapping documents counted in each) rises from 47,022 to 54,354 because the kept completions cover more documents. It is not the query's hit count.
+- **The mask is built once per book selection.** `SearchIndex::eligible_mask` evaluates the selection for each document once and returns an `EligibleMask` (a flag per document ordinal). `search_summaries_masked`, `search_masked`, `filter_counts_masked` and `suggest_correction_masked` read it by ordinal. The closure APIs stay and give the same results; `filter_counts_eligible` now builds a mask and calls the masked one. The mask logic is native and tested (rule 8).
+- **The client caches three masks per selection revision** in `DiscoveryCache`, next to the eligible id set: entries, book sections, and both (for a correction that includes sections). A snapshot from an older revision builds its own and leaves the cache alone. `filter_counts_counted` narrows the entry mask with the caller's own test, which runs only for eligible documents.
+- **The ranking golden has a synthetic fixture.** `crates/search/tests/synthetic_ranking.rs` indexes `tests/fixtures/synthetic-corpus.txt` (invented text, 31 documents, plus a generated crowd of 612 documents that pushes the prefix "zq" past the cap) and compares the top ids of the queries in `synthetic-queries.txt`, with all books and with one book off through a mask, against `tests/golden/synthetic-top.txt`, and asserts the correction for "magic missle" and that the masked correction equals the closure one. It needs no generated library, so `cargo xtask check` always runs it. Only `CAST_IRON_BLESS=1` rewrites the golden after a deliberate ranking change, and it refuses to run when `CI` is set. `canonical_ranking.rs` stays as an optional extra: it still skips when the content version differs.
+- **Timings** (native, release, v0.1.23 library, all four passes of one keystroke, median of 7) are in the pull request. `crates/search/examples/bench_keystroke.rs` reproduces them.

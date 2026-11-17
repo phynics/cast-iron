@@ -87,6 +87,29 @@ pub fn chosen_book<'s>(stub: &'s EntryStub, chosen: &[String]) -> Option<&'s str
         .map(String::as_str)
 }
 
+/// The book a listed row names, in one precedence: the book that revised the row (a revision
+/// replaces its original in place, and the row keeps naming the revision's book), else the book
+/// a book filter chose when the entry belongs to it, else `active_choice`, the member book the
+/// reader's active books select (`BookMembership::row_book`). Search rows, Quick search rows and
+/// browse rows all name their book through this.
+pub fn listed_book<'s>(
+    revised_by: Option<&'s str>,
+    stub: &'s EntryStub,
+    chosen: &[String],
+    active_choice: impl FnOnce() -> &'s str,
+) -> &'s str {
+    revised_by
+        .or_else(|| chosen_book(stub, chosen))
+        .unwrap_or_else(active_choice)
+}
+
+/// The book an effective-revision pass set on a search hit, if it did. The index records the
+/// entry's primary book; `revisions::effective_hits` overwrites it with the revising book, so a
+/// hit whose source differs from its stub's carries a revision attribution.
+pub fn revision_source<'s>(stub: &EntryStub, hit_source: &'s str) -> Option<&'s str> {
+    (stub.source != hit_source).then_some(hit_source)
+}
+
 /// How many entries each book holds, whether or not it is active. An entry counts once for each
 /// of its books, so the counts add up to more than the number of entries. A book with no entries
 /// has no key. A key is allocated once, when its first entry arrives.
@@ -274,6 +297,27 @@ mod tests {
         );
         assert_eq!(chosen_book(&acrobatic, &choose(&["apg"])), None);
         assert_eq!(chosen_book(&acrobatic, &[]), None);
+    }
+
+    #[test]
+    fn a_revision_book_beats_the_filter_and_the_active_choice() {
+        let dodge = stub("ref/feat/dodge", &["core", "um"]);
+        let chosen = vec!["um".to_string()];
+        let active = || "core";
+        // An effective revision names its own book, even under a filter that names another.
+        assert_eq!(
+            listed_book(Some("elephant"), &dodge, &chosen, active),
+            "elephant"
+        );
+        assert_eq!(listed_book(None, &dodge, &chosen, active), "um");
+        assert_eq!(listed_book(None, &dodge, &[], active), "core");
+    }
+
+    #[test]
+    fn a_hit_source_that_differs_from_the_stub_is_a_revision_attribution() {
+        let dodge = stub("ref/feat/dodge", &["core"]);
+        assert_eq!(revision_source(&dodge, "elephant"), Some("elephant"));
+        assert_eq!(revision_source(&dodge, "core"), None);
     }
 
     #[test]

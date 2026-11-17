@@ -1,0 +1,31 @@
+# Queries for the synthetic ranking golden, one per line.
+fire
+fir
+fire bolt
+firebolt
+burning
+wall fire
+cure
+cure light
+cure light wounds
+clw
+wounds
+magic
+ma
+mag mis
+magic missle
+magic missile
+grapple
+grap
+weapon
+weapon focus
+armor class
+ac
+goblin
+gob
+distracting
+attack of opp
+of
+nothing
+zq
+zqfreq
