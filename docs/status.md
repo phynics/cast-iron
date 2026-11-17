@@ -9,7 +9,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 | | |
 |---|---|
 | Corpus | `phynics/cast-iron-data` tag `v0.1.24`, commit `fdb3fc2f24cf06a0c38aedfd92e22a65b78788aa` (`sources/corpus.toml`). Pin entry: [2026-11-17](status/2026-11-17-corpus-pinned-to-v0-1-24-with-the-placement-rules.md) |
-| Content version | `CONTENT_VERSION` (`cargo xtask content` on `main` at `f59c34c`, 2026-11-17) |
+| Content version | `v049148bc681493f6` (`cargo xtask content` on `main` at `f59c34c`, 2026-11-17) |
 | Library | 31,800 entries, 439 publications, 439 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 5 (`crates/schema/src/lib.rs`; the client reads 1 to 5) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |

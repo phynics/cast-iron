@@ -169,7 +169,15 @@ fn parse_decision(stem: &str, text: &str) -> Result<Decision> {
     let (fields, body) = split_front_matter(text)?;
     require_keys(
         &fields,
-        &["title", "date", "status", "superseded_by", "issues", "prs", "area"],
+        &[
+            "title",
+            "date",
+            "status",
+            "superseded_by",
+            "issues",
+            "prs",
+            "area",
+        ],
     )?;
     let date = field(&fields, "date");
     if !is_date(date) || date != date_of_name {
@@ -270,7 +278,9 @@ fn read_entries(dir: &Path) -> Result<Vec<(String, String, PathBuf)>> {
 fn load_decisions(dir: &Path) -> Result<Vec<Decision>> {
     let mut decisions = Vec::new();
     for (stem, text, path) in read_entries(dir)? {
-        decisions.push(parse_decision(&stem, &text).map_err(|error| format!("{}: {error}", path.display()))?);
+        decisions.push(
+            parse_decision(&stem, &text).map_err(|error| format!("{}: {error}", path.display()))?,
+        );
     }
     let stems: BTreeSet<&str> = decisions.iter().map(|d| d.stem.as_str()).collect();
     for decision in &decisions {
@@ -297,7 +307,9 @@ fn load_decisions(dir: &Path) -> Result<Vec<Decision>> {
 fn load_status(dir: &Path) -> Result<Vec<StatusEntry>> {
     let mut entries = Vec::new();
     for (stem, text, path) in read_entries(dir)? {
-        entries.push(parse_status(&stem, &text).map_err(|error| format!("{}: {error}", path.display()))?);
+        entries.push(
+            parse_status(&stem, &text).map_err(|error| format!("{}: {error}", path.display()))?,
+        );
     }
     Ok(entries)
 }
@@ -447,9 +459,11 @@ fn broken_links(text: &str, from_dir: &Path) -> Vec<String> {
         for captures in link.captures_iter(&line) {
             let target = &captures[1];
             let file = target.split('#').next().unwrap_or_default();
-            let has_scheme = target
-                .split_once(':')
-                .is_some_and(|(scheme, _)| scheme.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'.' || b == b'-'));
+            let has_scheme = target.split_once(':').is_some_and(|(scheme, _)| {
+                scheme
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'.' || b == b'-')
+            });
             if file.is_empty() || has_scheme || file.starts_with('/') {
                 continue;
             }
@@ -468,7 +482,8 @@ fn check_links(root: &Path) -> Result {
         root.join("docs").join("status.md"),
     ];
     for dir in [decisions_dir(root), status_dir(root)] {
-        let listing = fs::read_dir(&dir).map_err(|error| format!("read {}: {error}", dir.display()))?;
+        let listing =
+            fs::read_dir(&dir).map_err(|error| format!("read {}: {error}", dir.display()))?;
         for item in listing {
             let path = item.map_err(|error| error.to_string())?.path();
             if path.extension().is_some_and(|ext| ext == "md") {
@@ -482,7 +497,10 @@ fn check_links(root: &Path) -> Result {
             .map_err(|error| format!("read {}: {error}", path.display()))?;
         let dir = path.parent().unwrap_or(root);
         for target in broken_links(&text, dir) {
-            problems.push(format!("{}: the link ({target}) does not resolve", path.display()));
+            problems.push(format!(
+                "{}: the link ({target}) does not resolve",
+                path.display()
+            ));
         }
     }
     if problems.is_empty() {
@@ -537,10 +555,19 @@ mod tests {
     #[test]
     fn invalid_front_matter_is_named() {
         let cases = [
-            (decision_text("").replace("status: current", "status: old"), "status"),
+            (
+                decision_text("").replace("status: current", "status: old"),
+                "status",
+            ),
             (decision_text("").replace("area: ui", "area: web"), "area"),
-            (decision_text("").replace("date: 2026-11-17", "date: 2026-11-16"), "date"),
-            (decision_text("").replace("date: 2026-11-17", "date: 2026-13-17"), "date"),
+            (
+                decision_text("").replace("date: 2026-11-17", "date: 2026-11-16"),
+                "date",
+            ),
+            (
+                decision_text("").replace("date: 2026-11-17", "date: 2026-13-17"),
+                "date",
+            ),
             (decision_text("").replace("[3, 9]", "[9, 3]"), "ascending"),
             (decision_text("").replace("[3, 9]", "[3, 3]"), "ascending"),
             (decision_text("").replace("[3, 9]", "[0]"), "ascending"),
@@ -549,10 +576,22 @@ mod tests {
             (decision_text("").replace("\"A title\"", "\"\""), "title"),
             (decision_text("kind: pin\n"), "unknown key"),
             (decision_text("").replace("prs: []\n", ""), "no `prs`"),
-            (decision_text("").replace("area: ui\n", "area: ui\narea: ui\n"), "twice"),
-            (decision_text("").replace("superseded_by: []", "superseded_by: [\"x\"]"), "superseded_by"),
-            (decision_text("").replace("status: current", "status: superseded"), "superseded_by"),
-            (decision_text("").replace("# A title, 2026-11-17", "A title"), "heading"),
+            (
+                decision_text("").replace("area: ui\n", "area: ui\narea: ui\n"),
+                "twice",
+            ),
+            (
+                decision_text("").replace("superseded_by: []", "superseded_by: [\"x\"]"),
+                "superseded_by",
+            ),
+            (
+                decision_text("").replace("status: current", "status: superseded"),
+                "superseded_by",
+            ),
+            (
+                decision_text("").replace("# A title, 2026-11-17", "A title"),
+                "heading",
+            ),
             (decision_text("").replacen("---\n", "", 1), "front matter"),
         ];
         for (text, needle) in cases {
@@ -578,7 +617,10 @@ mod tests {
     }
 
     fn write_tree(name: &str, decisions: &[(&str, String)], status: &[(&str, String)]) -> PathBuf {
-        let root = std::env::temp_dir().join(format!("cast-iron-docs-index-{name}-{}", std::process::id()));
+        let root = std::env::temp_dir().join(format!(
+            "cast-iron-docs-index-{name}-{}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(decisions_dir(&root)).unwrap();
         fs::create_dir_all(status_dir(&root)).unwrap();
@@ -602,9 +644,11 @@ mod tests {
     fn a_status_entry_is_checked_like_a_decision() {
         assert!(parse_status("2026-11-16-corpus-pinned-to-v1", &status_text()).is_ok());
         let bad = status_text().replace("kind: pin", "kind: log");
-        assert!(parse_status("2026-11-16-corpus-pinned-to-v1", &bad)
-            .unwrap_err()
-            .contains("kind"));
+        assert!(
+            parse_status("2026-11-16-corpus-pinned-to-v1", &bad)
+                .unwrap_err()
+                .contains("kind")
+        );
     }
 
     #[test]
@@ -639,11 +683,7 @@ mod tests {
             .replace("area: ui", "area: search")
             .replace("[3, 9]", "[]")
             .replace("prs: []", "prs: [12]");
-        let root = write_tree(
-            "grouped",
-            &[(STEM, old), ("2026-11-18-newer", newer)],
-            &[],
-        );
+        let root = write_tree("grouped", &[(STEM, old), ("2026-11-18-newer", newer)], &[]);
         let index = render_decisions(&load_decisions(&decisions_dir(&root)).unwrap());
         assert!(index.contains("## Search"), "{index}");
         assert!(index.find("## Search").unwrap() < index.find("## UI").unwrap());
@@ -661,16 +701,20 @@ mod tests {
             .replace("status: current", "status: superseded")
             .replace("superseded_by: []", "superseded_by: [\"2026-11-18-gone\"]");
         let root = write_tree("missing", &[(STEM, missing)], &[]);
-        assert!(load_decisions(&decisions_dir(&root))
-            .unwrap_err()
-            .contains("not a file"));
+        assert!(
+            load_decisions(&decisions_dir(&root))
+                .unwrap_err()
+                .contains("not a file")
+        );
         let itself = decision_text("")
             .replace("status: current", "status: superseded")
             .replace("superseded_by: []", &format!("superseded_by: [\"{STEM}\"]"));
         fs::write(decisions_dir(&root).join(format!("{STEM}.md")), itself).unwrap();
-        assert!(load_decisions(&decisions_dir(&root))
-            .unwrap_err()
-            .contains("itself"));
+        assert!(
+            load_decisions(&decisions_dir(&root))
+                .unwrap_err()
+                .contains("itself")
+        );
         let _ = fs::remove_dir_all(&root);
     }
 
