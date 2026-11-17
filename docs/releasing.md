@@ -263,12 +263,33 @@ WASM needs a second look first.
 
 ## Compile gates
 
-`cargo xtask content` runs every gate before it writes the library: the corpus check, the
-published-id and book-slot guards, validation, and the reachability check. The compiler writes
-the library into `generated/content.staging` and moves it to `generated/content` only after all
-of them pass. A failed compile leaves the previous `generated/content` as it was, and a first
-compile that fails leaves no `manifest.json`. `build-site` also checks the SHA-256 and size of
-every file the manifest lists, so it refuses a partly written or edited library.
+`cargo xtask content` runs every gate before it publishes the library: the corpus check, the
+published-id and book-slot guards, validation, and the reachability check. The reports are
+written earlier, so a failed run leaves them for the author.
+
+The library reaches `generated/content` in four steps: write `generated/content.staging` (the
+manifest last), rename `generated/content` to `generated/content.backup`, rename the staging
+directory to `generated/content`, delete the backup. What this guarantees:
+
+- A failed gate, or an error while the staging directory is written, leaves the previous
+  `generated/content` as it was, and a failed first compile leaves no `manifest.json`.
+- An interruption (a killed process or an I/O error) between the steps leaves a state that the
+  next `cargo xtask content` repairs at its start: it finishes the move when the staging
+  directory is whole, restores the backup when it is not, and removes a leftover backup or staging
+  directory. It stops, and names the directories, only when `generated/content` holds something
+  that is not a Cast Iron library or when no whole library is left.
+- Two renames are not one: between them `generated/content` does not exist, and `build-site` then
+  compiles again (or the repair above runs first).
+- There is no `fsync`, so nothing is promised about a power loss or a crash of the host. After
+  one, `build-site` finds a file that differs from the manifest and asks for a new compile.
+
+`build-site` checks the library it is about to use. It reads `manifest.json` as a typed manifest
+and applies the structural check of the installer (`cast_iron_schema::manifest_check`: known
+schema, valid version, safe and unique paths, required files, consistent total), then compares
+the size and SHA-256 of every listed file. That shows the directory is the library its manifest
+describes. It does not show that the library passed the gates; the compiler guarantees that by
+never writing a manifest after a failed gate.
+
 `pages.yml` runs the compile once, outside the three-attempt loop, so a retry repeats only the
 Trunk build and never re-runs a failed gate.
 

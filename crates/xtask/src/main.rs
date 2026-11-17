@@ -669,31 +669,46 @@ fn build_site(args: &[String]) -> Result {
     stamp_shell(&dist, date.as_deref())
 }
 
-/// Checks every file that `manifest.json` in `content` lists: it exists, with the listed size and
-/// SHA-256. Returns the number of files checked.
+/// Checks the library in `content` against its `manifest.json`: the manifest first, then every
+/// file it lists. Returns the number of files checked.
+///
+/// The manifest must pass the structural check that the installer applies before it downloads
+/// (`cast_iron_schema::manifest_check`): a known schema version, a valid content version, safe
+/// and unique paths, valid checksums, the required files, and a total that equals the sum of the
+/// sizes. Each listed file must then exist with the listed size and SHA-256. This establishes that
+/// the directory is the library its manifest describes. It cannot tell a library that passed the
+/// compile gates from one that did not: the compiler guarantees that by writing no manifest when
+/// a gate fails.
 fn verify_generated_content(content: &Path) -> Result<usize> {
-    let manifest = read_json(&content.join("manifest.json"))?;
-    let files = manifest["files"]
-        .as_array()
-        .ok_or("manifest.json has no files list")?;
-    for file in files {
-        let path = file["path"].as_str().ok_or("a manifest row has no path")?;
-        let sha256 = file["sha256"].as_str().unwrap_or_default();
-        let bytes = file["bytes"].as_u64().unwrap_or(u64::MAX);
-        let data = fs::read(content.join(path)).map_err(|e| {
+    let manifest_path = content.join("manifest.json");
+    let manifest: cast_iron_schema::ContentManifest = serde_json::from_slice(
+        &fs::read(&manifest_path)
+            .map_err(|e| format!("cannot read {}: {e}", manifest_path.display()))?,
+    )
+    .map_err(|e| format!("{} is not a content manifest: {e}", manifest_path.display()))?;
+    cast_iron_schema::manifest_check::validate_manifest(&manifest).map_err(|e| {
+        format!(
+            "{}: {e} Run `cargo xtask content` again",
+            manifest_path.display()
+        )
+    })?;
+    for file in &manifest.files {
+        let data = fs::read(content.join(&file.path)).map_err(|e| {
             format!(
-                "{} lists {path}, which cannot be read ({e}); run `cargo xtask content` again",
-                content.join("manifest.json").display()
+                "{} lists {}, which cannot be read ({e}); run `cargo xtask content` again",
+                manifest_path.display(),
+                file.path
             )
         })?;
-        if data.len() as u64 != bytes || hex(&Sha256::digest(&data)) != sha256 {
+        if data.len() as u64 != file.bytes || hex(&Sha256::digest(&data)) != file.sha256 {
             return Err(format!(
-                "{path} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
-                content.join("manifest.json").display()
+                "{} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
+                file.path,
+                manifest_path.display()
             ));
         }
     }
-    Ok(files.len())
+    Ok(manifest.files.len())
 }
 
 /// The size limits in `sources/size-budget.toml`.
@@ -1092,22 +1107,132 @@ mod tests {
         assert!(report.is_ok(), "{report:?}");
     }
 
+    /// A library on disk whose manifest lists the four required files.
+    fn write_library(dir: &Path) -> cast_iron_schema::ContentManifest {
+        let version = "vabc";
+        let mut files = Vec::new();
+        for name in cast_iron_schema::manifest_check::REQUIRED_FILES {
+            let data = format!("{{\"{name}\":1}}");
+            fs::create_dir_all(dir.join(version)).unwrap();
+            fs::write(dir.join(version).join(name), &data).unwrap();
+            files.push(cast_iron_schema::ManifestFile {
+                path: format!("{version}/{name}"),
+                sha256: hex(&Sha256::digest(data.as_bytes())),
+                bytes: data.len() as u64,
+            });
+        }
+        let manifest = cast_iron_schema::ContentManifest {
+            schema_version: cast_iron_schema::SCHEMA_VERSION,
+            content_version: version.into(),
+            total_bytes: files.iter().map(|f| f.bytes).sum(),
+            files,
+            entry_count: 0,
+            datasets: vec![],
+            corpus_tag: None,
+        };
+        write_manifest(dir, &manifest);
+        manifest
+    }
+
+    fn write_manifest(dir: &Path, manifest: &cast_iron_schema::ContentManifest) {
+        fs::write(
+            dir.join("manifest.json"),
+            serde_json::to_vec(manifest).unwrap(),
+        )
+        .unwrap();
+    }
+
     #[test]
-    fn a_library_that_does_not_match_its_manifest_is_refused() {
-        let dir = temp_tree("verify-content");
-        let data = b"{}";
-        fs::create_dir_all(dir.join("v1")).unwrap();
-        fs::write(dir.join("v1/a.json"), data).unwrap();
-        let manifest = format!(
-            r#"{{"files":[{{"path":"v1/a.json","sha256":"{}","bytes":2}}]}}"#,
-            hex(&Sha256::digest(data))
-        );
-        fs::write(dir.join("manifest.json"), manifest).unwrap();
-        assert_eq!(verify_generated_content(&dir), Ok(1));
-        fs::write(dir.join("v1/a.json"), b"[]").unwrap();
+    fn a_library_that_matches_its_manifest_passes() {
+        let dir = temp_tree("verify-ok");
+        write_library(&dir);
+        assert_eq!(verify_generated_content(&dir), Ok(4));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_manifest_with_the_wrong_structure_is_refused_before_any_file_is_read() {
+        let dir = temp_tree("verify-structure");
+        // Not a manifest at all, and the empty file list the first version of this check accepted.
+        fs::write(dir.join("manifest.json"), r#"{"files":[]}"#).unwrap();
         let error = verify_generated_content(&dir).unwrap_err();
-        assert!(error.contains("v1/a.json does not match"), "{error}");
-        fs::remove_file(dir.join("v1/a.json")).unwrap();
+        assert!(error.contains("is not a content manifest"), "{error}");
+        let good = write_library(&dir);
+
+        let mut empty = good.clone();
+        empty.files.clear();
+        empty.total_bytes = 0;
+        write_manifest(&dir, &empty);
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("does not list the required file"), "{error}");
+
+        // A required row removed together with its file.
+        let mut missing = good.clone();
+        let removed = missing.files.remove(0);
+        missing.total_bytes -= removed.bytes;
+        fs::remove_file(dir.join(&removed.path)).unwrap();
+        write_manifest(&dir, &missing);
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("required file"), "{error}");
+        fs::write(dir.join(&removed.path), "x").unwrap();
+
+        let mut unsafe_path = good.clone();
+        unsafe_path.files[0].path = "vabc/../x".into();
+        write_manifest(&dir, &unsafe_path);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("invalid file path")
+        );
+
+        let mut duplicate = good.clone();
+        duplicate.files.push(duplicate.files[0].clone());
+        duplicate.total_bytes += duplicate.files[0].bytes;
+        write_manifest(&dir, &duplicate);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("twice")
+        );
+
+        let mut total = good.clone();
+        total.total_bytes += 1;
+        write_manifest(&dir, &total);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("declares")
+        );
+
+        let mut version = good.clone();
+        version.content_version = "ABC".into();
+        write_manifest(&dir, &version);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("invalid version")
+        );
+
+        let mut schema = good.clone();
+        schema.schema_version = cast_iron_schema::SCHEMA_VERSION + 1;
+        write_manifest(&dir, &schema);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("content format")
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_listed_file_that_changed_or_is_missing_is_refused() {
+        let dir = temp_tree("verify-files");
+        let manifest = write_library(&dir);
+        let first = dir.join(&manifest.files[0].path);
+        fs::write(&first, "[]").unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("does not match"), "{error}");
+        fs::remove_file(&first).unwrap();
         let error = verify_generated_content(&dir).unwrap_err();
         assert!(error.contains("cannot be read"), "{error}");
         fs::remove_dir_all(&dir).unwrap();

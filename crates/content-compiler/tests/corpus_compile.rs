@@ -526,3 +526,60 @@ fn a_library_is_moved_into_place_whole() {
         assert!(out.join(&file.path).is_file(), "{}", file.path);
     }
 }
+
+/// The sibling of `out` that the compiler uses, named by its suffix.
+fn beside(out: &Path, suffix: &str) -> PathBuf {
+    out.with_file_name(format!(
+        "{}.{suffix}",
+        out.file_name().unwrap().to_string_lossy()
+    ))
+}
+
+#[test]
+fn a_compile_recovers_from_an_interrupted_handoff() {
+    let corpus = temp("recover");
+    write_corpus(&corpus);
+    let base = temp("recover-base");
+    let reports = temp("recover-reports");
+
+    // Step 2 done, step 3 not: the old library sits in the backup and `out` is missing.
+    let out = base.join("after-backup");
+    let first = compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::rename(&out, beside(&out, "backup")).unwrap();
+    let again = compile_corpus(&corpus, &out, &reports, None, None)
+        .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert_eq!(again.content_version, first.content_version);
+    assert!(out.join("manifest.json").is_file());
+    assert!(!beside(&out, "backup").exists() && !beside(&out, "staging").exists());
+
+    // The same state, and the gate fails: the compile still restores the previous library.
+    let out = base.join("gate-after-backup");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    let before = tree(&out);
+    fs::rename(&out, beside(&out, "backup")).unwrap();
+    fs::write(
+        corpus.join("books.toml"),
+        write_books(&BookIndex::default()),
+    )
+    .unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).expect_err("the gate must fail");
+    assert_eq!(tree(&out), before, "the previous library was not restored");
+    assert!(!beside(&out, "backup").exists());
+    fs::write(corpus.join("books.toml"), write_books(&printed_chapter())).unwrap();
+
+    // Step 3 done, step 4 not: a new library and a leftover backup.
+    let out = base.join("after-activate");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::create_dir_all(beside(&out, "backup").join("vold")).unwrap();
+    fs::write(beside(&out, "backup").join("vold/a.json"), "{}").unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(out.join("manifest.json").is_file());
+    assert!(!beside(&out, "backup").exists());
+
+    // A staging directory that a crash left behind.
+    let out = base.join("leftover-staging");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::create_dir_all(beside(&out, "staging").join("vold")).unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(!beside(&out, "staging").exists());
+}

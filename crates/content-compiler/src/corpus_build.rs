@@ -218,6 +218,7 @@ pub fn compile_corpus(
     published: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
+    crate::publish::recover_out(out)?;
     package(build_from_corpus(dir, published, corpus_tag)?, out, reports)
 }
 
@@ -230,6 +231,9 @@ pub fn compile_corpus_with_slots(
     book_slots: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
+    // An interrupted earlier compile is repaired first, so a failed gate below still leaves
+    // `out` as a whole library.
+    crate::publish::recover_out(out)?;
     package(
         build_with_slots(dir, published, book_slots, corpus_tag)?,
         out,
