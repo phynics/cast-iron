@@ -28,7 +28,7 @@ entries named by `sources/canonical/id-map.toml`, and builds schema-3 content sh
 It generates the catalog, legal notices, relationships, spell lists, book index,
 alias map, and format-1 native/WASM search index. `cargo xtask content --psrd` still
 builds the legacy adapter: reviewed JSON selection, `content-policy.toml`, permanent
-URL-derived IDs, and 9,968 entries from 16 publications. See `docs/status.md` for
+URL-derived IDs, and 9,968 entries from 16 publications. See the status log (`docs/status/`) for
 verification scope.
 
 `crates/web/src/library.rs` reads these files from the active Cache API library.
@@ -71,7 +71,7 @@ unresolved compilation inputs, and unreviewed rights must appear in diagnostics.
 | OGC notices and rights decisions | Legal notices and publication gate |
 
 Do not equate entries by name alone. Identity preservation is waived for the
-cutover (see [decisions](decisions.md#pf-data-cutover-policy-2026-11-04)): legacy ids
+cutover (see [decisions](decisions/2026-11-04-pf-data-cutover-policy.md)): legacy ids
 resolve through the reviewed alias map or report their retirement reason.
 Source-native keys can distinguish same-name records. `copyof`, `redirect`,
 `compileFrom`, external table definitions, and addenda require explicit expansion
@@ -184,7 +184,7 @@ rows for one target merge, the oldest `added_at` wins, collection ids are a sort
 union, and retired or unknown rows keep their snapshot. The marker
 `meta["id_migration"].aliases_sha256` makes a second load a no-op. Schema version 3
 and search format 1 remain unchanged. See the Phase 5 decision in
-[decisions](decisions.md#client-id-resolution-and-bookmark-migration-2026-11-04) and
+[decisions](decisions/2026-11-04-client-id-resolution-and-bookmark-migration.md) and
 [the canonical id design](research/canonical-id-design.md).
 
 ## Migration and test sequence

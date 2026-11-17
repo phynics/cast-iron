@@ -1,0 +1,27 @@
+---
+title: "The upstream import is removed"
+date: 2026-11-06
+status: current
+superseded_by: []
+issues: [18, 127]
+prs: []
+area: corpus
+---
+
+# The upstream import is removed, 2026-11-06
+
+Refs [#127](https://github.com/phynics/cast-iron/issues/127), [#18](https://github.com/phynics/cast-iron/issues/18). Step 6 of the plan in #127.
+
+- **The corpus build is the only build.** The content compiler keeps what `cast-iron-compile --corpus` and `package` need: the corpus reader call, coverage derivation, relations index, spell lists, backlinks, search aliases and facets, sharding, reports, and manifest. The PSRD-Data and Pf Data adapters, the HTML conversion, the screens, the carry-over review, the upstream selection and survey, the link pass, the alias generator, and the `cast-iron-data` binary are deleted, with their fixtures and tests. Deleted code, not disabled code.
+- **The result is the same library.** The content tree hash is `2c6005d60af70d6c2c09d5106cd5303d434ab049310d6c13cc706586166b50f3` (content version `v6aa587a686a3caf0`) before and after the removal. The removal changes no entry, id, or byte of the library.
+- **Where the old code lives.** The tag `psrd-last-buildable` (commit `9800663202f4cb9bcd4fad1af43c5ebf884b4a09`) is the last commit that builds the PSRD library and the upstream path. `docs/releasing.md` builds the first release step from it. Do not move or delete the tag.
+- **Inputs are gone.** `sources/psrd-data/`, `sources/pathfinder-data-1-e/`, and `sources/canonical/` are deleted. Nothing in the corpus build read them. The legacy id map and the aliases live in `aliases.toml` in the corpus, the frozen exclusions in `exclusions.toml` and `history.toml`, the legal notices and dataset pins in `legal.toml`, and the publication categories and dates in `publications.toml`. `sources/corpus.toml` is the only source pin. `fetch-sources` downloads only the corpus.
+- **Published ids cannot be dropped.** `sources/published-ids.txt` lists every id a published library has used: the 9,968 PSRD ids (equal to the frozen snapshot at the tag) and the 31,106 `ref/` ids of content version `v6aa587a686a3caf0`. `cargo xtask content` passes it to the compiler (`--published`), which fails before writing anything when a listed id is neither an entry nor an `aliases.toml` row whose target is an entry. A retired row does not count. After a library is published, `cargo xtask published-ids` adds its ids; the file only grows. This replaces the totality check that `check-library-upgrade.py` made against the legacy snapshot, for ids published from now on.
+- **The licensing gate is a corpus check.** `corpus-check` fails when a publication has no `copyright`, or when neither a `section_15` notice (its text is part of the copyright) nor a `notice_pending` title covers it. It passes on corpus `v0.1.0`: 439 publications, 431 covered by a notice, 8 by `notice_pending`, none without a copyright.
+- **The upgrade check stays on the tag.** `scripts/check-library-upgrade.py` and its legacy-id snapshot are deleted from `main`. The release check that every id of the PSRD release resolves against the new library runs from a checkout of the tag, which still has both. `docs/releasing.md` has the commands. `scripts/check-publication.py` and the release promotion scripts stay on `main`.
+- **`scripts/check-publication.py` no longer reads a registry.** The compiler builds the catalog from the corpus `publications.toml`, and `corpus-check` validates every entry's `source_ids` against it. The script now checks that the sixteen core books are present instead of comparing with a registry file in this repository.
+- **Publication categories.** The Books tier table is tested against the five categories the pinned corpus uses (`REVIEWED_CATEGORIES` in `book_tier.rs`) and against every category in the cached corpus. The CI Rust job runs `cargo xtask fetch-sources` before `cargo xtask check` (cached by the pinned commit), and the cached-corpus test fails when `CI` is set and the cache is missing; a local run without the cache prints a skip message. A corpus bump that adds a category fails that test until the tier table lists it.
+- **The reference-link measurement is deleted.** `scripts/measure-reference-links.py` needed the upstream dataset to find the condition and special-ability sections, so it did not run on `generated/content` alone. The numbers it produced stay in the dated entries below.
+- **Removed commands.** `content --from-upstream`, `content --psrd`, `build-site --psrd`, `data-fetch`, `data-audit`, `data-import`, `data-validate`, `data-report`, `data-legal`, `data-alias`, `data-alias-propose`, `data-carry-review`, `data-publications`, `data-test`, `corpus-export`, and `corpus-roundtrip`. `corpus-check`, `corpus-fmt`, `corpus-migrate`, and `corpus-tree-hash` stay. The e2e suite no longer reads `CAST_IRON_CONTENT`; it always reads `generated/content`.
+- **CI.** The content job builds the library from the corpus twice and compares the bytes. The upstream equality, PSRD determinism, and upgrade steps and the upstream dataset cache are gone. The Pages workflow caches only the corpus.
+- **History stays.** `docs/research/` keeps the licensing and evidence documents, each with a note that it describes the retired import and the tag. `LICENSES/README.md` now describes the corpus repository and its licensing and keeps the upstream attribution that OGL Section 15 requires; the corpus `legal.toml` carries the notices.
