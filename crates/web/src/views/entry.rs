@@ -1,6 +1,8 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::class_options;
+use crate::class_summary;
+use crate::fmt;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
@@ -9,6 +11,7 @@ use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
 use crate::views::recent;
@@ -588,6 +591,8 @@ fn EntryView(
         })
         .collect_view();
     let has_references = !references.is_empty();
+    let reference_count = references.len();
+    let fold_refs = matches!(entry.kind, EntryKind::Class | EntryKind::PrestigeClass);
 
     let copyrights = entry
         .source_ids
@@ -814,6 +819,27 @@ fn EntryView(
     } else {
         spell_level_body(&entry.body, &entry.fields)
     };
+    // A class page opens with its summary card. The printed paragraphs that the card replaces
+    // leave the body, so no fact shows twice; every other paragraph stays.
+    let is_class = matches!(kind, EntryKind::Class | EntryKind::PrestigeClass);
+    let (class_card, rendered_body) = match is_class && !hide_body {
+        true => {
+            let read = class_summary::read(&entry.fields, &entry.body);
+            let list = indexes
+                .spell_lists
+                .as_deref()
+                .and_then(|lists| crate::graph::list_of_class_entry(lists, &entry.id))
+                .map(|list| SpellListLink {
+                    name: list.name.clone(),
+                    href: Route::spell_list(list.name.clone(), None).href(),
+                });
+            (
+                class_card(&read.summary, list),
+                class_summary::without(&entry.body, &read.consumed),
+            )
+        }
+        false => (None, rendered_body),
+    };
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
@@ -839,20 +865,34 @@ fn EntryView(
         {revision_notice}
         {collision_block}
         {original_disclosure}
+        {class_card}
         <ArticleContents body=contents_body id=entry.id.clone() />
         <RichBody body=rendered_body anchor=anchor changed=changed_labels />
         {source_line(&body_sources, &library, None)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
-        <aside class="entry-refs" aria-label="Entry links">
-            {has_references.then(|| view! {
-                <section class="ref-block" aria-labelledby="references-heading">
-                    <h2 id="references-heading">"References"</h2>
-                    <ul class="ref-list">{reference_items}</ul>
-                </section>
+        <aside class=if fold_refs { "entry-refs entry-refs-fold" } else { "entry-refs" } aria-label="Entry links">
+            {has_references.then(|| match fold_refs {
+                // A class page ends in long lists. They fold, with the count in the summary.
+                true => view! {
+                    <details class="ref-block ref-fold">
+                        <summary>
+                            {icons::chevron_right("disclosure-chevron")}
+                            <span class="ref-fold-name">"References"</span>
+                            <span class="rel-count">{fmt::count(reference_count)}</span>
+                        </summary>
+                        <ul class="ref-list">{reference_items}</ul>
+                    </details>
+                }.into_any(),
+                false => view! {
+                    <section class="ref-block" aria-labelledby="references-heading">
+                        <h2 id="references-heading">"References"</h2>
+                        <ul class="ref-list">{reference_items}</ul>
+                    </section>
+                }.into_any(),
             })}
-            <Backlinks library=library.clone() entry=entry.clone() />
+            <Backlinks library=library.clone() entry=entry.clone() fold=fold_refs />
         </aside>
         <footer class="entry-foot">
             {copyrights}
