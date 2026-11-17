@@ -1,6 +1,7 @@
 //! The application shell: boot, theme, service worker, offline state, and the Reader frame.
 
 use crate::density::{self, Density};
+use crate::focus_guard::{FocusTicket, Verdict};
 use crate::install;
 use crate::js;
 use crate::library::{Library, use_library};
@@ -334,26 +335,30 @@ fn Reader(library: Library) -> impl IntoView {
         } else {
             route::arrive_at_entry()
         };
+        // A newer navigation cancels this frame (the route signal bumps the generation when it
+        // changes), and a control the reader focused since keeps focus: the frame then scrolls
+        // and leaves focus alone (#419).
+        let ticket = FocusTicket::take();
         request_animation_frame(move || {
-            if within_search {
+            let verdict = ticket.verdict();
+            if within_search || verdict == Verdict::Stale {
                 return;
             }
+            let moves_focus = verdict == Verdict::Proceed;
             match (route.anchor(), route.section(), restore) {
                 (Some(anchor), _, _) => {
                     route::scroll_to_anchor(&anchor);
                 }
                 // The page is not in the document yet on a first load: it jumps itself when it
-                // has rendered (`EntryView`). The jump moves focus to the section's heading in
-                // this frame with the same race as the move to <main> below: nothing cancels it
-                // when a newer navigation supersedes it, and it does not yield to a control the
-                // reader has focused since (#419 tracks both).
+                // has rendered (`EntryView`). The jump moves focus to the section's heading,
+                // unless the reader has focused a control since.
                 (None, Some(section), _) => {
-                    route::scroll_to_section(section);
+                    route::scroll_to_section_with(section, moves_focus);
                 }
                 (None, None, Some(y)) => route::scroll_to_offset(y),
                 (None, None, None) => route::scroll_to_top(),
             }
-            if !first && !to_search && !section_jump {
+            if moves_focus && !first && !to_search && !section_jump {
                 focus_main();
             }
         });

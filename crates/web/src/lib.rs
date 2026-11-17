@@ -25,6 +25,7 @@ pub mod density;
 pub mod diagnostics;
 pub mod discovery;
 pub mod fmt;
+pub mod focus_guard;
 pub mod graph;
 pub mod install;
 pub mod js;

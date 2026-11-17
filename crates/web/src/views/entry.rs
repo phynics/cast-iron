@@ -4,6 +4,7 @@ use crate::class_options;
 use crate::class_sections::Sections;
 use crate::class_summary;
 use crate::fmt;
+use crate::focus_guard::{FocusTicket, Verdict};
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::membership::preferred_book;
@@ -881,11 +882,18 @@ fn EntryView(
             .as_ref()
             .is_some_and(|sections| sections.has(section))
     {
-        // This frame moves focus to the section's heading and has the same race as the move to
-        // <main> in `Reader`: no cancel when a newer navigation supersedes it, and no yield to a
-        // control the reader focused since (#419).
-        request_animation_frame(move || {
-            route::scroll_to_section(section);
+        // The frame moves focus to the section's heading, so it follows the same rules as the
+        // move to <main> in `Reader` (#419): a newer navigation cancels it, and a control the
+        // reader focused since keeps focus (the page still scrolls).
+        let ticket = FocusTicket::take();
+        request_animation_frame(move || match ticket.verdict() {
+            Verdict::Stale => {}
+            Verdict::ScrollOnly => {
+                route::scroll_to_section_with(section, false);
+            }
+            Verdict::Proceed => {
+                route::scroll_to_section(section);
+            }
         });
     }
     // An address that names a section this page lacks (`?s=spells` on a fighter, or any section
