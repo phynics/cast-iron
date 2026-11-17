@@ -5,12 +5,13 @@
 //! `*.spec.ts` under `tests/e2e/tests` (recursively), and fails when:
 //!
 //! - a spec file is not named in the map, or the map names a spec that does not exist;
-//! - a `--grep` pattern is not a valid regular expression, or matches no test of its specs;
+//! - a `--grep` pattern is not a valid regular expression, or matches no test of one of its
+//!   specs, or has a top-level alternative (`a|b`) that matches no test of any of its specs;
 //! - a test is reached by no row for its spec: neither a "whole file" row nor a matching pattern;
 //! - a row names specs without a pattern, or a pattern without specs.
 //!
 //! A pattern is matched the way Playwright matches `--grep`: a case-insensitive regular
-//! expression tested against the file path, the titles of the enclosing `test.describe` blocks and
+//! expression (Playwright's `--grep` gives its pattern the `i` flag) tested against the file path, the titles of the enclosing `test.describe` blocks and
 //! the test title, joined by spaces (Playwright also puts the project name in front, which the
 //! check ignores). Test titles are read from the spec source without running a browser. A title
 //! that is not a plain string (a template with `${}`, a variable, a concatenation) is reported as
@@ -669,6 +670,34 @@ fn scan_spec(source: &str) -> Scan {
     scanner.scan
 }
 
+/// The top-level alternatives of a regular expression: the parts between `|` that is outside
+/// parentheses, brackets and escapes. An empty part stays, since it matches every title.
+fn split_alternatives(pattern: &str) -> Vec<String> {
+    let mut parts = vec![String::new()];
+    let (mut depth, mut in_class, mut escaped) = (0usize, false, false);
+    for c in pattern.chars() {
+        let split = !escaped && !in_class && depth == 0 && c == '|';
+        if split {
+            parts.push(String::new());
+            continue;
+        }
+        if escaped {
+            escaped = false;
+        } else {
+            match c {
+                '\\' => escaped = true,
+                '[' if !in_class => in_class = true,
+                ']' if in_class => in_class = false,
+                '(' if !in_class => depth += 1,
+                ')' if !in_class => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        parts.last_mut().unwrap().push(c);
+    }
+    parts
+}
+
 // --- The comparison -----------------------------------------------------------------------
 
 /// What Playwright greps for a test: the file path, the describe titles and the test title.
@@ -746,8 +775,8 @@ fn analyse(skill: &str, specs: &BTreeMap<String, String>) -> Result<Report> {
                 }
             }
         };
-        let mut hits = 0;
         for name in &existing {
+            let mut hits = 0;
             for (index, test) in scans[name].tests.iter().enumerate() {
                 if matcher
                     .as_ref()
@@ -757,15 +786,37 @@ fn analyse(skill: &str, specs: &BTreeMap<String, String>) -> Result<Report> {
                     hits += 1;
                 }
             }
+            if let Selector::Pattern(pattern) = &group.selector
+                && hits == 0
+            {
+                problems.push(format!(
+                    "{at}: the pattern `{pattern}` matches no test of {name}"
+                ));
+            }
         }
-        if let Selector::Pattern(pattern) = &group.selector
-            && hits == 0
-            && !existing.is_empty()
-        {
-            problems.push(format!(
-                "{at}: the pattern `{pattern}` matches no test of {}",
-                existing.join(", ")
-            ));
+        if let Selector::Pattern(pattern) = &group.selector {
+            let alternatives = split_alternatives(pattern);
+            if alternatives.len() > 1 {
+                for alternative in alternatives {
+                    let regex = RegexBuilder::new(&alternative)
+                        .case_insensitive(true)
+                        .build();
+                    let reached = regex.as_ref().is_ok_and(|regex| {
+                        existing.iter().any(|name| {
+                            scans[name]
+                                .tests
+                                .iter()
+                                .any(|test| regex.is_match(&grep_text(name, test)))
+                        })
+                    });
+                    if !reached && !existing.is_empty() {
+                        problems.push(format!(
+                            "{at}: the alternative `{alternative}` of the pattern `{pattern}` matches no test of {}; remove it",
+                            existing.join(", ")
+                        ));
+                    }
+                }
+            }
         }
     }
     for (path, flags) in covered.iter().filter(|(path, _)| mapped.contains(*path)) {
@@ -1050,6 +1101,38 @@ other("five", async () => {});
             missing[0].contains("sub/b.spec.ts is not in the feature map"),
             "{missing:?}"
         );
+    }
+
+    #[test]
+    fn a_pattern_must_match_in_every_spec_it_lists_and_every_alternative_must_match() {
+        // `two` matches in sub/b.spec.ts only, so it is dead for a.spec.ts.
+        let rows = "| One | whole file (`a.spec.ts`) | `x` |\n| Two | whole file (`sub/b.spec.ts`) | `y` |\n| Three | `two` (`a.spec.ts`, `sub/b.spec.ts`) | `z` |\n";
+        let problems = analyse(&map(rows), &sources()).unwrap().problems;
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(
+            problems[0].contains("matches no test of a.spec.ts"),
+            "{problems:?}"
+        );
+        // One dead alternative among live ones.
+        let rows = "| One | whole file (`a.spec.ts`) | `x` |\n| Two | whole file (`sub/b.spec.ts`) | `y` |\n| Three | `two\\|beta\\|no such title` (`a.spec.ts`, `sub/b.spec.ts`) | `z` |\n";
+        let problems = analyse(&map(rows), &sources()).unwrap().problems;
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(
+            problems[0].contains("alternative `no such title`")
+                && problems[0].contains("remove it"),
+            "{problems:?}"
+        );
+    }
+
+    #[test]
+    fn alternatives_split_only_at_top_level_pipes() {
+        assert_eq!(split_alternatives("a|b"), ["a", "b"]);
+        assert_eq!(
+            split_alternatives("(a|b)c|[|]d|e\\|f"),
+            ["(a|b)c", "[|]d", "e\\|f"]
+        );
+        assert_eq!(split_alternatives("a|"), ["a", ""]);
+        assert_eq!(split_alternatives("plain"), ["plain"]);
     }
 
     #[test]
