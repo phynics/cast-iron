@@ -301,6 +301,44 @@ main {
   align-self: start;
 }
 
+/* The recovery screen reads top to bottom: the page grid would stretch its third row and push
+   the buttons away from the reassurance. */
+.recovery-main {
+  display: block;
+  min-height: 0;
+}
+
+.recovery-main .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+
+/* The recovery screen keeps the engine's own words behind one quiet disclosure. */
+.recovery-details {
+  margin-top: var(--space-4);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.recovery-details > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  list-style: none;
+}
+
+.recovery-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.recovery-details code {
+  overflow-wrap: anywhere;
+}
+
 .lede {
   font-size: var(--step-1);
   line-height: 1.4;
@@ -949,13 +987,16 @@ mark {
   min-height: var(--touch);
 }
 
+/* The muted group and publication text of a browse row. It wraps between its own words and
+   never takes width from the title: the row wraps, so a long one drops to a second line. */
 .row-source {
   font-size: var(--step--1);
-  /* A publication title can be longer than a phone screen; the row must fit, not the page. */
   flex: 0 1 auto;
   min-width: 0;
+  max-width: 100%;
+  margin-inline-start: auto;
   text-align: right;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .ref-list {
@@ -2506,18 +2547,16 @@ main,
   align-items: center;
 }
 
+/* A browse row wraps (#444). The title keeps its natural width, so it breaks only between
+   words; the muted source sits beside it when both fit and drops to its own line when not.
+   `overflow-wrap: break-word` (never `anywhere`, which lets a flex item shrink to one letter)
+   splits a single word only as a last resort, when it alone is wider than the row. */
 .entry-list li {
-  flex-wrap: nowrap;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .entry-list a {
   flex: 1 1 auto;
-  min-width: 0;
-}
-
-.row-source {
-  flex: 0 1 auto;
   min-width: 0;
 }
 
