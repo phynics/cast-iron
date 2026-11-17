@@ -7,7 +7,8 @@
 //! ignores `merge=union`. `cargo xtask decisions-index` and `cargo xtask status-index` render the full
 //! index into `target/docs-index/` (ignored). `cargo xtask check` validates the front matter and the
 //! supersession targets, renders both indexes in memory, checks that the READMEs list no entry, and
-//! checks the relative links of the Markdown files of the repository, including their fragments.
+//! checks the relative inline links of the Markdown files under the repository root, `docs/` and
+//! `.agents/`, including heading fragments and links to a heading of the same file.
 //!
 //! Front matter is `key: value` lines between two `---` lines. A string and a list are JSON
 //! (`title: "..."`, `issues: [394, 420]`); `date`, `status`, `area` and `kind` are bare words.
@@ -470,7 +471,10 @@ fn heading_anchors(text: &str) -> BTreeSet<String> {
             continue;
         }
         let title = link.replace_all(line[hashes..].trim(), "$1");
-        // `{#id}` is this repository's own explicit anchor syntax.
+        // `{#id}` is this repository's own explicit anchor syntax; the id is an anchor too.
+        if let Some((_, id)) = title.split_once(" {#") {
+            anchors.insert(id.trim_end_matches('}').trim().to_string());
+        }
         let title = title.split(" {#").next().unwrap_or_default().to_lowercase();
         let slug: String = title
             .chars()
@@ -496,6 +500,7 @@ fn broken_links(text: &str, from_dir: &Path) -> Vec<String> {
     let link = Regex::new(r"\[[^\]]*\]\(([^)\s]+)\)").expect("the link pattern is valid");
     let code_span = Regex::new(r"`[^`]*`").expect("the code span pattern is valid");
     let mut broken = Vec::new();
+    let mut own: Option<BTreeSet<String>> = None;
     let mut fenced = false;
     for line in text.lines() {
         if line.trim_start().starts_with("```") {
@@ -509,12 +514,24 @@ fn broken_links(text: &str, from_dir: &Path) -> Vec<String> {
         for captures in link.captures_iter(&line) {
             let target = &captures[1];
             let (file, fragment) = target.split_once('#').unwrap_or((target, ""));
+            if file.is_empty() {
+                // A link to a heading of this very file. A section moved out of a larger file keeps
+                // such a link only when its heading moved with it.
+                let own = own.get_or_insert_with(|| heading_anchors(text));
+                if !fragment.is_empty()
+                    && !fragment.starts_with('L')
+                    && !own.contains(&fragment.to_lowercase())
+                {
+                    broken.push(target.to_string());
+                }
+                continue;
+            }
             let has_scheme = target.split_once(':').is_some_and(|(scheme, _)| {
                 scheme
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'.' || b == b'-')
             });
-            if file.is_empty() || has_scheme || file.starts_with('/') {
+            if has_scheme || file.starts_with('/') {
                 continue;
             }
             let path = from_dir.join(file);
@@ -539,7 +556,8 @@ fn broken_links(text: &str, from_dir: &Path) -> Vec<String> {
 }
 
 /// Every Markdown file the link check reads: the root `*.md` files, everything under `docs/`, and
-/// the skills under `.agents/`. `tests/`, `crates/` and `LICENSES/` are not scanned.
+/// everything under `.agents/`. `tests/`, `crates/`, `LICENSES/` and the other directories are not
+/// scanned. Only inline links `[text](target)` are read: not reference-style links, autolinks or HTML.
 fn markdown_files(root: &Path) -> Result<Vec<PathBuf>> {
     fn walk(dir: &Path, found: &mut Vec<PathBuf>) -> Result {
         let listing =
@@ -827,6 +845,33 @@ mod tests {
     }
 
     #[test]
+    fn a_link_to_a_heading_of_the_same_file_must_resolve() {
+        // The form a section keeps when it moves out of a larger file but its target does not.
+        let root = write_tree("same-file", &[], &[]);
+        let dir = decisions_dir(&root);
+        let text = "# Top, 2026-11-05\n\n## Sub {#explicit-id}\n\n[ok](#top-2026-11-05) [ok](#sub) [ok](#explicit-id) \
+[moved](#canonical-publication-registry-2026-11-05) [line](#L10) [empty](#)\n";
+        assert_eq!(
+            broken_links(text, &dir),
+            vec!["#canonical-publication-registry-2026-11-05".to_string()]
+        );
+        // The check reads it from a real file too.
+        fs::write(
+            dir.join("2026-11-17-moved.md"),
+            decision_text("").replace("Text.", "[x](#nowhere)"),
+        )
+        .unwrap();
+        fs::write(dir.join("README.md"), "# Decisions\n").unwrap();
+        fs::write(status_dir(&root).join("README.md"), "# Status\n").unwrap();
+        assert!(
+            check(&root)
+                .unwrap_err()
+                .contains("(#nowhere) does not resolve")
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn links_must_resolve_but_code_and_urls_are_not_files() {
         let root = write_tree("links", &[], &[]);
         let dir = decisions_dir(&root);
@@ -840,7 +885,11 @@ mod tests {
 [ten](exists.md#L3).\n```\n[six](nothing.md)\n```\n[seven](../decisions.md)\n";
         assert_eq!(
             broken_links(text, &dir),
-            vec!["missing.md".to_string(), "exists.md#gone".to_string()]
+            vec![
+                "missing.md".to_string(),
+                "#here".to_string(),
+                "exists.md#gone".to_string()
+            ]
         );
         let _ = fs::remove_dir_all(&root);
     }

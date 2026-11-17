@@ -396,23 +396,54 @@ def heading_anchor(heading):
 
 def anchor_map():
     """GitHub anchors of the old docs/decisions.md headings -> entry stems."""
-    mapping = {"__titles__": {}}
+    mapping = {"__titles__": {}, "__status__": {}}
     for row in plan_decisions():
         mapping[heading_anchor(split_sections(git_show("docs/decisions.md"))[1][row["index"]][0])] = row["stem"]
         mapping["__titles__"][row["title"]] = row["stem"]
+    for row in plan_status():
+        mapping["__status__"][heading_anchor(split_sections(git_show("docs/status.md"))[1][row["index"]][0])] = row["stem"]
     return mapping
+
+
+def own_anchors(text):
+    """The anchors of the headings in `text` (code blocks skipped), with explicit `{#id}` ids."""
+    found = set()
+    fenced = False
+    for line in text.split("\n"):
+        if line.startswith("```"):
+            fenced = not fenced
+        match = re.match(r"^(#{1,6}) (.*)$", line)
+        if fenced or not match:
+            continue
+        title = match.group(2)
+        explicit = re.search(r" \{#([^}]+)\}\s*$", title)
+        if explicit:
+            found.add(explicit.group(1))
+            title = title[: explicit.start()]
+        found.add(heading_anchor(re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", title.strip())))
+    return found
 
 
 def rewrite_links(text, directory, anchors, titles=None):
     """The text moved from docs/ into docs/decisions/ or docs/status/, so a relative link written for
-    docs/ needs `../`, and a link into decisions.md names the entry file. Nothing else changes."""
+    docs/ needs `../`, a link into decisions.md names the entry file, and a link to a heading that lives in
+    another section of the old file names that section's file. Nothing else changes."""
     count = 0
     by_title = {title.lower(): stem for title, stem in anchors.get("__titles__", {}).items()}
+    own = own_anchors(text)
+    sibling = anchors if directory == DECISIONS_DIR else anchors["__status__"]
 
     def fix(match):
         nonlocal count
         label, target = match.group(1), match.group(2)
-        if re.match(r"^[a-z][a-z0-9+.-]*:", target) or target.startswith("#"):
+        if target.startswith("#"):
+            # A link to a heading of another section of the old file: that section is its own file now.
+            stem = sibling.get(target[1:])
+            if target[1:] in own or not stem:
+                return match.group(0)
+            count += 1
+            return f"[{label}]({stem}.md)"
+        if re.match(r"^[a-z][a-z0-9+.-]*:", target):
             return match.group(0)
         file_part, _, anchor = target.partition("#")
         new = target

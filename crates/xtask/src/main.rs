@@ -35,8 +35,9 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
-  decisions-index            Write docs/decisions/README.md from the front matter of the decision files
-  status-index               Write docs/status/README.md from the front matter of the status log files
+  decisions-index            Render the index of docs/decisions/ (by area) into target/docs-index/decisions.md;
+                             nothing is committed or overwritten
+  status-index               Render the index of docs/status/ into target/docs-index/status.md
   check                      Run fmt, clippy, tests, the feature-map check, the decisions and status
                              checks, and the WASM build
 ";

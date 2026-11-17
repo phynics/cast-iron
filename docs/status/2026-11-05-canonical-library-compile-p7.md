@@ -61,4 +61,4 @@ parent, relation, or book target. The script was not weakened.
 This is a local build, not a deployment. PSRD was still the production default at
 that time; the later default switch is recorded at the top of this page. P8
 acceptance on the later facet-carrying build (`v523b94bd49b15699`) is recorded
-under [Canonical library acceptance (P8)](#canonical-library-acceptance-p8-2026-11-05).
+under [Canonical library acceptance (P8)](2026-11-05-canonical-library-acceptance-p8.md).
