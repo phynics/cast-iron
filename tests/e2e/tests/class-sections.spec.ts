@@ -177,36 +177,75 @@ test("The bar stays pinned while the page scrolls, and a second tap on the same 
   }
 });
 
-test("A section address opens at that section, and an unknown one opens at the top", async ({ page }) => {
+// One address per test, per width (#476). The nine scenarios at two widths used to be one test of
+// 18 real loads, about two minutes, at the 120 s limit. Each case below installs the library in
+// its own clean profile, then does the real load it is about (`goto` and `reload`), so a failure
+// names its width and scenario and each has its own time budget. The titles are plain strings so
+// that the feature map check reaches every case.
+async function useWidth(page: Page, width: number) {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+}
+
+/** A section address opens at that section, from a real load of the address. */
+async function expectOpensAtSection(page: Page, width: number, id: string, slug: string) {
   await installLibrary(page);
-  for (const width of WIDTHS) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    for (const [id, slug] of [[WIZARD, "archetypes"], [WIZARD, "spells"], [FIGHTER, "features"], [ARCANIST, "archetypes"]]) {
-      // A real load of the address, not a hash change inside a page that is already open.
-      await page.goto(`#/entry/${id}?s=${slug}`);
-      await page.reload();
-      await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title })).toBeVisible();
-      const name = slug[0].toUpperCase() + slug.slice(1);
-      await expect(stop(page, name), `${id} ${slug}`).toHaveAttribute("aria-current", "true");
-      await expectAtTop(page, slug, { exact: slug !== "spells" });
-      expect(await scrollY(page)).toBeGreaterThan(300);
-    }
-    // A class without Spells, an unknown value and `overview` open at the top; no link is current
-    // except Overview, and the page does not break.
-    for (const query of ["?s=spells", "?s=nope", "?s=overview", "?s="]) {
-      await page.goto(`#/entry/${FIGHTER}${query}`);
-      await page.reload();
-      await expect(page.getByRole("heading", { level: 1, name: "Fighter" })).toBeVisible();
-      await expect(stop(page, "Overview"), query).toHaveAttribute("aria-current", "true");
-      await expect(switcher(page).locator('[aria-current="true"]'), query).toHaveCount(1);
-      await expect.poll(() => scrollY(page), query).toBe(0);
-    }
-    // A heading anchor still wins over a section, and the id in the address is the entry's own.
-    await page.goto(`#/entry/${WIZARD}?a=arcane-bond&s=archetypes`);
-    await page.reload();
-    await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
-    await expect(page.locator("#h-arcane-bond")).toBeInViewport();
-  }
+  await useWidth(page, width);
+  const label = `${id} ${slug} at ${width}px`;
+  // A real load of the address, not a hash change inside a page that is already open.
+  await page.goto(`#/entry/${id}?s=${slug}`);
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title }), label).toBeVisible();
+  const name = slug[0].toUpperCase() + slug.slice(1);
+  await expect(stop(page, name), label).toHaveAttribute("aria-current", "true");
+  await expectAtTop(page, slug, { exact: slug !== "spells" });
+  expect(await scrollY(page), label).toBeGreaterThan(300);
+}
+
+/** A class without Spells, an unknown value, `overview` and an empty value open at the top; no
+ * link is current except Overview, and the page does not break. */
+async function expectOpensAtTop(page: Page, width: number, query: string) {
+  await installLibrary(page);
+  await useWidth(page, width);
+  const label = `${query} at ${width}px`;
+  await page.goto(`#/entry/${FIGHTER}${query}`);
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Fighter" }), label).toBeVisible();
+  await expect(stop(page, "Overview"), label).toHaveAttribute("aria-current", "true");
+  await expect(switcher(page).locator('[aria-current="true"]'), label).toHaveCount(1);
+  await expect.poll(() => scrollY(page), label).toBe(0);
+}
+
+/** A heading anchor still wins over a section, and the id in the address is the entry's own. */
+async function expectAnchorWins(page: Page, width: number) {
+  await installLibrary(page);
+  await useWidth(page, width);
+  const label = `anchor and section at ${width}px`;
+  await page.goto(`#/entry/${WIZARD}?a=arcane-bond&s=archetypes`);
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1, name: "Wizard" }), label).toBeVisible();
+  await expect(page.locator("#h-arcane-bond"), label).toBeInViewport();
+}
+
+test.describe("A section address opens at that section, and an unknown one opens at the top", () => {
+  test("At 390 px the Wizard address opens at Archetypes", ({ page }) => expectOpensAtSection(page, 390, WIZARD, "archetypes"));
+  test("At 390 px the Wizard address opens at Spells", ({ page }) => expectOpensAtSection(page, 390, WIZARD, "spells"));
+  test("At 390 px the Fighter address opens at Features", ({ page }) => expectOpensAtSection(page, 390, FIGHTER, "features"));
+  test("At 390 px the Arcanist address opens at Archetypes", ({ page }) => expectOpensAtSection(page, 390, ARCANIST, "archetypes"));
+  test("At 390 px a Fighter address for Spells opens at the top", ({ page }) => expectOpensAtTop(page, 390, "?s=spells"));
+  test("At 390 px an unknown section opens at the top", ({ page }) => expectOpensAtTop(page, 390, "?s=nope"));
+  test("At 390 px the overview section opens at the top", ({ page }) => expectOpensAtTop(page, 390, "?s=overview"));
+  test("At 390 px an empty section opens at the top", ({ page }) => expectOpensAtTop(page, 390, "?s="));
+  test("At 390 px a heading anchor wins over a section", ({ page }) => expectAnchorWins(page, 390));
+
+  test("At 1280 px the Wizard address opens at Archetypes", ({ page }) => expectOpensAtSection(page, 1280, WIZARD, "archetypes"));
+  test("At 1280 px the Wizard address opens at Spells", ({ page }) => expectOpensAtSection(page, 1280, WIZARD, "spells"));
+  test("At 1280 px the Fighter address opens at Features", ({ page }) => expectOpensAtSection(page, 1280, FIGHTER, "features"));
+  test("At 1280 px the Arcanist address opens at Archetypes", ({ page }) => expectOpensAtSection(page, 1280, ARCANIST, "archetypes"));
+  test("At 1280 px a Fighter address for Spells opens at the top", ({ page }) => expectOpensAtTop(page, 1280, "?s=spells"));
+  test("At 1280 px an unknown section opens at the top", ({ page }) => expectOpensAtTop(page, 1280, "?s=nope"));
+  test("At 1280 px the overview section opens at the top", ({ page }) => expectOpensAtTop(page, 1280, "?s=overview"));
+  test("At 1280 px an empty section opens at the top", ({ page }) => expectOpensAtTop(page, 1280, "?s="));
+  test("At 1280 px a heading anchor wins over a section", ({ page }) => expectAnchorWins(page, 1280));
 });
 
 test("An old entry id keeps the section of its address", async ({ page }) => {
