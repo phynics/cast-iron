@@ -837,6 +837,53 @@ pub fn check(corpus: &Corpus) -> Report {
                 ));
             }
         }
+        // `[[expanded_in]]` credits a book that expands the entry without printing it, so the
+        // book must exist, must not be a member book, and any `via` entry must itself be
+        // printed there.
+        for expansion in &entry.expanded_in {
+            let needle = format!("publication = \"{}\"", expansion.publication);
+            if !publication_ids.contains(expansion.publication.as_str()) {
+                report.problems.push(format!(
+                    "{}: `[[expanded_in]]`: unknown publication `{}`",
+                    at(&needle),
+                    expansion.publication
+                ));
+            }
+            if entry
+                .source_ids
+                .iter()
+                .any(|source| source == &expansion.publication)
+            {
+                report.problems.push(format!(
+                    "{}: `[[expanded_in]]`: publication `{}` is listed in `source_ids`; a book that prints the entry is a member, so drop the `[[expanded_in]]` row",
+                    at(&needle),
+                    expansion.publication
+                ));
+            }
+            if let Some(via) = &expansion.via {
+                let via_needle = format!("via = \"{via}\"");
+                match corpus.entries.get(via.as_str()) {
+                    None => report.problems.push(format!(
+                        "{}: `[[expanded_in]]`: `via` entry `{via}` does not exist",
+                        at(&via_needle)
+                    )),
+                    Some(target) => {
+                        if !target
+                            .entry
+                            .source_ids
+                            .iter()
+                            .any(|source| source == &expansion.publication)
+                        {
+                            report.problems.push(format!(
+                                "{}: `[[expanded_in]]`: `via` entry `{via}` is not in publication `{}`; its `source_ids` must include it",
+                                at(&via_needle),
+                                expansion.publication
+                            ));
+                        }
+                    }
+                }
+            }
+        }
         for license in &entry.license_refs {
             if !license_ids.contains(license.as_str()) {
                 report
@@ -2852,6 +2899,88 @@ mod tests {
         entry.source_ids.clear();
         let text = check(&corpus(vec![entry])).problems.join("\n");
         assert!(text.contains("is not listed in `source_ids`"), "{text}");
+    }
+
+    fn expansion_corpus(entries: Vec<RuleEntry>) -> crate::Corpus {
+        let mut corpus = corpus(entries);
+        add_publication(&mut corpus, "monster-handbook", None);
+        corpus
+    }
+
+    fn with_expansion(mut entry: RuleEntry, publication: &str, via: Option<&str>) -> RuleEntry {
+        entry.expanded_in.push(cast_iron_schema::Expansion {
+            publication: publication.into(),
+            page: Some("18".into()),
+            via: via.map(|via| EntryId::parse(via).unwrap()),
+        });
+        entry
+    }
+
+    #[test]
+    fn an_expansion_must_name_a_known_publication() {
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "missing-book", None);
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("[[expanded_in]]`: unknown publication `missing-book`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_must_not_name_a_member_book() {
+        // `rule` lists core-rulebook, so crediting it as an expansion is a membership leak.
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "core-rulebook", None);
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("publication `core-rulebook` is listed in `source_ids`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_via_entry_must_exist() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/gone"),
+        );
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("`via` entry `ref/rule/gone` does not exist"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_via_entry_must_be_printed_in_the_book() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/b"),
+        );
+        let via = rule("ref/rule/b", vec![]);
+        let text = check(&expansion_corpus(vec![entry, via]))
+            .problems
+            .join("\n");
+        assert!(
+            text.contains("`via` entry `ref/rule/b` is not in publication `monster-handbook`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_valid_expansion_passes() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/b"),
+        );
+        let via = in_publication(rule("ref/rule/b", vec![]), "monster-handbook");
+        let report = check(&expansion_corpus(vec![entry, via]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let bare = with_expansion(rule("ref/rule/c", vec![]), "monster-handbook", None);
+        let report = check(&expansion_corpus(vec![bare]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]

@@ -43,6 +43,7 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
         aon: None,
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
+        expanded_in: vec![],
         section: vec![],
         parent: None,
         body,

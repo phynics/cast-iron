@@ -7,8 +7,8 @@ use crate::tomlutil;
 use crate::trades::{read_trades, write_trades};
 use cast_iron_schema::{
     Block, ChallengeRating, Citation, CreatureFields, EntryId, EntryKind, EntryReference,
-    FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind, RuleEntry,
-    SpellFields, SpellLevel, TypedFields,
+    Expansion, FeatFields, Inline, ItemFields, Provenance, RaceGroup, Relation, RelationKind,
+    RuleEntry, SpellFields, SpellLevel, TypedFields,
 };
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -142,6 +142,7 @@ pub fn write_entry(entry: &RuleEntry, config: &Config) -> String {
         out.push_str("]\n");
     }
     write_sources(&mut out, &entry.sources);
+    write_expanded_in(&mut out, &entry.expanded_in);
     out.push_str("\n[fields]\n");
     write_fields(&mut out, &entry.fields, config.format);
     out.push_str("+++\n");
@@ -212,6 +213,26 @@ fn write_sources(out: &mut String, sources: &[Citation]) {
         if let Some(page) = &source.page {
             out.push_str("page = ");
             out.push_str(&tomlutil::string(page));
+            out.push('\n');
+        }
+    }
+}
+
+/// Writes the `[[expanded_in]]` rows in list order, after `[[sources]]` and before `[fields]`.
+/// Keys are `publication`, `page`, `via`; an absent `page` or `via` is left out.
+fn write_expanded_in(out: &mut String, expansions: &[Expansion]) {
+    for expansion in expansions {
+        out.push_str("[[expanded_in]]\npublication = ");
+        out.push_str(&tomlutil::string(&expansion.publication));
+        out.push('\n');
+        if let Some(page) = &expansion.page {
+            out.push_str("page = ");
+            out.push_str(&tomlutil::string(page));
+            out.push('\n');
+        }
+        if let Some(via) = &expansion.via {
+            out.push_str("via = ");
+            out.push_str(&tomlutil::string(via.as_str()));
             out.push('\n');
         }
     }
@@ -392,6 +413,8 @@ struct RawFront {
     relations: Vec<Relation>,
     #[serde(default)]
     sources: Vec<RawSource>,
+    #[serde(default)]
+    expanded_in: Vec<RawExpansion>,
     fields: toml::Table,
 }
 
@@ -401,6 +424,16 @@ struct RawSource {
     publication: String,
     #[serde(default)]
     page: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawExpansion {
+    publication: String,
+    #[serde(default)]
+    page: Option<String>,
+    #[serde(default)]
+    via: Option<String>,
 }
 
 pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntry> {
@@ -473,6 +506,23 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         })
         .collect();
 
+    let expanded_in: Vec<Expansion> = raw
+        .expanded_in
+        .into_iter()
+        .map(|expansion| {
+            let via = expansion
+                .via
+                .map(EntryId::parse)
+                .transpose()
+                .map_err(|e| Error::new(path, key_line(&front, "via"), e.to_string()))?;
+            Ok(Expansion {
+                publication: expansion.publication,
+                page: expansion.page,
+                via,
+            })
+        })
+        .collect::<Result<_>>()?;
+
     let body_lines = &lines[close + 1..];
     let body_start = close + 2;
     let numbered: Vec<(usize, &str)> = body_lines
@@ -490,6 +540,7 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         aon: raw.aon,
         source_ids: raw.source_ids,
         sources,
+        expanded_in,
         section: raw.section,
         parent,
         body,
@@ -930,6 +981,7 @@ mod tests {
                 publication: "core-rulebook".into(),
                 page: Some("221".into()),
             }],
+            expanded_in: vec![],
             section: vec!["Spells".into()],
             parent: Some(EntryId::parse("ref/spell").unwrap()),
             body: vec![
@@ -1695,6 +1747,59 @@ mod tests {
         entry.sources.clear();
         let text = round_trip_with(&entry, &Config::default());
         assert!(!text.contains("[[sources]]"), "{text}");
+    }
+
+    #[test]
+    fn expanded_in_rows_round_trip_in_key_order_after_sources() {
+        let mut entry = entry();
+        entry.expanded_in = vec![
+            Expansion {
+                publication: "monster-summoners-handbook".into(),
+                page: Some("18".into()),
+                via: Some(EntryId::parse("ref/spell/summon-monster-i").unwrap()),
+            },
+            Expansion {
+                publication: "ultimate-magic".into(),
+                page: None,
+                via: None,
+            },
+        ];
+        let text = round_trip_with(&entry, &Config::default());
+        assert!(
+            text.contains(
+                "[[expanded_in]]\npublication = \"monster-summoners-handbook\"\npage = \"18\"\n\
+                 via = \"ref/spell/summon-monster-i\"\n\
+                 [[expanded_in]]\npublication = \"ultimate-magic\"\n\n[fields]"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.find("[[sources]]").unwrap() < text.find("[[expanded_in]]").unwrap(),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_entry_without_expansions_writes_no_expanded_in_table() {
+        let text = round_trip_with(&entry(), &Config::default());
+        assert!(!text.contains("expanded_in"), "{text}");
+    }
+
+    #[test]
+    fn an_expanded_in_row_with_an_unknown_key_or_a_bad_via_is_refused() {
+        let entry = entry();
+        let text = write_entry(&entry, &Config::default());
+        let path = entry_path(&entry.id);
+        let unknown = text.replace(
+            "\n[fields]",
+            "[[expanded_in]]\npublication = \"x\"\nrole = \"y\"\n\n[fields]",
+        );
+        assert!(read_entry(&path, &unknown, &Config::default()).is_err());
+        let bad = text.replace(
+            "\n[fields]",
+            "[[expanded_in]]\npublication = \"x\"\nvia = \"not an id\"\n\n[fields]",
+        );
+        assert!(read_entry(&path, &bad, &Config::default()).is_err());
     }
 
     #[test]

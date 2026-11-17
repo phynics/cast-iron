@@ -104,6 +104,7 @@ class level and the full body below.
 | `license_refs` | array of strings | Omitted when it equals `[defaults] license_refs` in `corpus.toml` (today `["ogl-1.0a", "legal#community-use"]`). Written only for an entry that differs; an empty list is written as `license_refs = []`. Each value is a licence id from `legal.toml`, or `legal#community-use`. |
 | `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`, `variant`, `addon`, `revision`), `target`, and an optional `label`. Labels are closed per kind: `or` on `prerequisite`; `alternate` on `part`; exactly one of `mythic`, `stamina`, `changes` on `addon`; none, `removed`, or `merged` on `revision`; none on `variant` and `archetype`. A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
 | `sources` | repeated `[[sources]]` table | Optional. One row per printed citation, in print order. `publication` is a publication id that must also appear in `source_ids`; `page` is optional. See [`[[sources]]`](#sources). |
+| `expanded_in` | repeated `[[expanded_in]]` table | Optional. A book that expands the entry without printing it: `publication` (must not be in `source_ids`), optional `page`, optional `via` entry id. Never membership. See [`[[expanded_in]]`](#expanded_in). |
 
 ### `[[sources]]`
 
@@ -126,6 +127,31 @@ it in `source_ids`. Keep `source_ids`: it is the stable, ordered list that activ
 filtering uses. `page` is optional. It is a string, not a number, because printed pages are
 not always one number: `"12-14"`, `"263-4"` and `"inside cover"` all occur. The writer puts
 the rows in list order and leaves `page` out when the citation has none.
+
+### `[[expanded_in]]`
+
+A credit for a book that expands an entry without printing it, for when the expanding text
+has no entry of its own. It is **not** membership: the book is not in `source_ids`, and
+membership, counts, filters, search extra sources and page order never read the rows. When the
+expanding text has its own entry, use a relation (`variant`, `addon`) instead.
+
+```toml
+[[expanded_in]]
+publication = "monster-summoners-handbook"
+page = "18"
+via = "ref/spell/summon-monster-ii"
+```
+
+`publication` is required. `page` is optional and a string, as in `[[sources]]`. `via` is optional
+and is an entry id. The rows follow `[[sources]]` in the header, in list order, with the keys in
+the order shown; the writer leaves out an absent `page` or `via`. `corpus-check` requires that:
+
+- the publication exists in `publications.toml`;
+- the publication is not in the entry's `source_ids`;
+- `via` resolves to an entry whose `source_ids` include the publication.
+
+The compiler carries the rows to the client as the optional `expanded_in` entry field. It is
+additive, so the schema version does not change.
 
 ### Typed fields
 

@@ -165,6 +165,35 @@ mod tests {
     use crate::config::write_config;
     use crate::files::{write_books, write_exclusions, write_legal};
     use crate::testkit::{corpus, heading, link, paragraph, rule};
+    #[test]
+    fn fmt_puts_expanded_in_keys_in_canonical_order() {
+        let dir = temp_dir("expanded-in");
+        let mut entry = rule("ref/rule/a", vec![]);
+        entry.expanded_in = vec![cast_iron_schema::Expansion {
+            publication: "core-rulebook".into(),
+            page: Some("18".into()),
+            via: Some(cast_iron_schema::EntryId::parse("ref/rule/b").unwrap()),
+        }];
+        let source = corpus(vec![entry]);
+        let canonical = write_entry(&source.entries["ref/rule/a"].entry, &source.config);
+        assert!(canonical.contains(
+            "[[expanded_in]]\npublication = \"core-rulebook\"\npage = \"18\"\nvia = \"ref/rule/b\"\n"
+        ));
+        let shuffled = canonical.replace(
+            "publication = \"core-rulebook\"\npage = \"18\"\nvia = \"ref/rule/b\"\n",
+            "via = \"ref/rule/b\"\npage = \"18\"\npublication = \"core-rulebook\"\n",
+        );
+        assert_ne!(shuffled, canonical);
+        write_tree(&dir, &source, &[("entries/rule/a.md", &shuffled)]);
+        assert_eq!(format_corpus(&dir, false).unwrap().changes.len(), 1);
+        format_corpus(&dir, true).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.join("entries/rule/a.md")).unwrap(),
+            canonical
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     use cast_iron_schema::Inline;
 
     fn temp_dir(name: &str) -> PathBuf {

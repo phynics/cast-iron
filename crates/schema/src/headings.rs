@@ -352,6 +352,7 @@ mod anchor_tests {
             aon: None,
             source_ids: vec!["book".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body,
