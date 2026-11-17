@@ -79,8 +79,13 @@ installedTest("A search and a page that were opened show up in the numbers, with
   await installLibrary(page);
   // Opening Diagnostics switches the page probe on for this launch.
   await openDiagnostics(page);
+  // The sample is recorded two frames after the results show, and only while the screen is
+  // still there, so let the frames pass before the next step leaves it.
+  const framesPass = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await searchFor(page, "grapple");
+  await framesPass();
   await searchFor(page, "initiative");
+  await framesPass();
   await page.goto(`#/entry/${spell.id}`);
   await expect(page.getByTestId("entry-title")).toHaveText(spell.title);
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));

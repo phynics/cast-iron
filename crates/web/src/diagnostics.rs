@@ -717,7 +717,8 @@ pub fn mark_index_ready() {
 
 /// Records a search at the moment its results are painted: two animation frames after the screen
 /// was handed them. `began` is the `now()` at which the run started, and `current` says whether
-/// the run is still the newest one, so a search that was replaced never reports.
+/// the run is still the newest one, so a search that was replaced never reports. A run whose
+/// frame came while the page was hidden is dropped too.
 pub fn record_search_painted(
     kind: SearchKind,
     mut sample: SearchSample,
@@ -727,7 +728,11 @@ pub fn record_search_painted(
     sample.work_ms = now() - began;
     leptos::prelude::request_animation_frame(move || {
         leptos::prelude::request_animation_frame(move || {
-            if !current() {
+            // A page that was hidden when the frame came would count the wait in its time.
+            let visible = web_sys::window()
+                .and_then(|w| w.document())
+                .is_none_or(|d| d.visibility_state() == web_sys::VisibilityState::Visible);
+            if !visible || !current() {
                 return;
             }
             sample.total_ms = now() - began;
