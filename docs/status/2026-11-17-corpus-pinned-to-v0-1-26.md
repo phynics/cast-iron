@@ -34,11 +34,13 @@ Summon Monster feat, and no longer list the handbook in `source_ids`.
   active, the 10 credited spells are not in search or the S spell list and not in the book's count,
   and that Summon Monster III shows `Expanded in: Monster Summoner's Handbook p. 18` while visible.
   `expanded-in.spec.ts` keeps its overlay for the `via`, inactive and revision states.
-- **Local verification** (CI not run, nothing deployed). Content version `vb4ec72f397a03202` (was
-  `veada5093fd101aa3`, `main` at `2f1d4ca` with v0.1.25). `cargo xtask content` passed the
-  published-id guard (42,019 ids, 0 added) and the book-slot guard (439 books, 0 added);
-  `cargo xtask check` and `build-site --public-url /cast-iron/` (shell `cfcc0682cea0d642`) passed.
-  `size-budget`: library 223,172,299 of 234,300,000 bytes, largest file 68,686,066 of 72,300,000,
-  WASM 3,340,030 of 3,460,000 (no raise). Specs on `--project=chromium`, one worker:
-  `summon-monster-expansion` (1 passed), then `expanded-in`, `active-books` and `books` together
-  (50 passed, 1 skipped). The full suite runs in CI.
+- **Local verification** (CI not run, nothing deployed), on `origin/main` merged into the pin branch
+  (it holds corpus format 3 support and derived books, which a format 1 corpus does not change).
+  Content version `vb4ec72f397a03202`; it is the same before and after the merge, and was
+  `veada5093fd101aa3` with v0.1.25. `cargo xtask content` passed the published-id guard (42,019
+  ids, 0 added) and the book-slot guard (439 books, 0 added); `cargo xtask check` and
+  `build-site --public-url /cast-iron/` (shell `12bd7aa68d1d2063`) passed. `size-budget`: library
+  223,172,299 of 234,300,000 bytes, largest file 68,686,066 of 72,300,000, WASM 3,341,096 of
+  3,460,000 (no raise). Specs on `--project=chromium`, one worker: `summon-monster-expansion`,
+  `expanded-in` and `active-books` (20 passed, 1 skipped), then `books` (31 passed). The full suite
+  runs in CI.
