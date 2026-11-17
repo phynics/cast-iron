@@ -4,7 +4,7 @@
 //! group an option belongs to, which groups a class takes, and how many of a group's options the
 //! active books keep. They live here so the rules are tested without a browser.
 
-use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex, ReplacesIndex};
+use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex, TradeIndex, TradeOp, TradeRow};
 use std::collections::HashSet;
 
 /// The group that holds `id`, if the index has one.
@@ -57,17 +57,23 @@ pub fn serves_several_classes(group: &OptionGroup) -> bool {
     group.classes.len() > 1
 }
 
-/// The muted archetype line: `Replaces Arcane bond, 10th-level bonus feat`. `None` when the
-/// archetype has no typed replacements yet, which is most of them until slice 6.
-pub fn replaces_line(index: Option<&ReplacesIndex>, id: &EntryId) -> Option<String> {
-    let row = index?.entries.iter().find(|row| row.id == *id)?;
-    (!row.replaces.is_empty()).then(|| format!("Replaces {}", row.replaces.join(", ")))
+/// The muted line of one trade row: `Replaces Arcane bond, 10th-level bonus feat`. It names the
+/// printed names of the replaced features only; `None` when the row replaces nothing. The row
+/// reads the same from `trades.json` and from the `replaces.json` of an older library.
+pub fn replaces_line_of(row: &TradeRow) -> Option<String> {
+    let names = row.printed(TradeOp::Replaces);
+    (!names.is_empty()).then(|| format!("Replaces {}", names.join(", ")))
+}
+
+/// The muted archetype line for the entry `id`. `None` when the library has no trades for it.
+pub fn replaces_line(index: Option<&TradeIndex>, id: &EntryId) -> Option<String> {
+    replaces_line_of(index?.row(id)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cast_iron_schema::{OptionGroup, ReplacesRow};
+    use cast_iron_schema::{OptionGroup, ReplacesIndex, ReplacesRow, Trade};
 
     fn id(value: &str) -> EntryId {
         EntryId::parse(value).unwrap()
@@ -159,15 +165,19 @@ mod tests {
         let index = index();
         assert!(serves_several_classes(&index.groups[1]));
         assert!(!serves_several_classes(&index.groups[0]));
-        let replaces = ReplacesIndex {
+        let replaces = TradeIndex {
             entries: vec![
-                ReplacesRow {
-                    id: id("ref/arc-wizard/scrollmaster"),
-                    replaces: vec!["Arcane bond".into(), "10th-level bonus feat".into()],
-                },
-                ReplacesRow {
+                TradeRow {
                     id: id("ref/arc-wizard/empty"),
-                    replaces: Vec::new(),
+                    trades: vec![Trade::unresolved(TradeOp::Alters, "Arcane school")],
+                },
+                TradeRow {
+                    id: id("ref/arc-wizard/scrollmaster"),
+                    trades: vec![
+                        Trade::unresolved(TradeOp::Replaces, "Arcane bond"),
+                        Trade::unresolved(TradeOp::Replaces, "10th-level bonus feat"),
+                        Trade::unresolved(TradeOp::Alters, "Arcane school"),
+                    ],
                 },
             ],
         };
@@ -175,6 +185,7 @@ mod tests {
             replaces_line(Some(&replaces), &id("ref/arc-wizard/scrollmaster")),
             Some("Replaces Arcane bond, 10th-level bonus feat".to_string())
         );
+        // A row that only alters has no Replaces line.
         assert_eq!(
             replaces_line(Some(&replaces), &id("ref/arc-wizard/empty")),
             None
@@ -182,6 +193,29 @@ mod tests {
         assert_eq!(
             replaces_line(None, &id("ref/arc-wizard/scrollmaster")),
             None
+        );
+    }
+
+    #[test]
+    fn an_older_library_shows_its_printed_names_from_replaces_json() {
+        // A schema-4 or schema-5 library has `replaces.json` and no `trades.json`.
+        let older = ReplacesIndex {
+            entries: vec![ReplacesRow {
+                id: id("ref/arc-wizard/scrollmaster"),
+                replaces: vec!["Arcane bond".into()],
+            }],
+        };
+        let index = TradeIndex::from_replaces(older);
+        assert_eq!(
+            replaces_line(Some(&index), &id("ref/arc-wizard/scrollmaster")),
+            Some("Replaces Arcane bond".to_string())
+        );
+        // No feature: a compatibility filter has nothing to compare, so it must not match.
+        assert!(
+            index.entries[0]
+                .trades
+                .iter()
+                .all(|trade| trade.feature.is_none())
         );
     }
 }

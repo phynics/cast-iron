@@ -9,7 +9,16 @@ use std::path::Path;
 /// number. A change to what the files mean (a renamed key, a new default, a
 /// different escape) increases it, ships a migration, and is applied to a
 /// corpus as one mechanical change. See `docs/corpus-format.md`.
-pub const CORPUS_FORMAT: u32 = 1;
+///
+/// Format 2 (#450) writes the trades of an archetype or class option as one flat `trades`
+/// list; format 1 wrote four separate lists. The reader accepts both while the corpus
+/// migrates (#451, #452); [`READABLE_FORMATS`] lists them.
+pub const CORPUS_FORMAT: u32 = 2;
+
+/// The corpus formats this tool reads, oldest first. A reader of format 1 lowers the legacy
+/// `replaces`, `alters`, `replaces_features` and `alters_features` lists to trades; `fmt`
+/// writes each file back in the format its `corpus.toml` declares.
+pub const READABLE_FORMATS: [u32; 2] = [1, CORPUS_FORMAT];
 
 /// The command that converts a corpus from an older format.
 pub const MIGRATE_COMMAND: &str = "cast-iron-corpus migrate";
@@ -58,7 +67,7 @@ pub fn write_config(config: &Config) -> String {
     )
 }
 
-/// Reads `corpus.toml`. A format other than [`CORPUS_FORMAT`] is refused with
+/// Reads `corpus.toml`. A format outside [`READABLE_FORMATS`] is refused with
 /// the command that fixes it.
 pub fn read_config(path: &Path, text: &str) -> Result<Config> {
     let line_of = |needle: &str| {
@@ -75,7 +84,7 @@ pub fn read_config(path: &Path, text: &str) -> Result<Config> {
         });
         Error::new(path, line, format!("corpus.toml: {error}"))
     })?;
-    if raw.format != CORPUS_FORMAT {
+    if !READABLE_FORMATS.contains(&raw.format) {
         let advice = if raw.format < CORPUS_FORMAT {
             format!("run `{MIGRATE_COMMAND}` to convert the corpus")
         } else {
@@ -87,8 +96,9 @@ pub fn read_config(path: &Path, text: &str) -> Result<Config> {
             path,
             line_of("format"),
             format!(
-                "the corpus is format {}, and this tool reads format {CORPUS_FORMAT}; {advice}",
-                raw.format
+                "the corpus is format {}, and this tool reads formats {}; {advice}",
+                raw.format,
+                READABLE_FORMATS.map(|format| format.to_string()).join(", ")
             ),
         ));
     }
@@ -108,7 +118,7 @@ mod tests {
         let text = write_config(&config);
         assert_eq!(
             text,
-            "format = 1\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
+            "format = 2\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
         );
         assert_eq!(
             read_config(Path::new("corpus.toml"), &text).unwrap(),
@@ -118,7 +128,7 @@ mod tests {
 
     #[test]
     fn an_unknown_format_is_refused_and_names_the_migration_command() {
-        for (format, fragment) in [(0, "to convert the corpus"), (2, "older than the corpus")] {
+        for (format, fragment) in [(0, "to convert the corpus"), (3, "older than the corpus")] {
             let text = format!("format = {format}\n\n[defaults]\nlicense_refs = []\n");
             let error = read_config(Path::new("corpus.toml"), &text).unwrap_err();
             assert_eq!(error.line, 1);

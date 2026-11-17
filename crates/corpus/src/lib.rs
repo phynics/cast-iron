@@ -35,10 +35,12 @@ mod migrate;
 #[cfg(test)]
 mod testkit;
 mod tomlutil;
+mod trades;
 
-pub use check::{Report, check, fields_kind, fields_match, heading_keys, line_of};
+pub use check::{Report, base_class_ids, check, fields_kind, fields_match, heading_keys, line_of};
 pub use config::{
-    CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, read_config, write_config,
+    CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, READABLE_FORMATS, read_config,
+    write_config,
 };
 pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
