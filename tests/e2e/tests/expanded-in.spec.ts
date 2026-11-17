@@ -16,6 +16,8 @@ const members = (stub: any): string[] => memberBooks(stub);
 const HANDBOOK = sources.find((row) => row.title === "Monster Summoner's Handbook")?.id as string;
 const SUMMON_III = stubs.find((stub) => stub.title === "Summon Monster III" && stub.kind === "spell");
 const DODGE = "ref/feat/dodge";
+// A short item entry: with a credit line it has one more grid row than without (#446).
+const LONGSWORD = "ref/eq-weapon/longsword";
 const DODGE_REVISION = "ref/feat/dodge/teitr";
 
 /**
@@ -55,6 +57,7 @@ test("Expanded in credits a book under the Sources line, with via and inactive s
   const variant = buildLibraryWithExpandedIn({
     [SUMMON_III.id]: [{ publication: HANDBOOK, page: "18", via: VIA.id }],
     [DODGE]: [{ publication: HANDBOOK, page: "9" }],
+    [LONGSWORD]: [{ publication: HANDBOOK, page: "12" }],
   });
   try {
     await server.overlay(variant.dir);
@@ -164,6 +167,21 @@ test("Expanded in credits a book under the Sources line, with via and inactive s
       await open(DODGE_REVISION);
       await expect(page.getByTestId("entry-title")).toBeVisible();
       await expect(line).toHaveCount(0);
+    });
+
+    await test.step("A short entry with a credit line has no blank band at desktop width (#446)", async () => {
+      if (page.viewportSize()!.width < 1024) return; // The panel sits beside the body from 64rem only.
+      await open(LONGSWORD);
+      await expect(line).toHaveCount(1);
+      const head = (await page.locator(".entry > .entry-head").boundingBox())!;
+      const body = (await page.locator(".entry > .rich").first().boundingBox())!;
+      const refs = (await page.locator(".entry > .entry-refs").boundingBox())!;
+      const credit = (await line.boundingBox())!;
+      expect(body.y - (head.y + head.height), "gap under the header").toBeLessThan(48);
+      expect(Math.abs(refs.y - body.y), "panel and body tops").toBeLessThan(48);
+      // The credit line follows the Sources line directly, not a stretched row away.
+      const sources = (await page.locator(".entry > .sources-line").boundingBox())!;
+      expect(credit.y - (sources.y + sources.height), "gap between Sources and Expanded in").toBeLessThan(24);
     });
 
     await test.step("An entry without a credit has no line", async () => {
