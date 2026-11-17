@@ -343,9 +343,9 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                 Err(error) => leptos::logging::warn!("class-option groups are off: {error}"),
             }
         }
-        if wanted.replaces {
-            match fetch_library.replaces().await {
-                Ok(found) => indexes.replaces = found,
+        if wanted.trades {
+            match fetch_library.trades().await {
+                Ok(found) => indexes.trades = found,
                 Err(error) => leptos::logging::warn!("replacement lines are off: {error}"),
             }
         }
