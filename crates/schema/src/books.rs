@@ -493,6 +493,7 @@ mod tests {
             title: id.into(),
             source_ids: vec!["core".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body,

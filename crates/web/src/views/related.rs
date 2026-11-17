@@ -933,6 +933,7 @@ fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
         q: String::new(),
         kinds: vec![EntryKind::Trait],
         sources: Vec::new(),
+        expanded_in: vec![],
         facets: vec![("trait_category".into(), fields.category.to_lowercase())],
         sections: false,
     };
@@ -1192,6 +1193,7 @@ mod tests {
             aon: None,
             source_ids: vec!["c".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body: vec![],
