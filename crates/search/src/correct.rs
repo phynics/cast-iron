@@ -133,13 +133,33 @@ impl SearchIndex {
         filters: &Filters,
         accept: impl Fn(DocView<'_>) -> bool,
     ) -> Option<Correction> {
+        self.suggest_correction_by(text, filters, |ord| accept(self.view(ord)))
+    }
+
+    /// [`SearchIndex::suggest_correction`] over a mask that the caller built once for its
+    /// selection.
+    pub fn suggest_correction_masked(
+        &self,
+        text: &str,
+        filters: &Filters,
+        mask: &crate::EligibleMask,
+    ) -> Option<Correction> {
+        self.suggest_correction_by(text, filters, |ord| mask.allows(ord))
+    }
+
+    fn suggest_correction_by(
+        &self,
+        text: &str,
+        filters: &Filters,
+        accept: impl Fn(usize) -> bool,
+    ) -> Option<Correction> {
         let words: Vec<String> = scan(text).into_iter().map(|t| t.norm).collect();
         if words.is_empty() || words.len() > MAX_WORDS {
             return None;
         }
         let allowed = |ord: u32| {
             let ord = ord as usize;
-            ord < self.meta.docs.len() && accept(self.view(ord)) && self.passes(ord, filters)
+            ord < self.meta.docs.len() && accept(ord) && self.passes(ord, filters)
         };
 
         // A query that already has a strong result needs nothing.

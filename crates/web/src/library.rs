@@ -544,7 +544,22 @@ impl Library {
                 )
             })
         });
-        crate::discovery::Discovery::new(self.clone(), eligible)
+        crate::discovery::Discovery::new(self.clone(), eligible, revision)
+    }
+
+    /// The search masks of selection `revision`, built at most once per revision. A snapshot
+    /// from an older revision builds its own and leaves the cache alone, so a stale page cannot
+    /// replace the masks of the current selection.
+    pub(crate) fn selection_masks(
+        &self,
+        revision: u64,
+        build: impl FnOnce() -> crate::discovery::SelectionMasks,
+    ) -> Rc<crate::discovery::SelectionMasks> {
+        if revision == self.0.selection_revision.get_untracked() {
+            self.0.discovery.masks(revision, build)
+        } else {
+            Rc::new(build())
+        }
     }
 
     pub fn source(&self, id: &str) -> Option<&SourceInfo> {
