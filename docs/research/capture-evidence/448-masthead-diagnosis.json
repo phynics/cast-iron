@@ -1,0 +1,1235 @@
+{
+ "script": "tests/e2e/diagnose-masthead.mjs",
+ "build": {
+  "commit": "8d45b9d6b0621b9c8912191f2f8183ba11932716",
+  "source_dirty": false,
+  "shell_version": "ea714651ab69553d",
+  "content_version": "veada5093fd101aa3",
+  "schema_version": 6,
+  "corpus_tag": "v0.1.25",
+  "entry_count": 31800,
+  "dist": "dist"
+ },
+ "summary": {
+  "viewport @ scroll 0": {
+   "with": 4,
+   "without": 0,
+   "dom_says_y0": 4
+  },
+  "full-page @ scroll 0": {
+   "with": 4,
+   "without": 0,
+   "dom_says_y0": 4
+  },
+  "element <main> @ scroll 0": {
+   "with": 0,
+   "without": 4,
+   "dom_says_y0": 4
+  },
+  "viewport @ scroll >0": {
+   "with": 4,
+   "without": 0,
+   "dom_says_y0": 4
+  },
+  "full-page @ scroll >0": {
+   "with": 0,
+   "without": 4,
+   "dom_says_y0": 4
+  },
+  "element <main> @ scroll >0": {
+   "with": 0,
+   "without": 4,
+   "dom_says_y0": 4
+  }
+ },
+ "rows": [
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "phone-search-scroll0-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 844
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "phone-search-scroll0-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 6878
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.397,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 1,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "phone-search-scroll1500-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 844
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "phone-search-scroll1500-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0,
+    "masthead_in_frame": false,
+    "found_at_y": 2340
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 7145,
+   "focus": "body",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 7144.578125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 6878
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.397,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 1,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "phone-class-scroll0-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 844
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "phone-class-scroll0-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 33294
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0.082,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "phone-class-scroll1500-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 844
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.955,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "phone-class-scroll1500-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0,
+    "masthead_in_frame": false,
+    "found_at_y": null
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "phone",
+    "width": 390,
+    "height": 844
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 33561,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 390,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 33560.78125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 390,
+     "height": 33294
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0.082,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "desktop-search-scroll0-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 900
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "desktop-search-scroll0-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 1056,
+     "height": 6702
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.633,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 1,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "desktop-search-scroll1500-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 900
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "desktop-search-scroll1500-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0,
+    "masthead_in_frame": false,
+    "found_at_y": 1500
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "search",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 6891,
+   "focus": "input#search-input",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 6890.828125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 1056,
+     "height": 6702
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.633,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 1,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "desktop-class-scroll0-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 900
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "desktop-class-scroll0-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 0,
+   "scroll_y": 0,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 1056,
+     "height": 24298
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.828,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0.007,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "viewport",
+   "file": "desktop-class-scroll1500-viewport.png",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 900
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0.957,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "211,200,183",
+    "brand_ink_share": 0.161,
+    "masthead_in_frame": true
+   },
+   "masthead_in_saved_frame": true
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "full-page",
+   "file": "desktop-class-scroll1500-full-page.png",
+   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "frame": {
+    "frame": {
+     "width": 1280,
+     "height": 4000
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 1,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0,
+    "masthead_in_frame": false,
+    "found_at_y": 1500
+   },
+   "masthead_in_saved_frame": false
+  },
+  {
+   "viewport": {
+    "name": "desktop",
+    "width": 1280,
+    "height": 900
+   },
+   "page": "class",
+   "requested_scroll_y": 1500,
+   "scroll_y": 1500,
+   "document_height": 24486,
+   "focus": "main#main",
+   "header_bounds": {
+    "x": 0,
+    "y": 0,
+    "width": 1280,
+    "height": 61
+   },
+   "header_style": {
+    "position": "sticky",
+    "top": "0px",
+    "z_index": "5",
+    "opacity": "1",
+    "visibility": "visible",
+    "display": "flex",
+    "transform": "none",
+    "background": "rgb(251, 248, 242)",
+    "border_bottom_colour": "rgb(211, 200, 183)"
+   },
+   "header_sticky_parent": {
+    "parent": "div.app",
+    "parent_height": 24486.453125
+   },
+   "hit_at_header_centre": "header.app-header",
+   "capture_mode": "element <main>",
+   "file": null,
+   "frame": {
+    "frame": {
+     "width": 1056,
+     "height": 24298
+    },
+    "looked_at_y": 0,
+    "header_background_share": 0,
+    "bottom_border_uniform_share": 0.828,
+    "bottom_border_colour": "244,239,230",
+    "brand_ink_share": 0.007,
+    "masthead_in_frame": false
+   },
+   "masthead_in_saved_frame": false
+  }
+ ]
+}
