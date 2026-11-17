@@ -59,7 +59,9 @@ test("Keyboard reading traverses a complete subsystem offline and preserves book
   const contents = page.locator(".article-contents");
   await contents.locator("summary").press("Enter");
   // The disclosure opens on the key event; read its links only once they are exposed. WebKit can
-  // run the next evaluation before the toggle, which returns no links at all.
+  // run the next evaluation before the toggle, which returns no links at all. This assertion checks
+  // that the disclosure opened. `openBookEntry` waits out the route's pending focus frame, so the
+  // Enter is not lost to <main> (#121).
   await expect(contents).toHaveJSProperty("open", true);
   await expect(contents.getByRole("link").first()).toBeVisible();
   // The reader derives a heading id even when the compiler stored no explicit anchor.
