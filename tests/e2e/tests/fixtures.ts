@@ -183,6 +183,8 @@ const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 class Guard {
   console: string[] = [];
   external: string[] = [];
+  /** WebKit teardown errors that were not counted (see `watch`). */
+  teardown = 0;
   private allowed: RegExp[] = [];
   /** Tolerate console errors that match, for tests that cause an error on purpose. */
   allow(pattern: RegExp) {
@@ -197,7 +199,25 @@ class Guard {
       page.on("console", (m) => {
         if (m.type() === "error") this.console.push(`console.error: ${m.text()} (${page.url()})`);
       });
-      page.on("pageerror", (e) => this.console.push(`pageerror: ${e.message}`));
+      // WebKit reports "Context is stopped" as a page error when it tears down a document that a
+      // service worker controls, whatever that document does (docs/decisions/2026-11-17-webkit-
+      // context-stopped-at-teardown.md). The error arrives while the page navigates away: after
+      // the navigation request starts and before the next page's `load`. An error outside that
+      // window still counts.
+      let navigating = false;
+      page.on("request", (r) => {
+        if (r.isNavigationRequest() && r.frame() === page.mainFrame()) navigating = true;
+      });
+      page.on("load", () => {
+        navigating = false;
+      });
+      page.on("pageerror", (e) => {
+        if (navigating && e.message === "Context is stopped" && page.context().browser()?.browserType().name() === "webkit") {
+          this.teardown++;
+          return;
+        }
+        this.console.push(`pageerror: ${e.message}`);
+      });
     };
     context.on("page", hook);
     context.pages().forEach(hook);
