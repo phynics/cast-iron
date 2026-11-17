@@ -37,7 +37,10 @@ pub struct InstallRecord {
     pub files: u32,
     /// Files that the scan found good, so the download skipped them.
     pub resumed_files: u32,
+    /// The size of the whole library.
     pub bytes: u64,
+    /// The bytes that the download had to fetch: the library minus the files already there.
+    pub downloaded_bytes: u64,
     /// What `navigator.storage.persist()` answered when the install asked.
     pub persist_granted: bool,
     pub standalone: bool,
@@ -52,8 +55,9 @@ pub struct IndexLoad {
     pub bytes: u64,
 }
 
-/// One search, from the moment the Search screen started it to the results on screen. The typing
-/// pause before it ([`crate::views::search::DEBOUNCE_MS`]) is not in these numbers.
+/// One search, from the moment its screen started the run to the results painted: two animation
+/// frames after they were shown. The typing pause before the run
+/// ([`crate::views::search::DEBOUNCE_MS`], and the Quick search pause) is not in these numbers.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SearchSample {
@@ -63,7 +67,19 @@ pub struct SearchSample {
     /// How long the search waited for the index to load (about zero once it is loaded).
     pub index_wait_ms: f64,
     pub engine_ms: f64,
+    /// Until the results were handed to the screen: everything except drawing them.
+    pub work_ms: f64,
+    /// Until the results were painted.
     pub total_ms: f64,
+}
+
+/// Which screen ran a search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchKind {
+    /// The full results page.
+    Results,
+    /// The suggestions of the Quick search layer.
+    Quick,
 }
 
 /// One page, from the moment its screen opened to the text on screen, and how big it is.
@@ -104,6 +120,8 @@ pub struct Launch {
     /// The search index was loaded.
     pub index_ready_ms: Option<f64>,
     pub searches: Vec<SearchSample>,
+    /// Quick search suggestion lookups.
+    pub quick_searches: Vec<SearchSample>,
     pub pages: Vec<PageSample>,
     pub wasm_bytes: Option<u64>,
     pub heap_used: Option<u64>,
@@ -256,8 +274,10 @@ pub struct Snapshot {
     pub launch: Launch,
     /// Other launches, newest first.
     pub earlier: Vec<Launch>,
-    /// The typing pause before every search, in ms. It is not in the search numbers.
+    /// The typing pause before every results search, in ms. It is not in the search numbers.
     pub typing_pause_ms: u32,
+    /// The same for a Quick search lookup.
+    pub quick_pause_ms: u32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -309,14 +329,57 @@ fn ms_or(value: Option<f64>, missing: &str) -> String {
     value.map_or_else(|| missing.to_string(), duration)
 }
 
-fn search_line(sample: &SearchSample) -> String {
+fn search_line(sample: &SearchSample, unit: &str) -> String {
     format!(
-        "{} characters, {} results: {} (engine {})",
+        "{} characters, {} {unit}: painted after {} (work {}, engine {})",
         sample.query_chars,
         fmt::count(sample.hits),
         duration(sample.total_ms),
+        duration(sample.work_ms),
         duration(sample.engine_ms)
     )
+}
+
+/// The lines of one search section. `unit` names what a hit is, `pause_ms` is the wait before a run.
+fn search_lines(samples: &[SearchSample], unit: &str, pause_ms: u32) -> Vec<String> {
+    let Some(summary) = summarize_searches(samples) else {
+        return vec!["none yet".to_string()];
+    };
+    let mut lines = vec![
+        format!(
+            "{} {}. A run starts {} after the last key. Times end when the {unit} are painted.",
+            summary.count,
+            if summary.count == 1 {
+                "search"
+            } else {
+                "searches"
+            },
+            duration(f64::from(pause_ms))
+        ),
+        format!(
+            "first: {} (waited {} for the index)",
+            search_line(&summary.first, unit),
+            duration(summary.first.index_wait_ms)
+        ),
+    ];
+    if let Some(rest) = summary.rest {
+        lines.push(format!(
+            "after the first ({}): median {}, 95th percentile {}, slowest {}, engine median {}",
+            rest.count,
+            duration(rest.median_total),
+            duration(rest.p95_total),
+            duration(rest.slowest_total),
+            duration(rest.median_engine)
+        ));
+    }
+    let from = samples.len().saturating_sub(LISTED_SEARCHES);
+    lines.push(format!("last {}:", samples.len() - from));
+    lines.extend(
+        samples[from..]
+            .iter()
+            .map(|s| format!("- {}", search_line(s, unit))),
+    );
+    lines
 }
 
 pub fn report(snapshot: &Snapshot) -> Report {
@@ -365,7 +428,7 @@ pub fn report(snapshot: &Snapshot) -> Report {
                 }
             ),
             format!(
-                "WebAssembly memory (peak): {}",
+                "WebAssembly memory allocated (high-water mark): {}",
                 bytes_or(memory.wasm_bytes, "not available")
             ),
             match memory.heap_used {
@@ -385,10 +448,19 @@ pub fn report(snapshot: &Snapshot) -> Report {
         lines: match &snapshot.install {
             None => vec!["none recorded since this feature arrived".to_string()],
             Some(install) => {
-                let rate = (install.download_ms > 0.0).then(|| {
-                    let per_second = install.bytes as f64 / (install.download_ms / 1000.0);
-                    format!("{}/s", fmt::bytes(per_second as u64))
-                });
+                // The rate counts the bytes that were fetched, never the files that were already
+                // there, so a resumed install does not read as a fast one.
+                let downloaded = if install.downloaded_bytes > 0 && install.download_ms > 0.0 {
+                    let per_second =
+                        install.downloaded_bytes as f64 / (install.download_ms / 1000.0);
+                    format!(
+                        "downloaded: {}, about {}/s",
+                        fmt::bytes(install.downloaded_bytes),
+                        fmt::bytes(per_second as u64)
+                    )
+                } else {
+                    "downloaded: nothing, every file was already there".to_string()
+                };
                 vec![
                     format!("library id: {}", install.content_version),
                     format!("shown as: {}", shown_as(install.standalone)),
@@ -401,12 +473,12 @@ pub fn report(snapshot: &Snapshot) -> Report {
                         duration(install.activate_ms)
                     ),
                     format!(
-                        "files: {} ({} already there), {}{}",
+                        "files: {} ({} already there), {}",
                         fmt::count(install.files),
                         fmt::count(install.resumed_files),
-                        fmt::bytes(install.bytes),
-                        rate.map_or_else(String::new, |r| format!(", about {r} while downloading"))
+                        fmt::bytes(install.bytes)
                     ),
+                    downloaded,
                     format!(
                         "persistent storage asked for: {}",
                         if install.persist_granted {
@@ -464,48 +536,26 @@ pub fn report(snapshot: &Snapshot) -> Report {
     });
 
     sections.push(Section {
-        title: "Searches in this launch",
-        lines: match summarize_searches(&launch.searches) {
-            None => vec!["none yet".to_string()],
-            Some(summary) => {
-                let mut lines = vec![
-                    format!(
-                        "{} searches. A search starts {} after the last key.",
-                        summary.count,
-                        duration(f64::from(snapshot.typing_pause_ms))
-                    ),
-                    format!(
-                        "first: {} (waited {} for the index)",
-                        search_line(&summary.first),
-                        duration(summary.first.index_wait_ms)
-                    ),
-                ];
-                if let Some(rest) = summary.rest {
-                    lines.push(format!(
-                        "after the first ({}): median {}, 95th percentile {}, slowest {}, engine median {}",
-                        rest.count,
-                        duration(rest.median_total),
-                        duration(rest.p95_total),
-                        duration(rest.slowest_total),
-                        duration(rest.median_engine)
-                    ));
-                }
-                let from = launch.searches.len().saturating_sub(LISTED_SEARCHES);
-                lines.push(format!("last {}:", launch.searches.len() - from));
-                lines.extend(
-                    launch.searches[from..]
-                        .iter()
-                        .map(|s| format!("- {}", search_line(s))),
-                );
-                lines
-            }
-        },
+        title: "Full results searches in this launch",
+        lines: search_lines(&launch.searches, "results", snapshot.typing_pause_ms),
+    });
+
+    sections.push(Section {
+        title: "Quick search suggestions in this launch",
+        lines: search_lines(
+            &launch.quick_searches,
+            "suggestions",
+            snapshot.quick_pause_ms,
+        ),
     });
 
     sections.push(Section {
         title: "Pages opened in this launch",
         lines: if launch.pages.is_empty() {
-            vec!["none yet".to_string()]
+            vec![
+                "none yet. Only pages opened after this screen was first opened in this launch are measured."
+                    .to_string(),
+            ]
         } else {
             launch
                 .pages
@@ -562,7 +612,7 @@ use crate::route::{self, Route};
 use crate::store;
 use futures::lock::Mutex;
 use js_sys::Reflect;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use wasm_bindgen::{JsCast, JsValue};
 
@@ -571,6 +621,7 @@ pub const KEY: &str = store::KEY_DIAGNOSTICS;
 
 thread_local! {
     static CURRENT: RefCell<Launch> = RefCell::new(Launch::default());
+    static PAGE_PROBE: Cell<bool> = const { Cell::new(false) };
     static LAST_INSTALL: RefCell<Option<InstallRecord>> = const { RefCell::new(None) };
     static LOCK: Rc<Mutex<()>> = Rc::new(Mutex::new(()));
 }
@@ -663,8 +714,31 @@ pub fn mark_index_ready() {
     }
 }
 
-pub fn record_search(sample: SearchSample) {
-    with_launch(|l| push_keep_first(&mut l.searches, sample, MAX_SEARCHES));
+/// Records a search at the moment its results are painted: two animation frames after the screen
+/// was handed them. `began` is the `now()` at which the run started, and `current` says whether
+/// the run is still the newest one, so a search that was replaced never reports.
+pub fn record_search_painted(
+    kind: SearchKind,
+    mut sample: SearchSample,
+    began: f64,
+    current: impl Fn() -> bool + 'static,
+) {
+    sample.work_ms = now() - began;
+    leptos::prelude::request_animation_frame(move || {
+        leptos::prelude::request_animation_frame(move || {
+            if !current() {
+                return;
+            }
+            sample.total_ms = now() - began;
+            with_launch(|l| {
+                let list = match kind {
+                    SearchKind::Results => &mut l.searches,
+                    SearchKind::Quick => &mut l.quick_searches,
+                };
+                push_keep_first(list, sample, MAX_SEARCHES);
+            });
+        });
+    });
 }
 
 pub fn record_install(record: InstallRecord) {
@@ -672,8 +746,18 @@ pub fn record_install(record: InstallRecord) {
     spawn_persist();
 }
 
-/// Measures the open page after it has painted: two animation frames after `opened`.
+/// Turns the page-size probe on for the rest of this launch. The Diagnostics screen calls it when
+/// it opens, so an ordinary reader never pays for counting a page's elements and text.
+pub fn start_page_probe() {
+    PAGE_PROBE.with(|on| on.set(true));
+}
+
+/// Measures the open page after it has painted: two animation frames after `opened`. Does
+/// nothing until [`start_page_probe`] has run in this launch.
 pub fn sample_page(title: String, opened: f64) {
+    if !PAGE_PROBE.with(Cell::get) {
+        return;
+    }
     leptos::prelude::request_animation_frame(move || {
         leptos::prelude::request_animation_frame(move || {
             let load_ms = now() - opened;
@@ -750,22 +834,53 @@ pub async fn load() -> Stored {
         .unwrap_or_default()
 }
 
-/// Stores this launch (and the last install), after any earlier write has finished. A failure is
-/// ignored: measuring must never break the app.
+/// Stores this launch (and the last install), after any earlier write of this tab has finished.
+/// The read, the change and the write are one IndexedDB transaction, so a second tab cannot take
+/// the same launch number or overwrite this write. A failure is ignored: measuring must never
+/// break the app.
 pub async fn persist() {
     let lock = LOCK.with(Rc::clone);
     let _guard = lock.lock().await;
-    let mut stored = load().await;
     let mut launch = current();
     let memory = js_heap();
     launch.wasm_bytes = memory.wasm_bytes;
     launch.heap_used = memory.heap_used;
-    store_launch(&mut stored, &mut launch);
-    with_launch(|l| l.number = launch.number);
-    if let Some(install) = LAST_INSTALL.with(|last| last.borrow().clone()) {
-        stored.install = Some(install);
+    let install = LAST_INSTALL.with(|last| last.borrow().clone());
+    let stored = store::update_meta::<Stored, ()>(KEY, |stored| {
+        let mut stored = stored.unwrap_or_default();
+        store_launch(&mut stored, &mut launch);
+        if install.is_some() {
+            stored.install = install;
+        }
+        (stored, ())
+    })
+    .await;
+    if stored.is_ok()
+        && let Some(number) = launch.number
+    {
+        with_launch(|l| {
+            l.number.get_or_insert(number);
+        });
     }
-    let _ = store::set_meta(KEY, &stored).await;
+}
+
+/// Removes this record and nothing else: the stored launches and install, and what this launch
+/// has measured so far. How the launch began (its time, display mode and first screen) stays.
+pub async fn clear() {
+    let lock = LOCK.with(Rc::clone);
+    let _guard = lock.lock().await;
+    let _ = store::remove_meta(KEY).await;
+    LAST_INSTALL.with(|last| *last.borrow_mut() = None);
+    with_launch(|l| {
+        *l = Launch {
+            started_at: l.started_at,
+            standalone: l.standalone,
+            online: l.online,
+            wasm_start_ms: l.wasm_start_ms,
+            first_screen_home: l.first_screen_home,
+            ..Launch::default()
+        };
+    });
 }
 
 /// The launches other than the current one, newest first.
@@ -789,6 +904,7 @@ mod tests {
             hits: 10,
             index_wait_ms: 0.0,
             engine_ms: total / 4.0,
+            work_ms: total * 0.75,
             total_ms: total,
         }
     }
@@ -897,6 +1013,7 @@ mod tests {
             hits: 312,
             index_wait_ms: 0.0,
             engine_ms: 8.0,
+            work_ms: 130.0,
             total_ms: 160.0,
         }];
         samples.extend((1..=3).map(|i| search(5, f64::from(i * 20))));
@@ -932,6 +1049,7 @@ mod tests {
                 files: 31_113,
                 resumed_files: 0,
                 bytes: 217_000_000,
+                downloaded_bytes: 217_000_000,
                 persist_granted: true,
                 standalone: true,
                 ..InstallRecord::default()
@@ -953,6 +1071,7 @@ mod tests {
                 }),
                 index_ready_ms: Some(3000.0),
                 searches: samples,
+                quick_searches: vec![search(4, 30.0), search(6, 50.0)],
                 pages: vec![PageSample {
                     title: "Wizard".into(),
                     load_ms: 420.0,
@@ -970,6 +1089,7 @@ mod tests {
                 ..Launch::default()
             }],
             typing_pause_ms: 80,
+            quick_pause_ms: 100,
         }
     }
 
@@ -983,11 +1103,12 @@ mod tests {
             "shown as: Home Screen app; online now: no",
             "storage used: 199 MB of 10.2 GB",
             "persistent storage: not granted",
-            "WebAssembly memory (peak): 95.4 MB",
+            "WebAssembly memory allocated (high-water mark): 95.4 MB",
             "JavaScript heap: not offered by this browser",
             "total: 3 min 12 s",
             "scan 400 ms, download 2 min 40 s, verify 25.0 s, activate 40 ms",
-            "files: 31,113 (0 already there), 207 MB, about 1.3 MB/s while downloading",
+            "files: 31,113 (0 already there), 207 MB",
+            "downloaded: 207 MB, about 1.3 MB/s",
             "persistent storage asked for: granted",
             "launch: #3, shown as Home Screen app, online at start: no",
             "app code running: 412 ms after the page started",
@@ -995,8 +1116,10 @@ mod tests {
             "library ready: 2.1 s",
             "Home on screen, ready to use: 2.2 s",
             "search index: read 180 ms, decode 520 ms, 38.1 MB; ready at 3.0 s",
-            "4 searches. A search starts 80 ms after the last key.",
-            "first: 7 characters, 312 results: 160 ms (engine 8.0 ms) (waited 0.0 ms for the index)",
+            "4 searches. A run starts 80 ms after the last key. Times end when the results are painted.",
+            "first: 7 characters, 312 results: painted after 160 ms (work 130 ms, engine 8.0 ms) (waited 0.0 ms for the index)",
+            "2 searches. A run starts 100 ms after the last key. Times end when the suggestions are painted.",
+            "first: 4 characters, 10 suggestions: painted after 30 ms (work 22 ms, engine 7.5 ms)",
             "after the first (3): median 40 ms, 95th percentile 60 ms, slowest 60 ms, engine median 10 ms",
             "Wizard: on screen after 420 ms, 18,340 elements, 212,000 characters",
             "#2: Home Screen app, online at start yes, Home 2.5 s, 0 searches",
@@ -1028,6 +1151,39 @@ mod tests {
         ] {
             assert!(text.contains(expected), "missing {expected:?} in\n{text}");
         }
+    }
+
+    #[test]
+    fn the_download_rate_counts_only_what_was_downloaded() {
+        let mut snapshot = full_snapshot();
+        let install = snapshot.install.as_mut().unwrap();
+        // Half of the library was already there: the rate is over the other half.
+        install.resumed_files = 15_000;
+        install.downloaded_bytes = 104_857_600;
+        install.download_ms = 100_000.0;
+        let text = report(&snapshot).text();
+        assert!(
+            text.contains("downloaded: 100 MB, about 1.0 MB/s"),
+            "{text}"
+        );
+        assert!(!text.contains("1.3 MB/s"));
+        // Everything was already there: no rate at all.
+        let install = snapshot.install.as_mut().unwrap();
+        install.resumed_files = install.files;
+        install.downloaded_bytes = 0;
+        install.download_ms = 40.0;
+        let text = report(&snapshot).text();
+        assert!(text.contains("downloaded: nothing, every file was already there"));
+        assert!(!text.contains("/s\n"));
+    }
+
+    #[test]
+    fn one_search_is_not_plural() {
+        let lines = search_lines(&[search(3, 20.0)], "results", 80);
+        assert!(
+            lines[0].starts_with("1 search. A run starts 80 ms"),
+            "{lines:?}"
+        );
     }
 
     #[test]

@@ -1152,13 +1152,19 @@ pub fn Search() -> impl IntoView {
                     counts.set(Some(fresh));
                 }
                 search_ms.set(Some(engine_ms));
-                crate::diagnostics::record_search(crate::diagnostics::SearchSample {
-                    query_chars: u32::try_from(current.q.chars().count()).unwrap_or(u32::MAX),
-                    hits: u32::try_from(total).unwrap_or(u32::MAX),
-                    index_wait_ms,
-                    engine_ms,
-                    total_ms: now() - search_began,
-                });
+                // Recorded two frames after the results are shown, if no newer run replaced this one.
+                crate::diagnostics::record_search_painted(
+                    crate::diagnostics::SearchKind::Results,
+                    crate::diagnostics::SearchSample {
+                        query_chars: u32::try_from(current.q.chars().count()).unwrap_or(u32::MAX),
+                        hits: u32::try_from(total).unwrap_or(u32::MAX),
+                        index_wait_ms,
+                        engine_ms,
+                        ..Default::default()
+                    },
+                    search_began,
+                    move || seq.try_get_value() == Some(id),
+                );
                 phase.set(Phase::Done {
                     hits,
                     total,

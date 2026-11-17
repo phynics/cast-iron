@@ -403,6 +403,27 @@ pub async fn set_meta<T: Serialize>(key: &str, value: &T) -> Result<()> {
     tx.finish().await
 }
 
+/// Reads, changes and writes one `meta` record in a single transaction, so that two tabs cannot
+/// interleave their reads and writes. A record that no longer decodes counts as missing.
+pub async fn update_meta<T, R>(key: &str, change: impl FnOnce(Option<T>) -> (T, R)) -> Result<R>
+where
+    T: Serialize + DeserializeOwned,
+{
+    let tx = Tx::begin(&[META], true).await?;
+    let store = tx.store(META)?;
+    let current = request(store.get(&JsValue::from_str(key)).map_err(Into::into)).await?;
+    let (next, result) = change(from_js(current).unwrap_or(None));
+    let value = to_js(&next)?;
+    request(
+        store
+            .put_with_key(&value, &JsValue::from_str(key))
+            .map_err(Into::into),
+    )
+    .await?;
+    tx.finish().await?;
+    Ok(result)
+}
+
 pub async fn remove_meta(key: &str) -> Result<()> {
     let tx = Tx::begin(&[META], true).await?;
     let store = tx.store(META)?;

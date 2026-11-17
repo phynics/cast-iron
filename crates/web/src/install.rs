@@ -177,6 +177,8 @@ pub async fn install(
         files: u32::try_from(manifest.files.len()).unwrap_or(u32::MAX),
         resumed_files,
         bytes: manifest.total_bytes,
+        // What the scan left to fetch.
+        downloaded_bytes: needed,
         persist_granted,
         standalone: crate::pwa::detect_standalone(),
     });

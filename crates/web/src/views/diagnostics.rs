@@ -10,9 +10,12 @@ use crate::route::Route;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-/// Reads everything the text needs. It also stores this launch, so the launch has its number.
-async fn collect(library: &Library) -> Report {
-    diagnostics::persist().await;
+/// Reads everything the text needs. With `store`, it also stores this launch first, so the launch
+/// has its number.
+async fn collect(library: &Library, store: bool) -> Report {
+    if store {
+        diagnostics::persist().await;
+    }
     let stored = diagnostics::load().await;
     let launch = diagnostics::current();
     let estimate = js::storage_estimate().await;
@@ -50,6 +53,7 @@ async fn collect(library: &Library) -> Report {
         earlier: diagnostics::earlier_launches(&stored, &launch),
         launch,
         typing_pause_ms: crate::views::search::DEBOUNCE_MS,
+        quick_pause_ms: crate::views::quick_search::SUGGEST_DEBOUNCE_MS,
     };
     diagnostics::report(&snapshot)
 }
@@ -59,17 +63,35 @@ pub fn Diagnostics() -> impl IntoView {
     let library = use_library();
     let report = RwSignal::new(None::<Report>);
     let status = RwSignal::new(String::new());
+    // From here on, the pages that are opened are measured. Nothing measures them before.
+    diagnostics::start_page_probe();
 
     let refresh = {
         let library = library.clone();
         move || {
             let library = library.clone();
             spawn_local(async move {
-                report.try_set(Some(collect(&library).await));
+                report.try_set(Some(collect(&library, true).await));
             });
         }
     };
     refresh();
+
+    let clear = {
+        let library = library.clone();
+        move |_| {
+            let library = library.clone();
+            status.set(String::new());
+            spawn_local(async move {
+                diagnostics::clear().await;
+                report.try_set(Some(collect(&library, false).await));
+                status.try_set(
+                    "Cleared. Refresh stores this launch again; until then nothing is kept."
+                        .to_string(),
+                );
+            });
+        }
+    };
 
     let copy = move |_| {
         let Some(text) = report.get_untracked().map(|r| r.text()) else {
@@ -91,15 +113,22 @@ pub fn Diagnostics() -> impl IntoView {
         <h1>"Diagnostics"</h1>
         <p>
             "What this device recorded about Cast Iron: how long it took to start, search and open pages, "
-            "and how much storage and memory it uses. Nothing is sent anywhere. "
-            "Copy results puts the text below on your clipboard, so you can paste it into a report."
+            "and how much storage and memory it uses. Nothing in this report is sent anywhere. "
+            "It holds counts, lengths and times, not what you searched for. "
+            "The recent searches that Quick search lists are stored separately. "
+            "Pages are measured only when they open after this screen was first opened in a launch."
         </p>
-        <p class="actions">
+        <p>
+            "Copy results puts the text below on your clipboard, so you can paste it into a report. "
+            "Clear diagnostics removes this record and nothing else."
+        </p>
+        <p class="diagnostics-actions">
             <button class="btn btn-primary" type="button" on:click=copy
                 prop:disabled=move || report.get().is_none()>
                 "Copy results"
             </button>
             <button class="btn" type="button" on:click=move |_| refresh()>"Refresh"</button>
+            <button class="btn" type="button" on:click=clear>"Clear diagnostics"</button>
         </p>
         <div role="status" aria-live="polite" data-testid="diagnostics-status">{move || status.get()}</div>
         {move || match report.get() {

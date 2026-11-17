@@ -1,5 +1,5 @@
 import { test, installedTest, expect, distManifest, loadCorpus, type Page } from "./fixtures";
-import { count, installLibrary, searchFor, waitControlled, waitHomeIdle, waitReady } from "./helpers";
+import { count, installLibrary, quickField, quickSearch, searchFor, searchIcon, waitControlled, waitHomeIdle, waitReady, activeLibrary } from "./helpers";
 
 /**
  * Settings, Diagnostics (#423): the numbers that the app records about itself, for the iPhone
@@ -16,7 +16,8 @@ const SECTIONS = [
   "Storage and memory",
   "Install (the last one on this device)",
   "This launch (times count from the start of the page)",
-  "Searches in this launch",
+  "Full results searches in this launch",
+  "Quick search suggestions in this launch",
   "Pages opened in this launch",
   "Earlier launches (newest first)",
 ];
@@ -62,11 +63,12 @@ installedTest("Settings links to Diagnostics, which lists the launch, the librar
   expect(text).toMatch(/search index: read [\d.]+ (ms|s), decode [\d.]+ (ms|s), [\d.]+ MB; ready at [\d.]+ (ms|s)/);
   expect(text).toMatch(/storage used: [\d.]+ \w+ of [\d.]+ \w+/);
   expect(text).toMatch(/persistent storage: (granted|not granted)/);
-  expect(text).toMatch(/WebAssembly memory \(peak\): [\d.]+ \w+/);
+  expect(text).toMatch(/WebAssembly memory allocated \(high-water mark\): [\d.]+ \w+/);
   // The installation that the profile copy carries: its phases and what the persist request got.
   expect(text).toMatch(/total: [\d.]+ (ms|s|min)/);
   expect(text).toMatch(/scan [\d.]+ \w+, download [\d.]+ \w+.*, verify [\d.]+ \w+.*, activate [\d.]+ \w+/);
   expect(text).toContain(`files: ${count(manifest.files.length)} (0 already there)`);
+  expect(text).toMatch(/downloaded: [\d.]+ \w+, about [\d.]+ \w+\/s/);
   expect(text).toMatch(/persistent storage asked for: (granted|not granted)/);
   // Chromium offers a JavaScript heap number; Safari does not, and the page says so.
   if (browserName === "chromium") expect(text).toMatch(/JavaScript heap: [\d.]+ \w+ used of/);
@@ -75,6 +77,8 @@ installedTest("Settings links to Diagnostics, which lists the launch, the librar
 
 installedTest("A search and a page that were opened show up in the numbers, without the query", async ({ page }) => {
   await installLibrary(page);
+  // Opening Diagnostics switches the page probe on for this launch.
+  await openDiagnostics(page);
   await searchFor(page, "grapple");
   await searchFor(page, "initiative");
   await page.goto(`#/entry/${spell.id}`);
@@ -83,13 +87,91 @@ installedTest("A search and a page that were opened show up in the numbers, with
   await openDiagnostics(page);
 
   const { text } = await shown(page);
-  expect(text).toMatch(/\d+ searches\. A search starts 80 ms after the last key\./);
-  expect(text).toMatch(/first: 7 characters, [\d,]+ results: [\d.]+ (ms|s) \(engine [\d.]+ (ms|s)\) \(waited [\d.]+ (ms|s) for the index\)/);
+  expect(text).toMatch(/\d+ searche?s?\. A run starts 80 ms after the last key\. Times end when the results are painted\./);
+  // The time runs to the paint, so it cannot be shorter than the work that came before it.
+  const first = /first: 7 characters, ([\d,]+) results: painted after ([\d.]+) (ms|s) \(work ([\d.]+) (ms|s), engine ([\d.]+) (ms|s)\) \(waited [\d.]+ (ms|s) for the index\)/.exec(text);
+  expect(first, text).not.toBeNull();
+  const ms = (value: string, unit: string) => Number(value) * (unit === "s" ? 1000 : 1);
+  expect(ms(first![2], first![3])).toBeGreaterThanOrEqual(ms(first![4], first![5]));
   expect(text).toMatch(/last \d+:\n- \d+ characters, [\d,]+ results/);
   expect(text).toMatch(new RegExp(`${spell.title}: on screen after [\\d.]+ (ms|s), [\\d,]+ elements, [\\d,]+ characters`));
   // The report holds lengths and counts only.
   expect(text).not.toContain("grapple");
   expect(text).not.toContain("initiative");
+});
+
+installedTest("Pages are not measured until Diagnostics has been opened in the launch", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto(`#/entry/${spell.id}`);
+  await expect(page.getByTestId("entry-title")).toHaveText(spell.title);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await openDiagnostics(page);
+  const { text } = await shown(page);
+  expect(text).toContain("none yet. Only pages opened after this screen was first opened in this launch are measured.");
+  expect(text).not.toContain(`${spell.title}: on screen`);
+});
+
+installedTest("Quick search suggestions are measured too", async ({ page }) => {
+  await installLibrary(page);
+  await searchIcon(page).click();
+  await expect(quickSearch(page)).toBeVisible();
+  await quickField(page).fill("fireball");
+  await expect(quickSearch(page).getByRole("option").first()).toBeVisible();
+  // The first row is the typed text itself, which shows at once. The suggestions follow after the
+  // lookup pause, and the sample is recorded two frames after them. Closing the layer earlier
+  // replaces the lookup, and nothing is recorded.
+  await page.waitForTimeout(1000);
+  await page.keyboard.press("Escape");
+  await openDiagnostics(page);
+  const { text } = await shown(page);
+  expect(text).toMatch(/\d+ searche?s?\. A run starts 100 ms after the last key\. Times end when the suggestions are painted\./);
+  expect(text).toMatch(/first: 8 characters, \d+ suggestions: painted after [\d.]+ (ms|s)/);
+  expect(text).not.toContain("fireball");
+});
+
+installedTest("Clear diagnostics removes this record and nothing else", async ({ page }) => {
+  await installLibrary(page);
+  await searchFor(page, "grapple");
+  await openDiagnostics(page);
+  const before = (await shown(page)).text;
+  expect(before).toMatch(/persistent storage asked for: /);
+  const libraryBefore = await activeLibrary(page);
+  expect(libraryBefore).toBeTruthy();
+
+  await page.getByRole("button", { name: "Clear diagnostics", exact: true }).click();
+  await expect(page.getByTestId("diagnostics-status")).toContainText("Cleared.");
+  const { text, sections } = await shown(page);
+  expect(text).toContain("none recorded since this feature arrived");
+  expect(sections.find((section) => section.title.startsWith("Earlier launches"))!.body).toBe("none");
+  expect(text).not.toMatch(/\d+ searche?s?\. A run/);
+  // The library and the other records are still there: the app opens on Home after a reload.
+  // A new launch on Home, not on this screen.
+  await page.goto("./");
+  await waitReady(page);
+  await expect(page.locator("#home-title")).toBeVisible();
+  await waitHomeIdle(page);
+  expect(await activeLibrary(page)).toEqual(libraryBefore);
+  await openDiagnostics(page);
+  const after = (await shown(page)).text;
+  expect(after).toMatch(/launch: #1,/);
+  expect(after).not.toMatch(/persistent storage asked for: /);
+});
+
+installedTest("Two tabs take two launch numbers and keep both records", async ({ page, context }) => {
+  await installLibrary(page);
+  const other = await context.newPage();
+  await other.goto("./");
+  await waitReady(other);
+  await waitHomeIdle(other);
+  await openDiagnostics(page);
+  await openDiagnostics(other);
+  const number = async (p: Page) => Number(/launch: #(\d+),/.exec((await shown(p)).text)![1]);
+  const [a, b] = [await number(page), await number(other)];
+  expect(a).not.toBe(b);
+  // Refresh the first tab: it lists the second launch, and the second tab's record stayed.
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(page.getByText("Collecting...")).toHaveCount(0);
+  expect((await shown(page)).text).toMatch(new RegExp(`#${b}: browser tab, online at start yes`));
 });
 
 installedTest("Copy puts the text on the clipboard, and no request leaves the page", async ({ page, context, server, browserName }) => {
