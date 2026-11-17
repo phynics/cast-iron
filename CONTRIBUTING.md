@@ -36,9 +36,10 @@ release or an acceptance record is `docs/status/YYYY-MM-DD-<slug>.md`. Each star
 one do not conflict: the READMEs hold instructions and no list of entries. `cargo xtask decisions-index`
 and `cargo xtask status-index` render an index into `target/docs-index/` when you want one.
 `cargo xtask check` fails on invalid front matter, a `superseded_by` that names no file, and a relative
-Markdown link that does not resolve. `docs/status.md` is the one-screen current state; a pin or release
-PR edits only the lines that its change makes untrue. Do not edit the text of an old decision; set its
-`status` and `superseded_by` when a new one replaces it.
+inline Markdown link that does not resolve in a root `*.md` file or under `docs/` or `.agents/`.
+`docs/status.md` is the one-screen current state; a pin or release PR edits only the lines that its
+change makes untrue. Do not edit the text of an old decision; set its `status` and `superseded_by` when a
+new one replaces it.
 
 ## Merge a pull request
 

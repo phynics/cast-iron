@@ -37,4 +37,6 @@ area: process
 - `area`: `corpus`, `content`, `search`, `ui`, `install-offline`, `releases`, `process` or `licensing`.
 
 `cargo xtask check` fails on invalid front matter, a `superseded_by` that names no file, a README that lists
-an entry, and a relative Markdown link (file or heading) that does not resolve.
+an entry, and a relative Markdown link (file or heading) that does not resolve. The link check reads the
+inline links `[text](target)` of the root `*.md` files and of every Markdown file under `docs/` and
+`.agents/`; it does not read reference-style links, autolinks, HTML or other directories.
