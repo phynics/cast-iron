@@ -234,7 +234,7 @@ pub fn App() -> impl IntoView {
 /// does every word the reader would have to look up.
 pub const RECOVERY_HEADING: &str = "Your book choices can't be read";
 pub const RECOVERY_WHAT: &str = "Cast Iron couldn't read which books you have turned on. Your downloaded library and your stars are safe.";
-pub const RECOVERY_NEXT: &str = "Try again. If that doesn't help, reset your book choices: every book turns back on, and you can change that in Manage books.";
+pub const RECOVERY_NEXT: &str = "Try again. If that doesn't help, reset your book choices: every book turns on, except any third-party books you haven't seen before, which stay off. You can change this in Manage books.";
 pub const RECOVERY_RESET_FAILED: &str =
     "Your book choices could not be reset, so nothing was changed. Try again.";
 
@@ -269,7 +269,7 @@ fn BookSelectionRecovery(active: ActiveLibrary, message: String) -> impl IntoVie
             </div>
             {move || failure.get().then(|| view! { <p class="error" role="alert">{RECOVERY_RESET_FAILED}</p> })}
             <details class="recovery-details">
-                <summary>"Details for a bug report"</summary>
+                <summary>{views::icons::chevron_right("disclosure-chevron")}"Details for a bug report"</summary>
                 <p class="muted"><code>{message}</code></p>
             </details>
         </main>

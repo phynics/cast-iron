@@ -959,7 +959,7 @@ pub fn Books(
         <div class="wide">
             <h1>"Books"</h1>
             {removed.then(|| view! {
-                <p class="error" role="alert" data-testid="book-removed">{BOOK_REMOVED_LINE}</p>
+                <p class="notice" role="status" data-testid="book-removed">{BOOK_REMOVED_LINE}</p>
             })}
             <p class="muted books-count" aria-live="polite">{count_line}</p>
             <div class="filter-row">

@@ -1,5 +1,5 @@
 import { test, installedTest, expect, loadCorpus, type Page } from "./fixtures";
-import { buildLibraryWithoutBooks, installLibrary, waitControlled, waitReady } from "./helpers";
+import { buildLibraryWithoutBooks, installLibrary, openBookGroups, waitControlled, waitReady } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -7,6 +7,9 @@ const corpus = loadCorpus();
 const RECOVERY_HEADING = "Your book choices can't be read";
 const RECOVERY_WHAT =
   "Cast Iron couldn't read which books you have turned on. Your downloaded library and your stars are safe.";
+const RECOVERY_NEXT =
+  "Try again. If that doesn't help, reset your book choices: every book turns on, except any third-party books you haven't seen before, which stay off. You can change this in Manage books.";
+const RECOVERY_RESET_FAILED = "Your book choices could not be reset, so nothing was changed. Try again.";
 const BOOK_UNAVAILABLE =
   "This book isn't in your library. The link may be old or mistyped.";
 const BOOK_REMOVED =
@@ -17,17 +20,18 @@ const KIND_LIST_NOTICE = "That book isn't in your library, so this list shows al
 /** Words that belong to the engine or the store, never to a player. */
 const DEVELOPER_WORDS = /TypeError|Reflect|local storage error|IndexedDB|schema|manifest|slot|does-not-exist|no-such-book/i;
 
-/** Writes the stored book choice that the recovery path reads. */
-async function storeDisabledBooks(page: Page, value: unknown) {
+/** Writes one stored value (`undefined` deletes it) in the meta store the app reads at start. */
+async function putMeta(page: Page, key: string, value: unknown) {
   await page.evaluate(
-    (stored) =>
+    ([name, stored]) =>
       new Promise<void>((resolve, reject) => {
         const request = indexedDB.open("cast-iron", 1);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction("meta", "readwrite");
-          tx.objectStore("meta").put(stored, "disabled_books");
+          if (stored === null) tx.objectStore("meta").delete(name as string);
+          else tx.objectStore("meta").put(stored, name as string);
           tx.oncomplete = () => {
             db.close();
             resolve();
@@ -35,24 +39,32 @@ async function storeDisabledBooks(page: Page, value: unknown) {
           tx.onerror = () => reject(tx.error);
         };
       }),
-    value,
+    [key, value === undefined ? null : value] as const,
   );
 }
+
+/** Writes the stored book choice that the recovery path reads. */
+const storeDisabledBooks = (page: Page, value: unknown) => putMeta(page, "disabled_books", value);
+
+/** The books the corpus marks third party (#189): opt-in, and off for a reader who has not seen them. */
+const thirdParty: any[] = corpus.catalog.sources.filter((row: any) => row.third_party);
 
 /** What the reader can see in the main region, without a closed disclosure's text. */
 const visibleText = (page: Page) => page.locator("main").evaluate((el) => (el as HTMLElement).innerText);
 
 /**
- * With `PR_SHOTS=<dir>`, saves the page at 390 px in both themes. Off by default, so the suite
- * writes nothing.
+ * With `PR_SHOTS=<dir>`, saves the page at 390 px and 1280 px in both themes. Off by default,
+ * so the suite writes nothing.
  */
 async function capture(page: Page, name: string) {
   const dir = process.env.PR_SHOTS;
   if (!dir) return;
-  await page.setViewportSize({ width: 390, height: 844 });
-  for (const scheme of ["light", "dark"] as const) {
-    await page.emulateMedia({ colorScheme: scheme });
-    await page.screenshot({ path: `${dir}/${name}-${scheme}.png` });
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    for (const scheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.screenshot({ path: `${dir}/${name}-${width}-${scheme}.png` });
+    }
   }
 }
 
@@ -65,6 +77,7 @@ installedTest("Unreadable book choices say what happened and keep the way out cl
   await expect(page.getByRole("heading", { level: 1, name: RECOVERY_HEADING, exact: true })).toBeVisible();
   // The alert holds the plain explanation and the reassurance, and nothing from the engine.
   await expect(page.getByRole("alert")).toHaveText(RECOVERY_WHAT);
+  await expect(page.getByText(RECOVERY_NEXT, { exact: true })).toBeVisible();
   expect(await visibleText(page)).not.toMatch(DEVELOPER_WORDS);
 
   // Try again and Reset sit between the reassurance and the technical details.
@@ -83,9 +96,15 @@ installedTest("Unreadable book choices say what happened and keep the way out cl
 
   // The engine's own text is still there for a bug report, behind the disclosure.
   await expect(page.locator(".recovery-details code")).toBeHidden();
+  // The disclosure carries the shared chevron, which turns when it opens.
+  const chevron = details.locator("svg.disclosure-chevron");
+  await expect(chevron).toBeVisible();
+  const closed = await chevron.evaluate((el) => getComputedStyle(el).transform);
   await details.click();
+  expect(await chevron.evaluate((el) => getComputedStyle(el).transform)).not.toBe(closed);
   await expect(page.locator(".recovery-details code")).not.toBeEmpty();
   await details.click();
+  await expect(page.locator(".recovery-details code")).toBeHidden();
   await capture(page, "recovery-unreadable-choices");
 
   // The value is still unreadable, so Try again lands on the same screen with nothing lost.
@@ -98,6 +117,71 @@ installedTest("Unreadable book choices say what happened and keep the way out cl
   await waitReady(page);
   await page.goto("#/books");
   await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+});
+
+/** The `Active {title}` checkbox for every book that Manage books lists, by title. */
+async function activeStates(page: Page, titles: string[]) {
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const states: Record<string, boolean> = {};
+  for (const title of titles) {
+    states[title] = await page.getByRole("checkbox", { name: `Active ${title}`, exact: true }).isChecked();
+  }
+  return states;
+}
+
+installedTest("Reset book choices does what the copy says about third-party books", async ({ page }) => {
+  expect(thirdParty.length).toBeGreaterThan(0);
+  const paizo = corpus.catalog.sources.find((row: any) => row.id === "core-rulebook")!;
+  const titles = [paizo.title, ...thirdParty.map((row: any) => row.title as string)];
+  await installLibrary(page);
+  await waitControlled(page);
+
+  // The device has seen the third-party books: reset turns every book on, them included.
+  await putMeta(page, "known_third_party", thirdParty.map((row: any) => row.id));
+  await storeDisabledBooks(page, "invalid old value");
+  await page.reload();
+  await expect(page.getByText(RECOVERY_NEXT, { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Reset book choices", exact: true }).click();
+  await waitReady(page);
+  const seen = await activeStates(page, titles);
+  expect(seen).toEqual(Object.fromEntries(titles.map((title) => [title, true])));
+
+  // The device has not seen them: reset turns the rest on and they stay off.
+  await putMeta(page, "known_third_party", undefined);
+  await storeDisabledBooks(page, "invalid old value");
+  await page.reload();
+  await page.getByRole("button", { name: "Reset book choices", exact: true }).click();
+  await waitReady(page);
+  const unseen = await activeStates(page, titles);
+  expect(unseen).toEqual({
+    [paizo.title]: true,
+    ...Object.fromEntries(thirdParty.map((row: any) => [row.title, false])),
+  });
+});
+
+installedTest("A refused reset says nothing was changed and leaves the screen usable", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await storeDisabledBooks(page, "invalid old value");
+  // From here on the browser refuses to write the book choice, as a full or locked store does.
+  await page.addInitScript(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      if (key === "disabled_books") throw new DOMException("The store refused the write.", "QuotaExceededError");
+      return put.call(this, value, key);
+    };
+  });
+  await page.reload();
+  const reset = page.getByRole("button", { name: "Reset book choices", exact: true });
+  await reset.click();
+  await expect(page.getByRole("alert").filter({ hasText: RECOVERY_RESET_FAILED })).toBeVisible();
+  expect(await visibleText(page)).not.toMatch(DEVELOPER_WORDS);
+  // The screen stays: its buttons work again and the explanation is still there.
+  await expect(reset).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Try again", exact: true })).toBeEnabled();
+  await expect(page.getByRole("heading", { level: 1, name: RECOVERY_HEADING, exact: true })).toBeVisible();
+  await capture(page, "recovery-reset-failed");
 });
 
 installedTest("A stored choice that names books the library lacks opens normally", async ({ page }) => {
@@ -165,7 +249,9 @@ test("A removed book's old address opens Books and says so", async ({ page }) =>
     await page.goto(address);
     await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true }), address).toBeVisible();
     await expect(page.getByTestId("book-removed")).toHaveText(BOOK_REMOVED);
-    await expect(page.getByRole("alert")).toHaveCount(1);
+    // Books still shows, so this is a notice and not an alert.
+    await expect(page.getByTestId("book-removed")).toHaveClass(/notice/);
+    await expect(page.getByRole("alert")).toHaveCount(0);
     expect(await visibleText(page)).not.toMatch(DEVELOPER_WORDS);
   }
   await page.goto("#/browse/book/pathfinder-comics-3");
@@ -196,4 +282,36 @@ test("An unknown book in a list or search link is named in plain words", async (
   await expect(hint).toHaveCount(0);
   await expect(page).toHaveURL(/#\/search\?q=fireball$/);
   await expect(page.locator(".result-count")).not.toContainText("No results");
+});
+
+test("Removing a missing book from a search keeps the other restrictions", async ({ page }) => {
+  await installLibrary(page);
+  const params = () => new URLSearchParams(new URL(page.url()).hash.split("?")[1] ?? "");
+  await page.goto("#/search?q=fireball&kind=spell&source=core-rulebook&source=no-such-book&facet=school:evocation");
+  const hint = page.getByTestId("missing-book-hint");
+  await expect(hint).toBeVisible();
+  // The known book still matches, so the page does not claim an empty search.
+  const fireball = page.locator(".results").getByRole("link", { name: /Fireball/ }).first();
+  await expect(fireball).toBeVisible();
+  const before = page.url();
+
+  await hint.getByRole("button", { name: "Remove the missing book from this search" }).click();
+  await expect(hint).toHaveCount(0);
+  const kept = params();
+  expect(kept.get("q")).toBe("fireball");
+  expect(kept.get("kind")).toBe("spell");
+  expect(kept.getAll("source")).toEqual(["core-rulebook"]);
+  expect(kept.get("facet")).toBe("school:evocation");
+  await expect(fireball).toBeVisible();
+
+  // Reload keeps the cleaned search.
+  await page.reload();
+  await expect(page.getByTestId("missing-book-hint")).toHaveCount(0);
+  expect(params().getAll("source")).toEqual(["core-rulebook"]);
+  await expect(fireball).toBeVisible();
+
+  // Back returns to the earlier address, which still names the missing book.
+  await page.goBack();
+  await expect.poll(() => page.url()).toBe(before);
+  await expect(page.getByTestId("missing-book-hint")).toBeVisible();
 });
