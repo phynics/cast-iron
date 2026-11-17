@@ -245,6 +245,11 @@ pub fn nav(label: &'static str) -> impl IntoView {
                 "Books" => view! {
                     <path d="M12 6c-2-2-5-2.5-9-2v15c4-.5 7 0 9 2m0-15c2-2 5-2.5 9-2v15c-4-.5-7 0-9 2m0-15v15"/>
                 }.into_any(),
+                // A die: the Table tab, for what a table looks up in play.
+                "Table" => view! {
+                    <rect x="4" y="4" width="16" height="16" rx="3"/>
+                    <path d="M8.5 8.5h.01M15.5 8.5h.01M12 12h.01M8.5 15.5h.01M15.5 15.5h.01"/>
+                }.into_any(),
                 _ => view! {
                     <circle cx="12" cy="12" r="3"/>
                     <path d="M19.4 13.5a7.7 7.7 0 0 0 0-3l2-1.5-2-3.5-2.4 1a8 8 0 0 0-2.6-1.5L14 2h-4l-.4 3a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.5 2 1.5a7.7 7.7 0 0 0 0 3l-2 1.5 2 3.5 2.4-1a8 8 0 0 0 2.6 1.5l.4 3h4l.4-3a8 8 0 0 0 2.6-1.5l2.4 1 2-3.5z"/>

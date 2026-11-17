@@ -719,7 +719,6 @@ main:has(> .wide, > .search-page, > .entry) {
     inset: auto 0 0 0;
     z-index: 6;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
     gap: 0;
     margin: 0;
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
