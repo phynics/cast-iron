@@ -243,7 +243,8 @@ pub struct StorageFacts {
 /// Memory the page can see. Safari offers neither heap number.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct MemoryFacts {
-    /// The size of the WebAssembly memory. It only grows, so it is also the peak.
+    /// The size of the WebAssembly linear memory allocated so far: a high-water mark that never
+    /// shrinks. Not live objects, and not the memory of the page or the process.
     pub wasm_bytes: Option<u64>,
     pub heap_used: Option<u64>,
     pub heap_total: Option<u64>,
@@ -790,7 +791,8 @@ fn page_size() -> (u32, u32) {
     (elements, text_chars)
 }
 
-/// The size of the WebAssembly memory. It never shrinks, so this is its peak.
+/// The size of the WebAssembly linear memory allocated so far. It never shrinks, so this is a
+/// high-water mark of what the app asked for, not live data and not the process total.
 pub fn wasm_memory_bytes() -> Option<u64> {
     let memory: js_sys::WebAssembly::Memory = wasm_bindgen::memory().dyn_into().ok()?;
     let buffer: js_sys::ArrayBuffer = memory.buffer().dyn_into().ok()?;

@@ -192,6 +192,9 @@ jobs:
           key: ${{ steps.setup.outputs.trunk-tools-key }}
       - name: Screen the publication scope and attribution
         run: python3 scripts/check-publication.py
+      # Fails when the library or the WASM binary outgrows sources/size-budget.toml.
+      - name: Check the size budget
+        run: cargo xtask size-budget
       - name: Dist size summary
         run: |
           {

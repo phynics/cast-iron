@@ -6,8 +6,9 @@ use cast_iron_corpus::{
     write_history, write_legal, write_publications,
 };
 use cast_iron_schema::{
-    Block, BookIndex, ContentManifest, CoverageHistory, EntryId, EntryKind, Exclusion, Inline,
-    LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo, TypedFields,
+    Block, BookIndex, BookNode, BookTree, ContentManifest, CoverageHistory, EntryId, EntryKind,
+    Exclusion, Inline, LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo,
+    TypedFields,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -54,6 +55,39 @@ fn rule(id: &str, text: &str, link: Option<&str>) -> RuleEntry {
         provenance: vec![],
         license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
         relations: vec![],
+    }
+}
+
+fn node(title: &str, entry: Option<&str>, children: Vec<BookNode>) -> BookNode {
+    BookNode {
+        title: title.into(),
+        entry: entry.map(|id| EntryId::parse(id).unwrap()),
+        anchor: None,
+        review: None,
+        collapse: false,
+        lists_children: false,
+        children,
+    }
+}
+
+/// A book that places both rules in a printed chapter, so each is reachable without the
+/// catch-all chapter.
+fn printed_chapter() -> BookIndex {
+    BookIndex {
+        books: vec![BookTree {
+            source: "core-rulebook".into(),
+            title: "Core Rulebook".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![node(
+                "Combat",
+                None,
+                vec![
+                    node("Grapple", Some("ref/rule/grapple"), vec![]),
+                    node("Combat", Some("ref/rule/combat"), vec![]),
+                ],
+            )],
+        }],
     }
 }
 
@@ -113,7 +147,7 @@ fn write_corpus(dir: &Path) {
     for (name, text) in [
         ("corpus.toml", write_config(&config)),
         ("publications.toml", write_publications(&sources)),
-        ("books.toml", write_books(&BookIndex::default())),
+        ("books.toml", write_books(&printed_chapter())),
         ("legal.toml", write_legal(&legal)),
         ("exclusions.toml", write_exclusions(&exclusions)),
         (
@@ -430,4 +464,177 @@ fn a_book_gets_its_slot_from_the_published_books_file_and_a_new_book_fails_the_b
     assert!(text.contains("core-rulebook"), "{text}");
     assert!(text.contains("cargo xtask published-books"), "{text}");
     assert!(!bad.join("manifest.json").exists());
+}
+
+#[test]
+fn a_failed_gate_leaves_the_previous_library_unchanged() {
+    let corpus = temp("gate");
+    write_corpus(&corpus);
+    let out = temp("gate-out");
+    let reports = temp("gate-reports");
+    compile_corpus(&corpus, &out, &reports, None, None)
+        .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    let before = tree(&out);
+    assert!(!before.is_empty());
+
+    // Take the rules out of their printed chapter: no route reaches them without the
+    // catch-all chapter, which the reachability gate refuses. The gate runs after the library
+    // is derived, so the compiler holds every file before it fails.
+    fs::write(
+        corpus.join("books.toml"),
+        write_books(&BookIndex::default()),
+    )
+    .unwrap();
+    let failure = compile_corpus(&corpus, &out, &reports, None, None)
+        .expect_err("an unreachable entry must fail the build");
+    let text = failure.lines.join("\n");
+    assert!(text.contains("unreachable"), "{text}");
+    assert_eq!(tree(&out), before, "the failed compile changed the library");
+    assert!(
+        !out.with_file_name(format!(
+            "{}.staging",
+            out.file_name().unwrap().to_string_lossy()
+        ))
+        .exists(),
+        "the failed compile left a staging directory"
+    );
+    // The reports of the failed run stay, for the author to read.
+    let report = fs::read_to_string(reports.join("reachability.json")).unwrap();
+    assert!(report.contains("\"unreachable\": 2"), "{report}");
+
+    // A first compile that fails writes no manifest at all.
+    let fresh = temp("gate-fresh");
+    let fresh_out = fresh.join("content");
+    compile_corpus(&corpus, &fresh_out, &reports, None, None).expect_err("must fail");
+    assert!(!fresh_out.exists());
+}
+
+#[test]
+fn a_library_is_moved_into_place_whole() {
+    let corpus = temp("staged");
+    write_corpus(&corpus);
+    let out = temp("staged-out");
+    let outcome = compile_corpus(&corpus, &out, &temp("staged-reports"), None, None).unwrap();
+    // A second compile replaces the first one; nothing of the old version stays behind.
+    fs::write(out.join("stale.txt"), "x").unwrap();
+    let again = compile_corpus(&corpus, &out, &temp("staged-reports2"), None, None).unwrap();
+    assert_eq!(again.content_version, outcome.content_version);
+    assert!(!out.join("stale.txt").exists());
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    for file in &manifest.files {
+        assert!(out.join(&file.path).is_file(), "{}", file.path);
+    }
+}
+
+/// The sibling of `out` that the compiler uses, named by its suffix.
+fn beside(out: &Path, suffix: &str) -> PathBuf {
+    out.with_file_name(format!(
+        "{}.{suffix}",
+        out.file_name().unwrap().to_string_lossy()
+    ))
+}
+
+#[test]
+fn a_compile_recovers_from_an_interrupted_handoff() {
+    let corpus = temp("recover");
+    write_corpus(&corpus);
+    let base = temp("recover-base");
+    let reports = temp("recover-reports");
+
+    // Step 2 done, step 3 not: the old library sits in the backup and `out` is missing.
+    let out = base.join("after-backup");
+    let first = compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::rename(&out, beside(&out, "backup")).unwrap();
+    let again = compile_corpus(&corpus, &out, &reports, None, None)
+        .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert_eq!(again.content_version, first.content_version);
+    assert!(out.join("manifest.json").is_file());
+    assert!(!beside(&out, "backup").exists() && !beside(&out, "staging").exists());
+
+    // The same state, and the gate fails: the compile still restores the previous library.
+    let out = base.join("gate-after-backup");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    let before = tree(&out);
+    fs::rename(&out, beside(&out, "backup")).unwrap();
+    fs::write(
+        corpus.join("books.toml"),
+        write_books(&BookIndex::default()),
+    )
+    .unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).expect_err("the gate must fail");
+    assert_eq!(tree(&out), before, "the previous library was not restored");
+    assert!(!beside(&out, "backup").exists());
+    fs::write(corpus.join("books.toml"), write_books(&printed_chapter())).unwrap();
+
+    // Step 3 done, step 4 not: a new library and a leftover backup.
+    let out = base.join("after-activate");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::create_dir_all(beside(&out, "backup").join("vold")).unwrap();
+    fs::write(beside(&out, "backup").join("vold/a.json"), "{}").unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(out.join("manifest.json").is_file());
+    assert!(!beside(&out, "backup").exists());
+
+    // A staging directory that a crash left behind.
+    let out = base.join("leftover-staging");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    fs::create_dir_all(beside(&out, "staging").join("vold")).unwrap();
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(!beside(&out, "staging").exists());
+}
+
+#[test]
+fn a_second_compile_cannot_clean_a_live_writers_staging_directory() {
+    use cast_iron_content_compiler::publish::{OutLock, lock_file, staging_dir};
+    let corpus = temp("live-writer");
+    write_corpus(&corpus);
+    let out = temp("live-writer-base").join("content");
+    let reports = temp("live-writer-reports");
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    let good = tree(&out);
+
+    // Compile A holds the lock and is part way through its write: a staging directory with files
+    // but no manifest yet.
+    let writer = OutLock::acquire(&out).unwrap();
+    let staging = staging_dir(&out);
+    fs::create_dir_all(staging.join("vnew")).unwrap();
+    fs::write(staging.join("vnew/catalog.json"), "{}").unwrap();
+    let staged = tree(&staging);
+
+    // Compile B fails its gates, and compile C would pass them. Neither runs, and neither
+    // touches the staging directory or the library.
+    fs::write(
+        corpus.join("books.toml"),
+        write_books(&BookIndex::default()),
+    )
+    .unwrap();
+    let failing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("B must stop");
+    assert!(
+        failing
+            .lines
+            .join("\n")
+            .contains("another compile may be writing")
+    );
+    fs::write(corpus.join("books.toml"), write_books(&printed_chapter())).unwrap();
+    let passing = compile_corpus(&corpus, &out, &reports, None, None).expect_err("C must stop");
+    assert!(
+        passing
+            .lines
+            .join("\n")
+            .contains("another compile may be writing")
+    );
+    assert_eq!(
+        tree(&staging),
+        staged,
+        "a blocked compile changed the live staging"
+    );
+    assert_eq!(tree(&out), good, "a blocked compile changed the library");
+
+    // A finishes, and the next compile takes the lock and succeeds. Neither leaves a lock file.
+    drop(writer);
+    assert!(!lock_file(&out).exists());
+    compile_corpus(&corpus, &out, &reports, None, None).unwrap();
+    assert!(!lock_file(&out).exists());
+    assert!(!staging.exists());
 }

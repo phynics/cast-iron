@@ -1874,6 +1874,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "cast-iron-corpus",
+ "cast-iron-schema",
+ "regex",
  "serde_json",
  "sha2",
 ]

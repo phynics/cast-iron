@@ -1,5 +1,7 @@
 //! Repository automation. Run `cargo xtask help`.
 
+mod feature_map;
+
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -22,6 +24,8 @@ cargo xtask <command>
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
+  size-budget                Fail when generated/content or the WASM binary in dist/ is larger than
+                             sources/size-budget.toml allows (run after build-site)
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
   corpus-check <dir> [--drift-report <file>]
                              Read a plain-text corpus and validate ids, paths, sources,
@@ -30,7 +34,7 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
-  check                      Run fmt, clippy, tests, and the WASM build
+  check                      Run fmt, clippy, tests, the feature-map check, and the WASM build
 ";
 
 type Result<T = ()> = std::result::Result<T, String>;
@@ -45,6 +49,7 @@ fn main() -> ExitCode {
         Some("published-books") => published_books(),
         Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
+        Some("size-budget") => size_budget(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
@@ -652,6 +657,10 @@ fn build_site(args: &[String]) -> Result {
         fetch_sources()?;
         content(&[])?;
     }
+    // The compiler writes the manifest only after every gate has passed, and moves the whole
+    // library into place at once. This check refuses a library that is partly there or that
+    // changed after the compile, whatever wrote it.
+    verify_generated_content(&root().join(generated))?;
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
     let dist = root().join("dist");
@@ -660,6 +669,139 @@ fn build_site(args: &[String]) -> Result {
     content_address_snippets(&dist)?;
     let date = commit_date();
     stamp_shell(&dist, date.as_deref())
+}
+
+/// Checks the library in `content` against its `manifest.json`: the manifest first, then every
+/// file it lists. Returns the number of files checked.
+///
+/// The manifest must pass the structural check that the installer applies before it downloads
+/// (`cast_iron_schema::manifest_check`): a known schema version, a valid content version, safe
+/// and unique paths, valid checksums, the required files, and a total that equals the sum of the
+/// sizes. Each listed file must then exist with the listed size and SHA-256. This establishes that
+/// the directory is the library its manifest describes. It cannot tell a library that passed the
+/// compile gates from one that did not: the compiler guarantees that by writing no manifest when
+/// a gate fails.
+fn verify_generated_content(content: &Path) -> Result<usize> {
+    let manifest_path = content.join("manifest.json");
+    let manifest: cast_iron_schema::ContentManifest = serde_json::from_slice(
+        &fs::read(&manifest_path)
+            .map_err(|e| format!("cannot read {}: {e}", manifest_path.display()))?,
+    )
+    .map_err(|e| format!("{} is not a content manifest: {e}", manifest_path.display()))?;
+    cast_iron_schema::manifest_check::validate_manifest(&manifest).map_err(|e| {
+        format!(
+            "{}: {e} Run `cargo xtask content` again",
+            manifest_path.display()
+        )
+    })?;
+    for file in &manifest.files {
+        let data = fs::read(content.join(&file.path)).map_err(|e| {
+            format!(
+                "{} lists {}, which cannot be read ({e}); run `cargo xtask content` again",
+                manifest_path.display(),
+                file.path
+            )
+        })?;
+        if data.len() as u64 != file.bytes || hex(&Sha256::digest(&data)) != file.sha256 {
+            return Err(format!(
+                "{} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
+                file.path,
+                manifest_path.display()
+            ));
+        }
+    }
+    Ok(manifest.files.len())
+}
+
+/// The size limits in `sources/size-budget.toml`.
+const SIZE_BUDGET: &str = "sources/size-budget.toml";
+
+/// Compares `measured` (name, bytes) with the limits in `budget_text`. Returns one report line
+/// per measure, or every overrun in one message.
+fn compare_budget(
+    budget_text: &str,
+    measured: &[(&str, u64)],
+) -> std::result::Result<Vec<String>, String> {
+    let mut report = Vec::new();
+    let mut over = Vec::new();
+    for (name, bytes) in measured {
+        let limit: u64 = toml_string(&budget_text.replace('"', ""), name)
+            .and_then(|value| value.trim().replace('_', "").parse().ok())
+            .ok_or_else(|| format!("{SIZE_BUDGET} has no integer `{name}`"))?;
+        let percent = *bytes as f64 * 100.0 / limit.max(1) as f64;
+        report.push(format!(
+            "{name}: {bytes} of {limit} bytes ({percent:.1}% of the budget)"
+        ));
+        if *bytes > limit {
+            over.push(format!(
+                "{name} is {bytes} bytes, {} over the budget of {limit}",
+                bytes - limit
+            ));
+        }
+    }
+    if over.is_empty() {
+        Ok(report)
+    } else {
+        Err(format!(
+            "the build is over its size budget:\n  {}\nIf the growth is intended, raise the value in {SIZE_BUDGET} in the same pull request; a reviewer approves that line (docs/releasing.md, \"Size budget\")",
+            over.join("\n  ")
+        ))
+    }
+}
+
+/// Measures `generated/content` and the WASM binary in `dist/` against `sources/size-budget.toml`.
+fn size_budget(args: &[String]) -> Result {
+    if let Some(argument) = args.first() {
+        return Err(format!(
+            "unknown argument {argument:?} for size-budget\nusage: size-budget"
+        ));
+    }
+    let mut library = Vec::new();
+    list_files(&root().join("generated/content"), &mut library)
+        .map_err(|e| format!("{e}; run `cargo xtask content` first"))?;
+    let sizes = library
+        .iter()
+        .map(|path| {
+            fs::metadata(path)
+                .map(|meta| meta.len())
+                .map_err(|e| format!("{}: {e}", path.display()))
+        })
+        .collect::<Result<Vec<u64>>>()?;
+    let mut wasm = Vec::new();
+    for item in fs::read_dir(root().join("dist"))
+        .map_err(|e| format!("cannot read dist: {e}; run `cargo xtask build-site` first"))?
+    {
+        let path = item.map_err(|e| e.to_string())?.path();
+        if path.to_string_lossy().ends_with("_bg.wasm") {
+            wasm.push(path);
+        }
+    }
+    let [wasm] = wasm.as_slice() else {
+        return Err(format!(
+            "expected one *_bg.wasm in dist, found {}",
+            wasm.len()
+        ));
+    };
+    let wasm_bytes = fs::metadata(wasm)
+        .map_err(|e| format!("{}: {e}", wasm.display()))?
+        .len();
+    let budget = fs::read_to_string(root().join(SIZE_BUDGET))
+        .map_err(|e| format!("cannot read {SIZE_BUDGET}: {e}"))?;
+    let report = compare_budget(
+        &budget,
+        &[
+            ("library_bytes", sizes.iter().sum()),
+            (
+                "largest_file_bytes",
+                sizes.iter().copied().max().unwrap_or(0),
+            ),
+            ("wasm_bytes", wasm_bytes),
+        ],
+    )?;
+    for line in report {
+        println!("{line}");
+    }
+    Ok(())
 }
 
 /// Gives every wasm-bindgen snippet directory a content-derived name.
@@ -862,6 +1004,7 @@ fn corpus_fmt(args: &[String]) -> Result {
 }
 
 fn check() -> Result {
+    feature_map::check(&root())?;
     run("cargo", &["fmt", "--all", "--", "--check"])?;
     run(
         "cargo",
@@ -908,6 +1051,195 @@ mod tests {
     use super::*;
 
     const BASE: &str = "# header\nalpha\nbeta\ngamma\n";
+
+    const BUDGET: &str =
+        "# comment\nlibrary_bytes = 1_000\nlargest_file_bytes = 400\nwasm_bytes = 50\n";
+
+    #[test]
+    fn a_build_under_the_size_budget_passes() {
+        let report = compare_budget(
+            BUDGET,
+            &[
+                ("library_bytes", 1_000),
+                ("largest_file_bytes", 10),
+                ("wasm_bytes", 49),
+            ],
+        )
+        .unwrap();
+        assert_eq!(report.len(), 3);
+        assert!(report[0].contains("100.0%"), "{report:?}");
+    }
+
+    #[test]
+    fn a_build_over_the_size_budget_fails_and_names_every_overrun() {
+        let error = compare_budget(
+            BUDGET,
+            &[
+                ("library_bytes", 1_001),
+                ("largest_file_bytes", 400),
+                ("wasm_bytes", 90),
+            ],
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("library_bytes is 1001 bytes, 1 over"),
+            "{error}"
+        );
+        assert!(error.contains("wasm_bytes is 90 bytes, 40 over"), "{error}");
+        assert!(!error.contains("largest_file_bytes is"), "{error}");
+        assert!(error.contains("sources/size-budget.toml"), "{error}");
+    }
+
+    #[test]
+    fn a_missing_budget_line_fails() {
+        let error = compare_budget("library_bytes = 5\n", &[("wasm_bytes", 1)]).unwrap_err();
+        assert!(error.contains("no integer `wasm_bytes`"), "{error}");
+    }
+
+    #[test]
+    fn the_committed_size_budget_names_every_measure() {
+        let text = fs::read_to_string(root().join(SIZE_BUDGET)).unwrap();
+        let report = compare_budget(
+            &text,
+            &[
+                ("library_bytes", 0),
+                ("largest_file_bytes", 0),
+                ("wasm_bytes", 0),
+            ],
+        );
+        assert!(report.is_ok(), "{report:?}");
+    }
+
+    /// A library on disk whose manifest lists the four required files.
+    fn write_library(dir: &Path) -> cast_iron_schema::ContentManifest {
+        let version = "vabc";
+        let mut files = Vec::new();
+        for name in cast_iron_schema::manifest_check::REQUIRED_FILES {
+            let data = format!("{{\"{name}\":1}}");
+            fs::create_dir_all(dir.join(version)).unwrap();
+            fs::write(dir.join(version).join(name), &data).unwrap();
+            files.push(cast_iron_schema::ManifestFile {
+                path: format!("{version}/{name}"),
+                sha256: hex(&Sha256::digest(data.as_bytes())),
+                bytes: data.len() as u64,
+            });
+        }
+        let manifest = cast_iron_schema::ContentManifest {
+            schema_version: cast_iron_schema::SCHEMA_VERSION,
+            content_version: version.into(),
+            total_bytes: files.iter().map(|f| f.bytes).sum(),
+            files,
+            entry_count: 0,
+            datasets: vec![],
+            corpus_tag: None,
+        };
+        write_manifest(dir, &manifest);
+        manifest
+    }
+
+    fn write_manifest(dir: &Path, manifest: &cast_iron_schema::ContentManifest) {
+        fs::write(
+            dir.join("manifest.json"),
+            serde_json::to_vec(manifest).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_library_that_matches_its_manifest_passes() {
+        let dir = temp_tree("verify-ok");
+        write_library(&dir);
+        assert_eq!(verify_generated_content(&dir), Ok(4));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_manifest_with_the_wrong_structure_is_refused_before_any_file_is_read() {
+        let dir = temp_tree("verify-structure");
+        // Not a manifest at all, and the empty file list the first version of this check accepted.
+        fs::write(dir.join("manifest.json"), r#"{"files":[]}"#).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("is not a content manifest"), "{error}");
+        let good = write_library(&dir);
+
+        let mut empty = good.clone();
+        empty.files.clear();
+        empty.total_bytes = 0;
+        write_manifest(&dir, &empty);
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("does not list the required file"), "{error}");
+
+        // A required row removed together with its file.
+        let mut missing = good.clone();
+        let removed = missing.files.remove(0);
+        missing.total_bytes -= removed.bytes;
+        fs::remove_file(dir.join(&removed.path)).unwrap();
+        write_manifest(&dir, &missing);
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("required file"), "{error}");
+        fs::write(dir.join(&removed.path), "x").unwrap();
+
+        let mut unsafe_path = good.clone();
+        unsafe_path.files[0].path = "vabc/../x".into();
+        write_manifest(&dir, &unsafe_path);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("invalid file path")
+        );
+
+        let mut duplicate = good.clone();
+        duplicate.files.push(duplicate.files[0].clone());
+        duplicate.total_bytes += duplicate.files[0].bytes;
+        write_manifest(&dir, &duplicate);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("twice")
+        );
+
+        let mut total = good.clone();
+        total.total_bytes += 1;
+        write_manifest(&dir, &total);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("declares")
+        );
+
+        let mut version = good.clone();
+        version.content_version = "ABC".into();
+        write_manifest(&dir, &version);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("invalid version")
+        );
+
+        let mut schema = good.clone();
+        schema.schema_version = cast_iron_schema::SCHEMA_VERSION + 1;
+        write_manifest(&dir, &schema);
+        assert!(
+            verify_generated_content(&dir)
+                .unwrap_err()
+                .contains("content format")
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_listed_file_that_changed_or_is_missing_is_refused() {
+        let dir = temp_tree("verify-files");
+        let manifest = write_library(&dir);
+        let first = dir.join(&manifest.files[0].path);
+        fs::write(&first, "[]").unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("does not match"), "{error}");
+        fs::remove_file(&first).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("cannot be read"), "{error}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn book_slots_may_only_be_appended() {

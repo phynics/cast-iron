@@ -249,6 +249,73 @@ the file and keeps it sorted. Commit the added lines with the release record. Th
 grows: never delete or edit a line. An id that must truly go away needs an `aliases.toml` row
 that sends it to a live entry.
 
+## Size budget
+
+`sources/size-budget.toml` holds three limits in bytes: the whole library in `generated/content`,
+its largest file (`search.bin`), and the WASM binary in `dist/`. Each is the size measured on
+2026-11-17 plus about 5%. The CI **Build the site** job runs `cargo xtask size-budget` after the
+site build, and the job fails when any measure is over its limit. The message names each overrun.
+
+To raise a limit, change that one line in the pull request that makes the build larger, and say
+in the description why it grew. A reviewer approves the line. Do not raise a limit to make a build
+pass without a reason: a corpus pin that adds a book is a reason; a dependency that adds 200 KB of
+WASM needs a second look first.
+
+## Compile gates
+
+`cargo xtask content` runs every gate before it publishes the library: the corpus check, the
+published-id and book-slot guards, validation, and the reachability check. The reports are
+written earlier, so a failed run leaves them for the author.
+
+One compile at a time writes to `generated/content`. The compiler takes the lock file
+`generated/content.lock` (pid, start time and a nonce) with an atomic create before it recovers, writes or
+publishes, and removes it when it ends, on success and on failure. A second compile into the same
+directory stops at once, names the holder and the time, says nothing was changed, and does not
+wait. Run `cargo xtask content` from one shell at a time. Nothing guards the reports directory,
+which a second compile with the same `--reports` would overwrite.
+
+A compile that is killed (SIGKILL, a power loss, an abort) leaves the lock file, and every later
+compile fails with the message above until you delete it. Manual recovery:
+
+1. Confirm that no compile is running (`pgrep -af cast-iron-compile`, which matches the full command line because Linux cuts a process name to 15 characters and `cast-iron-compile` has 17, or look at the CI job).
+2. Delete `generated/content.lock`. The message prints the path.
+3. Run `cargo xtask content`. Its first step repairs an interrupted handoff (below).
+
+The compiler never decides that a holder is dead. Deleting the lock of a compile that is still
+running lets two compiles write one directory, which can destroy the library. An empty or
+unreadable lock file (a compile killed while it wrote the file) is handled the same way.
+
+Under the lock, the library reaches `generated/content` in four steps: write
+`generated/content.staging` (the manifest last), rename `generated/content` to
+`generated/content.backup`, rename the staging directory to `generated/content`, delete the
+backup. What this guarantees, for one compile at a time:
+
+- A failed gate, or an error while the staging directory is written, leaves the previous
+  `generated/content` as it was, and a failed first compile leaves no `manifest.json`.
+- An interruption (a killed process or an I/O error) between the steps leaves a state that the
+  next `cargo xtask content` repairs at its start, once a lock left by a killed process is deleted. When a backup exists it finishes the move if the
+  staging library is whole, and restores the backup if it is not; it removes a leftover backup once
+  `generated/content` is whole. "Whole" means the manifest passes the installer's structural check
+  and every listed file has the listed size and SHA-256, so a damaged copy is never kept over a good
+  one. It stops, and names the directories, when `generated/content` holds something that is not a
+  Cast Iron library or when no whole copy is left.
+- A compile that stops after it finished the staging directory but before the first rename has no
+  backup, so recovery discards that staging directory and the next compile builds it again.
+- Two renames are not one: between them `generated/content` does not exist, and `build-site` then
+  compiles again (or the repair above runs first).
+- There is no `fsync`, so nothing is promised about a power loss or a crash of the host. After
+  one, `build-site` finds a file that differs from the manifest and asks for a new compile.
+
+`build-site` checks the library it is about to use. It reads `manifest.json` as a typed manifest
+and applies the structural check of the installer (`cast_iron_schema::manifest_check`: known
+schema, valid version, safe and unique paths, required files, consistent total), then compares
+the size and SHA-256 of every listed file. That shows the directory is the library its manifest
+describes. It does not show that the library passed the gates; the compiler guarantees that by
+never writing a manifest after a failed gate.
+
+`pages.yml` runs the compile once, outside the three-attempt loop, so a retry repeats only the
+Trunk build and never re-runs a failed gate.
+
 ## Verify publication
 
 1. Read the **Deploy to GitHub Pages** run and its deployment status. Confirm
