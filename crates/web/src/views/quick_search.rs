@@ -394,6 +394,7 @@ impl QuickSearch {
                 book: None,
             }),
             Row::Correction(text) | Row::SeeAll(text) | Row::Starter(text) => self.search(text),
+            Row::Reference => self.go(Route::Quick),
             Row::Search(search) => self.run(search.clone()),
         }
     }
@@ -632,6 +633,9 @@ pub fn QuickSearchLayer() -> impl IntoView {
         let recents = quick.recents.get();
         let continue_row = quick.continue_row.get();
         let expanded = quick.viewed_expanded.get();
+        // A scope means the reader came from a list to search it; the reference page is for
+        // nowhere in particular, so it shows only in an unscoped layer.
+        let reference = quick.scope.with(Option::is_none);
         let viewed = app
             .recents
             .with(|recents| viewed_rows(&memo_library, recents));
@@ -644,6 +648,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
             continue_row,
             &viewed,
             expanded,
+            reference,
         )
     });
     // The rows changed under the highlight, so it may name a row that is gone or a different
@@ -873,9 +878,9 @@ pub fn QuickSearchLayer() -> impl IntoView {
                             let label = group.kind.label();
                             let heading_id = format!("quick-search-heading-{}", group.kind.slug());
                             let list_id = format!("quick-search-list-{}", group.kind.slug());
-                            let heading = if group.kind == GroupKind::Suggestions {
-                                // The suggestion popup has no visible heading, but the listbox still
-                                // needs a name.
+                            let heading = if matches!(group.kind, GroupKind::Suggestions | GroupKind::Reference) {
+                                // The suggestion popup and the reference row have no visible
+                                // heading, but each listbox still needs a name.
                                 view! { <h2 class="sr-only" id=heading_id.clone()>{label}</h2> }
                                     .into_any()
                             } else {
@@ -957,9 +962,14 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                     Row::Starter(text) => view! {
                                         <span class="quick-search-name">{text.clone()}</span>
                                     }.into_any(),
+                                    Row::Reference => view! {
+                                        <span class="quick-search-name">"Quick reference"</span>
+                                        <span class="quick-search-meta">{quick_rows::REFERENCE_DETAIL}</span>
+                                    }.into_any(),
                                 };
                                 let all = matches!(row, Row::SeeAll(_));
                                 let correction = matches!(row, Row::Correction(_));
+                                let reference = matches!(row, Row::Reference);
                                 view! {
                                     <li class="quick-search-item" role="presentation">
                                         <div
@@ -967,6 +977,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                             class="quick-search-row"
                                             class:quick-search-all=all
                                             class:quick-search-correction=correction
+                                            class:quick-search-reference=reference
                                             role="option"
                                             aria-selected=move || (quick.active.get() == Some(i)).to_string()
                                             // Keep focus in the field, so the keyboard stays open.
