@@ -1,0 +1,193 @@
+# Synthetic corpus for the ranking golden. Not Pathfinder text.
+# One document per block: id, title, kind, source, alias (repeatable), text.
+
+id: spell:fireball
+title: Fireball
+kind: spell
+source: core
+text: A fireball spell detonates with a low roar and deals fire damage to every creature in the burst.
+
+id: spell:fire-bolt
+title: Fire Bolt
+kind: spell
+source: core
+alias: Firebolt
+text: A bolt of fire strikes the target and ignites flammable objects.
+
+id: spell:wall-of-fire
+title: Wall of Fire
+kind: spell
+source: core
+text: An immobile curtain of fire springs up. Creatures near the wall take fire damage.
+
+id: spell:fire-shield
+title: Fire Shield
+kind: spell
+source: apg
+text: Flames surround you and protect you from cold. Attackers take damage.
+
+id: item:firewood
+title: Firewood
+kind: item
+source: apg
+text: A bundle of dry wood for a campfire.
+
+id: rule:fire
+title: Fire
+kind: rule
+source: core
+alias: Burning
+text: Fire damage, catching on fire, and putting out flames. A burning creature takes damage each round.
+
+id: monster:fire-elemental
+title: Fire Elemental
+kind: monster
+source: core
+text: A creature of living flame. Its touch sets objects alight.
+
+id: spell:cure-light-wounds
+title: Cure Light Wounds
+kind: spell
+source: core
+alias: CLW
+text: You channel positive energy to heal wounds in a creature you touch.
+
+id: spell:cure-moderate-wounds
+title: Cure Moderate Wounds
+kind: spell
+source: core
+text: As cure light wounds, but heals more damage.
+
+id: spell:cure-serious-wounds
+title: Cure Serious Wounds
+kind: spell
+source: core
+text: As cure light wounds, but heals still more damage.
+
+id: spell:cause-fear
+title: Cause Fear
+kind: spell
+source: core
+text: The affected living creature becomes frightened.
+
+id: item:potion-of-cure-light-wounds
+title: Potion of Cure Light Wounds
+kind: item
+source: core
+text: Drinking this potion heals wounds. Its effect matches the spell cure light wounds.
+
+id: spell:magic-missile
+title: Magic Missile
+kind: spell
+source: core
+text: Missiles of magical energy dart forth and strike the target.
+
+id: spell:magic-mouth
+title: Magic Mouth
+kind: spell
+source: core
+text: This spell enchants a creature or object with a message.
+
+id: spell:magic-weapon
+title: Magic Weapon
+kind: spell
+source: core
+text: This spell gives a weapon a bonus on attack rolls.
+
+id: spell:magic-circle
+title: Magic Circle against Evil
+kind: spell
+source: apg
+text: A warded circle holds extraplanar creatures.
+
+id: feat:weapon-focus
+title: Weapon Focus
+kind: feat
+source: core
+text: Choose one type of weapon. You gain a bonus on attack rolls with that weapon.
+
+id: feat:improved-initiative
+title: Improved Initiative
+kind: feat
+source: core
+text: You gain a bonus on initiative checks.
+
+id: rule:grapple
+title: Grapple
+kind: rule
+source: core
+text: Grapple is a combat maneuver. You grab a foe and hold on.
+
+id: item:grappling-hook
+title: Grappling Hook
+kind: item
+source: core
+text: A hook on a rope for climbing walls.
+
+id: rule:combat-maneuvers
+title: Combat Maneuvers
+kind: rule
+source: core
+text: A combat maneuver may be a bull rush, a disarm, a grapple, or a trip.
+
+id: monster:goblin
+title: Goblin
+kind: monster
+source: core
+text: Goblins are small creatures that live in tribes.
+
+id: monster:goblin-dog
+title: Goblin Dog
+kind: monster
+source: apg
+text: A vicious dog that goblins ride into battle.
+
+id: rule:attack-of-opportunity
+title: Attack of Opportunity
+kind: rule
+source: core
+alias: AoO
+text: You make an attack of opportunity when a foe leaves a threatened square. Fire from a bow can also provoke.
+
+id: rule:armor-class
+title: Armor Class
+kind: rule
+source: core
+alias: AC
+text: Armor class measures how hard it is to hit you in combat.
+
+id: item:alchemists-fire
+title: Alchemist's Fire
+kind: item
+source: core
+text: Alchemist's fire is a sticky, adhesive substance that ignites when exposed to air.
+
+id: a/distracting-bolt
+title: Distracting Bolt
+kind: spell
+source: apg
+text: A bolt that distracts the foe.
+
+id: z/distracting-bolt
+title: Distracting Bolt
+kind: spell
+source: core
+text: A bolt that distracts the foe.
+
+id: spell:mage-armor
+title: Mage Armor
+kind: spell
+source: core
+text: An invisible but tangible field of force surrounds the subject. It grants an armor bonus to armor class.
+
+id: spell:mass-cure-light-wounds
+title: Mass Cure Light Wounds
+kind: spell
+source: apg
+text: As cure light wounds, but heals many creatures.
+
+id: rule:magic
+title: Magic
+kind: rule
+source: core
+text: Magic items and spells follow these rules. Fire is a magical effect only when a spell makes it.

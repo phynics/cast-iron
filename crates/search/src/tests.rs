@@ -1530,3 +1530,187 @@ fn a_number_in_any_script_is_never_rewritten() {
     assert_eq!(suggest(&idx, "magic 1235"), None);
     assert_eq!(suggest(&idx, "magic ١٢٣٤"), None);
 }
+
+// ---- prefix expansion cap ---------------------------------------------------------------
+
+/// 600 rare completions of "ma" that sort before "magic", plus one common completion. The cap
+/// is 512 terms, so alphabetical truncation would drop "magic".
+fn crowded_prefix() -> SearchIndex {
+    let mut b = IndexBuilder::new();
+    for i in 0..600 {
+        // "maa" + letters: every term occurs in exactly one document.
+        let term = format!("maa{}", letters(i));
+        b.add(doc(
+            &format!("rare:{i}"),
+            &format!("Rare {i}"),
+            "item",
+            "core",
+            &term,
+            &[],
+        ));
+    }
+    for i in 0..30 {
+        b.add(doc(
+            &format!("common:{i}"),
+            &format!("Common {i}"),
+            "spell",
+            "core",
+            "magic",
+            &[],
+        ));
+    }
+    b.build()
+}
+
+/// A base-26 spelling of `n` with letters only, three letters wide, so terms stay distinct.
+fn letters(n: usize) -> String {
+    let digit = |d: usize| (b'a' + (d % 26) as u8) as char;
+    [n / 676, n / 26, n].into_iter().map(digit).collect()
+}
+
+#[test]
+fn a_short_prefix_keeps_the_most_frequent_completions_not_the_first_alphabetically() {
+    let idx = crowded_prefix();
+    let hits = idx.search_summaries(&Query {
+        text: "ma".into(),
+        limit: usize::MAX,
+        ..Default::default()
+    });
+    let common = hits.iter().filter(|h| h.id.starts_with("common:")).count();
+    assert_eq!(
+        common, 30,
+        "the common completion \"magic\" was dropped by the cap"
+    );
+    // 600 rare terms compete for the 511 places that "magic" leaves. Which ones win is fixed:
+    // equal frequencies keep the alphabetically earlier term.
+    let rare = hits.iter().filter(|h| h.id.starts_with("rare:")).count();
+    assert_eq!(rare, 511);
+    assert!(hits.iter().any(|h| h.id == "rare:0"));
+    assert!(hits.iter().all(|h| h.id != "rare:599"));
+}
+
+#[test]
+fn prefix_truncation_is_deterministic_and_leaves_exact_terms_alone() {
+    let idx = crowded_prefix();
+    let query = Query {
+        text: "ma".into(),
+        limit: usize::MAX,
+        ..Default::default()
+    };
+    let a = idx.search_summaries(&query);
+    let b = idx.search_summaries(&query);
+    assert_eq!(a, b);
+    // An exact term is not part of the cap: "magic" finds all 30 whatever else "ma" completes.
+    assert_eq!(
+        idx.search_summaries(&Query {
+            text: "magic".into(),
+            limit: usize::MAX,
+            ..Default::default()
+        })
+        .len(),
+        30
+    );
+}
+
+// ---- eligibility masks ------------------------------------------------------------------
+
+#[test]
+fn a_mask_is_computed_once_and_reused_by_every_pass() {
+    let idx = build(vec![
+        doc("spell:a", "Fire Bolt", "spell", "core", "flame", &[]),
+        doc("spell:b", "Fire Wall", "spell", "apg", "flame", &[]),
+        doc("spell:c", "Fire Shield", "spell", "core", "flame", &[]),
+        doc("feat:a", "Fire Mastery", "feat", "core", "flame", &[]),
+    ]);
+    let evaluations = std::cell::Cell::new(0usize);
+    let active = ["spell:a", "spell:c", "feat:a"];
+    let mask = idx.eligible_mask_ids(|id| {
+        evaluations.set(evaluations.get() + 1);
+        active.contains(&id)
+    });
+    // One evaluation per document, however many searches follow.
+    assert_eq!(evaluations.get(), idx.doc_count());
+    assert_eq!(mask.allowed_count(), 3);
+    assert!(!mask.allows_all());
+    for text in ["f", "fi", "fir", "fire", "fire b", "fire bolt", "flame"] {
+        let query = q(text);
+        let by_mask = idx.search_summaries_masked(&query, &mask);
+        let by_closure = idx.search_summaries_eligible(&query, |id| active.contains(&id));
+        assert_eq!(by_mask, by_closure, "{text}");
+        assert_eq!(
+            idx.search_masked(&query, &mask)
+                .into_iter()
+                .map(|h| h.id)
+                .collect::<Vec<_>>(),
+            idx.search_eligible(&query, |id| active.contains(&id))
+                .into_iter()
+                .map(|h| h.id)
+                .collect::<Vec<_>>(),
+            "{text}"
+        );
+        assert_eq!(
+            idx.filter_counts_masked(text, &Filters::default(), &mask),
+            idx.filter_counts_eligible(text, &Filters::default(), |id| active.contains(&id)),
+            "{text}"
+        );
+    }
+}
+
+#[test]
+fn the_masked_calls_never_evaluate_the_selection_again() {
+    let idx = build(vec![
+        doc("spell:a", "Fire Bolt", "spell", "core", "flame", &[]),
+        doc("spell:b", "Fire Wall", "spell", "apg", "flame", &[]),
+    ]);
+    let evaluations = std::cell::Cell::new(0usize);
+    let mask = idx.eligible_mask_ids(|id| {
+        evaluations.set(evaluations.get() + 1);
+        id == "spell:a"
+    });
+    let built = evaluations.get();
+    assert_eq!(built, 2);
+    for _ in 0..10 {
+        idx.search_summaries_masked(&q("fire"), &mask);
+        idx.search_masked(&q("fire"), &mask);
+        idx.filter_counts_masked("fire", &Filters::default(), &mask);
+        idx.suggest_correction_masked("firr", &Filters::default(), &mask);
+    }
+    assert_eq!(evaluations.get(), built);
+}
+
+#[test]
+fn narrowing_a_mask_tests_only_the_documents_it_allows() {
+    let idx = build(vec![
+        doc("spell:a", "Fire Bolt", "spell", "core", "x", &[]),
+        doc("spell:b", "Fire Wall", "spell", "apg", "x", &[]),
+        doc("feat:a", "Fire Mastery", "feat", "core", "x", &[]),
+    ]);
+    let mask = idx.eligible_mask(|doc| doc.source == "core");
+    let tested = std::cell::RefCell::new(Vec::new());
+    let narrowed = idx.narrow_mask(&mask, |doc| {
+        tested.borrow_mut().push(doc.id.to_string());
+        doc.kind == "spell"
+    });
+    let mut tested = tested.into_inner();
+    tested.sort();
+    assert_eq!(tested, ["feat:a", "spell:a"]);
+    assert_eq!(narrowed.allowed_count(), 1);
+    let kept = (0..idx.doc_count())
+        .filter(|&ord| narrowed.allows(ord))
+        .map(|ord| idx.doc(ord as u32).unwrap().id)
+        .collect::<Vec<_>>();
+    assert_eq!(kept, ["spell:a"]);
+    // A mask from another, smaller index allows nothing beyond its length.
+    assert!(!narrowed.allows(99));
+}
+
+#[test]
+fn an_all_allowing_mask_gives_the_library_totals() {
+    let idx = counts_corpus();
+    let mask = idx.eligible_mask(|_| true);
+    assert!(mask.allows_all());
+    assert_eq!(
+        idx.filter_counts_masked("", &Filters::default(), &mask),
+        idx.filter_counts_eligible("", &Filters::default(), all)
+    );
+}

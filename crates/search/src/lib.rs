@@ -4,6 +4,7 @@
 
 mod build;
 mod correct;
+mod mask;
 mod query;
 mod store;
 mod text;
@@ -13,6 +14,7 @@ mod tests;
 
 pub use build::IndexBuilder;
 pub use correct::{CORRECTION_MAX_HITS, Correction};
+pub use mask::EligibleMask;
 #[cfg(feature = "profile")]
 pub use query::SearchTiming;
 pub use query::{Highlighter, HitSummary};
