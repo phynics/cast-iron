@@ -22,6 +22,8 @@ cargo xtask <command>
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
+  size-budget                Fail when generated/content or the WASM binary in dist/ is larger than
+                             sources/size-budget.toml allows (run after build-site)
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
   corpus-check <dir> [--drift-report <file>]
                              Read a plain-text corpus and validate ids, paths, sources,
@@ -45,6 +47,7 @@ fn main() -> ExitCode {
         Some("published-books") => published_books(),
         Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
+        Some("size-budget") => size_budget(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
@@ -652,6 +655,10 @@ fn build_site(args: &[String]) -> Result {
         fetch_sources()?;
         content(&[])?;
     }
+    // The compiler writes the manifest only after every gate has passed, and moves the whole
+    // library into place at once. This check refuses a library that is partly there or that
+    // changed after the compile, whatever wrote it.
+    verify_generated_content(&root().join(generated))?;
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
     let dist = root().join("dist");
@@ -660,6 +667,124 @@ fn build_site(args: &[String]) -> Result {
     content_address_snippets(&dist)?;
     let date = commit_date();
     stamp_shell(&dist, date.as_deref())
+}
+
+/// Checks every file that `manifest.json` in `content` lists: it exists, with the listed size and
+/// SHA-256. Returns the number of files checked.
+fn verify_generated_content(content: &Path) -> Result<usize> {
+    let manifest = read_json(&content.join("manifest.json"))?;
+    let files = manifest["files"]
+        .as_array()
+        .ok_or("manifest.json has no files list")?;
+    for file in files {
+        let path = file["path"].as_str().ok_or("a manifest row has no path")?;
+        let sha256 = file["sha256"].as_str().unwrap_or_default();
+        let bytes = file["bytes"].as_u64().unwrap_or(u64::MAX);
+        let data = fs::read(content.join(path)).map_err(|e| {
+            format!(
+                "{} lists {path}, which cannot be read ({e}); run `cargo xtask content` again",
+                content.join("manifest.json").display()
+            )
+        })?;
+        if data.len() as u64 != bytes || hex(&Sha256::digest(&data)) != sha256 {
+            return Err(format!(
+                "{path} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
+                content.join("manifest.json").display()
+            ));
+        }
+    }
+    Ok(files.len())
+}
+
+/// The size limits in `sources/size-budget.toml`.
+const SIZE_BUDGET: &str = "sources/size-budget.toml";
+
+/// Compares `measured` (name, bytes) with the limits in `budget_text`. Returns one report line
+/// per measure, or every overrun in one message.
+fn compare_budget(
+    budget_text: &str,
+    measured: &[(&str, u64)],
+) -> std::result::Result<Vec<String>, String> {
+    let mut report = Vec::new();
+    let mut over = Vec::new();
+    for (name, bytes) in measured {
+        let limit: u64 = toml_string(&budget_text.replace('"', ""), name)
+            .and_then(|value| value.trim().replace('_', "").parse().ok())
+            .ok_or_else(|| format!("{SIZE_BUDGET} has no integer `{name}`"))?;
+        let percent = *bytes as f64 * 100.0 / limit.max(1) as f64;
+        report.push(format!(
+            "{name}: {bytes} of {limit} bytes ({percent:.1}% of the budget)"
+        ));
+        if *bytes > limit {
+            over.push(format!(
+                "{name} is {bytes} bytes, {} over the budget of {limit}",
+                bytes - limit
+            ));
+        }
+    }
+    if over.is_empty() {
+        Ok(report)
+    } else {
+        Err(format!(
+            "the build is over its size budget:\n  {}\nIf the growth is intended, raise the value in {SIZE_BUDGET} in the same pull request; a reviewer approves that line (docs/releasing.md, \"Size budget\")",
+            over.join("\n  ")
+        ))
+    }
+}
+
+/// Measures `generated/content` and the WASM binary in `dist/` against `sources/size-budget.toml`.
+fn size_budget(args: &[String]) -> Result {
+    if let Some(argument) = args.first() {
+        return Err(format!(
+            "unknown argument {argument:?} for size-budget\nusage: size-budget"
+        ));
+    }
+    let mut library = Vec::new();
+    list_files(&root().join("generated/content"), &mut library)
+        .map_err(|e| format!("{e}; run `cargo xtask content` first"))?;
+    let sizes = library
+        .iter()
+        .map(|path| {
+            fs::metadata(path)
+                .map(|meta| meta.len())
+                .map_err(|e| format!("{}: {e}", path.display()))
+        })
+        .collect::<Result<Vec<u64>>>()?;
+    let mut wasm = Vec::new();
+    for item in fs::read_dir(root().join("dist"))
+        .map_err(|e| format!("cannot read dist: {e}; run `cargo xtask build-site` first"))?
+    {
+        let path = item.map_err(|e| e.to_string())?.path();
+        if path.to_string_lossy().ends_with("_bg.wasm") {
+            wasm.push(path);
+        }
+    }
+    let [wasm] = wasm.as_slice() else {
+        return Err(format!(
+            "expected one *_bg.wasm in dist, found {}",
+            wasm.len()
+        ));
+    };
+    let wasm_bytes = fs::metadata(wasm)
+        .map_err(|e| format!("{}: {e}", wasm.display()))?
+        .len();
+    let budget = fs::read_to_string(root().join(SIZE_BUDGET))
+        .map_err(|e| format!("cannot read {SIZE_BUDGET}: {e}"))?;
+    let report = compare_budget(
+        &budget,
+        &[
+            ("library_bytes", sizes.iter().sum()),
+            (
+                "largest_file_bytes",
+                sizes.iter().copied().max().unwrap_or(0),
+            ),
+            ("wasm_bytes", wasm_bytes),
+        ],
+    )?;
+    for line in report {
+        println!("{line}");
+    }
+    Ok(())
 }
 
 /// Gives every wasm-bindgen snippet directory a content-derived name.
@@ -908,6 +1033,85 @@ mod tests {
     use super::*;
 
     const BASE: &str = "# header\nalpha\nbeta\ngamma\n";
+
+    const BUDGET: &str =
+        "# comment\nlibrary_bytes = 1_000\nlargest_file_bytes = 400\nwasm_bytes = 50\n";
+
+    #[test]
+    fn a_build_under_the_size_budget_passes() {
+        let report = compare_budget(
+            BUDGET,
+            &[
+                ("library_bytes", 1_000),
+                ("largest_file_bytes", 10),
+                ("wasm_bytes", 49),
+            ],
+        )
+        .unwrap();
+        assert_eq!(report.len(), 3);
+        assert!(report[0].contains("100.0%"), "{report:?}");
+    }
+
+    #[test]
+    fn a_build_over_the_size_budget_fails_and_names_every_overrun() {
+        let error = compare_budget(
+            BUDGET,
+            &[
+                ("library_bytes", 1_001),
+                ("largest_file_bytes", 400),
+                ("wasm_bytes", 90),
+            ],
+        )
+        .unwrap_err();
+        assert!(
+            error.contains("library_bytes is 1001 bytes, 1 over"),
+            "{error}"
+        );
+        assert!(error.contains("wasm_bytes is 90 bytes, 40 over"), "{error}");
+        assert!(!error.contains("largest_file_bytes is"), "{error}");
+        assert!(error.contains("sources/size-budget.toml"), "{error}");
+    }
+
+    #[test]
+    fn a_missing_budget_line_fails() {
+        let error = compare_budget("library_bytes = 5\n", &[("wasm_bytes", 1)]).unwrap_err();
+        assert!(error.contains("no integer `wasm_bytes`"), "{error}");
+    }
+
+    #[test]
+    fn the_committed_size_budget_names_every_measure() {
+        let text = fs::read_to_string(root().join(SIZE_BUDGET)).unwrap();
+        let report = compare_budget(
+            &text,
+            &[
+                ("library_bytes", 0),
+                ("largest_file_bytes", 0),
+                ("wasm_bytes", 0),
+            ],
+        );
+        assert!(report.is_ok(), "{report:?}");
+    }
+
+    #[test]
+    fn a_library_that_does_not_match_its_manifest_is_refused() {
+        let dir = temp_tree("verify-content");
+        let data = b"{}";
+        fs::create_dir_all(dir.join("v1")).unwrap();
+        fs::write(dir.join("v1/a.json"), data).unwrap();
+        let manifest = format!(
+            r#"{{"files":[{{"path":"v1/a.json","sha256":"{}","bytes":2}}]}}"#,
+            hex(&Sha256::digest(data))
+        );
+        fs::write(dir.join("manifest.json"), manifest).unwrap();
+        assert_eq!(verify_generated_content(&dir), Ok(1));
+        fs::write(dir.join("v1/a.json"), b"[]").unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("v1/a.json does not match"), "{error}");
+        fs::remove_file(dir.join("v1/a.json")).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("cannot be read"), "{error}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn book_slots_may_only_be_appended() {

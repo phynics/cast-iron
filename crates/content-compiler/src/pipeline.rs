@@ -236,6 +236,13 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         }
         return Err(Failure { lines });
     }
+    // The reachability gate also runs before anything is written to `out`: a failed compile
+    // leaves the previous library as it was.
+    if let Some(lines) = reachability.gate_failure() {
+        return Err(Failure { lines });
+    }
+    // Refuse a foreign output directory now, before the staging directory is written.
+    check_out(out)?;
 
     // Files, manifest, version.
     let mut files: BTreeMap<String, Vec<u8>> = BTreeMap::new();
@@ -292,12 +299,7 @@ pub fn package(library: Library, out: &Path, reports: &Path) -> Result<Outcome, 
         corpus_tag,
     };
 
-    prepare_out(out)?;
-    for (path, bytes) in &files {
-        let target = out.join(&content_version).join(path);
-        write_file(&target, bytes)?;
-    }
-    write_file(&out.join("manifest.json"), &json_bytes(&manifest)?)?;
+    publish_staged(out, &content_version, &files, &json_bytes(&manifest)?)?;
 
     let largest_shard = manifest
         .files
@@ -548,13 +550,11 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
     fs::write(path, bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
-/// Empties the output directory, but only if it is empty or holds one of our manifests.
-pub fn prepare_out(out: &Path) -> Result<(), String> {
+/// Checks that `out` is absent, empty, or holds one of our manifests, so [`publish_staged`] may
+/// replace it. Writes nothing.
+pub fn check_out(out: &Path) -> Result<(), String> {
     match fs::symlink_metadata(out) {
-        Err(_) => {
-            return fs::create_dir_all(out)
-                .map_err(|e| format!("cannot create {}: {e}", out.display()));
-        }
+        Err(_) => return Ok(()),
         Ok(meta) if meta.file_type().is_symlink() => {
             return Err(format!(
                 "refusing to clean {}: it is a symbolic link",
@@ -583,8 +583,66 @@ pub fn prepare_out(out: &Path) -> Result<(), String> {
             ));
         }
     }
-    fs::remove_dir_all(out).map_err(|e| format!("cannot clean {}: {e}", out.display()))?;
-    fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))
+    Ok(())
+}
+
+/// The sibling directory where a library is written before it replaces `out`.
+fn staging_dir(out: &Path) -> std::path::PathBuf {
+    let name = out
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "content".into());
+    out.with_file_name(format!("{name}.staging"))
+}
+
+/// Writes the whole library into a staging directory beside `out`, then moves it into place.
+///
+/// `out` holds a manifest only when every file the manifest lists is already beside it. A
+/// failure while writing leaves `out` as it was, and a partly written library is never at `out`.
+/// The manifest is the last file written into the staging directory, and the move is the only
+/// step that touches `out`.
+fn publish_staged(
+    out: &Path,
+    content_version: &str,
+    files: &BTreeMap<String, Vec<u8>>,
+    manifest: &[u8],
+) -> Result<(), String> {
+    check_out(out)?;
+    let staging = staging_dir(out);
+    match fs::remove_dir_all(&staging) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => return Err(format!("cannot clean {}: {e}", staging.display())),
+    }
+    let written = (|| {
+        for (path, bytes) in files {
+            write_file(&staging.join(content_version).join(path), bytes)?;
+        }
+        write_file(&staging.join("manifest.json"), manifest)
+    })();
+    if let Err(e) = written {
+        let _ = fs::remove_dir_all(&staging);
+        return Err(e);
+    }
+    if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    }
+    match fs::remove_dir_all(out) {
+        Ok(()) => {}
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => {
+            let _ = fs::remove_dir_all(&staging);
+            return Err(format!("cannot clean {}: {e}", out.display()));
+        }
+    }
+    fs::rename(&staging, out).map_err(|e| {
+        format!(
+            "cannot move {} to {}: {e}",
+            staging.display(),
+            out.display()
+        )
+    })
 }
 
 fn write_reports(
@@ -763,14 +821,16 @@ mod tests {
     }
 
     #[test]
-    fn prepare_out_refuses_foreign_directories() {
+    fn publish_staged_refuses_foreign_directories() {
         let dir = std::env::temp_dir().join(format!("ci-prepare-out-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
-        prepare_out(&dir).unwrap(); // creates
+        let files = BTreeMap::from([("a.json".to_string(), b"{}".to_vec())]);
+        fs::create_dir_all(&dir).unwrap();
         fs::write(dir.join("keep.txt"), "x").unwrap();
-        let err = prepare_out(&dir).unwrap_err();
+        let err = publish_staged(&dir, "v1", &files, b"{}").unwrap_err();
         assert!(err.contains("refusing"), "{err}");
         assert!(dir.join("keep.txt").exists());
+        assert!(!staging_dir(&dir).exists());
         fs::remove_dir_all(&dir).unwrap();
     }
 

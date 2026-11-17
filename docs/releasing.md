@@ -249,6 +249,29 @@ the file and keeps it sorted. Commit the added lines with the release record. Th
 grows: never delete or edit a line. An id that must truly go away needs an `aliases.toml` row
 that sends it to a live entry.
 
+## Size budget
+
+`sources/size-budget.toml` holds three limits in bytes: the whole library in `generated/content`,
+its largest file (`search.bin`), and the WASM binary in `dist/`. Each is the size measured on
+2026-11-17 plus about 5%. The CI **Build the site** job runs `cargo xtask size-budget` after the
+site build, and the job fails when any measure is over its limit. The message names each overrun.
+
+To raise a limit, change that one line in the pull request that makes the build larger, and say
+in the description why it grew. A reviewer approves the line. Do not raise a limit to make a build
+pass without a reason: a corpus pin that adds a book is a reason; a dependency that adds 200 KB of
+WASM needs a second look first.
+
+## Compile gates
+
+`cargo xtask content` runs every gate before it writes the library: the corpus check, the
+published-id and book-slot guards, validation, and the reachability check. The compiler writes
+the library into `generated/content.staging` and moves it to `generated/content` only after all
+of them pass. A failed compile leaves the previous `generated/content` as it was, and a first
+compile that fails leaves no `manifest.json`. `build-site` also checks the SHA-256 and size of
+every file the manifest lists, so it refuses a partly written or edited library.
+`pages.yml` runs the compile once, outside the three-attempt loop, so a retry repeats only the
+Trunk build and never re-runs a failed gate.
+
 ## Verify publication
 
 1. Read the **Deploy to GitHub Pages** run and its deployment status. Confirm
