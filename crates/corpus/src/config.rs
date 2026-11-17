@@ -18,6 +18,10 @@ use std::path::Path;
 /// under `books/`, and the compiler derives every other book from the `[[sources]]` pages.
 pub const CORPUS_FORMAT: u32 = 3;
 
+/// The format that writes trades as one flat `trades` list (#450): what `migrate-trades` targets.
+/// It is not [`CORPUS_FORMAT`], so the trades step leaves the layout step to run after it.
+pub const TRADES_FORMAT: u32 = 2;
+
 /// The first format whose book layout is the split one (`books/<publication>.toml`). A corpus
 /// below it stores one `books.toml`. The layout itself is read from the disk (see
 /// `Corpus::load`): a corpus below this format may already hold the split layout while its other

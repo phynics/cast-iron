@@ -201,15 +201,73 @@ trades = [
 | `replaces` or `alters` | Exactly one. The feature name as the book prints it. Kept as written, and the drift check compares the list of each key with the `**Replaces:**` and `**Alters:**` lines. |
 | `feature` | Optional. A heading anchor of a base class entry. A trade without it is unresolved: it keeps its printed name, and no compatibility filter treats it as compatible with anything. |
 | `class` | Optional, only with `feature`. The base class entry whose anchor it is. Required when more than one base class of the entry holds the anchor (an archetype of several classes, a class option whose group has several classes); otherwise the compiler drops it. |
-| `levels` | Optional, only with `feature`. The levels (1 to 255) at which the trade applies. |
-| `power` | Optional, only with `feature`. A named power inside the feature, such as a bloodline power or a domain power. |
+| `levels` | Optional, only with `feature`. The class levels at which the trade applies: 1 to 20, ascending, each once. No `levels` means every level of the feature. |
+| `power` | Optional, only with `feature`. A named power or qualifier inside the feature, such as a bloodline power, a domain power, `+4` of `Poison resistance +4`, or `minor` of `Touch treatment (minor)`. Compared by exact text. |
 
-`corpus-check` fails when a `feature` is not a heading anchor of a base class, when a `class` is
-not a base class or does not hold the anchor, and warns when the printed name resolves
-confidently to another anchor than the `feature` (the resolution strips case, punctuation and an
-ability tag such as `(Ex)`, `(Su)` or `(Sp)`). The compiler lowers the trades (see
-[Library files](#stored-and-derived-data)): it fails when an anchor several base
-classes hold has no `class`, and it writes the trades into `trades.json` only.
+`corpus-check` holds these rules for the trades:
+
+| Rule | Result |
+|---|---|
+| A trade has exactly one of `replaces` and `alters`, with a text that is not blank; `levels`, `power` and `class` need a `feature`. | The reader fails the file (format 2). |
+| The printed names of the trades with each key agree with the `**Replaces:**` and `**Alters:**` lines of the normal part, and an entry with such lines has trades for that key. | Drift: fails (see [Drift between fields and body](#drift-between-fields-and-body)). |
+| A `feature` is a heading anchor of a base class, and a `class` is a base class that holds the anchor. | Fails. |
+| `levels` run from 1 to 20, ascending, each once. | Fails. |
+| No two trades of one key (two `replaces`, or two `alters`) name the same anchor with a shared level (no `levels` shares every level) and the same `power`. An archetype may alter a feature and replace one instance of it. | Fails in format 2, warns in format 1. |
+| A printed name resolves confidently to another anchor than the `feature`. | Warns. |
+| Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many trades have a provable match that `migrate-trades` would write, and no per-trade warning, so the pinned corpus stays green until #452. |
+
+The compiler lowers the trades (see [Library files](#stored-and-derived-data)): it fails in format 2 when an
+anchor several base classes hold has no `class` (in format 1 it leaves that trade unresolved), and it writes the trades into `trades.json` only.
+
+#### Migrating to format 2
+
+`cargo xtask corpus-migrate-trades <dir> [--review <file>]` (`cast-iron-corpus migrate-trades`;
+the generic `migrate` runs the same step without the review file, and then the layout step of
+format 3) converts a format 1 corpus
+in place and writes `format = 2` to `corpus.toml`. It is idempotent: a second run on a migrated
+corpus changes no byte, and it never changes a trade that already has a `feature`, so a fix from
+the review queue survives. Run it on a clean checkout, then `check` and `fmt --check`.
+
+For each archetype and class option it merges the printed names with what the base-class headings
+prove:
+
+1. A trade that the format 1 reader linked by slug is judged again by the rules below (the
+   reader proves less: `Trap sense +3` and the anchor `trap-sense-3`). The same feature stays, a
+   better proof replaces it, and no proof leaves the trade unresolved. A feature written in
+   format 2 is never judged.
+2. A trade without a feature is resolved only when the printed name proves it. Each rule needs
+   exactly one heading to match, and the name is read without an ability tag, article, or the base
+   class's own name:
+   - **exact:** the name slugs to the slug of a heading's text, or to a heading anchor without a number in it (`trap-sense-3` may be a suffix that kept two headings apart, so it never proves `Trap sense +3`);
+   - **tokens:** the name and the heading have the same words in any order, a plural read as its
+     singular (`Investigator talents` is `Investigator Talent (Ex or Su)`);
+   - **levels:** the name states ordinal levels (`The discovery gained at 6th level`,
+     `2nd-, 12th-, 16th-level discoveries`); every ordinal must belong to a level expression (a run
+     of ordinals joined by `and`, followed by `level` or `levels`), or the whole name stays
+     unresolved (`2nd favored enemy gained at 5th level`); the rest is the token set of one
+     heading, and the levels (1 to 20) become `levels`;
+   - **qualifier:** the name is a feature plus one number or one trailing parenthesis
+     (`Poison resistance +4`, `Touch treatment (minor)`); it becomes `power`.
+3. When two trades of one key would name the same feature at a shared level and power (a book
+   that prints `Smite evil` twice, or two overlapping lists of bonus feats), the later one stays
+   unresolved, so the migrated corpus passes the overlap rule. Only a feature that this run
+   resolved, or that the format 1 reader resolved, gives way; a format 2 feature stays as written.
+4. An entry whose normal part prints `**Replaces:**` or `**Alters:**` lines for a key that has no
+   trade gets one unresolved trade per printed name first, then step 2.
+
+A position in a list, the length of a list, a name that only starts with or contains a feature
+name (`Improved evasion` is not `Evasion`), a list of numbers (`Armor training 1, 2, 3, and 4`),
+and an anchor that two base classes hold, whatever their heading texts (an archetype of two classes), prove nothing. Those trades
+keep `feature` absent. They go to the review queue, a TSV (`generated/trade-review.tsv` for the
+xtask command, `trade-review.tsv` in the current directory for the binary; never inside the
+corpus) with one row per unresolved trade in entry id and trade order:
+
+| Column | Content |
+|---|---|
+| `id`, `kind`, `trade`, `op`, `printed` | The entry, its kind, the trade's 1-based position, `replaces` or `alters`, the printed name. `trade` is 0 for a line that has no trade. |
+| `reason` | `no-heading` (no heading has the name's words), `ambiguous-heading`, `ambiguous-class`, `unusable-qualifier`, `level-out-of-range`, `ordinal-is-not-a-level`, `duplicate-feature` (the same feature as an earlier trade of the key), `no-base-class`, `variant-only` (a class option prints the line only below its normal part, in a variant such as a subdomain, so a trade would disagree with the drift check), or `old-anchors-only` (an old anchor list with no printed name). |
+| `candidates` | For an ambiguous reason, the headings (`class#anchor`) or classes. |
+| `unclaimed_old_anchors` | The anchors of the old format 1 list for the same key that no trade of the entry claims. They are not guessed at; they are the reviewer's lead. |
 
 **Format 1** wrote four lists instead: `replaces` and `alters` (the printed names, in print
 order) and `replaces_features` and `alters_features` (heading anchors, in print order). The
@@ -224,9 +282,9 @@ reaches), the reader keeps the list so that `fmt` writes the file back unchanged
 `corpus-check` still validates it. An anchor that several base classes hold cannot name a class in
 format 1, so the compiler leaves that trade unresolved rather than fail. Format 1 cannot write a
 `class`, `levels` or `power`, a feature that is not the slug of its printed name, or a list that mixes `replaces` and `alters` in other than that
-order; `corpus-check` rejects such a trade in a format 1 corpus. The migration from format 1 to
-format 2 is #451 and the corpus migration is #452; until then the pinned corpus is format 1 and
-this tool reads both.
+order; `corpus-check` rejects such a trade in a format 1 corpus. The command above migrates
+a corpus (#451); applying it to the corpus repository is #452. Until then the pinned corpus is
+format 1 and this tool reads both.
 
 ## `corpus.toml`
 
@@ -459,7 +517,8 @@ the curated files and removes it: a book with a top-level chapter other than the
 every other book gets no file. It is idempotent, and a crash leaves `books.toml` in place, so a rerun
 converges. It declares format 3 only for a format 2 corpus. A format 1 corpus still has the trades
 migration to run, and the reader accepts the split layout in a format below 3 with a warning. The
-registered `migrate` step from format 2 runs the same cut and writes `format = 3`.
+registered `migrate` chain is 1 to 2 (trades), then 2 to 3 (this cut, writing `format = 3`), so
+`migrate` takes a format 1 corpus to format 3 in one run.
 
 The library does not change: `books.json` keeps its shape, so neither `SCHEMA_VERSION` nor
 `INDEX_FORMAT_VERSION` moves. The content version changes with the data, as for any pin.
@@ -943,9 +1002,10 @@ who do not build Cast Iron. It is copied into `cast-iron-data`.
 - `.github/pull_request_template.md`: the checklist for a data pull request.
 
 The `cast-iron-corpus` binary (`cargo install --git ... cast-iron-corpus`) has
-three commands: `check [DIR] [--drift-report FILE]`, `fmt [--check] [DIR]`, and
-`migrate [DIR]`. It depends only on the corpus and schema crates. The same code
-runs behind `cargo xtask corpus-check`, `corpus-fmt`, and `corpus-migrate`.
+five commands: `check [DIR] [--drift-report FILE]`, `fmt [--check] [DIR]`,
+`migrate [DIR]`, `migrate-trades [DIR] [--review FILE]`, and `migrate-layout [DIR]`. It depends only on the
+corpus and schema crates. The same code runs behind `cargo xtask corpus-check`,
+`corpus-fmt`, `corpus-migrate`, `corpus-migrate-trades`, and `corpus-migrate-layout`.
 
 ## Determinism
 

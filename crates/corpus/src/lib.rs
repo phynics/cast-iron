@@ -25,6 +25,7 @@
 mod block;
 mod books;
 mod check;
+mod check_trades;
 pub mod cli;
 mod config;
 mod drift;
@@ -36,9 +37,11 @@ mod inline;
 mod layout;
 mod load;
 mod migrate;
+mod migrate_trades;
 #[cfg(test)]
 mod testkit;
 mod tomlutil;
+mod trade_match;
 mod trades;
 
 pub use books::{
@@ -48,7 +51,7 @@ pub use books::{
 pub use check::{Report, base_class_ids, check, fields_kind, fields_match, heading_keys, line_of};
 pub use config::{
     CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, READABLE_FORMATS,
-    SPLIT_BOOKS_FORMAT, read_config, write_config,
+    SPLIT_BOOKS_FORMAT, TRADES_FORMAT, read_config, write_config,
 };
 pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
@@ -63,3 +66,4 @@ pub use fmt::{Change, FmtReport, format_corpus};
 pub use layout::{SplitReport, layout_of, migrate_layout, split_books};
 pub use load::{Corpus, Stored, list_files};
 pub use migrate::{MIGRATIONS, Migration, migrate, migrate_with};
+pub use migrate_trades::{TradesReport, migrate_trades};
