@@ -31,8 +31,14 @@ jobs:
           # Same key as the CI site job, so a release build reuses compiled dependencies.
           cache-key: site
           trunk: "true"
-      # build-site fetches the pinned corpus and compiles the library when
-      # generated/content is missing.
+      # The compile runs every gate (corpus check, published ids, validation, reachability)
+      # once, outside the retry loop below: a failed gate is a real failure, not a download
+      # to retry. A failed compile writes no manifest, so build-site cannot use its output.
+      - name: Compile the library
+        run: |
+          cargo xtask fetch-sources
+          cargo xtask content
+      # build-site verifies the manifest and every file it lists before it builds.
       - name: Build the site
         run: |
           trunk --version

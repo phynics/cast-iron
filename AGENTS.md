@@ -21,6 +21,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Get the pinned corpus | `cargo xtask fetch-sources` (downloads `phynics/cast-iron-data`; verifies the tree hash in `sources/corpus.toml`) |
 | Compile the library | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
+| Check the library and WASM sizes against the budget | `cargo xtask size-budget` (after `build-site`; limits in `sources/size-budget.toml`; see `docs/releasing.md`) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |

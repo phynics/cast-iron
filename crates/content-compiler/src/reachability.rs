@@ -172,6 +172,33 @@ pub fn reachable_without_catch_all(entries: &[RuleEntry], books: &BookIndex) -> 
     reachable
 }
 
+impl Report {
+    /// The compile gate: the error lines when an entry has no route without the catch-all
+    /// chapter, else `None`. The compiler calls this before it writes the library.
+    pub fn gate_failure(&self) -> Option<Vec<String>> {
+        if self.unreachable == 0 {
+            return None;
+        }
+        let mut lines = vec![format!(
+            "error: {} distinct entries of {} are unreachable without the catch-all chapter `{}` ({} catch-all placements); see reachability.json",
+            self.unreachable, self.entries, self.catch_all_title, self.unreachable_placements
+        )];
+        for book in self.by_book.iter().filter(|book| book.unreachable > 0) {
+            lines.push(format!(
+                "  {}: {} unreachable ({} rules) of {} catch-all entries",
+                book.source_id, book.unreachable, book.unreachable_rules, book.catch_all_entries
+            ));
+        }
+        if self.unplaced > 0 {
+            lines.push(format!(
+                "  {} unreachable entries are not placed in any book tree",
+                self.unplaced
+            ));
+        }
+        Some(lines)
+    }
+}
+
 /// Builds `reachability.json` from the entries, the book trees, and the search index.
 pub fn report(entries: &[RuleEntry], books: &BookIndex, index: &SearchIndex) -> Report {
     let placements = placements(entries, books);

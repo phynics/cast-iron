@@ -1,0 +1,13 @@
+# Size budget for a build, in bytes. `cargo xtask size-budget` fails CI when the library in
+# generated/content or the WASM binary in dist/ is larger than its line here.
+#
+# Each value is the size measured on 2026-11-17 (corpus v0.1.23) plus about 5%, rounded up:
+#   library_bytes       223,140,755  every file under generated/content, manifest.json included
+#   largest_file_bytes   68,762,988  search.bin
+#   wasm_bytes            3,123,287  the *_bg.wasm that trunk builds
+#
+# To raise a value, change one line in a pull request and say why the build grew. A reviewer
+# approves that line. Never raise it to make a build pass without a reason.
+library_bytes = 234300000
+largest_file_bytes = 72300000
+wasm_bytes = 3280000
