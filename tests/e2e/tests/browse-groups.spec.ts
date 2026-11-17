@@ -1093,3 +1093,84 @@ test("A level heading in the whole-list view keeps the chosen schools", async ({
   await expect(main.getByRole("button", { name: "School: 2 chosen", exact: true })).toBeVisible();
   await expect(main.locator(".list-count")).toHaveText(/^[\d,]+ of [\d,]+ spells · Show all$/);
 });
+
+/**
+ * Words of a browse row's title and muted source that a line break cuts in two (#444). It lays
+ * each character out with a `Range` and flags a word whose characters sit on different lines,
+ * which is a break inside the word, not between words. A word wider than its row may break as a
+ * last resort; no title in these lists is that wide.
+ */
+async function splitWords(page: Page, scope: string) {
+  return page.evaluate((selector) => {
+    const found: string[] = [];
+    const rows = document.querySelectorAll(`${selector} > li`);
+    for (const row of rows) {
+      for (const part of row.querySelectorAll(":scope > a, :scope > .row-source")) {
+        const walker = document.createTreeWalker(part, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+          const text = node.data;
+          for (const match of text.matchAll(/\S+/g)) {
+            const start = match.index ?? 0;
+            const range = document.createRange();
+            const tops = new Set<number>();
+            for (let i = start; i < start + match[0].length; i++) {
+              range.setStart(node, i);
+              range.setEnd(node, i + 1);
+              const rect = range.getClientRects()[0];
+              if (rect) tops.add(Math.round(rect.top));
+            }
+            // Two lines of one word sit a line apart; glyph tops within one line differ by <3px.
+            const lines = [...tops].sort((a, b) => a - b).filter((top, i, all) => i === 0 || top - all[i - 1] > 6);
+            if (lines.length > 1) found.push(match[0]);
+          }
+        }
+      }
+    }
+    return found;
+  }, scope);
+}
+
+/** A row's right edge against its own box and the page's width. */
+async function rowOverflow(page: Page, scope: string) {
+  return page.evaluate((selector) => {
+    const bad: string[] = [];
+    for (const row of document.querySelectorAll(`${selector} > li`)) {
+      const box = row.getBoundingClientRect();
+      for (const part of row.querySelectorAll(":scope > a, :scope > .row-source")) {
+        const rect = part.getBoundingClientRect();
+        if (rect.left < box.left - 1 || rect.right > box.right + 1) bad.push(part.textContent ?? "");
+      }
+    }
+    const page = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth;
+    return { bad, page };
+  }, scope);
+}
+
+for (const width of [390, 1280]) {
+  test(`Browse row titles and publication names wrap only between words at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await installLibrary(page);
+    await waitControlled(page);
+    const long = [corpusEntry("class_option", "Alien Consciousness"), corpusEntry("class_option", "Abomination")];
+    await page.goto("#/browse/kind/class_option?l=A");
+    for (const entry of long) {
+      const link = page.locator(`.entry-list > li > a[href="#/entry/${entry.id}"]`);
+      await expect(link).toBeVisible();
+      await expect(link).toHaveText(entry.title);
+    }
+    const list = "#letter-A .entry-list";
+    // Every row of the group: the 177 titles and their muted group and book lines.
+    expect(await splitWords(page, list)).toEqual([]);
+    const overflow = await rowOverflow(page, list);
+    expect(overflow.bad).toEqual([]);
+    expect(overflow.page).toBeLessThanOrEqual(0);
+
+    // Creatures print their book on every row, and Bestiary titles are the long metadata.
+    await page.goto("#/browse/kind/creature?l=B");
+    await expect(page.locator("#letter-B .entry-list > li > a").first()).toBeVisible();
+    expect(await splitWords(page, "#letter-B .entry-list")).toEqual([]);
+    const creatures = await rowOverflow(page, "#letter-B .entry-list");
+    expect(creatures.bad).toEqual([]);
+    expect(creatures.page).toBeLessThanOrEqual(0);
+  });
+}

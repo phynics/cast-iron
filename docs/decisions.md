@@ -2115,3 +2115,12 @@ Closes [#438](https://github.com/phynics/cast-iron/issues/438). Part of [#421](h
 - **Hidden while a scope is set.** A scope means the reader opened the layer from a list to search that list (`Search feats`). A page link at the top of a scoped list would be an answer to a different question. Removing the scope brings it back, since the layer re-derives the list from the scope signal.
 - **A row that is not a search.** Opening it navigates to `#/quick` through `go`, not through `search`/`run`, so nothing is written to Recent searches. The diagnostics sample (#436) is recorded only by the suggestion lookup for non-empty text, which the row never reaches, so it adds no sample.
 - **The muted line is fixed text.** It names the page's first three groups and does not follow the page's constant. The page's fourth group, `Every session`, is left out for length.
+
+## Browse rows wrap between words, 2026-11-17
+
+Closes [#444](https://github.com/phynics/cast-iron/issues/444). Part of [#443](https://github.com/phynics/cast-iron/issues/443).
+
+- **Cause.** A kind-list row (`.entry-list li`) was a no-wrap flex line with `overflow-wrap: anywhere`. The title link and the muted source (`.row-source`) both had `min-width: 0` and could shrink, and `anywhere` also makes a word's minimum width one letter, so the two shared the line in proportion to their text. A long source took half of a 310 px column and left the title `Abominatio|n` or `Alien Consciousn|ess`.
+- **Rule.** A row wraps (`flex-wrap: wrap`). The title keeps its natural width (`flex: 1 1 auto`), so it breaks only between words. The source sits beside it when both fit and drops to its own right-aligned line when they do not. Both use `overflow-wrap: break-word`: a single word wider than the row still breaks as a last resort, and the page never scrolls sideways. Do not use `anywhere` or `break-all` on a flex item that shares a line with another.
+- **Cost.** A row with a long source is now two lines tall in a narrow column, where it was one line with a split title. The 44 px target and the one-line truncation of Home's starred rows (`.home-row-title`) are unchanged.
+- **Checked elsewhere.** Search results, Quick search rows and Books rows stack the title above the muted line, so they never share a line and did not split words; the spec covers kind lists.
