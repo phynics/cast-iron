@@ -841,32 +841,6 @@ mark {
 
 /* ---- Tiles and lists ----------------------------------------------------------------------- */
 
-.tiles {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
-  gap: var(--space-2);
-}
-
-.tile {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: var(--touch);
-  padding: var(--space-3);
-  background: var(--surface);
-  border: var(--border);
-  border-radius: var(--radius);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.tile:hover {
-  border-color: var(--accent);
-}
-
 .tile-name {
   font-family: var(--font-display);
   font-weight: 600;
@@ -875,10 +849,6 @@ mark {
 .tile-count {
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
-}
-
-.tiles:has(.tile-wide) {
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
 }
 
 .hero {
@@ -3687,9 +3657,6 @@ input::placeholder {
   color: var(--ink-muted);
   opacity: 1;
 }
-.home-page .tiles { align-items: stretch; }
-.home-page .tiles > li { display: flex; }
-.home-page .tile { width: 100%; }
 
 /* Reading and discovery share controls; the rule text keeps the primary reading position. */
 .book-directory { list-style: none; padding: 0; margin: 0; max-width: 52rem; }
@@ -3803,9 +3770,6 @@ input::placeholder {
 #entry-related { scroll-margin-top: var(--header-h); }
 #entry-related:has(.entry-rel) { margin-top: var(--space-5); border-top: var(--border); padding-top: var(--space-3); }
 .scope-choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-@media (min-width: 64rem) {
-  .home-page .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 52rem; }
-}
 @media (max-width: 30rem) {
   .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
