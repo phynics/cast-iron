@@ -2217,6 +2217,70 @@ mark {
   margin: 0 0 var(--space-2);
 }
 
+/* A class page folds its two long link lists under one summary line with the count. */
+.ref-fold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+}
+
+.ref-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ref-fold-name {
+  flex: 1;
+}
+
+.ref-fold > summary .rel-count {
+  font-weight: 400;
+}
+
+/* The class summary card is a stat block. Its class-skills row opens in place. */
+.class-card {
+  max-width: var(--measure);
+  margin-top: var(--space-3);
+}
+
+.class-card .page-link {
+  display: flex;
+  margin-left: 0;
+}
+
+.class-card .stat-row-action {
+  align-items: center;
+}
+
+.class-skills > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  margin: calc(var(--space-1) * -1) 0;
+  cursor: pointer;
+  list-style: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.class-skills > summary::-webkit-details-marker {
+  display: none;
+}
+
+.class-skill-list {
+  margin: 0 0 var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.class-skill-list li {
+  padding: 0.15rem 0;
+}
+
 .backlink-group {
   border-top: var(--border);
 }
@@ -3822,6 +3886,41 @@ input::placeholder {
   .entry > .sources-line { grid-area: sources; }
   .entry > .aon-line { grid-area: aon; }
   .entry > #entry-related { grid-area: rel; }
+}
+/* A class page folds its link lists, so it has no side panel: one column, and the two rows end
+   the page above the footer (#170 F). Without the panel the body also gets the full column. */
+@media (min-width: 64rem) {
+  .entry:has(> .rich):has(> .entry-refs-fold) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "crumbs"
+      "head"
+      "disabled"
+      "revision"
+      "sentence"
+      "collision"
+      "original"
+      "contents"
+      "body"
+      "sources"
+      "aon"
+      "rel"
+      "book"
+      "refs"
+      "foot";
+  }
+
+  .entry > .entry-refs.entry-refs-fold {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    margin-top: var(--space-6);
+    padding: 0;
+    background: none;
+    border: 0;
+    font-size: inherit;
+    max-width: var(--measure);
+  }
 }
 .article-contents .contents-level-3 { margin-inline-start: .75rem; }
 .article-contents .contents-level-4 { margin-inline-start: 1.5rem; }
