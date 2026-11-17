@@ -320,9 +320,9 @@ mod tests {
     }
 
     #[test]
-    fn schema_one_to_three_libraries_remain_readable_during_the_upgrade() {
+    fn schema_one_to_four_libraries_remain_readable_during_the_upgrade() {
         let mut old = manifest();
-        for version in [1, 2, 3] {
+        for version in [1, 2, 3, 4] {
             old.schema_version = version;
             assert_eq!(validate_manifest(&old), Ok(()), "schema {version}");
         }
@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn a_schema_three_library_opens_and_offers_an_update_rather_than_crashing() {
         // The active library a reader already installed stays usable; the update check compares
-        // the published content version and offers the schema-4 library.
+        // the published content version and offers the current-schema library.
         let mut active = manifest();
         active.schema_version = 3;
         active.content_version = "v0000000000000003".into();

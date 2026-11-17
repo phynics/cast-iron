@@ -11,7 +11,6 @@ use crate::js;
 use crate::library::{Library, use_library};
 use crate::route::{self, Route, use_route};
 use crate::store::{self, ContinuePoint};
-use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::quick_rows::{
@@ -97,8 +96,8 @@ fn viewed_rows(library: &Library, recents: &[Recent]) -> Vec<ViewedRow> {
         }
         let stub = library.stub(&id)?;
         let book = library
-            .canonical_source_for_entry(&id)
-            .and_then(|source| library.source(&source))
+            .entry_row_book(&id)
+            .and_then(|source| library.source(source))
             .map(|source| source.title.clone());
         let kind = kind_name(stub.kind);
         let detail = match book {
@@ -551,16 +550,19 @@ fn watch_suggestions(quick: QuickSearch) {
                         (None, Some(group)) => group,
                         (None, None) => kind,
                     };
-                    // The index records one attribution source. When it is inactive, the entry's
-                    // book placement is the source that kept it eligible, so name that instead
-                    // (the same rule as the search result rows).
-                    let canonical = library.canonical_source_for_entry(&id);
-                    let source_id = preferred_source(
-                        &hit.source,
-                        canonical.as_deref(),
-                        |id| library.book_active(id),
-                        |id| library.source(id).map_or(Tier::Other, Tier::of),
-                    );
+                    // The row names the book that revised it, else one member book (the same rule
+                    // as the search result rows).
+                    let source_id = library
+                        .stub(&id)
+                        .map(|stub| {
+                            crate::membership::listed_book(
+                                crate::membership::revision_source(stub, &hit.source),
+                                stub,
+                                &[],
+                                || library.row_book(stub),
+                            )
+                        })
+                        .unwrap_or(&hit.source);
                     let book = library
                         .source(source_id)
                         .map_or(source_id, |source| source.title.as_str());
