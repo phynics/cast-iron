@@ -30,6 +30,8 @@ The printed contents page lists the appendices Special Abilities (554), Conditio
 
 `books.toml` now has the 15 printed chapters followed by two appendix groups, Special Abilities and Conditions. The upstream `Glossary` aggregate holds only links to those two appendices, so it opens the Special Abilities group instead of standing as a chapter of its own. Printed Appendix 3 Inspiring Reading (568) and Appendix 4 Game Aids (569) have no corpus entries, so they have no group.
 
+Appendix boundaries (corpus v0.1.24, checked against print, where the PDF page number equals the printed number): Special Abilities runs pp. 554 to 565 and Conditions runs pp. 565 to 568. Both appendices share p. 565, and the Inspiring Reading heading follows the last condition lower on p. 568. A rule is placed by its page, with two exceptions at the shared pages. A rule on p. 565 goes to Special Abilities when its text ends above the Conditions heading, and to Conditions when it starts below it. A rule on p. 568 goes to Conditions, because Inspiring Reading has no entries. This puts Sickened Conditions (p. 568) in Conditions, so no rule needs a group of its own. Spell Resistance, When Spell Resistance Applies and Successful Spell Resistance print on pp. 564 to 565 and sit in Special Abilities. The last two recorded pp. 566 and 567; both now record p. 565. Counting the 169 rules that moved from the catch-all into printed chapters by page: Getting Started 44, Environment 23, Combat 23, Magic Items 17, Magic 16, Gamemastering 11, Creating NPCs 10, Prestige Classes 9, Additional Rules 4, Classes 2, Special Abilities 6, Conditions 4.
+
 Main chapter order and nested placement are verified against the printed Core Rulebook. Each entry sits in its printed chapter and section, and the tree follows the printed page order: Races runs Dwarves, Elves, Gnomes, Half-Elves, Half-Orcs, Halflings, Humans (pp. 21-27); the Prestige Classes introduction opens Chapter 11 (p. 374), not Classes; the Creating NPCs introduction opens Chapter 14 (p. 448), not Gamemastering; the Magic and Spellcasting introduction opens Chapter 9 (p. 206); and the spell descriptions follow the alphabetical order stated on p. 224 (pp. 239-371). Entries that share a printed page keep the dataset order inside that page.
 
 ## Advanced Player's Guide
@@ -272,7 +274,7 @@ Mythic Magic Items holds Magic Items (p. 142) with Armor and Shield Special Abil
 
 Mythic Monsters holds Mythic Monster Origins, Mythic Rank, and Reading a Mythic Monster Stat Block (p. 176); Mythic Monster Entries (p. 178) with the mythic monsters in the printed alphabet (pp. 178-223); Mythic Monster Advancement (p. 224) with Mythic Simple Templates (p. 224) and Building a Mythic Creature (p. 224); Mythic Subtype (p. 226); New Universal Monster Rules (p. 226) with the printed rules (pp. 226-228); and Evaluating Monster Statistics (p. 228). The mythic lich template (p. 206), mythic skeleton template (p. 216), and mythic vampire template (p. 220) sit inside their monster entries.
 
-Entries that share a printed page keep the dataset order inside that page. The residual `New entries (page order)` chapter keeps the canonical base entries whose primary publication is another book; for a mythic feat or spell the placed row is its mythic add-on. It also keeps a duplicate Heirophant record for the Hierophant section (p. 32).
+Entries that share a printed page keep the dataset order inside that page. Since corpus v0.1.24 the residual `New entries (page order)` chapter no longer holds the canonical base entries whose primary publication is another book: a book places only entries whose `source_ids` name it, and for a mythic feat or spell the placed row is its mythic add-on (478 base placements were removed). It also keeps a duplicate Heirophant record for the Hierophant section (p. 32).
 
 ## NPC Codex
 
@@ -395,6 +397,17 @@ The printed appendix keeps Spells with New Descriptors (p. 251) and the Updated 
 The printed chapters of the Game Mastery Guide are recorded above, and its `books.toml` tree now uses them.
 
 No publisher contents listing was located for any publication outside the sixteen curated books. Those titles keep the page-ordered `Page order` and `Unpaged` lists rather than a chapter structure.
+
+## Placements must name the book (corpus v0.1.24)
+
+From corpus v0.1.24, `corpus-check` rejects a `books.toml` placement whose book is not in the entry's `source_ids`, and a book with no `publications.toml` row. The data change (cast-iron-data #86) removed what the rules reject:
+
+- Nine books with no publication row: `PRPG Core Rulebook` (2,670 placements) and `Pathfinder RPG Bestiary` (448 placements), which only listed entries of the printed Core Rulebook and Bestiary in `Page order` and `Unpaged` chapters, and seven one-off trees for blog posts and comic issues (1 or 2 placements each). Every entry in them is also placed in a printed book.
+- 1,137 placements of an add-on's base entry in a book that prints only the add-on, in a catch-all, `Page order` or `Unpaged` chapter (Mythic Adventures 478, Pathfinder Unchained 465, The Elephant in the Room 113, Weapon Master's Handbook 45, Armor Master's Handbook 16, Mythic Origins 14, and a few others). The `Page order` and `Unpaged` residual lists of those books no longer hold their base entries.
+- 32 Bestiary Universal Monster Rules placements that the printed Bestiary does not hold (its Universal Monster Rules, pp. 298 to 306, print none of them). Bestiary 2 prints 28 of them (pp. 294 to 303), Bestiary 3 prints 3 (pp. 292 to 301), and Lycanthropic Empathy is Bestiary 2, p. 298. Skaveling Ghoul Fever is in Bestiary 2, p. 42, so its `source_ids` changed from Bestiary to Bestiary 2.
+- The 169 Core Rulebook rules whose only printed-chapter placement was the PRPG listing now sit in their printed Core Rulebook chapters (see the appendix boundaries above).
+
+Not done: the 28 Bestiary 2 rules still sit only in the Bestiary 2 catch-all chapter. A later pass can place them in its Universal Monster Rules chapter by their printed pages.
 
 ## Page attribution in Pf Data
 
