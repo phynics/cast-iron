@@ -11,6 +11,7 @@ cast-iron-corpus.workspace = true
 cast-iron-schema.workspace = true
 sha2.workspace = true
 serde_json.workspace = true
+regex.workspace = true
 
 [lints]
 workspace = true

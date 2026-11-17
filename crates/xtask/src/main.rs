@@ -1,5 +1,7 @@
 //! Repository automation. Run `cargo xtask help`.
 
+mod feature_map;
+
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,7 +34,7 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
-  check                      Run fmt, clippy, tests, and the WASM build
+  check                      Run fmt, clippy, tests, the feature-map check, and the WASM build
 ";
 
 type Result<T = ()> = std::result::Result<T, String>;
@@ -1002,6 +1004,7 @@ fn corpus_fmt(args: &[String]) -> Result {
 }
 
 fn check() -> Result {
+    feature_map::check(&root())?;
     run("cargo", &["fmt", "--all", "--", "--check"])?;
     run(
         "cargo",
