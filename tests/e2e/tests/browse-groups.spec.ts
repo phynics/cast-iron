@@ -659,7 +659,7 @@ test("An unknown book shows the whole kind list with a notice, not a missing pag
   await page.goto("#/browse/kind/spell?source=no-such-book");
   const main = page.locator("main");
   await expect(main.getByRole("heading", { level: 1, name: "Spells" })).toBeVisible();
-  await expect(main.getByText('Unknown book "no-such-book". Showing all spells.')).toBeVisible();
+  await expect(main.getByText("That book isn't in your library, so this list shows all spells.")).toBeVisible();
   await expect(main.locator(".book-filter, .scope-pill")).toHaveCount(0);
   await expect(main.locator(".list-count")).toHaveText(
     `${count(corpus.catalog.entries.filter((stub: any) => stub.kind === "spell").length)} spells`,

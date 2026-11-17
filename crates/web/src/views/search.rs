@@ -825,6 +825,10 @@ pub(crate) fn discovery_for(
     discovery
 }
 
+/// The hint under the result count when the address names a book that the library does not hold.
+pub const MISSING_BOOK_LINE: &str =
+    "A book in this link isn't in your library, so it can't match anything.";
+
 #[component]
 pub fn Search() -> impl IntoView {
     let library = use_library();
@@ -1827,6 +1831,28 @@ pub fn Search() -> impl IntoView {
             })
     };
 
+    // A link that names a book the library does not hold (an old or mistyped `source=`) matches
+    // nothing. Say so in plain words, and give the one action that fixes it: drop the book.
+    let missing_library = library.clone();
+    let missing_book_hint = move || {
+        let known = missing_library.clone();
+        let missing = state.with(|s| s.sources.iter().any(|id| known.source(id).is_none()));
+        missing.then(move || {
+            view! {
+                <p class="inactive-books-hint" role="status" data-testid="missing-book-hint">
+                    <span>{MISSING_BOOK_LINE}</span>
+                    <button class="count-action" type="button"
+                        aria-label="Remove the missing book from this search"
+                        on:click=move |_| change_filters(&|s| {
+                            s.sources.retain(|id| known.source(id).is_some());
+                        })>
+                        "Remove it"
+                    </button>
+                </p>
+            }
+        })
+    };
+
     // Matches that only an inactive book holds. The count is real, but no row shows it, so the
     // hint names the book with the most hidden matches and includes it in one tap. Including a
     // book changes the stored active set only because the reader asked for it here.
@@ -2050,6 +2076,7 @@ pub fn Search() -> impl IntoView {
                                 <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
                             })}
                         </p>
+                        {missing_book_hint}
                         {inactive_hint}
                     </div>
                     {results}
