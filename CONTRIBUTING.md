@@ -23,10 +23,22 @@ issues open until the required device or corpus evidence exists.
 Docs retain design decisions, corpus limits, and verification evidence. Issues
 own outstanding work. [UI task history](docs/ui-tasks.md) retains earlier
 acceptance context; do not restart its completed tasks. Star scope follows
-[decisions](docs/decisions.md): manual star transfer was removed, and stars stay
+[decisions](docs/decisions/README.md): manual star transfer was removed, and stars stay
 local to the browser profile. Existing install and update requests are
 [#8](https://github.com/phynics/cast-iron/issues/8) and
 [#9](https://github.com/phynics/cast-iron/issues/9).
+
+## Decisions and the status log
+
+Add a file, not a section. A decision is `docs/decisions/YYYY-MM-DD-<slug>.md`; a corpus pin, a
+release or an acceptance record is `docs/status/YYYY-MM-DD-<slug>.md`. Each starts with front matter
+(the keys are in the README of its directory). Run `cargo xtask decisions-index` or `cargo xtask
+status-index` and commit the regenerated README; `cargo xtask check` fails when it is stale, when front
+matter is invalid, and when a relative link does not resolve. Two pull requests that each add a file do
+not conflict in the text. Their READMEs are generated files, marked `merge=union` in `.gitattributes`:
+after a merge, run the command again. `docs/status.md` is the one-screen current state; a pin or release
+PR edits only the lines that its change makes untrue. Do not edit the text of an old decision; set its
+`status` and `superseded_by` when a new one replaces it.
 
 ## Merge a pull request
 
@@ -48,6 +60,12 @@ one with `gh workflow run ci.yml --ref BRANCH`. WebKit jobs are printed and do n
 Otherwise the PR-event Rust checks on that SHA must pass. `--merge` runs
 `gh pr merge --merge --match-head-commit`, so it never squashes or rebases, never deletes
 the branch, and fails if the branch moved. Test it with `python3 scripts/test-merge-pr.py`.
+
+The helper's rows still follow the Test scope table as it stood before the owner's rules of
+2026-11-17, which ask for a branch run only for CI configuration, the toolchain, install, storage and
+offline code, and a format version. Until the helper follows them, merge a reviewed pull request that
+needs only the required `Rust checks` with `gh pr merge --merge --match-head-commit FULL_HEAD_SHA`,
+then run one full CI on `main` after the batch.
 
 ## Review comments
 

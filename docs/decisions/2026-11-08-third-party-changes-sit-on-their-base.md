@@ -1,8 +1,8 @@
 ---
 title: "Third-party changes sit on their base"
 date: 2026-11-08
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-09-the-sources-line-follows-the-visible-text"]
 issues: [246, 250]
 prs: []
 area: content

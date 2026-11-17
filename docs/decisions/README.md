@@ -64,7 +64,7 @@ Front matter: `title`, `date`, `status` (`current`, `superseded` or `partly-supe
 | 2026-11-08 | [Spell variants and spell mythic sections](2026-11-08-spell-variants-and-spell-mythic-sections.md) | current | [#143](https://github.com/phynics/cast-iron/issues/143), [#246](https://github.com/phynics/cast-iron/issues/246), [#250](https://github.com/phynics/cast-iron/issues/250) |
 | 2026-11-08 | [Stamina rules fold under their base](2026-11-08-stamina-rules-fold-under-their-base.md) | current | [#246](https://github.com/phynics/cast-iron/issues/246), [#250](https://github.com/phynics/cast-iron/issues/250) |
 | 2026-11-08 | [The third-party publication marker](2026-11-08-the-third-party-publication-marker.md) | current | [#189](https://github.com/phynics/cast-iron/issues/189) |
-| 2026-11-08 | [Third-party changes sit on their base](2026-11-08-third-party-changes-sit-on-their-base.md) | current | [#246](https://github.com/phynics/cast-iron/issues/246), [#250](https://github.com/phynics/cast-iron/issues/250) |
+| 2026-11-08 | [Third-party changes sit on their base](2026-11-08-third-party-changes-sit-on-their-base.md) | partly superseded by [The Sources line follows the visible text](2026-11-09-the-sources-line-follows-the-visible-text.md) | [#246](https://github.com/phynics/cast-iron/issues/246), [#250](https://github.com/phynics/cast-iron/issues/250) |
 | 2026-11-07 | [Attached entries](2026-11-07-attached-entries.md) | current | [#246](https://github.com/phynics/cast-iron/issues/246), [#249](https://github.com/phynics/cast-iron/issues/249) |
 | 2026-11-05 | [Pf Data canonical relations](2026-11-05-pf-data-canonical-relations.md) | current |  |
 | 2026-11-05 | [Reverse body-link index](2026-11-05-reverse-body-link-index.md) | current |  |

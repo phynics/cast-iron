@@ -5,13 +5,15 @@ The script is kept so a reviewer can rerun the proof. It reads the pre-split tex
 (`PRE_SPLIT_REV`), so it works after the split too.
 
     python3 scripts/split-docs.py plan              # print every entry: file, date, area, status
-    python3 scripts/split-docs.py write             # write docs/decisions/ and docs/status/ entries
+    python3 scripts/split-docs.py write [--force]   # write docs/decisions/ and docs/status/ entries
     python3 scripts/split-docs.py verify            # prove that no text was lost
 
-`write` is idempotent. It also rewrites the relative links that moving the text into a subdirectory
-broke (`ui-tasks.md` becomes `../ui-tasks.md`; `decisions.md#anchor` becomes the entry file). `verify` fails unless every `## ` section of the original maps
-to exactly one file, and the body of each file equals its section text (apart from the link targets
-and the one renamed duplicate heading, both counted in the output).
+`write` rebuilds each entry's front matter from this script, so it refuses to run once the generated
+index exists unless you pass `--force`. It also rewrites the relative links that moving the text into a
+subdirectory broke (`ui-tasks.md` becomes `../ui-tasks.md`; `decisions.md#anchor` becomes the entry
+file). `verify` fails unless every `## ` section of the original maps to exactly one file, and the body
+of each file equals its section text, apart from those link targets and the one renamed duplicate
+heading (both counted in the output).
 
 File format. Front matter is `key: value` lines between `---` lines. A string and a list are JSON
 (`title: "..."`, `issues: [394, 420]`); `date`, `status`, `area` and `kind` are bare words. The
@@ -61,6 +63,10 @@ SUPERSEDED = {
     "A listing chapter owns an entry only as a last resort": ("superseded", [MEMBERSHIP, PLACEMENT]),
     "Inactive books in search": ("partly-superseded", [MEMBERSHIP]),
     "One flattened reading order per book": ("partly-superseded", [MEMBERSHIP]),
+    "Third-party changes sit on their base": (
+        "partly-superseded",
+        ["The Sources line follows the visible text"],
+    ),
     # Collections and star export (2026-11-03 simplification, 2026-11-16 owner decisions).
     "Reference screens": ("partly-superseded", [PLANNED, "Heading DOM ids and URL anchor keys"]),
     "Navigation after the iPhone walkthrough": (
@@ -426,6 +432,9 @@ def strip_link_targets(text):
 
 
 def cmd_write():
+    if (DECISIONS_DIR / "README.md").exists() and "--force" not in sys.argv:
+        raise SystemExit("the split has landed: `write` would reset the front matter edited since. "
+                         "Use `verify`, or `write --force` to rebuild every entry from the pre-split text.")
     DECISIONS_DIR.mkdir(parents=True, exist_ok=True)
     STATUS_DIR.mkdir(parents=True, exist_ok=True)
     anchors = anchor_map()
@@ -498,7 +507,7 @@ def cmd_verify():
 
 def main():
     commands = {"plan": cmd_plan, "write": cmd_write, "verify": cmd_verify}
-    if len(sys.argv) != 2 or sys.argv[1] not in commands:
+    if len(sys.argv) < 2 or sys.argv[1] not in commands or sys.argv[2:] not in ([], ["--force"]):
         raise SystemExit(__doc__)
     commands[sys.argv[1]]()
 

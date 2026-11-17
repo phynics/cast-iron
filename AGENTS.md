@@ -3,10 +3,10 @@
 Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rules. It is Rust/WASM (Leptos, client-side rendering) on GitHub Pages, with no backend.
 
 - Product source of truth: `docs/spec.md`. Do not rewrite it.
-- Decisions that refine the spec: `docs/decisions.md`. Add an entry for each decision that a later reader cannot derive from code.
+- Decisions that refine the spec: one file each in `docs/decisions/` (index: `docs/decisions/README.md`). Add a file `docs/decisions/YYYY-MM-DD-<slug>.md` for each decision that a later reader cannot derive from code, then run `cargo xtask decisions-index`. Do not edit another entry's text; when a decision replaces one, set the older entry's `status` and `superseded_by`.
 - Development tracking: [GitHub Issues](https://github.com/phynics/cast-iron/issues). Search before creating an issue. Link each implementation PR to its issue. See `CONTRIBUTING.md`.
 - Integration and publication: `main` integrates work; `release` publishes Pages. Follow `docs/releasing.md` for explicit promotion, verification, and recovery. Never auto-promote main or reset release history.
-- Current state, corpus counts, and acceptance results: `docs/status.md`. Distinguish local verification, CI, and deployment.
+- Current state (pinned corpus, format versions, main versus release, open release gates, latest runs): `docs/status.md`, one screen. The log of pins, releases and acceptance results is one file each in `docs/status/`: a pin or release PR adds `docs/status/YYYY-MM-DD-<slug>.md` and runs `cargo xtask status-index`, and edits only the few lines of `docs/status.md` that its change makes untrue. Distinguish local verification, CI, and deployment.
 - Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `books.toml` in the corpus; website menus and dataset order do not establish printed order.
 
 ## Commands
@@ -28,7 +28,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Check before you finish | `cargo xtask check` (also fails when the verify skill's feature map and the specs in `tests/e2e/tests/` disagree: a spec or test the map does not reach, a name or `--grep` pattern that matches nothing) |
-| Browser acceptance tests (the affected specs; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
+| Browser acceptance tests (the one new or changed spec; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
 | Full browser suite (CI only) | `gh workflow run ci.yml --ref <branch>` |
 
 To prove a change in the real app, use the `verify` skill in `.agents/skills/verify/SKILL.md`.
@@ -46,6 +46,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 | `crates/web` | Leptos client |
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
+| `docs/decisions/`, `docs/status/` | One Markdown file per decision and per status log entry, each with front matter and a generated `README.md` index. `scripts/split-docs.py` made them from the old single files |
 | `sources/corpus.toml` | Pin of the plain-text corpus (`phynics/cast-iron-data`): tag, commit, tree hash. To bump it: tag the corpus, update `commit` and `tree_sha256` (`cargo xtask corpus-tree-hash <extracted dir>`), run `cargo xtask fetch-sources` and `cargo xtask content` |
 | `scripts/` | Publication screen and release promotion scripts |
 | `LICENSE`, `LICENSES/` | MIT code license, OGL text, and the licensing of the corpus |
@@ -81,21 +82,28 @@ After changing compiler code, schema types, or the corpus pin, run `cargo xtask 
 
 ## Test scope
 
-Run each check once per pull request, and only the checks that the change can break. Find every row that matches a changed file. Run the checks of all those rows. Example: a change to `crates/web/src/install.rs` matches the UI row and the service-worker row, so it needs the UI checks plus WebKit on the affected specs. The full browser suite runs in CI, not locally.
+Owner rules of 2026-11-17 (decision `docs/decisions/2026-11-17-test-scope-owner-rules-of-2026-11-17.md`). Run each check once per pull request, and only the checks that the change can break. Find every row that matches a changed file. Run the checks of all those rows.
+
+- **Locally:** `cargo xtask check` always; `cargo xtask content` as well when the compiler, the schema or the corpus pin changed; and at most the one new or changed e2e spec (plus the specs of its feature-map row when the change edits shared behavior). Do not run the full browser suite locally. A change to docs or xtask needs no browser run.
+- **Merge:** a pull request that a reviewer has read merges on the required `Rust checks` status. A reviewer does not run tests or builds.
+- **After each batch of merges:** start one full CI run on `main` (`gh workflow run ci.yml --ref main`). It tests the merged result; fix what it finds in a new pull request.
+- **Full CI before merge:** only a change that matches a row below that says so: CI configuration, the toolchain, install, storage or offline code, or a format version (`SCHEMA_VERSION`, `INDEX_FORMAT_VERSION`).
+- **Promotion** (`docs/releasing.md`) needs a green full run on the exact `main` SHA.
 
 | What changed | Local checks | Full CI run on the branch before merge |
 |---|---|---|
-| Docs only (`docs/`, `AGENTS.md`, `DESIGN.md`, `.agents/skills/`), or research scripts the build does not run (`scripts/*-nested.py`) | Run the changed script. No build, no e2e | No. The PR's Rust checks are enough |
+| Docs only (`docs/`, `AGENTS.md`, `DESIGN.md`, `.agents/skills/`), or research scripts the build does not run (`scripts/*-nested.py`) | Run the changed script. `cargo xtask check` when `docs/decisions/`, `docs/status/` or their indexes changed. No build, no e2e | No |
 | CI and build configuration: `.github/`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `Trunk.toml`, `tests/e2e/package*.json`, `playwright.config.ts`, `server.mjs` | `actionlint` for workflow files. `cargo xtask check` for Cargo or toolchain files | Yes |
-| `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`, or the screen on a built `dist/` | No for the release script; yes for the screen |
+| `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`, or the screen on a built `dist/` | No |
 | `scripts/merge-pr.py`, `scripts/test-merge-pr.py` | `python3 scripts/test-merge-pr.py`, and a preview (no `--merge`) on a real PR | No |
-| Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Yes |
-| UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, `cargo xtask build-site --public-url /cast-iron/`, then the changed specs and the specs of the feature-map row (`verify` skill) on `--project=chromium`. When the spec is listed in the `mobile-chromium` Playwright project (`playwright.config.ts`), also add `--project=mobile-chromium` | Yes |
-| Service worker, installer, storage, offline (`web/sw.js`, `install.rs`, `content_cache.rs`, `store.rs`) | The UI checks, plus `--project=webkit` on the affected specs | Yes |
-| Corpus pin (`sources/corpus.toml`) | `cargo xtask content`. Then run the specs of the feature-map rows whose content changed (`verify` skill) | Yes |
+| Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Only when the change bumps `SCHEMA_VERSION` or `INDEX_FORMAT_VERSION` |
+| UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, then, for the one new or changed spec: `cargo xtask build-site --public-url /cast-iron/` and `--project=chromium` (add `--project=mobile-chromium` when `playwright.config.ts` lists the spec there) | No |
+| Service worker, installer, storage, offline (`web/sw.js`, `install.rs`, `content_cache.rs`, `store.rs`) | The UI checks, plus `--project=webkit` on that spec | Yes |
+| Corpus pin (`sources/corpus.toml`) | `cargo xtask content`, then the one spec of a feature-map row whose content changed (`verify` skill), if the pin needs one | No |
 
-Start one full CI run (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only in two cases. First: a later commit changes a file whose row needs a full run. Second: a pull request merged into `main` after the run, and it changed files that this pull request also changes, or specs that test them. Do not run the full e2e suite locally. Run WebKit locally only on the affected specs; CI runs the full WebKit suite, which is informational.
+Start the one full CI run for a row that needs it (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only in two cases. First: a later commit changes a file whose row needs a full run. Second: a pull request merged into `main` after the run, and it changed files that this pull request also changes, or specs that test them. Run WebKit locally only on the affected spec; CI runs the full WebKit suite, which is informational.
 
 - When a test fails only in a run with other load on the host, run its spec again alone before you change code. Report both results.
-- A reviewer does not run tests or builds. The reviewer reads the diff and the code, and cites the implementer's report and the CI run (`gh pr checks`, `gh run view`) for test status.
+- A reviewer reads the diff and the code, and cites the implementer's report and the CI run (`gh pr checks`, `gh run view`) for test status.
 - Report the exact specs and projects you ran. Do not report a targeted run as a full run.
+- `scripts/merge-pr.py` still classifies files by the previous table (it asks for a full run on any UI, Rust or corpus pin change); until its rows follow this table, merge a reviewed pull request that needs only `Rust checks` with `gh pr merge --merge --match-head-commit <sha>`.
