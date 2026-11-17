@@ -65,9 +65,17 @@ A group with more options than fit one row at 320 px is one filter menu (`views/
 
 A feat row carries a quiet marker when its feat leads to more than 5 other feats down its chain (the transitive "leads to" relation, each feat counted once). The marker is a small muted inline SVG (a root joined to two feats, `aria-hidden`, with a hover title) after the title, inside the row's link. A visually hidden suffix gives the row its accessible name: `Power Attack, leads to 92 feats`. The threshold is `CHAIN_MARK_MIN` in `views/browse.rs`; with it, 70 of 3,583 feats (2.0 %) are marked. The numbers come from the relations graph, read once when the page opens (`Relations::long_chains`); the rows do not wait for them. Add-ons are not chain followers and never count toward the marker or its number. No other row tag exists.
 
+## Primary navigation
+
+Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab for the current section carries `aria-current="page"`, and a page inside a section keeps its tab: kind lists and spell lists belong to Home, a book and its chapters to Books, Legal to Settings. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so four tabs must fit beside the brand, the search icon, the install action and the Offline badge at 48rem, 1024 px and 1280 px without wrapping.
+
+## Quick reference
+
+`#/quick` (`views/quick.rs`) is the Table tab. It is an `h1` and four groups, each an `h2.sub-head` over a `.jump-list` of `.jump` chips: **Conditions** (A to Z), **Actions**, **Combat modifiers**, **Every session**. The groups are one Rust constant (`GROUPS`): a label, an entry id and, for a few chips, a `sec-` heading anchor inside the entry. The page copies no rules text. A chip opens the entry (and scrolls to the anchor when it has one), so the rule is read where it is maintained. A chip whose id is not in the library is not drawn, and a group with no chip left is not drawn. Chips follow the chip roles above: navigation, a rectangle with the card radius, never a pill, never a count. There is no chip row on Home; Starred is the personal list.
+
 ## Breadcrumbs
 
-A breadcrumb lists only the pages between a tab destination and the current page. It never names Home, Books or Settings, and a page directly under a destination has none. When no items remain, the `<nav>` is not rendered.
+A breadcrumb lists only the pages between a tab destination and the current page. It never names Home, Books, Table or Settings, and a page directly under a destination has none. When no items remain, the `<nav>` is not rendered.
 
 | Page | Breadcrumb |
 |---|---|
