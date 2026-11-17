@@ -58,7 +58,9 @@ pub fn lock_file(out: &Path) -> PathBuf {
 /// It is a lock file `<out>.lock` holding the pid and the start time of the compile, taken with
 /// `create_new`, which is atomic, so two compiles cannot both succeed. A second compile fails at
 /// once and changes nothing; it does not wait. The file is removed when the value is dropped, on
-/// success and on failure alike, so a finished compile leaves nothing beside the output.
+/// success and on failure alike, so a finished compile leaves nothing beside the output. The
+/// file holds the pid, the start time and a nonce, and the drop removes only a file that still
+/// holds its own text.
 ///
 /// A compile that is killed (SIGKILL, power loss, an abort) leaves the file, and every later
 /// compile fails until a person deletes it. The message names the file and says who held it. The
@@ -68,6 +70,9 @@ pub fn lock_file(out: &Path) -> PathBuf {
 pub struct OutLock {
     out: PathBuf,
     file: PathBuf,
+    /// What this lock wrote into the file. `Drop` removes the file only while it still holds
+    /// this text, so it never removes a lock that a later compile created.
+    text: String,
 }
 
 impl OutLock {
@@ -92,7 +97,17 @@ impl OutLock {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs());
-        let text = format!("pid={}\nstarted={now}\n", std::process::id());
+        // The nonce makes the text unique to this lock, even for two locks of one process in one
+        // second: the sub-second clock and a counter that only grows.
+        static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let nonce = format!(
+            "{:x}-{:x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos()),
+            COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
+        let text = format!("pid={}\nstarted={now}\nnonce={nonce}\n", std::process::id());
         if let Err(e) = handle.write_all(text.as_bytes()) {
             let _ = fs::remove_file(&file);
             return Err(format!("cannot write {}: {e}", file.display()));
@@ -100,6 +115,7 @@ impl OutLock {
         Ok(OutLock {
             out: out.to_path_buf(),
             file,
+            text,
         })
     }
 
@@ -110,8 +126,16 @@ impl OutLock {
 }
 
 impl Drop for OutLock {
+    /// Removes the lock file, but only while it still holds this lock's own text. If a person
+    /// deleted the file and a later compile took a lock of its own, that lock stays.
+    ///
+    /// One window remains: the file can be replaced between the read and the unlink. It needs a
+    /// person to delete a live lock and a new compile to start in the microseconds of this call,
+    /// and the lock has no other way to detect a deletion, so the window is accepted.
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.file);
+        if fs::read_to_string(&self.file).is_ok_and(|now| now == self.text) {
+            let _ = fs::remove_file(&self.file);
+        }
     }
 }
 
@@ -714,6 +738,37 @@ mod tests {
         // After the person deletes it, the next compile runs.
         fs::remove_file(lock_file(&out)).unwrap();
         drop(OutLock::acquire(&out).unwrap());
+        assert!(!lock_file(&out).exists());
+    }
+
+    #[test]
+    fn a_dropped_lock_does_not_remove_the_lock_of_a_later_compile() {
+        let base = temp("drop-own");
+        let out = base.join("content");
+        let first = locked(&out);
+        // A person deletes the lock of the first compile, believing it dead, and a second compile
+        // takes its own lock.
+        fs::remove_file(lock_file(&out)).unwrap();
+        let second = locked(&out);
+        let held = fs::read_to_string(lock_file(&out)).unwrap();
+        assert_ne!(first.text, second.text);
+        // The first compile ends. Its drop must leave the second's lock in place.
+        drop(first);
+        assert_eq!(fs::read_to_string(lock_file(&out)).unwrap(), held);
+        let error = OutLock::acquire(&out).unwrap_err();
+        assert!(error.contains("another compile may be writing"), "{error}");
+        // The second ends normally and removes its own lock.
+        drop(second);
+        assert!(!lock_file(&out).exists());
+    }
+
+    #[test]
+    fn a_dropped_lock_whose_file_is_gone_leaves_nothing_to_remove() {
+        let base = temp("drop-gone");
+        let out = base.join("content");
+        let lock = locked(&out);
+        fs::remove_file(lock_file(&out)).unwrap();
+        drop(lock);
         assert!(!lock_file(&out).exists());
     }
 }

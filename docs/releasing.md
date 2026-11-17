@@ -268,7 +268,7 @@ published-id and book-slot guards, validation, and the reachability check. The r
 written earlier, so a failed run leaves them for the author.
 
 One compile at a time writes to `generated/content`. The compiler takes the lock file
-`generated/content.lock` (pid and start time) with an atomic create before it recovers, writes or
+`generated/content.lock` (pid, start time and a nonce) with an atomic create before it recovers, writes or
 publishes, and removes it when it ends, on success and on failure. A second compile into the same
 directory stops at once, names the holder and the time, says nothing was changed, and does not
 wait. Run `cargo xtask content` from one shell at a time. Nothing guards the reports directory,
@@ -277,7 +277,7 @@ which a second compile with the same `--reports` would overwrite.
 A compile that is killed (SIGKILL, a power loss, an abort) leaves the lock file, and every later
 compile fails with the message above until you delete it. Manual recovery:
 
-1. Confirm that no compile is running (`pgrep -a cast-iron-compile`, or look at the CI job).
+1. Confirm that no compile is running (`pgrep -af cast-iron-compile`, which matches the full command line because Linux cuts a process name to 15 characters and `cast-iron-compile` has 17, or look at the CI job).
 2. Delete `generated/content.lock`. The message prints the path.
 3. Run `cargo xtask content`. Its first step repairs an interrupted handoff (below).
 
