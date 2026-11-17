@@ -32,11 +32,11 @@ local to the browser profile. Existing install and update requests are
 
 Add a file, not a section. A decision is `docs/decisions/YYYY-MM-DD-<slug>.md`; a corpus pin, a
 release or an acceptance record is `docs/status/YYYY-MM-DD-<slug>.md`. Each starts with front matter
-(the keys are in the README of its directory). Run `cargo xtask decisions-index` or `cargo xtask
-status-index` and commit the regenerated README; `cargo xtask check` fails when it is stale, when front
-matter is invalid, and when a relative link does not resolve. Two pull requests that each add a file do
-not conflict in the text. Their READMEs are generated files, marked `merge=union` in `.gitattributes`:
-after a merge, run the command again. `docs/status.md` is the one-screen current state; a pin or release
+(the keys are in the README of its directory). No other file changes, so two pull requests that each add
+one do not conflict: the READMEs hold instructions and no list of entries. `cargo xtask decisions-index`
+and `cargo xtask status-index` render an index into `target/docs-index/` when you want one.
+`cargo xtask check` fails on invalid front matter, a `superseded_by` that names no file, and a relative
+Markdown link that does not resolve. `docs/status.md` is the one-screen current state; a pin or release
 PR edits only the lines that its change makes untrue. Do not edit the text of an old decision; set its
 `status` and `superseded_by` when a new one replaces it.
 

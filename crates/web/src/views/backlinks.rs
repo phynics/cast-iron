@@ -276,6 +276,7 @@ fn row_view(
             id: current.clone(),
             anchor: Some(anchor),
             book: None,
+            section: None,
         }
         .href();
         view! { <a class="muted backlink-anchor" href=href>{format!("at {text}")}</a> }

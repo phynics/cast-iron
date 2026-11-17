@@ -7,6 +7,7 @@ The script is kept so a reviewer can rerun the proof. It reads the pre-split tex
     python3 scripts/split-docs.py plan              # print every entry: file, date, area, status
     python3 scripts/split-docs.py write [--force]   # write docs/decisions/ and docs/status/ entries
     python3 scripts/split-docs.py verify            # prove that no text was lost
+    (any command takes `--rev REV` to read the pre-split text from another commit)
 
 `write` rebuilds each entry's front matter from this script, so it refuses to run once the generated
 index exists unless you pass `--force`. It also rewrites the relative links that moving the text into a
@@ -28,7 +29,10 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRE_SPLIT_REV = "f59c34c431eda0b10b52948c49be461a9f3267de"
+# The last commit of main whose docs/decisions.md and docs/status.md were the single files. `verify`
+# proves the split against exactly this snapshot. When main gains decisions before the split lands,
+# merge main, set this to the merged origin/main commit, run `write --force`, then `verify`.
+PRE_SPLIT_REV = "c14d7f097b0ed90cfdd07788590e057f0c8daf58"
 DECISIONS_DIR = ROOT / "docs" / "decisions"
 STATUS_DIR = ROOT / "docs" / "status"
 
@@ -63,6 +67,9 @@ SUPERSEDED = {
     "A listing chapter owns an entry only as a last resort": ("superseded", [MEMBERSHIP, PLACEMENT]),
     "Inactive books in search": ("partly-superseded", [MEMBERSHIP]),
     "One flattened reading order per book": ("partly-superseded", [MEMBERSHIP]),
+    "Books group by priority tier": ("partly-superseded", ["Books tab and book page"]),
+    "Mythic feats stack on their base": ("partly-superseded", ["The Sources line follows the visible text"]),
+    "Stamina rules fold under their base": ("partly-superseded", ["The Sources line follows the visible text"]),
     "Third-party changes sit on their base": (
         "partly-superseded",
         ["The Sources line follows the visible text"],
@@ -121,6 +128,7 @@ AREA_OVERRIDE = {
     "Pf Data canonical relations": "content",
     "Third-party revisions replace their original in place": "content",
     "Platform layer": "install-offline",
+    "A relation label is an enum": "content",
     "A listing chapter owns an entry only as a last resort": "content",
 }
 
@@ -507,6 +515,13 @@ def cmd_verify():
 
 def main():
     commands = {"plan": cmd_plan, "write": cmd_write, "verify": cmd_verify}
+    global PRE_SPLIT_REV
+    args = sys.argv[1:]
+    if "--rev" in args:
+        at = args.index("--rev")
+        PRE_SPLIT_REV = args[at + 1]
+        del args[at:at + 2]
+    sys.argv = sys.argv[:1] + args
     if len(sys.argv) < 2 or sys.argv[1] not in commands or sys.argv[2:] not in ([], ["--force"]):
         raise SystemExit(__doc__)
     commands[sys.argv[1]]()

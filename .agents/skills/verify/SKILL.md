@@ -19,13 +19,13 @@ This fetches the pinned corpus and compiles the library into `generated/content/
 
 If compiler code, schema types, or the corpus pin changed, run `cargo xtask fetch-sources` and `cargo xtask content` first. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
 
-## 2. Run the affected specs
+## 2. Run one spec
 
-Run at most the one new or changed spec, plus the specs of the change's row in the feature map (section 5) when the change edits shared behavior. The full suite runs in CI, not locally: one run on `main` after each batch of merges (`gh workflow run ci.yml --ref main`), and on the branch only for the rows of "Test scope" in `AGENTS.md` that ask for it. Docs and xtask changes need no browser run. On a shared host, the full suite takes 12–22 minutes for Chromium and 45–60 minutes with WebKit, and load alone makes tests time out. See "Test scope" in `AGENTS.md`.
+Run at most ONE spec: the new spec the change adds or, when it adds none, the one spec that the feature map (section 5) selects for the changed feature. Run no other spec, and not the full suite: broader coverage comes from the full CI run on `main` after each batch of merges (`gh workflow run ci.yml --ref main`), and on the branch only for the rows of "Test scope" in `AGENTS.md` that ask for it. Docs and xtask changes need no browser run. On a shared host, the full suite takes 12–22 minutes for Chromium and 45–60 minutes with WebKit, and load alone makes tests time out. See "Test scope" in `AGENTS.md`.
 
 ```sh
 npm --prefix tests/e2e ci
-npm --prefix tests/e2e test -- --project=chromium tests/<changed>.spec.ts tests/<affected>.spec.ts
+npm --prefix tests/e2e test -- --project=chromium tests/<spec>.spec.ts
 ```
 
 On a host without the Nix dev shell, install the browsers once first: `npx --prefix tests/e2e playwright install chromium webkit`.
@@ -85,6 +85,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Books tab opening speed | `Books tab opens` (`books-open.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/browse.rs`, `crates/web/src/discovery.rs` |
 | Adventure Path, Module, and Society series lines | `Adventures\|Modules\|Pathfinder Society\|bulk toggle` (`adventures-series.spec.ts`) | `crates/web/src/views/book_series.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/active_books.rs` |
 | Class summary card and folded class references | whole file (`class-card.spec.ts`) | `crates/web/src/class_summary.rs`, `crates/web/src/views/class_card.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/backlinks.rs` |
+| Class page section switcher | whole file (`class-sections.spec.ts`) | `crates/web/src/class_sections.rs`, `crates/web/src/views/section_switcher.rs`, `crates/web/src/route.rs`, `crates/web/src/app.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/rich.rs`, `crates/web/src/views/related.rs`, `web/styles.css` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter\|numbered spell series` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Class option groups on class pages and lists | whole file (`class-options.spec.ts`; also `mobile-chromium`) | `crates/web/src/class_options.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/views/entry.rs` |
@@ -128,7 +129,7 @@ When you add a feature, add its row to the feature map, with its e2e test area a
 
 ## Record decisions and results
 
-A decision that a later reader cannot derive from code is a new file `docs/decisions/YYYY-MM-DD-<slug>.md` (front matter and index rules: `docs/decisions/README.md`), followed by `cargo xtask decisions-index`. A pin, a release or an acceptance result is a new file `docs/status/YYYY-MM-DD-<slug>.md`, followed by `cargo xtask status-index`; `docs/status.md` changes only where its current state changed. Never append to an old entry. `cargo xtask check` fails on invalid front matter, a stale index and a broken link.
+A decision that a later reader cannot derive from code is a new file `docs/decisions/YYYY-MM-DD-<slug>.md` (front matter rules: `docs/decisions/README.md`); no other file changes. A pin, a release or an acceptance result is a new file `docs/status/YYYY-MM-DD-<slug>.md`. `docs/status.md` changes only where its current state changed. Never append to an old entry. `cargo xtask check` fails on invalid front matter, a `superseded_by` that names no file, a README that lists an entry, and a broken relative link. `cargo xtask decisions-index` renders the index into `target/docs-index/`.
 
 ## Corpus and schema changes
 
@@ -138,7 +139,7 @@ Install the previous published library in a browser, bookmark an entry affected 
 
 Compile twice and compare all generated files when compiler output changes: `rm -rf generated`, run `cargo xtask content`, hash the tree, and repeat.
 
-Run `python3 scripts/check-publication.py` against the built distribution for corpus changes. It screens `dist/content` by default; pass a generated directory to screen another library. Record actual counts and limitations in the status log: add `docs/status/YYYY-MM-DD-<slug>.md`, then run `cargo xtask status-index`.
+Run `python3 scripts/check-publication.py` against the built distribution for corpus changes. It screens `dist/content` by default; pass a generated directory to screen another library. Record actual counts and limitations in the status log: add `docs/status/YYYY-MM-DD-<slug>.md`.
 
 ## Browser test expectations
 

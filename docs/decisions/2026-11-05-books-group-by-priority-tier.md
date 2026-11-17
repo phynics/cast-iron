@@ -1,8 +1,8 @@
 ---
 title: "Books group by priority tier"
 date: 2026-11-05
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-07-books-tab-and-book-page"]
 issues: [101]
 prs: []
 area: ui

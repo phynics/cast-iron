@@ -1,8 +1,8 @@
 ---
 title: "Mythic feats stack on their base"
 date: 2026-11-08
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-09-the-sources-line-follows-the-visible-text"]
 issues: [178, 246, 262]
 prs: []
 area: content

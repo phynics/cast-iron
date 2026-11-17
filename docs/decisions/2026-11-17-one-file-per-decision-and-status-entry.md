@@ -13,7 +13,7 @@ area: process
 Closes [#462](https://github.com/phynics/cast-iron/issues/462). It carries out M3 of the 2026-11-15
 architecture review.
 
-- **Decisions.** `docs/decisions.md` held 148 sections in one file, with no index, a mixed order, a
+- **Decisions.** `docs/decisions.md` held 150 sections in one file, with no index, a mixed order, a
   duplicate heading and no superseded markers, and nearly every pull request appended to its end, so two
   open pull requests always conflicted there. Each section is now `docs/decisions/YYYY-MM-DD-<slug>.md`.
   The text is unchanged, except for the relative links that moving a file broke and one renamed duplicate
@@ -24,15 +24,17 @@ architecture review.
   (the 2026-11-17 membership entry lists what it replaces; the 2026-11-16 owner decisions, the
   2026-11-03 simplification, and the "Superseded" notes inside entries) or on a known replacement. Where
   the text did not settle it, the entry stays `current`. The text of a replaced entry is not edited.
-- **Index.** `cargo xtask decisions-index` writes `docs/decisions/README.md`, grouped by area. `cargo xtask
-  check` fails when the index is stale, when front matter is invalid, and when a relative link in an entry
-  does not resolve. `docs/decisions.md` stays as a short pointer, because entries and older notes cite it.
-- **Status.** `docs/status.md` holds only the current state. Its 45 sections (pins, releases and
-  acceptance records) are `docs/status/YYYY-MM-DD-<slug>.md`, one file each, with a generated index
-  (`cargo xtask status-index`). One file per entry, not one `docs/status-log.md`: a single log would be the
+- **Index.** There is no committed list of entries. A list in `docs/decisions/README.md` would be a file that
+  every pull request that adds a decision edits; GitHub's server-side merge ignores `merge=union` in
+  `.gitattributes`, so a generated, committed index conflicts exactly like the old single file. The README is
+  static text (the front matter, how to add an entry). `cargo xtask decisions-index` renders the index, grouped
+  by area, into `target/docs-index/` (ignored). `cargo xtask check` validates front matter and supersession
+  targets, renders the index in memory without comparing it to a file, fails when a README lists an entry, and
+  fails on a relative Markdown link (file or heading) that does not resolve. `docs/decisions.md` stays as a
+  short pointer, because entries and older notes cite it.
+- **Status.** `docs/status.md` holds only the current state. Its 46 sections (pins, releases and
+  acceptance records) are `docs/status/YYYY-MM-DD-<slug>.md`, one file each, with a static README
+  (`cargo xtask status-index` renders the index into `target/docs-index/`). One file per entry, not one `docs/status-log.md`: a single log would be the
   shared file every pin pull request edits, which is the conflict this change removes.
-- **Merges.** The two indexes are generated files that two pull requests each change. `.gitattributes` marks
-  them `merge=union`, so Git keeps the rows of both sides, and `cargo xtask check` fails until the
-  index is regenerated, if the union leaves it out of order.
-- **How to add one.** Add a file; run `cargo xtask decisions-index` (or `status-index`). The migration
+- **How to add one.** Add a file; no other file changes. The migration
   script `scripts/split-docs.py` stays in the repository: its `verify` command proves that no text was lost.

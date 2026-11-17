@@ -21,7 +21,7 @@ pub fn index_over(entries: &[RuleEntry], mut coverage: RelationCoverage) -> Repo
                 entry.id.clone(),
                 relation.kind,
                 relation.target.clone(),
-                relation.label.clone(),
+                relation.label,
             ));
         }
     }

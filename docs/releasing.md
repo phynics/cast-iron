@@ -337,8 +337,7 @@ Trunk build and never re-runs a failed gate.
    action. Verify stars, active books, and offline reading survive both.
    For corpus/schema changes, retain the previous library outside build output
    and complete the upgrade checks before promotion.
-4. Add a status log entry, `docs/status/YYYY-MM-DD-<slug>.md` (then run `cargo xtask
-   status-index`), with local, CI, deployment, and live results separately, and update
+4. Add a status log entry, `docs/status/YYYY-MM-DD-<slug>.md`, with local, CI, deployment, and live results separately, and update
    the release lines of `docs/status.md`. Record exact app SHA and content version. A successful YAML check or deployment
    alone does not verify existing offline clients or physical devices.
 

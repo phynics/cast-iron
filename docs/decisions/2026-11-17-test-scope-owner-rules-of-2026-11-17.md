@@ -14,7 +14,7 @@ Refs [#462](https://github.com/phynics/cast-iron/issues/462). The owner moved mo
 each branch to a batch run on `main`. The rule is the "Test scope" section of `AGENTS.md`.
 
 - **Locally, run `cargo xtask check`.** Add `cargo xtask content` when the compiler, the schema or the
-  corpus pin changed, and at most the one new or changed spec. Do not run the full browser suite locally,
+  corpus pin changed, and at most the one new spec (when the change adds none, the one spec that the feature map selects for the changed feature). Do not run the full browser suite locally,
   and do not run Playwright for a change to docs or xtask only.
 - **A reviewed pull request merges on the required `Rust checks`.** A reviewer reads the diff and the code
   and cites the CI result; it does not run builds or tests. The merge helper (`scripts/merge-pr.py`)
