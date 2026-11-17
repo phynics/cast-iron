@@ -5,7 +5,7 @@ use crate::entry::entry_path;
 use crate::load::Corpus;
 use cast_iron_schema::headings::{keyed_headings, slugify};
 use cast_iron_schema::{
-    Block, BookNode, EntryId, EntryKind, Relation, RelationKind, RuleEntry, TypedFields,
+    Block, BookNode, BookTree, EntryId, EntryKind, Relation, RelationKind, RuleEntry, TypedFields,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -903,10 +903,22 @@ pub fn check(corpus: &Corpus) -> Report {
     check_replaces_features(corpus, &keys, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
+    let publication_ids: BTreeSet<&str> = corpus
+        .publications
+        .iter()
+        .map(|publication| publication.id.as_str())
+        .collect();
     for tree in &corpus.books.books {
+        if !publication_ids.contains(tree.source.as_str()) {
+            report.problems.push(format!(
+                "books.toml:{}: book `{}` has no row in publications.toml. A book is a printed publication, so add its row with a copyright and a Section 15 notice, or delete the book",
+                book_line(&corpus.books_text, &tree.source),
+                tree.source
+            ));
+        }
         let mut placed = BTreeSet::new();
         for chapter in &tree.chapters {
-            check_book_node(corpus, chapter, &ids, &keys, &mut placed, &mut report);
+            check_book_node(corpus, tree, chapter, &ids, &keys, &mut placed, &mut report);
         }
     }
     if let Some(aliases) = &corpus.aliases {
@@ -1653,8 +1665,26 @@ fn check_publication_suffixes(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mu
     }
 }
 
+/// The 1-based line of the `[[books]]` block of `source` in `books.toml`, or 1.
+fn book_line(text: &str, source: &str) -> usize {
+    line_of(text, &format!("source = \"{source}\""))
+}
+
+/// The line of `entry`'s node inside the block of book `source`, or the block's own line.
+fn placement_line(text: &str, source: &str, entry: &str) -> usize {
+    let start = book_line(text, source);
+    let needle = format!("\"{entry}\"");
+    text.lines()
+        .enumerate()
+        .skip(start)
+        .take_while(|(_, line)| !line.starts_with("[[books]]"))
+        .find(|(_, line)| line.contains(&needle))
+        .map_or(start, |(index, _)| index + 1)
+}
+
 fn check_book_node(
     corpus: &Corpus,
+    tree: &BookTree,
     node: &BookNode,
     ids: &BTreeSet<&str>,
     keys: &BTreeMap<&str, Vec<(String, String)>>,
@@ -1669,6 +1699,25 @@ fn check_book_node(
                 node.title
             ));
         } else {
+            // A placement says the book prints the entry. The entry's `source_ids` are the
+            // record of which books print it, so a placement in any other book is a claim
+            // with no evidence behind it. This holds for every chapter kind, including
+            // catch-all and listing chapters.
+            let stored = &corpus.entries[entry.as_str()].entry;
+            if !stored.source_ids.contains(&tree.source) {
+                report.problems.push(format!(
+                    "books.toml:{}: book `{}` places `{entry}` in `{}`, but the entry's `source_ids` ({}) do not name that book. Remove the placement, or add the book to `source_ids` in {} when it prints the entry",
+                    placement_line(&corpus.books_text, &tree.source, entry.as_str()),
+                    tree.source,
+                    node.title,
+                    if stored.source_ids.is_empty() {
+                        "empty".to_string()
+                    } else {
+                        stored.source_ids.join(", ")
+                    },
+                    corpus.entries[entry.as_str()].path.display()
+                ));
+            }
             // A marker is a promise that the hub page lists what the row hides. The automatic
             // rule already refuses a hub with an unlinked child; the authored marker needs the
             // same warning because it applies at every level and overrides the chapter default.
@@ -1706,7 +1755,7 @@ fn check_book_node(
         }
     }
     for child in &node.children {
-        check_book_node(corpus, child, ids, keys, placed, report);
+        check_book_node(corpus, tree, child, ids, keys, placed, report);
     }
 }
 
@@ -1715,8 +1764,7 @@ mod tests {
     use super::*;
     use crate::testkit::{corpus, heading, link, paragraph, rule};
     use cast_iron_schema::{
-        BookIndex, BookNode, BookTree, Citation, CreatureFields, EntryId, FeatFields, Inline,
-        SeriesKind,
+        BookIndex, BookNode, Citation, CreatureFields, EntryId, FeatFields, Inline, SeriesKind,
     };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
@@ -2262,6 +2310,165 @@ mod tests {
         assert!(problem.starts_with("books.toml:2:"), "{problem}");
         assert!(problem.contains("entries/rule/b.md"), "{problem}");
         assert!(problem.contains("`effects`"), "{problem}");
+    }
+
+    fn placed(title: &str, entry: &str, children: Vec<BookNode>) -> BookNode {
+        BookNode {
+            title: title.into(),
+            entry: Some(EntryId::parse(entry).unwrap()),
+            anchor: None,
+            review: None,
+            collapse: false,
+            lists_children: false,
+            children,
+        }
+    }
+
+    fn tree(source: &str, chapters: Vec<BookNode>) -> BookTree {
+        BookTree {
+            source: source.into(),
+            title: source.into(),
+            basis: "reviewed".into(),
+            review: vec![],
+            chapters,
+        }
+    }
+
+    /// Two publications, `core-rulebook` and `other-book`, and one rule in the first only.
+    fn two_books() -> crate::Corpus {
+        let mut corpus = corpus(vec![rule("ref/rule/a", vec![]), rule("ref/rule/b", vec![])]);
+        add_publication(&mut corpus, "other-book", None);
+        corpus
+            .legal
+            .section_15
+            .push(cast_iron_schema::CopyrightNotice {
+                title: "other-book".into(),
+                notice: "Core Rulebook, (c) Paizo Inc.".into(),
+            });
+        corpus
+    }
+
+    #[test]
+    fn a_placement_must_be_in_a_book_the_entry_names() {
+        let mut corpus = two_books();
+        corpus.books = BookIndex {
+            books: vec![
+                tree("core-rulebook", vec![placed("A", "ref/rule/a", vec![])]),
+                tree("other-book", vec![placed("A again", "ref/rule/a", vec![])]),
+            ],
+        };
+        corpus.books_text = "[[books]]\nsource = \"core-rulebook\"\n\n[[books.chapters]]\nentry = \"ref/rule/a\"\n\n[[books]]\nsource = \"other-book\"\n\n[[books.chapters]]\nentry = \"ref/rule/a\"\n".into();
+        let report = check(&corpus);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(problem.starts_with("books.toml:11:"), "{problem}");
+        assert!(
+            problem.contains("book `other-book` places `ref/rule/a`"),
+            "{problem}"
+        );
+        assert!(
+            problem.contains("`source_ids` (core-rulebook)"),
+            "{problem}"
+        );
+        assert!(problem.contains("entries/rule/a.md"), "{problem}");
+    }
+
+    #[test]
+    fn a_nested_placement_must_be_in_a_book_the_entry_names() {
+        let mut corpus = two_books();
+        corpus.books = BookIndex {
+            books: vec![tree(
+                "other-book",
+                vec![placed(
+                    "Chapter",
+                    "ref/rule/a",
+                    vec![placed("Section", "ref/rule/b", vec![])],
+                )],
+            )],
+        };
+        corpus
+            .entries
+            .get_mut("ref/rule/a")
+            .unwrap()
+            .entry
+            .source_ids = vec!["other-book".into()];
+        let report = check(&corpus);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains("places `ref/rule/b` in `Section`"),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn a_placement_in_a_book_the_entry_names_passes() {
+        let mut corpus = two_books();
+        corpus
+            .entries
+            .get_mut("ref/rule/a")
+            .unwrap()
+            .entry
+            .source_ids = vec!["core-rulebook".into(), "other-book".into()];
+        corpus.books = BookIndex {
+            books: vec![
+                tree(
+                    "core-rulebook",
+                    vec![placed(
+                        "A",
+                        "ref/rule/a",
+                        vec![placed("B", "ref/rule/b", vec![])],
+                    )],
+                ),
+                tree("other-book", vec![placed("A", "ref/rule/a", vec![])]),
+            ],
+        };
+        let report = check(&corpus);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    #[test]
+    fn an_entry_with_no_source_ids_cannot_be_placed() {
+        let mut corpus = two_books();
+        corpus
+            .entries
+            .get_mut("ref/rule/a")
+            .unwrap()
+            .entry
+            .source_ids
+            .clear();
+        corpus.books = BookIndex {
+            books: vec![tree(
+                "core-rulebook",
+                vec![placed("A", "ref/rule/a", vec![])],
+            )],
+        };
+        let text = check(&corpus).problems.join("\n");
+        assert!(text.contains("`source_ids` (empty)"), "{text}");
+    }
+
+    #[test]
+    fn every_book_needs_a_publication_row() {
+        let mut corpus = two_books();
+        corpus.books = BookIndex {
+            books: vec![tree("core-rulebook", vec![]), tree("phantom-book", vec![])],
+        };
+        corpus.books_text =
+            "[[books]]\nsource = \"core-rulebook\"\n\n[[books]]\nsource = \"phantom-book\"\n"
+                .into();
+        let report = check(&corpus);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
+        assert!(problem.starts_with("books.toml:5:"), "{problem}");
+        assert!(
+            problem.contains("book `phantom-book` has no row in publications.toml"),
+            "{problem}"
+        );
+
+        corpus.books = BookIndex {
+            books: vec![tree("core-rulebook", vec![]), tree("other-book", vec![])],
+        };
+        assert!(check(&corpus).problems.is_empty());
     }
 
     #[test]
