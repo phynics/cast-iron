@@ -5,7 +5,8 @@ use crate::entry::entry_path;
 use crate::load::Corpus;
 use cast_iron_schema::headings::{keyed_headings, slugify};
 use cast_iron_schema::{
-    Block, BookNode, BookTree, EntryId, EntryKind, Relation, RelationKind, RuleEntry, TypedFields,
+    Block, BookNode, BookTree, EntryId, EntryKind, Relation, RelationKind, RelationLabel,
+    RuleEntry, TypedFields,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -1118,16 +1119,16 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
                             relation.target
                         ));
                     }
-                    let label = relation.label.as_deref();
-                    if matches!(label, Some("removed" | "merged"))
+                    let label = relation.label;
+                    if let Some(label @ (RelationLabel::Removed | RelationLabel::Merged)) = label
                         && !fields_are_empty(&entry.fields)
                     {
                         report.problems.push(format!(
                             "{line}: a `{}` revision must have empty `[fields]`",
-                            label.unwrap_or_default()
+                            label.slug()
                         ));
                     }
-                    if label == Some("merged")
+                    if label == Some(RelationLabel::Merged)
                         && !entry
                             .links
                             .iter()
@@ -1145,7 +1146,7 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
                     }
                 }
                 RelationKind::Addon => {
-                    if relation.label.as_deref() == Some("mythic") {
+                    if relation.label == Some(RelationLabel::Mythic) {
                         // The rule is about feats only. A spell or rule holder (the mythic-spell
                         // add-ons of slice 3) is not required to carry Mythic in `feat_types`.
                         if entry.kind == EntryKind::Feat {
@@ -1215,15 +1216,8 @@ fn check_relations(corpus: &Corpus, report: &mut Report) {
 
 /// The label vocabulary is closed: a relation may carry only the labels its kind declares.
 fn relation_label_problem(relation: &Relation) -> Option<String> {
-    let label = relation.label.as_deref();
-    let allowed = match relation.kind {
-        RelationKind::Prerequisite => matches!(label, None | Some("or")),
-        RelationKind::Part => matches!(label, None | Some("alternate")),
-        RelationKind::Addon => matches!(label, Some("mythic" | "stamina" | "changes")),
-        RelationKind::Revision => matches!(label, None | Some("removed" | "merged")),
-        RelationKind::Variant | RelationKind::Archetype => label.is_none(),
-    };
-    if allowed {
+    let label = relation.label;
+    if relation.kind.allows(label) {
         return None;
     }
     if relation.kind == RelationKind::Addon {
@@ -1233,7 +1227,8 @@ fn relation_label_problem(relation: &Relation) -> Option<String> {
     }
     Some(match label {
         Some(label) => format!(
-            "`{label}` is not a valid label on a `{}` relation",
+            "`{}` is not a valid label on a `{}` relation",
+            label.slug(),
             relation.kind.slug()
         ),
         None => format!("a `{}` relation needs a label", relation.kind.slug()),
@@ -1597,8 +1592,8 @@ fn check_publication_suffixes(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mu
             )
         };
         for relation in &entry.relations {
-            let expected = match (relation.kind, relation.label.as_deref()) {
-                (RelationKind::Addon, Some("mythic")) => {
+            let expected = match (relation.kind, relation.label) {
+                (RelationKind::Addon, Some(RelationLabel::Mythic)) => {
                     // The published carried twins keep their ids and still become the mythic
                     // entries, so they are exempt from nesting under the base.
                     if entry.id.as_str().starts_with("ref/carried/") {
@@ -1606,18 +1601,17 @@ fn check_publication_suffixes(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mu
                     }
                     Some("mythic")
                 }
-                (RelationKind::Addon, Some("stamina")) => Some("stamina"),
-                (RelationKind::Addon, Some("changes")) | (RelationKind::Revision, _) => {
-                    match publication_suffix(corpus, entry) {
-                        Ok(suffix) => Some(suffix),
-                        Err(problem) => {
-                            report
-                                .problems
-                                .push(format!("{}: {problem}", line(relation.target.as_str())));
-                            None
-                        }
+                (RelationKind::Addon, Some(RelationLabel::Stamina)) => Some("stamina"),
+                (RelationKind::Addon, Some(RelationLabel::Changes))
+                | (RelationKind::Revision, _) => match publication_suffix(corpus, entry) {
+                    Ok(suffix) => Some(suffix),
+                    Err(problem) => {
+                        report
+                            .problems
+                            .push(format!("{}: {problem}", line(relation.target.as_str())));
+                        None
                     }
-                }
+                },
                 _ => None,
             };
             let Some(suffix) = expected else { continue };
@@ -1652,15 +1646,15 @@ fn check_publication_suffixes(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mu
             match tail {
                 "mythic" => {
                     relation.kind == RelationKind::Addon
-                        && relation.label.as_deref() == Some("mythic")
+                        && relation.label == Some(RelationLabel::Mythic)
                 }
                 "stamina" => {
                     relation.kind == RelationKind::Addon
-                        && relation.label.as_deref() == Some("stamina")
+                        && relation.label == Some(RelationLabel::Stamina)
                 }
                 _ => {
                     (relation.kind == RelationKind::Addon
-                        && relation.label.as_deref() == Some("changes"))
+                        && relation.label == Some(RelationLabel::Changes))
                         || relation.kind == RelationKind::Revision
                 }
             }
@@ -2719,7 +2713,7 @@ mod tests {
         entry.relations.push(Relation {
             kind,
             target: EntryId::parse(target).unwrap(),
-            label: label.map(str::to_string),
+            label: label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
         });
         entry
     }
@@ -2800,6 +2794,49 @@ mod tests {
         let entry = with_source(rule("ref/rule/a", vec![]), "core-rulebook", Some("12-14"));
         let report = check(&corpus(vec![entry]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    #[test]
+    fn every_kind_and_label_pair_is_accepted_or_refused_as_listed() {
+        use RelationKind as K;
+        use RelationLabel as L;
+        let target = EntryId::parse("ref/spell/base").unwrap();
+        let problem = |kind: K, label: Option<L>| {
+            relation_label_problem(&Relation {
+                kind,
+                target: target.clone(),
+                label,
+            })
+        };
+        // The accepted pairs, written out: every other pair of the 6 kinds and the 8 label
+        // choices (none and the 7 labels) is refused.
+        let accepted: &[(K, Option<L>)] = &[
+            (K::Prerequisite, None),
+            (K::Prerequisite, Some(L::Or)),
+            (K::Part, None),
+            (K::Part, Some(L::Alternate)),
+            (K::Addon, Some(L::Mythic)),
+            (K::Addon, Some(L::Stamina)),
+            (K::Addon, Some(L::Changes)),
+            (K::Revision, None),
+            (K::Revision, Some(L::Removed)),
+            (K::Revision, Some(L::Merged)),
+            (K::Variant, None),
+            (K::Archetype, None),
+        ];
+        let mut labels = vec![None];
+        labels.extend(L::ALL.into_iter().map(Some));
+        let mut refused = 0;
+        for kind in K::ALL {
+            for label in &labels {
+                let listed = accepted.contains(&(kind, *label));
+                assert_eq!(kind.allows(*label), listed, "{kind:?} {label:?}");
+                let found = problem(kind, *label);
+                assert_eq!(found.is_none(), listed, "{kind:?} {label:?}: {found:?}");
+                refused += usize::from(!listed);
+            }
+        }
+        assert_eq!(refused, 6 * 8 - accepted.len());
     }
 
     #[test]

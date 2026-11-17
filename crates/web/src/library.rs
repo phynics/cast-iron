@@ -16,8 +16,8 @@ use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
     EntryStub, LegalNotices, OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE,
-    RelationIndex, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
-    SpellLists, backlink_shard, backlink_shard_path,
+    RelationIndex, RelationLabel, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE,
+    SourceInfo, SpellLists, backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -731,7 +731,7 @@ impl Library {
         // at the feat that absorbed it.
         let mut merge_targets = BTreeMap::new();
         for (revision_id, label, _) in relations.revision_edges() {
-            if label != Some("merged") || !self.is_entry_active(revision_id) {
+            if label != Some(RelationLabel::Merged) || !self.is_entry_active(revision_id) {
                 continue;
             }
             if let Ok(entry) = self.entry(revision_id).await

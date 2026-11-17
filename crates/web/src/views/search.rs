@@ -12,7 +12,7 @@ use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
 use crate::views::util::{addon_name, kind_name, local_resource, set_title};
-use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, SourceInfo};
+use cast_iron_schema::{ChallengeRating, EntryId, EntryKind, RelationLabel, SourceInfo};
 use cast_iron_search::{
     BOOK_SECTION_KIND, CORRECTION_MAX_HITS, FilterCounts, Filters, Hit, HitSummary, Query,
     SearchIndex,
@@ -1648,9 +1648,9 @@ pub fn Search() -> impl IntoView {
             let full = hits.len() < groups;
             let all_relations = addon_labels.with(|state| state.clone().flatten());
             let all_groups = option_groups.with(|state| state.clone().flatten());
-            let addon_of = |hit: &Hit| -> Option<String> {
+            let addon_of = |hit: &Hit| -> Option<RelationLabel> {
                 let id = EntryId::parse(hit.id.clone()).ok()?;
-                all_relations.as_ref()?.addon_label(&id).map(str::to_owned)
+                all_relations.as_ref()?.addon_label(&id)
             };
             let group_of = |hit: &Hit| -> Option<String> {
                 let id = EntryId::parse(hit.id.clone()).ok()?;
@@ -1664,7 +1664,7 @@ pub fn Search() -> impl IntoView {
                     if result.variants.is_empty() {
                         let addon = addon_of(&result.hit);
                         let group = group_of(&result.hit);
-                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon.as_deref(), group.as_deref(), &chosen).into_any();
+                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon, group.as_deref(), &chosen).into_any();
                     }
                     let title = marked(&result.hit.title, &result.hit.title_matches);
                     let count = result.variants.len() + 1;
@@ -1672,7 +1672,7 @@ pub fn Search() -> impl IntoView {
                         .map(|(hit, anchor)| {
                             let addon = addon_of(hit);
                             let group = group_of(hit);
-                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon.as_deref(), group.as_deref(), &chosen)
+                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon, group.as_deref(), &chosen)
                         }).collect_view();
                     let summary_kind = group_of(&result.hit).unwrap_or_else(|| {
                         EntryKind::from_slug(&result.hit.kind).map_or("", kind_name).to_string()
@@ -2163,7 +2163,7 @@ fn hit_view(
     library: &crate::library::Library,
     hit: &Hit,
     anchor: Option<&str>,
-    addon: Option<&str>,
+    addon: Option<RelationLabel>,
     group: Option<&str>,
     chosen: &[String],
 ) -> impl IntoView + use<> {
@@ -2175,6 +2175,7 @@ fn hit_view(
                 id: id.clone(),
                 anchor: anchor.map(str::to_owned),
                 book: None,
+                section: None,
             }
             .href()
         })

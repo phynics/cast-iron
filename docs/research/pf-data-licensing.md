@@ -112,7 +112,7 @@ not excluded.
 
 ## Product Identity screen
 
-**Superseded on 2026-11-05:** Paizo Product Identity is now kept under the Community Use Policy, and the section rules below were removed. The screen only strips outbound links. See [decisions](../decisions.md#paizo-product-identity-kept-under-the-community-use-policy-2026-11-05).
+**Superseded on 2026-11-05:** Paizo Product Identity is now kept under the Community Use Policy, and the section rules below were removed. The screen only strips outbound links. See [decisions](../decisions/2026-11-05-paizo-product-identity-kept-under-the-community-use-policy.md).
 
 The product owner chose fidelity under the Community Use Policy on 2026-11-04.
 Proper names inside game mechanics stay as descriptive references. Every Pf Data
@@ -120,7 +120,7 @@ entry carries `ogl-1.0a` and `legal#community-use`. The reviewed section rules i
 `sources/pathfinder-data-1-e/pi-screen.json` omit deity `Description` lore, unique
 creature `Description` biographies, and named NPC stories, and remove outbound
 links. Each omission is a coverage row. See
-[decisions](../decisions.md#product-identity-screen-for-the-pf-data-corpus-2026-11-04).
+[decisions](../decisions/2026-11-04-product-identity-screen-for-the-pf-data-corpus.md).
 
 ## Section 15 notice coverage
 

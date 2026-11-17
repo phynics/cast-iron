@@ -2257,6 +2257,117 @@ mark {
   align-items: center;
 }
 
+/* The class page's section switcher (#170 A): a bar of jump links that sticks under the masthead.
+   A row of navigation rectangles (DESIGN.md, Navigation), the current stop filled like the spell
+   level links. The ::before runs the bar's background out to the page gutters, so text that
+   scrolls under it does not show beside it; the ::after is a short fade under its lower edge. */
+:root {
+  --switcher-h: calc(var(--touch) + 2 * var(--space-2));
+}
+
+.section-switcher {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 4;
+  max-width: var(--measure);
+  margin-block: var(--space-3);
+  padding-block: var(--space-2);
+  /* The page's side padding at each width (`main`), so the bleed ends at the screen edge. */
+  --bleed: var(--space-4);
+}
+
+@media (max-width: 30rem) {
+  .section-switcher {
+    --bleed: var(--space-3);
+  }
+}
+
+@media (min-width: 48rem) {
+  .section-switcher {
+    --bleed: var(--space-5);
+  }
+}
+
+.section-switcher::before,
+.section-switcher::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.section-switcher::before {
+  inset: 0 calc(var(--bleed) * -1);
+  z-index: -1;
+  background: var(--bg);
+}
+
+.section-switcher::after {
+  inset: 100% calc(var(--bleed) * -1) auto;
+  height: var(--space-3);
+  background: linear-gradient(var(--bg), transparent);
+}
+
+.section-switcher ul {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.section-switcher li {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.section-switcher a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  color: var(--ink);
+  font-size: var(--step--1);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  background: var(--surface);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.section-switcher a:hover {
+  border-color: var(--accent);
+}
+
+.section-switcher a[aria-current="true"] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (max-width: 23.99rem) {
+  .section-switcher a {
+    padding: 0 var(--space-1);
+  }
+}
+
+/* A section starts below the masthead and the bar. The page already pads its scroll by the
+   masthead, so this adds the bar's own height. */
+.entry [data-class-section] {
+  scroll-margin-top: calc(var(--switcher-h) + var(--space-1));
+}
+
+/* The switcher sticks to the page, not to a grid row, so a wide class page that has one is one
+   column of blocks in the order of the document. */
+@media (min-width: 64rem) {
+  .entry:has(> .section-switcher) {
+    display: block;
+  }
+}
+
 .class-skills > summary {
   display: flex;
   align-items: center;

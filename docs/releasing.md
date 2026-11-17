@@ -20,8 +20,8 @@ Use Git, Python 3, and an authenticated GitHub CLI with Actions read access and
 permission to push `release`. Run the commands from the repository root.
 
 1. Choose a full commit SHA on `main` with a successful full **CI** run for
-   that exact commit. The full run happens once a day and on demand; if the
-   chosen commit has none, start one while `main` still points at it with
+   that exact commit. A full run happens once a day, on demand, and after each
+   batch of merges (`AGENTS.md`, "Test scope"); if the chosen commit has none, start one while `main` still points at it with
    `gh workflow run ci.yml --ref main`. Review all commits and changes since `release`, including changes
    from other issues. A green feature-branch run is not the main integration run.
    If the range includes the canonical default switch, confirm the alias-capable
@@ -186,7 +186,7 @@ as `main`: Rust, Trunk, Node, and Python 3.
    `origin/main` and has a successful `ci.yml` run on `main` for that exact SHA. At publication the
    prep commit was neither, so the helper refused it. Step 7 later makes it an ancestor of `main`,
    but it never gets a `main` CI run, so the helper still refuses it. The owner chose a one-time fast-forward push of the verified
-   prep commit (decided 2026-11-06 in #127; see `docs/decisions.md`). The helper stays unchanged:
+   prep commit (decided 2026-11-06 in #127; see `docs/decisions/2026-11-06-two-step-release.md`). The helper stays unchanged:
 
    ```sh
    git push origin PREP_SHA:refs/heads/release
@@ -337,8 +337,8 @@ Trunk build and never re-runs a failed gate.
    action. Verify stars, active books, and offline reading survive both.
    For corpus/schema changes, retain the previous library outside build output
    and complete the upgrade checks before promotion.
-4. Update `docs/status.md` with local, CI, deployment, and live results separately.
-   Record exact app SHA and content version. A successful YAML check or deployment
+4. Add a status log entry, `docs/status/YYYY-MM-DD-<slug>.md`, with local, CI, deployment, and live results separately, and update
+   the release lines of `docs/status.md`. Record exact app SHA and content version. A successful YAML check or deployment
    alone does not verify existing offline clients or physical devices.
 
 ## Recover a failed release
