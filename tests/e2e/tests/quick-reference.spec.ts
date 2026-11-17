@@ -83,6 +83,61 @@ test("Every chip opens its entry, and its anchor where it has one, offline", asy
   }
 });
 
+/**
+ * The chips whose target is not the obvious entry, written out here and not read from
+ * `quick.rs`: a wrong but valid id in the constant would otherwise pass the sweep above,
+ * because the sweep takes its expectations from the same constant. `title` is the entry's
+ * heading, `anchorText` the heading that the anchor must reach.
+ */
+const SPECIAL: { label: string; id: string; title: string; anchor?: string; anchorText?: string }[] = [
+  { label: "Broken", id: "ref/rule/broken-and-fragile", title: "Broken and Fragile" },
+  { label: "Dead", id: "ref/misc/dead", title: "Dead" },
+  { label: "Grappled", id: "ref/rule/grapple-conditions", title: "Grapple Conditions" },
+  { label: "Pinned", id: "ref/rule/grapple-conditions", title: "Grapple Conditions" },
+  { label: "Ability damage and drain", id: "ref/rule/ability-damage-drain", title: "Ability Score Damage, Penalty, and Drain" },
+  {
+    label: "AC modifiers",
+    id: "ref/rule/combat-modifiers",
+    title: "Combat Modifiers",
+    anchor: "sec-table-8-6-armor-class-modifiers",
+    anchorText: "Table 8-6: Armor Class Modifiers",
+  },
+  {
+    label: "What provokes",
+    id: "ref/rule/attacks-of-opportunity",
+    title: "Attacks of Opportunity",
+    anchor: "sec-actions-that-provoke-attacks-of-opportunity",
+    anchorText: "Actions That Provoke Attacks of Opportunity",
+  },
+  {
+    label: "Two-weapon fighting",
+    id: "ref/rule/two-weapon-fighting",
+    title: "Two-Weapon Fighting",
+    anchor: "sec-table-8-7-two-weapon-fighting-penalties",
+    anchorText: "Table 8-7: Two-Weapon Fighting Penalties",
+  },
+];
+
+test("The special chips open the entries and headings that the design names", async ({ page }) => {
+  for (const want of SPECIAL) {
+    const chip = chips.find((c) => c.label === want.label);
+    expect(chip, `${want.label} is not in quick.rs`).toBeTruthy();
+    expect(chip!.id, `${want.label}: id in quick.rs`).toBe(want.id);
+    expect(chip!.anchor, `${want.label}: anchor in quick.rs`).toBe(want.anchor);
+    expect(corpus.entries.get(want.id)?.title, `${want.id} in the library`).toBe(want.title);
+    await page.goto("#/quick");
+    await page.locator("main .jump-list").getByRole("link", { name: want.label, exact: true }).click();
+    const url = want.anchor ? `#/entry/${want.id}?a=${want.anchor}` : `#/entry/${want.id}`;
+    await expect(page, want.label).toHaveURL(new RegExp(`${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+    await expect(page.getByRole("heading", { name: want.title, level: 1 }), want.label).toBeVisible();
+    if (want.anchor) {
+      const heading = page.locator(`#h-${want.anchor}`);
+      await expect(heading, want.label).toHaveText(want.anchorText!);
+      await expect(heading, want.label).toBeInViewport();
+    }
+  }
+});
+
 test("The Table tab is the third primary tab and shows its state on the quick page", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto("#/quick");

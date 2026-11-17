@@ -603,5 +603,20 @@ mod tests {
         assert!(in_section(&Route::Home, &Route::Home));
         assert!(!in_section(&Route::Home, &Route::Settings));
         assert!(!in_section(&Route::Home, &Route::search("fire")));
+        // Table (#437) is one page and highlights only itself.
+        assert!(in_section(&Route::Quick, &Route::Quick));
+        for other in [
+            Route::Home,
+            Route::Books,
+            Route::Settings,
+            Route::Legal,
+            Route::search("fire"),
+            Route::entry(cast_iron_schema::EntryId::parse("ref/rule/bleed").unwrap()),
+        ] {
+            assert!(!in_section(&Route::Quick, &other), "{other:?}");
+        }
+        for link in [Route::Home, Route::Books, Route::Settings] {
+            assert!(!in_section(&link, &Route::Quick), "{link:?}");
+        }
     }
 }
