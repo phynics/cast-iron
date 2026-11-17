@@ -19,16 +19,16 @@ const DODGE = "ref/feat/dodge";
 const DODGE_REVISION = "ref/feat/dodge/teitr";
 
 /**
- * An entry that stays visible apart from the entry under test: a spell with a unique title and
- * one member book that is neither the handbook nor a book of Summon Monster III. Turning that
- * book off hides it, which is the `via` entry's hidden state.
+ * The `via` entry, chosen so that the credit is valid under #458's check: the via entry is a
+ * member of the expanding book. It also belongs to a second book that Summon Monster III does not
+ * belong to, so the handbook can be off while the entry stays visible, and both books off hide it.
+ * (A valid `via` can only be hidden while its expanding book is off.)
  */
 const VIA = stubs.find(
   (stub) =>
-    stub.kind === "spell" &&
-    members(stub).length === 1 &&
-    members(stub)[0] !== HANDBOOK &&
-    !members(SUMMON_III).includes(members(stub)[0]) &&
+    stub.id !== SUMMON_III.id &&
+    members(stub).includes(HANDBOOK) &&
+    members(stub).some((book) => book !== HANDBOOK && !members(SUMMON_III).includes(book)) &&
     stubs.filter((other) => other.title === stub.title).length === 1,
 );
 
@@ -49,9 +49,9 @@ test("Expanded in credits a book under the Sources line, with via and inactive s
   test.setTimeout(300_000);
   expect(HANDBOOK, "the compiled library has Monster Summoner's Handbook").toBeTruthy();
   expect(SUMMON_III, "the compiled library has Summon Monster III").toBeTruthy();
-  expect(VIA, "a spell that a second book can hide").toBeTruthy();
+  expect(VIA, "an entry of the handbook and a second book").toBeTruthy();
   const handbook = titleOf(HANDBOOK);
-  const viaBook = members(VIA)[0];
+  const viaBook = members(VIA).find((book) => book !== HANDBOOK)!;
 
   const variant = buildLibraryWithExpandedIn({
     [SUMMON_III.id]: [{ publication: HANDBOOK, page: "18", via: VIA.id }],
@@ -94,34 +94,55 @@ test("Expanded in credits a book under the Sources line, with via and inactive s
       await expect(line.getByTestId("expanded-via")).toHaveAttribute("href", `#/entry/${VIA.id}`);
     });
 
-    await test.step("A hidden via entry leaves the page number plain", async () => {
-      await disableBooks(page, [viaBook]);
-      await open(SUMMON_III.id);
-      await expect(line).toContainText(`Expanded in: ${handbook} p. 18`);
-      await expect(page.getByTestId("expanded-via")).toHaveCount(0);
-      await expect(line.locator(`a[href="#/entry/${VIA.id}"]`)).toHaveCount(0);
-      await expect(page.locator(".expanded-credit")).not.toHaveAttribute("data-inactive", "true");
-    });
-
-    await test.step("A credit from an inactive book is dimmed, labelled, and never links a hidden entry", async () => {
-      await disableBooks(page, [viaBook, HANDBOOK]);
+    await test.step("A credit from an inactive book is dimmed and labelled, and its via entry stays linked while visible", async () => {
+      await disableBooks(page, [HANDBOOK]);
       await open(SUMMON_III.id);
       const credit = page.locator(".expanded-credit");
       await expect(credit).toHaveAttribute("data-inactive", "true");
       await expect(credit.locator(".tag")).toHaveText("Inactive");
       await expect(line).toContainText(`Expanded in: ${handbook} p. 18 · Inactive`);
-      expect(await credit.evaluate((node) => getComputedStyle(node).opacity)).toBe("0.85");
-      await expect(page.getByTestId("expanded-via")).toHaveCount(0);
+      // The via entry is still visible through its second book.
+      await expect(page.getByTestId("expanded-via")).toHaveAttribute("href", `#/entry/${VIA.id}`);
       // The book page still opens for an inactive book.
       await expect(line.getByRole("link", { name: handbook, exact: true })).toHaveAttribute(
         "href",
         `#/browse/book/${HANDBOOK}`,
       );
-      // The via entry comes back as soon as its book is on, even with the handbook off.
-      await disableBooks(page, [HANDBOOK]);
+    });
+
+    await test.step("The dimmed credit keeps 4.5:1 contrast in both themes, links included", async () => {
+      for (const scheme of ["light", "dark"] as const) {
+        await page.emulateMedia({ colorScheme: scheme });
+        const ratios = await page.evaluate(() => {
+          const channel = (value: number) => {
+            const c = value / 255;
+            return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+          };
+          const luminance = (rgb: number[]) => 0.2126 * channel(rgb[0]) + 0.7152 * channel(rgb[1]) + 0.0722 * channel(rgb[2]);
+          const rgb = (css: string) => (css.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+          const ground = rgb(getComputedStyle(document.body).backgroundColor);
+          const ratio = (element: Element) => {
+            const style = getComputedStyle(element);
+            const opacity = Number(style.opacity);
+            const ink = rgb(style.color).map((value, at) => value * opacity + ground[at] * (1 - opacity));
+            const [hi, lo] = [luminance(ink), luminance(ground)].sort((a, b) => b - a);
+            return (hi + 0.05) / (lo + 0.05);
+          };
+          const credit = document.querySelector(".expanded-credit")!;
+          return [credit, credit.querySelector("a")!, credit.querySelector(".tag")!].map(ratio);
+        });
+        for (const ratio of ratios) expect(ratio, `${scheme}: ${ratios.join(", ")}`).toBeGreaterThanOrEqual(4.5);
+      }
+      await page.emulateMedia({ colorScheme: null });
+    });
+
+    await test.step("With both books off the via entry is hidden and its number is plain", async () => {
+      await disableBooks(page, [HANDBOOK, viaBook]);
       await open(SUMMON_III.id);
-      await expect(page.getByTestId("expanded-via")).toHaveAttribute("href", `#/entry/${VIA.id}`);
       await expect(page.locator(".expanded-credit")).toHaveAttribute("data-inactive", "true");
+      await expect(page.getByTestId("expanded-via")).toHaveCount(0);
+      await expect(line.locator(`a[href="#/entry/${VIA.id}"]`)).toHaveCount(0);
+      await expect(line).toContainText(`Expanded in: ${handbook} p. 18 · Inactive`);
     });
 
     await test.step("A revision in force keeps the base's credit", async () => {

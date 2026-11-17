@@ -321,10 +321,10 @@ pub fn effective_sources<'a>(base: &'a [Citation], revision: &'a [Citation]) -> 
 /// The `Expanded in` credits of the page. A credit names a book that expands the rule; it is
 /// not part of one printing's text, so a revision in force does not replace the base's credits
 /// the way it replaces citations. The base's credits come first, then any credit the revision
-/// adds, with a repeated credit shown once. A revision with none keeps every base credit.
+/// adds, with a repeated credit shown once, even one that the base itself repeats. A revision with none keeps every base credit.
 pub fn effective_expanded_in(base: &[Expansion], revision: &[Expansion]) -> Vec<Expansion> {
-    let mut credits = base.to_vec();
-    for credit in revision {
+    let mut credits: Vec<Expansion> = Vec::with_capacity(base.len() + revision.len());
+    for credit in base.iter().chain(revision) {
         if !credits.contains(credit) {
             credits.push(credit.clone());
         }
@@ -886,6 +886,12 @@ mod tests {
                 credit("monster-summoners-handbook", "18"),
                 credit("elephant", "7")
             ]
+        );
+        // A row that the base itself repeats collapses too.
+        let twice = [credit("elephant", "7"), credit("elephant", "7")];
+        assert_eq!(
+            effective_expanded_in(&twice, &[credit("elephant", "7")]),
+            vec![credit("elephant", "7")]
         );
         assert!(effective_expanded_in(&[], &[]).is_empty());
     }
