@@ -86,6 +86,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Adventure Path, Module, and Society series lines | `Adventures\|Modules\|Pathfinder Society\|bulk toggle` (`adventures-series.spec.ts`) | `crates/web/src/views/book_series.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/active_books.rs` |
 | Class summary card and folded class references | whole file (`class-card.spec.ts`) | `crates/web/src/class_summary.rs`, `crates/web/src/views/class_card.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/backlinks.rs` |
 | Class page section switcher | whole file (`class-sections.spec.ts`) | `crates/web/src/class_sections.rs`, `crates/web/src/views/section_switcher.rs`, `crates/web/src/route.rs`, `crates/web/src/app.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/rich.rs`, `crates/web/src/views/related.rs`, `web/styles.css` |
+| Console guard: window for WebKit's "Context is stopped" teardown error | whole files (`teardown-window.spec.ts`, no browser; `console-guard.spec.ts`, WebKit only) | `tests/e2e/tests/fixtures.ts`, `tests/e2e/tests/teardown-window.ts`, `docs/decisions/2026-11-17-webkit-context-stopped-at-teardown.md` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter\|numbered spell series` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Class option groups on class pages and lists | whole file (`class-options.spec.ts`; also `mobile-chromium`) | `crates/web/src/class_options.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/views/entry.rs` |
@@ -118,6 +119,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Header Install button and Settings install option | whole file (`install-button.spec.ts`) | `crates/web/src/pwa.rs`, `crates/web/src/views/header_action.rs`, `crates/web/src/views/settings.rs`, `crates/web/js/bridge.js` |
 | App-shell update and offline bookmarks | `App update waits` (`shell-update.spec.ts`) | `web/sw.js`, `crates/web/js/bridge.js`, `tests/e2e/server.mjs` |
 | Diagnostics, install and start timings, Quick search and results timings, Copy and Clear (`#/settings/diagnostics`) | whole file (`diagnostics.spec.ts`; also `mobile-chromium`) | `crates/web/src/diagnostics.rs`, `crates/web/src/views/diagnostics.rs`, `crates/web/src/install.rs`, `crates/web/src/library.rs`, `crates/web/src/store.rs`, `crates/web/src/views/home.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/quick_search.rs`, `crates/web/src/views/entry.rs`, `docs/research/iphone-measurement.md` |
+| Route focus move yields to the reader and to a newer navigation (#419) | whole file (`route-focus.spec.ts`) | `crates/web/src/focus_guard.rs`, `crates/web/src/app.rs`, `crates/web/src/route.rs`, `crates/web/src/views/entry.rs` |
 | Router follows a burst of hash changes, and the panic notice (#468) | whole file (`router-burst.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/app.rs`, `crates/web/src/lib.rs`, `crates/web/src/panic_notice.rs`, `crates/web/src/views/search.rs`, `web/styles.css` |
 | Content updates | whole file (`update.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/views/settings.rs` |
 | PWA install metadata | `installable` (`pwa.spec.ts`) | `web/manifest.webmanifest`, `web/index.html` |
@@ -163,9 +165,15 @@ When device automation tools are available, open the device with its host and de
 
 ## Capture a UI verification batch
 
-After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes measurements for overflow, alphabet and spell-level target sizes, selected scope colors, and console errors. Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
+After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes the PNGs, `measurements.json` (overflow, alphabet and spell-level target sizes, selected scope colors, console errors) and `manifest.json` (provenance: commit, shell and content version, corpus tag, engine, viewport, theme, settled state, masthead probe). Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
+
+Its fixtures follow the corpus and the app, not fixed names: the source-variants title comes from the compiled catalog and must render as a disclosure, and the Books page is opened through its tiers and a book row. When a screen changes, fix the script; a failed wait is a stale fixture until proven otherwise.
+
+Conditional views (the storage failure before the reader starts, a pending app-shell update, a pending library update, both together, and the iOS Add to Home Screen guide) have their own script: `node tests/e2e/capture-conditional.mjs <out-dir> [--only=<group>,...]`. It uses port 4398 and the test server's hooks, takes phone (390×844) and desktop (1280×900) in both themes, and labels the iOS frames as WebKit engine simulation, never as device evidence. Results of the first run: `docs/status/2026-11-17-conditional-view-captures.md`.
 
 Wait for both selected scope and result kinds before treating a screenshot as filter evidence. A screenshot taken immediately after a click can still show the previous state. Article contents tests must also click a heading whose URL is already current, since no hashchange event occurs in that case.
+
+The masthead is `position: sticky`. Take viewport shots. A full-page shot of a scrolled page has no masthead at the top of the image, and `getBoundingClientRect()` still says y=0, so a DOM measurement does not prove the frame shows it. `capture-lib.mjs` reads each saved PNG back and warns when the masthead is missing; `node tests/e2e/diagnose-masthead.mjs <out-dir>` reproduces the artifact. Keep capture sets out of the repository: commit the manifest, attach the images to the issue.
 
 ## Remaining physical iPhone acceptance
 

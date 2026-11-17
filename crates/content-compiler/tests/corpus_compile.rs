@@ -2,8 +2,9 @@
 
 use cast_iron_content_compiler::corpus_build::{compile_corpus, compile_corpus_with_slots};
 use cast_iron_corpus::{
-    Config, Exclusions, entry_path, write_books, write_config, write_entry, write_exclusions,
-    write_history, write_legal, write_publications,
+    Config, Exclusions, SPLIT_BOOKS_FORMAT, entry_path, write_books, write_config,
+    write_curated_book, write_entry, write_exclusions, write_history, write_legal,
+    write_publications,
 };
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, ContentManifest, CoverageHistory, EntryId, EntryKind,
@@ -103,8 +104,11 @@ fn write_corpus_in(dir: &Path, format: u32) {
 
 /// `expansion` adds a second book, `monster-handbook`, that no entry prints. `Some(true)` makes
 /// the grapple rule name it in `expanded_in`; `Some(false)` leaves the rule as it was.
+///
+/// The format is the last one with a single `books.toml`, which the tests that swap the books
+/// file rely on. The split layout of format 3 has its own tests below.
 fn write_corpus_with(dir: &Path, expansion: Option<bool>) {
-    write_corpus_full(dir, expansion, Config::default().format);
+    write_corpus_full(dir, expansion, SPLIT_BOOKS_FORMAT - 1);
 }
 
 fn write_corpus_full(dir: &Path, expansion: Option<bool>, format: u32) {
@@ -184,10 +188,21 @@ fn write_corpus_full(dir: &Path, expansion: Option<bool>, format: u32) {
         }],
         rejected: vec![],
     };
+    if format >= SPLIT_BOOKS_FORMAT {
+        fs::create_dir_all(dir.join("books")).unwrap();
+        for tree in printed_chapter().books {
+            fs::write(
+                dir.join(format!("books/{}.toml", tree.source)),
+                write_curated_book(&tree),
+            )
+            .unwrap();
+        }
+    } else {
+        fs::write(dir.join("books.toml"), write_books(&printed_chapter())).unwrap();
+    }
     for (name, text) in [
         ("corpus.toml", write_config(&config)),
         ("publications.toml", write_publications(&sources)),
-        ("books.toml", write_books(&printed_chapter())),
         ("legal.toml", write_legal(&legal)),
         ("exclusions.toml", write_exclusions(&exclusions)),
         (
@@ -985,4 +1000,95 @@ fn compiling_the_same_corpus_with_expansions_twice_is_byte_identical() {
         compile_tree(&corpus, "expanded-twice-a"),
         compile_tree(&corpus, "expanded-twice-b")
     );
+}
+
+/// The compiled `books.json` of a library.
+fn compiled_books(out: &Path) -> BookIndex {
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    let file = manifest
+        .files
+        .iter()
+        .find(|file| file.path.ends_with("/books.json"))
+        .expect("books.json is in the manifest");
+    serde_json::from_slice(&fs::read(out.join(&file.path)).unwrap()).unwrap()
+}
+
+#[test]
+fn a_split_corpus_compiles_its_curated_book_and_derives_the_others_with_the_same_bytes() {
+    let corpus = temp("split");
+    write_corpus_full(&corpus, Some(false), SPLIT_BOOKS_FORMAT);
+    // `monster-handbook` has no curated file and no member: the compiler still gives it a book.
+    let mut trees = Vec::new();
+    for run in 0..2 {
+        let out = temp(&format!("split-out{run}"));
+        let reports = temp(&format!("split-reports{run}"));
+        compile_corpus(&corpus, &out, &reports, None, None)
+            .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+        trees.push(tree(&out));
+        if run == 0 {
+            let books = compiled_books(&out);
+            let sources: Vec<_> = books.books.iter().map(|b| b.source.as_str()).collect();
+            // Curated first, then the derived book.
+            assert_eq!(sources, ["core-rulebook", "monster-handbook"]);
+            assert_eq!(books.books[0].chapters, printed_chapter().books[0].chapters);
+            assert!(books.books[1].chapters.is_empty());
+        }
+    }
+    assert_eq!(trees[0], trees[1], "two compiles must write the same bytes");
+}
+
+#[test]
+fn a_book_without_a_curated_file_is_derived_from_the_pages_and_reaches_every_member() {
+    let corpus = temp("split-derived");
+    write_corpus_full(&corpus, None, SPLIT_BOOKS_FORMAT);
+    fs::remove_file(corpus.join("books/core-rulebook.toml")).unwrap();
+    let out = temp("split-derived-out");
+    let reports = temp("split-derived-reports");
+    compile_corpus(&corpus, &out, &reports, None, None)
+        .unwrap_or_else(|f| panic!("a derived book is reachable: {}", f.lines.join("\n")));
+    let book = &compiled_books(&out).books[0];
+    assert_eq!(book.title, "Core Rulebook");
+    assert_eq!(
+        book.chapters
+            .iter()
+            .map(|c| c.title.as_str())
+            .collect::<Vec<_>>(),
+        ["Unpaged"]
+    );
+    let ids: Vec<_> = book.chapters[0]
+        .children
+        .iter()
+        .map(|node| node.entry.as_ref().unwrap().as_str())
+        .collect();
+    // Neither rule has a page; kind is equal, so the lowercased title decides.
+    assert_eq!(ids, ["ref/rule/combat", "ref/rule/grapple"]);
+}
+
+#[test]
+fn a_curated_book_gets_the_catch_all_chapter_for_the_entries_it_does_not_place() {
+    let corpus = temp("split-catch-all");
+    write_corpus_full(&corpus, None, SPLIT_BOOKS_FORMAT);
+    let mut tree_without_grapple = printed_chapter().books.remove(0);
+    tree_without_grapple.chapters = vec![node(
+        "Combat",
+        None,
+        vec![node("Combat", Some("ref/rule/combat"), vec![])],
+    )];
+    fs::write(
+        corpus.join("books/core-rulebook.toml"),
+        write_curated_book(&tree_without_grapple),
+    )
+    .unwrap();
+    let out = temp("split-catch-all-out");
+    let reports = temp("split-catch-all-reports");
+    // The rule the curated tree leaves out is only in the hidden chapter, which the gate refuses.
+    let failure = compile_corpus(&corpus, &out, &reports, None, None)
+        .expect_err("a rule that only the catch-all chapter reaches fails the gate");
+    assert!(
+        failure.lines.join("\n").contains("unreachable"),
+        "{failure:?}"
+    );
+    let reachability = fs::read_to_string(reports.join("reachability.json")).unwrap();
+    assert!(reachability.contains("ref/rule/grapple"), "{reachability}");
 }

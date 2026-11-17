@@ -731,6 +731,7 @@ pub fn provide_route() {
     let (read, write) = signal(read_location_route());
     // Back and forward fire `hashchange` too, so the browser's history stays the only history.
     let handle = window_event_listener(leptos::ev::hashchange, move |_| {
+        crate::focus_guard::begin_navigation();
         write.set(read_location_route());
     });
     on_cleanup(move || handle.remove());
@@ -819,6 +820,7 @@ pub fn push(route: &Route) {
         return;
     }
     if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
+        crate::focus_guard::begin_navigation();
         write.set(read_location_route());
     }
 }
@@ -847,6 +849,7 @@ fn replace_with_state(route: &Route, keep_state: bool) {
     };
     let _ = history.replace_state_with_url(&state, "", Some(&route.href()));
     if let Some(write) = ROUTE_WRITE.with(|cell| cell.get()) {
+        crate::focus_guard::begin_navigation();
         write.set(read_location_route());
     }
 }
@@ -1011,6 +1014,12 @@ pub fn scroll_to_anchor(anchor: &str) -> bool {
 /// carries `data-class-section`. Returns false when the page has no such element, which is the
 /// case before the entry has rendered and on a class that lacks the section.
 pub fn scroll_to_section(section: Section) -> bool {
+    scroll_to_section_with(section, true)
+}
+
+/// [`scroll_to_section`], with the focus move optional: a scheduled frame passes `false` when
+/// the reader has focused a control since (#419), and the page still scrolls.
+pub fn scroll_to_section_with(section: Section, focus: bool) -> bool {
     use wasm_bindgen::JsCast;
     let Some(document) = web_sys::window().and_then(|w| w.document()) else {
         return false;
@@ -1020,7 +1029,7 @@ pub fn scroll_to_section(section: Section) -> bool {
         return false;
     };
     target.scroll_into_view();
-    if let Ok(target) = target.dyn_into::<web_sys::HtmlElement>() {
+    if focus && let Ok(target) = target.dyn_into::<web_sys::HtmlElement>() {
         let options = web_sys::FocusOptions::new();
         options.set_prevent_scroll(true);
         let _ = target.focus_with_options(&options);

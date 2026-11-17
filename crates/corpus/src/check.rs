@@ -1,5 +1,9 @@
 //! Cross-file checks over a loaded corpus.
 
+use crate::books::{
+    BOOKS_DIR, BookLayout, PAGE_ORDER_TITLE, UNPAGED_TITLE, is_clean_page, is_reserved_chapter,
+};
+use crate::config::SPLIT_BOOKS_FORMAT;
 use crate::drift::{Disagreement, find_drift, printed_replaces_alters};
 use crate::entry::entry_path;
 use crate::load::Corpus;
@@ -956,6 +960,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_third_party_sharing(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
+    crate::check_trades::check_trades(corpus, &keys, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
     let publication_ids: BTreeSet<&str> = corpus
@@ -963,18 +968,35 @@ pub fn check(corpus: &Corpus) -> Report {
         .iter()
         .map(|publication| publication.id.as_str())
         .collect();
+    check_book_layout(corpus, &mut report);
     for tree in &corpus.books.books {
+        let file = BookFile::of(corpus, &tree.source);
         if !publication_ids.contains(tree.source.as_str()) {
             report.problems.push(format!(
-                "books.toml:{}: book `{}` has no row in publications.toml. A book is a printed publication, so add its row with a copyright and a Section 15 notice, or delete the book",
-                book_line(&corpus.books_text, &tree.source),
+                "{}:{}: book `{}` has no row in publications.toml. A book is a printed publication, so add its row with a copyright and a Section 15 notice, or delete the book",
+                file.label,
+                book_line(file.text, &tree.source),
                 tree.source
             ));
+        }
+        if corpus.layout == BookLayout::Split {
+            for chapter in &tree.chapters {
+                if is_reserved_chapter(&chapter.title) {
+                    report.problems.push(format!(
+                        "{}:{}: a curated book may not hold a `{}` chapter; the compiler builds `{PAGE_ORDER_TITLE}`, `{UNPAGED_TITLE}` and `{}` from the [[sources]] pages. Delete the chapter",
+                        file.label,
+                        line_of(file.text, &format!("title = \"{}\"", chapter.title)),
+                        chapter.title,
+                        cast_iron_schema::books::CATCH_ALL_TITLE
+                    ));
+                }
+            }
         }
         let mut placed = BTreeSet::new();
         for chapter in &tree.chapters {
             check_book_node(
                 corpus,
+                &file,
                 tree,
                 &chapter.title,
                 chapter,
@@ -1455,7 +1477,7 @@ pub fn base_class_ids<'a>(corpus: &'a Corpus, entry: &'a RuleEntry) -> Vec<&'a s
 
 /// A printed feature name without its ability tag: `Bravery (Ex)` becomes `Bravery`, and
 /// `Arcane Bond (Ex or Sp)` becomes `Arcane Bond`.
-fn strip_ability_tag(name: &str) -> &str {
+pub(crate) fn strip_ability_tag(name: &str) -> &str {
     let name = name.trim();
     let Some(open) = name.rfind('(') else {
         return name;
@@ -1786,6 +1808,67 @@ fn check_publication_suffixes(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mu
     }
 }
 
+/// Where a stored book lives: its path for messages and its text for line numbers.
+struct BookFile<'a> {
+    label: String,
+    text: &'a str,
+}
+
+impl<'a> BookFile<'a> {
+    fn of(corpus: &'a Corpus, source: &str) -> Self {
+        match corpus.layout {
+            BookLayout::Single => BookFile {
+                label: "books.toml".to_string(),
+                text: &corpus.books_text,
+            },
+            BookLayout::Split => BookFile {
+                label: format!("{BOOKS_DIR}/{source}.toml"),
+                text: corpus.book_texts.get(source).map_or("", String::as_str),
+            },
+        }
+    }
+}
+
+/// The rules that only the split layout has: the page grammar the derivation relies on, and the
+/// state of the format number. In the single layout a stray page is only a warning, because the
+/// stored lists do not read pages.
+fn check_book_layout(corpus: &Corpus, report: &mut Report) {
+    let split = corpus.layout == BookLayout::Split;
+    if split && corpus.config.format < SPLIT_BOOKS_FORMAT {
+        report.warnings.push(format!(
+            "corpus.toml:1: the corpus is format {} but holds the split `{BOOKS_DIR}/` layout; run `{}` to finish its migration",
+            corpus.config.format,
+            crate::config::MIGRATE_COMMAND
+        ));
+    }
+    for stored in corpus.entries.values() {
+        for row in &stored.entry.sources {
+            let Some(page) = row.page.as_deref() else {
+                continue;
+            };
+            if is_clean_page(page) {
+                continue;
+            }
+            let message = format!(
+                "{}:{}: `[[sources]]` page {page:?} for `{}` is not a page (`12`, `12-14`, `12, 14` or `inside cover`){}",
+                stored.path.display(),
+                line_of(&stored.text, &format!("page = \"{page}\"")),
+                row.publication,
+                if split {
+                    "; the book order reads the leading number, so a stray citation puts the entry on a wrong page"
+                } else {
+                    ""
+                }
+            );
+            if split {
+                report.problems.push(message);
+            } else {
+                report.warnings.push(message);
+            }
+        }
+    }
+}
+
 /// The 1-based line of the `[[books]]` block of `source` in `books.toml`, or 1.
 fn book_line(text: &str, source: &str) -> usize {
     line_of(text, &format!("source = \"{source}\""))
@@ -1807,6 +1890,7 @@ fn placement_line(text: &str, source: &str, entry: &str) -> usize {
 #[allow(clippy::too_many_arguments)]
 fn check_book_node(
     corpus: &Corpus,
+    file: &BookFile<'_>,
     tree: &BookTree,
     chapter: &str,
     node: &BookNode,
@@ -1816,10 +1900,11 @@ fn check_book_node(
     report: &mut Report,
 ) {
     if let Some(entry) = &node.entry {
-        let line = line_of(&corpus.books_text, &format!("\"{entry}\""));
+        let line = line_of(file.text, &format!("\"{entry}\""));
+        let label = &file.label;
         if !ids.contains(entry.as_str()) {
             report.problems.push(format!(
-                "books.toml:{line}: book node `{}` names unknown entry `{entry}`",
+                "{label}:{line}: book node `{}` names unknown entry `{entry}`",
                 node.title
             ));
         } else {
@@ -1830,8 +1915,8 @@ fn check_book_node(
             let stored = &corpus.entries[entry.as_str()].entry;
             if !stored.source_ids.contains(&tree.source) {
                 report.problems.push(format!(
-                    "books.toml:{}: book `{}` places `{entry}` in `{}` (chapter `{chapter}`), but the entry's `source_ids` ({}) do not name that book. Remove the placement, or add the book to `source_ids` in {} when it prints the entry",
-                    placement_line(&corpus.books_text, &tree.source, entry.as_str()),
+                    "{label}:{}: book `{}` places `{entry}` in `{}` (chapter `{chapter}`), but the entry's `source_ids` ({}) do not name that book. Remove the placement, or add the book to `source_ids` in {} when it prints the entry",
+                    placement_line(file.text, &tree.source, entry.as_str()),
                     tree.source,
                     node.title,
                     if stored.source_ids.is_empty() {
@@ -1853,7 +1938,7 @@ fn check_book_node(
                 )
             {
                 report.warnings.push(format!(
-                    "books.toml:{line}: marked node `{}` collapses, but `{entry}` does not link every child entry in its body; collapsing would hide entries",
+                    "{label}:{line}: marked node `{}` collapses, but `{entry}` does not link every child entry in its body; collapsing would hide entries",
                     node.title
                 ));
             }
@@ -1862,14 +1947,14 @@ fn check_book_node(
                     if !placed.insert(entry.to_string()) {
                         report
                             .problems
-                            .push(format!("books.toml:{line}: book places `{entry}` twice"));
+                            .push(format!("{label}:{line}: book places `{entry}` twice"));
                     }
                 }
                 Some(anchor) => {
                     let available = &keys[entry.as_str()];
                     if !available.iter().any(|(key, _)| key == anchor) {
                         report.problems.push(format!(
-                            "books.toml:{line}: book node `{}` points at `{entry}#{anchor}`, a heading that does not exist. {}",
+                            "{label}:{line}: book node `{}` points at `{entry}#{anchor}`, a heading that does not exist. {}",
                             node.title,
                             anchor_fix(&corpus.entries[entry.as_str()].path, anchor, available)
                         ));
@@ -1879,7 +1964,9 @@ fn check_book_node(
         }
     }
     for child in &node.children {
-        check_book_node(corpus, tree, chapter, child, ids, keys, placed, report);
+        check_book_node(
+            corpus, file, tree, chapter, child, ids, keys, placed, report,
+        );
     }
 }
 
@@ -3756,11 +3843,17 @@ mod tests {
         };
         let report = check(&corpus_in_format(1, vec![fighter_class(), entry()]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        // The second warning is the count of unresolved trades (#451).
+        assert_eq!(report.warnings.len(), 2, "{:?}", report.warnings);
         assert!(
             report.warnings[0].contains(
                 "[fields] replaces_features = [\"bravery\"] disagrees with the `**Replaces:**` line; the confident matches in print order are [\"bravery\", \"trap-sense\"]"
             ),
+            "{:?}",
+            report.warnings
+        );
+        assert!(
+            report.warnings[1].contains("2 of 2 trades in 1 entries are unresolved"),
             "{:?}",
             report.warnings
         );
@@ -3878,7 +3971,13 @@ mod tests {
             ),
         ]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        // Only the count of unresolved trades (#451): the printed name is no drift.
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("1 of 2 trades in 1 entries are unresolved"),
+            "{:?}",
+            report.warnings
+        );
     }
 
     #[test]
@@ -3915,5 +4014,127 @@ mod tests {
         let report = check(&c);
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    fn split(mut corpus: Corpus, trees: Vec<BookTree>) -> Corpus {
+        corpus.layout = BookLayout::Split;
+        corpus.config.format = SPLIT_BOOKS_FORMAT;
+        corpus.book_texts = trees
+            .iter()
+            .map(|tree| (tree.source.clone(), crate::files::write_curated_book(tree)))
+            .collect();
+        corpus.books = BookIndex { books: trees };
+        corpus
+    }
+
+    fn tree_with(chapter_titles: &[&str]) -> BookTree {
+        BookTree {
+            source: "core-rulebook".into(),
+            title: "Core Rulebook".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: chapter_titles
+                .iter()
+                .map(|title| BookNode {
+                    title: title.to_string(),
+                    entry: None,
+                    anchor: None,
+                    review: None,
+                    collapse: false,
+                    lists_children: false,
+                    children: vec![],
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn a_curated_file_may_not_hold_a_chapter_the_compiler_owns() {
+        let corpus = split(
+            corpus(vec![rule("ref/rule/a", vec![])]),
+            vec![tree_with(&[
+                "Introduction",
+                "Page order",
+                "Unpaged",
+                "New entries (page order)",
+            ])],
+        );
+        let report = check(&corpus);
+        let problems: Vec<_> = report
+            .problems
+            .iter()
+            .filter(|p| p.contains("may not hold"))
+            .collect();
+        assert_eq!(problems.len(), 3, "{:?}", report.problems);
+        assert!(
+            problems[0].starts_with("books/core-rulebook.toml:"),
+            "{}",
+            problems[0]
+        );
+        // The single layout still stores these chapters.
+        let mut single = corpus.clone();
+        single.layout = BookLayout::Single;
+        let report = check(&single);
+        assert!(
+            report.problems.iter().all(|p| !p.contains("may not hold")),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn a_polluted_page_is_a_problem_in_the_split_layout_and_a_warning_before() {
+        let mut entry = rule("ref/rule/a", vec![]);
+        entry.sources = vec![
+            Citation {
+                publication: "core-rulebook".into(),
+                page: Some("58~Occult Origins/8".into()),
+            },
+            Citation {
+                publication: "core-rulebook".into(),
+                page: Some("12-14".into()),
+            },
+        ];
+        let single = corpus(vec![entry]);
+        let report = check(&single);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(
+            report
+                .warnings
+                .iter()
+                .filter(|w| w.contains("is not a page"))
+                .count(),
+            1,
+            "{:?}",
+            report.warnings
+        );
+        let report = check(&split(single, vec![]));
+        let problems: Vec<_> = report
+            .problems
+            .iter()
+            .filter(|p| p.contains("is not a page"))
+            .collect();
+        assert_eq!(problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            problems[0].contains("entries/rule/a.md:"),
+            "{}",
+            problems[0]
+        );
+    }
+
+    #[test]
+    fn a_split_corpus_below_format_3_only_warns() {
+        let mut corpus = split(corpus(vec![rule("ref/rule/a", vec![])]), vec![]);
+        corpus.config.format = 2;
+        let report = check(&corpus);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|w| w.contains("holds the split")),
+            "{:?}",
+            report.warnings
+        );
     }
 }

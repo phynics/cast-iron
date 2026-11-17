@@ -5,12 +5,13 @@
 //! numbers, double blank lines, a missing final newline, `*` for emphasis); `fmt`
 //! rewrites them. It also adds the explicit anchor to a heading that a link reaches.
 
+use crate::books::{BOOKS_DIR, BookLayout};
 use crate::config::write_config;
 use crate::entry::{entry_path, write_entry};
 use crate::error::Error;
 use crate::files::{
-    write_aliases, write_books, write_exclusions, write_history, write_legal, write_option_groups,
-    write_publication_list,
+    write_aliases, write_books, write_curated_book, write_exclusions, write_history, write_legal,
+    write_option_groups, write_publication_list,
 };
 use crate::load::Corpus;
 use cast_iron_schema::RuleEntry;
@@ -115,32 +116,45 @@ pub fn format_corpus(dir: &Path, write: bool) -> std::result::Result<FmtReport, 
             &stored.text,
         );
     }
-    let mut stored_files: Vec<(&str, String)> = vec![
-        ("corpus.toml", write_config(&corpus.config)),
+    let mut stored_files: Vec<(String, String)> = vec![
+        ("corpus.toml".into(), write_config(&corpus.config)),
         (
-            "publications.toml",
+            "publications.toml".into(),
             write_publication_list(&corpus.publications),
         ),
-        ("books.toml", write_books(&corpus.books)),
-        ("legal.toml", write_legal(&corpus.legal)),
-        ("exclusions.toml", write_exclusions(&corpus.exclusions)),
+        ("legal.toml".into(), write_legal(&corpus.legal)),
+        (
+            "exclusions.toml".into(),
+            write_exclusions(&corpus.exclusions),
+        ),
     ];
+    match corpus.layout {
+        BookLayout::Single => stored_files.push(("books.toml".into(), write_books(&corpus.books))),
+        BookLayout::Split => {
+            for tree in &corpus.books.books {
+                stored_files.push((
+                    format!("{BOOKS_DIR}/{}.toml", tree.source),
+                    write_curated_book(tree),
+                ));
+            }
+        }
+    }
     if let Some(history) = &corpus.history {
-        stored_files.push(("history.toml", write_history(history)));
+        stored_files.push(("history.toml".into(), write_history(history)));
     }
     if let Some(aliases) = &corpus.aliases {
-        stored_files.push(("aliases.toml", write_aliases(aliases)));
+        stored_files.push(("aliases.toml".into(), write_aliases(aliases)));
     }
     // A missing vocabulary file means no groups; `fmt` never creates it.
     if dir.join("option-groups.toml").is_file() {
         stored_files.push((
-            "option-groups.toml",
+            "option-groups.toml".into(),
             write_option_groups(&corpus.option_groups),
         ));
     }
     for (name, expected) in stored_files {
-        let found = fs::read_to_string(dir.join(name))
-            .map_err(|e| vec![Error::new(name, 1, format!("cannot read file: {e}"))])?;
+        let found = fs::read_to_string(dir.join(&name))
+            .map_err(|e| vec![Error::new(&name, 1, format!("cannot read file: {e}"))])?;
         compare(PathBuf::from(name), expected, &found);
     }
     report.changes.sort_by(|a, b| a.path.cmp(&b.path));
@@ -413,6 +427,48 @@ Some *emphasis* here.
         assert_eq!(report.changes.len(), 1);
         assert_eq!(report.changes[0].path, Path::new("corpus.toml"));
         assert_eq!(report.changes[0].line, 1);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_split_corpus_formats_each_curated_book_file() {
+        let dir = temp_dir("split-fmt");
+        let mut source = corpus(vec![rule("ref/rule/a", vec![])]);
+        source.books = cast_iron_schema::BookIndex {
+            books: vec![cast_iron_schema::BookTree {
+                source: "core-rulebook".into(),
+                title: "Core".into(),
+                basis: String::new(),
+                review: vec![],
+                chapters: vec![cast_iron_schema::BookNode {
+                    title: "Chapter".into(),
+                    entry: None,
+                    anchor: None,
+                    review: None,
+                    collapse: false,
+                    lists_children: false,
+                    children: vec![],
+                }],
+            }],
+        };
+        write_tree(&dir, &source, &[]);
+        crate::layout::migrate_to_split(&dir).unwrap();
+        let report = format_corpus(&dir, false).unwrap();
+        assert!(report.changes.is_empty(), "{:?}", report.changes);
+        let file = dir.join("books/core-rulebook.toml");
+        let text = fs::read_to_string(&file).unwrap();
+        fs::write(
+            &file,
+            text.replace("title = \"Core\"", "title   =   \"Core\""),
+        )
+        .unwrap();
+        let report = format_corpus(&dir, true).unwrap();
+        assert_eq!(report.changes.len(), 1, "{:?}", report.changes);
+        assert_eq!(
+            report.changes[0].path,
+            Path::new("books/core-rulebook.toml")
+        );
+        assert_eq!(fs::read_to_string(&file).unwrap(), text);
         let _ = fs::remove_dir_all(&dir);
     }
 }

@@ -7,7 +7,7 @@ Cast Iron is an offline-first PWA reference for the Pathfinder First Edition rul
 - Development tracking: [GitHub Issues](https://github.com/phynics/cast-iron/issues). Search before creating an issue. Link each implementation PR to its issue. See `CONTRIBUTING.md`.
 - Integration and publication: `main` integrates work; `release` publishes Pages. Follow `docs/releasing.md` for explicit promotion, verification, and recovery. Never auto-promote main or reset release history.
 - Current state (pinned corpus, format versions, main versus release, open release gates, latest runs): `docs/status.md`, one screen. The log of pins, releases and acceptance results is one file each in `docs/status/`: a pin or release PR adds `docs/status/YYYY-MM-DD-<slug>.md` and edits only the few lines of `docs/status.md` that its change makes untrue. Distinguish local verification, CI, and deployment.
-- Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing `books.toml` in the corpus; website menus and dataset order do not establish printed order.
+- Book-order evidence: `docs/research/book-order-evidence.md`. Read it before changing a curated book (`books/<publication-id>.toml`, or `books.toml` before corpus format 3) in the corpus; website menus and dataset order do not establish printed order.
 
 ## Commands
 
@@ -27,6 +27,8 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
+| Split a corpus's `books.toml` into the curated `books/` files (format 3 layout, idempotent) | `cargo xtask corpus-migrate-layout <dir>` |
+| Lower a corpus's trades to format 2 | `cargo xtask corpus-migrate-trades <dir>` (idempotent; writes the review queue `generated/trade-review.tsv`; run it on a scratch copy until #452 applies it to the corpus repository) |
 | Check before you finish | `cargo xtask check` (also fails when the verify skill's feature map and the specs in `tests/e2e/tests/` disagree: a spec or test the map does not reach, a name or `--grep` pattern that matches nothing) |
 | Browser acceptance test (at most one spec; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
 | Full browser suite (CI only) | `gh workflow run ci.yml --ref <branch>` |

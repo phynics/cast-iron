@@ -3,7 +3,8 @@
 //! A format change (see `docs/corpus-format.md`) adds one step to [`MIGRATIONS`]. The
 //! step rewrites the files of a corpus at format N into format N + 1 and changes
 //! nothing else, so one mechanical pull request can apply it, followed by `fmt`.
-//! No migration exists yet: the corpus is at its first format.
+//! Format 1 to 2 lowers the trades of archetypes and class options (`migrate_trades`). Format 2
+//! to 3 (#425) splits `books.toml` into `books/<publication>.toml`.
 
 use crate::config::{CORPUS_FORMAT, MIGRATE_COMMAND};
 use std::fs;
@@ -16,8 +17,22 @@ pub struct Migration {
     pub apply: fn(&Path) -> Result<(), String>,
 }
 
-/// The registered steps, oldest first. Empty while the corpus is at format 1.
-pub const MIGRATIONS: &[Migration] = &[];
+/// The registered steps, oldest first: 1 to 2 (trades), then 2 to 3 (book layout).
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        from: 1,
+        apply: lower_trades,
+    },
+    Migration {
+        from: 2,
+        apply: crate::layout::migrate_to_split,
+    },
+];
+
+/// Format 1 to 2: the trades. `cast-iron-corpus migrate-trades` also writes the review queue.
+fn lower_trades(dir: &Path) -> Result<(), String> {
+    crate::migrate_trades::migrate_trades(dir).map(|_| ())
+}
 
 /// The `format` number in `corpus.toml`.
 fn declared_format(dir: &Path) -> Result<u32, String> {
@@ -139,6 +154,109 @@ mod tests {
         let dir = temp_corpus("newer", 7);
         let error = migrate(&dir).unwrap_err();
         assert!(error.contains("newer than this tool"), "{error}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_format_1_corpus_migrates_through_both_steps() {
+        use crate::entry::{entry_path, write_entry};
+        use crate::testkit::{corpus_in_format, heading, rule};
+        use cast_iron_schema::{
+            ArchetypeFields, EntryId, EntryKind, Relation, RelationKind, Trade, TradeOp,
+            TypedFields,
+        };
+        let dir = temp_corpus("chain", 1);
+        // A fighter with a `bravery` heading, and an archetype that replaces it: written in
+        // format 1 as two parallel lists, which the trades step lowers to one resolved trade.
+        let mut fighter = rule(
+            "ref/class/fighter",
+            vec![heading(Some("bravery"), "Bravery (Ex)")],
+        );
+        fighter.kind = EntryKind::Class;
+        fighter.fields = TypedFields::Class(Default::default());
+        let mut scout = rule("ref/archetype/scout", vec![]);
+        scout.kind = EntryKind::Archetype;
+        scout.fields = TypedFields::Archetype(ArchetypeFields {
+            trades: vec![Trade::unresolved(TradeOp::Replaces, "Bravery (Ex)")],
+            ..Default::default()
+        });
+        scout.relations = vec![Relation {
+            kind: RelationKind::Archetype,
+            target: EntryId::parse("ref/class/fighter").unwrap(),
+            label: None,
+        }];
+        let source = corpus_in_format(1, vec![rule("ref/rule/a", vec![]), fighter, scout]);
+        for stored in source.entries.values() {
+            let path = dir.join(entry_path(&stored.entry.id));
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, write_entry(&stored.entry, &source.config)).unwrap();
+        }
+        let write = |name: &str, text: String| fs::write(dir.join(name), text).unwrap();
+        write(
+            "publications.toml",
+            "[[publication]]\nid = \"core-rulebook\"\ntitle = \"Core Rulebook\"\ncopyright = \"c\"\n"
+                .into(),
+        );
+        write("legal.toml", crate::files::write_legal(&source.legal));
+        write(
+            "exclusions.toml",
+            crate::files::write_exclusions(&source.exclusions),
+        );
+        // One curated book and its stored catch-all chapter, as the pinned corpus has them.
+        let chapter = |title: &str| cast_iron_schema::BookNode {
+            title: title.into(),
+            entry: None,
+            anchor: None,
+            review: None,
+            collapse: false,
+            lists_children: false,
+            children: vec![],
+        };
+        write(
+            "books.toml",
+            crate::files::write_books(&cast_iron_schema::BookIndex {
+                books: vec![cast_iron_schema::BookTree {
+                    source: "core-rulebook".into(),
+                    title: "Core Rulebook".into(),
+                    basis: String::new(),
+                    review: vec![],
+                    chapters: vec![chapter("Introduction"), chapter("New entries (page order)")],
+                }],
+            }),
+        );
+
+        assert!(
+            fs::read_to_string(dir.join("entries/archetype/scout.md"))
+                .unwrap()
+                .contains("replaces = [\"Bravery (Ex)\"]"),
+            "the fixture is format 1"
+        );
+
+        // The registered chain: 1 to 2 (trades), then 2 to 3 (layout).
+        let message = migrate(&dir).unwrap();
+        assert!(message.contains("from format 1 to 3"), "{message}");
+        assert_eq!(declared_format(&dir).unwrap(), 3);
+        assert!(!dir.join("books.toml").exists());
+        let loaded = crate::load::Corpus::load(&dir).unwrap_or_else(|e| panic!("{e:?}"));
+        assert_eq!(loaded.books.books.len(), 1);
+        // The stored catch-all is gone; the compiler regenerates it.
+        assert_eq!(loaded.books.books[0].chapters.len(), 1);
+        assert_eq!(loaded.book_index().books[0].chapters.len(), 2);
+        // The trades step ran: the archetype holds one flat, resolved trade.
+        let TypedFields::Archetype(fields) = &loaded.entries["ref/archetype/scout"].entry.fields
+        else {
+            panic!("an archetype");
+        };
+        assert_eq!(fields.trades.len(), 1);
+        assert_eq!(fields.trades[0].feature.as_ref().unwrap().anchor, "bravery");
+        assert!(
+            fs::read_to_string(dir.join("entries/archetype/scout.md"))
+                .unwrap()
+                .contains("trades = ["),
+        );
+        // A second run has nothing to do.
+        let again = migrate(&dir).unwrap();
+        assert!(again.contains("nothing to migrate"), "{again}");
         let _ = fs::remove_dir_all(&dir);
     }
 }

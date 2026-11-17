@@ -1,6 +1,6 @@
 # Printed book order evidence
 
-> **Retired import.** The evidence below still governs `books.toml` in the corpus. The `book-order.toml` and upstream order file it names belonged to the retired import (git tag `psrd-last-buildable`) and no longer exist on `main`.
+> **Retired import.** The evidence below still governs the curated books in the corpus (`books.toml` before corpus format 3, `books/<publication-id>.toml` from it). The `book-order.toml` and upstream order file it names belonged to the retired import (git tag `psrd-last-buildable`) and no longer exist on `main`.
 
 This record distinguishes publisher evidence from the order present in the PSRD dataset. A rule-tree sequence is useful for grouping records, but does not establish printed chapter order. Only chapter titles, first pages, and order are recorded here; no book artwork or PDF text is reproduced.
 
@@ -428,3 +428,7 @@ Top-level groups follow the printed chapters and appendices. A dataset split tha
 The canonical library (the default `cargo xtask content`) keeps this curated chapter list and order for the same sixteen publications. It does not add, remove, reorder, or rename a PSRD chapter. Instead it re-addresses each placed entry through the reviewed legacy alias map, so the reviewed tree decides the chapter and the canonical id decides the entry. A shared canonical target appears once in a book, at the first placement; a legacy id whose canonical target is not installed is dropped and listed in coverage.
 
 Canonical entries that the PSRD tree does not place for a publication (new Pf Data content) go into one final chapter, labelled `New entries (page order)`. That chapter is ordered only by the page in the entry's source line and is not evidence that the entries belong at the end of the printed book. Publications outside the sixteen PSRD books keep the page-ordered `Page order` and `Unpaged` lists. This mechanism does not upgrade any provisional chapter sequence: the sixteen publications have their main chapter and appendix order checked against a printed contents page, while nested placement remains a separate check.
+
+## Page-order books are derived (corpus format 3)
+
+A book with no printed contents evidence is not stored. From corpus format 3 the compiler lists its members by the page of each entry's `[[sources]]` row for that book, then kind, title and id (see [`docs/corpus-format.md`](../corpus-format.md#books-format-3) and the decision of 2026-11-17). This is an ordering by attributed page, not printed-order evidence: entries on one page keep no printed order, and a page says nothing about chapter boundaries. Measured on corpus main after cast-iron-data #91 and #92 (page-order books of the 423 stored lists): 298 books derive exactly as stored, 124 differ only in order (129 adjacent pairs on one page, 116 with no page on either side, 41 on different pages, where the stored order did not follow the entry's own `[[sources]]` page), and one gains two creature entries that name the book but were never placed (Pathfinder #25). No chapter, nesting or entry set differs otherwise.

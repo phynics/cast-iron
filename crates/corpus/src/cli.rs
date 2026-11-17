@@ -2,7 +2,7 @@
 //! `corpus-fmt`. Each command takes the arguments after its name, prints its result,
 //! and returns an error message for a non-zero exit.
 
-use crate::{Corpus, check, format_corpus, migrate};
+use crate::{Corpus, check, format_corpus, migrate, migrate_trades};
 use std::fs;
 use std::path::PathBuf;
 
@@ -18,6 +18,14 @@ cast-iron-corpus <command>
         print the first differing line of each file that is not canonical and fail.
   migrate [DIR]
         Convert a corpus from an older format to this tool's format.
+  migrate-layout [DIR]
+        Split books.toml into books/<publication>.toml (the layout step of format 3) and
+        nothing else. Safe to repeat. It declares format 3 only from format 2.
+  migrate-trades [DIR] [--review FILE]
+        Lower the trades of archetypes and class options to format 2, resolving each to a
+        feature of a base class only where the printed name proves it, and write the trades
+        that stay unresolved to FILE as TSV (default trade-review.tsv; not inside DIR).
+        Idempotent.
 ";
 
 struct Args {
@@ -105,9 +113,10 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
         ));
     }
     println!(
-        "corpus ok: {} entries, {} publications, {} books, {} licences",
+        "corpus ok: {} entries, {} publications, {} books ({} curated), {} licences",
         corpus.entries.len(),
         corpus.publications.len(),
+        corpus.book_index().books.len(),
         corpus.books.books.len(),
         corpus.legal.licenses.len()
     );
@@ -155,12 +164,61 @@ pub fn run_migrate(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+pub fn run_migrate_layout(args: &[String]) -> Result<(), String> {
+    let args = parse("migrate-layout", args, &[], &[])?;
+    println!("{}", crate::migrate_layout(&args.dir)?);
+    Ok(())
+}
+
+pub fn run_migrate_trades(args: &[String]) -> Result<(), String> {
+    let args = parse("migrate-trades", args, &[], &["--review"])?;
+    let review = args
+        .values
+        .iter()
+        .find(|(name, _)| name == "--review")
+        .map_or_else(
+            || PathBuf::from("trade-review.tsv"),
+            |(_, path)| PathBuf::from(path),
+        );
+    // The queue is not a corpus file: a file inside the corpus would fail the next check.
+    let corpus_dir = fs::canonicalize(&args.dir)
+        .map_err(|e| format!("cannot read {}: {e}", args.dir.display()))?;
+    let review_dir = review
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(std::path::Path::new("."));
+    fs::create_dir_all(review_dir)
+        .map_err(|e| format!("cannot create {}: {e}", review_dir.display()))?;
+    let review_dir = fs::canonicalize(review_dir)
+        .map_err(|e| format!("cannot read {}: {e}", review_dir.display()))?;
+    if review_dir.starts_with(&corpus_dir) {
+        return Err(format!(
+            "the review file {} is inside the corpus; give --review a path outside {}",
+            review.display(),
+            args.dir.display()
+        ));
+    }
+    let report = migrate_trades(&args.dir)?;
+    fs::write(&review, report.review_tsv())
+        .map_err(|e| format!("cannot write {}: {e}", review.display()))?;
+    print!("{}", report.summary());
+    println!(
+        "migrated {} to format {}; review queue: {}; now run `cast-iron-corpus check` and `cast-iron-corpus fmt --check`",
+        args.dir.display(),
+        crate::TRADES_FORMAT,
+        review.display()
+    );
+    Ok(())
+}
+
 /// Runs `cast-iron-corpus <command> ...`.
 pub fn run(args: &[String]) -> Result<(), String> {
     match args.first().map(String::as_str) {
         Some("check") => run_check(&args[1..]),
         Some("fmt") => run_fmt(&args[1..]),
         Some("migrate") => run_migrate(&args[1..]),
+        Some("migrate-layout") => run_migrate_layout(&args[1..]),
+        Some("migrate-trades") => run_migrate_trades(&args[1..]),
         Some("help" | "--help" | "-h") | None => {
             print!("{USAGE}");
             Ok(())
@@ -195,6 +253,23 @@ mod tests {
         );
         let default = parse("x", &[], &[], &[]).unwrap();
         assert_eq!(default.dir, PathBuf::from("."));
+    }
+
+    #[test]
+    fn migrate_trades_refuses_a_review_file_inside_the_corpus() {
+        let dir = std::env::temp_dir().join(format!("cast-iron-cli-review-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let review = dir.join("review.tsv");
+        let error = run_migrate_trades(&[
+            dir.display().to_string(),
+            "--review".into(),
+            review.display().to_string(),
+        ])
+        .unwrap_err();
+        assert!(error.contains("inside the corpus"), "{error}");
+        assert!(!review.exists());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
