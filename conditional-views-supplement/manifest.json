@@ -1,0 +1,710 @@
+{
+  "script": "tests/e2e/capture-conditional.mjs",
+  "issue": "https://github.com/phynics/cast-iron/issues/448",
+  "build": {
+    "commit": "8d45b9d6b0621b9c8912191f2f8183ba11932716",
+    "source_dirty": false,
+    "shell_version": "ea714651ab69553d",
+    "content_version": "veada5093fd101aa3",
+    "schema_version": 6,
+    "corpus_tag": "v0.1.25",
+    "entry_count": 31800,
+    "dist": "dist"
+  },
+  "known_console_artifacts": [
+    "WebKit: \"Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive\""
+  ],
+  "fixtures": {
+    "reading_page": "#/entry/ref/spell/fireball",
+    "library_update": "synthetic: a copy of the live manifest with content_version \"vcapturenext0000000\"; its files are never fetched",
+    "shell_update": "the test server serves sw.js with SHELL_VERSION \"capture-next-<shell version>\""
+  },
+  "tools": {
+    "playwright": "1.64.1",
+    "node": "v24.21.0",
+    "platform": "linux-x64"
+  },
+  "groups": [
+    {
+      "id": "combined-updates",
+      "engine": "chromium",
+      "steps": [
+        "Install the library from the built site.",
+        "Do both of the shell-update and library-update fixtures: a different SHELL_VERSION and an overlay manifest with a newer content version.",
+        "Settings \u2192 Updates \u2192 Check now. The header action and Settings both say that updates are waiting.",
+        "On a phone the first screen ends above the reload row. Scroll the reload row to the middle for the scrolled frame; desktop shows both rows already."
+      ]
+    },
+    {
+      "id": "ios-guide",
+      "engine": "webkit",
+      "steps": [
+        "Install the library in WebKit.",
+        "Reopen with the iPhone Safari user agent, touch and mobile emulation (the app detects iOS Safari from that user agent).",
+        "The header shows Install. Tap it: the Add to Home Screen guide opens as a modal dialog. Settings \u2192 Install app offers the same guide.",
+        "Settings is taller than the viewport: the frame from the top shows no install row. Scroll the App section to the middle for the scrolled frame, which needs the row fully in view with its sentence and button."
+      ],
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423."
+    }
+  ],
+  "supplement": {
+    "parent_archive": "42e9a57eab1dad150fe899f356f23d24e96a8132",
+    "issue": "https://github.com/phynics/cast-iron/issues/448",
+    "purpose": "Frames for the two views the 40-frame archive could not show: the iOS Settings install row, and the combined-update reload row at phone width.",
+    "run": {
+      "command": "node tests/e2e/capture-conditional.mjs <out> --only=ios-guide,combined-updates",
+      "captures": 26,
+      "shipped_here": 6,
+      "selection": "the states added for this supplement: settings-install-row-scrolled and settings-reload-row"
+    },
+    "fixture": {
+      "branch": "t3/ios-install-row-captures",
+      "commit": "11ff4cbf0d4ec35a4b71c09d032e504b9726fc16",
+      "base": "0eaa51b185ae8d375612b4cc7243aaead47befed (PR #486 head)",
+      "files": [
+        "tests/e2e/capture-conditional.mjs",
+        "tests/e2e/capture-lib.mjs"
+      ],
+      "note": "test-only; the fixture is not part of dist and was not in 8d45b9d6b"
+    },
+    "rerun_check": {
+      "states_captured_again": 20,
+      "byte_identical_to_parent_archive": 13,
+      "differing": 7,
+      "differences": "small regions only: the header Install button focus/hover ring in the four guide-dialog frames, one 9x12 glyph on the two desktop settings-install-row frames, an 11-pixel sliver on combined-updates settings-updates desktop light; no text or layout change"
+    }
+  },
+  "captures": [
+    {
+      "group": "combined-updates",
+      "state": "settings-reload-row",
+      "description": "Settings \u2192 Updates scrolled so the app reload row (\"App update ready.\" and Reload) and part of the library offer are in view.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-reload-row-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-update\"]",
+        "bounds": {
+          "x": 12,
+          "y": 435.546875,
+          "width": 366,
+          "height": 44
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scroll_y": 417,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "App update ready. Reload",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-update\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 417,
+        "scrolling_element": "html",
+        "document_height": 3024,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.161,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "combined-updates",
+      "state": "settings-reload-row",
+      "description": "Settings \u2192 Updates scrolled so the app reload row (\"App update ready.\" and Reload) and part of the library offer are in view.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "headless-chromium",
+      "file": "combined-updates-settings-reload-row-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-update\"]",
+        "bounds": {
+          "x": 12,
+          "y": 435.546875,
+          "width": 366,
+          "height": 44
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scroll_y": 417,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "App update ready. Reload",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-update\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 417,
+        "scrolling_element": "html",
+        "document_height": 3024,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "section#set-updates.settings-section",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.925,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.165,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "chromium",
+        "browser_version": "156.0.8078.4",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+      },
+      "console_errors_so_far": []
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row-scrolled",
+      "description": "Settings scrolled to the App section: the Install app row with its sentence and button in view.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-scrolled-phone-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-install\"]",
+        "bounds": {
+          "x": 12,
+          "y": 467.90625,
+          "width": 366,
+          "height": 105.59375
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scroll_y": 1505,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "Install Cast Iron as an app for full-screen reading and an icon on your device. Install app",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-install\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 1505,
+        "scrolling_element": "html",
+        "document_height": 2349,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.885,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row-scrolled",
+      "description": "Settings scrolled to the App section: the Install app row with its sentence and button in view.",
+      "viewport": {
+        "name": "phone",
+        "width": 390,
+        "height": 844
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-scrolled-phone-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-install\"]",
+        "bounds": {
+          "x": 12,
+          "y": 467.90625,
+          "width": 366,
+          "height": 105.59375
+        },
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "scroll_y": 1505,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "Install Cast Iron as an app for full-screen reading and an icon on your device. Install app",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-install\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 1505,
+        "scrolling_element": "html",
+        "document_height": 2349,
+        "inner_height": 844,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 390,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 16,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "header.app-header",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 390,
+          "height": 844
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.886,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 390,
+          "height": 844
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row-scrolled",
+      "description": "Settings scrolled to the App section: the Install app row with its sentence and button in view.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "light",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-scrolled-desktop-light.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-install\"]",
+        "bounds": {
+          "x": 136,
+          "y": 626.5625,
+          "width": 656,
+          "height": 80.796875
+        },
+        "viewport": {
+          "width": 1280,
+          "height": 900
+        },
+        "scroll_y": 1081,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "Install Cast Iron as an app for full-screen reading and an icon on your device. Install app",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-install\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 1081,
+        "scrolling_element": "html",
+        "document_height": 1981,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(251, 248, 242)",
+          "border_bottom_colour": "rgb(211, 200, 183)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.866,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "211,200,183",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "light",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    },
+    {
+      "group": "ios-guide",
+      "state": "settings-install-row-scrolled",
+      "description": "Settings scrolled to the App section: the Install app row with its sentence and button in view.",
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 900
+      },
+      "theme": "dark",
+      "evidence_class": "engine-simulation",
+      "simulation": "WebKit engine in Playwright with an iPhone Safari user agent, mobile viewport and touch emulation. Engine simulation only: not iOS Safari, not a device, no Home Screen. Physical-device acceptance is #423.",
+      "file": "ios-guide-settings-install-row-scrolled-desktop-dark.png",
+      "capture_mode": "viewport",
+      "scroll_before_reset": 0,
+      "scroll_to": {
+        "selector": "[data-testid=\"app-install\"]",
+        "bounds": {
+          "x": 136,
+          "y": 626.5625,
+          "width": 656,
+          "height": 80.796875
+        },
+        "viewport": {
+          "width": 1280,
+          "height": 900
+        },
+        "scroll_y": 1081,
+        "fully_in_viewport": true,
+        "clear_of_header": true,
+        "visible_style": true,
+        "hit_is_inside_target": true,
+        "text": "Install Cast Iron as an app for full-screen reading and an icon on your device. Install app",
+        "missing_text": []
+      },
+      "settled": {
+        "ready_selector": "[data-testid=\"app-install\"]",
+        "fonts": "loaded",
+        "running_animations": 0,
+        "url_hash": "#/settings",
+        "title": "Settings"
+      },
+      "masthead": {
+        "scroll_y": 1081,
+        "scrolling_element": "html",
+        "document_height": 1981,
+        "inner_height": 900,
+        "visual_viewport_offset_top": 0,
+        "focus": "main#main",
+        "focus_in_header": false,
+        "header": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 61
+        },
+        "header_style": {
+          "position": "sticky",
+          "top": "0px",
+          "z_index": "5",
+          "opacity": "1",
+          "visibility": "visible",
+          "display": "flex",
+          "transform": "none",
+          "background": "rgb(34, 30, 27)",
+          "border_bottom_colour": "rgb(75, 67, 59)"
+        },
+        "brand": {
+          "x": 136,
+          "y": 8,
+          "width": 107.71875,
+          "height": 44
+        },
+        "hit_at_header_centre": "a.nav-link",
+        "hit_is_header": true
+      },
+      "frame": {
+        "frame": {
+          "width": 1280,
+          "height": 900
+        },
+        "looked_at_y": 0,
+        "header_background_share": 0.867,
+        "bottom_border_uniform_share": 1,
+        "bottom_border_colour": "75,67,59",
+        "brand_ink_share": 0.16,
+        "masthead_in_frame": true
+      },
+      "page": {
+        "engine": "webkit",
+        "browser_version": "27.2",
+        "theme_applied": "dark",
+        "data_theme": null,
+        "device_pixel_ratio": 1,
+        "inner_size": {
+          "width": 1280,
+          "height": 900
+        },
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
+      },
+      "console_errors_so_far": [
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy.",
+        "Refused to apply a stylesheet because its hash, its nonce, or 'unsafe-inline' does not appear in the style-src directive of the Content Security Policy."
+      ]
+    }
+  ],
+  "failures": []
+}
