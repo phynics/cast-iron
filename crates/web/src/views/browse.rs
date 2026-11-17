@@ -2712,6 +2712,7 @@ mod tests {
             kind: EntryKind::Class,
             title: title.into(),
             source: "core-rulebook".into(),
+            books: vec![],
             parent: None,
             shard: "entries/class-000.json".into(),
         }

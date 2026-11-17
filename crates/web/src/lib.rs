@@ -27,6 +27,7 @@ pub mod install;
 pub mod js;
 pub mod library;
 pub mod lru;
+pub mod membership;
 pub mod pwa;
 pub mod reading;
 pub mod report;

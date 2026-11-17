@@ -1,7 +1,7 @@
 //! Lightweight eligibility snapshot for ordinary discovery.
 
-use crate::graph::{BookLookup, Relations, filtered_spell_lists};
-use crate::library::{Library, LibraryError, canonical_book_source, count_by_source};
+use crate::graph::{Relations, filtered_spell_lists};
+use crate::library::{Library, LibraryError};
 use cast_iron_schema::SpellLists;
 use cast_iron_schema::{EntryKind, EntryStub};
 use cast_iron_search::{
@@ -37,20 +37,6 @@ impl DiscoveryCache {
         *self.cached.borrow_mut() = Some((revision, Rc::clone(&ids)));
         ids
     }
-}
-
-/// The ids of the catalog entries whose canonical book is active, in one pass. The set is what
-/// discovery tests every search hit, list row, and relation against.
-pub(crate) fn eligible_ids(
-    entries: &[EntryStub],
-    books: Option<&BookLookup>,
-    disabled: &BTreeSet<String>,
-) -> BTreeSet<String> {
-    entries
-        .iter()
-        .filter(|stub| !disabled.contains(canonical_book_source(books, &stub.id, &stub.source)))
-        .map(|stub| stub.id.to_string())
-        .collect()
 }
 
 #[derive(Clone)]
@@ -105,12 +91,6 @@ impl Discovery {
                 )
             })
             .filter(|(_, count)| *count > 0)
-            .collect()
-    }
-    pub fn source_counts(&self) -> Vec<(String, usize)> {
-        self.library
-            .with_books(|books| count_by_source(self.entries(), books))
-            .into_iter()
             .collect()
     }
     pub async fn search(&self, query: &Query) -> Result<Vec<Hit>, LibraryError> {
@@ -225,52 +205,7 @@ impl Discovery {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cast_iron_schema::{BookIndex, BookNode, BookTree, EntryId};
     use std::cell::Cell;
-    use std::collections::BTreeMap;
-
-    fn stub(id: &str, source: &str) -> EntryStub {
-        EntryStub {
-            id: EntryId::parse(id).unwrap(),
-            kind: EntryKind::Rule,
-            title: id.to_string(),
-            source: source.into(),
-            parent: None,
-            shard: "entries/rule-000.json".into(),
-        }
-    }
-
-    fn placed(entry: &EntryId) -> BookNode {
-        BookNode {
-            title: "Chapter".into(),
-            entry: Some(entry.clone()),
-            anchor: None,
-            review: None,
-            collapse: false,
-            lists_children: false,
-            children: vec![],
-        }
-    }
-
-    /// Three catalog sources, one entry moved to another book, and one book with no entries.
-    fn fixture() -> (Vec<EntryStub>, BookLookup) {
-        let entries = vec![
-            stub("a/one", "legacy-a"),
-            stub("a/two", "legacy-a"),
-            stub("b/one", "legacy-b"),
-            stub("c/one", "legacy-c"),
-        ];
-        let lookup = BookLookup::new(BookIndex {
-            books: vec![BookTree {
-                source: "book-b".into(),
-                title: "B".into(),
-                basis: String::new(),
-                review: vec![],
-                chapters: vec![placed(&entries[0].id), placed(&entries[2].id)],
-            }],
-        });
-        (entries, lookup)
-    }
 
     #[test]
     fn the_same_revision_reuses_the_cached_ids() {
@@ -323,67 +258,5 @@ mod tests {
         });
         assert!(built.get());
         assert_eq!(ids.as_ref(), &BTreeSet::from(["new".to_string()]));
-    }
-
-    #[test]
-    fn eligibility_uses_the_canonical_book_and_the_disabled_set() {
-        let (entries, lookup) = fixture();
-        // `a/one` and `b/one` are placed in book-b, so disabling book-b leaves the unplaced
-        // entries: `a/two` and `c/one`.
-        let disabled = BTreeSet::from(["book-b".to_string()]);
-        let ids = eligible_ids(&entries, Some(&lookup), &disabled);
-        assert_eq!(
-            ids,
-            BTreeSet::from(["a/two".to_string(), "c/one".to_string()])
-        );
-        // Without a book index a disabled book id hides no catalog source, because every entry
-        // stays under its catalog source; disabling `legacy-c` hides only `c/one`.
-        let disabled = BTreeSet::from(["legacy-c".to_string()]);
-        let ids = eligible_ids(&entries, None, &disabled);
-        assert_eq!(
-            ids,
-            BTreeSet::from([
-                "a/one".to_string(),
-                "a/two".to_string(),
-                "b/one".to_string(),
-            ])
-        );
-    }
-
-    /// The allocating per-entry lookup that discovery's source counts used before: resolve the
-    /// stub's canonical source into an owned `String` for every eligible entry.
-    fn allocating_counts(
-        eligible: &[&EntryStub],
-        books: Option<&BookLookup>,
-    ) -> BTreeMap<String, usize> {
-        let mut counts = BTreeMap::<String, usize>::new();
-        for stub in eligible {
-            let source = canonical_book_source(books, &stub.id, &stub.source).to_owned();
-            *counts.entry(source).or_default() += 1;
-        }
-        counts
-    }
-
-    #[test]
-    fn one_pass_eligible_source_counts_match_the_allocating_lookup() {
-        let (entries, lookup) = fixture();
-        let disabled = BTreeSet::from(["legacy-c".to_string()]);
-        for books in [Some(&lookup), None] {
-            let eligible: Vec<&EntryStub> = entries
-                .iter()
-                .filter(|stub| {
-                    !disabled.contains(canonical_book_source(books, &stub.id, &stub.source))
-                })
-                .collect();
-            let old = allocating_counts(&eligible, books);
-            let new = count_by_source(eligible.iter().copied(), books);
-            assert_eq!(old, new);
-        }
-        let eligible: Vec<&EntryStub> = entries.iter().collect();
-        let counts = count_by_source(eligible.iter().copied(), Some(&lookup));
-        assert_eq!(counts.get("book-b"), Some(&2));
-        assert_eq!(counts.get("legacy-a"), Some(&1));
-        assert_eq!(counts.get("legacy-c"), Some(&1));
-        assert!(!counts.contains_key("legacy-b"));
     }
 }

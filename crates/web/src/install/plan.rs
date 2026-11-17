@@ -68,10 +68,11 @@ impl std::error::Error for PlanError {}
 
 /// Checks a manifest and says what is wrong with it, before any download starts.
 pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
-    // Schema 4 adds attached-entry kinds, relation labels, and two derived index files. The
-    // reader still opens schema-1, schema-2, and schema-3 libraries; a newer library shows the
-    // update route instead of a parse error.
-    if ![1, 2, 3, SCHEMA_VERSION].contains(&manifest.schema_version) {
+    // Schema 4 adds attached-entry kinds, relation labels, and two derived index files; schema 5
+    // adds the member books of each catalog stub. The reader still opens schema-1 to schema-4
+    // libraries (an older stub has one member, its source); a newer library shows the update
+    // route instead of a parse error.
+    if ![1, 2, 3, 4, SCHEMA_VERSION].contains(&manifest.schema_version) {
         return Err(PlanError::SchemaMismatch {
             found: manifest.schema_version,
             expected: SCHEMA_VERSION,
@@ -448,9 +449,9 @@ mod tests {
     }
 
     #[test]
-    fn schema_one_to_three_libraries_remain_readable_during_the_upgrade() {
+    fn schema_one_to_four_libraries_remain_readable_during_the_upgrade() {
         let mut old = manifest();
-        for version in [1, 2, 3] {
+        for version in [1, 2, 3, 4] {
             old.schema_version = version;
             assert_eq!(validate_manifest(&old), Ok(()), "schema {version}");
         }
@@ -461,7 +462,7 @@ mod tests {
     #[test]
     fn a_schema_three_library_opens_and_offers_an_update_rather_than_crashing() {
         // The active library a reader already installed stays usable; the update check compares
-        // the published content version and offers the schema-4 library.
+        // the published content version and offers the current-schema library.
         let mut active = manifest();
         active.schema_version = 3;
         active.content_version = "v0000000000000003".into();

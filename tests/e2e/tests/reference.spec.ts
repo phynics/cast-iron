@@ -4,12 +4,12 @@ import {
   bodyLinks,
   bodyText,
   bookEntryOrder,
-  bookOwners,
   bookTrees,
   corpusEntry,
   firstEntry,
   firstBookPlacement,
   listedChapterTitles,
+  memberBooks,
   groupLetter,
   hasBlock,
   headingAnchors,
@@ -34,10 +34,9 @@ const entries = [...corpus.entries.values()];
 const thirdParty = new Set<string>(
   corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
 );
-const owners = bookOwners();
-/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+/** The catalog rows the default active set shows: every entry with a member book that is not third party. */
 const activeStubs = corpus.catalog.entries.filter(
-  (stub: any) => !thirdParty.has(owners.get(stub.id) ?? stub.source),
+  (stub: any) => memberBooks(stub).some((book) => !thirdParty.has(book)),
 );
 const count = (pred: (s: (typeof corpus.catalog.entries)[number]) => boolean) => activeStubs.filter(pred).length;
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

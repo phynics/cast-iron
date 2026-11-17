@@ -1,8 +1,7 @@
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
-import { bookOwners, groupLetter, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
+import { groupLetter, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
-const owners = bookOwners();
 /**
  * A title the library publishes more than once under distinct books, other than the
  * books-only Rule kind. The library repeats titles that differ by corpus version, so the
@@ -20,8 +19,9 @@ for (const stub of corpus.catalog.entries) {
 const variants = [...groups.values()].find((stubs) => {
   if (stubs.length < 2) return false;
   const bookSources = new Set(corpus.catalog.sources.map((source) => source.id));
-  return stubs.every((stub) => owners.has(stub.id) && bookSources.has(owners.get(stub.id)!))
-    && new Set(stubs.map((stub) => owners.get(stub.id))).size > 1;
+  // Each variant belongs to exactly one book, and the books differ: turning one off hides only it.
+  return stubs.every((stub) => memberBooks(stub).length === 1 && bookSources.has(stub.source))
+    && new Set(stubs.map((stub) => stub.source)).size > 1;
 })!;
 const title = variants[0].title;
 const kind = variants[0].kind;
@@ -43,7 +43,7 @@ test("Source variants retain distinct entries in browse and search after book fi
   await expect(searchGroup).toHaveCount(1);
   await searchGroup.locator("summary").press("Enter");
   for (const stub of variants) await expect(searchGroup.locator(`a[href="#/entry/${stub.id}"]`)).toBeVisible();
-  const disabled = owners.get(variants[0].id) ?? variants[0].source;
+  const disabled = variants[0].source;
   const source = corpus.catalog.sources.find((candidate) => candidate.id === disabled)!;
   await page.goto("#/books/manage");
   await openBookGroups(page);

@@ -186,7 +186,7 @@ impl SearchIndex {
         if !f.kinds.is_empty() && !f.kinds.iter().any(|k| k.eq_ignore_ascii_case(&d.kind)) {
             return false;
         }
-        if !f.sources.is_empty() && !f.sources.iter().any(|s| s.eq_ignore_ascii_case(&d.source)) {
+        if !f.sources.is_empty() && !f.sources.iter().any(|s| self.in_source(ord, s)) {
             return false;
         }
         // Facets are OR within one field and AND across fields. Compare in place: the old
@@ -356,7 +356,7 @@ impl SearchIndex {
         }
         debug_assert!(next_bit <= 64, "too many active filter groups");
 
-        let fail_mask = |doc: &crate::store::DocMeta| {
+        let fail_mask = |ord: u32, doc: &crate::store::DocMeta| {
             let mut fail = 0u64;
             if let Some(bit) = kind_bit
                 && !filters
@@ -370,7 +370,7 @@ impl SearchIndex {
                 && !filters
                     .sources
                     .iter()
-                    .any(|source| source.eq_ignore_ascii_case(&doc.source))
+                    .any(|source| self.in_source(ord as usize, source))
             {
                 fail |= bit;
             }
@@ -395,7 +395,7 @@ impl SearchIndex {
         let mut seen: Vec<(&str, &str)> = Vec::new();
         for ord in base {
             let doc = &self.meta.docs[ord as usize];
-            let fail = fail_mask(doc);
+            let fail = fail_mask(ord, doc);
             if fail == 0 {
                 counts.total += 1;
             }
@@ -404,6 +404,9 @@ impl SearchIndex {
             }
             if fail == 0 || Some(fail) == source_bit {
                 *counts.sources.entry(doc.source.clone()).or_default() += 1;
+                for book in self.extra_sources.get(&ord).into_iter().flatten() {
+                    *counts.sources.entry(book.clone()).or_default() += 1;
+                }
             }
             seen.clear();
             for (field, value) in &doc.facets {

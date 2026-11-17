@@ -1,10 +1,11 @@
 import { test, expect, loadCorpus } from "./fixtures";
 import {
-  bookOwners,
+  bookPlacements,
   bookReadingOrder,
   bookTrees,
   CONTENTS_HIDDEN_KINDS,
   installLibrary,
+  isMember,
   listedChapterTitles,
   listedChapters,
   openBookGroups,
@@ -43,10 +44,9 @@ const monthYear = (date: string | undefined) => {
   const month = match[2] ? Number(match[2]) : 0;
   return month >= 1 && month <= 12 ? `${MONTHS[month - 1]} ${match[1]}` : match[1];
 };
-/** Entries per book as Books counts them: catalog entries by their canonical source (the first book that places them). */
-const owners = bookOwners();
+/** Entries per book as Books counts them: every catalog entry that belongs to the book, one count per member book. */
 const entriesOf = (source: any): number =>
-  corpus.catalog.entries.filter((stub: any) => (owners.get(stub.id) ?? stub.source) === source.id).length;
+  corpus.catalog.entries.filter((stub: any) => isMember(stub, source.id)).length;
 
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
@@ -449,7 +449,7 @@ test("An entry opened from search outside the first active book shows no previou
   const otherBook = sources.find(
     (source) => source.category === "RPG" && source.id !== first.source && !source.third_party,
   )!;
-  const placed = bookOwners();
+  const placed = bookPlacements();
   const other = [...corpus.entries.values()]
     .find((entry) => placed.get(entry.id) === otherBook.id && entry.title.trim().length > 3)!;
   expect(other, "the compiled corpus has an entry outside the first book").toBeTruthy();
@@ -525,7 +525,7 @@ test("A book page links each kind it holds to the kind list filtered to the book
   const expected = kindOrder
     .map(([kind, label]) => {
       const n = corpus.catalog.entries.filter(
-        (stub: any) => stub.kind === kind && (owners.get(stub.id) ?? stub.source) === core.id,
+        (stub: any) => stub.kind === kind && isMember(stub, core.id),
       ).length;
       return { kind, label, n };
     })
