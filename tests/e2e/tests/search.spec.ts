@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { aliasOf, bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { aliasOf, bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickAllOptions, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -893,7 +893,9 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await expect(quickOptions(page)).toHaveText(["Grapple", "fireball"]);
   await expect(quickField(page)).toBeFocused();
 
-  // A highlighted recent search is forgotten with Delete.
+  // A highlighted recent search is forgotten with Delete. The first Down lands on the Quick
+  // reference row, which Delete leaves alone.
+  await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Delete");
@@ -960,7 +962,10 @@ installedTest("Quick search shows Recent searches above Recently viewed, with th
   const viewedTop = (await viewed.first().boundingBox())!.y;
   expect(recentTop).toBeLessThan(viewedTop);
 
-  // Down crosses from the recent searches into Recently viewed; Up returns.
+  // The Quick reference row leads the list, so the first Down lands on it. Down then crosses from
+  // the recent searches into Recently viewed; Up returns.
+  await page.keyboard.press("ArrowDown");
+  await expect(quickAllOptions(page).first()).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("ArrowDown");
   await expect(recent.first()).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("ArrowDown");

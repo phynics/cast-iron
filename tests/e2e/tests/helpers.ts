@@ -227,8 +227,15 @@ export const quickSearch = (page: Page) => page.getByRole("dialog", { name: "Qui
 /** The field of the Quick search layer. */
 export const quickField = (page: Page) => quickSearch(page).locator("#quick-search-input");
 
-/** The rows of the Quick search list: suggestions, or recent and starter searches. */
-export const quickOptions = (page: Page) => quickSearch(page).getByRole("option");
+/**
+ * The rows of the Quick search list: suggestions, or recent and starter searches, and recently
+ * viewed entries. It leaves out the "Quick reference" row, which leads the empty unscoped list.
+ */
+export const quickOptions = (page: Page) =>
+  quickAllOptions(page).and(quickSearch(page).locator(":not(.quick-search-reference)"));
+
+/** Every option of the Quick search list, the "Quick reference" row included. */
+export const quickAllOptions = (page: Page) => quickSearch(page).getByRole("option");
 
 /** The options of one named Quick search group, such as "Recently viewed". */
 export const quickGroup = (page: Page, name: string) =>

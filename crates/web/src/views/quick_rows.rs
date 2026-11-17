@@ -49,7 +49,13 @@ pub enum Row {
     Search(RecentSearch),
     /// A starter search, offered when nothing is recent: runs in the scope the layer has.
     Starter(String),
+    /// "Quick reference": opens `#/quick`. It is a page, not a search, and it is offered only
+    /// while the field is empty and no scope is set.
+    Reference,
 }
+
+/// The muted line under the "Quick reference" row: the page's first three groups.
+pub const REFERENCE_DETAIL: &str = "Conditions · Actions · Combat modifiers";
 
 /// Resolves the stored visits into the rows to show. `resolve` maps a stored id to the entry it
 /// now opens, following an alias and dropping anything that no longer resolves. Two stored ids
@@ -72,6 +78,7 @@ pub fn visible_viewed(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GroupKind {
     Suggestions,
+    Reference,
     Recent,
     Starters,
     Viewed,
@@ -82,6 +89,7 @@ impl GroupKind {
     pub fn label(self) -> &'static str {
         match self {
             Self::Suggestions => "Suggestions",
+            Self::Reference => "Reference",
             Self::Recent => "Recent searches",
             Self::Starters => "Try searching for",
             Self::Viewed => "Recently viewed",
@@ -92,6 +100,7 @@ impl GroupKind {
     pub fn slug(self) -> &'static str {
         match self {
             Self::Suggestions => "suggestions",
+            Self::Reference => "reference",
             Self::Recent => "recent",
             Self::Starters => "starters",
             Self::Viewed => "viewed",
@@ -142,8 +151,10 @@ impl List {
 }
 
 /// The rows for the field's text: suggestions, then a "Did you mean" row when the search engine
-/// offered a correction, then a final "See all" row while the reader has typed something, otherwise the recent searches (or the starter searches when none) and then
-/// the recently viewed entries. The Continue row leads Recently viewed and counts toward the cap.
+/// offered a correction, then a final "See all" row while the reader has typed something. With an
+/// empty field the list opens with the "Quick reference" row when `reference` is set (the layer
+/// has no scope), then the recent searches (or the starter searches when none) and then the
+/// recently viewed entries. The Continue row leads Recently viewed and counts toward the cap.
 #[allow(clippy::too_many_arguments)]
 pub fn list(
     text: &str,
@@ -154,6 +165,7 @@ pub fn list(
     continue_row: Option<ViewedRow>,
     viewed: &[ViewedRow],
     viewed_expanded: bool,
+    reference: bool,
 ) -> List {
     let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
     if !text.is_empty() {
@@ -170,6 +182,12 @@ pub fn list(
         };
     }
     let mut groups = Vec::new();
+    if reference {
+        groups.push(Group {
+            kind: GroupKind::Reference,
+            rows: vec![Row::Reference],
+        });
+    }
     let searches: Vec<Row> = if recents.is_empty() {
         starters
             .iter()
@@ -284,7 +302,7 @@ pub fn step(active: Option<usize>, len: usize, down: bool) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    /// The rows for a field's text, with no correction offered.
+    /// The rows for a field's text, with no correction offered and no Quick reference row.
     fn build(
         text: &str,
         suggestions: &[Suggestion],
@@ -303,6 +321,7 @@ mod tests {
             continue_row,
             viewed,
             viewed_expanded,
+            false,
         )
     }
     use super::*;
@@ -425,6 +444,7 @@ mod tests {
                 None,
                 &[],
                 false,
+                false,
             )
         };
         assert_eq!(
@@ -443,7 +463,7 @@ mod tests {
             ]
         );
         // An empty field never shows one, whatever is passed.
-        let empty = super::list("", &[], Some("x"), &[], &[], None, &[], false);
+        let empty = super::list("", &[], Some("x"), &[], &[], None, &[], false, false);
         assert!(empty.is_empty());
     }
 
@@ -510,6 +530,42 @@ mod tests {
                 Row::Starter("fireball".to_owned())
             ]
         );
+    }
+
+    #[test]
+    fn the_reference_row_leads_an_empty_unscoped_list_and_nothing_else_does() {
+        let recents = [RecentSearch::new("grapple", None)];
+        let with = |text: &str, reference: bool| {
+            super::list(
+                text,
+                &[suggestion("Fireball")],
+                None,
+                &recents,
+                &["dragon"],
+                None,
+                &[viewed(1)],
+                false,
+                reference,
+            )
+        };
+        let list = with("", true);
+        assert_eq!(list.groups[0].kind, GroupKind::Reference);
+        assert_eq!(list.groups[0].rows, [Row::Reference]);
+        // Down from the field reaches it first; the other rows keep their order after it.
+        assert_eq!(list.row(0), Some(&Row::Reference));
+        assert_eq!(list.row(1), Some(&Row::Search(recents[0].clone())));
+        assert_eq!(list.len(), 3);
+        assert!(!list.is_typing());
+        // A scope removes it, and so does typed text.
+        assert_eq!(with("", false).len(), 2);
+        let typed = with("fire", true);
+        assert!(typed.is_typing());
+        assert!(!typed.groups.iter().any(|g| g.kind == GroupKind::Reference));
+        // Whitespace is not text.
+        assert_eq!(with("  ", true).groups[0].kind, GroupKind::Reference);
+        // With nothing else stored it is the only row.
+        let alone = super::list("", &[], None, &[], &[], None, &[], false, true);
+        assert_eq!(alone.len(), 1);
     }
 
     #[test]
