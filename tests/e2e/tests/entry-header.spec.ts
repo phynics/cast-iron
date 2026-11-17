@@ -136,3 +136,23 @@ test("A label has no border and cannot be mistaken for a link", async ({ page })
   expect(style.radius).toBe("0px");
   expect(style.cursor).not.toBe("pointer");
 });
+
+// #446: the References panel spans from the contents row to the book row of the entry grid. A
+// spanning item shares its extra height equally among the auto rows it crosses, so the empty
+// contents row grew to about 200px above a short item entry. Only the slack row may grow.
+test("A short item entry has no blank band between the header and its text at desktop width", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  for (const id of ["ref/eq-weapon/longsword", "ref/eq-weapon/dagger", "ref/eq-armor/chain-shirt"]) {
+    const entry = corpus.entries.get(id);
+    expect(entry, `${id} is in the corpus`).toBeTruthy();
+    await page.goto(`#/entry/${id}`);
+    await expect(page.getByRole("heading", { level: 1, name: entry!.title })).toBeVisible();
+    const head = (await page.locator(".entry > .entry-head").boundingBox())!;
+    const body = (await page.locator(".entry > .rich").first().boundingBox())!;
+    const refs = (await page.locator(".entry > .entry-refs").boundingBox())!;
+    // The body starts a normal paragraph gap under the header, whatever the panel's height.
+    expect(body.y - (head.y + head.height), `${id}: gap under the header`).toBeLessThan(48);
+    // The panel sits beside the body, level with it.
+    expect(Math.abs(refs.y - body.y), `${id}: panel and body tops`).toBeLessThan(48);
+  }
+});

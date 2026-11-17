@@ -148,6 +148,13 @@ display title and links to its book page, `#/browse/book/<id>`, when the library
 related panels. An entry without rows keeps whatever `Sources:` paragraph its body already prints,
 so an unconverted entry and a converted one read the same.
 
+**The `Expanded in:` credit line (#460)** sits directly under the `Sources:` line, in the same muted Metadata role (`.expanded-line`), and only when the entry has `expanded_in` rows: `Expanded in: Monster Summoner's Handbook p. 18`. It credits a book that expands the entry without printing it, so it is never a membership: the metadata line and the book counts do not change.
+- Each credit is one `.expanded-credit`, joined by `; `. The book title links to its book page (plain text when the library has no book pages). `p. {page}` is plain text, and a credit without a page prints the title alone.
+- A `via` entry turns the page number into a link to that entry, only while the entry is visible under the reader's active books. A hidden or unknown `via` entry leaves plain text; no credit ever links to a hidden entry.
+- A credit from a book the reader turned off is dimmed (`data-inactive="true"`) with the `--ink-dim` colour token for its text and both links, never with opacity (an accent link under opacity measured 4.2:1 in the light theme). `--ink-dim` measures 4.76:1 in the light theme and 5.64:1 in the dark one against the page ground. The credit ends with the `Inactive` Label (`.tag`), so the state never rests on dimming alone. The title still links to the book page, as a book row on Books does.
+- A revision in force does not replace the credits like it replaces citations: the base's credits stay, then the revision's own, each once.
+- At 64 rem and wider the line owns the grid row `expanded` between `sources` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
+
 **The base page,** after the body, in this order:
 
 - each mythic version: an `h2` `Mythic`, the add-on's title as an `h3` link, its text expanded, then its own muted `Sources` line;
