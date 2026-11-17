@@ -1,7 +1,7 @@
 {
  "script": "tests/e2e/diagnose-masthead.mjs",
  "build": {
-  "commit": "8d45b9d6b0621b9c8912191f2f8183ba11932716",
+  "commit": "a4fe3e6bc25df7482c714efb80e3acead29ade58",
   "source_dirty": false,
   "shell_version": "ea714651ab69553d",
   "content_version": "veada5093fd101aa3",
@@ -10,6 +10,9 @@
   "entry_count": 31800,
   "dist": "dist"
  },
+ "engine": "chromium",
+ "browser_version": "156.0.8078.4",
+ "theme": "light",
  "summary": {
   "viewport @ scroll 0": {
    "with": 4,
@@ -78,6 +81,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "phone-search-scroll0-viewport.png",
+   "png_sha256": "a636caeee7c81a9da40c76787659fa89094c1e1476bcab8e3dadc6c2e0dcaff9",
+   "png_bytes": 82016,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -90,7 +124,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -127,7 +161,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "phone-search-scroll0-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "c5e937ab485d0aa33763ce38a9212b366c0e1dd217ed01d6127289834c7f95a7",
+   "png_bytes": 421134,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -140,7 +205,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -177,6 +242,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "2a7113c132ccc4ef857fcaa190f6137a3c2ed4c82a1c7ffa42285e73f78fcd51",
+   "png_bytes": 709067,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -189,7 +285,7 @@
     "brand_ink_share": 1,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -226,6 +322,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "phone-search-scroll1500-viewport.png",
+   "png_sha256": "1cccde4138fcab8a98bce0d4e23272f8d53514a0335687f7d87f702b075e8a33",
+   "png_bytes": 89074,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -238,7 +365,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -275,7 +402,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "phone-search-scroll1500-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "d45c08f1a86a603d3c76ff1a8625bb839055fe44473b0329af34700b8fd3e4ac",
+   "png_bytes": 415335,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -287,9 +445,9 @@
     "bottom_border_colour": "244,239,230",
     "brand_ink_share": 0,
     "masthead_in_frame": false,
-    "found_at_y": 2340
+    "found_at_y": 2921
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -326,6 +484,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "d58a65e09dfab73cec8b7d3064834425c3ff2689cade7968ef1a37cba5dae84d",
+   "png_bytes": 704442,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -338,7 +527,7 @@
     "brand_ink_share": 1,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -375,6 +564,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "phone-class-scroll0-viewport.png",
+   "png_sha256": "8a243024a4d2d4ead05b20c4dc4d83a914af131c90d009cd8f8ca8083b473ec3",
+   "png_bytes": 70361,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -387,7 +607,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -424,7 +644,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "phone-class-scroll0-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "a90d74117aa390ff53e8fe11918cdaeb33e76bbcc2760bbf544111e0203c4351",
+   "png_bytes": 344037,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -437,7 +688,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -474,6 +725,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "f1b8f2e68a6617d1e1974ff88cbea1a5d70e782de9e484978e4eafceaae49f44",
+   "png_bytes": 3230665,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -486,7 +768,7 @@
     "brand_ink_share": 0.082,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -523,6 +805,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "phone-class-scroll1500-viewport.png",
+   "png_sha256": "974244e18a4cdea27798f2f90e5868ffe81ae737da6a37bf9888163f2e8c94dd",
+   "png_bytes": 57331,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -535,7 +848,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -572,7 +885,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "phone-class-scroll1500-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "5ca0464cfc14ea5485ace359fc4f7913ab31309f4762ddd8e0d49017e911525f",
+   "png_bytes": 337870,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -586,7 +930,7 @@
     "masthead_in_frame": false,
     "found_at_y": null
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -623,6 +967,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "1dfba8d9c3ca56747e334d567aab10c9f02828e0caecb9b1dfab5029293d2d51",
+   "png_bytes": 3223963,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 390,
+     "height": 844
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 390,
@@ -635,7 +1010,7 @@
     "brand_ink_share": 0.082,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -672,6 +1047,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "desktop-search-scroll0-viewport.png",
+   "png_sha256": "ef1b26c509b9d04cbc0ad75ce9bbf1f0635c3b3cf80d5801e48b89c001b712ca",
+   "png_bytes": 175038,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -684,7 +1090,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -721,7 +1127,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "desktop-search-scroll0-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "fd20cc8f67d5ed8a28bacca6e4f606d62a5b1efed474300b0f9544b8e3842048",
+   "png_bytes": 646157,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -734,7 +1171,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -771,6 +1208,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "677b88f28b9157b6ddd2aedd25618a64b28a9a45f1509d229a8b1f69c2c6f479",
+   "png_bytes": 1007140,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1056,
@@ -783,7 +1251,7 @@
     "brand_ink_share": 1,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -820,6 +1288,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "desktop-search-scroll1500-viewport.png",
+   "png_sha256": "9d6f2c88097b425a715f0326cd19dc5e03d5d98b956ff14b59b6c42197eae0a9",
+   "png_bytes": 197350,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -832,7 +1331,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -869,7 +1368,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "desktop-search-scroll1500-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "d3ae5a635b47af0e29ca7bc8ad1526183c85a4e1bf59c54ad39bc221ffd7dcb1",
+   "png_bytes": 641826,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -883,7 +1413,7 @@
     "masthead_in_frame": false,
     "found_at_y": 1500
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -920,6 +1450,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "551b07a54902efe5c3b0c6f0c0204054cef8afde9b43fa84ddd58f440f7ea3be",
+   "png_bytes": 1010003,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/search?q=grapple",
+    "title": "Search",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".results .hit-link:visible",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/search?q=grapple",
+     "title": "Search"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1056,
@@ -932,7 +1493,7 @@
     "brand_ink_share": 1,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -969,6 +1530,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "desktop-class-scroll0-viewport.png",
+   "png_sha256": "52ee2a356294ee363750185e18e1dc06a9b842cda3d0144f3c55ff7db1e2efd9",
+   "png_bytes": 135596,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -981,7 +1573,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -1018,7 +1610,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "desktop-class-scroll0-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "ad93b59bfcb00a0fb858af6d93640efc2f6390cb00dde78700eee044cbdbdcc4",
+   "png_bytes": 636646,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -1031,7 +1654,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -1068,6 +1691,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "4fa7939ce584f37651875c4ce11c4b27f2e83157e762e02b561f955f94dea203",
+   "png_bytes": 3518812,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 0,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1056,
@@ -1080,7 +1734,7 @@
     "brand_ink_share": 0.007,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -1117,6 +1771,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "viewport",
    "file": "desktop-class-scroll1500-viewport.png",
+   "png_sha256": "ddbdc5acc9529b5ddfe7f506d71d3307becf711170a7d7aca701299ee1303eed",
+   "png_bytes": 135529,
+   "frame_saved": true,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -1129,7 +1814,7 @@
     "brand_ink_share": 0.161,
     "masthead_in_frame": true
    },
-   "masthead_in_saved_frame": true
+   "masthead_in_frame": true
   },
   {
    "viewport": {
@@ -1166,7 +1851,38 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "full-page",
    "file": "desktop-class-scroll1500-full-page.png",
-   "frame_note": "analysed over the first 4000 rows; the saved image is the first 300",
+   "png_sha256": "ccbfd19c5ad0f9cb3f5df40fd240e1368d8b6e25987a46b9a39a94bd2492fc75",
+   "png_bytes": 623598,
+   "frame_saved": true,
+   "frame_note": "the saved image is the first 4000 rows of the full-page frame, and those saved bytes are what was probed",
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1280,
@@ -1180,7 +1896,7 @@
     "masthead_in_frame": false,
     "found_at_y": 1500
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   },
   {
    "viewport": {
@@ -1217,6 +1933,37 @@
    "hit_at_header_centre": "header.app-header",
    "capture_mode": "element <main>",
    "file": null,
+   "png_sha256": "465696d353d5a4ef5165e8737f409cdf1278be5e16c2b5c8cf0a85ca8ac6b3d6",
+   "png_bytes": 3513125,
+   "frame_saved": false,
+   "theme": "light",
+   "page_facts": {
+    "engine": "chromium",
+    "browser_version": "156.0.8078.4",
+    "theme_applied": "light",
+    "data_theme": null,
+    "device_pixel_ratio": 1,
+    "inner_size": {
+     "width": 1280,
+     "height": 900
+    },
+    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+   },
+   "settled": {
+    "ready_selector": null,
+    "fonts": "loaded",
+    "running_animations": 0,
+    "url_hash": "#/entry/ref/class/fighter",
+    "title": "Fighter",
+    "after_scroll_to": 1500,
+    "page_settle": {
+     "ready_selector": ".entry > .rich",
+     "fonts": "loaded",
+     "running_animations": 0,
+     "url_hash": "#/entry/ref/class/fighter",
+     "title": "Fighter"
+    }
+   },
    "frame": {
     "frame": {
      "width": 1056,
@@ -1229,7 +1976,7 @@
     "brand_ink_share": 0.007,
     "masthead_in_frame": false
    },
-   "masthead_in_saved_frame": false
+   "masthead_in_frame": false
   }
  ]
 }

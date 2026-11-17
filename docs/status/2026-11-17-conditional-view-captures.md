@@ -48,7 +48,7 @@ The council scores these views; these notes only record what the frames show, so
 
 ## The masthead discrepancy
 
-The audit saw Chromium frames with no top masthead although the measurement before the shot said the header was at y=0 and 61 px tall. [diagnose-masthead.mjs](../../tests/e2e/diagnose-masthead.mjs) takes the same pages (search results and the Fighter class page) at scroll 0 and 1500, in three capture modes, on phone and desktop, and records scroll position, focus, header bounds and computed style, the element at the header's centre, and what the saved frame shows. The frame is read back from the PNG and the masthead must be there as pixels (header background, an unbroken bottom border, ink on the brand), not only in the DOM. Data: [448-masthead-diagnosis.json](../research/capture-evidence/448-masthead-diagnosis.json).
+The audit saw Chromium frames with no top masthead although the measurement before the shot said the header was at y=0 and 61 px tall. [diagnose-masthead.mjs](../../tests/e2e/diagnose-masthead.mjs) takes the same pages (search results and the Fighter class page) at scroll 0 and 1500, in three capture modes, on phone and desktop, and records scroll position, focus, header bounds and computed style, the element at the header's centre, and what the saved frame shows. Each probed PNG is the exact bytes written to disk (the saved file is read back and probed, and its SHA-256 is in the row; an element frame of a long page is probed from its buffer and not saved, and its row says `frame_saved: false`). The masthead must be there as pixels (header background, an unbroken bottom border, ink on the brand), not only in the DOM. Every row also records engine and version, theme and the settled state. The diagnosis manifest's `build.commit` is the PR commit at the time of the run; `dist/` was built from `8d45b9d6b` and nothing under `crates/`, `web/` or `sources/` differs between them (`source_dirty` is false). Data: [448-masthead-diagnosis.json](../research/capture-evidence/448-masthead-diagnosis.json).
 
 | Capture mode | Scroll 0 | Scroll above 0 |
 |---|---|---|
@@ -72,4 +72,4 @@ In every one of the 24 rows `getBoundingClientRect()` says y=0, height 61, `posi
 
 ## Where the images are
 
-The images are not committed. They live in a comment on #448; the JSON manifests above stay in the repository. See [the decision](../decisions/2026-11-17-capture-evidence-manifests-in-the-repo-images-on-the-issue.md).
+The images are not committed. Attaching them to a comment on #448 is still pending; until then they exist only as local generated files. The JSON manifests above are in the repository. See [the decision](../decisions/2026-11-17-capture-evidence-manifests-in-the-repo-images-on-the-issue.md).

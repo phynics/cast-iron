@@ -17,7 +17,8 @@
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { VIEWPORTS, buildProvenance, copyProfile, dist, installLibrary, probeFrame, probeMasthead, settle, waitControlled } from './capture-lib.mjs';
+import { createHash } from 'node:crypto';
+import { VIEWPORTS, buildProvenance, copyProfile, dist, installLibrary, pageFacts, probeFrame, probeMasthead, settle, waitControlled } from './capture-lib.mjs';
 import { startServer } from './server.mjs';
 import os from 'node:os';
 
@@ -30,8 +31,13 @@ const PAGES = [
   { name: 'class', hash: '#/entry/core-rulebook/classes/fighter', ready: '.entry > .rich' },
 ];
 const SCROLLS = [0, 1500];
-const CROP = 300;
 const ANALYSE = 4000;
+
+const THEME = 'light';
+// A persistent context has no browser object, so ask a throwaway launch for the engine version.
+const probeBrowser = await chromium.launch();
+const browserVersion = probeBrowser.version();
+await probeBrowser.close();
 
 const { server } = await startServer({ dist, port });
 const installedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cast-iron-masthead-installed-'));
@@ -45,43 +51,39 @@ try {
 
   for (const [viewportName, size] of Object.entries(VIEWPORTS)) {
     const copy = copyProfile(installedDir);
-    const context = await chromium.launchPersistentContext(copy.dir, { baseURL, viewport: size, serviceWorkers: 'allow', isMobile: viewportName === 'phone', hasTouch: viewportName === 'phone' });
+    const context = await chromium.launchPersistentContext(copy.dir, { baseURL, viewport: size, colorScheme: THEME, serviceWorkers: 'allow', isMobile: viewportName === 'phone', hasTouch: viewportName === 'phone' });
     try {
       const page = context.pages()[0] ?? await context.newPage();
       const probePage = await context.newPage();
       await probePage.goto('about:blank');
       for (const target of PAGES) {
         await page.goto(target.hash);
-        await settle(page, target.ready);
+        const pageSettled = await settle(page, target.ready);
         for (const scrollTo of SCROLLS) {
           await page.evaluate(y => window.scrollTo(0, y), scrollTo);
-          await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+          const settled = { ...await settle(page, null), after_scroll_to: scrollTo, page_settle: pageSettled };
+          const facts = await pageFacts(page, { version: () => browserVersion }, { engine: 'chromium' });
           const masthead = await probeMasthead(page);
           const sticky = await page.evaluate(() => {
             const header = document.querySelector('header.app-header');
             const parent = header?.parentElement;
             return parent ? { parent: `${parent.tagName.toLowerCase()}${parent.className ? '.' + String(parent.className).trim().split(/\s+/).join('.') : ''}`, parent_height: parent.getBoundingClientRect().height } : null;
           });
-          // Three capture modes. A full-page frame is read back over its first ANALYSE rows with a
-          // scan: if the masthead is not where the DOM puts it, where is it? The saved image is the
-          // top CROP rows of the same frame, which is what a reviewer sees at the top of the shot.
+          // Three capture modes. The probe reads the exact bytes that were written to disk: the
+          // buffer is saved, and the saved file is read back and probed (an element frame of a long
+          // page is probed from its buffer and not saved, and the row says so). A full-page frame is
+          // scanned over its first ANALYSE rows: if the masthead is not where the DOM puts it, where is it?
           const shots = [
-            { mode: 'viewport', analyse: () => page.screenshot(), save: png => png, scan: false },
-            {
-              mode: 'full-page',
-              analyse: () => page.screenshot({ fullPage: true, clip: { x: 0, y: 0, width: size.width, height: ANALYSE } }),
-              save: () => page.screenshot({ fullPage: true, clip: { x: 0, y: 0, width: size.width, height: CROP } }),
-              scan: true,
-            },
-            { mode: 'element <main>', analyse: () => page.locator('main').screenshot(), save: null, scan: false },
+            { mode: 'viewport', take: () => page.screenshot(), save: true, scan: false },
+            { mode: 'full-page', take: () => page.screenshot({ fullPage: true, clip: { x: 0, y: 0, width: size.width, height: ANALYSE } }), save: true, scan: true },
+            { mode: 'element <main>', take: () => page.locator('main').screenshot(), save: false, scan: false },
           ];
           for (const shot of shots) {
-            const png = await shot.analyse();
-            const frame = await probeFrame(probePage, png, masthead, { offsetY: 0, scan: shot.scan });
+            const taken = await shot.take();
             const file = `${viewportName}-${target.name}-scroll${Math.round(masthead.scroll_y)}-${shot.mode.replace(/[^a-z0-9]+/gi, '-').replace(/-$/, '')}.png`;
-            // Keep the evidence small: an element frame of a long page is read back but not saved.
-            const saved = shot.save ? await shot.save(png) : null;
-            if (saved) fs.writeFileSync(path.join(out, file), saved);
+            if (shot.save) fs.writeFileSync(path.join(out, file), taken);
+            const png = shot.save ? fs.readFileSync(path.join(out, file)) : taken;
+            const frame = await probeFrame(probePage, png, masthead, { offsetY: 0, scan: shot.scan });
             rows.push({
               viewport: { name: viewportName, ...size },
               page: target.name,
@@ -94,10 +96,16 @@ try {
               header_sticky_parent: sticky,
               hit_at_header_centre: masthead.hit_at_header_centre,
               capture_mode: shot.mode,
-              file: saved ? file : null,
-              frame_note: shot.mode === 'full-page' ? `analysed over the first ${ANALYSE} rows; the saved image is the first ${CROP}` : undefined,
+              file: shot.save ? file : null,
+              png_sha256: createHash('sha256').update(png).digest('hex'),
+              png_bytes: png.length,
+              frame_saved: shot.save,
+              ...(shot.mode === 'full-page' ? { frame_note: `the saved image is the first ${ANALYSE} rows of the full-page frame, and those saved bytes are what was probed` } : {}),
+              theme: THEME,
+              page_facts: facts,
+              settled,
               frame,
-              masthead_in_saved_frame: frame.masthead_in_frame,
+              masthead_in_frame: frame.masthead_in_frame,
             });
           }
         }
@@ -117,10 +125,10 @@ const summary = new Map();
 for (const row of rows) {
   const key = `${row.capture_mode} @ scroll ${row.scroll_y > 0 ? '>0' : '0'}`;
   const entry = summary.get(key) ?? { with: 0, without: 0, dom_says_y0: 0 };
-  row.masthead_in_saved_frame ? entry.with++ : entry.without++;
+  row.masthead_in_frame ? entry.with++ : entry.without++;
   if (row.header_bounds?.y === 0) entry.dom_says_y0++;
   summary.set(key, entry);
 }
-const report = { script: 'tests/e2e/diagnose-masthead.mjs', build: buildProvenance(), summary: Object.fromEntries(summary), rows };
+const report = { script: 'tests/e2e/diagnose-masthead.mjs', build: buildProvenance(), engine: 'chromium', browser_version: browserVersion, theme: THEME, summary: Object.fromEntries(summary), rows };
 fs.writeFileSync(path.join(out, 'masthead-diagnosis.json'), JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report.summary, null, 2));
