@@ -1158,6 +1158,11 @@ for (const width of [390, 1280]) {
       await expect(link).toBeVisible();
       await expect(link).toHaveText(entry.title);
     }
+    // A class-option row first shows its book alone; the group prefix arrives when the group
+    // index loads. Measure only once a long, complete label has replaced the short one.
+    await expect(
+      page.locator(`.entry-list > li:has(> a[href="#/entry/${long[1].id}"]) > .row-source`),
+    ).toHaveText("Psychic discipline · Occult Adventures");
     const list = "#letter-A .entry-list";
     // Every row of the group: the 177 titles and their muted group and book lines.
     expect(await splitWords(page, list)).toEqual([]);
