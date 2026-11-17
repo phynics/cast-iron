@@ -84,6 +84,11 @@ Behaviour a reader sees:
   lands; that is presentation, and it hides nothing. Contents counts are not membership counts even
   after #420: Contents also leaves out the hidden kinds and the catch-all, and a placement inside a
   member book does not make the two lists equal.
+- Corpus v0.1.24 (#440): every placement lies inside the entry's `source_ids` (39,159 placements, none
+  outside, checked on the compiled library). Retired book ids keep working with membership: a
+  `source=` filter on a list or search address maps a retired id (`aliased_book_source`) to the book
+  that holds its entries, because membership matches the ids in `source_ids`; `?book=` and the
+  book routes already did. A one-off tree id stays as typed and finds nothing.
 - Interaction with #420: the corpus fix removes placements outside `source_ids`. It does not need
   this change and this change does not need it. Placements then lie inside the member books, which
   is a subset of membership, not equality with it.
