@@ -162,9 +162,15 @@ When device automation tools are available, open the device with its host and de
 
 ## Capture a UI verification batch
 
-After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes measurements for overflow, alphabet and spell-level target sizes, selected scope colors, and console errors. Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
+After building, run `node tests/e2e/capture-ui.mjs /tmp/cast-iron-ui-check`. It starts and stops its own distribution server on port 4399, installs the library in fresh browser contexts, and records desktop and mobile screens in both themes. It writes the PNGs, `measurements.json` (overflow, alphabet and spell-level target sizes, selected scope colors, console errors) and `manifest.json` (provenance: commit, shell and content version, corpus tag, engine, viewport, theme, settled state, masthead probe). Open representative PNGs to inspect them. `--search-only` limits capture to settled search states.
+
+Its fixtures follow the corpus and the app, not fixed names: the source-variants title comes from the compiled catalog and must render as a disclosure, and the Books page is opened through its tiers and a book row. When a screen changes, fix the script; a failed wait is a stale fixture until proven otherwise.
+
+Conditional views (the storage failure before the reader starts, a pending app-shell update, a pending library update, both together, and the iOS Add to Home Screen guide) have their own script: `node tests/e2e/capture-conditional.mjs <out-dir> [--only=<group>,...]`. It uses port 4398 and the test server's hooks, takes phone (390×844) and desktop (1280×900) in both themes, and labels the iOS frames as WebKit engine simulation, never as device evidence. Results of the first run: `docs/status/2026-11-17-conditional-view-captures.md`.
 
 Wait for both selected scope and result kinds before treating a screenshot as filter evidence. A screenshot taken immediately after a click can still show the previous state. Article contents tests must also click a heading whose URL is already current, since no hashchange event occurs in that case.
+
+The masthead is `position: sticky`. Take viewport shots. A full-page shot of a scrolled page has no masthead at the top of the image, and `getBoundingClientRect()` still says y=0, so a DOM measurement does not prove the frame shows it. `capture-lib.mjs` reads each saved PNG back and warns when the masthead is missing; `node tests/e2e/diagnose-masthead.mjs <out-dir>` reproduces the artifact. Keep capture sets out of the repository: commit the manifest, attach the images to the issue.
 
 ## Remaining physical iPhone acceptance
 
