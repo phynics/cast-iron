@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { TeardownWindow } from "./teardown-window";
 
 export { expect };
 export type { BrowserContext, Page };
@@ -183,8 +184,8 @@ const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 class Guard {
   console: string[] = [];
   external: string[] = [];
-  /** WebKit teardown errors that were not counted (see `watch`). */
-  teardown = 0;
+  /** WebKit teardown errors that were not counted, with the navigation they arrived in (see `watch`). */
+  teardown: string[] = [];
   private allowed: RegExp[] = [];
   /** Tolerate console errors that match, for tests that cause an error on purpose. */
   allow(pattern: RegExp) {
@@ -199,21 +200,25 @@ class Guard {
       page.on("console", (m) => {
         if (m.type() === "error") this.console.push(`console.error: ${m.text()} (${page.url()})`);
       });
-      // WebKit reports "Context is stopped" as a page error when it tears down a document that a
-      // service worker controls, whatever that document does (docs/decisions/2026-11-17-webkit-
-      // context-stopped-at-teardown.md). The error arrives while the page navigates away: after
-      // the navigation request starts and before the next page's `load`. An error outside that
-      // window still counts.
-      let navigating = false;
+      // WebKit reports "Context is stopped" as a page error while it tears down a document that a
+      // service worker controls (docs/decisions/2026-11-17-webkit-context-stopped-at-teardown.md).
+      // It is tolerated only from the main frame's navigation request until the new document
+      // commits or the navigation fails (`TeardownWindow`). The same message at any other time
+      // still fails the test, and each tolerated one is recorded in `teardown`.
+      const teardownWindow = new TeardownWindow();
       page.on("request", (r) => {
-        if (r.isNavigationRequest() && r.frame() === page.mainFrame()) navigating = true;
+        if (r.isNavigationRequest() && r.frame() === page.mainFrame()) teardownWindow.begin(r, r.url());
       });
-      page.on("load", () => {
-        navigating = false;
+      page.on("requestfailed", (r) => {
+        if (r.isNavigationRequest() && r.frame() === page.mainFrame()) teardownWindow.fail(r);
+      });
+      page.on("framenavigated", (f) => {
+        if (f === page.mainFrame()) teardownWindow.commit();
       });
       page.on("pageerror", (e) => {
-        if (navigating && e.message === "Context is stopped" && page.context().browser()?.browserType().name() === "webkit") {
-          this.teardown++;
+        const navigating = teardownWindow.navigating;
+        if (navigating !== null && e.message === "Context is stopped" && page.context().browser()?.browserType().name() === "webkit") {
+          this.teardown.push(`${e.message} while navigating to ${navigating}`);
           return;
         }
         this.console.push(`pageerror: ${e.message}`);
@@ -266,9 +271,11 @@ export const test = base.extend<Fixtures & { _auto: void }, { serverOrigin: stri
     await use(server);
     await server.reset();
   },
-  guard: async ({}, use) => {
+  guard: async ({}, use, testInfo) => {
     const guard = new Guard();
     await use(guard);
+    // The tolerated WebKit teardown errors stay reviewable in the report and the CI log.
+    for (const line of guard.teardown) testInfo.annotations.push({ type: "webkit-teardown-error", description: line });
     expect(guard.problems(), "console errors, CSP violations or third-party requests").toEqual([]);
   },
   // Every context gets the guard, including the default one.
