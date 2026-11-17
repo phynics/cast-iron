@@ -5,6 +5,8 @@
 //! snippet text, so the display refactor can change materialization without
 //! reordering results. When the corpus version differs the test skips: the
 //! golden is evidence for the build where it was captured, not for later data.
+//! It is an optional extra. `synthetic_ranking.rs` pins ranking on a checked-in corpus and
+//! always runs.
 
 use cast_iron_search::{Query, SearchIndex};
 use std::path::{Path, PathBuf};
