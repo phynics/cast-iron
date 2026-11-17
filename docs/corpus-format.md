@@ -104,6 +104,7 @@ class level and the full body below.
 | `license_refs` | array of strings | Omitted when it equals `[defaults] license_refs` in `corpus.toml` (today `["ogl-1.0a", "legal#community-use"]`). Written only for an entry that differs; an empty list is written as `license_refs = []`. Each value is a licence id from `legal.toml`, or `legal#community-use`. |
 | `relations` | array of tables | `kind` (`part`, `archetype`, `prerequisite`, `variant`, `addon`, `revision`), `target`, and an optional `label`. Labels are closed per kind: `or` on `prerequisite`; `alternate` on `part`; exactly one of `mythic`, `stamina`, `changes` on `addon`; none, `removed`, or `merged` on `revision`; none on `variant` and `archetype`. A feat's prerequisite relations are **derived** from `prerequisite_feats`, one per listed feat, in list order, so they are not stored. Only a prerequisite that the list cannot state stays here: one with a `label` (`or`) or one whose target is not in the list. |
 | `sources` | repeated `[[sources]]` table | Optional. One row per printed citation, in print order. `publication` is a publication id that must also appear in `source_ids`; `page` is optional. See [`[[sources]]`](#sources). |
+| `expanded_in` | repeated `[[expanded_in]]` table | Optional. A book that expands the entry without printing it: `publication` (must not be in `source_ids`), optional `page`, optional `via` entry id. Never membership. See [`[[expanded_in]]`](#expanded_in). |
 
 ### `[[sources]]`
 
@@ -127,6 +128,31 @@ filtering uses. `page` is optional. It is a string, not a number, because printe
 not always one number: `"12-14"`, `"263-4"` and `"inside cover"` all occur. The writer puts
 the rows in list order and leaves `page` out when the citation has none.
 
+### `[[expanded_in]]`
+
+A credit for a book that expands an entry without printing it, for when the expanding text
+has no entry of its own. It is **not** membership: the book is not in `source_ids`, and
+membership, counts, filters, search extra sources and page order never read the rows. When the
+expanding text has its own entry, use a relation (`variant`, `addon`) instead.
+
+```toml
+[[expanded_in]]
+publication = "monster-summoners-handbook"
+page = "18"
+via = "ref/spell/summon-monster-ii"
+```
+
+`publication` is required. `page` is optional and a string, as in `[[sources]]`. `via` is optional
+and is an entry id. The rows follow `[[sources]]` in the header, in list order, with the keys in
+the order shown; the writer leaves out an absent `page` or `via`. `corpus-check` requires that:
+
+- the publication exists in `publications.toml`;
+- the publication is not in the entry's `source_ids`;
+- `via` resolves to an entry whose `source_ids` include the publication.
+
+The compiler carries the rows to the client as the optional `expanded_in` entry field. It is
+additive, so the schema version does not change.
+
 ### Typed fields
 
 `[fields]` always has `kind`. It adds only the keys of that kind, in schema
@@ -141,27 +167,65 @@ order:
 | `class` | `class_type`, `hit_die`, `skill_ranks`, `class_skills` |
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
-| `archetype` | `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
-| `class_option` | `group` (required slug from `option-groups.toml`), `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the group's class entries, in print order) |
+| `archetype` | `trades` (format 2; see [Trades](#trades)). Format 1: `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
+| `class_option` | `group` (required slug from `option-groups.toml`), then the same trade keys as `archetype`, with the group's classes as the base classes |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
 printed fraction (`1/2`, `1/8`) or a whole number. `abilities` is six strings in
 STR, DEX, CON, INT, WIS, CHA order, with `-` where none applies.
 
-`replaces_features` and `alters_features` are optional. They hold the heading
-anchors of the class entry whose feature a printed name in `replaces` or
-`alters` reaches. An archetype's class is its `archetype` relation target; a
-class option's classes are the `classes` of its group in `option-groups.toml`.
-The resolution strips case, punctuation, and an ability tag such as `(Ex)`,
-`(Su)` or `(Sp)`, then compares the slug with the heading keys. A printed name
-that has no confident match, such as a per-power trade or a level-qualified
-name, is left out of the feature list; the two lists therefore need not have
-the same length. `corpus-check` fails when a feature key is not an anchor of
-the base class, and warns when a non-empty feature list disagrees with the
-confident matches, in print order. A flat list describes a whole-feature
-trade; the per-power shape (#251) will add a separate optional field rather
-than change this one.
+### Trades
+
+An archetype or class option trades features of its base class: it replaces them or alters
+them. The corpus holds the trades as printed, with an optional reference to the feature each one
+reaches. An archetype's base class is its `archetype` relation target; a class option's base
+classes are the `classes` of its group in `option-groups.toml`.
+
+**Format 2** (#450) writes one flat `trades` list, one inline table per trade, in print order:
+
+```toml
+[fields]
+kind = "archetype"
+trades = [
+  { replaces = "Trap sense (Ex)", feature = "trap-sense" },
+  { alters = "Bonus feats", feature = "bonus-feats", levels = [4, 8] },
+  { replaces = "Acidic ray", feature = "bloodline-powers", power = "Warp Touch" },
+  { replaces = "3rd-level bonus feat" },
+]
+```
+
+| Key | Rule |
+|---|---|
+| `replaces` or `alters` | Exactly one. The feature name as the book prints it. Kept as written, and the drift check compares the list of each key with the `**Replaces:**` and `**Alters:**` lines. |
+| `feature` | Optional. A heading anchor of a base class entry. A trade without it is unresolved: it keeps its printed name, and no compatibility filter treats it as compatible with anything. |
+| `class` | Optional, only with `feature`. The base class entry whose anchor it is. Required when more than one base class of the entry holds the anchor (an archetype of several classes, a class option whose group has several classes); otherwise the compiler drops it. |
+| `levels` | Optional, only with `feature`. The levels (1 to 255) at which the trade applies. |
+| `power` | Optional, only with `feature`. A named power inside the feature, such as a bloodline power or a domain power. |
+
+`corpus-check` fails when a `feature` is not a heading anchor of a base class, when a `class` is
+not a base class or does not hold the anchor, and warns when the printed name resolves
+confidently to another anchor than the `feature` (the resolution strips case, punctuation and an
+ability tag such as `(Ex)`, `(Su)` or `(Sp)`). The compiler lowers the trades (see
+[Library files](#stored-and-derived-data)): it fails when an anchor several base
+classes hold has no `class`, and it writes the trades into `trades.json` only.
+
+**Format 1** wrote four lists instead: `replaces` and `alters` (the printed names, in print
+order) and `replaces_features` and `alters_features` (heading anchors, in print order). The
+reader still accepts format 1 and lowers the lists to trades. A trade resolves only when its whole
+printed name, without an ability tag, slugs to an anchor of its list: `Bravery (Ex)` resolves to
+`bravery`. Position and length prove nothing. The old lists left out every printed name that no
+heading matched, so two lists of equal length can pair the wrong names, and a composite name such
+as `Hunter's bond, 2nd favored enemy` next to `hunter-s-bond` is only partly that feature. Every
+other trade stays unresolved, because a wrong link is worse than none. When the anchors of the
+resolved trades are not exactly the list as read (a different order, or an anchor that no name
+reaches), the reader keeps the list so that `fmt` writes the file back unchanged, and
+`corpus-check` still validates it. An anchor that several base classes hold cannot name a class in
+format 1, so the compiler leaves that trade unresolved rather than fail. Format 1 cannot write a
+`class`, `levels` or `power`, a feature that is not the slug of its printed name, or a list that mixes `replaces` and `alters` in other than that
+order; `corpus-check` rejects such a trade in a format 1 corpus. The migration from format 1 to
+format 2 is #451 and the corpus migration is #452; until then the pinned corpus is format 1 and
+this tool reads both.
 
 ## `corpus.toml`
 
@@ -172,7 +236,8 @@ format = 1
 license_refs = ["ogl-1.0a", "legal#community-use"]
 ```
 
-`format` is the corpus format version. A reader refuses a corpus whose format it
+`format` is the corpus format version. This tool reads format 1 and format 2 (the trade
+keys differ; see [Trades](#trades)). A reader refuses a corpus whose format it
 does not know, and the message names the command that converts it
 (`cast-iron-corpus migrate`). `[defaults]` declares, once, the values an entry
 omits. Today that is `license_refs`.
@@ -296,7 +361,7 @@ reviewed source material that an entry cannot express.
 | `aliases.json` | **Stored** as `aliases.toml` | The legacy map is a reviewed compatibility decision. |
 | `relations.json` | **Derived** | It is exactly the entries' `relations` edges, sorted, with counts. A feat's prerequisite edges come from `prerequisite_feats`. Each edge is `[source, kind, target]`, or `[source, kind, target, label]` when it carries a label. |
 | `option-groups.json` | **Derived** | It joins `option-groups.toml` with the `class_option` entries that name each group. |
-| `replaces.json` | **Derived** | It indexes the typed `replaces` items of archetypes and class options. |
+| `trades.json` | **Derived** | One `{ id, trades }` row per archetype or class option that has trades, sorted by id: the lowered trades (`class` filled only where the anchor is ambiguous). The entry shards hold no trades. It replaces `replaces.json` (schema 4 and 5, printed `replaces` names only), which a newer client still reads for an older library. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
 | `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion and rejection rows, and a few results of the import, are stored. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
@@ -754,20 +819,20 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | creature | `cr`, `creature_type`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR`, `Type`, `Size`, `AC`, `hp`, `Fort`, ... rows |
 | item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot`, `Aura`, `CL` rows |
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
-| archetype | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
-| class_option | `replaces`, `alters` | every bold `**Replaces:**` and `**Alters:**` line, in body order |
+| archetype | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
+| class_option | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
 
-`replaces_features` and `alters_features` have no second copy in the body. They
-are checked against the class entry's heading anchors, and a non-empty list
-warns when it disagrees with the printed names it claims to resolve. The
-warning is non-failing while the corpus still has unresolved per-power trades.
+The feature of a trade has no second copy in the body. It is checked against the class entry's
+heading anchors, and a trade warns when its printed name resolves confidently to another anchor
+(see [Trades](#trades)). The warning does not fail the check, because a per-power trade or a
+level-qualified name resolves by hand.
 
 The comparison reads both sides as words: it ignores case, repeated blanks, an
 end period, `*` and `[label](target)` markers, and a few entities (`&times;`). A
 spell's `School` row may add the subschool and descriptors. A feat field agrees
 when any `**Label:**` line in the body says the same, because a feat with a
-mythic variant states the label twice. For `replaces` and `alters`, an entry may
-print several lines, one per traded power; the typed list is the concatenation
+mythic variant states the label twice. For the `replaces` and `alters` trades, an entry may
+print several lines, one per traded power; the printed names of the trades with that key are the concatenation
 of every line in body order, and a comma-separated line contributes one item per
 part. A value stated in only one place is not drift. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader

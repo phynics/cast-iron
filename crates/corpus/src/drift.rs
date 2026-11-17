@@ -8,7 +8,9 @@
 
 use crate::load::Stored;
 use cast_iron_schema::headings::plain_text;
-use cast_iron_schema::{Block, ChallengeRating, Inline, RuleEntry, StatRow, TypedFields};
+use cast_iron_schema::{
+    Block, ChallengeRating, Inline, RuleEntry, StatRow, TradeOp, TypedFields, printed_trades,
+};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 
@@ -327,8 +329,10 @@ fn body_line(text: &str, matches: impl Fn(&str) -> bool) -> usize {
 
 fn field_line(text: &str, field: &str) -> usize {
     let prefix = format!("{field} = ");
+    // A corpus-format-2 entry holds `replaces` and `alters` as keys of the rows of one `trades` list.
+    let row = format!("  {{ {field} = ");
     text.lines()
-        .position(|line| line.starts_with(&prefix))
+        .position(|line| line.starts_with(&prefix) || line.starts_with(&row))
         .map_or(1, |index| index + 1)
 }
 
@@ -801,11 +805,14 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
         TypedFields::Creature(_) => creature_pairs(entry, &stored.text, &rows),
         TypedFields::Item(_) => item_pairs(entry, &stored.text, &rows),
         TypedFields::Feat(_) => feat_pairs(entry, &stored.text),
-        TypedFields::Archetype(fields) => {
-            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &fields.alters)
-        }
-        TypedFields::ClassOption(fields) => {
-            replaces_alters_pairs(entry, &stored.text, &fields.replaces, &fields.alters)
+        TypedFields::Archetype(_) | TypedFields::ClassOption(_) => {
+            let trades = entry.fields.trades();
+            replaces_alters_pairs(
+                entry,
+                &stored.text,
+                &printed_trades(trades, TradeOp::Replaces),
+                &printed_trades(trades, TradeOp::Alters),
+            )
         }
         _ => vec![],
     };
@@ -854,6 +861,7 @@ mod tests {
             aon: None,
             source_ids: vec!["core-rulebook".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body,
@@ -1409,10 +1417,21 @@ mod tests {
         stored(base(id, kind, fields, body))
     }
 
+    fn trades(replaces: &[&str], alters: &[&str]) -> Vec<cast_iron_schema::Trade> {
+        let rows = |op, names: &[&str]| -> Vec<cast_iron_schema::Trade> {
+            names
+                .iter()
+                .map(|name| cast_iron_schema::Trade::unresolved(op, *name))
+                .collect()
+        };
+        let mut out = rows(TradeOp::Replaces, replaces);
+        out.extend(rows(TradeOp::Alters, alters));
+        out
+    }
+
     fn archetype(replaces: &[&str], alters: &[&str]) -> TypedFields {
         TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-            replaces: replaces.iter().map(|value| value.to_string()).collect(),
-            alters: alters.iter().map(|value| value.to_string()).collect(),
+            trades: trades(replaces, alters),
             ..Default::default()
         })
     }
@@ -1420,8 +1439,7 @@ mod tests {
     fn class_option(replaces: &[&str], alters: &[&str]) -> TypedFields {
         TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "paladin-oath".into(),
-            replaces: replaces.iter().map(|value| value.to_string()).collect(),
-            alters: alters.iter().map(|value| value.to_string()).collect(),
+            trades: trades(replaces, alters),
             ..Default::default()
         })
     }

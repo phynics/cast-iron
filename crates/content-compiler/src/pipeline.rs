@@ -11,9 +11,9 @@ use cast_iron_schema::validate::{ValidationError, validate_derived, validate_lib
 use cast_iron_schema::{
     BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
     CoverageReport, DatasetRef, EntryId, EntryKind, EntryStub, LegalNotices, ManifestFile,
-    OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE, Rejection, RelationIndex,
-    RelationKind, ReplacesIndex, RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo,
-    SpellLists, TypedFields,
+    OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, Rejection, RelationIndex, RelationKind,
+    RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, TRADES_FILE, TradeIndex,
+    TypedFields,
 };
 use cast_iron_search::{BOOK_SECTION_KIND, DocInput, IndexBuilder};
 use sha2::{Digest, Sha256};
@@ -87,8 +87,9 @@ pub struct Library {
     pub books: BookIndex,
     /// The class-option vocabulary and its entries (schema 4).
     pub option_groups: OptionGroupIndex,
-    /// The typed replacements of archetypes and class options (schema 4).
-    pub replaces: ReplacesIndex,
+    /// The typed trades of archetypes and class options (schema 6). The entries in `entries`
+    /// hold none: the build moves them here.
+    pub trades: TradeIndex,
     pub legal: LegalNotices,
     /// The coverage report, as written to `coverage.json`.
     pub coverage: CoverageReport,
@@ -141,7 +142,7 @@ pub fn package(
         spell_lists,
         books,
         option_groups,
-        replaces,
+        trades,
         legal,
         mut coverage,
         aliases,
@@ -275,7 +276,7 @@ pub fn package(
         (SPELL_LISTS_FILE, json_bytes(&spell_lists)?),
         (BOOKS_FILE, json_bytes(&books)?),
         (OPTION_GROUPS_FILE, json_bytes(&option_groups)?),
-        (REPLACES_FILE, json_bytes(&replaces)?),
+        (TRADES_FILE, json_bytes(&trades)?),
     ] {
         derived_bytes.insert(name.to_string(), bytes.len() as u64);
         files.insert(name.into(), bytes);
@@ -721,6 +722,7 @@ mod tests {
             aon: None,
             source_ids: vec!["s".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body: vec![Block::Paragraph {

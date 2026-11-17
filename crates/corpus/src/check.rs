@@ -278,13 +278,13 @@ fn field_display_texts(fields: &TypedFields) -> Vec<(&'static str, &str)> {
             out.push(("category", fields.category.as_str()));
             optional(&mut out, "detail", &fields.detail);
         }
-        TypedFields::Archetype(fields) => {
-            list(&mut out, "replaces", &fields.replaces);
-            list(&mut out, "alters", &fields.alters);
-        }
-        TypedFields::ClassOption(fields) => {
-            list(&mut out, "replaces", &fields.replaces);
-            list(&mut out, "alters", &fields.alters);
+        TypedFields::Archetype(_) | TypedFields::ClassOption(_) => {
+            out.extend(
+                fields
+                    .trades()
+                    .iter()
+                    .map(|trade| (trade.op.slug(), trade.printed.as_str())),
+            );
         }
         TypedFields::RacialTrait(_) | TypedFields::None => {}
     }
@@ -837,6 +837,53 @@ pub fn check(corpus: &Corpus) -> Report {
                 ));
             }
         }
+        // `[[expanded_in]]` credits a book that expands the entry without printing it, so the
+        // book must exist, must not be a member book, and any `via` entry must itself be
+        // printed there.
+        for expansion in &entry.expanded_in {
+            let needle = format!("publication = \"{}\"", expansion.publication);
+            if !publication_ids.contains(expansion.publication.as_str()) {
+                report.problems.push(format!(
+                    "{}: `[[expanded_in]]`: unknown publication `{}`",
+                    at(&needle),
+                    expansion.publication
+                ));
+            }
+            if entry
+                .source_ids
+                .iter()
+                .any(|source| source == &expansion.publication)
+            {
+                report.problems.push(format!(
+                    "{}: `[[expanded_in]]`: publication `{}` is listed in `source_ids`; a book that prints the entry is a member, so drop the `[[expanded_in]]` row",
+                    at(&needle),
+                    expansion.publication
+                ));
+            }
+            if let Some(via) = &expansion.via {
+                let via_needle = format!("via = \"{via}\"");
+                match corpus.entries.get(via.as_str()) {
+                    None => report.problems.push(format!(
+                        "{}: `[[expanded_in]]`: `via` entry `{via}` does not exist",
+                        at(&via_needle)
+                    )),
+                    Some(target) => {
+                        if !target
+                            .entry
+                            .source_ids
+                            .iter()
+                            .any(|source| source == &expansion.publication)
+                        {
+                            report.problems.push(format!(
+                                "{}: `[[expanded_in]]`: `via` entry `{via}` is not in publication `{}`; its `source_ids` must include it",
+                                at(&via_needle),
+                                expansion.publication
+                            ));
+                        }
+                    }
+                }
+            }
+        }
         for license in &entry.license_refs {
             if !license_ids.contains(license.as_str()) {
                 report
@@ -1292,10 +1339,8 @@ fn fields_are_empty(fields: &TypedFields) -> bool {
         }
         TypedFields::Trait(fields) => fields.category.is_empty() && fields.detail.is_none(),
         TypedFields::RacialTrait(fields) => !fields.alternate,
-        TypedFields::Archetype(fields) => fields.replaces.is_empty() && fields.alters.is_empty(),
-        TypedFields::ClassOption(fields) => {
-            fields.group.is_empty() && fields.replaces.is_empty() && fields.alters.is_empty()
-        }
+        TypedFields::Archetype(fields) => fields.trades.is_empty(),
+        TypedFields::ClassOption(fields) => fields.group.is_empty() && fields.trades.is_empty(),
         TypedFields::None => true,
     }
 }
@@ -1383,7 +1428,7 @@ fn check_option_groups(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mut Repor
 /// The base class entries for the `replaces_features` / `alters_features` anchors. An
 /// archetype names its class through the `archetype` relation; a class option names the
 /// classes of its group in `option-groups.toml`.
-fn base_class_ids<'a>(corpus: &'a Corpus, entry: &'a RuleEntry) -> Vec<&'a str> {
+pub fn base_class_ids<'a>(corpus: &'a Corpus, entry: &'a RuleEntry) -> Vec<&'a str> {
     match &entry.fields {
         TypedFields::Archetype(_) => entry
             .relations
@@ -1432,39 +1477,65 @@ fn strip_ability_tag(name: &str) -> &str {
 
 /// The heading anchor a printed feature name would have, before checking that the base
 /// class entry actually has it.
-fn feature_key(name: &str) -> String {
+pub(crate) fn feature_key(name: &str) -> String {
     slugify(strip_ability_tag(name))
 }
 
-/// Check the typed heading anchors of archetypes and class options.
+/// The first few anchors of `anchors`, for an error message.
+fn anchor_hint(anchors: &BTreeSet<&str>) -> String {
+    let shown: Vec<&str> = anchors.iter().copied().take(8).collect();
+    format!(
+        "{}{}",
+        shown.join(", "),
+        if anchors.len() > shown.len() {
+            " and more"
+        } else {
+            ""
+        }
+    )
+}
+
+/// Check the typed trades of archetypes and class options against the base class entries.
 ///
-/// Every key must name a heading of the base class entry. When the field is present, the
-/// confidently resolved printed names must agree with it in print order; a disagreeing
-/// list is a warning, because a printed name that no heading matches is omitted instead of
-/// guessed.
+/// A trade that names a feature must name a heading anchor of a base class entry, and a `class`
+/// on it must be one of the base classes and hold the anchor. A printed name that confidently
+/// resolves to another anchor than the trade's is a warning, because a printed name that no
+/// heading matches is left unresolved instead of guessed. A corpus-format-1 list that did not line
+/// up with its printed list keeps its anchors; they are checked and compared as they were before
+/// trades. The compiler (`content-compiler`) separately settles which class an anchor belongs to
+/// when several base classes hold it.
 fn check_replaces_features(
     corpus: &Corpus,
     keys: &BTreeMap<&str, Vec<(String, String)>>,
     report: &mut Report,
 ) {
+    let format_1 = corpus.config.format == 1;
     for stored in corpus.entries.values() {
         let entry = &stored.entry;
-        let (replaces_features, alters_features) = match &entry.fields {
-            TypedFields::Archetype(fields) => (&fields.replaces_features, &fields.alters_features),
-            TypedFields::ClassOption(fields) => {
-                (&fields.replaces_features, &fields.alters_features)
-            }
+        let (trades, legacy) = match &entry.fields {
+            TypedFields::Archetype(fields) => (&fields.trades, &fields.legacy_features),
+            TypedFields::ClassOption(fields) => (&fields.trades, &fields.legacy_features),
             _ => continue,
         };
-        if replaces_features.is_empty() && alters_features.is_empty() {
+        if trades.is_empty() && legacy.is_empty() {
             continue;
         }
+        let path = stored.path.display();
+        if format_1 && crate::trades::needs_format_2(trades) {
+            report.problems.push(format!(
+                "{path}:{}: [fields] this entry has a trade with `class`, `levels` or `power`, a feature that is not the slug of its printed name, or trades that interleave replaces and alters, which corpus format 1 cannot write; migrate the corpus to format 2",
+                line_of(&stored.text, "[fields]")
+            ));
+        }
         let classes = base_class_ids(corpus, entry);
+        let anchors_in = |class: &str| -> BTreeSet<&str> {
+            keys.get(class)
+                .map(|headings| headings.iter().map(|(key, _)| key.as_str()).collect())
+                .unwrap_or_default()
+        };
         let mut anchors: BTreeSet<&str> = BTreeSet::new();
         for class in &classes {
-            if let Some(headings) = keys.get(class) {
-                anchors.extend(headings.iter().map(|(key, _)| key.as_str()));
-            }
+            anchors.extend(anchors_in(class));
         }
         let class_list = if classes.is_empty() {
             "no base class entry".to_string()
@@ -1475,52 +1546,92 @@ fn check_replaces_features(
                 .collect::<Vec<_>>()
                 .join(", ")
         };
-        let (printed_replaces, printed_alters) = printed_replaces_alters(entry);
-        for (field, printed, features) in [
-            ("replaces_features", printed_replaces, replaces_features),
-            ("alters_features", printed_alters, alters_features),
-        ] {
-            if features.is_empty() {
+        let has_features = trades.iter().any(|trade| trade.feature.is_some()) || !legacy.is_empty();
+        if has_features && classes.is_empty() {
+            report.problems.push(format!(
+                "{path}:{}: [fields] a trade names a feature, but this entry has no base class entry",
+                line_of(&stored.text, "[fields]")
+            ));
+            continue;
+        }
+        for trade in trades {
+            let Some(feature) = &trade.feature else {
                 continue;
-            }
+            };
             let at = format!(
-                "{}:{}",
-                stored.path.display(),
-                line_of(&stored.text, &format!("{field} = "))
+                "{path}:{}",
+                line_of(&stored.text, &format!("\"{}\"", trade.printed))
             );
-            if classes.is_empty() {
+            let label = trade.op.slug();
+            if let Some(class) = &feature.class {
+                if !classes.contains(&class.as_str()) {
+                    report.problems.push(format!(
+                        "{at}: [fields] the {label} trade `{}` names class `{class}`, which is not a base class of this entry; the base classes are {class_list}",
+                        trade.printed
+                    ));
+                    continue;
+                }
+                if !anchors_in(class.as_str()).contains(feature.anchor.as_str()) {
+                    report.problems.push(format!(
+                        "{at}: [fields] the {label} trade `{}` has feature `{}`, which is not a heading anchor in `{class}`. Use one of: {}",
+                        trade.printed,
+                        feature.anchor,
+                        anchor_hint(&anchors_in(class.as_str()))
+                    ));
+                    continue;
+                }
+            } else if !anchors.contains(feature.anchor.as_str()) {
                 report.problems.push(format!(
-                    "{at}: [fields] {field} needs a base class entry, but this entry has none"
+                    "{at}: [fields] the {label} trade `{}` has feature `{}`, which is not a heading anchor in {class_list}. Use one of: {}",
+                    trade.printed,
+                    feature.anchor,
+                    anchor_hint(&anchors)
                 ));
                 continue;
             }
-            for key in features {
+            let resolved = feature_key(&trade.printed);
+            if feature.power.is_none()
+                && feature.levels.is_empty()
+                && anchors.contains(resolved.as_str())
+                && resolved != feature.anchor
+            {
+                report.warnings.push(format!(
+                    "{at}: [fields] the {label} trade `{}` has feature `{}`, but the printed name resolves to `{resolved}`",
+                    trade.printed, feature.anchor
+                ));
+            }
+        }
+        // Anchors that a format-1 list kept because it did not line up with the printed list.
+        let (printed_replaces, printed_alters) = printed_replaces_alters(entry);
+        for (field, label, kept, printed) in [
+            (
+                "replaces_features",
+                "Replaces",
+                &legacy.replaces,
+                printed_replaces,
+            ),
+            ("alters_features", "Alters", &legacy.alters, printed_alters),
+        ] {
+            if kept.is_empty() {
+                continue;
+            }
+            let at = format!("{path}:{}", line_of(&stored.text, &format!("{field} = ")));
+            for key in kept {
                 if !anchors.contains(key.as_str()) {
-                    let shown: Vec<&str> = anchors.iter().copied().take(8).collect();
                     report.problems.push(format!(
-                        "{at}: [fields] {field} key `{key}` is not a heading anchor in {class_list}. Use one of: {}{}",
-                        shown.join(", "),
-                        if anchors.len() > shown.len() {
-                            " and more"
-                        } else {
-                            ""
-                        }
+                        "{at}: [fields] {field} key `{key}` is not a heading anchor in {class_list}. Use one of: {}",
+                        anchor_hint(&anchors)
                     ));
                 }
             }
-            let label = if field == "replaces_features" {
-                "Replaces"
-            } else {
-                "Alters"
-            };
             let resolved: Vec<String> = printed
                 .iter()
                 .map(|name| feature_key(name))
                 .filter(|key| anchors.contains(key.as_str()))
                 .collect();
-            if features != &resolved {
+            if kept != &resolved {
                 report.warnings.push(format!(
-                    "{at}: [fields] {field} = {features:?} disagrees with the `**{label}:**` line; the confident matches in print order are {resolved:?}"
+                    "{at}: [fields] {field} = {kept:?} disagrees with the `**{label}:**` line; the confident matches in print order are {resolved:?}"
                 ));
             }
         }
@@ -1768,9 +1879,10 @@ fn check_book_node(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testkit::{corpus, heading, link, paragraph, rule};
+    use crate::testkit::{corpus, corpus_in_format, heading, link, paragraph, rule};
     use cast_iron_schema::{
-        BookIndex, BookNode, Citation, CreatureFields, EntryId, FeatFields, Inline, SeriesKind,
+        BookIndex, BookNode, Citation, CreatureFields, EntryId, FeatFields, FeatureRef, Inline,
+        SeriesKind, Trade, TradeOp,
     };
 
     fn creature(id: &str, creature_type: &str) -> RuleEntry {
@@ -2789,6 +2901,88 @@ mod tests {
         assert!(text.contains("is not listed in `source_ids`"), "{text}");
     }
 
+    fn expansion_corpus(entries: Vec<RuleEntry>) -> crate::Corpus {
+        let mut corpus = corpus(entries);
+        add_publication(&mut corpus, "monster-handbook", None);
+        corpus
+    }
+
+    fn with_expansion(mut entry: RuleEntry, publication: &str, via: Option<&str>) -> RuleEntry {
+        entry.expanded_in.push(cast_iron_schema::Expansion {
+            publication: publication.into(),
+            page: Some("18".into()),
+            via: via.map(|via| EntryId::parse(via).unwrap()),
+        });
+        entry
+    }
+
+    #[test]
+    fn an_expansion_must_name_a_known_publication() {
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "missing-book", None);
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("[[expanded_in]]`: unknown publication `missing-book`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_must_not_name_a_member_book() {
+        // `rule` lists core-rulebook, so crediting it as an expansion is a membership leak.
+        let entry = with_expansion(rule("ref/rule/a", vec![]), "core-rulebook", None);
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("publication `core-rulebook` is listed in `source_ids`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_via_entry_must_exist() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/gone"),
+        );
+        let text = check(&expansion_corpus(vec![entry])).problems.join("\n");
+        assert!(
+            text.contains("`via` entry `ref/rule/gone` does not exist"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_expansion_via_entry_must_be_printed_in_the_book() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/b"),
+        );
+        let via = rule("ref/rule/b", vec![]);
+        let text = check(&expansion_corpus(vec![entry, via]))
+            .problems
+            .join("\n");
+        assert!(
+            text.contains("`via` entry `ref/rule/b` is not in publication `monster-handbook`"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_valid_expansion_passes() {
+        let entry = with_expansion(
+            rule("ref/rule/a", vec![]),
+            "monster-handbook",
+            Some("ref/rule/b"),
+        );
+        let via = in_publication(rule("ref/rule/b", vec![]), "monster-handbook");
+        let report = check(&expansion_corpus(vec![entry, via]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let bare = with_expansion(rule("ref/rule/c", vec![]), "monster-handbook", None);
+        let report = check(&expansion_corpus(vec![bare]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
     #[test]
     fn citations_that_name_a_listed_publication_pass() {
         let entry = with_source(rule("ref/rule/a", vec![]), "core-rulebook", Some("12-14"));
@@ -3177,10 +3371,7 @@ mod tests {
             EntryKind::ClassOption,
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: group.into(),
-                replaces: vec![],
-                alters: vec![],
-                replaces_features: vec![],
-                alters_features: vec![],
+                ..Default::default()
             }),
         )
     }
@@ -3330,8 +3521,7 @@ mod tests {
             ),
             EntryKind::Archetype,
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-                replaces: vec!["Trap sense".into()],
-                alters: vec![],
+                trades: vec![Trade::unresolved(TradeOp::Replaces, "Trap sense")],
                 ..Default::default()
             }),
         );
@@ -3356,8 +3546,7 @@ mod tests {
             EntryKind::ClassOption,
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "discoveries".into(),
-                replaces: vec!["Arcane school".into()],
-                alters: vec![],
+                trades: vec![Trade::unresolved(TradeOp::Replaces, "Arcane school")],
                 ..Default::default()
             }),
         );
@@ -3402,7 +3591,22 @@ mod tests {
         )
     }
 
-    fn fighter_archetype(replaces: &[&str], features: &[&str], printed_line: &str) -> RuleEntry {
+    fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
+        Trade {
+            op,
+            printed: printed.into(),
+            feature: anchor.map(|anchor| FeatureRef {
+                anchor: anchor.into(),
+                ..Default::default()
+            }),
+        }
+    }
+
+    fn fighter_archetype_with(
+        trades: Vec<Trade>,
+        legacy: cast_iron_schema::LegacyFeatureLists,
+        printed_line: &str,
+    ) -> RuleEntry {
         let mut entry = typed(
             rule(
                 "ref/arc-fighter/example",
@@ -3410,9 +3614,8 @@ mod tests {
             ),
             EntryKind::Archetype,
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-                replaces: replaces.iter().map(|value| value.to_string()).collect(),
-                replaces_features: features.iter().map(|value| value.to_string()).collect(),
-                ..Default::default()
+                trades,
+                legacy_features: legacy,
             }),
         );
         entry.relations = vec![Relation {
@@ -3423,13 +3626,19 @@ mod tests {
         entry
     }
 
+    fn fighter_archetype(trades: Vec<Trade>, printed_line: &str) -> RuleEntry {
+        fighter_archetype_with(trades, Default::default(), printed_line)
+    }
+
     #[test]
-    fn replaces_features_accept_class_anchors_in_print_order() {
+    fn trade_features_accept_class_anchors_in_print_order() {
         let report = check(&corpus(vec![
             fighter_class(),
             fighter_archetype(
-                &["Bravery", "Trap sense"],
-                &["bravery", "trap-sense"],
+                vec![
+                    trade(TradeOp::Replaces, "Bravery", Some("bravery")),
+                    trade(TradeOp::Replaces, "Trap sense", Some("trap-sense")),
+                ],
                 "Bravery, Trap sense.",
             ),
         ]));
@@ -3438,15 +3647,18 @@ mod tests {
     }
 
     #[test]
-    fn a_replaces_features_key_must_be_an_anchor_of_the_base_class() {
+    fn a_trade_feature_must_be_an_anchor_of_the_base_class() {
         let report = check(&corpus(vec![
             fighter_class(),
-            fighter_archetype(&["Bravery"], &["bravery", "weapon-mastery"], "Bravery."),
+            fighter_archetype(
+                vec![trade(TradeOp::Replaces, "Bravery", Some("weapon-mastery"))],
+                "Bravery.",
+            ),
         ]));
         assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
             report.problems[0].contains(
-                "[fields] replaces_features key `weapon-mastery` is not a heading anchor in `ref/class/fighter`"
+                "the replaces trade `Bravery` has feature `weapon-mastery`, which is not a heading anchor in `ref/class/fighter`"
             ),
             "{:?}",
             report.problems
@@ -3454,15 +3666,65 @@ mod tests {
     }
 
     #[test]
-    fn a_replaces_features_list_must_match_the_confident_printed_matches() {
+    fn a_trade_class_must_be_a_base_class_that_holds_the_anchor() {
+        let mut named = trade(TradeOp::Replaces, "Bravery", Some("bravery"));
+        named.feature.as_mut().unwrap().class = Some(EntryId::parse("ref/class/rogue").unwrap());
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(vec![named], "Bravery."),
+        ]));
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains("names class `ref/class/rogue`, which is not a base class"),
+            "{:?}",
+            report.problems
+        );
+        let mut right = trade(TradeOp::Replaces, "Bravery", Some("bravery"));
+        right.feature.as_mut().unwrap().class = Some(EntryId::parse("ref/class/fighter").unwrap());
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(vec![right], "Bravery."),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    #[test]
+    fn a_trade_feature_that_disagrees_with_the_printed_name_is_a_warning() {
         let report = check(&corpus(vec![
             fighter_class(),
             fighter_archetype(
-                &["Bravery", "Trap sense"],
-                &["bravery"],
-                "Bravery, Trap sense.",
+                vec![trade(TradeOp::Replaces, "Bravery", Some("trap-sense"))],
+                "Bravery.",
             ),
         ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains(
+                "the replaces trade `Bravery` has feature `trap-sense`, but the printed name resolves to `bravery`"
+            ),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn a_format_1_list_that_did_not_line_up_is_checked_as_a_list() {
+        let legacy = cast_iron_schema::LegacyFeatureLists {
+            replaces: vec!["bravery".into()],
+            alters: vec![],
+        };
+        let entry = || {
+            fighter_archetype_with(
+                vec![
+                    trade(TradeOp::Replaces, "Bravery", None),
+                    trade(TradeOp::Replaces, "Trap sense", None),
+                ],
+                legacy.clone(),
+                "Bravery, Trap sense.",
+            )
+        };
+        let report = check(&corpus_in_format(1, vec![fighter_class(), entry()]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
         assert!(
@@ -3472,6 +3734,105 @@ mod tests {
             "{:?}",
             report.warnings
         );
+        let mut bad = legacy.clone();
+        bad.replaces = vec!["weapon-mastery".into()];
+        let report = check(&corpus_in_format(
+            1,
+            vec![
+                fighter_class(),
+                fighter_archetype_with(
+                    vec![trade(TradeOp::Replaces, "Bravery", None)],
+                    bad,
+                    "Bravery.",
+                ),
+            ],
+        ));
+        assert!(
+            report.problems.iter().any(|problem| problem.contains(
+                "[fields] replaces_features key `weapon-mastery` is not a heading anchor in `ref/class/fighter`"
+            )),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn a_format_1_anchor_list_with_no_printed_trades_is_still_checked() {
+        let legacy = cast_iron_schema::LegacyFeatureLists {
+            replaces: vec!["missing-anchor".into()],
+            alters: vec![],
+        };
+        let entry = fighter_archetype_with(vec![], legacy, "Bravery.");
+        let report = check(&corpus_in_format(1, vec![fighter_class(), entry]));
+        assert!(
+            report.problems.iter().any(|problem| problem.contains(
+                "[fields] replaces_features key `missing-anchor` is not a heading anchor in `ref/class/fighter`"
+            )),
+            "{:?}",
+            report.problems
+        );
+        // With no base class at all, the retained anchors are an error too.
+        let mut orphan = fighter_archetype_with(
+            vec![],
+            cast_iron_schema::LegacyFeatureLists {
+                replaces: vec!["bravery".into()],
+                alters: vec![],
+            },
+            "Bravery.",
+        );
+        orphan.relations.clear();
+        let report = check(&corpus_in_format(1, vec![fighter_class(), orphan]));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|problem| problem.contains("this entry has no base class entry")),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn corpus_format_1_refuses_a_feature_that_is_not_the_slug_of_its_name() {
+        let report = check(&corpus_in_format(
+            1,
+            vec![
+                fighter_class(),
+                fighter_archetype(
+                    vec![trade(TradeOp::Replaces, "Bravery", Some("trap-sense"))],
+                    "Bravery.",
+                ),
+            ],
+        ));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|problem| problem.contains("which corpus format 1 cannot write")),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn corpus_format_1_refuses_a_trade_it_cannot_write() {
+        let mut narrowed = trade(TradeOp::Replaces, "Bravery", Some("bravery"));
+        narrowed.feature.as_mut().unwrap().levels = vec![2];
+        let report = check(&corpus_in_format(
+            1,
+            vec![
+                fighter_class(),
+                fighter_archetype(vec![narrowed], "Bravery."),
+            ],
+        ));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|problem| problem.contains("which corpus format 1 cannot write")),
+            "{:?}",
+            report.problems
+        );
     }
 
     #[test]
@@ -3479,8 +3840,10 @@ mod tests {
         let report = check(&corpus(vec![
             fighter_class(),
             fighter_archetype(
-                &["Bravery (Ex)", "The 3rd-level bonus feat"],
-                &["bravery"],
+                vec![
+                    trade(TradeOp::Replaces, "Bravery (Ex)", Some("bravery")),
+                    trade(TradeOp::Replaces, "The 3rd-level bonus feat", None),
+                ],
                 "Bravery (Ex), The 3rd-level bonus feat.",
             ),
         ]));
@@ -3506,8 +3869,7 @@ mod tests {
             EntryKind::ClassOption,
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 group: "discoveries".into(),
-                replaces: vec!["Arcane bond".into()],
-                replaces_features: vec!["arcane-bond".into()],
+                trades: vec![trade(TradeOp::Replaces, "Arcane bond", Some("arcane-bond"))],
                 ..Default::default()
             }),
         );

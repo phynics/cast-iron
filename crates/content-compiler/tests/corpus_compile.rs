@@ -7,7 +7,7 @@ use cast_iron_corpus::{
 };
 use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, ContentManifest, CoverageHistory, EntryId, EntryKind,
-    Exclusion, Inline, LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo,
+    Exclusion, Expansion, Inline, LegalNotices, LicenseText, ParagraphStyle, RuleEntry, SourceInfo,
     TypedFields,
 };
 use std::fs;
@@ -42,6 +42,7 @@ fn rule(id: &str, text: &str, link: Option<&str>) -> RuleEntry {
         aon: None,
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
+        expanded_in: vec![],
         section: vec![],
         parent: None,
         body: vec![Block::Paragraph {
@@ -92,20 +93,43 @@ fn printed_chapter() -> BookIndex {
 }
 
 fn write_corpus(dir: &Path) {
-    let config = Config::default();
-    for entry in [
-        rule(
-            "ref/rule/grapple",
-            "Grapple rules.",
-            Some("ref/rule/combat"),
-        ),
-        rule("ref/rule/combat", "Combat rules.", None),
-    ] {
+    write_corpus_with(dir, None);
+}
+
+/// The synthetic corpus declared as corpus format `format`.
+fn write_corpus_in(dir: &Path, format: u32) {
+    write_corpus_full(dir, None, format);
+}
+
+/// `expansion` adds a second book, `monster-handbook`, that no entry prints. `Some(true)` makes
+/// the grapple rule name it in `expanded_in`; `Some(false)` leaves the rule as it was.
+fn write_corpus_with(dir: &Path, expansion: Option<bool>) {
+    write_corpus_full(dir, expansion, Config::default().format);
+}
+
+fn write_corpus_full(dir: &Path, expansion: Option<bool>, format: u32) {
+    let config = Config {
+        format,
+        ..Config::default()
+    };
+    let mut grapple = rule(
+        "ref/rule/grapple",
+        "Grapple rules.",
+        Some("ref/rule/combat"),
+    );
+    if expansion == Some(true) {
+        grapple.expanded_in = vec![Expansion {
+            publication: "monster-handbook".into(),
+            page: Some("18".into()),
+            via: None,
+        }];
+    }
+    for entry in [grapple, rule("ref/rule/combat", "Combat rules.", None)] {
         let path = dir.join(entry_path(&entry.id));
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(path, write_entry(&entry, &config)).unwrap();
     }
-    let sources = [SourceInfo {
+    let mut sources = vec![SourceInfo {
         share_slot: None,
         id: "core-rulebook".into(),
         title: "Core Rulebook".into(),
@@ -120,6 +144,13 @@ fn write_corpus(dir: &Path) {
         season: None,
         third_party: false,
     }];
+    if expansion.is_some() {
+        let mut handbook = sources[0].clone();
+        handbook.id = "monster-handbook".into();
+        handbook.title = "Monster Handbook".into();
+        handbook.copyright = Some("Monster Handbook. (c) Paizo Inc.".into());
+        sources.push(handbook);
+    }
     let legal = LegalNotices {
         licenses: vec![LicenseText {
             id: "ogl-1.0a".into(),
@@ -129,10 +160,19 @@ fn write_corpus(dir: &Path) {
         product_identity: "Product Identity.".into(),
         community_use_notice: "Cast Iron uses trademarks under Paizo's Community Use Policy."
             .into(),
-        section_15: vec![cast_iron_schema::CopyrightNotice {
-            title: "Core Rulebook".into(),
-            notice: "Core Rulebook. (c) Paizo Inc.".into(),
-        }],
+        section_15: {
+            let mut notices = vec![cast_iron_schema::CopyrightNotice {
+                title: "Core Rulebook".into(),
+                notice: "Core Rulebook. (c) Paizo Inc.".into(),
+            }];
+            if expansion.is_some() {
+                notices.push(cast_iron_schema::CopyrightNotice {
+                    title: "Monster Handbook".into(),
+                    notice: "Monster Handbook. (c) Paizo Inc.".into(),
+                });
+            }
+            notices
+        },
         notice_pending: vec![],
         datasets: vec![],
     };
@@ -219,19 +259,23 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
             .iter()
             .map(|file| file.path.clone())
             .collect();
-        for name in ["relations.json", "option-groups.json", "replaces.json"] {
+        for name in ["relations.json", "option-groups.json", "trades.json"] {
             assert!(
                 derived.iter().any(|path| path.ends_with(name)),
                 "{name} is not in the manifest: {derived:?}"
             );
         }
+        assert!(
+            !derived.iter().any(|path| path.ends_with("replaces.json")),
+            "a schema-6 library has no replaces.json: {derived:?}"
+        );
         let version = out.join(&outcome.content_version);
         assert_eq!(
             fs::read_to_string(version.join("option-groups.json")).unwrap(),
             r#"{"groups":[]}"#
         );
         assert_eq!(
-            fs::read_to_string(version.join("replaces.json")).unwrap(),
+            fs::read_to_string(version.join("trades.json")).unwrap(),
             r#"{"entries":[]}"#
         );
         versions.push(outcome.content_version);
@@ -241,20 +285,138 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     assert_eq!(trees[0], trees[1]);
 }
 
+fn typed_entry(
+    id: &str,
+    kind: EntryKind,
+    title: &str,
+    body: Vec<Block>,
+    fields: TypedFields,
+    relations: Vec<cast_iron_schema::Relation>,
+) -> RuleEntry {
+    RuleEntry {
+        id: EntryId::parse(id).unwrap(),
+        kind,
+        title: title.into(),
+        aon: None,
+        source_ids: vec!["core-rulebook".into()],
+        sources: vec![],
+        expanded_in: vec![],
+        section: vec![],
+        parent: None,
+        body,
+        fields,
+        tags: vec![],
+        race_group: None,
+        links: vec![],
+        provenance: vec![],
+        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
+        relations,
+    }
+}
+
+/// A class whose body holds one level-2 heading per `(anchor, text)`.
+fn class_entry(id: &str, headings: &[(&str, &str)]) -> RuleEntry {
+    let body = headings
+        .iter()
+        .map(|(anchor, text)| Block::Heading {
+            level: 2,
+            anchor: Some((*anchor).into()),
+            content: vec![Inline::text(*text)],
+        })
+        .collect();
+    typed_entry(
+        id,
+        EntryKind::Class,
+        id.rsplit('/').next().unwrap(),
+        body,
+        TypedFields::Class(Default::default()),
+        vec![],
+    )
+}
+
+/// An archetype of `classes` with a printed `Replaces:` line and the given trades.
+fn archetype_entry(
+    id: &str,
+    classes: &[&str],
+    printed: &str,
+    trades: Vec<cast_iron_schema::Trade>,
+    legacy: cast_iron_schema::LegacyFeatureLists,
+) -> RuleEntry {
+    typed_entry(
+        id,
+        EntryKind::Archetype,
+        "Example Archetype",
+        vec![Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Replaces:")],
+                },
+                Inline::text(format!(" {printed}.")),
+            ],
+        }],
+        TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            trades,
+            legacy_features: legacy,
+        }),
+        classes
+            .iter()
+            .map(|class| cast_iron_schema::Relation {
+                kind: cast_iron_schema::RelationKind::Archetype,
+                target: EntryId::parse(*class).unwrap(),
+                label: None,
+            })
+            .collect(),
+    )
+}
+
+fn replaces(printed: &str, anchor: Option<&str>, class: Option<&str>) -> cast_iron_schema::Trade {
+    cast_iron_schema::Trade {
+        op: cast_iron_schema::TradeOp::Replaces,
+        printed: printed.into(),
+        feature: anchor.map(|anchor| cast_iron_schema::FeatureRef {
+            anchor: anchor.into(),
+            class: class.map(|class| EntryId::parse(class).unwrap()),
+            ..Default::default()
+        }),
+    }
+}
+
+fn write_entries(corpus: &Path, format: u32, entries: &[RuleEntry]) {
+    let config = Config {
+        format,
+        ..Config::default()
+    };
+    for entry in entries {
+        let path = corpus.join(entry_path(&entry.id));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, write_entry(entry, &config)).unwrap();
+    }
+}
+
+/// Compiles `corpus` and returns the parsed `trades.json` and every entry shard's text.
+fn compile_trades(corpus: &Path, name: &str) -> Result<(serde_json::Value, String), String> {
+    let out = temp(&format!("{name}-out"));
+    let outcome = compile_corpus(corpus, &out, &temp(&format!("{name}-reports")), None, None)
+        .map_err(|failure| failure.lines.join("\n"))?;
+    let version = out.join(&outcome.content_version);
+    let trades = serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
+    let mut shards = String::new();
+    for item in fs::read_dir(version.join("entries")).unwrap() {
+        shards.push_str(&fs::read_to_string(item.unwrap().path()).unwrap());
+    }
+    Ok((trades, shards))
+}
+
 #[test]
 fn attached_entry_indexes_are_derived_from_the_corpus() {
     let corpus = temp("attached");
     write_corpus(&corpus);
-    let class_option = RuleEntry {
-        id: EntryId::parse("ref/arcanedisc/example").unwrap(),
-        kind: EntryKind::ClassOption,
-        title: "Example Discovery".into(),
-        aon: None,
-        source_ids: vec!["core-rulebook".into()],
-        sources: vec![],
-        section: vec![],
-        parent: None,
-        body: vec![Block::Paragraph {
+    let class_option = typed_entry(
+        "ref/arcanedisc/example",
+        EntryKind::ClassOption,
+        "Example Discovery",
+        vec![Block::Paragraph {
             style: ParagraphStyle::Normal,
             content: vec![
                 Inline::Strong {
@@ -263,77 +425,27 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
                 Inline::text(" Arcane bond."),
             ],
         }],
-        fields: TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+        TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
             group: "discoveries".into(),
-            replaces: vec!["Arcane bond".into()],
-            alters: vec![],
+            trades: vec![replaces("Arcane bond", None, None)],
             ..Default::default()
         }),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![],
-    };
-    let archetype = RuleEntry {
-        id: EntryId::parse("ref/arc-fighter/example").unwrap(),
-        kind: EntryKind::Archetype,
-        title: "Example Archetype".into(),
-        aon: None,
-        source_ids: vec!["core-rulebook".into()],
-        sources: vec![],
-        section: vec![],
-        parent: None,
-        body: vec![Block::Paragraph {
-            style: ParagraphStyle::Normal,
-            content: vec![
-                Inline::Strong {
-                    c: vec![Inline::text("Replaces:")],
-                },
-                Inline::text(" Trap sense."),
-            ],
-        }],
-        fields: TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
-            replaces: vec!["Trap sense".into()],
-            alters: vec![],
-            ..Default::default()
-        }),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![cast_iron_schema::Relation {
-            kind: cast_iron_schema::RelationKind::Archetype,
-            target: EntryId::parse("ref/class/fighter").unwrap(),
-            label: None,
-        }],
-    };
-    // The archetype relation needs its class entry.
-    let fighter = RuleEntry {
-        id: EntryId::parse("ref/class/fighter").unwrap(),
-        kind: EntryKind::Class,
-        title: "Fighter".into(),
-        aon: None,
-        source_ids: vec!["core-rulebook".into()],
-        sources: vec![],
-        section: vec![],
-        parent: None,
-        body: vec![],
-        fields: TypedFields::Class(Default::default()),
-        tags: vec![],
-        race_group: None,
-        links: vec![],
-        provenance: vec![],
-        license_refs: vec!["ogl-1.0a".into(), "legal#community-use".into()],
-        relations: vec![],
-    };
-    for entry in [class_option, archetype, fighter] {
-        let path = corpus.join(entry_path(&entry.id));
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, write_entry(&entry, &Config::default())).unwrap();
-    }
+        vec![],
+    );
+    let archetype = archetype_entry(
+        "ref/arc-fighter/example",
+        &["ref/class/fighter"],
+        "Trap sense",
+        // The class is written although only one class holds the anchor; the compiler drops it.
+        vec![replaces(
+            "Trap sense",
+            Some("trap-sense"),
+            Some("ref/class/fighter"),
+        )],
+        Default::default(),
+    );
+    let fighter = class_entry("ref/class/fighter", &[("trap-sense", "Trap Sense (Ex)")]);
+    write_entries(&corpus, 2, &[class_option, archetype, fighter]);
     fs::write(
         corpus.join("option-groups.toml"),
         "[groups.discoveries]\nlabel = \"Discoveries\"\nsingular = \"Discovery\"\nclasses = [\"ref/class/fighter\"]\n",
@@ -348,15 +460,170 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         serde_json::from_slice(&fs::read(version.join("option-groups.json")).unwrap()).unwrap();
     assert_eq!(groups["groups"][0]["slug"], "discoveries");
     assert_eq!(groups["groups"][0]["entries"][0], "ref/arcanedisc/example");
-    let replaces: serde_json::Value =
-        serde_json::from_slice(&fs::read(version.join("replaces.json")).unwrap()).unwrap();
+    let trades: serde_json::Value =
+        serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
     assert_eq!(
-        replaces["entries"],
+        trades["entries"],
         serde_json::json!([
-            {"id": "ref/arc-fighter/example", "replaces": ["Trap sense"]},
-            {"id": "ref/arcanedisc/example", "replaces": ["Arcane bond"]},
+            {"id": "ref/arc-fighter/example", "trades": [
+                {"op": "replaces", "printed": "Trap sense", "feature": {"anchor": "trap-sense"}}
+            ]},
+            {"id": "ref/arcanedisc/example", "trades": [
+                {"op": "replaces", "printed": "Arcane bond"}
+            ]},
         ])
     );
+    // The shards hold no trades; the old file is gone.
+    assert!(!version.join("replaces.json").exists());
+    for item in fs::read_dir(version.join("entries")).unwrap() {
+        let shard = fs::read_to_string(item.unwrap().path()).unwrap();
+        assert!(!shard.contains("\"trades\""), "{shard}");
+        assert!(!shard.contains("\"printed\""), "{shard}");
+    }
+}
+
+#[test]
+fn a_class_is_filled_only_where_the_anchor_is_ambiguous_and_a_missing_one_fails() {
+    let bard = class_entry(
+        "ref/class/bard",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let skald = class_entry(
+        "ref/class/skald",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let classes = ["ref/class/bard", "ref/class/skald"];
+
+    let corpus = temp("ambiguous");
+    write_corpus(&corpus);
+    write_entries(
+        &corpus,
+        2,
+        &[
+            bard.clone(),
+            skald.clone(),
+            archetype_entry(
+                "ref/arc-bard/example",
+                &classes,
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    None,
+                )],
+                Default::default(),
+            ),
+        ],
+    );
+    let error = compile_trades(&corpus, "ambiguous").unwrap_err();
+    assert!(
+        error.contains("`ref/class/bard` and `ref/class/skald` hold; add `class` to say which"),
+        "{error}"
+    );
+
+    let corpus = temp("settled");
+    write_corpus(&corpus);
+    write_entries(
+        &corpus,
+        2,
+        &[
+            bard,
+            skald,
+            archetype_entry(
+                "ref/arc-bard/example",
+                &classes,
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    Some("ref/class/skald"),
+                )],
+                Default::default(),
+            ),
+        ],
+    );
+    let (trades, _) = compile_trades(&corpus, "settled").unwrap();
+    assert_eq!(
+        trades["entries"][0]["trades"][0]["feature"],
+        serde_json::json!({"anchor": "bardic-performance", "class": "ref/class/skald"})
+    );
+}
+
+#[test]
+fn a_format_1_corpus_keeps_every_printed_name_and_resolves_only_what_lines_up() {
+    let bard = class_entry(
+        "ref/class/bard",
+        &[
+            ("bardic-performance", "Bardic Performance"),
+            ("bravery", "Bravery"),
+        ],
+    );
+    let skald = class_entry(
+        "ref/class/skald",
+        &[("bardic-performance", "Bardic Performance")],
+    );
+    let corpus = temp("format-1");
+    write_corpus_in(&corpus, 1);
+    write_entries(
+        &corpus,
+        1,
+        &[
+            bard,
+            skald,
+            // Lines up, one class holds each anchor: both resolve.
+            archetype_entry(
+                "ref/arc-bard/aligned",
+                &["ref/class/bard"],
+                "Bravery",
+                vec![replaces("Bravery", Some("bravery"), None)],
+                Default::default(),
+            ),
+            // Lines up, but two classes hold the anchor and format 1 cannot name one: unresolved.
+            archetype_entry(
+                "ref/arc-bard/shared",
+                &["ref/class/bard", "ref/class/skald"],
+                "Bardic Performance",
+                vec![replaces(
+                    "Bardic Performance",
+                    Some("bardic-performance"),
+                    None,
+                )],
+                Default::default(),
+            ),
+            // A composite name is partly another feature, so it is not resolved to the anchor
+            // that starts it; the name that is exactly an anchor resolves.
+            archetype_entry(
+                "ref/arc-bard/composite",
+                &["ref/class/bard"],
+                "Bardic Performance and a feat, Bravery",
+                vec![
+                    replaces("Bardic Performance and a feat", None, None),
+                    replaces("Bravery", None, None),
+                ],
+                cast_iron_schema::LegacyFeatureLists {
+                    replaces: vec!["bardic-performance".into(), "bravery".into()],
+                    alters: vec![],
+                },
+            ),
+        ],
+    );
+    let (trades, shards) = compile_trades(&corpus, "format-1").unwrap();
+    assert_eq!(
+        trades["entries"],
+        serde_json::json!([
+            {"id": "ref/arc-bard/aligned", "trades": [
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}}
+            ]},
+            {"id": "ref/arc-bard/composite", "trades": [
+                {"op": "replaces", "printed": "Bardic Performance and a feat"},
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}}
+            ]},
+            {"id": "ref/arc-bard/shared", "trades": [
+                {"op": "replaces", "printed": "Bardic Performance"}
+            ]},
+        ])
+    );
+    assert!(!shards.contains("\"trades\""), "{shards}");
 }
 
 #[test]
@@ -637,4 +904,85 @@ fn a_second_compile_cannot_clean_a_live_writers_staging_directory() {
     compile_corpus(&corpus, &out, &reports, None, None).unwrap();
     assert!(!lock_file(&out).exists());
     assert!(!staging.exists());
+}
+
+/// Compiles `corpus` into a fresh directory and returns the library files by path.
+fn compile_tree(corpus: &Path, name: &str) -> Vec<(String, Vec<u8>)> {
+    let out = temp(&format!("{name}-out"));
+    let reports = temp(&format!("{name}-reports"));
+    compile_corpus(corpus, &out, &reports, None, Some("v0.1.6")).unwrap_or_else(|f| {
+        panic!("{}", f.lines.join("\n"));
+    });
+    let manifest: ContentManifest =
+        serde_json::from_slice(&fs::read(out.join("manifest.json")).unwrap()).unwrap();
+    let version = out.join(&manifest.content_version);
+    tree(&version)
+}
+
+#[test]
+fn a_book_that_only_expands_an_entry_is_not_a_member_of_that_book() {
+    let with = temp("expanded-with");
+    let without = temp("expanded-without");
+    write_corpus_with(&with, Some(true));
+    write_corpus_with(&without, Some(false));
+    let with_files = compile_tree(&with, "expanded-with");
+    let without_files = compile_tree(&without, "expanded-without");
+
+    // Everything the library derives from membership is identical with and without the credit:
+    // the catalog (book counts and each entry's books), the search index, and every other file.
+    // Only the shard that stores the credited entry may differ.
+    let paths = |files: &[(String, Vec<u8>)]| files.iter().map(|f| f.0.clone()).collect::<Vec<_>>();
+    assert_eq!(paths(&with_files), paths(&without_files));
+    let differing: Vec<&str> = with_files
+        .iter()
+        .zip(&without_files)
+        .filter(|(a, b)| a.1 != b.1)
+        .map(|(a, _)| a.0.as_str())
+        .collect();
+    assert!(
+        differing.iter().all(|path| path.starts_with("entries/")),
+        "only an entry shard may differ: {differing:?}"
+    );
+    assert!(
+        !differing.is_empty(),
+        "the credit must reach the stored entry"
+    );
+
+    let catalog: cast_iron_schema::Catalog = serde_json::from_slice(
+        &with_files
+            .iter()
+            .find(|f| f.0 == "catalog.json")
+            .expect("catalog.json")
+            .1,
+    )
+    .unwrap();
+    let handbook = catalog
+        .sources
+        .iter()
+        .find(|source| source.id == "monster-handbook")
+        .expect("the book is listed");
+    assert_eq!(handbook.entry_count, 0);
+    let core = catalog
+        .sources
+        .iter()
+        .find(|source| source.id == "core-rulebook")
+        .unwrap();
+    assert_eq!(core.entry_count, 2);
+    let grapple = catalog
+        .entries
+        .iter()
+        .find(|entry| entry.id.as_str() == "ref/rule/grapple")
+        .unwrap();
+    assert_eq!(grapple.source, "core-rulebook");
+    assert!(grapple.books.is_empty(), "{:?}", grapple.books);
+}
+
+#[test]
+fn compiling_the_same_corpus_with_expansions_twice_is_byte_identical() {
+    let corpus = temp("expanded-twice");
+    write_corpus_with(&corpus, Some(true));
+    assert_eq!(
+        compile_tree(&corpus, "expanded-twice-a"),
+        compile_tree(&corpus, "expanded-twice-b")
+    );
 }

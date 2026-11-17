@@ -17,7 +17,7 @@ use cast_iron_schema::{
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
     EntryStub, LegalNotices, OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE,
     RelationIndex, RelationLabel, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE,
-    SourceInfo, SpellLists, backlink_shard, backlink_shard_path,
+    SourceInfo, SpellLists, TRADES_FILE, TradeIndex, backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -117,7 +117,7 @@ struct Inner {
     /// "this library has no such file".
     option_groups: RefCell<Option<Option<Rc<OptionGroupIndex>>>>,
     /// Schema-4 typed replacements for archetypes and class options.
-    replaces: RefCell<Option<Option<Rc<ReplacesIndex>>>>,
+    trades: RefCell<Option<Option<Rc<TradeIndex>>>>,
     /// The optional reverse body-link descriptor. The outer `Option` is "not loaded yet";
     /// the inner one is "this library has no such file".
     backlinks: RefCell<Option<Option<Rc<BacklinkIndex>>>>,
@@ -289,7 +289,7 @@ impl Library {
             books: RefCell::new(Some(books)),
             readings: ReadingCache::default(),
             option_groups: RefCell::new(None),
-            replaces: RefCell::new(None),
+            trades: RefCell::new(None),
             backlinks: RefCell::new(None),
             backlink_shards: RefCell::new(Lru::new(BACKLINK_SHARD_CACHE)),
             disabled_books: RefCell::new(disabled_books),
@@ -781,13 +781,26 @@ impl Library {
         .await
     }
 
-    /// The printed items that archetypes and class options replace. `Ok(None)` for a library
-    /// without `replaces.json`.
-    pub async fn replaces(&self) -> Result<Option<Rc<ReplacesIndex>>, LibraryError> {
-        self.lazy(&self.0.replaces, REPLACES_FILE, |index: ReplacesIndex| {
-            index
-        })
-        .await
+    /// The trades of archetypes and class options. A schema-6 library has `trades.json`. A
+    /// schema-4 or schema-5 library has `replaces.json` instead, which holds printed names only,
+    /// so its rows come back as unresolved `Replaces` trades: the Replaces line works, and no
+    /// compatibility filter has a feature to compare. `Ok(None)` for a library with neither file.
+    pub async fn trades(&self) -> Result<Option<Rc<TradeIndex>>, LibraryError> {
+        if let Some(loaded) = self.0.trades.borrow().clone() {
+            return Ok(loaded);
+        }
+        let loaded = if manifest_has_file(&self.0.manifest, TRADES_FILE) {
+            let parsed: TradeIndex = read_json(&self.0.cache, self.version(), TRADES_FILE).await?;
+            Some(Rc::new(parsed))
+        } else if manifest_has_file(&self.0.manifest, REPLACES_FILE) {
+            let older: ReplacesIndex =
+                read_json(&self.0.cache, self.version(), REPLACES_FILE).await?;
+            Some(Rc::new(TradeIndex::from_replaces(older)))
+        } else {
+            None
+        };
+        *self.0.trades.borrow_mut() = Some(loaded.clone());
+        Ok(loaded)
     }
 
     /// The entries whose bodies link to `target`, or `Ok(None)` when the library has no

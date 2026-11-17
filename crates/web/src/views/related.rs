@@ -21,8 +21,8 @@ use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, RelationLabel,
-    ReplacesIndex, RuleEntry, SpellListClass, SpellLists, TypedFields,
+    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, RelationLabel, RuleEntry,
+    SpellListClass, SpellLists, TradeIndex, TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -33,7 +33,7 @@ pub struct Needs {
     pub relations: bool,
     pub spell_lists: bool,
     pub option_groups: bool,
-    pub replaces: bool,
+    pub trades: bool,
 }
 
 pub fn needs(kind: EntryKind) -> Needs {
@@ -42,19 +42,19 @@ pub fn needs(kind: EntryKind) -> Needs {
             relations: true,
             spell_lists: false,
             option_groups: false,
-            replaces: false,
+            trades: false,
         },
         EntryKind::Class => Needs {
             relations: true,
             spell_lists: true,
             option_groups: true,
-            replaces: true,
+            trades: true,
         },
         EntryKind::Spell => Needs {
             relations: true,
             spell_lists: true,
             option_groups: false,
-            replaces: false,
+            trades: false,
         },
         // The metadata line of an option names its group and, when the group has one class,
         // links that class. The relation index carries any third-party `changes` add-on.
@@ -62,7 +62,7 @@ pub fn needs(kind: EntryKind) -> Needs {
             relations: true,
             spell_lists: false,
             option_groups: true,
-            replaces: false,
+            trades: false,
         },
         // A third-party `changes` add-on can attach to a rule or an item too, so those pages
         // load the relation index as a feat, class or spell page does.
@@ -70,7 +70,7 @@ pub fn needs(kind: EntryKind) -> Needs {
             relations: true,
             spell_lists: false,
             option_groups: false,
-            replaces: false,
+            trades: false,
         },
         EntryKind::Creature
         | EntryKind::PrestigeClass
@@ -95,8 +95,8 @@ pub struct Indexes {
     /// The class-option group vocabulary, for the class page's jump list and an option's
     /// metadata line.
     pub option_groups: Option<Rc<OptionGroupIndex>>,
-    /// The printed replacements of archetypes and class options.
-    pub replaces: Option<Rc<ReplacesIndex>>,
+    /// The trades of archetypes and class options; printed names only for an older library.
+    pub trades: Option<Rc<TradeIndex>>,
 }
 
 /// Items grouped under a heading, headings in name order and items in name order. Used to group
@@ -314,7 +314,7 @@ fn class_panels(
     relations: Option<&Relations>,
     lists: Option<&SpellLists>,
     option_groups: Option<&OptionGroupIndex>,
-    replaces: Option<&ReplacesIndex>,
+    trades: Option<&TradeIndex>,
 ) -> Vec<AnyView> {
     let mut out = Vec::new();
     if let Some(list) = lists.and_then(|l| list_of_class_entry(l, id)) {
@@ -375,17 +375,14 @@ fn class_panels(
         let archetypes = relations.sources_of(id, RelationKind::Archetype);
         if !archetypes.is_empty() {
             let total = archetypes.len();
-            let replaces_by_id: std::collections::BTreeMap<EntryId, String> = replaces
+            let replaces_by_id: std::collections::BTreeMap<EntryId, String> = trades
                 .map(|index| {
                     index
                         .entries
                         .iter()
-                        .filter(|row| !row.replaces.is_empty())
-                        .map(|row| {
-                            (
-                                row.id.clone(),
-                                format!("Replaces {}", row.replaces.join(", ")),
-                            )
+                        .filter_map(|row| {
+                            crate::class_options::replaces_line_of(row)
+                                .map(|line| (row.id.clone(), line))
                         })
                         .collect()
                 })
@@ -1076,7 +1073,7 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
                 relations,
                 lists,
                 indexes.option_groups.as_deref(),
-                indexes.replaces.as_deref(),
+                indexes.trades.as_deref(),
             ));
         }
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
@@ -1192,6 +1189,7 @@ mod tests {
             aon: None,
             source_ids: vec!["c".into()],
             sources: vec![],
+            expanded_in: vec![],
             section: vec![],
             parent: None,
             body: vec![],
