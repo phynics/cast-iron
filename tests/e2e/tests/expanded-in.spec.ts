@@ -2,10 +2,10 @@ import fs from "node:fs";
 import { test, expect, loadCorpus, type Page } from "./fixtures";
 import { buildLibraryWithExpandedIn, installLibrary, memberBooks, waitControlled, waitHomeIdle, waitReady, writeMeta } from "./helpers";
 
-// No pinned corpus has `expanded_in` yet (#459 adds it), so the spec serves the compiled library
-// with credits added to two entries and checks the entry page against it. The pinned corpus still
-// lists the handbook as a member of Summon Monster III (#459 moves it to a credit), so the spec
-// tests the line and leaves membership to the native tests of #458.
+// The pinned corpus has `expanded_in` rows only on Summon Monster and Summon Monster I to IX
+// (#459; `summon-monster-expansion.spec.ts` covers them). This spec serves the compiled library
+// with credits added to three entries so that it can test the line's `via`, inactive and revision
+// states, which the pinned rows do not all reach. Membership is the native tests' business (#458).
 
 const corpus = loadCorpus();
 const sources: any[] = corpus.catalog.sources;
