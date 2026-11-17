@@ -124,6 +124,8 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
         },
         books: BookIndex { books: vec![] },
         books_text: String::new(),
+        layout: cast_iron_corpus::BookLayout::Single,
+        book_texts: Default::default(),
         legal: LegalNotices {
             licenses: vec![LicenseText {
                 id: "ogl-1.0a".into(),

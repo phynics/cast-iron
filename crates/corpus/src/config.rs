@@ -13,12 +13,21 @@ use std::path::Path;
 /// Format 2 (#450) writes the trades of an archetype or class option as one flat `trades`
 /// list; format 1 wrote four separate lists. The reader accepts both while the corpus
 /// migrates (#451, #452); [`READABLE_FORMATS`] lists them.
-pub const CORPUS_FORMAT: u32 = 2;
+///
+/// Format 3 (#425) splits `books.toml`: only the hand-curated books are stored, one file each
+/// under `books/`, and the compiler derives every other book from the `[[sources]]` pages.
+pub const CORPUS_FORMAT: u32 = 3;
+
+/// The first format whose book layout is the split one (`books/<publication>.toml`). A corpus
+/// below it stores one `books.toml`. The layout itself is read from the disk (see
+/// `Corpus::load`): a corpus below this format may already hold the split layout while its other
+/// migrations are pending, and a corpus at this format or above must hold it.
+pub const SPLIT_BOOKS_FORMAT: u32 = 3;
 
 /// The corpus formats this tool reads, oldest first. A reader of format 1 lowers the legacy
 /// `replaces`, `alters`, `replaces_features` and `alters_features` lists to trades; `fmt`
 /// writes each file back in the format its `corpus.toml` declares.
-pub const READABLE_FORMATS: [u32; 2] = [1, CORPUS_FORMAT];
+pub const READABLE_FORMATS: [u32; 3] = [1, 2, CORPUS_FORMAT];
 
 /// The command that converts a corpus from an older format.
 pub const MIGRATE_COMMAND: &str = "cast-iron-corpus migrate";
@@ -118,7 +127,7 @@ mod tests {
         let text = write_config(&config);
         assert_eq!(
             text,
-            "format = 2\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
+            "format = 3\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
         );
         assert_eq!(
             read_config(Path::new("corpus.toml"), &text).unwrap(),
@@ -128,7 +137,7 @@ mod tests {
 
     #[test]
     fn an_unknown_format_is_refused_and_names_the_migration_command() {
-        for (format, fragment) in [(0, "to convert the corpus"), (3, "older than the corpus")] {
+        for (format, fragment) in [(0, "to convert the corpus"), (4, "older than the corpus")] {
             let text = format!("format = {format}\n\n[defaults]\nlicense_refs = []\n");
             let error = read_config(Path::new("corpus.toml"), &text).unwrap_err();
             assert_eq!(error.line, 1);

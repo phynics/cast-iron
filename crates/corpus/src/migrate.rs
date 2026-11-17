@@ -3,7 +3,7 @@
 //! A format change (see `docs/corpus-format.md`) adds one step to [`MIGRATIONS`]. The
 //! step rewrites the files of a corpus at format N into format N + 1 and changes
 //! nothing else, so one mechanical pull request can apply it, followed by `fmt`.
-//! No migration exists yet: the corpus is at its first format.
+//! Format 3 (#425) registers the layout step: `books.toml` becomes `books/<publication>.toml`.
 
 use crate::config::{CORPUS_FORMAT, MIGRATE_COMMAND};
 use std::fs;
@@ -16,8 +16,11 @@ pub struct Migration {
     pub apply: fn(&Path) -> Result<(), String>,
 }
 
-/// The registered steps, oldest first. Empty while the corpus is at format 1.
-pub const MIGRATIONS: &[Migration] = &[];
+/// The registered steps, oldest first.
+pub const MIGRATIONS: &[Migration] = &[Migration {
+    from: 2,
+    apply: crate::layout::migrate_to_split,
+}];
 
 /// The `format` number in `corpus.toml`.
 fn declared_format(dir: &Path) -> Result<u32, String> {

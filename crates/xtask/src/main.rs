@@ -35,6 +35,9 @@ cargo xtask <command>
   corpus-fmt <dir> [--check] Rewrite every corpus file into its canonical form, or with --check
                              list the first differing line of each file that is not canonical
   corpus-migrate <dir>       Convert a corpus from an older format (see docs/corpus-format.md)
+  corpus-migrate-layout <dir>
+                             Split books.toml into books/<publication>.toml, the layout step of
+                             format 3 (#425), and nothing else. Safe to repeat
   decisions-index            Render the index of docs/decisions/ (by area) into target/docs-index/decisions.md;
                              nothing is committed or overwritten
   status-index               Render the index of docs/status/ into target/docs-index/status.md
@@ -59,6 +62,7 @@ fn main() -> ExitCode {
         Some("corpus-check") => corpus_check(&args[1..]),
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
+        Some("corpus-migrate-layout") => cast_iron_corpus::cli::run_migrate_layout(&args[1..]),
         Some("decisions-index") => docs_index::decisions_index(&root()),
         Some("status-index") => docs_index::status_index(&root()),
         Some("check") => check(),

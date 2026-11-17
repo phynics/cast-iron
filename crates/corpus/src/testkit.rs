@@ -59,9 +59,11 @@ pub fn rule(id: &str, body: Vec<Block>) -> RuleEntry {
     entry
 }
 
-/// A corpus holding `entries`, one publication, and one licence, in the current format.
+/// A corpus holding `entries`, one publication, and one licence, in the latest format that keeps
+/// one `books.toml` (format 2, which writes trades as format 3 does). The split layout of format 3
+/// has its own tests (`books.rs`, `layout.rs`, `load.rs`).
 pub fn corpus(entries: Vec<RuleEntry>) -> Corpus {
-    corpus_in_format(crate::config::CORPUS_FORMAT, entries)
+    corpus_in_format(crate::config::SPLIT_BOOKS_FORMAT - 1, entries)
 }
 
 /// [`corpus`] declared as corpus format `format`: every entry text is written in that format.
@@ -103,6 +105,8 @@ pub fn corpus_in_format(format: u32, entries: Vec<RuleEntry>) -> Corpus {
         option_groups: Default::default(),
         books: BookIndex { books: vec![] },
         books_text: String::new(),
+        layout: crate::books::BookLayout::Single,
+        book_texts: Default::default(),
         legal: LegalNotices {
             licenses: vec![LicenseText {
                 id: "ogl-1.0a".into(),
