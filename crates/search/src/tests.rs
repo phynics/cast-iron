@@ -1669,11 +1669,14 @@ fn the_masked_calls_never_evaluate_the_selection_again() {
     });
     let built = evaluations.get();
     assert_eq!(built, 2);
+    let by_closure = idx.suggest_correction("firr", &Filters::default(), |doc| doc.id == "spell:a");
+    assert_eq!(by_closure.as_ref().map(|c| c.text.as_str()), Some("fire"));
     for _ in 0..10 {
         idx.search_summaries_masked(&q("fire"), &mask);
         idx.search_masked(&q("fire"), &mask);
         idx.filter_counts_masked("fire", &Filters::default(), &mask);
-        idx.suggest_correction_masked("firr", &Filters::default(), &mask);
+        let by_mask = idx.suggest_correction_masked("firr", &Filters::default(), &mask);
+        assert_eq!(by_mask, by_closure);
     }
     assert_eq!(evaluations.get(), built);
 }
