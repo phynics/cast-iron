@@ -8,6 +8,10 @@
  * commit or at the failure of the request that is being tracked. The message does not say which
  * document it came from, so nothing outside the window is tolerated: not the replacement
  * document's own start-up, and not a page that survived a failed navigation.
+ *
+ * The window is a time interval for the whole page, not proof of where an error came from.
+ * Playwright's `pageerror` does not name the frame either, so the same message from a child frame
+ * during a main-frame navigation is also tolerated. The app has no iframes today.
  */
 export class TeardownWindow {
   private tracked: object | null = null;
