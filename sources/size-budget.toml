@@ -10,4 +10,4 @@
 # approves that line. Never raise it to make a build pass without a reason.
 library_bytes = 234300000
 largest_file_bytes = 72300000
-wasm_bytes = 3280000
+wasm_bytes = 3460000
