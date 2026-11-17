@@ -3,7 +3,7 @@ title: "Wide entry grid: one flexible slack row"
 date: 2026-11-17
 status: current
 superseded_by: []
-issues: [446, 443]
+issues: [443, 446]
 prs: []
 area: ui
 ---
