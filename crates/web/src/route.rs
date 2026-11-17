@@ -494,30 +494,22 @@ impl Route {
         }
     }
 
-    /// Whether `other` is the same entry page at another section: same id, anchor and book. The
-    /// page stays on screen, so a move between two such routes scrolls it and does not rebuild
-    /// it, and keeps focus where the reader put it.
-    pub fn only_section_differs(&self, other: &Route) -> bool {
+    /// Whether moving from `self` to `other` is a jump inside the entry page that is on screen:
+    /// the same entry and book, `other` names no heading anchor, and the address differs, which
+    /// is another section or an `?a=` that the jump clears. The page stays, so the move scrolls it
+    /// and does not rebuild it, and focus stays where the reader put it or moves to the section's
+    /// heading. A move to an `?a=` address is an ordinary navigation.
+    pub fn is_section_jump(&self, other: &Route) -> bool {
         match (self, other) {
             (
-                Route::Entry {
-                    id,
-                    anchor,
-                    book,
-                    section,
-                },
+                Route::Entry { id, book, .. },
                 Route::Entry {
                     id: other_id,
-                    anchor: other_anchor,
+                    anchor: None,
                     book: other_book,
-                    section: other_section,
+                    ..
                 },
-            ) => {
-                id == other_id
-                    && anchor == other_anchor
-                    && book == other_book
-                    && section != other_section
-            }
+            ) => id == other_id && book == other_book && self != other,
             _ => false,
         }
     }
@@ -1475,33 +1467,46 @@ mod tests {
     }
 
     #[test]
-    fn only_a_changed_section_keeps_the_page_on_screen() {
+    fn a_jump_inside_the_entry_on_screen_is_not_a_navigation() {
         let id = EntryId::parse("ref/class/wizard").unwrap();
-        let at = |section| Route::Entry {
+        let at = |anchor: Option<&str>, section| Route::Entry {
             id: id.clone(),
-            anchor: None,
+            anchor: anchor.map(String::from),
             book: None,
             section,
         };
-        assert!(at(None).only_section_differs(&at(Some(Section::Features))));
-        assert!(at(Some(Section::Spells)).only_section_differs(&at(Some(Section::Features))));
-        assert!(!at(Some(Section::Spells)).only_section_differs(&at(Some(Section::Spells))));
-        // Another entry, another anchor or another book is a different page.
+        assert!(at(None, None).is_section_jump(&at(None, Some(Section::Features))));
+        assert!(
+            at(None, Some(Section::Spells)).is_section_jump(&at(None, Some(Section::Features)))
+        );
+        // Back to the plain address from a section is the same kind of move.
+        assert!(at(None, Some(Section::Spells)).is_section_jump(&at(None, None)));
+        // A stop chosen from an `?a=` address clears the anchor and keeps the page.
+        assert!(
+            at(Some("arcane-bond"), None).is_section_jump(&at(None, Some(Section::Archetypes)))
+        );
+        assert!(at(Some("arcane-bond"), None).is_section_jump(&at(None, None)));
+        // The same address is no move.
+        assert!(!at(None, Some(Section::Spells)).is_section_jump(&at(None, Some(Section::Spells))));
+        // A move to an anchor, to another entry, another book or another route is a navigation.
+        assert!(!at(None, None).is_section_jump(&at(Some("arcane-bond"), None)));
+        assert!(!at(None, Some(Section::Spells)).is_section_jump(&at(Some("arcane-bond"), None)));
         let other = Route::Entry {
             id: EntryId::parse("ref/class/fighter").unwrap(),
             anchor: None,
             book: None,
             section: Some(Section::Features),
         };
-        assert!(!at(None).only_section_differs(&other));
-        let anchored = Route::Entry {
+        assert!(!at(None, None).is_section_jump(&other));
+        let in_book = Route::Entry {
             id: id.clone(),
-            anchor: Some("arcane-bond".into()),
-            book: None,
+            anchor: None,
+            book: Some("core-rulebook".into()),
             section: Some(Section::Features),
         };
-        assert!(!at(None).only_section_differs(&anchored));
-        assert!(!at(None).only_section_differs(&Route::Home));
+        assert!(!at(None, None).is_section_jump(&in_book));
+        assert!(!at(None, None).is_section_jump(&Route::Home));
+        assert!(!Route::Home.is_section_jump(&at(None, Some(Section::Features))));
     }
 
     #[test]

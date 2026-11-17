@@ -269,11 +269,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
         _ => (id, false),
     };
     if aliased {
+        // The route that the page keys on has no section (see `RouteView`), so the section of
+        // the address is read from the live route and kept.
         let route = Route::Entry {
             id: id.clone(),
             anchor: anchor.clone(),
             book: book.clone(),
-            section: None,
+            section: route::use_route().get_untracked().section(),
         };
         Effect::new(move |_| route::replace(&route));
     }
@@ -865,14 +867,36 @@ fn EntryView(
         .as_ref()
         .map(Sections::body_marks)
         .unwrap_or_default();
-    // A link to `?s=archetypes` opens at that section once the page has rendered.
-    if class_sections.is_some()
-        && anchor.is_none()
-        && let Some(section) = route::use_route().get_untracked().section()
-    {
-        request_animation_frame(move || {
-            route::scroll_to_section(section);
-        });
+    // A link to `?s=archetypes` opens at that section once the page has rendered. The page keys
+    // on the route without its section, so the address is read from the live route.
+    let live = route::use_route().get_untracked();
+    let live_anchor = match &live {
+        Route::Entry { anchor, .. } => anchor.clone(),
+        _ => anchor.clone(),
+    };
+    if let Some(section) = live.section() {
+        let has = class_sections
+            .as_ref()
+            .is_some_and(|sections| sections.has(section));
+        if has && live_anchor.is_none() {
+            // This frame moves focus to the section's heading and has the same race as the move
+            // to <main> in `Reader`: no cancel when a newer navigation supersedes it, and no
+            // yield to a control the reader focused since (#419).
+            request_animation_frame(move || {
+                route::scroll_to_section(section);
+            });
+        } else if !has {
+            // The address names a section this page lacks (`?s=spells` on a fighter, or any
+            // section on a prestige class or a spell). It opens at the top, and the address
+            // stops claiming it, so the address and the page agree.
+            let canonical = Route::Entry {
+                id: entry.id.clone(),
+                anchor: live_anchor.clone(),
+                book: book.clone(),
+                section: None,
+            };
+            Effect::new(move |_| route::replace(&canonical));
+        }
     }
     let contents = class_sections.is_none().then(|| {
         view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
@@ -905,7 +929,7 @@ fn EntryView(
         {class_card}
         {switcher}
         {contents}
-        <RichBody body=rendered_body anchor=anchor changed=changed_labels marks=section_marks />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks />
         {source_line(&body_sources, &library, None)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>

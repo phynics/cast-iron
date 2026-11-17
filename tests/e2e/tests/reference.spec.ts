@@ -303,7 +303,9 @@ test("Article contents lists sections, not its source books", async ({ page }) =
   const headingTitles = (entry: Entry) =>
     bodyHeadings(entry).map((heading) => heading.text.trim()).filter(Boolean);
   const article = firstEntry("an article with a publication-name heading and four sections", (entry) =>
-    entry.kind !== "class" &&
+    // A class and a prestige class are left out: a class page may have a section switcher
+    // instead of this disclosure (class-sections.spec.ts).
+    entry.kind !== "class" && entry.kind !== "prestige_class" &&
     headingTitles(entry).length >= 4 &&
     headingTitles(entry).some((title) => publicationTitles.has(title.toLowerCase())));
   const named = headingTitles(article).filter((title) => publicationTitles.has(title.toLowerCase()));
@@ -314,7 +316,8 @@ test("Article contents lists sections, not its source books", async ({ page }) =
   await expect(contents).toBeVisible();
   await contents.locator("summary").click();
   const labels = (await contents.getByRole("link").allInnerTexts()).map((label) => label.trim());
-  expect(labels).toEqual(expect.arrayContaining(sections.slice(0, 3)));
+  // The whole list, in order: every heading of the article except the publication names.
+  expect(labels).toEqual(sections);
   // A source attribution heading is not a section of the article.
   expect(labels.filter((label) => named.includes(label))).toEqual([]);
 });

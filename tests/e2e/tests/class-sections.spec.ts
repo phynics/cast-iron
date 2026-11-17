@@ -209,6 +209,81 @@ test("A section address opens at that section, and an unknown one opens at the t
   }
 });
 
+test("An old entry id keeps the section of its address", async ({ page }) => {
+  await installLibrary(page);
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    // `core-rulebook/classes/wizard` is a retired id that resolves to the Wizard.
+    await page.goto(`#/entry/core-rulebook/classes/wizard?s=archetypes`);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+    await expect(page).toHaveURL(/#\/entry\/ref\/class\/wizard\?s=archetypes$/);
+    await expect(stop(page, "Archetypes")).toHaveAttribute("aria-current", "true");
+    await expectAtTop(page, "archetypes");
+  }
+});
+
+test("A stop chosen from a heading address is a jump: the page stays and the heading takes focus", async ({ page }) => {
+  await installLibrary(page);
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    for (const [name, slug] of [["Archetypes", "archetypes"], ["Features", "features"], ["Spells", "spells"]]) {
+      await page.goto(`#/entry/${WIZARD}?a=arcane-bond`);
+      await page.reload();
+      await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+      await expect(page.locator("#h-arcane-bond")).toBeInViewport();
+      // What the reader has open on the page, to show that it is not rebuilt.
+      await page.locator("article.entry").evaluate((el) => el.setAttribute("data-kept", "1"));
+      const skills = page.locator("details.class-skills");
+      await skills.locator("summary").click();
+      await expect(skills).toHaveJSProperty("open", true);
+
+      await stop(page, name).click();
+      await expect.poll(() => page.evaluate(() => location.hash), `${name} at ${width}px`).toBe(`#/entry/${WIZARD}?s=${slug}`);
+      await expect(stop(page, name)).toHaveAttribute("aria-current", "true");
+      await expect(section(page, slug)).toBeFocused();
+      await expectAtTop(page, slug, { exact: slug !== "spells" });
+      await expect(page.locator("article.entry")).toHaveAttribute("data-kept", "1");
+      await expect(skills).toHaveJSProperty("open", true);
+      await expect(page.locator("main#main")).not.toBeFocused();
+    }
+    // Overview from a heading address clears the anchor too, and keeps focus on the link.
+    await page.goto(`#/entry/${WIZARD}?a=arcane-bond`);
+    await page.reload();
+    await expect(page.locator("#h-arcane-bond")).toBeInViewport();
+    await page.locator("article.entry").evaluate((el) => el.setAttribute("data-kept", "1"));
+    await stop(page, "Overview").click();
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${WIZARD}`);
+    await expect.poll(() => scrollY(page)).toBe(0);
+    await expect(page.locator("article.entry")).toHaveAttribute("data-kept", "1");
+    await expect(stop(page, "Overview")).toBeFocused();
+    await expect(stop(page, "Overview")).toHaveAttribute("aria-current", "true");
+  }
+});
+
+test("An address that names a section the page lacks drops it and opens at the top", async ({ page }) => {
+  await installLibrary(page);
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    // A class without a spell list, a prestige class (no switcher) and an entry that is no class.
+    for (const [id, query] of [[FIGHTER, "?s=spells"], ["ref/pclass/arcane-archer", "?s=features"], ["ref/spell/fireball", "?s=archetypes"]]) {
+      await page.goto(`#/entry/${id}${query}`);
+      await page.reload();
+      await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title })).toBeVisible();
+      await expect(page, `${id}${query}`).toHaveURL(new RegExp(`#/entry/${id}$`));
+      await expect.poll(() => scrollY(page)).toBe(0);
+    }
+    await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
+    // A heading anchor in the same address stays.
+    await page.goto(`#/entry/${FIGHTER}?a=bravery&s=spells`);
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1, name: "Fighter" })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`#/entry/${FIGHTER}\\?a=bravery$`));
+    await expect(page.locator("#h-bravery")).toBeInViewport();
+    await expect(stop(page, "Overview")).toHaveAttribute("aria-current", "true");
+  }
+});
+
 test("Back returns to the section before", async ({ page }) => {
   await installLibrary(page);
   for (const width of WIDTHS) {

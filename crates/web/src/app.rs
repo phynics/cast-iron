@@ -304,11 +304,10 @@ fn Reader(library: Library) -> impl IntoView {
         ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
             // Choosing a school edits the schools in the URL of the spell list that is on screen.
             || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route));
-        // A jump to another section of the class page that is on screen. The page scrolls, and
-        // focus stays on the switcher (or moves to the section's heading), not on <main>.
-        let section_jump = previous
-            .as_ref()
-            .is_some_and(|p| p.only_section_differs(&route));
+        // A jump to another section of the entry page that is on screen, also from an `?a=`
+        // address. The page scrolls, and focus stays on the switcher (or moves to the section's
+        // heading), not on <main>.
+        let section_jump = previous.as_ref().is_some_and(|p| p.is_section_jump(&route));
         // The Search screen focuses its own box, so the frame leaves focus alone there.
         let to_search = matches!(route, Route::Search { .. });
         if let Some(title) = static_title(&route) {
@@ -330,7 +329,10 @@ fn Reader(library: Library) -> impl IntoView {
                     route::scroll_to_anchor(&anchor);
                 }
                 // The page is not in the document yet on a first load: it jumps itself when it
-                // has rendered (`EntryView`).
+                // has rendered (`EntryView`). The jump moves focus to the section's heading in
+                // this frame with the same race as the move to <main> below: nothing cancels it
+                // when a newer navigation supersedes it, and it does not yield to a control the
+                // reader has focused since (#419 tracks both).
                 (None, Some(section), _) => {
                     route::scroll_to_section(section);
                 }
@@ -493,7 +495,7 @@ fn RouteView() -> impl IntoView {
             }
         });
     }
-    let page = Memo::new(move |_| {
+    let page = Memo::new(move |previous: Option<&(Route, u64)>| {
         let route = match current.get() {
             Route::Search { .. } => Route::search(""),
             Route::Book { source, .. } => Route::Book {
@@ -513,15 +515,30 @@ fn RouteView() -> impl IntoView {
             Route::SpellList { class, level, .. } => Route::spell_list(class, level),
             // The section of a class page is a place on the page that is already on screen: a
             // jump scrolls it and must not rebuild it, which would drop open disclosures and the
-            // focus on the switcher. The page reads its section from the route itself.
+            // focus on the switcher. The page reads its section from the route itself. A stop
+            // chosen from an `?a=` address clears the anchor; the page that shows that entry
+            // keeps its key, so the clear is not a rebuild either.
             Route::Entry {
                 id, anchor, book, ..
-            } => Route::Entry {
-                id,
-                anchor,
-                book,
-                section: None,
-            },
+            } => {
+                let kept = previous.and_then(|(shown, _)| match shown {
+                    Route::Entry {
+                        id: shown_id,
+                        anchor: shown_anchor,
+                        book: shown_book,
+                        ..
+                    } if anchor.is_none() && *shown_id == id && *shown_book == book => {
+                        Some(shown_anchor.clone())
+                    }
+                    _ => None,
+                });
+                Route::Entry {
+                    id,
+                    anchor: kept.unwrap_or(anchor),
+                    book,
+                    section: None,
+                }
+            }
             other => other,
         };
         // Keep Books mounted so toggles preserve disclosure, focus, and scroll state.
