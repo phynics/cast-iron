@@ -234,12 +234,14 @@ prove:
 2. A trade without a feature is resolved only when the printed name proves it. Each rule needs
    exactly one heading to match, and the name is read without an ability tag, article, or the base
    class's own name:
-   - **exact:** the name slugs to a heading anchor or to the slug of a heading's text;
+   - **exact:** the name slugs to the slug of a heading's text, or to a heading anchor without a number in it (`trap-sense-3` may be a suffix that kept two headings apart, so it never proves `Trap sense +3`);
    - **tokens:** the name and the heading have the same words in any order, a plural read as its
      singular (`Investigator talents` is `Investigator Talent (Ex or Su)`);
    - **levels:** the name states ordinal levels (`The discovery gained at 6th level`,
-     `2nd-, 12th-, 16th-level discoveries`); the rest is the token set of one heading, and the
-     levels (1 to 20) become `levels`;
+     `2nd-, 12th-, 16th-level discoveries`); every ordinal must belong to a level expression (a run
+     of ordinals joined by `and`, followed by `level` or `levels`), or the whole name stays
+     unresolved (`2nd favored enemy gained at 5th level`); the rest is the token set of one
+     heading, and the levels (1 to 20) become `levels`;
    - **qualifier:** the name is a feature plus one number or one trailing parenthesis
      (`Poison resistance +4`, `Touch treatment (minor)`); it becomes `power`.
 3. When two trades of one key would name the same feature at a shared level and power (a book
@@ -251,7 +253,7 @@ prove:
 
 A position in a list, the length of a list, a name that only starts with or contains a feature
 name (`Improved evasion` is not `Evasion`), a list of numbers (`Armor training 1, 2, 3, and 4`),
-and an anchor that two base classes hold (an archetype of two classes) prove nothing. Those trades
+and an anchor that two base classes hold, whatever their heading texts (an archetype of two classes), prove nothing. Those trades
 keep `feature` absent. They go to the review queue, a TSV (`generated/trade-review.tsv` for the
 xtask command, `trade-review.tsv` in the current directory for the binary; never inside the
 corpus) with one row per unresolved trade in entry id and trade order:

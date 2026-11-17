@@ -1065,6 +1065,46 @@ mod tests {
     }
 
     #[test]
+    fn an_anchor_held_under_another_text_stays_unresolved_and_a_second_run_keeps_it_so() {
+        // Two classes hold `alchemy`, with different heading texts. `Alchemies` token-matches
+        // only the first text, and the migration must not write `alchemy` without a `class`.
+        let alchemist = class("ref/class/alchemist", &[("alchemy", "Alchemy (Su)")]);
+        let investigator = class(
+            "ref/class/investigator",
+            &[("alchemy", "Alchemy and Extracts")],
+        );
+        let entry = archetype(
+            "ref/arc-alchemist/mc",
+            &["ref/class/alchemist", "ref/class/investigator"],
+            vec![
+                Trade::unresolved(TradeOp::Alters, "Alchemies"),
+                Trade::unresolved(TradeOp::Alters, "Extracts"),
+            ],
+            &[("Alters", "Alchemies, Extracts")],
+        );
+        let source = corpus_in_format(1, vec![alchemist, investigator, entry]);
+        let dir = temp_dir("cross-class");
+        write_corpus(&dir, &source);
+        let first = migrate_trades(&dir).unwrap();
+        assert_eq!(first.resolved.values().sum::<usize>(), 0);
+        assert_eq!(first.unresolved, 2);
+        assert_eq!(first.reasons.get("ambiguous-class"), Some(&1));
+        let after = tree(&dir);
+        let text = String::from_utf8_lossy(&after["entries/arc-alchemist/mc.md"]).to_string();
+        assert!(!text.contains("feature ="), "{text}");
+        // The migrated corpus checks clean, and a second run changes nothing and drops nothing.
+        let loaded = Corpus::load(&dir).unwrap();
+        let report = crate::check(&loaded);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let second = migrate_trades(&dir).unwrap();
+        assert_eq!(second.rewritten, 0);
+        assert_eq!(second.kept, 0);
+        assert_eq!(second.unresolved, 2);
+        assert_eq!(tree(&dir), after);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn the_generic_migrate_command_runs_the_same_step() {
         let source = corpus_in_format(
             1,

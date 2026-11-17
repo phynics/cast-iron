@@ -8,8 +8,10 @@
 //!
 //! The rules, in order. Each needs exactly one feature to match:
 //!
-//! 1. **Exact.** The name, without its ability tag, slugs to the anchor of a base-class heading
-//!    (`Bravery (Ex)` and `bravery`), or to the slug of a heading's text.
+//! 1. **Exact.** The name, without its ability tag, slugs to the slug of a heading's text
+//!    (`Bravery (Ex)` and `Bravery`), or to a heading anchor. An anchor with a number in it
+//!    (`trap-sense-3`) may be a suffix that kept two headings apart, so it never proves a name
+//!    such as `Trap sense +3`.
 //! 2. **Token sets.** The name and the heading hold the same words, in any order, with a plural
 //!    read as its singular (`Investigator talents` and `Investigator Talent (Ex or Su)`). Articles
 //!    never count. A base class's own name may be left out of the printed name (`The fighter's
@@ -18,8 +20,10 @@
 //!    `levels` (`The discovery gained at 6th level`, `2nd-, 12th-, 16th-level discoveries`). Once
 //!    the ordinals and the words that only carry them (`the`, `at`, `gained`, `of`, `and`,
 //!    `level`) are set aside, the rest must be the token set of one heading. The levels go to
-//!    `levels`, and each must be 1 to 20. An ordinal without the word `level` is not a level:
-//!    `2nd favored enemy` is the second enemy, which a ranger gains at 5th level.
+//!    `levels`, and each must be 1 to 20. Each ordinal must belong to a level expression: a run of
+//!    ordinals joined by `and` that `level` or `levels` follows. `2nd favored enemy` is the second
+//!    enemy, which a ranger gains at 5th level, so `2nd favored enemy gained at 5th level` mixes
+//!    an instance with a level and stays unresolved.
 //! 4. **One qualifier.** The name is a feature plus one number (`Poison resistance +4`, `Weapon
 //!    training 2`) or one trailing parenthesis of a single word (`Touch treatment (minor)`). The
 //!    qualifier goes to `power`. A list of numbers (`Armor training 1, 2, 3, and 4`) cannot be one
@@ -138,6 +142,56 @@ struct Parsed {
     numbers: Vec<String>,
     /// The text of a trailing parenthesis that is not an ability tag.
     paren: Option<String>,
+    /// Ordinals and words in print order, articles removed; a number breaks a run.
+    sequence: Vec<Piece>,
+}
+
+/// One token of a printed name that matters for reading ordinals.
+#[derive(Debug, PartialEq, Eq)]
+enum Piece {
+    Ordinal(u32),
+    Word(String),
+    Number,
+}
+
+/// The ordinals of `sequence`, if every one of them denotes a class level, in print order. An
+/// ordinal denotes a level when the run it belongs to (ordinals joined by `and`) is followed by
+/// `level` or `levels`: `at 6th, 12th, and 18th levels`, `2nd-level`. An ordinal in any other
+/// place counts something else (`2nd favored enemy`), and one such ordinal makes the whole name
+/// unreadable.
+fn level_ordinals(sequence: &[Piece]) -> Option<Vec<u32>> {
+    let mut levels = Vec::new();
+    let mut at = 0;
+    while at < sequence.len() {
+        let mut end = at;
+        while end < sequence.len()
+            && match &sequence[end] {
+                Piece::Ordinal(_) => true,
+                Piece::Word(word) => word == "and",
+                Piece::Number => false,
+            }
+        {
+            end += 1;
+        }
+        let run: Vec<u32> = sequence[at..end]
+            .iter()
+            .filter_map(|piece| match piece {
+                Piece::Ordinal(level) => Some(*level),
+                _ => None,
+            })
+            .collect();
+        if run.is_empty() {
+            at = end.max(at + 1);
+            continue;
+        }
+        let closes = matches!(sequence.get(end), Some(Piece::Word(word)) if word == "level" || word == "levels");
+        if !closes {
+            return None;
+        }
+        levels.extend(run);
+        at = end;
+    }
+    Some(levels)
 }
 
 /// Reads `6th`, `1st`, `22nd` as a number.
@@ -175,17 +229,21 @@ fn parse(printed: &str) -> Option<Parsed> {
         }
         if let Some(level) = ordinal(token) {
             parsed.ordinals.push(level);
+            parsed.sequence.push(Piece::Ordinal(level));
         } else if let Some(number) = token.strip_prefix('+') {
             if number.is_empty() || !number.chars().all(|ch| ch.is_ascii_digit()) {
                 return None;
             }
             parsed.numbers.push(token.to_string());
+            parsed.sequence.push(Piece::Number);
         } else if token.contains('+') {
             return None;
         } else if token.chars().all(|ch| ch.is_ascii_digit()) {
             parsed.numbers.push(token.to_string());
+            parsed.sequence.push(Piece::Number);
         } else if !ARTICLES.contains(&token) {
             parsed.words.push(token.to_string());
+            parsed.sequence.push(Piece::Word(token.to_string()));
         }
     }
     Some(parsed)
@@ -235,8 +293,9 @@ fn heading_set(text: &str) -> Vec<String> {
     )
 }
 
-/// Settles a set of matching headings to one anchor, or says why it cannot.
-fn settle(matches: &[&BaseHeading]) -> Result<String, Why> {
+/// Settles a set of matching headings to one anchor, or says why it cannot. `all` are the
+/// headings of every base class.
+fn settle(matches: &[&BaseHeading], all: &[BaseHeading]) -> Result<String, Why> {
     let anchors: BTreeSet<&str> = matches.iter().map(|heading| heading.key.as_str()).collect();
     if anchors.len() > 1 {
         let mut found: Vec<String> = matches
@@ -247,8 +306,13 @@ fn settle(matches: &[&BaseHeading]) -> Result<String, Why> {
         found.dedup();
         return Err(Why::AmbiguousHeading(found));
     }
-    let classes: BTreeSet<&str> = matches
+    // Every base class that holds the anchor counts, not only the classes whose heading text
+    // matched: `Alchemy` in one class and `Alchemy and Extracts` in another share one anchor,
+    // and a trade that names it needs a written `class`, which a migration cannot prove.
+    let anchor = matches[0].key.as_str();
+    let classes: BTreeSet<&str> = all
         .iter()
+        .filter(|heading| heading.key == anchor)
         .map(|heading| heading.class.as_str())
         .collect();
     if classes.len() > 1 {
@@ -270,15 +334,23 @@ fn feature(anchor: String) -> FeatureRef {
 /// Resolves `printed` against the headings of the base classes. `class_words` are the words of
 /// the base classes' names (`fighter`, `unchained`, `rogue`).
 pub fn resolve(printed: &str, headings: &[BaseHeading], class_words: &BTreeSet<String>) -> Verdict {
-    // Rule 1: the whole name is a heading anchor or a heading's text.
+    // Rule 1: the whole name is a heading's text, or a heading anchor. An anchor with a number
+    // in it proves nothing alone: `trap-sense-3` may be the third `Trap Sense` heading of a page,
+    // not `Trap sense +3`. Such a name needs the heading's own text, or it goes to the later
+    // rules, which read the number as a qualifier.
     let key = feature_key(printed);
     if !key.is_empty() {
+        let numbered = key
+            .split('-')
+            .any(|part| part.starts_with(|ch: char| ch.is_ascii_digit()));
         let found: Vec<&BaseHeading> = headings
             .iter()
-            .filter(|heading| heading.key == key || feature_key(&heading.text) == key)
+            .filter(|heading| {
+                feature_key(&heading.text) == key || (!numbered && heading.key == key)
+            })
             .collect();
         if !found.is_empty() {
-            return match settle(&found) {
+            return match settle(&found, headings) {
                 Ok(anchor) => Verdict::Resolved(feature(anchor), Rule::Exact),
                 Err(why) => Verdict::Unresolved(why),
             };
@@ -322,7 +394,7 @@ pub fn resolve(printed: &str, headings: &[BaseHeading], class_words: &BTreeSet<S
     if found.is_empty() {
         return Verdict::Unresolved(Why::NoHeading);
     }
-    let anchor = match settle(&found) {
+    let anchor = match settle(&found, headings) {
         Ok(anchor) => anchor,
         Err(why) => return Verdict::Unresolved(why),
     };
@@ -331,14 +403,9 @@ pub fn resolve(printed: &str, headings: &[BaseHeading], class_words: &BTreeSet<S
         if !parsed.numbers.is_empty() || parsed.paren.is_some() {
             return Verdict::Unresolved(Why::UnusableQualifier);
         }
-        if !parsed
-            .words
-            .iter()
-            .any(|word| matches!(word.as_str(), "level" | "levels"))
-        {
+        let Some(mut levels) = level_ordinals(&parsed.sequence) else {
             return Verdict::Unresolved(Why::OrdinalIsNotALevel);
-        }
-        let mut levels = parsed.ordinals.clone();
+        };
         levels.sort_unstable();
         levels.dedup();
         if levels.iter().any(|level| !(1..=20).contains(level)) {
@@ -671,6 +738,119 @@ mod tests {
                     "ref/class/alchemist".into(),
                     "ref/class/investigator".into()
                 ]),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_anchor_is_ambiguous_when_any_base_class_holds_it_under_another_text() {
+        // `Alchemies` token-matches only the first heading, but the anchor is also held by the
+        // second class, so a trade that names it needs a `class`.
+        let two = [
+            heading("ref/class/alchemist", "alchemy", "Alchemy (Su)"),
+            heading("ref/class/investigator", "alchemy", "Alchemy and Extracts"),
+        ];
+        for name in ["Alchemies", "Alchemy"] {
+            assert_eq!(
+                why(name, &two),
+                Why::AmbiguousClass(vec![
+                    "ref/class/alchemist".into(),
+                    "ref/class/investigator".into()
+                ]),
+                "{name}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_numeric_anchor_suffix_does_not_prove_a_qualifier() {
+        // The second `Trap Sense` heading got the anchor `trap-sense-3`; `Trap sense +3` is the
+        // +3 step, not that heading.
+        let twin = [
+            heading("ref/class/rogue", "trap-sense", "Trap Sense (Ex)"),
+            heading("ref/class/rogue", "trap-sense-3", "Trap Sense (Ex)"),
+        ];
+        assert!(matches!(
+            why("Trap sense +3", &twin),
+            Why::AmbiguousHeading(_)
+        ));
+        // With one such heading the name resolves by its words, as a qualifier, never as Exact.
+        let one = [heading(
+            "ref/class/rogue",
+            "trap-sense-3",
+            "Trap Sense (Ex)",
+        )];
+        let found = resolve("Trap sense +3", &one, &words(&["rogue"]));
+        assert!(matches!(
+            found,
+            Verdict::Resolved(f, Rule::Qualifier) if f.anchor == "trap-sense-3" && f.power.as_deref() == Some("+3")
+        ));
+        // An explicit numeric anchor on another text is not proof either.
+        let explicit = [heading(
+            "ref/class/fighter",
+            "weapon-training-2",
+            "Weapon Training (Ex)",
+        )];
+        assert!(matches!(
+            resolve("Weapon training 2", &explicit, &words(&["fighter"])),
+            Verdict::Resolved(_, Rule::Qualifier)
+        ));
+        // A heading whose own text carries the number is exact.
+        let own = [heading(
+            "ref/class/fighter",
+            "weapon-training-2",
+            "Weapon Training 2",
+        )];
+        assert!(matches!(
+            resolve("Weapon training 2", &own, &words(&["fighter"])),
+            Verdict::Resolved(_, Rule::Exact)
+        ));
+    }
+
+    #[test]
+    fn every_ordinal_must_belong_to_a_level_expression() {
+        let favored = [heading(
+            "ref/class/ranger",
+            "favored-enemy",
+            "Favored Enemy (Ex)",
+        )];
+        let ranger = words(&["ranger"]);
+        for name in [
+            "2nd favored enemy gained at 5th level",
+            "Favored enemy 2nd, gained at 5th level",
+        ] {
+            assert!(
+                matches!(
+                    resolve(name, &favored, &ranger),
+                    Verdict::Unresolved(Why::OrdinalIsNotALevel)
+                ),
+                "{name}"
+            );
+        }
+        // Mixed with a repeated word the token set differs, so it stays unresolved anyway.
+        assert!(matches!(
+            resolve(
+                "1st favored enemy and the 5th-level favored enemy",
+                &favored,
+                &ranger
+            ),
+            Verdict::Unresolved(_)
+        ));
+        for (name, levels) in [
+            ("Favored enemy gained at 5th level", vec![5]),
+            ("Favored enemy at 1st level and at 6th level", vec![1, 6]),
+            (
+                "Favored enemies gained at 5th, 10th, and 15th levels",
+                vec![5, 10, 15],
+            ),
+            ("1st-level and 5th-level favored enemy", vec![1, 5]),
+        ] {
+            assert!(
+                matches!(
+                    resolve(name, &favored, &ranger),
+                    Verdict::Resolved(f, Rule::Levels) if f.levels == levels
+                ),
                 "{name}"
             );
         }
