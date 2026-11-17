@@ -39,6 +39,11 @@ exercises schema 6 to 6, not 4 to 6. The reader accepting schemas 1 to 6 is impl
 not a completed upgrade check. No physical-device check was run; the owner accepts browser evidence
 (decision of 2026-11-17 on #441).
 
+**Follow-up, added 2026-11-18.** The deferred browser acceptance was then run and passed in Chromium
+and WebKit, with the old shell rebuilt because the published artifact had expired. Results and
+procedure: [the acceptance entry](2026-11-18-deferred-upgrade-acceptance-6365dba-to-1324e1d.md). The
+paragraph above records the state at release time and stands as written.
+
 **Known open issue.** [#121](https://github.com/phynics/cast-iron/issues/121): WebKit can raise
 `Context is stopped` around navigation. The cause is in something the app does and is not found.
 Tests tolerate it only during main-frame navigation; no user-visible effect has been observed.

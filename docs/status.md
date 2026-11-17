@@ -23,4 +23,4 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 - **Full CI on `main`:** run [44167404059](https://github.com/phynics/cast-iron/actions/runs/44167404059) on `1324e1d`, 2026-11-17, succeeded with every job green. All runs: [ci.yml on `main`](https://github.com/phynics/cast-iron/actions/workflows/ci.yml?query=branch%3Amain).
 - **Pages:** the last deployment is [44180026338](https://github.com/phynics/cast-iron/actions/runs/44180026338) for `release` at `1324e1d`, 2026-11-17, succeeded. All runs: [pages.yml](https://github.com/phynics/cast-iron/actions/workflows/pages.yml).
-- **Live verification:** the live manifest and shell stamps match the release (see the release entry). The owner waived the live browser checks for this release.
+- **Live verification:** the live manifest and shell stamps match the release (see the release entry). The owner waived the live browser checks for this release. The deferred upgrade acceptance from the published schema 4 release is in [the acceptance entry](status/2026-11-18-deferred-upgrade-acceptance-6365dba-to-1324e1d.md).
