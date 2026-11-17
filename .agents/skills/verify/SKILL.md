@@ -19,13 +19,13 @@ This fetches the pinned corpus and compiles the library into `generated/content/
 
 If compiler code, schema types, or the corpus pin changed, run `cargo xtask fetch-sources` and `cargo xtask content` first. An existing manifest suppresses content compilation during the site build. Check that `generated/content/manifest.json` and `dist/content/manifest.json` match before testing. Tests load corpus expectations from `generated/` and the browser reads `dist/`.
 
-## 2. Run the affected specs
+## 2. Run one spec
 
-Run only the specs that the change can break: the spec files you changed, plus the specs of the change's row in the feature map (section 5). The full suite runs in CI (`gh workflow run ci.yml --ref <branch>`), not locally. On a shared host, the full suite takes 12–22 minutes for Chromium and 45–60 minutes with WebKit, and load alone makes tests time out. See "Test scope" in `AGENTS.md`.
+Run at most ONE spec: the new spec the change adds or, when it adds none, the one spec that the feature map (section 5) selects for the changed feature. Run no other spec, and not the full suite: broader coverage comes from the full CI run on `main` after each batch of merges (`gh workflow run ci.yml --ref main`), and on the branch only for the rows of "Test scope" in `AGENTS.md` that ask for it. Docs and xtask changes need no browser run. On a shared host, the full suite takes 12–22 minutes for Chromium and 45–60 minutes with WebKit, and load alone makes tests time out. See "Test scope" in `AGENTS.md`.
 
 ```sh
 npm --prefix tests/e2e ci
-npm --prefix tests/e2e test -- --project=chromium tests/<changed>.spec.ts tests/<affected>.spec.ts
+npm --prefix tests/e2e test -- --project=chromium tests/<spec>.spec.ts
 ```
 
 On a host without the Nix dev shell, install the browsers once first: `npx --prefix tests/e2e playwright install chromium webkit`.
@@ -40,7 +40,7 @@ When the spec is listed in the `mobile-chromium` Playwright project (`playwright
 
 Report any failure with its output. Do not call a change done while a test fails. When a test fails only during a run under load, run its spec again alone before you change code.
 
-The default command without project flags includes Firefox. Its local startup failure and the informational CI browser projects are recorded in `docs/status.md`. Report the specs and projects actually run; a passing Chromium run does not verify WebKit or Firefox.
+The default command without project flags includes Firefox. Its local startup failure and the informational CI browser projects are recorded in the decisions "Firefox CI disabled" and "CI browser shards and early cache saves" (`docs/decisions/README.md`). Report the specs and projects actually run; a passing Chromium run does not verify WebKit or Firefox.
 
 ## 3. Drive the app by hand (new features)
 
@@ -85,6 +85,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Books tab opening speed | `Books tab opens` (`books-open.spec.ts`; also `mobile-chromium`) | `crates/web/src/views/browse.rs`, `crates/web/src/discovery.rs` |
 | Adventure Path, Module, and Society series lines | `Adventures\|Modules\|Pathfinder Society\|bulk toggle` (`adventures-series.spec.ts`) | `crates/web/src/views/book_series.rs`, `crates/web/src/views/browse.rs`, `crates/web/src/views/active_books.rs` |
 | Class summary card and folded class references | whole file (`class-card.spec.ts`) | `crates/web/src/class_summary.rs`, `crates/web/src/views/class_card.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/backlinks.rs` |
+| Class page section switcher | whole file (`class-sections.spec.ts`) | `crates/web/src/class_sections.rs`, `crates/web/src/views/section_switcher.rs`, `crates/web/src/route.rs`, `crates/web/src/app.rs`, `crates/web/src/views/entry.rs`, `crates/web/src/views/rich.rs`, `crates/web/src/views/related.rs`, `web/styles.css` |
 | Races, racial traits, classes, and archetypes | `race racial traits` (`relationships.spec.ts`) | `crates/web/src/views/related.rs`, `crates/web/src/graph.rs` |
 | Class spell lists and source filters | `spell lists filter\|numbered spell series` (`relationships.spec.ts`) | `crates/web/src/views/spells.rs`, `crates/web/src/views/search.rs` |
 | Class option groups on class pages and lists | whole file (`class-options.spec.ts`; also `mobile-chromium`) | `crates/web/src/class_options.rs`, `crates/web/src/views/related.rs`, `crates/web/src/views/categories.rs`, `crates/web/src/views/entry.rs` |
@@ -127,6 +128,10 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 
 When you add a feature, add its row to the feature map, with its e2e test area and source files. When you rename or move a file listed here, update the row. A feature that is missing from this table cannot be verified by the next agent. `cargo xtask check` reads this table and fails when it disagrees with `tests/e2e/tests` (all `*.spec.ts` files below it). It fails when a spec is not named, when a name matches no file, when a `--grep` pattern is not a regular expression or matches no test, and when a test is reached by no row. In the second column, write each selector followed by its specs in parentheses: `` `pattern` (`a.spec.ts`, `b.spec.ts`) `` or `whole file (`a.spec.ts`)`, with `\|` for `|` in a pattern. A pattern is matched as Playwright's `--grep` matches it: against the spec's file name, its `test.describe` titles and the test title. The check assumes `--grep` is case-insensitive, which Playwright's command line does (it builds the pattern with the `i` flag), so `race` matches `Race`; a spec's patterns need not repeat each case. A pattern must match a test in every spec it lists, and each top-level alternative (`a\|b`) must match a test, so a dead alternative fails the check. A row that has no e2e spec starts its second column with `none`. A test whose title is not a plain string (a template with `${}`, a variable) is listed as unverifiable; use plain titles.
 
+## Record decisions and results
+
+A decision that a later reader cannot derive from code is a new file `docs/decisions/YYYY-MM-DD-<slug>.md` (front matter rules: `docs/decisions/README.md`); no other file changes. A pin, a release or an acceptance result is a new file `docs/status/YYYY-MM-DD-<slug>.md`. `docs/status.md` changes only where its current state changed. Never append to an old entry. `cargo xtask check` fails on invalid front matter, a `superseded_by` that names no file, a README that lists an entry, and a broken relative link. `cargo xtask decisions-index` renders the index into `target/docs-index/`.
+
 ## Corpus and schema changes
 
 Save the previously published library's `content/` directory outside `dist/` and `generated/` before rebuilding, so that you can install it in a browser and activate the replacement. Compile the new library with `cargo xtask content`. When the change touches ids, the legacy alias map (`aliases.toml` in the corpus), or books, also resolve every id of the last PSRD release against the new library; `docs/releasing.md` gives the commands and the tag that builds it.
@@ -135,7 +140,7 @@ Install the previous published library in a browser, bookmark an entry affected 
 
 Compile twice and compare all generated files when compiler output changes: `rm -rf generated`, run `cargo xtask content`, hash the tree, and repeat.
 
-Run `python3 scripts/check-publication.py` against the built distribution for corpus changes. It screens `dist/content` by default; pass a generated directory to screen another library. Record actual counts and limitations in `docs/status.md`.
+Run `python3 scripts/check-publication.py` against the built distribution for corpus changes. It screens `dist/content` by default; pass a generated directory to screen another library. Record actual counts and limitations in the status log: add `docs/status/YYYY-MM-DD-<slug>.md`.
 
 ## Browser test expectations
 

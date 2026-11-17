@@ -28,7 +28,9 @@ use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
     local_resource, set_title, sort_key,
 };
-use cast_iron_schema::{EntryId, EntryKind, EntryStub, OptionGroupIndex, SeriesKind};
+use cast_iron_schema::{
+    EntryId, EntryKind, EntryStub, OptionGroupIndex, RelationLabel, SeriesKind,
+};
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -165,7 +167,7 @@ pub const CHAIN_MARK_MIN: usize = 5;
 #[derive(Debug, Clone, Default)]
 pub struct FeatRowInfo {
     pub marks: HashMap<EntryId, usize>,
-    pub addons: HashMap<EntryId, String>,
+    pub addons: HashMap<EntryId, RelationLabel>,
 }
 
 pub type ChainMarks = ReadSignal<Option<Option<Shared<FeatRowInfo>>>, LocalStorage>;
@@ -214,7 +216,7 @@ fn feat_row(
             let loaded = loaded.as_ref().and_then(Option::as_ref)?;
             if let Some(label) = loaded.addons.get(&id) {
                 let book = source.clone().unwrap_or_else(|| "Other".to_string());
-                return Some(format!("{} · {book}", addon_name(label)));
+                return Some(format!("{} · {book}", addon_name(*label)));
             }
             show_source.then(|| source.clone()).flatten()
         })

@@ -200,6 +200,25 @@ On a class or prestige-class page, References and Referenced by are closed `deta
 at the page end, on every width: a 44 px summary with a chevron, the name and the count. A wide
 class page is one column with no side panel. Other entries keep them open, in the side panel.
 
+## Class section switcher
+
+A class page with at least three stops (Overview and two more) has `nav.section-switcher` under the
+summary card, in place of the `On this page` disclosure: **Overview · Features · Archetypes ·
+Spells**, only the stops the class has (Wizard and Arcanist four, Fighter three). A prestige class
+has only Overview and Features, so it gets no switcher and keeps the contents disclosure it has
+today (#443 tracks its route to Requirements).
+
+It is a row of jump links, not tabs: Navigation role, `--radius` rectangles of 44 px, equal in rhythm,
+the stop last chosen filled with `--accent` and marked `aria-current="true"` (the form of the
+spell level links). It is `position: sticky` under the masthead (`top: var(--header-h)`), on an
+opaque `--bg` that runs out to the page gutters, with a short fade under its edge. The whole page
+stays one document, so Find in page and a screen reader's heading list reach every section. A link
+moves the page to the start of its section and focus to that section's heading; the address
+records the stop as `?s=features`, `?s=archetypes` or `?s=spells` (Overview has no value), which
+makes the stop a history entry. A section starts below the masthead and the bar
+(`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
+document order, because a sticky grid item cannot leave its grid row.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.

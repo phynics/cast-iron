@@ -7,7 +7,7 @@
 //! Removed and merged revisions leave the list but keep their original findable in search.
 
 use crate::graph::Relations;
-use cast_iron_schema::{Citation, EntryId, RuleEntry, TypedFields};
+use cast_iron_schema::{Citation, EntryId, RelationLabel, RuleEntry, TypedFields};
 use cast_iron_search::HitSummary;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -24,12 +24,18 @@ pub enum RevisionLabel {
 impl RevisionLabel {
     /// The label of a `revision` edge. An unknown label is not a revision state this reader
     /// understands; the corpus check keeps that from shipping.
-    pub fn from_edge(label: Option<&str>) -> Option<Self> {
+    pub fn from_edge(label: Option<RelationLabel>) -> Option<Self> {
         match label {
             None => Some(Self::Revised),
-            Some("removed") => Some(Self::Removed),
-            Some("merged") => Some(Self::Merged),
-            Some(_) => None,
+            Some(RelationLabel::Removed) => Some(Self::Removed),
+            Some(RelationLabel::Merged) => Some(Self::Merged),
+            Some(
+                RelationLabel::Alternate
+                | RelationLabel::Changes
+                | RelationLabel::Mythic
+                | RelationLabel::Or
+                | RelationLabel::Stamina,
+            ) => None,
         }
     }
 
@@ -188,7 +194,7 @@ impl RevisionView {
         let rows = self.rows(&visible);
         // Only a single revision in force substitutes. A collision keeps the printed base and
         // its prerequisites, exactly as the page keeps the original text under its notice.
-        let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<String>)>> = self
+        let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<RelationLabel>)>> = self
             .by_base
             .keys()
             .filter_map(|base| {
@@ -460,7 +466,7 @@ mod tests {
                         id(revision),
                         RelationKind::Revision,
                         id(base),
-                        label.map(String::from),
+                        label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
                     )
                 })
                 .collect(),
@@ -612,7 +618,12 @@ mod tests {
             edges: edges
                 .iter()
                 .map(|(source, kind, target, label)| {
-                    RelationEdge(id(source), *kind, id(target), label.map(String::from))
+                    RelationEdge(
+                        id(source),
+                        *kind,
+                        id(target),
+                        label.map(|slug| RelationLabel::from_slug(slug).expect("a known label")),
+                    )
                 })
                 .collect(),
         })
