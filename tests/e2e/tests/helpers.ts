@@ -347,6 +347,48 @@ export function buildUpdatedLibrary(marker: string) {
 }
 
 /**
+ * An overlay of the served library with `expanded_in` rows added to entries (#460). No pinned
+ * corpus has the field yet, so this is how a spec gets a credit. `credits` maps an entry id to
+ * its rows. Only the entry shards that hold those entries change: the overlay writes them and a
+ * manifest with their new hashes and sizes under the same content version, and every other file
+ * keeps coming from dist. The client still verifies each shard against the manifest.
+ */
+export function buildLibraryWithExpandedIn(
+  credits: Record<string, { publication: string; page?: string; via?: string }[]>,
+) {
+  const old = distManifest();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-expanded-in-"));
+  const left = new Set(Object.keys(credits));
+  const changed = new Map<string, Buffer>();
+  for (const file of old.files) {
+    if (!/^[^/]+\/entries\/[^/]+\.json$/.test(file.path)) continue;
+    const entries = JSON.parse(fs.readFileSync(path.join(DIST, "content", file.path), "utf8"));
+    let touched = false;
+    for (const entry of entries) {
+      if (!(entry.id in credits)) continue;
+      entry.expanded_in = credits[entry.id];
+      left.delete(entry.id);
+      touched = true;
+    }
+    if (touched) changed.set(file.path, Buffer.from(JSON.stringify(entries)));
+  }
+  if (left.size) throw new Error(`no entry shard holds: ${[...left].join(", ")}`);
+  const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
+  for (const [relative, bytes] of changed) {
+    const target = path.join(dir, "content", relative);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, bytes);
+  }
+  const files = old.files.map((file) => {
+    const bytes = changed.get(file.path);
+    return bytes ? { ...file, sha256: sha(bytes), bytes: bytes.length } : file;
+  });
+  const total_bytes = files.reduce((n, file) => n + file.bytes, 0);
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify({ ...old, total_bytes, files }));
+  return { dir, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
  * A manifest overlay that leaves out `books.json`, so the client installs a library with no
  * book order. The legacy `#/browse/source/<id>` route then renders its kind groups instead of
  * the book doorway, which lets the acceptance test compare the header against those links.

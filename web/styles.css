@@ -13,6 +13,7 @@
   --surface-2: #ebe4d8;
   --ink: #2a2521;
   --ink-muted: #5c534a;
+  --ink-dim: #72685d;
   --line: #d3c8b7;
   --accent: #a2411a;
   --accent-ink: #fff8ef;
@@ -65,6 +66,7 @@
     --surface-2: #332d27;
     --ink: #e9e2d8;
     --ink-muted: #b4a99c;
+    --ink-dim: #968b7f;
     --line: #4b433b;
     --accent: #e5864f;
     --accent-ink: #1c1917;
@@ -91,6 +93,7 @@
   --surface-2: #332d27;
   --ink: #e9e2d8;
   --ink-muted: #b4a99c;
+  --ink-dim: #968b7f;
   --line: #4b433b;
   --accent: #e5864f;
   --accent-ink: #1c1917;
@@ -3125,6 +3128,34 @@ main,
   margin-bottom: var(--space-3);
 }
 
+/* The `Expanded in` credit (#460) sits directly under the Sources line in the same muted Metadata
+   role. A credit from an inactive book is dimmed with a colour token and not with opacity, and
+   the `Inactive` Label says so, so the dimming is never the only cue. `--ink-dim` is measured
+   against the page ground `--bg`: 4.76:1 in the light theme and 5.64:1 in the dark one. The
+   book link and the `via` link keep their underline and take the same colour, because an
+   accent link under opacity fell to 4.2:1 in the light theme. Every part of the credit stays at
+   4.5:1 or more. */
+.expanded-line {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.expanded-credit[data-inactive="true"],
+.expanded-credit[data-inactive="true"] a,
+.expanded-credit[data-inactive="true"] .tag {
+  color: var(--ink-dim);
+}
+
+/* The same 44 px AoN target rule as for the Sources line. */
+.entry > .expanded-line:has(+ .aon-line) {
+  margin-bottom: var(--space-3);
+}
+
+.entry > .sources-line:has(+ .expanded-line) {
+  margin-bottom: var(--space-1);
+}
+
 .aon-line {
   margin: 0 0 var(--space-2);
   color: var(--ink-muted);
@@ -4019,10 +4050,18 @@ input::placeholder {
       "contents refs"
       "body refs"
       "sources refs"
+      "expanded refs"
       "aon refs"
       "rel refs"
       "book refs"
+      "slack refs"
       "foot foot";
+    /* The panel spans from `contents` to `slack`. When it is taller than the content beside it,
+       a spanning item shares its extra height equally among the auto rows it crosses, empty ones
+       included, so the empty `contents` row grew to about 200px above a short body (#446). Only
+       a flexible row takes the extra height instead, so `slack` is the one `1fr` row, and the
+       empty rows stay at 0. */
+    grid-template-rows: repeat(14, auto) 1fr auto;
   }
   .entry > .disabled-book-notice { grid-area: disabled; }
   .entry > .revision-notice { grid-area: revision; }
@@ -4033,6 +4072,7 @@ input::placeholder {
   .entry > .rel-original { grid-area: original; }
   .entry > .article-contents { grid-area: contents; }
   .entry > .sources-line { grid-area: sources; }
+  .entry > .expanded-line { grid-area: expanded; }
   .entry > .aon-line { grid-area: aon; }
   .entry > #entry-related { grid-area: rel; }
 }
@@ -4052,11 +4092,13 @@ input::placeholder {
       "contents"
       "body"
       "sources"
+      "expanded"
       "aon"
       "rel"
       "book"
       "refs"
       "foot";
+    grid-template-rows: none;
   }
 
   .entry > .entry-refs.entry-refs-fold {
@@ -4939,4 +4981,25 @@ label.choice-row {
   .app-footer p {
     margin-inline: 0;
   }
+}
+
+/* ---- Panic notice (#468) ----------------------------------------------------------------- */
+
+/* Added by `panic_notice.rs` when the app panics: a modal dialog, so that it stays above and
+   reachable when Quick search (also a modal dialog) is open. */
+.panic-notice {
+  max-width: min(32rem, calc(100vw - 2 * var(--space-3)));
+  padding: var(--space-4);
+  background: var(--error-bg);
+  color: var(--ink);
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+}
+
+.panic-notice::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.panic-notice p {
+  margin: 0 0 var(--space-3);
 }
