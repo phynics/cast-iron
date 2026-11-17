@@ -5,12 +5,13 @@ use crate::class_summary;
 use crate::fmt;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
+use crate::membership::preferred_book;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
-use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
@@ -391,6 +392,17 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
         }
         Ok::<_, crate::library::LibraryError>(loaded)
     });
+    // The page is on screen two frames after its text arrives. The time and the size of the page
+    // go to the diagnostics (#423); nothing else reads them.
+    let opened = crate::diagnostics::now();
+    let sampled = StoredValue::new(false);
+    let sample_title = stub_title.clone().unwrap_or_else(|| "Entry".to_string());
+    Effect::new(move |_| {
+        if entry.with(|state| matches!(state, Some(Ok(_)))) && !sampled.get_value() {
+            sampled.set_value(true);
+            crate::diagnostics::sample_page(sample_title.clone(), opened);
+        }
+    });
     let shown_id = id.clone();
     view! {
         <article class="entry">
@@ -497,7 +509,7 @@ fn EntryView(
         .filter(|ids| !ids.is_empty())
         .unwrap_or_else(|| entry.source_ids.clone());
     let preferred = meta_source_ids.first().map(|first| {
-        preferred_source(
+        preferred_book(
             first,
             meta_source_ids.iter().map(String::as_str),
             |id| library.book_active(id),

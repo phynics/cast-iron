@@ -3,13 +3,15 @@
 
 use crate::book_presets::{self, Change};
 use crate::content_cache;
+use crate::diagnostics::{self, IndexLoad};
 use crate::graph::{BookLookup, Relations};
 use crate::install;
 use crate::lru::Lru;
+use crate::membership::{self, BookMembership};
 use crate::reading::{BookReading, ReadingCache};
 use crate::revisions::EffectiveRevisions;
 use crate::store::{self, ActiveLibrary};
-use crate::views::book_tier::source_ranks;
+use crate::views::book_tier::{Tier, source_ranks};
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
@@ -121,8 +123,8 @@ struct Inner {
     backlinks: RefCell<Option<Option<Rc<BacklinkIndex>>>>,
     backlink_shards: RefCell<Lru<u32, Rc<Vec<BacklinkTarget>>>>,
     disabled_books: RefCell<BTreeSet<String>>,
-    /// Catalog entries per canonical source, counted once on first use. The catalog and the book
-    /// placements do not change for a loaded library.
+    /// Catalog entries per member book, counted once on first use. The catalog does not change
+    /// for a loaded library.
     source_counts: OnceCell<BTreeMap<String, usize>>,
     /// The eligible id set of the current selection revision, shared by every `discovery()` call
     /// until the reader changes the active books or a new library is installed.
@@ -222,12 +224,15 @@ impl Library {
     /// Loads an activated library: checks that its cache holds every manifest file, then reads
     /// the catalog. The search index, legal text, and coverage report load on first use.
     pub async fn load(active: &ActiveLibrary) -> Result<Library, LibraryError> {
+        let check_started = diagnostics::now();
         let manifest = install::check_installed(active)
             .await
             .map_err(LibraryError::Storage)?;
+        diagnostics::mark_library_check(diagnostics::now() - check_started);
         let cache = content_cache::open(&active.content_version)
             .await
             .map_err(LibraryError::Storage)?;
+        let catalog_started = diagnostics::now();
         let catalog: Catalog = read_json(&cache, &active.content_version, "catalog.json").await?;
         catalog
             .validate()
@@ -235,6 +240,7 @@ impl Library {
                 path: format!("{}/catalog.json", active.content_version),
                 message,
             })?;
+        diagnostics::mark_catalog(diagnostics::now() - catalog_started);
         let books = if manifest_has_file(&manifest, BOOKS_FILE) {
             let index: BookIndex = read_json(&cache, &active.content_version, BOOKS_FILE).await?;
             Some(Rc::new(BookLookup::new(index)))
@@ -397,14 +403,11 @@ impl Library {
         self.is_stub_active(stub)
     }
 
-    /// The active-book test for a catalog stub, without a second id lookup. Discovery asks this
-    /// for every entry in the catalog.
+    /// The active-book test for a catalog stub, without a second id lookup: the entry is
+    /// visible while any of its member books is active (see [`crate::membership`]). Discovery
+    /// asks this for every entry in the catalog.
     pub(crate) fn is_stub_active(&self, stub: &EntryStub) -> bool {
-        let disabled = self.0.disabled_books.borrow();
-        self.with_books(|books| {
-            let source = canonical_book_source(books, &stub.id, &stub.source);
-            !is_book_disabled(&disabled, source)
-        })
+        BookMembership::new(&self.0.disabled_books.borrow()).is_visible(stub)
     }
 
     /// Runs `f` with the book lookup, or `None` for a library without `books.json`. The closure
@@ -432,28 +435,32 @@ impl Library {
             .is_some_and(|stub| cast_iron_schema::books::hidden_from_contents(stub.kind))
     }
 
-    /// True when the catalog stub belongs to `source` under the canonical-source rule. It
-    /// allocates nothing, unlike comparing [`Self::canonical_source_for_entry`].
+    /// True when the catalog stub is a member of `source`, whether or not that book is active.
+    /// It allocates nothing.
     pub(crate) fn stub_is_in_source(&self, stub: &EntryStub, source: &str) -> bool {
-        self.with_books(|books| canonical_book_source(books, &stub.id, &stub.source) == source)
+        membership::is_member(stub, source)
     }
 
-    /// How many catalog entries each canonical source holds, whether or not the book is active.
-    /// A source with no entries has no row. The first call makes one pass over the catalog; later
-    /// calls reuse the result.
+    /// How many catalog entries each book holds, whether or not the book is active. An entry
+    /// counts once for each book that prints it. A book with no entries has no row. The first
+    /// call makes one pass over the catalog; later calls reuse the result.
     pub fn source_entry_counts(&self) -> &BTreeMap<String, usize> {
-        self.0.source_counts.get_or_init(|| {
-            self.with_books(|books| count_by_source(&self.0.catalog.entries, books))
-        })
+        self.0
+            .source_counts
+            .get_or_init(|| membership::count_by_book(&self.0.catalog.entries))
     }
 
-    pub fn canonical_source_for_entry(&self, id: &EntryId) -> Option<String> {
-        let stub = self.stub(id)?;
-        Some(
-            self.with_books(|books| {
-                canonical_book_source(books, &stub.id, &stub.source).to_owned()
-            }),
-        )
+    /// The member book a row names for this entry under the current active books: its first
+    /// book while that is active, else the highest-priority active one. It borrows from the
+    /// stub, so it allocates nothing.
+    pub fn row_book<'s>(&self, stub: &'s EntryStub) -> &'s str {
+        BookMembership::new(&self.0.disabled_books.borrow())
+            .row_book(stub, |book| self.source(book).map_or(Tier::Other, Tier::of))
+    }
+
+    /// [`Self::row_book`] for an entry id, or `None` when the catalog has no such entry.
+    pub fn entry_row_book(&self, id: &EntryId) -> Option<&str> {
+        self.stub(id).map(|stub| self.row_book(stub))
     }
 
     pub async fn set_book_active(
@@ -536,13 +543,8 @@ impl Library {
     pub fn discovery(&self) -> crate::discovery::Discovery {
         let revision = self.0.selection_revision.get_untracked();
         let eligible = self.0.discovery.ids(revision, || {
-            self.with_books(|books| {
-                crate::discovery::eligible_ids(
-                    &self.0.catalog.entries,
-                    books,
-                    &self.0.disabled_books.borrow(),
-                )
-            })
+            BookMembership::new(&self.0.disabled_books.borrow())
+                .visible_ids(&self.0.catalog.entries)
         });
         crate::discovery::Discovery::new(self.clone(), eligible, revision)
     }
@@ -589,7 +591,7 @@ impl Library {
             .catalog
             .entries
             .iter()
-            .filter(move |s| s.source == source)
+            .filter(move |s| membership::is_member(s, source))
     }
 
     /// Entry counts per kind, in `EntryKind::ALL` order, without empty kinds.
@@ -635,14 +637,29 @@ impl Library {
         if let Some(index) = self.0.index.borrow().clone() {
             return Ok(index);
         }
+        let read_started = diagnostics::now();
         let bytes = read_file(&self.0.cache, self.version(), "search.bin").await?;
+        let decode_started = diagnostics::now();
         let mut index = SearchIndex::from_bytes(&bytes).map_err(|e| LibraryError::Corrupt {
             path: format!("{}/search.bin", self.version()),
             message: format!("{e:?}"),
         })?;
+        diagnostics::mark_index_load(IndexLoad {
+            read_ms: decode_started - read_started,
+            decode_ms: diagnostics::now() - decode_started,
+            bytes: bytes.len() as u64,
+        });
         // Equal relevance orders by product line. The ranks come from the catalog, so a library
         // installed before this ranking, or one without categories, still loads and searches.
         index.set_source_ranks(source_ranks(&self.0.catalog.sources));
+        // An entry printed in several books is indexed under its first. The index learns the
+        // others from the catalog, so a book filter and a book chip see every member book.
+        index.set_extra_sources(self.0.catalog.entries.iter().flat_map(|stub| {
+            stub.member_books()
+                .iter()
+                .skip(1)
+                .map(|book| (stub.id.as_str(), book.as_str()))
+        }));
         let index = Rc::new(index);
         *self.0.index.borrow_mut() = Some(index.clone());
         // "Did you mean" needs the title-word table, which takes tens of milliseconds to build.
@@ -911,38 +928,6 @@ fn canonical_target_in(catalog: &Catalog, aliases: &AliasIndex, stored: &EntryId
     }
 }
 
-/// Placement in a newer library is authoritative; catalog source is the explicit legacy and
-/// unplaced-entry fallback. The schema has no separate stable source field to consult.
-pub(crate) fn canonical_book_source<'a>(
-    books: Option<&'a BookLookup>,
-    id: &EntryId,
-    catalog_source: &'a str,
-) -> &'a str {
-    books
-        .and_then(|lookup| lookup.source_for_entry(id))
-        .unwrap_or(catalog_source)
-}
-
-/// One pass over `entries`: entries per canonical source. A source's key is allocated once,
-/// when its first entry arrives. Both the whole-catalog count and the eligible-entry count of
-/// a discovery snapshot use this.
-pub(crate) fn count_by_source<'a, 'b>(
-    entries: impl IntoIterator<Item = &'a EntryStub>,
-    books: Option<&'b BookLookup>,
-) -> BTreeMap<String, usize> {
-    let mut counts = BTreeMap::<String, usize>::new();
-    for stub in entries {
-        let source = canonical_book_source(books, &stub.id, &stub.source);
-        match counts.get_mut(source) {
-            Some(count) => *count += 1,
-            None => {
-                counts.insert(source.to_owned(), 1);
-            }
-        }
-    }
-    counts
-}
-
 fn is_book_disabled(disabled: &BTreeSet<String>, canonical_id: &str) -> bool {
     disabled.contains(canonical_id)
 }
@@ -1185,6 +1170,7 @@ mod tests {
                 kind: EntryKind::Rule,
                 title: id.to_string(),
                 source: "s".into(),
+                books: vec![],
                 parent: None,
                 shard: "entries/rule-000.json".into(),
             })
@@ -1417,173 +1403,52 @@ mod tests {
         );
     }
 
-    fn stub(id: &str, source: &str) -> EntryStub {
+    fn stub(id: &str, books: &[&str]) -> EntryStub {
         EntryStub {
             id: EntryId::parse(id).unwrap(),
             kind: EntryKind::Rule,
             title: id.to_string(),
-            source: source.into(),
+            source: books[0].into(),
+            books: if books.len() > 1 {
+                books.iter().map(|book| book.to_string()).collect()
+            } else {
+                vec![]
+            },
             parent: None,
             shard: "entries/rule-000.json".into(),
         }
     }
 
-    fn placed(entry: &EntryId) -> cast_iron_schema::BookNode {
-        cast_iron_schema::BookNode {
-            title: "Chapter".into(),
-            entry: Some(entry.clone()),
-            anchor: None,
-            review: None,
-            collapse: false,
-            lists_children: false,
-            children: vec![],
-        }
-    }
-
-    /// The per-source count the Books page used to compute: one catalog scan per source.
-    fn naive_count(entries: &[EntryStub], books: Option<&BookLookup>, source: &str) -> usize {
+    /// The per-book count the Books page used to compute: one catalog scan per book.
+    fn naive_count(entries: &[EntryStub], book: &str) -> usize {
         entries
             .iter()
-            .filter(|stub| {
-                Some(canonical_book_source(books, &stub.id, &stub.source)) == Some(source)
-            })
+            .filter(|stub| stub.member_books().iter().any(|member| member == book))
             .count()
     }
 
     #[test]
-    fn one_pass_source_counts_match_a_scan_per_source() {
+    fn one_pass_book_counts_match_a_scan_per_book() {
         let entries = vec![
-            stub("a/one", "legacy-a"),
-            stub("a/two", "legacy-a"),
-            stub("b/one", "legacy-b"),
-            stub("b/two", "legacy-b"),
-            stub("c/one", "legacy-c"),
+            stub("a/one", &["book-a"]),
+            stub("a/two", &["book-a", "book-b"]),
+            stub("b/one", &["book-b"]),
+            stub("b/two", &["book-b", "book-a", "book-c"]),
+            stub("c/one", &["book-c"]),
         ];
-        // `a/one` moves to book-b; `b/two` is placed in its own book; `a/two`, `b/one` and
-        // `c/one` keep their catalog source.
-        let lookup = BookLookup::new(BookIndex {
-            books: vec![
-                cast_iron_schema::BookTree {
-                    source: "book-b".into(),
-                    title: "B".into(),
-                    basis: String::new(),
-                    review: vec![],
-                    chapters: vec![placed(&entries[0].id), placed(&entries[3].id)],
-                },
-                cast_iron_schema::BookTree {
-                    source: "book-empty".into(),
-                    title: "Empty".into(),
-                    basis: String::new(),
-                    review: vec![],
-                    chapters: vec![],
-                },
-            ],
-        });
-        for books in [Some(&lookup), None] {
-            let counts = count_by_source(&entries, books);
-            let sources = [
-                "legacy-a",
-                "legacy-b",
-                "legacy-c",
-                "book-b",
-                "book-empty",
-                "nope",
-            ];
-            for source in sources {
-                assert_eq!(
-                    counts.get(source).copied().unwrap_or(0),
-                    naive_count(&entries, books, source),
-                    "{source}"
-                );
-            }
-            assert_eq!(counts.values().sum::<usize>(), entries.len());
-            // A source with no entries has no key.
-            assert!(!counts.contains_key("book-empty"));
+        let counts = membership::count_by_book(&entries);
+        for book in ["book-a", "book-b", "book-c", "book-empty", "nope"] {
+            assert_eq!(
+                counts.get(book).copied().unwrap_or(0),
+                naive_count(&entries, book),
+                "{book}"
+            );
         }
-        let counts = count_by_source(&entries, Some(&lookup));
-        assert_eq!(counts.get("book-b"), Some(&2));
-        assert_eq!(counts.get("legacy-a"), Some(&1));
-    }
-
-    #[test]
-    fn placement_wins_over_catalog_source_and_missing_placement_uses_stable_source() {
-        let placed_id = EntryId::parse("b/combat").unwrap();
-        let unplaced_id = EntryId::parse("b/unplaced").unwrap();
-        let lookup = BookLookup::new(BookIndex {
-            books: vec![cast_iron_schema::BookTree {
-                source: "canonical-book".into(),
-                title: "Display title is irrelevant".into(),
-                basis: String::new(),
-                review: vec![],
-                chapters: vec![cast_iron_schema::BookNode {
-                    title: "Combat".into(),
-                    entry: Some(placed_id.clone()),
-                    anchor: None,
-                    review: None,
-                    collapse: false,
-                    lists_children: false,
-                    children: vec![],
-                }],
-            }],
-        });
-        assert_eq!(
-            canonical_book_source(Some(&lookup), &placed_id, "attribution-source"),
-            "canonical-book"
-        );
-        assert_eq!(
-            canonical_book_source(Some(&lookup), &unplaced_id, "stable-catalog-id"),
-            "stable-catalog-id"
-        );
-        assert_eq!(
-            canonical_book_source(None, &placed_id, "legacy-source-id"),
-            "legacy-source-id"
-        );
-    }
-
-    #[test]
-    fn a_catch_all_placement_does_not_hide_an_entry_a_curated_chapter_places() {
-        // The same builders live in `graph::tests` (`node`, `tree_of`, `catch_all`); that module is
-        // private, so this test keeps its own small copies.
-        let node = |title: &str, entry: Option<&str>, children| cast_iron_schema::BookNode {
-            title: title.into(),
-            entry: entry.map(|e| EntryId::parse(e).unwrap()),
-            anchor: None,
-            review: None,
-            collapse: false,
-            lists_children: false,
-            children,
-        };
-        let book = |source: &str, chapters| cast_iron_schema::BookTree {
-            source: source.into(),
-            title: source.into(),
-            basis: String::new(),
-            review: vec![],
-            chapters,
-        };
-        let lookup = BookLookup::new(BookIndex {
-            books: vec![
-                book(
-                    "a",
-                    vec![node(
-                        cast_iron_schema::books::CATCH_ALL_TITLE,
-                        None,
-                        vec![
-                            node("Dwarf", Some("r/dwarf"), vec![]),
-                            node("Gnoll", Some("r/gnoll"), vec![]),
-                        ],
-                    )],
-                ),
-                book("b", vec![node("Dwarf", Some("r/dwarf"), vec![])]),
-            ],
-        });
-        let disabled: std::collections::BTreeSet<String> = ["a".to_owned()].into();
-        let hidden = |id: &str| {
-            let id = EntryId::parse(id).unwrap();
-            is_book_disabled(&disabled, canonical_book_source(Some(&lookup), &id, "a"))
-        };
-        // Book A is off and B is on: the curated placement keeps Dwarf active.
-        assert!(!hidden("r/dwarf"));
-        // Only A's catch-all places Gnoll, so it still hides with A.
-        assert!(hidden("r/gnoll"));
+        assert_eq!(counts.get("book-a"), Some(&3));
+        assert_eq!(counts.get("book-b"), Some(&3));
+        assert_eq!(counts.get("book-c"), Some(&2));
+        // An entry counts once for each book, so the total exceeds the entry count.
+        assert_eq!(counts.values().sum::<usize>(), 8);
+        assert!(!counts.contains_key("book-empty"));
     }
 }

@@ -29,7 +29,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(page.locator("#home-title")).toBeVisible();
 
   const primary = page.getByRole("navigation", { name: "Primary" });
-  await expect(primary.getByRole("link")).toHaveText(["Home", "Books", "Settings"]);
+  await expect(primary.getByRole("link")).toHaveText(["Home", "Books", "Table", "Settings"]);
   await expect(primary.getByRole("link", { name: /Search|Bookmark/i })).toHaveCount(0);
 
   // A quick lookup from a non-search page uses the header search icon and Quick search.

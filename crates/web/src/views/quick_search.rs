@@ -11,7 +11,6 @@ use crate::js;
 use crate::library::{Library, use_library};
 use crate::route::{self, Route, use_route};
 use crate::store::{self, ContinuePoint};
-use crate::views::book_tier::{Tier, preferred_source};
 use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::quick_rows::{
@@ -33,7 +32,8 @@ use wasm_bindgen::JsCast;
 /// The id of the header button, which receives focus when the layer closes.
 pub const OPEN_BUTTON_ID: &str = "quick-search-open";
 /// The pause after the last keystroke before the suggestions are looked up.
-const SUGGEST_DEBOUNCE_MS: u32 = 100;
+/// How long after the last key the suggestions are looked up.
+pub const SUGGEST_DEBOUNCE_MS: u32 = 100;
 /// How many ranked hits to read before the reprints are collapsed into suggestions.
 const LOOKUP_LIMIT: usize = 64;
 /// Searches offered when the reader has nothing recent to repeat.
@@ -96,8 +96,8 @@ fn viewed_rows(library: &Library, recents: &[Recent]) -> Vec<ViewedRow> {
         }
         let stub = library.stub(&id)?;
         let book = library
-            .canonical_source_for_entry(&id)
-            .and_then(|source| library.source(&source))
+            .entry_row_book(&id)
+            .and_then(|source| library.source(source))
             .map(|source| source.title.clone());
         let kind = kind_name(stub.kind);
         let detail = match book {
@@ -493,6 +493,7 @@ fn watch_suggestions(quick: QuickSearch) {
             if quick.lookup.try_get_value() != Some(id) {
                 return;
             }
+            let began = crate::diagnostics::now();
             let typed = query.clone();
             let query = Query {
                 text: query,
@@ -500,9 +501,11 @@ fn watch_suggestions(quick: QuickSearch) {
                 limit: LOOKUP_LIMIT,
             };
             let filters = query.filters.clone();
+            let engine_began = crate::diagnostics::now();
             let Ok(hits) = discovery.search_summaries(&query).await else {
                 return;
             };
+            let engine_ms = crate::diagnostics::now() - engine_began;
             // A mythic suggestion names its label instead of the kind while its base's book may
             // be inactive, so the labels read the whole graph. A class option names its group,
             // which comes from the small derived index.
@@ -547,16 +550,19 @@ fn watch_suggestions(quick: QuickSearch) {
                         (None, Some(group)) => group,
                         (None, None) => kind,
                     };
-                    // The index records one attribution source. When it is inactive, the entry's
-                    // book placement is the source that kept it eligible, so name that instead
-                    // (the same rule as the search result rows).
-                    let canonical = library.canonical_source_for_entry(&id);
-                    let source_id = preferred_source(
-                        &hit.source,
-                        canonical.as_deref(),
-                        |id| library.book_active(id),
-                        |id| library.source(id).map_or(Tier::Other, Tier::of),
-                    );
+                    // The row names the book that revised it, else one member book (the same rule
+                    // as the search result rows).
+                    let source_id = library
+                        .stub(&id)
+                        .map(|stub| {
+                            crate::membership::listed_book(
+                                crate::membership::revision_source(stub, &hit.source),
+                                stub,
+                                &[],
+                                || library.row_book(stub),
+                            )
+                        })
+                        .unwrap_or(&hit.source);
                     let book = library
                         .source(source_id)
                         .map_or(source_id, |source| source.title.as_str());
@@ -569,8 +575,21 @@ fn watch_suggestions(quick: QuickSearch) {
                 .collect();
             // Only the newest lookup may show: the reader has typed on since the others began.
             if quick.lookup.try_get_value() == Some(id) {
+                let shown = list.len();
                 quick.correction.try_set(fixed);
                 quick.suggestions.try_set(list);
+                // Recorded two frames later, if no newer lookup replaced this one (#423).
+                crate::diagnostics::record_search_painted(
+                    crate::diagnostics::SearchKind::Quick,
+                    crate::diagnostics::SearchSample {
+                        query_chars: u32::try_from(typed.chars().count()).unwrap_or(u32::MAX),
+                        hits: u32::try_from(shown).unwrap_or(u32::MAX),
+                        engine_ms,
+                        ..Default::default()
+                    },
+                    began,
+                    move || quick.lookup.try_get_value() == Some(id),
+                );
             }
         });
     });

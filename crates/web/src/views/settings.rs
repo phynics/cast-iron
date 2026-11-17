@@ -207,6 +207,7 @@ pub fn Settings() -> impl IntoView {
                 }}</dd></div>
                 <div><dt>"Content format"</dt><dd>{active.schema_version}</dd></div>
                 <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>
+                <div><dt>"Diagnostics"</dt><dd><a href=Route::Diagnostics.href()>"Timings and storage"</a></dd></div>
             </dl>
         </section>
 

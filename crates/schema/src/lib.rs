@@ -49,11 +49,16 @@ pub mod validate;
 /// (each carrying `replaces` and `alters`), and the derived files `option-groups.json` and
 /// `replaces.json`.
 ///
+/// 5: book membership. [`EntryStub::books`] holds the books an entry belongs to, derived from
+/// its `source_ids`; an entry is visible while any of them is active, and book placement in
+/// `books.json` is presentation only (#394). A schema-4 catalog has no `books`, and the reader
+/// then takes [`EntryStub::source`] as the one member book.
+///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
 /// version. The optional `replaces_features` and `alters_features` lists on the attached fields
 /// are additive for the same reason.
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Name of the relation index, relative to the version directory.
 pub const RELATIONS_FILE: &str = "relations.json";
@@ -1326,6 +1331,22 @@ impl Catalog {
                 ));
             }
         }
+        for stub in &self.entries {
+            if stub.books.is_empty() {
+                continue;
+            }
+            let distinct = stub
+                .books
+                .iter()
+                .enumerate()
+                .all(|(i, book)| !stub.books[..i].contains(book));
+            if stub.books.len() < 2 || stub.books[0] != stub.source || !distinct {
+                return Err(format!(
+                    "catalog.json entry {:?} has malformed member books {:?}",
+                    stub.id, stub.books
+                ));
+            }
+        }
         Ok(())
     }
 }
@@ -1422,10 +1443,39 @@ pub struct EntryStub {
     pub title: String,
     /// The primary publication id.
     pub source: String,
+    /// The books the entry belongs to: its distinct `source_ids`, in order, so the first is
+    /// [`Self::source`]. Omitted when the entry belongs to `source` alone, and absent from a
+    /// schema-4 catalog; read it through [`Self::member_books`]. Compute it with
+    /// [`Self::encode_books`] so every writer agrees.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub books: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent: Option<EntryId>,
     /// Shard path relative to the version directory, such as `entries/spell-000.json`.
     pub shard: String,
+}
+
+impl EntryStub {
+    /// The stored form of [`Self::books`] for an entry whose publications are `source_ids`:
+    /// the distinct ids in order, or empty when there is only one.
+    pub fn encode_books(source_ids: &[String]) -> Vec<String> {
+        let mut books: Vec<String> = Vec::with_capacity(source_ids.len());
+        for id in source_ids {
+            if !books.contains(id) {
+                books.push(id.clone());
+            }
+        }
+        if books.len() < 2 { Vec::new() } else { books }
+    }
+
+    /// Every book the entry belongs to, the primary one first. Never empty.
+    pub fn member_books(&self) -> &[String] {
+        if self.books.is_empty() {
+            std::slice::from_ref(&self.source)
+        } else {
+            &self.books
+        }
+    }
 }
 
 /// `legal.json`: the data behind the attribution and legal-information page.
@@ -1680,6 +1730,7 @@ mod tests {
             kind: EntryKind::Rule,
             title: id.into(),
             source: "s".into(),
+            books: vec![],
             parent: None,
             shard: "entries/rule-000.json".into(),
         };
@@ -1700,6 +1751,56 @@ mod tests {
         assert!(message.contains("not sorted by unique id"), "{message}");
         let duplicate = catalog(&["ref/rule/a", "ref/rule/a"]);
         assert!(duplicate.validate().is_err());
+    }
+
+    #[test]
+    fn member_books_are_the_distinct_source_ids_and_a_lone_source_is_omitted() {
+        let ids = |list: &[&str]| list.iter().map(|id| id.to_string()).collect::<Vec<_>>();
+        assert!(EntryStub::encode_books(&ids(&[])).is_empty());
+        assert!(EntryStub::encode_books(&ids(&["core"])).is_empty());
+        // A repeated source is one book; it does not make a second member.
+        assert!(EntryStub::encode_books(&ids(&["core", "core"])).is_empty());
+        assert_eq!(
+            EntryStub::encode_books(&ids(&["core", "um", "core", "uc"])),
+            ids(&["core", "um", "uc"])
+        );
+
+        let mut stub = EntryStub {
+            id: EntryId::parse("ref/rule/a").unwrap(),
+            kind: EntryKind::Rule,
+            title: "a".into(),
+            source: "core".into(),
+            books: vec![],
+            parent: None,
+            shard: "entries/rule-000.json".into(),
+        };
+        // A schema-4 stub has no `books`, and the primary source is the one member.
+        assert_eq!(stub.member_books(), ["core".to_string()]);
+        stub.books = ids(&["core", "um"]);
+        assert_eq!(stub.member_books(), ids(&["core", "um"]));
+    }
+
+    #[test]
+    fn catalog_rejects_malformed_member_books() {
+        let stub = |books: &[&str]| EntryStub {
+            id: EntryId::parse("ref/rule/a").unwrap(),
+            kind: EntryKind::Rule,
+            title: "a".into(),
+            source: "core".into(),
+            books: books.iter().map(|id| id.to_string()).collect(),
+            parent: None,
+            shard: "entries/rule-000.json".into(),
+        };
+        let catalog = |books: &[&str]| Catalog {
+            sources: vec![],
+            entries: vec![stub(books)],
+        };
+        assert!(catalog(&[]).validate().is_ok());
+        assert!(catalog(&["core", "um"]).validate().is_ok());
+        for bad in [&["core"][..], &["um", "core"], &["core", "um", "um"]] {
+            let message = catalog(bad).validate().unwrap_err();
+            assert!(message.contains("member books"), "{message}");
+        }
     }
 
     #[test]

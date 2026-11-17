@@ -1,8 +1,8 @@
 //! Library-wide validation. NFR-06: malformed or missing records fail visibly.
 
 use crate::{
-    Block, BookIndex, BookNode, Catalog, EntryId, EntryKind, Inline, RelationEdge, RelationIndex,
-    RelationKind, RuleEntry, SpellLists, TableRow, TypedFields,
+    Block, BookIndex, BookNode, Catalog, EntryId, EntryKind, EntryStub, Inline, RelationEdge,
+    RelationIndex, RelationKind, RuleEntry, SpellLists, TableRow, TypedFields,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,6 +35,26 @@ pub fn validate_library(entries: &[RuleEntry], catalog: &Catalog) -> Vec<Validat
                 entries.len()
             ),
         });
+    }
+    // Membership is one derived fact: each stub carries what its entry's `source_ids` say.
+    let stubs: std::collections::BTreeMap<&EntryId, &EntryStub> = catalog
+        .entries
+        .iter()
+        .map(|stub| (&stub.id, stub))
+        .collect();
+    for entry in entries {
+        let Some(stub) = stubs.get(&entry.id) else {
+            continue;
+        };
+        if stub.books != EntryStub::encode_books(&entry.source_ids) {
+            errors.push(error(
+                &entry.id,
+                format!(
+                    "catalog member books {:?} differ from source_ids {:?}",
+                    stub.books, entry.source_ids
+                ),
+            ));
+        }
     }
     check_part_cycles(entries, &mut errors);
     errors
@@ -476,6 +496,7 @@ mod tests {
                     kind: e.kind,
                     title: e.title.clone(),
                     source: "cr".into(),
+                    books: vec![],
                     parent: None,
                     shard: "entries/rule-000.json".into(),
                 })
@@ -487,6 +508,24 @@ mod tests {
     fn valid_library_has_no_errors() {
         let entries = vec![entry("a"), entry("b")];
         assert_eq!(validate_library(&entries, &catalog(&entries)), vec![]);
+    }
+
+    #[test]
+    fn a_stub_must_carry_the_member_books_of_its_entry() {
+        let mut printed_twice = entry("a");
+        printed_twice.source_ids = vec!["cr".into(), "cr".into(), "um".into()];
+        let entries = vec![printed_twice];
+        let mut catalog = catalog(&entries);
+        catalog.sources.push(catalog.sources[0].clone());
+        catalog.sources[1].id = "um".into();
+        // The stub omits the second book: the derived fact and the stored one differ.
+        let problems = validate_library(&entries, &catalog);
+        assert!(
+            problems.iter().any(|e| e.problem.contains("member books")),
+            "{problems:?}"
+        );
+        catalog.entries[0].books = vec!["cr".into(), "um".into()];
+        assert_eq!(validate_library(&entries, &catalog), vec![]);
     }
 
     #[test]

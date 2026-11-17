@@ -7,7 +7,7 @@ use crate::js;
 use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_series::adventure_sections;
-use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::book_tier::Tier;
 use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
@@ -24,7 +24,8 @@ use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 const PAGE: usize = 50;
-const DEBOUNCE_MS: u32 = 80;
+/// How long after the last key a search starts.
+pub const DEBOUNCE_MS: u32 = 80;
 /// Publications shown before the reader asks for the rest.
 const PUBLICATION_TOP: usize = 12;
 
@@ -953,12 +954,14 @@ pub fn Search() -> impl IntoView {
                     }
                     return;
                 }
+                let search_began = now();
                 let loaded = ensure_index(&library, index, index_ms, phase, true, &alive).await;
                 if !alive() {
                     return;
                 }
                 let Some(idx) = loaded else { return };
                 let started = now();
+                let index_wait_ms = started - search_began;
                 let all_hits = match discovery.search_summaries(&query).await {
                     Ok(hits) => hits,
                     Err(error) => {
@@ -1006,7 +1009,7 @@ pub fn Search() -> impl IntoView {
                         |hit| {
                             EntryId::parse(hit.id.clone())
                                 .ok()
-                                .and_then(|id| library.canonical_source_for_entry(&id))
+                                .and_then(|id| library.entry_row_book(&id).map(str::to_owned))
                                 .unwrap_or_else(|| hit.source.clone())
                         },
                         |id| library.source(id).map_or(Tier::Other, Tier::of),
@@ -1149,6 +1152,19 @@ pub fn Search() -> impl IntoView {
                     counts.set(Some(fresh));
                 }
                 search_ms.set(Some(engine_ms));
+                // Recorded two frames after the results are shown, if no newer run replaced this one.
+                crate::diagnostics::record_search_painted(
+                    crate::diagnostics::SearchKind::Results,
+                    crate::diagnostics::SearchSample {
+                        query_chars: u32::try_from(current.q.chars().count()).unwrap_or(u32::MAX),
+                        hits: u32::try_from(total).unwrap_or(u32::MAX),
+                        index_wait_ms,
+                        engine_ms,
+                        ..Default::default()
+                    },
+                    search_began,
+                    move || seq.try_get_value() == Some(id),
+                );
                 phase.set(Phase::Done {
                     hits,
                     total,
@@ -1243,18 +1259,16 @@ pub fn Search() -> impl IntoView {
     let source_totals = Memo::new(move |_| {
         let revision = source_totals_library.selection_revision().get();
         let state = revisions.get().flatten();
-        let mut totals: BTreeMap<String, usize> = BTreeMap::new();
-        for stub in discovery_for(&source_totals_library, discovery_cache, revision)
-            .entries()
-            .filter(|stub| {
-                state
-                    .as_ref()
-                    .is_none_or(|state| !state.hides(stub.id.as_str()))
-            })
-        {
-            *totals.entry(stub.source.clone()).or_default() += 1;
-        }
-        totals
+        // An entry counts once under every member book, like the index chips do.
+        crate::membership::count_by_book(
+            discovery_for(&source_totals_library, discovery_cache, revision)
+                .entries()
+                .filter(|stub| {
+                    state
+                        .as_ref()
+                        .is_none_or(|state| !state.hides(stub.id.as_str()))
+                }),
+        )
     });
     let kind_chips = kind_counts
         .into_iter()
@@ -1643,13 +1657,14 @@ pub fn Search() -> impl IntoView {
                 crate::class_options::group_of(all_groups.as_ref()?, &id)
                     .map(|group| group.singular.clone())
             };
+            let chosen = state.get_untracked().sources;
             let items = hits
                 .iter()
                 .map(|result| {
                     if result.variants.is_empty() {
                         let addon = addon_of(&result.hit);
                         let group = group_of(&result.hit);
-                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon, group.as_deref()).into_any();
+                        return hit_view(&lib_for_hits, &result.hit, result.anchor.as_deref(), addon, group.as_deref(), &chosen).into_any();
                     }
                     let title = marked(&result.hit.title, &result.hit.title_matches);
                     let count = result.variants.len() + 1;
@@ -1657,7 +1672,7 @@ pub fn Search() -> impl IntoView {
                         .map(|(hit, anchor)| {
                             let addon = addon_of(hit);
                             let group = group_of(hit);
-                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon, group.as_deref())
+                            hit_view(&lib_for_hits, hit, anchor.as_deref(), addon, group.as_deref(), &chosen)
                         }).collect_view();
                     let summary_kind = group_of(&result.hit).unwrap_or_else(|| {
                         EntryKind::from_slug(&result.hit.kind).map_or("", kind_name).to_string()
@@ -2150,6 +2165,7 @@ fn hit_view(
     anchor: Option<&str>,
     addon: Option<RelationLabel>,
     group: Option<&str>,
+    chosen: &[String],
 ) -> impl IntoView + use<> {
     let entry_id = EntryId::parse(hit.id.clone()).ok();
     let href = entry_id
@@ -2171,21 +2187,21 @@ fn hit_view(
         (None, Some(group)) => group.to_string(),
         (None, None) => kind.to_string(),
     };
-    // The index records one attribution source. When it is inactive, the entry's book placement
-    // is the source that kept the entry eligible, so it is the one the reader should see.
-    // A search row only has the catalog stub, which carries one source, so its alternative set
-    // is the canonical placement. The entry header uses the same `preferred_source` rule over
-    // every `source_ids` entry because it has the full entry. The rule is one; the data differs.
-    // See docs/decisions.md, "Inactive books in search".
-    let canonical = entry_id
+    // The row names the book that revised it, else the book the reader filtered by, else one
+    // member book: the first while it is active, else the best active one (`Library::row_book`).
+    // The entry header applies the same rule to the full `source_ids`.
+    let source_id = entry_id
         .as_ref()
-        .and_then(|id| library.canonical_source_for_entry(id));
-    let source_id = preferred_source(
-        &hit.source,
-        canonical.as_deref(),
-        |id| library.book_active(id),
-        |id| library.source(id).map_or(Tier::Other, Tier::of),
-    );
+        .and_then(|id| library.stub(id))
+        .map(|stub| {
+            crate::membership::listed_book(
+                crate::membership::revision_source(stub, &hit.source),
+                stub,
+                chosen,
+                || library.row_book(stub),
+            )
+        })
+        .unwrap_or(&hit.source);
     let source = library
         .source(source_id)
         .map_or_else(|| source_id.to_string(), |s| s.title.clone());
@@ -2446,21 +2462,6 @@ mod tests {
         assert_eq!(chip_name("Feats", 1), "Feats, 1 entry");
         assert_eq!(chip_name("Rules", 0), "Rules, 0 entries");
         assert_eq!(chip_name("Feats", 1324), "Feats, 1,324 entries");
-    }
-
-    #[test]
-    fn a_search_row_names_the_canonical_book_when_the_indexed_source_is_inactive() {
-        let tier = |id: &str| match id {
-            "core" => Tier::Rulebooks,
-            _ => Tier::Other,
-        };
-        let active = |id: &str| id == "core";
-        assert_eq!(
-            preferred_source("inactive", Some("core"), active, tier),
-            "core"
-        );
-        // Without a canonical alternative the row keeps the indexed source.
-        assert_eq!(preferred_source("inactive", None, active, tier), "inactive");
     }
 
     #[test]

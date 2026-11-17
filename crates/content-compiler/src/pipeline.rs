@@ -107,6 +107,20 @@ pub struct Library {
     pub aliases_file: Option<Vec<u8>>,
 }
 
+/// The catalog stub of an entry. Membership is derived here, once, from `source_ids`: the client
+/// never recomputes it from book placement (#394), and `validate_library` checks the result.
+fn catalog_stub(entry: &RuleEntry, shard: &str) -> EntryStub {
+    EntryStub {
+        id: entry.id.clone(),
+        kind: entry.kind,
+        title: entry.title.clone(),
+        source: entry.source_ids[0].clone(),
+        books: EntryStub::encode_books(&entry.source_ids),
+        parent: entry.parent.clone(),
+        shard: shard.to_owned(),
+    }
+}
+
 /// Validates and publishes a built [`Library`]: shards, catalog, reports, search index,
 /// manifest, and the content version.
 ///
@@ -145,14 +159,7 @@ pub fn package(
         sources,
         entries: entries
             .iter()
-            .map(|e| EntryStub {
-                id: e.id.clone(),
-                kind: e.kind,
-                title: e.title.clone(),
-                source: e.source_ids[0].clone(),
-                parent: e.parent.clone(),
-                shard: shard_of[&e.id].clone(),
-            })
+            .map(|e| catalog_stub(e, &shard_of[&e.id]))
             .collect(),
     };
 
@@ -732,6 +739,30 @@ mod tests {
             license_refs: vec!["ogl-1.0a".into()],
             relations: vec![],
         }
+    }
+
+    #[test]
+    fn a_stub_lists_every_book_its_entry_names_in_source_order() {
+        let mut printed_twice = entry("ref/feat/acrobatic", EntryKind::Feat, 0);
+        printed_twice.source_ids = vec!["core".into(), "mythic".into(), "core".into()];
+        let stub = catalog_stub(&printed_twice, "entries/feat-000.json");
+        assert_eq!(stub.source, "core");
+        assert_eq!(stub.books, ["core", "mythic"]);
+        assert_eq!(stub.member_books(), ["core", "mythic"]);
+
+        // One book is not stored: the stub's `books` key stays out of the catalog bytes.
+        let lone = catalog_stub(&entry("ref/feat/dodge", EntryKind::Feat, 0), "s.json");
+        assert!(lone.books.is_empty());
+        assert_eq!(lone.member_books(), ["s"]);
+        let json = serde_json::to_string(&lone).unwrap();
+        assert!(!json.contains("books"), "{json}");
+        let json = serde_json::to_string(&stub).unwrap();
+        assert!(json.contains(r#""books":["core","mythic"]"#), "{json}");
+        // The same entry always gives the same stub bytes (rule 5).
+        assert_eq!(
+            serde_json::to_string(&catalog_stub(&printed_twice, "entries/feat-000.json")).unwrap(),
+            json
+        );
     }
 
     #[test]

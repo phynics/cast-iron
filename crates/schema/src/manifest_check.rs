@@ -64,12 +64,19 @@ impl fmt::Display for PlanError {
 
 impl std::error::Error for PlanError {}
 
+/// The content formats a reader opens: the current one and every older one it still reads. An
+/// installed library of an older format stays valid and opens (AGENTS.md rule 7); only a format
+/// outside this list is refused. Add a number here, never remove one, when `SCHEMA_VERSION` rises.
+///
+/// Schema 4 adds attached-entry kinds, relation labels, and two derived index files. Schema 5 adds
+/// the member books of each catalog stub (a schema-4 stub has no `books`, and the entry then
+/// belongs to its `source` alone).
+pub const READABLE_SCHEMAS: [u32; 5] = [1, 2, 3, 4, SCHEMA_VERSION];
+
 /// Checks a manifest and says what is wrong with it, before any download starts.
 pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
-    // Schema 4 adds attached-entry kinds, relation labels, and two derived index files. The
-    // reader still opens schema-1, schema-2, and schema-3 libraries; a newer library shows the
-    // update route instead of a parse error.
-    if ![1, 2, 3, SCHEMA_VERSION].contains(&manifest.schema_version) {
+    // A newer library shows the update route instead of a parse error.
+    if !READABLE_SCHEMAS.contains(&manifest.schema_version) {
         return Err(PlanError::SchemaMismatch {
             found: manifest.schema_version,
             expected: SCHEMA_VERSION,
@@ -135,4 +142,57 @@ fn path_is_safe(path: &str, version: &str) -> bool {
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ManifestFile;
+
+    fn manifest(schema_version: u32) -> ContentManifest {
+        let v = "v0123456789abcdef";
+        let file = |name: &str, bytes: u64| ManifestFile {
+            path: format!("{v}/{name}"),
+            sha256: "ab".repeat(32),
+            bytes,
+        };
+        let mut files: Vec<ManifestFile> = REQUIRED_FILES.iter().map(|n| file(n, 100)).collect();
+        files.push(file("entries/spell-000.json", 600));
+        ContentManifest {
+            schema_version,
+            content_version: v.into(),
+            total_bytes: 1000,
+            files,
+            entry_count: 7,
+            datasets: vec![],
+            corpus_tag: None,
+        }
+    }
+
+    #[test]
+    fn the_current_schema_and_every_older_one_validate() {
+        // Schema 4 is the format of a library that is installed today; it must keep validating
+        // and opening after the reader moves to schema 5.
+        assert_eq!(SCHEMA_VERSION, 5);
+        for version in [1, 2, 3, 4, 5] {
+            assert_eq!(
+                validate_manifest(&manifest(version)),
+                Ok(()),
+                "schema {version}"
+            );
+        }
+        assert_eq!(READABLE_SCHEMAS.last().copied(), Some(SCHEMA_VERSION));
+    }
+
+    #[test]
+    fn a_schema_outside_the_readable_list_is_refused_with_its_direction() {
+        let newer = validate_manifest(&manifest(SCHEMA_VERSION + 1)).unwrap_err();
+        assert!(matches!(
+            newer,
+            PlanError::SchemaMismatch { found, expected } if found == SCHEMA_VERSION + 1 && expected == SCHEMA_VERSION
+        ));
+        assert!(newer.to_string().contains("Reload the app"), "{newer}");
+        let zero = validate_manifest(&manifest(0)).unwrap_err();
+        assert!(zero.to_string().contains("older"), "{zero}");
+    }
 }

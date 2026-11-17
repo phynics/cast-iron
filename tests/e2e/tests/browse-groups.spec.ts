@@ -1,16 +1,15 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookOwners, corpusEntry, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, isMember, memberBooks, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
 const thirdParty = new Set<string>(
   corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
 );
-const activeOwners = bookOwners();
-/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+/** The catalog rows the default active set shows: every entry with a member book that is not third party. */
 const activeStubs = corpus.catalog.entries.filter(
-  (stub: any) => !thirdParty.has(activeOwners.get(stub.id) ?? stub.source),
+  (stub: any) => memberBooks(stub).some((book) => !thirdParty.has(book)),
 );
 const activeIds = new Set(activeStubs.map((stub: any) => stub.id as string));
 
@@ -572,13 +571,13 @@ test("Classes are listed under their data group headings, without pills or a men
 
 // ---- Book-filtered kind lists (#158) --------------------------------------------------------
 
-const owners = bookOwners();
 const stubById = new Map(corpus.catalog.entries.map((stub: any) => [stub.id, stub]));
-const ownerOf = (id: string) => owners.get(id) ?? stubById.get(id)?.source;
+/** True when the entry belongs to the book: the book is one of its `source_ids` (#394). */
+const inBookOf = (id: string, source: string) => isMember(stubById.get(id)!, source);
 const inBook = (source: string, kind: string) =>
-  corpus.catalog.entries.filter((stub: any) => stub.kind === kind && ownerOf(stub.id) === source).length;
+  corpus.catalog.entries.filter((stub: any) => stub.kind === kind && isMember(stub, source)).length;
 const inBookTotal = (source: string) =>
-  corpus.catalog.entries.filter((stub: any) => ownerOf(stub.id) === source).length;
+  corpus.catalog.entries.filter((stub: any) => isMember(stub, source)).length;
 const bookPill = (page: Page, title: string) =>
   page.getByRole("button", { name: `Remove filter: ${title}`, exact: true });
 
@@ -611,7 +610,7 @@ test("Removing the book pill keeps the letter and the facet, and moves focus to 
   const evocation = [...corpus.entries.values()].filter(
     (entry: any) =>
       entry.kind === "spell" &&
-      ownerOf(entry.id) === core.id &&
+      inBookOf(entry.id, core.id) &&
       // The index drops a bracketed qualifier, as the old `school:conjuration (calling)` links do.
       (entry.fields?.school ?? "").toLowerCase().split(/[[(]/)[0].trim() === "evocation",
   );
@@ -812,7 +811,7 @@ test("A book-filtered creature list keeps the book when the Type menu narrows it
   const bookDragons = [...corpus.entries.values()].filter(
     (entry: any) =>
       entry.kind === "creature" &&
-      ownerOf(entry.id) === bestiary &&
+      inBookOf(entry.id, bestiary) &&
       entry.fields?.creature_type === "dragon",
   ).length;
   expect(bookCreatures).toBeGreaterThan(0);

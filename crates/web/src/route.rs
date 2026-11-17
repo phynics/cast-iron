@@ -18,7 +18,8 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>&book=<source>   an entry, with the book it was read from
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
-//! #/settings[?section=updates]       #/legal
+//! #/quick                            Quick reference: the rules a table looks up mid-play
+//! #/settings[?section=updates]       #/settings/diagnostics       #/legal
 //! ```
 
 use cast_iron_schema::{EntryId, EntryKind};
@@ -93,7 +94,12 @@ pub enum Route {
         /// book after the page is opened again.
         book: Option<String>,
     },
+    /// Quick reference (#437): chips to the rules a table looks up mid-play. The Table tab.
+    Quick,
     Settings,
+    /// Timings and storage that this device recorded, for a bug report (#423). It belongs to
+    /// Settings in the navigation.
+    Diagnostics,
     Legal,
     /// Holds the hash that did not match any route.
     NotFound(String),
@@ -328,7 +334,9 @@ impl Route {
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
             ["bookmarks"] | ["collection", _] => Route::Home,
+            ["quick"] => Route::Quick,
             ["settings"] => Route::Settings,
+            ["settings", "diagnostics"] => Route::Diagnostics,
             ["legal"] => Route::Legal,
             _ => not_found(),
         }
@@ -445,7 +453,9 @@ impl Route {
                     format!("#/entry/{id}?{}", pairs.join("&"))
                 }
             }
+            Route::Quick => "#/quick".into(),
             Route::Settings => "#/settings".into(),
+            Route::Diagnostics => "#/settings/diagnostics".into(),
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
             Route::NotFound(_) => "#/".into(),
@@ -510,7 +520,9 @@ fn parse_search(query: Option<&str>) -> Route {
             "q" => q = value,
             "sections" => sections = value == "1",
             "kind" => kinds.extend(EntryKind::from_slug(&value)),
-            "source" => sources.push(value),
+            // A retired book id filters by the book that holds its entries now, so an old link
+            // still matches entries by membership.
+            "source" => sources.push(aliased_book_source(&value).to_string()),
             _ => {}
         }
     }
@@ -556,7 +568,7 @@ fn retired_book_route(source: &str) -> Route {
 fn parse_source(query: Option<&str>) -> Option<String> {
     query
         .and_then(|q| query_pairs(q).find(|(key, _)| key == "source"))
-        .map(|(_, value)| value)
+        .map(|(_, value)| aliased_book_source(&value).to_string())
         .filter(|value| !value.is_empty())
 }
 
@@ -959,7 +971,9 @@ mod tests {
     fn simple_routes_round_trip() {
         for route in [
             Route::Home,
+            Route::Quick,
             Route::Settings,
+            Route::Diagnostics,
             Route::Legal,
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
@@ -1279,6 +1293,42 @@ mod tests {
                 "{source}"
             );
         }
+    }
+
+    #[test]
+    fn a_book_filter_of_a_retired_book_id_names_the_book_that_holds_its_entries() {
+        // Membership matches the book ids in `source_ids`, so an old link's filter has to carry
+        // the current id or it finds nothing.
+        assert_eq!(
+            Route::parse("#/browse/kind/feat?source=gamemastery-guide"),
+            Route::BrowseKind {
+                kind: EntryKind::Feat,
+                letter: None,
+                facets: vec![],
+                source: Some("game-mastery-guide".into()),
+            }
+        );
+        assert_eq!(
+            Route::parse("#/browse/kind/creature?source=pathfinder-rpg-bestiary"),
+            Route::BrowseKind {
+                kind: EntryKind::Creature,
+                letter: None,
+                facets: vec![],
+                source: Some("bestiary".into()),
+            }
+        );
+        let Route::Search { sources, .. } = Route::parse("#/search?q=x&source=prpg-core-rulebook")
+        else {
+            panic!("a search route");
+        };
+        assert_eq!(sources, ["core-rulebook"]);
+        // A current id and a one-off tree (no replacement) pass through unchanged.
+        let Route::Search { sources, .. } =
+            Route::parse("#/search?q=x&source=core-rulebook&source=pathfinder-comics-3")
+        else {
+            panic!("a search route");
+        };
+        assert_eq!(sources, ["core-rulebook", "pathfinder-comics-3"]);
     }
 
     #[test]
@@ -1663,6 +1713,7 @@ mod tests {
     #[test]
     fn trailing_slashes_are_tolerated() {
         assert_eq!(Route::parse("#/settings/"), Route::Settings);
+        assert_eq!(Route::parse("#/settings/diagnostics/"), Route::Diagnostics);
     }
 
     #[test]

@@ -87,7 +87,7 @@ test("#/browse opens Home and keeps Home current for category pages", async ({ p
   await expect(page.locator("#home-title")).toBeVisible();
 
   const nav = page.getByRole("navigation", { name: "Primary" });
-  await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Settings"]);
+  await expect(nav.getByRole("link")).toHaveText(["Home", "Books", "Table", "Settings"]);
   await expect(nav.getByRole("link", { name: "Home", exact: true })).toHaveAttribute("aria-current", "page");
 
   const spells = page.locator("section[aria-labelledby=by-kind] a.cat").filter({
