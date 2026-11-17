@@ -3,6 +3,8 @@ import {
   bookTrees,
   hitTitles,
   installLibrary,
+  openQuickSearch,
+  quickSearch,
   waitControlled,
   waitHomeIdle,
   waitReady,
@@ -33,6 +35,28 @@ async function onlyBooks(page: Page, active: string[]) {
   await waitReady(page);
   await waitHomeIdle(page);
 }
+
+test("Elephant active: Quick search names the revising book, and Core alone names Core", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  const dodgeLine = async () => {
+    await page.goto("#/");
+    await waitHomeIdle(page);
+    const layer = await openQuickSearch(page);
+    await layer.getByRole("combobox", { name: "Search the rules" }).fill("Dodge");
+    const row = quickSearch(page)
+      .locator('[role="option"]')
+      .filter({ has: page.locator(".quick-search-name", { hasText: /^Dodge$/ }) });
+    await expect(row).toHaveCount(1);
+    return row.locator(".quick-search-meta");
+  };
+  // The effective text is the revision's, so the row names its book, not the base feat's.
+  await onlyBooks(page, [CORE, ELEPHANT]);
+  await expect(await dodgeLine()).toContainText("The Elephant in the Room");
+  // With the revision's book off, the original feat names its own book again.
+  await onlyBooks(page, [CORE]);
+  await expect(await dodgeLine()).toContainText("Core Rulebook");
+});
 
 test("Elephant active: revised, removed and merged feats show one effective entry", async ({ page }) => {
   await installLibrary(page);

@@ -790,6 +790,87 @@ fn a_facet_ignores_its_own_field_and_applies_the_rest() {
     assert_eq!(c.facet("spell_level", "1"), 1);
 }
 
+// ---- entries that belong to more than one book ------------------------------------------
+
+#[test]
+fn an_entry_in_two_books_matches_a_filter_and_counts_for_either() {
+    let mut idx = counts_corpus();
+    // `feat:a` is attributed to core and also printed in apg.
+    idx.set_extra_sources([("feat:a", "apg")]);
+    let by_apg = idx.search(&Query {
+        text: "fire mastery".into(),
+        filters: mk_filters(&[], &["apg"], &[]),
+        limit: 10,
+    });
+    let mut found: Vec<&str> = by_apg.iter().map(|hit| hit.id.as_str()).collect();
+    found.sort_unstable();
+    assert_eq!(found, ["feat:a", "feat:b"]);
+    // The hit keeps its own source: only the filter and the chips see the second book.
+    assert!(
+        by_apg
+            .iter()
+            .any(|h| h.id == "feat:a" && h.source == "core")
+    );
+
+    let c = idx.filter_counts_eligible("fire", &Filters::default(), all);
+    assert_eq!(c.total, 5);
+    assert_eq!((c.source("core"), c.source("apg")), (3, 3));
+    // A source filter keeps the chips of every other book, and the entry in both stays in each.
+    let c = idx.filter_counts_eligible("fire", &mk_filters(&[], &["apg"], &[]), all);
+    assert_eq!(c.total, 3);
+    assert_eq!((c.source("core"), c.source("apg")), (3, 3));
+    // The library totals count it under both books too.
+    let totals = idx.filter_counts_eligible("", &Filters::default(), all);
+    assert_eq!((totals.source("core"), totals.source("apg")), (5, 3));
+}
+
+#[test]
+fn extra_sources_ignore_unknown_ids_repeats_and_the_own_source_and_replace_each_call() {
+    let mut idx = counts_corpus();
+    idx.set_extra_sources([
+        ("feat:a", "apg"),
+        ("feat:a", "apg"),
+        ("feat:a", "core"),
+        ("nope", "apg"),
+    ]);
+    let c = idx.filter_counts_eligible("", &Filters::default(), all);
+    assert_eq!((c.source("core"), c.source("apg")), (5, 3));
+    idx.set_extra_sources([]);
+    let c = idx.filter_counts_eligible("", &Filters::default(), all);
+    assert_eq!((c.source("core"), c.source("apg")), (5, 2));
+}
+
+#[test]
+fn the_masked_counts_and_search_see_every_member_book() {
+    let mut idx = counts_corpus();
+    idx.set_extra_sources([("feat:a", "apg")]);
+    // The selection allows `feat:a` and `feat:b` only, as with Core off and the entry kept by apg.
+    let mask = idx.eligible_mask_ids(|id| matches!(id, "feat:a" | "feat:b"));
+    let counts = idx.filter_counts_masked("fire", &mk_filters(&[], &["apg"], &[]), &mask);
+    assert_eq!(counts.total, 2);
+    assert_eq!((counts.source("core"), counts.source("apg")), (1, 2));
+    let found = idx.search_masked(
+        &Query {
+            text: "fire mastery".into(),
+            filters: mk_filters(&[], &["apg"], &[]),
+            limit: 10,
+        },
+        &mask,
+    );
+    assert_eq!(found.len(), 2);
+}
+
+#[test]
+fn an_entry_kept_by_its_second_book_still_counts_when_the_first_is_inactive() {
+    let mut idx = counts_corpus();
+    idx.set_extra_sources([("feat:a", "apg")]);
+    // The caller's eligibility (any member book active) keeps `feat:a` with only apg on.
+    let apg_only = |id: &str| matches!(id, "spell:b" | "feat:b" | "feat:a");
+    let c = idx.filter_counts_eligible("fire", &mk_filters(&[], &["apg"], &[]), apg_only);
+    assert_eq!(c.total, 3);
+    assert_eq!((c.source("core"), c.source("apg")), (1, 3));
+}
+
 #[test]
 fn an_active_book_change_changes_every_count() {
     let idx = counts_corpus();

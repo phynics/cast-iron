@@ -6,12 +6,13 @@ use crate::class_summary;
 use crate::fmt;
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
+use crate::membership::preferred_book;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
 use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
-use crate::views::book_tier::{Tier, preferred_source};
+use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
@@ -513,7 +514,7 @@ fn EntryView(
         .filter(|ids| !ids.is_empty())
         .unwrap_or_else(|| entry.source_ids.clone());
     let preferred = meta_source_ids.first().map(|first| {
-        preferred_source(
+        preferred_book(
             first,
             meta_source_ids.iter().map(String::as_str),
             |id| library.book_active(id),

@@ -147,8 +147,12 @@ pub(crate) struct DocLists {
     pub totals: FilterCounts,
 }
 
+/// The books a document belongs to beyond its own `source`, by document ordinal. Plain data
+/// from the caller (see [`SearchIndex::set_extra_sources`]); never serialized.
+pub(crate) type ExtraSources = std::collections::BTreeMap<u32, Vec<String>>;
+
 impl DocLists {
-    fn build(docs: &[store::DocMeta]) -> Self {
+    fn build(docs: &[store::DocMeta], extra: &ExtraSources) -> Self {
         let mut lists = Self::default();
         let mut seen: Vec<(&str, &str)> = Vec::new();
         for (ord, doc) in docs.iter().enumerate() {
@@ -159,6 +163,9 @@ impl DocLists {
                 .entry(doc.source.clone())
                 .or_default()
                 .push(ord);
+            for book in extra.get(&ord).into_iter().flatten() {
+                lists.sources.entry(book.clone()).or_default().push(ord);
+            }
             seen.clear();
             for (field, value) in &doc.facets {
                 if seen.contains(&(field.as_str(), value.as_str())) {
@@ -206,6 +213,9 @@ pub struct SearchIndex {
     /// Tie-break rank per document ordinal, empty until [`SearchIndex::set_source_ranks`] runs.
     /// Not serialized: the client derives it from the catalog, so the format is unchanged.
     pub(crate) doc_ranks: Vec<u8>,
+    /// The other books a document belongs to, besides its own `source`. Empty until
+    /// [`SearchIndex::set_extra_sources`] runs. Not serialized, so the format is unchanged.
+    pub(crate) extra_sources: ExtraSources,
     /// The words of titles and aliases, built when the first correction is asked for. Not
     /// serialized, so the format is unchanged.
     pub(crate) names: correct::LazyNames,
@@ -217,13 +227,14 @@ impl SearchIndex {
         postings: PostingsSection,
         texts: TextSection,
     ) -> Self {
-        let doc_lists = DocLists::build(&meta.docs);
+        let doc_lists = DocLists::build(&meta.docs, &ExtraSources::new());
         Self {
             meta,
             postings,
             texts,
             doc_lists,
             doc_ranks: Vec::new(),
+            extra_sources: ExtraSources::new(),
             names: correct::LazyNames::default(),
         }
     }
@@ -246,6 +257,48 @@ impl SearchIndex {
                     .unwrap_or(NEUTRAL_SOURCE_RANK)
             })
             .collect();
+    }
+
+    /// Tells the index which further books each entry belongs to, as `(document id, book)`
+    /// pairs. The index records one `source` per document; an entry printed in several books
+    /// belongs to all of them. A source filter then keeps a document that any of its books
+    /// matches, and a source chip counts it once under each book. Ranking and `Hit::source`
+    /// still use the document's own source. A pair whose id is not a document is ignored.
+    /// Plain data from the caller (the catalog), so the serialized format is unchanged. Each
+    /// call replaces the earlier pairs.
+    pub fn set_extra_sources<'a>(&mut self, pairs: impl IntoIterator<Item = (&'a str, &'a str)>) {
+        let mut ords: std::collections::HashMap<&str, u32> = std::collections::HashMap::new();
+        let mut extra = ExtraSources::new();
+        let mut wanted: Vec<(&str, &str)> = pairs.into_iter().collect();
+        if !wanted.is_empty() {
+            ords.extend(
+                self.meta
+                    .docs
+                    .iter()
+                    .enumerate()
+                    .map(|(ord, doc)| (doc.id.as_str(), ord as u32)),
+            );
+        }
+        wanted.sort_unstable();
+        wanted.dedup();
+        for (id, book) in wanted {
+            let Some(&ord) = ords.get(id) else { continue };
+            if self.meta.docs[ord as usize].source != book {
+                extra.entry(ord).or_default().push(book.to_owned());
+            }
+        }
+        self.doc_lists = DocLists::build(&self.meta.docs, &extra);
+        self.extra_sources = extra;
+    }
+
+    /// True when the document belongs to `source`: its own source, or an extra book. Case is
+    /// ignored, like every filter.
+    pub(crate) fn in_source(&self, ord: usize, source: &str) -> bool {
+        self.meta.docs[ord].source.eq_ignore_ascii_case(source)
+            || self
+                .extra_sources
+                .get(&(ord as u32))
+                .is_some_and(|books| books.iter().any(|book| book.eq_ignore_ascii_case(source)))
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {

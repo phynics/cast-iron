@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { aliasOf, bodyText, bookTrees, bookOwners, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { aliasOf, bodyText, bookTrees, chapterIds, corpusEntry, count, hitTitles, installLibrary, listedChapters, memberBooks, num, openBookGroups, openQuickSearch, pct, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -9,10 +9,9 @@ const entries = [...corpus.entries.values()];
 const thirdParty = new Set<string>(
   corpus.catalog.sources.filter((row: any) => row.third_party).map((row: any) => row.id as string),
 );
-const owners = bookOwners();
-/** The catalog rows the default active set shows: every entry whose canonical book is not third party. */
+/** The catalog rows the default active set shows: every entry with a member book that is not third party. */
 const activeStubs = corpus.catalog.entries.filter(
-  (stub: any) => !thirdParty.has(owners.get(stub.id) ?? stub.source),
+  (stub: any) => memberBooks(stub).some((book) => !thirdParty.has(book)),
 );
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -931,14 +930,14 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
 
 /** Active spell stubs with distinct titles, ready to be seeded as visits. */
 const activeSpells = activeStubs
-  .filter((entry: any) => entry.kind === "spell")
+  .filter((entry: any) => entry.kind === "spell" && memberBooks(entry).length === 1)
   .filter((entry: any, i: number, all: any[]) => all.findIndex((c) => c.title === entry.title) === i);
 const activeVisits = activeSpells.slice(0, 2).map((entry: any) => ({ id: entry.id as string, title: entry.title as string }));
 
 installedTest("Quick search shows Recent searches above Recently viewed, with the Continue row first, and the keyboard crosses both groups", async ({ page }) => {
   await installLibrary(page);
   const visit = activeVisits[0];
-  const source = owners.get(visit.id)!;
+  const source = activeSpells.find((stub: any) => stub.id === visit.id)!.source as string;
   const bookTitle = corpus.catalog.sources.find((s: any) => s.id === source)!.title as string;
   await seedHome(page, {
     recents: activeVisits,
@@ -1018,7 +1017,7 @@ installedTest("Recently viewed shows five rows, expands with Show more, removes 
 installedTest("Recently viewed hides a missing entry and an entry from an inactive book", async ({ page }) => {
   await installLibrary(page);
   const visit = activeVisits[1];
-  const source = owners.get(visit.id)!;
+  const source = activeSpells.find((stub: any) => stub.id === visit.id)!.source as string;
   const book = corpus.catalog.sources.find((s: any) => s.id === source)!;
   await page.goto("#/books/manage");
   await openBookGroups(page);
@@ -1340,23 +1339,17 @@ installedTest("A recent search remembers its scope: the row shows it, tapping re
 });
 
 installedTest("An inactive first source is replaced by the active book that still shows the entry", async ({ page }) => {
-  const owners = bookOwners();
   const sourceTitle = (id: string) =>
     corpus.catalog.sources.find((source: any) => source.id === id)?.title as string | undefined;
+  // An entry printed in exactly two books: the second is the one that stays on.
   const candidate = entries.find((entry: any) => {
-    const owner = owners.get(entry.id);
-    return (
-      owner &&
-      entry.source_ids.length > 1 &&
-      entry.source_ids[0] !== owner &&
-      sourceTitle(entry.source_ids[0]) &&
-      sourceTitle(owner)
-    );
+    const stub = corpus.catalog.entries.find((row: any) => row.id === entry.id);
+    const members = stub ? memberBooks(stub) : [];
+    return members.length === 2 && members.every((id) => sourceTitle(id));
   });
-  expect(candidate, "a multi-source entry whose book placement differs from its first source").toBeTruthy();
+  expect(candidate, "an entry printed in two books").toBeTruthy();
   const entry = candidate!;
-  const owner = owners.get(entry.id)!;
-  const first = entry.source_ids[0] as string;
+  const [first, owner] = memberBooks(corpus.catalog.entries.find((row: any) => row.id === entry.id)!);
   const firstTitle = sourceTitle(first)!;
   const ownerTitle = sourceTitle(owner)!;
 
@@ -1371,8 +1364,8 @@ installedTest("An inactive first source is replaced by the active book that stil
   // With every book active the compiler's first source still names the entry.
   await expect(row.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(firstTitle)}$`));
 
-  // Turning off only that attribution source leaves the placement book active, so the entry
-  // stays eligible and its label must name the active book instead.
+  // Turning off only the first book leaves the second active, so the entry stays visible and
+  // its label must name the active book instead.
   await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${first}"]`)
@@ -1401,7 +1394,7 @@ installedTest("An inactive first source is replaced by the active book that stil
 installedTest("Search names hidden matches in an inactive book and includes it in one tap", async ({ page }) => {
   // The corpus merged the separate "Ancient Red Dragon" into its Bestiary twin.
   const dragon = corpusEntry("creature", "Dragon, Chromatic, Red, Ancient");
-  const bookId = bookOwners().get(dragon.id) ?? dragon.source_ids[0];
+  const bookId = dragon.source_ids[0];
   const book = corpus.catalog.sources.find((source: any) => source.id === bookId)!;
   expect(book, "the dragon's placement book is in the catalog").toBeTruthy();
 
