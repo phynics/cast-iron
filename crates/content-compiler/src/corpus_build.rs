@@ -169,7 +169,7 @@ pub fn build_with_slots(
         corpus.exclusions.excluded.len(),
         corpus.exclusions.rejected.len(),
     )];
-    let mut books = corpus.books.clone();
+    let mut books = corpus.book_index();
     cast_iron_schema::books::mark_listed_children(&mut books, &entries);
     Ok(Library {
         entries,
