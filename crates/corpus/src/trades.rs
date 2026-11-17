@@ -11,12 +11,13 @@
 //! ```
 //!
 //! Format 1 wrote four lists: `replaces`, `alters`, and the heading anchors `replaces_features`
-//! and `alters_features`. The format-1 reader lowers them to the same [`Trade`]s. A feature list
-//! lines up with its printed list only when both have the same length; then each anchor goes to
-//! the printed name at the same position. Any other non-empty feature list cannot say which name
-//! each anchor belongs to, so the trades stay unresolved and the reader keeps the anchors in
-//! [`LegacyFeatureLists`]; the format-1 writer puts them back, so `fmt` leaves the file as it
-//! was.
+//! and `alters_features`. The format-1 reader lowers them to the same [`Trade`]s. A trade
+//! resolves only when its whole printed name, without an ability tag, slugs to an anchor of its
+//! list (`Bravery (Ex)` and `bravery`). Position and length prove nothing: the old lists omitted
+//! names that no heading matched, and a composite name such as `Hunter's bond, 2nd favored enemy`
+//! next to `hunter-s-bond` is only partly that feature. Every other trade stays unresolved. When
+//! the resolved anchors are not exactly the list as read, the reader keeps the list in
+//! [`LegacyFeatureLists`]; the format-1 writer puts it back, so `fmt` leaves the file as it was.
 
 use crate::error::{Error, Result};
 use crate::tomlutil;
@@ -88,23 +89,33 @@ fn read_format_1(
     ] {
         let names = list(path, table, names_key, line(names_key))?;
         let anchors = list(path, table, features_key, line(features_key))?;
-        let aligned = !anchors.is_empty() && anchors.len() == names.len();
-        if !anchors.is_empty() && !aligned {
-            match op {
-                TradeOp::Replaces => legacy.replaces = anchors.clone(),
-                TradeOp::Alters => legacy.alters = anchors.clone(),
-            }
-        }
-        for (index, printed) in names.into_iter().enumerate() {
-            let feature = aligned.then(|| FeatureRef {
-                anchor: anchors[index].clone(),
-                ..Default::default()
+        let mut resolved = Vec::new();
+        for printed in names {
+            // A format 1 trade resolves only when its whole printed name is the anchor: the
+            // name, without an ability tag, slugs to an anchor of the list. A position, a
+            // length, or a name that only starts with an anchor proves nothing, and a wrong
+            // link is worse than none.
+            let key = crate::check::feature_key(&printed);
+            let feature = anchors.contains(&key).then(|| {
+                resolved.push(key.clone());
+                FeatureRef {
+                    anchor: key,
+                    ..Default::default()
+                }
             });
             trades.push(Trade {
                 op,
                 printed,
                 feature,
             });
+        }
+        // The list is regenerated from the trades when they hold exactly its anchors in order;
+        // otherwise it is kept as read, so `fmt` writes the file back unchanged.
+        if !anchors.is_empty() && resolved != anchors {
+            match op {
+                TradeOp::Replaces => legacy.replaces = anchors,
+                TradeOp::Alters => legacy.alters = anchors,
+            }
         }
     }
     Ok((trades, legacy))
@@ -306,8 +317,9 @@ fn write_format_2(out: &mut String, trades: &[Trade]) {
     out.push_str("]\n");
 }
 
-/// True when `trades` use a key that corpus format 1 cannot write: a `class`, `levels` or
-/// `power`, or an order that interleaves the two ops.
+/// True when `trades` use something that corpus format 1 cannot write: a `class`, `levels` or
+/// `power`, an order that interleaves the two ops, or a feature that is not the slug of its
+/// printed name (the format 1 reader would read that trade back unresolved).
 pub fn needs_format_2(trades: &[Trade]) -> bool {
     let narrowed = trades.iter().any(|trade| {
         trade.feature.as_ref().is_some_and(|feature| {
@@ -320,5 +332,11 @@ pub fn needs_format_2(trades: &[Trade]) -> bool {
             .iter()
             .any(|trade| trade.op == TradeOp::Replaces)
     });
-    narrowed || interleaved
+    let renamed = trades.iter().any(|trade| {
+        trade
+            .feature
+            .as_ref()
+            .is_some_and(|feature| feature.anchor != crate::check::feature_key(&trade.printed))
+    });
+    narrowed || interleaved || renamed
 }

@@ -1397,25 +1397,100 @@ mod tests {
         assert_eq!(write_entry(&read, &format(1)), text);
     }
 
-    #[test]
-    fn a_format_1_list_that_does_not_line_up_keeps_the_names_unresolved_and_writes_back_unchanged()
-    {
-        let text = "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\nreplaces = [\"Trap sense\", \"Bravery\", \"2nd-level feat\"]\nalters = [\"Uncanny dodge\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\nalters_features = []\n+++\n";
+    /// Reads `fields` as a format 1 archetype, checks that `fmt` writes it back unchanged, and
+    /// returns the fields.
+    fn format_1_archetype(fields: &str) -> cast_iron_schema::ArchetypeFields {
+        let text = format!(
+            "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\n{fields}+++\n"
+        );
         let config = format(1);
-        let read = read_entry(Path::new("entries/archetype/scout.md"), text, &config).unwrap();
-        let TypedFields::Archetype(fields) = &read.fields else {
+        let path = Path::new("entries/archetype/scout.md");
+        let read = read_entry(path, &text, &config).unwrap();
+        assert_eq!(
+            write_entry(&read, &config),
+            text,
+            "not written back as read"
+        );
+        let TypedFields::Archetype(fields) = read.fields else {
             panic!("an archetype");
         };
-        assert_eq!(fields.trades.len(), 4);
-        assert!(fields.trades.iter().all(|trade| trade.feature.is_none()));
+        fields
+    }
+
+    fn anchors_of(trades: &[Trade]) -> Vec<Option<&str>> {
+        trades
+            .iter()
+            .map(|trade| {
+                trade
+                    .feature
+                    .as_ref()
+                    .map(|feature| feature.anchor.as_str())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_format_1_name_resolves_when_it_is_the_slug_of_an_anchor_and_the_rest_stay_unresolved() {
+        let fields = format_1_archetype(
+            "replaces = [\"Trap sense\", \"Bravery\", \"2nd-level feat\"]\nalters = [\"Uncanny dodge\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\nalters_features = [\"uncanny-dodge\"]\n",
+        );
+        assert_eq!(
+            anchors_of(&fields.trades),
+            [
+                Some("trap-sense"),
+                Some("bravery"),
+                None,
+                Some("uncanny-dodge")
+            ]
+        );
+        // The resolved anchors are the lists as read, so nothing is kept on the side.
+        assert!(fields.legacy_features.is_empty());
+    }
+
+    #[test]
+    fn swapped_equal_length_lists_resolve_by_name_never_by_position() {
+        let fields = format_1_archetype(
+            "replaces = [\"Bravery\", \"Trap sense\"]\nreplaces_features = [\"trap-sense\", \"bravery\"]\n",
+        );
+        assert_eq!(
+            anchors_of(&fields.trades),
+            [Some("bravery"), Some("trap-sense")]
+        );
+        // The list's order is not the trades' order, so it is kept for the write-back.
         assert_eq!(fields.legacy_features.replaces, ["trap-sense", "bravery"]);
-        assert!(fields.legacy_features.alters.is_empty());
-        let written = write_entry(&read, &config);
-        assert!(written.contains("replaces_features = [\"trap-sense\", \"bravery\"]"));
-        assert!(!written.contains("alters_features"));
-        let again = read_entry(Path::new("entries/archetype/scout.md"), &written, &config).unwrap();
-        assert_eq!(again.fields, read.fields);
-        assert_eq!(write_entry(&again, &config), written);
+    }
+
+    #[test]
+    fn an_equal_length_list_whose_names_do_not_match_resolves_nothing() {
+        let fields = format_1_archetype(
+            "replaces = [\"Bravery\", \"Trap sense\"]\nreplaces_features = [\"weapon-training\", \"armor-training\"]\n",
+        );
+        assert_eq!(anchors_of(&fields.trades), [None, None]);
+        assert_eq!(
+            fields.legacy_features.replaces,
+            ["weapon-training", "armor-training"]
+        );
+    }
+
+    #[test]
+    fn a_composite_printed_name_is_not_resolved_to_its_first_anchor() {
+        // Drake Warden: two anchors for two names, but the first name is partly another
+        // feature (`2nd favored enemy`), which a single reference cannot state.
+        let fields = format_1_archetype(
+            "replaces = [\"Hunter's bond, 2nd favored enemy\", \"swift tracker\"]\nreplaces_features = [\"hunter-s-bond\", \"swift-tracker\"]\n",
+        );
+        assert_eq!(anchors_of(&fields.trades), [None, Some("swift-tracker")]);
+        assert_eq!(
+            fields.legacy_features.replaces,
+            ["hunter-s-bond", "swift-tracker"]
+        );
+    }
+
+    #[test]
+    fn an_anchor_list_without_printed_names_is_kept_for_the_write_back() {
+        let fields = format_1_archetype("alters_features = [\"missing-anchor\"]\n");
+        assert!(fields.trades.is_empty());
+        assert_eq!(fields.legacy_features.alters, ["missing-anchor"]);
     }
 
     #[test]

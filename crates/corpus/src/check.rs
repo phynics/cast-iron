@@ -1477,7 +1477,7 @@ fn strip_ability_tag(name: &str) -> &str {
 
 /// The heading anchor a printed feature name would have, before checking that the base
 /// class entry actually has it.
-fn feature_key(name: &str) -> String {
+pub(crate) fn feature_key(name: &str) -> String {
     slugify(strip_ability_tag(name))
 }
 
@@ -1517,13 +1517,13 @@ fn check_replaces_features(
             TypedFields::ClassOption(fields) => (&fields.trades, &fields.legacy_features),
             _ => continue,
         };
-        if trades.is_empty() {
+        if trades.is_empty() && legacy.is_empty() {
             continue;
         }
         let path = stored.path.display();
         if format_1 && crate::trades::needs_format_2(trades) {
             report.problems.push(format!(
-                "{path}:{}: [fields] this entry has a trade with `class`, `levels` or `power`, or one that interleaves replaces and alters, which corpus format 1 cannot write; migrate the corpus to format 2",
+                "{path}:{}: [fields] this entry has a trade with `class`, `levels` or `power`, a feature that is not the slug of its printed name, or trades that interleave replaces and alters, which corpus format 1 cannot write; migrate the corpus to format 2",
                 line_of(&stored.text, "[fields]")
             ));
         }
@@ -3751,6 +3751,64 @@ mod tests {
             report.problems.iter().any(|problem| problem.contains(
                 "[fields] replaces_features key `weapon-mastery` is not a heading anchor in `ref/class/fighter`"
             )),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn a_format_1_anchor_list_with_no_printed_trades_is_still_checked() {
+        let legacy = cast_iron_schema::LegacyFeatureLists {
+            replaces: vec!["missing-anchor".into()],
+            alters: vec![],
+        };
+        let entry = fighter_archetype_with(vec![], legacy, "Bravery.");
+        let report = check(&corpus_in_format(1, vec![fighter_class(), entry]));
+        assert!(
+            report.problems.iter().any(|problem| problem.contains(
+                "[fields] replaces_features key `missing-anchor` is not a heading anchor in `ref/class/fighter`"
+            )),
+            "{:?}",
+            report.problems
+        );
+        // With no base class at all, the retained anchors are an error too.
+        let mut orphan = fighter_archetype_with(
+            vec![],
+            cast_iron_schema::LegacyFeatureLists {
+                replaces: vec!["bravery".into()],
+                alters: vec![],
+            },
+            "Bravery.",
+        );
+        orphan.relations.clear();
+        let report = check(&corpus_in_format(1, vec![fighter_class(), orphan]));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|problem| problem.contains("this entry has no base class entry")),
+            "{:?}",
+            report.problems
+        );
+    }
+
+    #[test]
+    fn corpus_format_1_refuses_a_feature_that_is_not_the_slug_of_its_name() {
+        let report = check(&corpus_in_format(
+            1,
+            vec![
+                fighter_class(),
+                fighter_archetype(
+                    vec![trade(TradeOp::Replaces, "Bravery", Some("trap-sense"))],
+                    "Bravery.",
+                ),
+            ],
+        ));
+        assert!(
+            report
+                .problems
+                .iter()
+                .any(|problem| problem.contains("which corpus format 1 cannot write")),
             "{:?}",
             report.problems
         );

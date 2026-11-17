@@ -590,17 +590,18 @@ fn a_format_1_corpus_keeps_every_printed_name_and_resolves_only_what_lines_up() 
                 )],
                 Default::default(),
             ),
-            // The anchor list is shorter than the printed list: names kept, none resolved.
+            // A composite name is partly another feature, so it is not resolved to the anchor
+            // that starts it; the name that is exactly an anchor resolves.
             archetype_entry(
-                "ref/arc-bard/short",
+                "ref/arc-bard/composite",
                 &["ref/class/bard"],
-                "Bravery, Third-level feat",
+                "Bardic Performance and a feat, Bravery",
                 vec![
+                    replaces("Bardic Performance and a feat", None, None),
                     replaces("Bravery", None, None),
-                    replaces("Third-level feat", None, None),
                 ],
                 cast_iron_schema::LegacyFeatureLists {
-                    replaces: vec!["bravery".into()],
+                    replaces: vec!["bardic-performance".into(), "bravery".into()],
                     alters: vec![],
                 },
             ),
@@ -613,12 +614,12 @@ fn a_format_1_corpus_keeps_every_printed_name_and_resolves_only_what_lines_up() 
             {"id": "ref/arc-bard/aligned", "trades": [
                 {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}}
             ]},
+            {"id": "ref/arc-bard/composite", "trades": [
+                {"op": "replaces", "printed": "Bardic Performance and a feat"},
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}}
+            ]},
             {"id": "ref/arc-bard/shared", "trades": [
                 {"op": "replaces", "printed": "Bardic Performance"}
-            ]},
-            {"id": "ref/arc-bard/short", "trades": [
-                {"op": "replaces", "printed": "Bravery"},
-                {"op": "replaces", "printed": "Third-level feat"}
             ]},
         ])
     );

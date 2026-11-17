@@ -212,14 +212,17 @@ classes hold has no `class`, and it writes the trades into `trades.json` only.
 
 **Format 1** wrote four lists instead: `replaces` and `alters` (the printed names, in print
 order) and `replaces_features` and `alters_features` (heading anchors, in print order). The
-reader still accepts format 1 and lowers the lists to trades. An anchor list lines up with its
-printed list only when both have the same length; then the anchor at each position belongs to the
-printed name at the same position, and the trade resolves. Any other non-empty anchor list cannot
-say which name each anchor belongs to (a printed name that no heading matched was left out of it),
-so every trade of that list stays unresolved and the reader keeps the anchors only so that `fmt`
-writes the file back unchanged. An anchor that several base classes hold cannot name a class in
+reader still accepts format 1 and lowers the lists to trades. A trade resolves only when its whole
+printed name, without an ability tag, slugs to an anchor of its list: `Bravery (Ex)` resolves to
+`bravery`. Position and length prove nothing. The old lists left out every printed name that no
+heading matched, so two lists of equal length can pair the wrong names, and a composite name such
+as `Hunter's bond, 2nd favored enemy` next to `hunter-s-bond` is only partly that feature. Every
+other trade stays unresolved, because a wrong link is worse than none. When the anchors of the
+resolved trades are not exactly the list as read (a different order, or an anchor that no name
+reaches), the reader keeps the list so that `fmt` writes the file back unchanged, and
+`corpus-check` still validates it. An anchor that several base classes hold cannot name a class in
 format 1, so the compiler leaves that trade unresolved rather than fail. Format 1 cannot write a
-`class`, `levels` or `power`, or a list that mixes `replaces` and `alters` in other than that
+`class`, `levels` or `power`, a feature that is not the slug of its printed name, or a list that mixes `replaces` and `alters` in other than that
 order; `corpus-check` rejects such a trade in a format 1 corpus. The migration from format 1 to
 format 2 is #451 and the corpus migration is #452; until then the pinned corpus is format 1 and
 this tool reads both.
