@@ -1159,6 +1159,9 @@ installedTest("Spell list at 390 px: the name field clears the filter row, and a
   await installLibrary(page);
   const viewport = page.viewportSize()!;
   await page.goto("#/spells/Wizard/3");
+  // The measurement reads both boxes at once, so the list must be rendered first.
+  await expect(page.locator("main .filter-row")).toBeVisible();
+  await expect(page.locator("main .list-filter")).toBeVisible();
   const gap = await page.evaluate(() => {
     const row = document.querySelector("main .filter-row")!.getBoundingClientRect();
     const field = document.querySelector("main .list-filter")!.getBoundingClientRect();
