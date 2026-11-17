@@ -1,0 +1,293 @@
+# Top ids per query over tests/fixtures/synthetic-corpus.txt and the generated crowd.
+# Refresh with CAST_IRON_BLESS=1 cargo test -p cast-iron-search --test synthetic_ranking
+== all books
+fire
+  rule:fire
+  spell:fire-bolt
+  monster:fire-elemental
+  spell:fire-shield
+  spell:fireball
+  item:firewood
+  item:alchemists-fire
+  spell:wall-of-fire
+  rule:magic
+  rule:attack-of-opportunity
+fir
+  spell:fire-bolt
+  rule:fire
+  spell:fireball
+  item:firewood
+  monster:fire-elemental
+  spell:fire-shield
+  item:alchemists-fire
+  spell:wall-of-fire
+  rule:magic
+  rule:attack-of-opportunity
+fire bolt
+  spell:fire-bolt
+firebolt
+  spell:fire-bolt
+burning
+  rule:fire
+wall fire
+  spell:wall-of-fire
+cure
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+  spell:cure-light-wounds
+  spell:mass-cure-light-wounds
+  item:potion-of-cure-light-wounds
+cure light
+  spell:cure-light-wounds
+  spell:mass-cure-light-wounds
+  item:potion-of-cure-light-wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+cure light wounds
+  spell:cure-light-wounds
+  spell:mass-cure-light-wounds
+  item:potion-of-cure-light-wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+clw
+  spell:cure-light-wounds
+wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+  spell:cure-light-wounds
+  spell:mass-cure-light-wounds
+  item:potion-of-cure-light-wounds
+magic
+  rule:magic
+  spell:magic-missile
+  spell:magic-mouth
+  spell:magic-weapon
+  spell:magic-circle
+ma
+  rule:magic
+  spell:magic-missile
+  spell:mage-armor
+  spell:magic-mouth
+  spell:magic-weapon
+  spell:mass-cure-light-wounds
+  spell:magic-circle
+  rule:combat-maneuvers
+  rule:grapple
+  item:potion-of-cure-light-wounds
+  rule:attack-of-opportunity
+mag mis
+  spell:magic-missile
+magic missle
+magic missile
+  spell:magic-missile
+grapple
+  rule:grapple
+  rule:combat-maneuvers
+grap
+  rule:grapple
+  item:grappling-hook
+  rule:combat-maneuvers
+weapon
+  feat:weapon-focus
+  spell:magic-weapon
+weapon focus
+  feat:weapon-focus
+armor class
+  rule:armor-class
+  spell:mage-armor
+ac
+  rule:armor-class
+goblin
+  monster:goblin
+  monster:goblin-dog
+gob
+  monster:goblin
+  monster:goblin-dog
+distracting
+  z/distracting-bolt
+  a/distracting-bolt
+attack of opp
+  rule:attack-of-opportunity
+of
+  spell:wall-of-fire
+  rule:attack-of-opportunity
+  item:potion-of-cure-light-wounds
+  item:firewood
+  monster:fire-elemental
+  spell:magic-missile
+  spell:fire-bolt
+  feat:weapon-focus
+  spell:mage-armor
+nothing
+zq
+  crowd:common-0
+  crowd:common-1
+  crowd:common-10
+  crowd:common-11
+  crowd:common-2
+  crowd:common-3
+  crowd:common-4
+  crowd:common-5
+  crowd:common-6
+  crowd:common-7
+  crowd:common-8
+  crowd:common-9
+  crowd:rare-0
+  crowd:rare-1
+  crowd:rare-10
+  crowd:rare-100
+  crowd:rare-101
+  crowd:rare-102
+  crowd:rare-103
+  crowd:rare-104
+zqfreq
+  crowd:common-0
+  crowd:common-1
+  crowd:common-10
+  crowd:common-11
+  crowd:common-2
+  crowd:common-3
+  crowd:common-4
+  crowd:common-5
+  crowd:common-6
+  crowd:common-7
+  crowd:common-8
+  crowd:common-9
+== apg off
+fire
+  rule:fire
+  spell:fire-bolt
+  monster:fire-elemental
+  spell:fireball
+  item:alchemists-fire
+  spell:wall-of-fire
+  rule:magic
+  rule:attack-of-opportunity
+fir
+  spell:fire-bolt
+  rule:fire
+  spell:fireball
+  monster:fire-elemental
+  item:alchemists-fire
+  spell:wall-of-fire
+  rule:magic
+  rule:attack-of-opportunity
+fire bolt
+  spell:fire-bolt
+firebolt
+  spell:fire-bolt
+burning
+  rule:fire
+wall fire
+  spell:wall-of-fire
+cure
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+  spell:cure-light-wounds
+  item:potion-of-cure-light-wounds
+cure light
+  spell:cure-light-wounds
+  item:potion-of-cure-light-wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+cure light wounds
+  spell:cure-light-wounds
+  item:potion-of-cure-light-wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+clw
+  spell:cure-light-wounds
+wounds
+  spell:cure-moderate-wounds
+  spell:cure-serious-wounds
+  spell:cure-light-wounds
+  item:potion-of-cure-light-wounds
+magic
+  rule:magic
+  spell:magic-missile
+  spell:magic-mouth
+  spell:magic-weapon
+ma
+  rule:magic
+  spell:magic-missile
+  spell:mage-armor
+  spell:magic-mouth
+  spell:magic-weapon
+  rule:combat-maneuvers
+  rule:grapple
+  item:potion-of-cure-light-wounds
+  rule:attack-of-opportunity
+mag mis
+  spell:magic-missile
+magic missle
+magic missile
+  spell:magic-missile
+grapple
+  rule:grapple
+  rule:combat-maneuvers
+grap
+  rule:grapple
+  item:grappling-hook
+  rule:combat-maneuvers
+weapon
+  feat:weapon-focus
+  spell:magic-weapon
+weapon focus
+  feat:weapon-focus
+armor class
+  rule:armor-class
+  spell:mage-armor
+ac
+  rule:armor-class
+goblin
+  monster:goblin
+gob
+  monster:goblin
+distracting
+  z/distracting-bolt
+attack of opp
+  rule:attack-of-opportunity
+of
+  spell:wall-of-fire
+  rule:attack-of-opportunity
+  item:potion-of-cure-light-wounds
+  monster:fire-elemental
+  spell:magic-missile
+  spell:fire-bolt
+  feat:weapon-focus
+  spell:mage-armor
+nothing
+zq
+  crowd:common-0
+  crowd:common-1
+  crowd:common-10
+  crowd:common-11
+  crowd:common-2
+  crowd:common-3
+  crowd:common-4
+  crowd:common-5
+  crowd:common-6
+  crowd:common-7
+  crowd:common-8
+  crowd:common-9
+  crowd:rare-0
+  crowd:rare-1
+  crowd:rare-10
+  crowd:rare-100
+  crowd:rare-101
+  crowd:rare-102
+  crowd:rare-103
+  crowd:rare-104
+zqfreq
+  crowd:common-0
+  crowd:common-1
+  crowd:common-10
+  crowd:common-11
+  crowd:common-2
+  crowd:common-3
+  crowd:common-4
+  crowd:common-5
+  crowd:common-6
+  crowd:common-7
+  crowd:common-8
+  crowd:common-9
