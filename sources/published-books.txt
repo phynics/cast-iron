@@ -452,3 +452,4 @@ gamemastery-condition-cards
 magic-of-thassilon
 the-elephant-in-the-room-feat-taxes-in-pathfinder
 tome-of-horrors-complete-pf
+hodgepodge-from-the-grand-lodge
