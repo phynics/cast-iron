@@ -42,7 +42,7 @@ impl Tier {
     /// Every category value the table knows, with the tier that it belongs to. A value missing
     /// here falls to [`Tier::Other`]. `Miscellaneous` is listed on purpose: it is a reviewed
     /// value that belongs in Other, not an unrecognized one.
-    pub const CATEGORIES: [(&'static str, Tier); 7] = [
+    pub const CATEGORIES: [(&'static str, Tier); 8] = [
         ("RPG", Tier::Rulebooks),
         ("Player Companion", Tier::PlayerCompanions),
         ("Campaign Setting", Tier::CampaignSetting),
@@ -50,6 +50,7 @@ impl Tier {
         ("Module", Tier::Adventures),
         ("Society", Tier::Adventures),
         ("Miscellaneous", Tier::Other),
+        ("Web supplement", Tier::Other),
     ];
 
     /// The tier for a publication: the third-party marker first, else its category. A
@@ -213,6 +214,7 @@ mod tests {
             assert_eq!(map(adventure), Tier::Adventures, "{adventure}");
         }
         assert_eq!(map("Miscellaneous"), Tier::Other);
+        assert_eq!(map("Web supplement"), Tier::Other);
         assert_eq!(map("Something new"), Tier::Other);
         assert_eq!(Tier::from_category(None), Tier::Other);
     }
@@ -355,12 +357,13 @@ mod tests {
     /// The categories that the pinned corpus (`publications.toml`) uses. A category value that
     /// this table does not know would silently land in Other, so the test fails and names it
     /// instead. When a corpus bump adds a category, add it here and to `Tier::CATEGORIES`.
-    const REVIEWED_CATEGORIES: [&str; 5] = [
+    const REVIEWED_CATEGORIES: [&str; 6] = [
         "Adventure Path",
         "Campaign Setting",
         "Module",
         "Player Companion",
         "RPG",
+        "Web supplement",
     ];
 
     fn assert_category_has_a_tier(id: &str, category: &str) {
@@ -373,8 +376,8 @@ mod tests {
         });
         assert_eq!(Tier::from_category(Some(category)), *tier);
         if *tier == Tier::Other {
-            assert_eq!(
-                category, "Miscellaneous",
+            assert!(
+                ["Miscellaneous", "Web supplement"].contains(&category),
                 "publication {id} falls to Other unexpectedly"
             );
         }

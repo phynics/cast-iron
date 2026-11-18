@@ -640,6 +640,7 @@ mod tests {
                 notice: "notice".into(),
             }],
             notice_pending: vec!["pending".into()],
+            publication_licenses: vec![],
             datasets: vec![cast_iron_schema::DatasetNotice {
                 id: "psrd-data".into(),
                 repository: "https://example.invalid/repo".into(),

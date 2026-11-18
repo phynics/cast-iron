@@ -1679,7 +1679,25 @@ pub struct LegalNotices {
     /// have no field, and older readers ignore it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notice_pending: Vec<String>,
+    /// Per-publication licensing bases that differ from the legacy OGL default.
+    ///
+    /// Optional and additive. Older readers ignore these records and still display the
+    /// Community Use notice and global license text.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub publication_licenses: Vec<PublicationLicense>,
     pub datasets: Vec<DatasetNotice>,
+}
+
+/// A source's reviewed legal basis, named here so the Legal page can identify it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PublicationLicense {
+    /// Publication id from the source catalogue.
+    pub publication_id: String,
+    /// Exact source title, checked against the catalogue when compiling the corpus.
+    pub title: String,
+    /// License ids from the legal notice table, including the special
+    /// `legal#community-use` reference when applicable.
+    pub license_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1886,6 +1904,20 @@ pub struct LinkCoverage {
 
 #[cfg(test)]
 mod tests {
+    /// `publication_licenses` is additive (AGENTS rule 4 needs no `SCHEMA_VERSION` change): a
+    /// library without it serializes without the key, and an older library reads as empty.
+    #[test]
+    fn legal_notices_without_publication_licenses_are_unchanged() {
+        let old = r#"{"product_identity":"p","community_use_notice":"c","licenses":[],"section_15":[],"datasets":[]}"#;
+        let legal: LegalNotices = serde_json::from_str(old).unwrap();
+        assert!(legal.publication_licenses.is_empty());
+        assert_eq!(serde_json::to_string(&legal).unwrap(), old);
+
+        let newer = r#"{"product_identity":"p","community_use_notice":"c","licenses":[],"section_15":[],"publication_licenses":[{"publication_id":"a","title":"A","license_refs":["legal#community-use"]}],"datasets":[]}"#;
+        let legal: LegalNotices = serde_json::from_str(newer).unwrap();
+        assert_eq!(serde_json::to_string(&legal).unwrap(), newer);
+    }
+
     use super::*;
 
     #[test]

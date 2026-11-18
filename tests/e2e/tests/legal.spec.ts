@@ -52,6 +52,35 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(page.locator("#community-use + .legal-text")).toHaveText(legal.community_use_notice);
   await expect(page.getByRole("heading", { name: "Product Identity declaration" })).toBeVisible();
 
+  // Explicit CUP source bases are disclosed separately from the global notice. The pinned
+  // library may predate these additive corpus records; once present, verify every title.
+  const cupSources = (legal.publication_licenses ?? []).filter((basis: any) =>
+    basis.license_refs.includes("legal#community-use"),
+  );
+  if (cupSources.length) {
+    await expect(page.getByRole("heading", { name: "Sources using the Community Use Policy" })).toBeVisible();
+    const sources = page.locator("#community-use-sources ~ .legal-list > li");
+    await expect(sources).toHaveCount(cupSources.length);
+    for (const basis of cupSources) await expect(sources.filter({ hasText: basis.title })).toHaveCount(1);
+  } else {
+    await expect(page.getByRole("heading", { name: "Sources using the Community Use Policy" })).toHaveCount(0);
+  }
+
+  // Historical import exclusions remain visible in coverage even after a reviewed record is
+  // represented by a canonical entry. The data PR preserves these append-only rows.
+  const issue36ExcludedPaths = [
+    "json/spells2.json#breeze",
+    "json/spells13.json#drench",
+    "json/spells6.json#jolt",
+    "json/spells7.json#penumbra",
+    "json/spells8.json#root",
+    "json/spells8.json#scoop",
+    "json/races2.json#primitive_human",
+  ];
+  for (const sourcePath of issue36ExcludedPaths) {
+    expect(coverage.excluded.some((row: any) => row.path === sourcePath), sourcePath).toBe(true);
+  }
+
   // Both dataset pins and their commits are shown, whichever library is installed.
   const datasets = page.locator("#dataset ~ .legal-list > li");
   await expect(datasets).toHaveCount(legal.datasets.length);
@@ -68,13 +97,22 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
 
   // Publications shipped with a reviewed notice-pending decision are disclosed
   // separately, never as a fabricated Section 15 line.
+  // A title whose reviewed basis does not name the OGL is a Community Use source, listed above
+  // and not as an assumed Open Game License publication.
+  const cupOnlyTitles = new Set(
+    (legal.publication_licenses ?? [])
+      .filter((basis: any) => !basis.license_refs.includes("ogl-1.0a"))
+      .map((basis: any) => basis.title),
+  );
+  const pendingTitles: string[] = (legal.notice_pending ?? []).filter((title: string) => !cupOnlyTitles.has(title));
   if (legal.notice_pending?.length) {
     await expect(page.getByRole("heading", { name: "Section 15 notice pending" })).toBeVisible();
     const pending = page.locator("#notice-pending ~ .legal-list > li");
-    await expect(pending).toHaveCount(legal.notice_pending.length);
-    for (const title of legal.notice_pending) {
+    await expect(pending).toHaveCount(pendingTitles.length);
+    for (const title of pendingTitles) {
       await expect(pending.filter({ hasText: title })).toHaveCount(1);
     }
+    for (const title of cupOnlyTitles) await expect(pending.filter({ hasText: title as string })).toHaveCount(0);
     expect(legal.section_15.map((line: any) => line.title)).not.toContain(legal.notice_pending[0]);
   }
 
@@ -135,6 +173,22 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(page.locator(".entry-foot .copyright")).toHaveCount(copyrights.length);
   for (const copyright of copyrights) {
     await expect(page.locator(".entry-foot .copyright").filter({ hasText: copyright })).toHaveCount(1);
+  }
+  // The licence line follows the entry's own `license_refs`.
+  const refs: string[] = (entry as any).license_refs ?? [];
+  const foot = page.locator(".entry-foot .muted").first();
+  if (refs.includes("ogl-1.0a")) await expect(foot).toContainText("Open Game License content.");
+  const cupOnly = [...loadCorpus().entries.values()].find(
+    (candidate: any) =>
+      (candidate.license_refs ?? []).length > 0 &&
+      !candidate.license_refs.includes("ogl-1.0a") &&
+      candidate.license_refs.includes("legal#community-use"),
+  );
+  if (cupOnly) {
+    await page.goto(`#/entry/${cupOnly.id}`);
+    await expect(page.locator(".entry-foot .muted").first()).toContainText("Used under Paizo's Community Use Policy.");
+    await expect(page.locator(".entry-foot .muted").first()).not.toContainText("Open Game License content.");
+    await page.goto(`#/entry/${entry.id}`);
   }
   await page.locator(".entry-foot a[href='#/legal']").click();
   await expect(page.getByRole("heading", { level: 1, name: "Legal and attribution" })).toBeVisible();
