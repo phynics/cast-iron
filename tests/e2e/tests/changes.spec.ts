@@ -1,6 +1,6 @@
 import { installedTest as test, expect, type Page } from "./fixtures";
 import {
-  bookTrees,
+  bookSources,
   installLibrary,
   waitControlled,
   waitHomeIdle,
@@ -18,7 +18,7 @@ const BOOK = "The Elephant in the Room: Feat Taxes in Pathfinder";
 const HEADING = `Changes in ${BOOK}`;
 const PHRASE = `Changes ${BOOK} makes to Unchained Monk`;
 
-const allBooks = bookTrees().map((book) => book.source);
+const allBooks = bookSources();
 
 /** Writes the active set directly, then reloads. Turning off 400 books one row at a time is
  * not what this spec is about. Home's idle signal must settle before the reload. */

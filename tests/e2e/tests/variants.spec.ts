@@ -1,6 +1,6 @@
 import { installedTest as test, expect, loadCorpus, type Page } from "./fixtures";
 import {
-  bookTrees,
+  bookSources,
   installLibrary,
   openQuickSearch,
   quickField,
@@ -21,7 +21,7 @@ const RESTORATION = "ref/spell/restoration";
 const RESTORE_EIDOLON = "ref/spell/restore-eidolon";
 
 const corpus = loadCorpus();
-const allBooks = bookTrees().map((book) => book.source);
+const allBooks = bookSources();
 
 function stubOf(id: string) {
   const stub = corpus.catalog.entries.find((entry) => entry.id === id);
