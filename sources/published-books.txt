@@ -453,3 +453,6 @@ magic-of-thassilon
 the-elephant-in-the-room-feat-taxes-in-pathfinder
 tome-of-horrors-complete-pf
 hodgepodge-from-the-grand-lodge
+paizo-blog-golarion-day-subdomains
+paizo-blog-ultimate-cantrips
+paizo-blog-the-gauntlet-will-be-ours
