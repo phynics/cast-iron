@@ -27,6 +27,8 @@ const slotFile = fs
   .filter((line) => line !== "" && !line.startsWith("#"));
 const slotOf = new Map(slotFile.map((id, index) => [id, index]));
 const idOfSlot = new Map(slotFile.map((id, index) => [index, id]));
+/** The slot file can reserve slots ahead of the pinned library. A code describes the slots up to the highest one the library holds. */
+const librarySlots = Math.max(...corpus.catalog.sources.map((row: any) => row.share_slot as number)) + 1;
 
 const more = corpus.catalog.sources
   .filter((row: any) => !row.third_party && ["RPG", "Player Companion", "Campaign Setting"].includes(row.category))
@@ -189,7 +191,7 @@ installedTest("Books shows the code of the active set, and Copy puts it on the c
   expect(code.replace(/-/g, "")[0]).toBe("1");
   // Read by the written format, the code names the same books that Manage books shows as on.
   expect(idsOf(code)).toEqual(await checkedBooks(page));
-  expect(readCode(code).described).toBe(slotFile.length);
+  expect(readCode(code).described).toBe(librarySlots);
   await openShare(page);
 
   // Every control is a 44 px target; nothing scrolls sideways.
