@@ -530,14 +530,62 @@ fn check_publication_aon(corpus: &Corpus, report: &mut Report) {
     }
 }
 
-/// The licensing gate: every publication states a copyright and is covered by a Section 15
-/// notice or a reviewed `notice_pending` entry.
+/// The licensing gate: every publication states a copyright and its legal basis is valid.
+/// OGL publications must have a Section 15 notice or a reviewed `notice_pending` entry.
 ///
 /// A publication is covered when the text of some `section_15` notice in `legal.toml` is part of
 /// its `copyright`, which is how the import joined them, or when its title is in
-/// `notice_pending`. A problem names `publications.toml`, the line, and the publication id.
+/// `notice_pending`. A source without a publication license row keeps the legacy OGL default.
+/// A problem names the source file, line, and publication id.
 fn check_publication_notices(corpus: &Corpus, report: &mut Report) {
     let text = std::fs::read_to_string(corpus.dir.join("publications.toml")).unwrap_or_default();
+    let mut license_ids: BTreeSet<&str> = corpus
+        .legal
+        .licenses
+        .iter()
+        .map(|license| license.id.as_str())
+        .collect();
+    if !corpus.legal.community_use_notice.is_empty() {
+        license_ids.insert("legal#community-use");
+    }
+    let mut declared_publications = BTreeSet::new();
+    for basis in &corpus.legal.publication_licenses {
+        if !declared_publications.insert(basis.publication_id.as_str()) {
+            report.problems.push(format!(
+                "legal.toml: publication `{}` has more than one license basis",
+                basis.publication_id
+            ));
+        }
+        match corpus
+            .publications
+            .iter()
+            .find(|publication| publication.id == basis.publication_id)
+        {
+            None => report.problems.push(format!(
+                "legal.toml: publication license basis names unknown publication `{}`",
+                basis.publication_id
+            )),
+            Some(publication) if publication.title != basis.title => report.problems.push(format!(
+                "legal.toml: publication license basis title `{}` does not match `{}` for `{}`",
+                basis.title, publication.title, basis.publication_id
+            )),
+            Some(_) => {}
+        }
+        if basis.license_refs.is_empty() {
+            report.problems.push(format!(
+                "legal.toml: publication `{}` has an empty license basis",
+                basis.publication_id
+            ));
+        }
+        for license in &basis.license_refs {
+            if !license_ids.contains(license.as_str()) {
+                report.problems.push(format!(
+                    "legal.toml: publication `{}` has unknown licence `{license}`",
+                    basis.publication_id
+                ));
+            }
+        }
+    }
     for publication in &corpus.publications {
         let at = format!(
             "publications.toml:{}",
@@ -566,7 +614,18 @@ fn check_publication_notices(corpus: &Corpus, report: &mut Report) {
             let notice = notice.notice.trim();
             !notice.is_empty() && copyright.contains(notice)
         });
-        if !pending && !noticed {
+        let basis = corpus
+            .legal
+            .publication_licenses
+            .iter()
+            .find(|basis| basis.publication_id == publication.id);
+        let uses_ogl = basis.is_none_or(|basis| {
+            basis
+                .license_refs
+                .iter()
+                .any(|license| license == "ogl-1.0a")
+        });
+        if uses_ogl && !pending && !noticed {
             report.problems.push(format!(
                 "{at}: publication `{}` ({}) is covered by no section_15 notice in legal.toml and is not in notice_pending",
                 publication.id, publication.title
@@ -2027,6 +2086,47 @@ mod tests {
 
         c.legal.notice_pending = vec!["Core Rulebook".into()];
         assert!(check(&c).problems.is_empty());
+    }
+
+    #[test]
+    fn a_cup_only_publication_needs_no_ogl_section_15_notice() {
+        let mut c = corpus(vec![]);
+        c.legal.section_15.clear();
+        c.legal.publication_licenses = vec![cast_iron_schema::PublicationLicense {
+            publication_id: "core-rulebook".into(),
+            title: "Core Rulebook".into(),
+            license_refs: vec!["legal#community-use".into()],
+        }];
+        assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+
+        c.legal.publication_licenses[0]
+            .license_refs
+            .push("ogl-1.0a".into());
+        assert!(
+            check(&c)
+                .problems
+                .iter()
+                .any(|problem| problem.contains("covered by no section_15 notice"))
+        );
+    }
+
+    #[test]
+    fn a_publication_license_basis_must_match_a_known_publication_and_license() {
+        let mut c = corpus(vec![]);
+        c.legal.publication_licenses = vec![cast_iron_schema::PublicationLicense {
+            publication_id: "missing-publication".into(),
+            title: "Missing publication".into(),
+            license_refs: vec!["missing-license".into()],
+        }];
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("names unknown publication `missing-publication`"),
+            "{text}"
+        );
+        assert!(
+            text.contains("has unknown licence `missing-license`"),
+            "{text}"
+        );
     }
 
     #[test]

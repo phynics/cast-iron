@@ -120,6 +120,7 @@ pub fn corpus_in_format(format: u32, entries: Vec<RuleEntry>) -> Corpus {
                 notice: "Core Rulebook, (c) Paizo Inc.".into(),
             }],
             notice_pending: vec![],
+            publication_licenses: vec![],
             datasets: vec![],
         },
         exclusions: Exclusions::default(),

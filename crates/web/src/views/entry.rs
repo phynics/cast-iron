@@ -620,6 +620,10 @@ fn EntryView(
         .map(|line| view! { <p class="copyright">{line}</p> })
         .collect_view();
 
+    // The licence line follows the entry's own `license_refs`: an entry whose only basis is the
+    // Community Use Policy (a Paizo blog or web post) must not claim Open Game License content.
+    let licence_line = licence_line(&entry.license_refs);
+
     let has_provenance = !entry.provenance.is_empty();
     let provenance = entry
         .provenance
@@ -987,7 +991,7 @@ fn EntryView(
         <footer class="entry-foot">
             {copyrights}
             <p class="muted">
-                "Open Game License content. "<a href=Route::Legal.href()>"Legal and attribution"</a>
+                {licence_line}<a href=Route::Legal.href()>"Legal and attribution"</a>
             </p>
             {has_provenance.then(|| view! {
                 <details class="provenance">
@@ -996,6 +1000,20 @@ fn EntryView(
                 </details>
             })}
         </footer>
+    }
+}
+
+/// The footer's licence sentence for an entry's `license_refs`. Open Game License wins when the
+/// entry names it (the line every entry carried before per-entry bases); an entry that names only
+/// the Community Use Policy says so; an entry that names neither says nothing about a licence.
+fn licence_line(license_refs: &[String]) -> &'static str {
+    let names = |wanted: &str| license_refs.iter().any(|reference| reference == wanted);
+    if names("ogl-1.0a") {
+        "Open Game License content. "
+    } else if names("legal#community-use") {
+        "Used under Paizo's Community Use Policy. "
+    } else {
+        ""
     }
 }
 
@@ -1074,6 +1092,20 @@ fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
 mod tests {
     use super::*;
     use cast_iron_schema::{SpellFields, StatRow};
+
+    #[test]
+    fn the_licence_line_follows_the_entry_license_refs() {
+        let refs = |values: &[&str]| values.iter().map(|v| v.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            licence_line(&refs(&["ogl-1.0a", "legal#community-use"])),
+            "Open Game License content. "
+        );
+        assert_eq!(
+            licence_line(&refs(&["legal#community-use"])),
+            "Used under Paizo's Community Use Policy. "
+        );
+        assert_eq!(licence_line(&refs(&[])), "");
+    }
 
     fn text(value: &str) -> Inline {
         Inline::Text { v: value.into() }

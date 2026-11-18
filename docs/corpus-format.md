@@ -17,7 +17,7 @@ entries/<id without ref/>.md    one entry per file
 publications.toml               publication metadata used by the catalogue
 books.toml                      curated chapter order (BookIndex); formats 1 and 2
 books/<publication-id>.toml     one curated book; format 3 (replaces books.toml)
-legal.toml                      licences, Product Identity, Section 15, dataset pins
+legal.toml                      licences, Product Identity, per-publication bases, Section 15, dataset pins
 exclusions.toml                 what the import left out and why; rows are only appended
 history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
@@ -1012,3 +1012,8 @@ corpus and schema crates. The same code runs behind `cargo xtask corpus-check`,
 The writer is deterministic: the same `RuleEntry` gives byte-identical text. It uses a
 fixed key order, fixed block separation, no timestamps, and no hash-map iteration, so
 `fmt` rewrites a file to the same bytes every time.
+
+
+### Per-publication legal basis
+
+`legal.toml` may include `[[publication_licenses]]` rows with a publication id, exact title, and license references. These rows record reviewed exceptions to the legacy OGL default and are additive for older readers. A publication without a row remains OGL-based. Paizo blog text used under the Community Use Policy must name `legal#community-use`; when a publication also contains OGL material, it must name both. OGL-based publications still require their exact Section 15 notice or a reviewed `notice_pending` record. The compiler checks row uniqueness, title and publication references, and license references.

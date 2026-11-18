@@ -139,6 +139,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
                 notice: "Example Book, (c) Example Publisher.".into(),
             }],
             notice_pending: vec![],
+            publication_licenses: vec![],
             datasets: vec![],
         },
         exclusions: Default::default(),

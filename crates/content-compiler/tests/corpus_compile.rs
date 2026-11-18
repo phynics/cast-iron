@@ -178,6 +178,7 @@ fn write_corpus_full(dir: &Path, expansion: Option<bool>, format: u32) {
             notices
         },
         notice_pending: vec![],
+        publication_licenses: vec![],
         datasets: vec![],
     };
     let exclusions = Exclusions {

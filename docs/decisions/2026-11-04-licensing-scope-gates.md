@@ -1,8 +1,8 @@
 ---
 title: "Licensing scope gates"
 date: 2026-11-04
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-18-paizo-blog-source-bases-under-cup"]
 issues: [5, 34, 36]
 prs: []
 area: licensing

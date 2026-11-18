@@ -10,7 +10,8 @@ use crate::route::Route;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource};
 use cast_iron_schema::{
-    CoverageReport, EntryId, Exclusion, LegalNotices, Rejection, RelationCoverage,
+    CoverageReport, EntryId, Exclusion, LegalNotices, PublicationLicense, Rejection,
+    RelationCoverage,
 };
 use leptos::prelude::*;
 use std::collections::BTreeMap;
@@ -69,13 +70,12 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             }
         })
         .collect_view();
-    let notice_pending = legal
-        .notice_pending
-        .iter()
+    let notice_pending = pending_titles(legal)
+        .into_iter()
         .map(|title| {
             view! {
                 <li>
-                    <strong>{title.clone()}</strong>
+                    <strong>{title.to_string()}</strong>
                 </li>
             }
         })
@@ -85,9 +85,32 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             <section aria-labelledby="notice-pending">
                 <h2 id="notice-pending">"Section 15 notice pending"</h2>
                 <p>
-                    "These publications have no Section 15 notice in any pinned source. Their records ship as assumed Open Game Content under the Open Game License; the project tracks their notice coverage as open work."
+                    "These publications have no Section 15 notice in any pinned source. Their records ship as assumed Open Game Content under the Open Game License; the project tracks their notice coverage as open work. A record whose own licence line names only the Community Use Policy is not covered by this assumption."
                 </p>
                 <ul class="legal-list">{notice_pending}</ul>
+            </section>
+        }
+    });
+    let community_use_sources = community_use_rows(legal)
+        .into_iter()
+        .map(|(title, also_ogl)| {
+            let basis = match also_ogl {
+                true => " Open Game License and Community Use Policy.",
+                false => " Community Use Policy only.",
+            };
+            view! { <li><strong>{title.to_string()}</strong><span class="legal-notice">{basis}</span></li> }
+        })
+        .collect_view();
+    let community_use_sources_section = legal
+        .publication_licenses
+        .iter()
+        .any(names_community_use)
+        .then(|| {
+        view! {
+            <section aria-labelledby="community-use-sources">
+                <h2 id="community-use-sources">"Sources using the Community Use Policy"</h2>
+                <p>"These Paizo sources are used under the Community Use notice above. A source marked \"Community Use Policy only\" carries no Open Game License text and no Section 15 notice; its per-source basis is recorded in the corpus."</p>
+                <ul class="legal-list">{community_use_sources}</ul>
             </section>
         }
     });
@@ -108,6 +131,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             <h2 id="community-use">"Community Use notice"</h2>
             <pre class="legal-text">{legal.community_use_notice.clone()}</pre>
         </section>
+        {community_use_sources_section}
         <section aria-labelledby="product-identity">
             <h2 id="product-identity">"Product Identity declaration"</h2>
             <pre class="legal-text">{legal.product_identity.clone()}</pre>
@@ -720,6 +744,45 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
     )
 }
 
+fn names_license(basis: &PublicationLicense, wanted: &str) -> bool {
+    basis
+        .license_refs
+        .iter()
+        .any(|reference| reference == wanted)
+}
+
+fn names_community_use(basis: &PublicationLicense) -> bool {
+    names_license(basis, "legal#community-use")
+}
+
+/// The Section 15 pending titles that still rest on the Open Game License. A title whose
+/// publication has a reviewed basis without `ogl-1.0a` is a Community Use source, so it is
+/// listed with those and not as an assumed OGL publication.
+fn pending_titles(legal: &LegalNotices) -> Vec<&str> {
+    legal
+        .notice_pending
+        .iter()
+        .map(String::as_str)
+        .filter(|title| {
+            !legal
+                .publication_licenses
+                .iter()
+                .any(|basis| basis.title == *title && !names_license(basis, "ogl-1.0a"))
+        })
+        .collect()
+}
+
+/// Each source that names the Community Use Policy: its title, and whether it also names the
+/// Open Game License.
+fn community_use_rows(legal: &LegalNotices) -> Vec<(&str, bool)> {
+    legal
+        .publication_licenses
+        .iter()
+        .filter(|basis| names_community_use(basis))
+        .map(|basis| (basis.title.as_str(), names_license(basis, "ogl-1.0a")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -838,5 +901,47 @@ mod tests {
             summary.iter().map(|row| row.records).sum::<u32>(),
             rows.iter().map(|row| row.records).sum::<u32>()
         );
+    }
+
+    fn legal(pending: &[&str], bases: &[(&str, &[&str])]) -> LegalNotices {
+        LegalNotices {
+            product_identity: String::new(),
+            community_use_notice: String::new(),
+            licenses: vec![],
+            section_15: vec![],
+            notice_pending: pending.iter().map(|title| title.to_string()).collect(),
+            publication_licenses: bases
+                .iter()
+                .map(|(title, refs)| PublicationLicense {
+                    publication_id: title.to_lowercase(),
+                    title: title.to_string(),
+                    license_refs: refs.iter().map(|reference| reference.to_string()).collect(),
+                })
+                .collect(),
+            datasets: vec![],
+        }
+    }
+
+    #[test]
+    fn a_community_use_only_source_is_not_listed_as_pending_open_game_content() {
+        let notices = legal(
+            &["Blog Post", "Mixed Post", "Book"],
+            &[
+                ("Blog Post", &["legal#community-use"]),
+                ("Mixed Post", &["ogl-1.0a", "legal#community-use"]),
+            ],
+        );
+        assert_eq!(pending_titles(&notices), vec!["Mixed Post", "Book"]);
+        assert_eq!(
+            community_use_rows(&notices),
+            vec![("Blog Post", false), ("Mixed Post", true)]
+        );
+    }
+
+    #[test]
+    fn a_library_without_bases_lists_every_pending_title_and_no_community_use_sources() {
+        let notices = legal(&["Book"], &[]);
+        assert_eq!(pending_titles(&notices), vec!["Book"]);
+        assert!(community_use_rows(&notices).is_empty());
     }
 }
