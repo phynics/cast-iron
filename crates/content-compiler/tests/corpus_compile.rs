@@ -188,6 +188,7 @@ fn write_corpus_full(dir: &Path, expansion: Option<bool>, format: u32) {
             reason: "Product Identity".into(),
         }],
         rejected: vec![],
+        resolved: vec![],
     };
     if format >= SPLIT_BOOKS_FORMAT {
         fs::create_dir_all(dir.join("books")).unwrap();
@@ -299,6 +300,49 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     }
     assert_eq!(versions[0], versions[1]);
     assert_eq!(trees[0], trees[1]);
+}
+
+#[test]
+fn a_resolved_exclusion_leaves_the_coverage_report_and_an_orphan_stops_the_build() {
+    let corpus = temp("resolved-corpus");
+    write_corpus(&corpus);
+    let file = corpus.join("exclusions.toml");
+    let before = fs::read_to_string(&file).unwrap();
+    assert!(before.contains("json/example.json"), "{before}");
+    let compile = |name: &str| {
+        let reports = temp(&format!("{name}-reports"));
+        compile_corpus(
+            &corpus,
+            &temp(&format!("{name}-out")),
+            &reports,
+            None,
+            Some("v0.1.6"),
+        )
+        .map(|_| fs::read_to_string(reports.join("coverage.md")).unwrap())
+    };
+    let listed = compile("excluded").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(listed.contains("json/example.json"), "{listed}");
+
+    let row = "\n[[resolved]]\npath = \"json/example.json\"\nentries = [\"ref/rule/combat\"]\nreason = \"ships now. Refs #36.\"\n";
+    fs::write(&file, format!("{before}{row}")).unwrap();
+    let after = compile("resolved").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(!after.contains("json/example.json"), "{after}");
+
+    // A row for a path no earlier row excludes is refused before anything is written.
+    fs::write(
+        &file,
+        format!(
+            "{before}{}",
+            row.replace("json/example.json", "json/other.json")
+        ),
+    )
+    .unwrap();
+    let failure = compile("orphan").expect_err("an orphan row must fail");
+    assert!(
+        failure.lines.join("\n").contains("supersedes nothing"),
+        "{}",
+        failure.lines.join("\n")
+    );
 }
 
 fn typed_entry(

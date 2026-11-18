@@ -18,7 +18,7 @@ publications.toml               publication metadata used by the catalogue
 books.toml                      curated chapter order (BookIndex); formats 1 and 2
 books/<publication-id>.toml     one curated book; format 3 (replaces books.toml)
 legal.toml                      licences, Product Identity, per-publication bases, Section 15, dataset pins
-exclusions.toml                 what the import left out and why; rows are only appended
+exclusions.toml                 what the import left out and why; rows are only appended, a later row can supersede one
 history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
 option-groups.toml              class-option vocabulary (optional, schema 4)
@@ -537,7 +537,7 @@ index, so a hand edit never leaves a count stale:
 - spell-list coverage;
 - backlink coverage.
 
-**`exclusions.toml`** holds what the import left out. It has two kinds of row:
+**`exclusions.toml`** holds what the import left out. It has three kinds of row:
 
 ```toml
 [[excluded]]
@@ -556,6 +556,25 @@ Nothing derives these rows from the entries, because the entries do not contain
 what is absent. Rows are only appended: a pull request that edits or removes a
 row is wrong, and a duplicate `path` plus `reason` is a read error. The file may
 be empty.
+
+When a later change ships a record that an earlier `excluded` row left out, do not edit that row.
+Append a `resolved` row after the `rejected` rows:
+
+```toml
+[[resolved]]
+path = "json/spells2.json#breeze"
+entries = ["ref/spell/breeze"]
+reason = "Ships from the Ultimate Cantrips blog post. Refs #36."
+```
+
+`path` is the exact `path` of an earlier `excluded` row. `entries` lists the entry ids that now
+hold the record (at least one; each must exist), and `reason` says why the exclusion no longer
+applies and cites the issue. The newest word on a path wins: the coverage report leaves a
+resolved path out of `excluded`, and the old row stays in the file as history. A `resolved` row
+supersedes only `excluded` rows, never a `rejected` row. The key is optional and additive: a file
+with no `resolved` row reads and writes back byte for byte as before, and the corpus format does
+not change. A path is resolved once; to exclude it again, add an `excluded` row under a new path
+and say why in a decision.
 
 **`history.toml`** holds the results of the one-time import that the entries
 cannot state, kept as they were at the cut:
@@ -895,7 +914,9 @@ file and line, when:
   `source_ids`. Remove the placement, or add the book to `source_ids` when it prints the entry;
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;
-- `exclusions.toml` repeats a row;
+- `exclusions.toml` repeats a row, repeats a `resolved` path, has a `resolved` row for a path no
+  earlier `excluded` row names (an orphan), leaves `entries` or `reason` empty, or names an entry
+  that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
   `copyright`) nor a title in `notice_pending`. The message names `publications.toml`, the

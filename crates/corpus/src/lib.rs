@@ -17,7 +17,7 @@
 //! books.toml                    BookIndex (curated chapter order; formats 1 and 2)
 //! books/<publication>.toml      one curated book (format 3)
 //! legal.toml                    LegalNotices
-//! exclusions.toml               what the import left out, append-only
+//! exclusions.toml               what the import left out, append-only (a `[[resolved]]` row supersedes one)
 //! history.toml                  frozen import report
 //! aliases.toml                  AliasIndex (optional, as in the library)
 //! ```
@@ -57,10 +57,11 @@ pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{
-    Exclusions, OptionGroupDef, OptionGroups, Publication, PublicationsFile, read_aliases,
-    read_books, read_curated_book, read_exclusions, read_history, read_legal, read_option_groups,
-    read_publications, write_aliases, write_books, write_curated_book, write_exclusions,
-    write_history, write_legal, write_option_groups, write_publication_list, write_publications,
+    Exclusions, OptionGroupDef, OptionGroups, Publication, PublicationsFile, Resolution,
+    read_aliases, read_books, read_curated_book, read_exclusions, read_history, read_legal,
+    read_option_groups, read_publications, write_aliases, write_books, write_curated_book,
+    write_exclusions, write_history, write_legal, write_option_groups, write_publication_list,
+    write_publications,
 };
 pub use fmt::{Change, FmtReport, format_corpus};
 pub use layout::{SplitReport, layout_of, migrate_layout, split_books};
