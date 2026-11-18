@@ -530,6 +530,27 @@ fn check_publication_aon(corpus: &Corpus, report: &mut Report) {
     }
 }
 
+/// Every `resolved` row of `exclusions.toml` names entries that exist: a superseded exclusion
+/// must point at the records that now ship. (The reader has already refused a row with no
+/// earlier `excluded` row, a repeated row, and an empty one.)
+fn check_resolved_exclusions(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mut Report) {
+    if corpus.exclusions.resolved.is_empty() {
+        return;
+    }
+    let text = std::fs::read_to_string(corpus.dir.join("exclusions.toml")).unwrap_or_default();
+    for row in &corpus.exclusions.resolved {
+        for entry in &row.entries {
+            if !ids.contains(entry.as_str()) {
+                report.problems.push(format!(
+                    "exclusions.toml:{}: resolved row for `{}` names entry `{entry}`, which is not in the corpus",
+                    line_of(&text, &crate::tomlutil::string(entry)),
+                    row.path
+                ));
+            }
+        }
+    }
+}
+
 /// The licensing gate: every publication states a copyright and its legal basis is valid.
 /// OGL publications must have a Section 15 notice or a reviewed `notice_pending` entry.
 ///
@@ -769,6 +790,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_publication_notices(corpus, &mut report);
     check_publication_series(corpus, &mut report);
     check_publication_aon(corpus, &mut report);
+    check_resolved_exclusions(corpus, &ids, &mut report);
 
     for (id, stored) in &corpus.entries {
         let entry = &stored.entry;
@@ -3637,6 +3659,31 @@ mod tests {
         let text = check(&c).problems.join("\n");
         assert!(
             text.contains("group `empty` holds no class_option entries"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn a_resolved_exclusion_must_name_entries_that_exist() {
+        let mut c = corpus(vec![rule("ref/rule/a", vec![])]);
+        c.exclusions.excluded.push(cast_iron_schema::Exclusion {
+            path: "json/a.json#x".into(),
+            records: 1,
+            reason: "out of scope".into(),
+        });
+        let row = |entry: &str| crate::Resolution {
+            path: "json/a.json#x".into(),
+            entries: vec![entry.into()],
+            reason: "ships. Refs #36.".into(),
+        };
+        c.exclusions.resolved = vec![row("ref/rule/a")];
+        let text = check(&c).problems.join("\n");
+        assert!(!text.contains("resolved row"), "{text}");
+
+        c.exclusions.resolved = vec![row("ref/rule/missing")];
+        let text = check(&c).problems.join("\n");
+        assert!(
+            text.contains("resolved row for `json/a.json#x` names entry `ref/rule/missing`"),
             "{text}"
         );
     }
