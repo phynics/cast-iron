@@ -744,6 +744,45 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
     )
 }
 
+fn names_license(basis: &PublicationLicense, wanted: &str) -> bool {
+    basis
+        .license_refs
+        .iter()
+        .any(|reference| reference == wanted)
+}
+
+fn names_community_use(basis: &PublicationLicense) -> bool {
+    names_license(basis, "legal#community-use")
+}
+
+/// The Section 15 pending titles that still rest on the Open Game License. A title whose
+/// publication has a reviewed basis without `ogl-1.0a` is a Community Use source, so it is
+/// listed with those and not as an assumed OGL publication.
+fn pending_titles(legal: &LegalNotices) -> Vec<&str> {
+    legal
+        .notice_pending
+        .iter()
+        .map(String::as_str)
+        .filter(|title| {
+            !legal
+                .publication_licenses
+                .iter()
+                .any(|basis| basis.title == *title && !names_license(basis, "ogl-1.0a"))
+        })
+        .collect()
+}
+
+/// Each source that names the Community Use Policy: its title, and whether it also names the
+/// Open Game License.
+fn community_use_rows(legal: &LegalNotices) -> Vec<(&str, bool)> {
+    legal
+        .publication_licenses
+        .iter()
+        .filter(|basis| names_community_use(basis))
+        .map(|basis| (basis.title.as_str(), names_license(basis, "ogl-1.0a")))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -863,47 +902,6 @@ mod tests {
             rows.iter().map(|row| row.records).sum::<u32>()
         );
     }
-}
-
-fn names_license(basis: &PublicationLicense, wanted: &str) -> bool {
-    basis.license_refs.iter().any(|reference| reference == wanted)
-}
-
-fn names_community_use(basis: &PublicationLicense) -> bool {
-    names_license(basis, "legal#community-use")
-}
-
-/// The Section 15 pending titles that still rest on the Open Game License. A title whose
-/// publication has a reviewed basis without `ogl-1.0a` is a Community Use source, so it is
-/// listed with those and not as an assumed OGL publication.
-fn pending_titles(legal: &LegalNotices) -> Vec<&str> {
-    legal
-        .notice_pending
-        .iter()
-        .map(String::as_str)
-        .filter(|title| {
-            !legal
-                .publication_licenses
-                .iter()
-                .any(|basis| basis.title == *title && !names_license(basis, "ogl-1.0a"))
-        })
-        .collect()
-}
-
-/// Each source that names the Community Use Policy: its title, and whether it also names the
-/// Open Game License.
-fn community_use_rows(legal: &LegalNotices) -> Vec<(&str, bool)> {
-    legal
-        .publication_licenses
-        .iter()
-        .filter(|basis| names_community_use(basis))
-        .map(|basis| (basis.title.as_str(), names_license(basis, "ogl-1.0a")))
-        .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 
     fn legal(pending: &[&str], bases: &[(&str, &[&str])]) -> LegalNotices {
         LegalNotices {

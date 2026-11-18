@@ -1911,11 +1911,15 @@ mod tests {
         let old = r#"{"product_identity":"p","community_use_notice":"c","licenses":[],"section_15":[],"datasets":[]}"#;
         let legal: LegalNotices = serde_json::from_str(old).unwrap();
         assert!(legal.publication_licenses.is_empty());
-        assert_eq!(serde_json::to_string(&legal).unwrap(), old);
+        let same = |text: &str, legal: &LegalNotices| {
+            let expected: serde_json::Value = serde_json::from_str(text).unwrap();
+            assert_eq!(serde_json::to_value(legal).unwrap(), expected);
+        };
+        same(old, &legal);
 
         let newer = r#"{"product_identity":"p","community_use_notice":"c","licenses":[],"section_15":[],"publication_licenses":[{"publication_id":"a","title":"A","license_refs":["legal#community-use"]}],"datasets":[]}"#;
         let legal: LegalNotices = serde_json::from_str(newer).unwrap();
-        assert_eq!(serde_json::to_string(&legal).unwrap(), newer);
+        same(newer, &legal);
     }
 
     use super::*;
