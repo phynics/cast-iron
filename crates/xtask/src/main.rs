@@ -50,7 +50,7 @@ cargo xtask <command>
                              nothing is committed or overwritten
   status-index               Render the index of docs/status/ into target/docs-index/status.md
   check                      Run fmt, clippy, tests, the feature-map check, the decisions and status
-                             checks, and the WASM build
+                             checks, the AoN coverage check, and the WASM build
 ";
 
 type Result<T = ()> = std::result::Result<T, String>;
@@ -1066,6 +1066,7 @@ fn check() -> Result {
     )?;
     run("cargo", &["test", "--workspace"])?;
     check_book_slots(&[])?;
+    check_aon_coverage()?;
     run(
         "cargo",
         &[
@@ -1078,6 +1079,19 @@ fn check() -> Result {
             "wasm32-unknown-unknown",
         ],
     )
+}
+
+/// The AoN coverage report against the pinned corpus. `check` normally runs without a fetched
+/// corpus (a fresh clone has no `.cache`), so the step says that it skipped rather than failing;
+/// run `cargo xtask fetch-sources` to include it.
+fn check_aon_coverage() -> Result {
+    if !corpus_cache().is_dir() {
+        println!(
+            "skip: the AoN coverage report needs .cache/sources/cast-iron-data; run `cargo xtask fetch-sources` to compare it"
+        );
+        return Ok(());
+    }
+    aon_coverage::check()
 }
 
 #[cfg(test)]
