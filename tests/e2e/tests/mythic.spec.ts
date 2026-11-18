@@ -1,6 +1,6 @@
 import { installedTest as test, expect, type Page } from "./fixtures";
 import {
-  bookTrees,
+  bookSources,
   hitTitles,
   installLibrary,
   openBookGroups,
@@ -19,7 +19,7 @@ const MYTHIC_BOOK = "mythic-adventures";
 const BASE = "ref/feat/power-attack";
 const MYTHIC = "ref/carried/mythic-adventures/feats/power-attack/mythic";
 
-const allBooks = bookTrees().map((book) => book.source);
+const allBooks = bookSources();
 
 /** Writes the active set directly, then reloads. Turning off 400 books one row at a time is
  * not what this spec is about; the one book it turns on afterwards still goes through Active

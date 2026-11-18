@@ -4,6 +4,7 @@ import {
   contentCaches,
   count,
   bookTrees,
+  bookSources,
   buildLibraryWithoutBooks,
   bookEntryOrder,
   corpusEntry,
@@ -536,7 +537,7 @@ test("No active books offers a direct recovery path from Home", async ({ page })
   // Every compiled book disabled is the state the Books screen reaches by unchecking
   // every publication. Write it once instead of toggling hundreds of rows, then verify
   // the reader's recovery path through the screen.
-  const books = bookTrees().map((book) => book.source);
+  const books = bookSources();
   await page.evaluate((disabled) => new Promise<void>((resolve, reject) => {
     const request = indexedDB.open("cast-iron", 1);
     request.onerror = () => reject(request.error);

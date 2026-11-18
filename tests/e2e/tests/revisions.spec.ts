@@ -1,6 +1,6 @@
 import { installedTest as test, expect, type Page } from "./fixtures";
 import {
-  bookTrees,
+  bookSources,
   hitTitles,
   installLibrary,
   openQuickSearch,
@@ -19,7 +19,7 @@ const DODGE_REVISION = "ref/feat/dodge/teitr";
 const POWER_ATTACK = "ref/feat/power-attack";
 const MOBILITY = "ref/feat/mobility";
 
-const allBooks = bookTrees().map((book) => book.source);
+const allBooks = bookSources();
 
 /** Writes the active set directly, then reloads. Turning off hundreds of books one row at a
  * time is not what this spec is about. */

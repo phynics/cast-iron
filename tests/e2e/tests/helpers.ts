@@ -684,6 +684,11 @@ export function bookTrees(): BookTree[] {
   return cachedBooks!;
 }
 
+/** Every publication source, including web supplements with no chapter tree. */
+export function bookSources(): string[] {
+  return loadCorpus().catalog.sources.map((source) => source.id);
+}
+
 /**
  * The kinds that the `In this book` links reach: every kind with its own list page, which is
  * every kind except Rules (`EntryKind` in the schema).

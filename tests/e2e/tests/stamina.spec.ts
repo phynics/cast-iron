@@ -1,6 +1,6 @@
 import { installedTest as test, expect, loadCorpus, type Page } from "./fixtures";
 import {
-  bookTrees,
+  bookSources,
   hitTitles,
   installLibrary,
   openQuickSearch,
@@ -19,7 +19,7 @@ const BASE = "ref/feat/power-attack";
 const STAMINA = "ref/feat/power-attack/stamina";
 const STAMINA_SUMMARY = "Stamina · Pathfinder Unchained";
 
-const allBooks = bookTrees().map((book) => book.source);
+const allBooks = bookSources();
 const staminaShard = loadCorpus().catalog.entries.find((entry) => entry.id === STAMINA)!.shard;
 
 /** Writes the active set directly, then reloads. Turning off 400 books one row at a time is
