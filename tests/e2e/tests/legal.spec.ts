@@ -66,8 +66,7 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     await expect(page.getByRole("heading", { name: "Sources using the Community Use Policy" })).toHaveCount(0);
   }
 
-  // Historical import exclusions remain visible in coverage even after a reviewed record is
-  // represented by a canonical entry. The data PR preserves these append-only rows.
+  // The reviewed records of #36 ship since corpus v0.1.27: none is excluded, each has its entry.
   const issue36ExcludedPaths = [
     "json/spells2.json#breeze",
     "json/spells13.json#drench",
@@ -78,7 +77,19 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     "json/races2.json#primitive_human",
   ];
   for (const sourcePath of issue36ExcludedPaths) {
-    expect(coverage.excluded.some((row: any) => row.path === sourcePath), sourcePath).toBe(true);
+    expect(coverage.excluded.some((row: any) => row.path === sourcePath), sourcePath).toBe(false);
+  }
+  for (const id of [
+    "ref/pclass/thought-thief-arcane-trickster",
+    "ref/spell/breeze",
+    "ref/spell/drench",
+    "ref/spell/jolt",
+    "ref/spell/penumbra",
+    "ref/spell/root",
+    "ref/spell/scoop",
+    "ref/race/primitive-human",
+  ]) {
+    expect(catalog.entries.some((candidate: any) => candidate.id === id), id).toBe(true);
   }
 
   // Both dataset pins and their commits are shown, whichever library is installed.

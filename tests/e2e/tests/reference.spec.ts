@@ -259,7 +259,13 @@ test("Home is category-only and Books is the publication directory", async ({ pa
     if (await page.locator(".toc").count()) await expect(page.locator(".toc")).toBeVisible();
     else if (await page.locator(".book-in-this-book .jump").count()) await expect(page.locator(".book-in-this-book")).toBeVisible();
     else await expect(page.getByText("This book has no entries to show.")).toBeVisible();
-    await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
+    // A web supplement the corpus has no chapter tree for shows the notice instead of a
+    // draft-order line.
+    if (trees.has(source.id)) {
+      await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
+    } else {
+      await expect(page.getByText("This library has no chapter order for this book.")).toBeVisible();
+    }
   }
 });
 
