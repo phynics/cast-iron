@@ -758,6 +758,26 @@ test("Top-level chapter rows show a dotted leader, hidden in a narrow contents c
   await expect(link).toHaveAccessibleName(title);
 });
 
+test("The Core Rulebook has no archetype members, in the corpus or on its book page (#483)", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  // The expected count is the literal 0, not a number read from the corpus: an archetype that
+  // came back as a member (the Deadeye Devotee leak) must fail here, whatever the corpus says.
+  const archetypes = corpus.catalog.entries.filter((stub: any) => stub.kind === "archetype");
+  expect(archetypes.length).toBeGreaterThan(1000);
+  const members = archetypes.filter((stub: any) => isMember(stub, core.id)).map((stub: any) => stub.id);
+  expect(members).toEqual([]);
+
+  // The book page shows no Archetypes line, and the filtered list is empty.
+  await page.goto(`#/browse/book/${core.id}`);
+  const section = page.locator(".book-in-this-book");
+  await expect(section.getByRole("heading", { level: 2, name: "In this book", exact: true })).toBeVisible();
+  await expect(section.locator(".jump", { hasText: "Feats" })).toBeVisible();
+  await expect(section.locator(".jump", { hasText: "Archetypes" })).toHaveCount(0);
+  await page.goto(`#/browse/kind/archetype?source=${core.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Archetypes" })).toBeVisible();
+  await expect(page.locator(".entry-list a[href^='#/entry/']")).toHaveCount(0);
+});
+
 test("The Core Rulebook contents have no feat or item rows, and Feats opens the filtered list", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   await page.goto(`#/browse/book/${core.id}`);

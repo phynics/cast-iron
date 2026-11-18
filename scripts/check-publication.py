@@ -81,6 +81,12 @@ def nodes(value):
 
 
 COMMUNITY_USE = "legal#community-use"
+# Publications whose reviewed legal basis names the Community Use Policy (corpus `legal.toml`).
+cup_publications = {
+    row["publication_id"]
+    for row in legal.get("publication_licenses", [])
+    if COMMUNITY_USE in row["license_refs"]
+}
 outbound = re.compile(r"https?://|pathfinderwiki", re.IGNORECASE)
 cup_named = 0
 counts = {}
@@ -92,7 +98,12 @@ for entry in entries:
     if not set(entry["source_ids"]) <= sources or not entry["source_ids"]:
         issues.append(f"Unreviewed source: {entry['id']}")
     if "ogl-1.0a" not in entry["license_refs"]:
-        issues.append(f"Missing OGL reference: {entry['id']}")
+        # A Community Use only entry (decision 2026-11-18, Paizo Blog source bases) is allowed
+        # only when it carries the Community Use path and every source it cites has a reviewed
+        # `publication_licenses` row that names Community Use.
+        cup_sources = all(source in cup_publications for source in entry["source_ids"])
+        if COMMUNITY_USE not in entry["license_refs"] or not entry["source_ids"] or not cup_sources:
+            issues.append(f"Missing OGL reference: {entry['id']}")
     displayed = [entry["title"], entry["body"], entry["fields"], entry.get("tags", [])]
     text = "\n".join(strings(displayed))
     matches = sorted(set(named_material.findall(text)))
