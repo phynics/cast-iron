@@ -29,7 +29,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Split a corpus's `books.toml` into the curated `books/` files (format 3 layout, idempotent) | `cargo xtask corpus-migrate-layout <dir>` |
 | Lower a corpus's trades to format 2 | `cargo xtask corpus-migrate-trades <dir>` (idempotent; writes the review queue `generated/trade-review.tsv`; run it on a scratch copy until #452 applies it to the corpus repository) |
-| Check before you finish | `cargo xtask check` (also fails when the verify skill's feature map and the specs in `tests/e2e/tests/` disagree: a spec or test the map does not reach, a name or `--grep` pattern that matches nothing) |
+| Check before you finish | `cargo xtask check` (also fails when the verify skill's feature map and the specs in `tests/e2e/tests/` disagree: a spec or test the map does not reach, a name or `--grep` pattern that matches nothing; and when `docs/research/aon-path-coverage.{md,tsv}` is stale against the pinned corpus, which prints `cargo xtask aon-coverage` as the fix; the step is skipped, with a note, when `.cache/sources/cast-iron-data` is absent) |
 | Browser acceptance test (at most one spec; see "Test scope") | `npm --prefix tests/e2e ci`, then `npm --prefix tests/e2e test -- --project=chromium tests/<name>.spec.ts` |
 | Full browser suite (CI only) | `gh workflow run ci.yml --ref <branch>` |
 
