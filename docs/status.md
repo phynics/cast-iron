@@ -8,9 +8,9 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.26`, commit `a4b3ef61952098358e62274be1d0e17da99ea2c8` (`sources/corpus.toml`). Pin entry: [2026-11-17](status/2026-11-17-corpus-pinned-to-v0-1-26.md) |
-| Content version | `vb4ec72f397a03202` (`cargo xtask content` on `main` at `2f1d4ca` plus the v0.1.26 pin, 2026-11-17) |
-| Library | 31,800 entries, 439 publications, 439 books; 0 unreachable entries, 0 broken links |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.27`, commit `65f396735d6c7a685cc89782cc5b113c854bf76f` (`sources/corpus.toml`). Pin entry: [2026-11-18](status/2026-11-18-corpus-pinned-to-v0-1-27.md) |
+| Content version | `v6bd1da0aee54f66d` (`cargo xtask content` on `main` at `02490f4` plus the v0.1.27 pin, 2026-11-18) |
+| Library | 31,808 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
 

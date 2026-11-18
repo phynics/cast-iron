@@ -6,12 +6,12 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/a4b3ef61952098358e62274be1d0e17da99ea2c8) |
-| Tag | `v0.1.26` |
-| Commit | `a4b3ef61952098358e62274be1d0e17da99ea2c8` |
-| Tree hash | `55180e45146b29cc154a5b0652c23a979bc45de91913eb9e759b666d8ece2476` |
-| Entries | 31,800 |
-| Publications | 439 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/65f396735d6c7a685cc89782cc5b113c854bf76f) |
+| Tag | `v0.1.27` |
+| Commit | `65f396735d6c7a685cc89782cc5b113c854bf76f` |
+| Tree hash | `8d779094786c75acd978d231754d9f965f55b64f122c9493338cef8ec2848499` |
+| Entries | 31,808 |
+| Publications | 443 |
 
 ## Totals by kind
 
@@ -20,29 +20,29 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | Kind | Matched | Missing | Total |
 |---|---:|---:|---:|
 | affliction | 0 | 369 | 369 |
-| archetype | 1,246 | 52 | 1,298 |
+| archetype | 1,246 | 53 | 1,299 |
 | class | 49 | 0 | 49 |
 | class_option | 13 | 2,789 | 2,802 |
 | creature | 2,193 | 1,469 | 3,662 |
 | feat | 3,442 | 215 | 3,657 |
 | item | 439 | 7,661 | 8,100 |
 | prestige_class | 115 | 0 | 115 |
-| race | 74 | 1 | 75 |
+| race | 74 | 2 | 76 |
 | racial_trait | 0 | 342 | 342 |
 | rule | 0 | 6,238 | 6,238 |
 | skill | 0 | 26 | 26 |
-| spell | 2,999 | 83 | 3,082 |
+| spell | 2,999 | 89 | 3,088 |
 | trait | 1,897 | 40 | 1,937 |
 | trap | 0 | 48 | 48 |
-| **Total** | **12,467** | **19,333** | **31,800** |
+| **Total** | **12,467** | **19,341** | **31,808** |
 
 ## Publications
 
 | | Count |
 |---|---:|
 | With a source page | 426 |
-| Without a source page | 13 |
-| Total | 439 |
+| Without a source page | 17 |
+| Total | 443 |
 
 ### Publications without a source page
 
@@ -51,7 +51,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | `artifacts-and-legends` | Artifacts and Legends |
 | `curse-of-the-crimson-throne` | Curse of the Crimson Throne |
 | `gods-and-magic` | Gods and Magic |
-| `magic-of-thassilon` | Magic of Thassilon |
+| `hodgepodge-from-the-grand-lodge` | Hodgepodge from the Grand Lodge! |
+| `magic-of-thassilon` | More Magic of Thassilon |
+| `paizo-blog-golarion-day-subdomains` | Golarion Day: Other Gods and New Subdomains |
+| `paizo-blog-the-gauntlet-will-be-ours` | The Gauntlet Will Be Ours! |
+| `paizo-blog-ultimate-cantrips` | Ultimate Cantrips |
 | `pathfinder-125-tower-of-the-drowned-dead` | Pathfinder #125 Tower of the Drowned Dead |
 | `pathfinder-139-the-dead-road` | Pathfinder #139: The Dead Road |
 | `pathfinder-society-s03-10-the-immortal-connundrum` | Pathfinder Society S03-10 The Immortal Connundrum |
@@ -64,9 +68,9 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 ## The per-entry list
 
-[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,333 data rows.
+[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,341 data rows.
 
-SHA-256 of the list: `075af282959c08f44c541f3abcccd7b3f5ac5e3de824f4ba27d0679929cd6f91`
+SHA-256 of the list: `bac3e91188dfa64dfd350e73c2b7d25719f5bea254844c8f6abdf8d0d465c9af`
 
 ## What a missing row means
 

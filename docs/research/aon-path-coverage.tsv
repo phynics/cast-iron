@@ -420,6 +420,7 @@ ref/arc-witch/patron-familiars	archetype	Patron Familiars
 ref/carried/advanced-players-guide/rules/core-classes/druid/druid-archetypes/animal-shamans	archetype	Animal Shamans
 ref/carried/ultimate-magic/rules/spellcasting-class-options/paladin/paladin-archetypes/oathbound-paladin	archetype	Oathbound Paladin
 ref/pclass/deadeye-devotee-arcane-archer	archetype	Deadeye Devotee (Arcane Archer)
+ref/pclass/thought-thief-arcane-trickster	archetype	Thought Thief (Arcane Trickster)
 ref/arcana/accurate-strike	class_option	Accurate Strike
 ref/arcana/aquatic-agility	class_option	Aquatic Agility
 ref/arcana/arcane-accuracy	class_option	Arcane Accuracy
@@ -12555,6 +12556,7 @@ ref/tech-weapon/zero-grenade	item	Grenade (zero grenade)
 ref/tech-weapon/zero-pistol	item	Zero pistol
 ref/tech-weapon/zero-rifle	item	Zero rifle
 ref/race/duergar-tyrant	race	Duergar Tyrant
+ref/race/primitive-human	race	Primitive Human
 ref/carried/advanced-players-guide/rules/races/dwarves/alternate-racial-traits/ancient-enmity	racial_trait	Ancient Enmity
 ref/carried/advanced-players-guide/rules/races/dwarves/alternate-racial-traits/craftsman	racial_trait	Craftsman
 ref/carried/advanced-players-guide/rules/races/dwarves/alternate-racial-traits/deep-warrior	racial_trait	Deep Warrior
@@ -19223,17 +19225,23 @@ ref/carried/technology-guide/rules/technology-in-the-world/spells/make-whole/gre
 ref/carried/technology-guide/rules/technology-in-the-world/spells/remove-radioactivity/greater	spell	Remove Radioactivity, Greater
 ref/spell/ablative-sphere	spell	Ablative Sphere
 ref/spell/beast-shape	spell	Beast Shape
+ref/spell/breeze	spell	Breeze
 ref/spell/burning-arc	spell	Burning Arc
 ref/spell/call-spirit	spell	Call Spirit
 ref/spell/contact-entity	spell	Contact Entity
 ref/spell/detect-chaos-evil-good-law	spell	Detect Chaos/Evil/Good/Law
+ref/spell/drench	spell	Drench
 ref/spell/flesh-to-stone	spell	Flesh to Stone
 ref/spell/fleshwarping-swarm	spell	Fleshwarping Swarm
 ref/spell/hasten-judgement	spell	Hasten Judgement
+ref/spell/jolt	spell	Jolt
 ref/spell/judgement-undone	spell	Judgement Undone
 ref/spell/magic-circle	spell	Magic Circle
 ref/spell/magic-circle-against-chaos-evil-good-law	spell	Magic Circle Against Chaos/Evil/Good/Law
+ref/spell/penumbra	spell	Penumbra
 ref/spell/protection-from-chaos-evil-good-law	spell	Protection from Chaos/Evil/Good/Law
+ref/spell/root	spell	Root
+ref/spell/scoop	spell	Scoop
 ref/spell/snow-shape	spell	Snow Shape
 ref/spell/spirit-call	spell	Spirit Call
 ref/spell/steal-book	spell	Steal Book
