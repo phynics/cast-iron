@@ -26,6 +26,11 @@ const REPORT: &str = "docs/research/aon-path-coverage.md";
 const LIST: &str = "docs/research/aon-path-coverage.tsv";
 const LIST_HEADER: &str = "id\tkind\ttitle";
 
+/// The failure `cargo xtask check` reports for a stale report: it names the fix, because a
+/// contributor meets this step without having asked for the report.
+const STALE: &str = "AoN coverage report is stale; run `cargo xtask aon-coverage` and commit \
+                     docs/research/aon-path-coverage.{md,tsv}";
+
 /// One entry as the report sees it. `has_path` means the corpus file carries an `aon` field.
 #[derive(Debug, Clone)]
 struct EntryFact {
@@ -78,6 +83,17 @@ pub fn run(args: &[String]) -> Result {
             }
         }
     }
+    compare(check, false)
+}
+
+/// The `cargo xtask check` step: the same comparison, with the failure a contributor can act on.
+/// The caller decides whether the corpus cache is present.
+pub fn check() -> Result {
+    compare(true, true)
+}
+
+/// Renders the report from the pinned corpus and either writes it or compares it.
+fn compare(check: bool, for_check: bool) -> Result {
     verify_corpus_cache()?;
     let pin = read_corpus_pin()?;
     let corpus = Corpus::load(&corpus_cache()).map_err(|errors| {
@@ -88,8 +104,8 @@ pub fn run(args: &[String]) -> Result {
         message
     })?;
     let output = render(&source(&corpus, &pin))?;
-    write(&root().join(REPORT), &output.markdown, check)?;
-    write(&root().join(LIST), &output.list, check)?;
+    write(&root().join(REPORT), &output.markdown, check, for_check)?;
+    write(&root().join(LIST), &output.list, check, for_check)?;
     println!(
         "{} entries: {} with an AoN path, {} without; {} publications: {} with a source page, {} without",
         output.entries,
@@ -452,18 +468,24 @@ fn escape_cell(title: &str) -> String {
     one_line(title).replace('|', "\\|")
 }
 
-/// Writes a file, or with `--check` fails when the committed file differs.
-fn write(path: &Path, content: &str, check: bool) -> Result {
+/// Writes a file, or with `check` fails when the committed file differs. `for_check` reports the
+/// stale report the way `cargo xtask check` must, and treats a missing file the same way.
+fn write(path: &Path, content: &str, check: bool, for_check: bool) -> Result {
     if check {
-        let current = fs::read_to_string(path)
-            .map_err(|e| format!("{}: {e}; run `cargo xtask aon-coverage`", path.display()))?;
-        if current == content {
+        let current = fs::read_to_string(path);
+        if current.as_deref().ok() == Some(content) {
             return Ok(());
         }
-        return Err(format!(
-            "{} is stale: the pinned corpus produces different content; run `cargo xtask aon-coverage`",
-            path.display()
-        ));
+        if for_check {
+            return Err(STALE.into());
+        }
+        return Err(match current {
+            Ok(_) => format!(
+                "{} is stale: the pinned corpus produces different content; run `cargo xtask aon-coverage`",
+                path.display()
+            ),
+            Err(e) => format!("{}: {e}; run `cargo xtask aon-coverage`", path.display()),
+        });
     }
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
@@ -592,5 +614,23 @@ mod tests {
         assert_eq!(thousands(1_000), "1,000");
         assert_eq!(thousands(31_800), "31,800");
         assert_eq!(thousands(12_467), "12,467");
+    }
+
+    #[test]
+    fn the_check_step_passes_identical_content_and_names_the_stale_report() {
+        let path = std::env::temp_dir().join(format!("aon-coverage-{}.md", std::process::id()));
+        let _ = fs::remove_file(&path);
+        assert_eq!(write(&path, "same\n", true, true).unwrap_err(), STALE);
+        fs::write(&path, "same\n").unwrap();
+        assert_eq!(write(&path, "same\n", true, true), Ok(()));
+        assert_eq!(write(&path, "other\n", true, true).unwrap_err(), STALE);
+        assert_eq!(
+            write(&path, "other\n", true, false).unwrap_err(),
+            format!(
+                "{} is stale: the pinned corpus produces different content; run `cargo xtask aon-coverage`",
+                path.display()
+            )
+        );
+        fs::remove_file(&path).unwrap();
     }
 }
