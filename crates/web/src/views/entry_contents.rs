@@ -2,6 +2,7 @@
 
 use crate::library::use_library;
 use crate::route::Route;
+use crate::views::footnotes;
 use crate::views::icons;
 use crate::views::rich::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryId};
@@ -21,6 +22,10 @@ fn headings(body: &[Block]) -> Vec<Heading> {
             let Block::Heading { level, content, .. } = block else {
                 return None;
             };
+            // A footnote is not a section: the page shows it in its Notes group.
+            if footnotes::is_note_heading(block) {
+                return None;
+            }
             let key = key?;
             let title = plain_text(content);
             (!title.trim().is_empty()).then_some(Heading {

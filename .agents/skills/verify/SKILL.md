@@ -77,6 +77,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Installer, integrity, recovery | `installs completely\|integrity\|Interrupted\|install screen` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
 | Offline launch, no runtime server | `Offline launch\|runtime server` (`offline.spec.ts`) | `web/sw.js`, `crates/web/src/app.rs` |
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
+| Footnotes: the Notes group and its markers (#507) | whole file (`footnotes.spec.ts`) | `crates/web/src/views/footnotes.rs`, `crates/web/src/views/rich.rs`, `crates/web/src/views/entry_contents.rs`, `web/styles.css` |
 | Cross-references and history | `Cross-reference\|Back/forward` (`reference.spec.ts`) | `crates/web/src/route.rs`, `crates/web/src/views/rich.rs` |
 | Body-link backlinks ("Referenced by") | `Referenced by\|Show all` (`backlinks.spec.ts`) | `crates/content-compiler/src/backlinks.rs`, `crates/web/src/views/backlinks.rs`, `crates/web/src/library.rs` |
 | Home categories and class categories | `Home categories\|category-only\|class categories` (`journeys.spec.ts`, `reference.spec.ts`) | `crates/web/src/views/browse.rs` |
