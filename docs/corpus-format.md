@@ -422,7 +422,7 @@ reviewed source material that an entry cannot express.
 | `option-groups.json` | **Derived** | It joins `option-groups.toml` with the `class_option` entries that name each group. |
 | `trades.json` | **Derived** | One `{ id, trades }` row per archetype or class option that has trades, sorted by id: the lowered trades (`class` filled only where the anchor is ambiguous). The entry shards hold no trades. It replaces `replaces.json` (schema 4 and 5, printed `replaces` names only), which a newer client still reads for an older library. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
-| `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion and rejection rows, and a few results of the import, are stored. |
+| `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion, rejection and resolved rows, and a few results of the import, are stored. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
 | `search.bin` | **Derived** | Built from titles, aliases, sections, and body text. |
 | `manifest.json` | **Derived** | Hashes and byte counts describe build output. |
@@ -557,8 +557,8 @@ what is absent. Rows are only appended: a pull request that edits or removes a
 row is wrong, and a duplicate `path` plus `reason` is a read error. The file may
 be empty.
 
-When a later change ships a record that an earlier `excluded` or `rejected` row left out, do not
-edit that row. Append a `resolved` row after the `rejected` rows:
+When a later change ships a record that an `excluded` or `rejected` row left out, do not edit that
+row. Append a `resolved` row after the `rejected` rows:
 
 ```toml
 [[resolved]]
@@ -567,15 +567,34 @@ entries = ["ref/spell/breeze"]
 reason = "Ships from the Ultimate Cantrips blog post. Refs #36."
 ```
 
-`path` is the exact `path` of an earlier `excluded` or `rejected` row. `entries` lists the entry ids that now
-hold the record (at least one; each must exist), and `reason` says why the exclusion no longer
-applies and cites the issue. The newest word on a path wins: the coverage report leaves a
-resolved path out of both `excluded` and `rejected` and counts the record as shipped, and the old
-row stays in the file as history. A `resolved` row supersedes every `excluded` and `rejected` row
-with its `path`; a path that has neither is an orphan. The key is optional and additive: a file
-with no `resolved` row reads and writes back byte for byte as before, and the corpus format does
-not change. A path is resolved once; to exclude it again, add an `excluded` row under a new path
-and say why in a decision.
+`path` is the exact `path` of the `excluded` or `rejected` row it supersedes. `entries` lists the
+entry ids that now hold the record (at least one; each must exist), and `reason` says why the
+exclusion no longer applies and cites the issue. The newest word on a path wins: the coverage
+report moves the row out of `excluded` or `rejected` into its `resolved` list (path, the kind of
+the old row, entry ids, reason) and counts the record as shipped. The old row stays in the file as
+history. Appending the `resolved` rows after the other rows is a convention. The reader checks the
+whole file, so a `resolved` row finds its row wherever it stands.
+
+A `resolved` row supersedes exactly one row. Several rows can share a `path`: an `excluded` and a
+`rejected` row (the Death and Repose domains have both), or two `rejected` rows with different
+reasons (`json/main04.json#traits_race` has two). Then `path` alone is ambiguous, and the row must
+carry `supersedes`, the start of the `reason` of the row it resolves:
+
+```toml
+[[resolved]]
+path = "json/class_ability_domains.json#death"
+supersedes = "converter native exclusion (ref/domain/death)"
+entries = ["ref/domain/death"]
+reason = "The domain ships since the @list directive reads. Refs #103."
+```
+
+`supersedes` must select exactly one row with that `path`. The other rows with the path stay in
+the report. To resolve several rows that share a path, append one `resolved` row for each, each
+with its own `supersedes`. When only one row has the path, leave `supersedes` out. The keys are
+optional and additive: a file with no `resolved` row reads and writes back byte for byte as before,
+a report with no `resolved` row has no `resolved` key and no "Resolved records" section, and the
+corpus format does not change. A row is resolved once; to exclude a record again, add an `excluded`
+row under a new path and say why in a decision.
 
 **`history.toml`** holds the results of the one-time import that the entries
 cannot state, kept as they were at the cut:
@@ -915,9 +934,10 @@ file and line, when:
   `source_ids`. Remove the placement, or add the book to `source_ids` when it prints the entry;
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;
-- `exclusions.toml` repeats a row, repeats a `resolved` path, has a `resolved` row for a path no
-  earlier `excluded` or `rejected` row names (an orphan), leaves `entries` or `reason` empty, or names an entry
-  that does not exist;
+- `exclusions.toml` repeats a row, resolves one row twice, has a `resolved` row that matches no
+  `excluded` or `rejected` row of the file (an orphan), has one that matches several rows because
+  `supersedes` is missing or too short (ambiguous), leaves `entries` or `reason` empty, or names an
+  entry that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
   `copyright`) nor a title in `notice_pending`. The message names `publications.toml`, the

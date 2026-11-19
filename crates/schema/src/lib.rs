@@ -1733,6 +1733,10 @@ pub struct CoverageReport {
     pub excluded: Vec<Exclusion>,
     /// Records selected for this build but dropped. A non-empty list is visible in the app.
     pub rejected: Vec<Rejection>,
+    /// Earlier `excluded` or `rejected` rows that a later `resolved` row superseded, because
+    /// the record now ships. Absent when there are none, so a report without any is unchanged.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub resolved: Vec<ResolvedExclusion>,
     pub links: LinkCoverage,
     /// Upstream content that was removed on purpose, such as images, with counts.
     pub stripped: BTreeMap<String, u32>,
@@ -1890,6 +1894,19 @@ pub struct Exclusion {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Rejection {
     pub path: String,
+    pub reason: String,
+}
+
+/// An `excluded` or `rejected` row that a `resolved` row superseded: the record at `path` now
+/// ships as `entries`. The report lists it here instead of under `excluded` or `rejected`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResolvedExclusion {
+    pub path: String,
+    /// The kind of the superseded row: `excluded` or `rejected`.
+    pub was: String,
+    /// Entry ids that now hold the record.
+    pub entries: Vec<String>,
+    /// Why the row no longer applies, as the `resolved` row states it.
     pub reason: String,
 }
 

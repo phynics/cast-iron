@@ -9,7 +9,7 @@
 use crate::error::{Error, Result};
 use cast_iron_schema::{
     AliasIndex, BookIndex, BookTree, CoverageHistory, Exclusion, LegalNotices, Rejection,
-    SeriesKind, SourceInfo,
+    ResolvedExclusion, SeriesKind, SourceInfo,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -259,8 +259,8 @@ pub fn read_legal(path: &Path, text: &str) -> Result<LegalNotices> {
 ///
 /// A row is never edited, so a later change that ships an excluded or rejected record appends a
 /// [`Resolution`] instead. The newest word on a path wins: the coverage report lists a resolved
-/// path as included, not as excluded ([`Exclusions::active_excluded`]) or rejected
-/// ([`Exclusions::active_rejected`]).
+/// row as resolved ([`Exclusions::resolved_rows`]), not as excluded
+/// ([`Exclusions::active_excluded`]) or rejected ([`Exclusions::active_rejected`]).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Exclusions {
@@ -270,49 +270,104 @@ pub struct Exclusions {
     /// Records selected but dropped, with the reason.
     #[serde(default)]
     pub rejected: Vec<Rejection>,
-    /// Later rows that supersede an earlier `excluded` or `rejected` row because the record now
-    /// ships. Absent
-    /// from files that have none, so an older file writes back unchanged.
+    /// Rows that supersede one `excluded` or `rejected` row because the record now ships. By
+    /// convention they come last. Absent from files that have none, so an older file writes back
+    /// unchanged.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resolved: Vec<Resolution>,
 }
 
-/// A superseding row: the upstream `path` of an earlier `excluded` or `rejected` row is no longer
-/// left out, because the corpus now holds the record as the entries in `entries`.
+/// A superseding row: the upstream `path` of an `excluded` or `rejected` row is no longer left
+/// out, because the corpus now holds the record as the entries in `entries`.
+///
+/// A resolution supersedes exactly one row. When one row of either kind has the path, `path`
+/// alone names it. When several rows share the path (an `excluded` and a `rejected` row, or rows
+/// with different reasons), `supersedes` must pick one of them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Resolution {
-    /// The upstream path of the earlier `excluded` or `rejected` row. Matches it exactly; it
-    /// supersedes every row of either kind with that path.
+    /// The upstream path of the row. Matches it exactly.
     pub path: String,
+    /// The start of the `reason` of the row, when `path` alone is ambiguous. It must select
+    /// exactly one row of the file. Leave it out when only one row has the path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supersedes: Option<String>,
     /// Entry ids that now hold the record. At least one; `corpus-check` verifies each exists.
     pub entries: Vec<String>,
     /// Why the exclusion no longer applies, with the issue reference.
     pub reason: String,
 }
 
+impl Resolution {
+    /// Whether this row supersedes the row with `path` and `reason`.
+    fn supersedes_row(&self, path: &str, reason: &str) -> bool {
+        self.path == path
+            && self
+                .supersedes
+                .as_deref()
+                .is_none_or(|start| reason.starts_with(start))
+    }
+}
+
 impl Exclusions {
-    /// The `excluded` rows whose path no `resolved` row supersedes, in file order. This is what
-    /// the coverage report lists. With no `resolved` row it equals `excluded`.
+    /// The `excluded` rows that no `resolved` row supersedes, in file order. This is what the
+    /// coverage report lists as excluded. With no `resolved` row it equals `excluded`.
     pub fn active_excluded(&self) -> Vec<Exclusion> {
-        let resolved: std::collections::BTreeSet<&str> =
-            self.resolved.iter().map(|row| row.path.as_str()).collect();
         self.excluded
             .iter()
-            .filter(|row| !resolved.contains(row.path.as_str()))
+            .filter(|row| {
+                !self
+                    .resolved
+                    .iter()
+                    .any(|r| r.supersedes_row(&row.path, &row.reason))
+            })
             .cloned()
             .collect()
     }
 
-    /// The `rejected` rows whose path no `resolved` row supersedes, in file order. This is what
-    /// the coverage report lists as rejected. With no `resolved` row it equals `rejected`.
+    /// The `rejected` rows that no `resolved` row supersedes, in file order. This is what the
+    /// coverage report lists as rejected. With no `resolved` row it equals `rejected`.
     pub fn active_rejected(&self) -> Vec<Rejection> {
-        let resolved: std::collections::BTreeSet<&str> =
-            self.resolved.iter().map(|row| row.path.as_str()).collect();
         self.rejected
             .iter()
-            .filter(|row| !resolved.contains(row.path.as_str()))
+            .filter(|row| {
+                !self
+                    .resolved
+                    .iter()
+                    .any(|r| r.supersedes_row(&row.path, &row.reason))
+            })
             .cloned()
+            .collect()
+    }
+
+    /// The `resolved` rows with the kind of the row each supersedes, in file order. This is what
+    /// the coverage report lists as resolved. Empty when the file has no `resolved` row.
+    pub fn resolved_rows(&self) -> Vec<ResolvedExclusion> {
+        self.resolved
+            .iter()
+            .filter_map(|r| {
+                let was = if self
+                    .excluded
+                    .iter()
+                    .any(|row| r.supersedes_row(&row.path, &row.reason))
+                {
+                    "excluded"
+                } else if self
+                    .rejected
+                    .iter()
+                    .any(|row| r.supersedes_row(&row.path, &row.reason))
+                {
+                    "rejected"
+                } else {
+                    return None;
+                };
+                Some(ResolvedExclusion {
+                    path: r.path.clone(),
+                    was: was.to_string(),
+                    entries: r.entries.clone(),
+                    reason: r.reason.clone(),
+                })
+            })
             .collect()
     }
 }
@@ -349,15 +404,22 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             ));
         }
     }
-    let superseded: std::collections::BTreeSet<&str> = exclusions
+    // Every `resolved` row names the one row it supersedes. The reader looks at the whole file;
+    // that the `resolved` rows come last is a convention, not something it checks.
+    let rows: Vec<(&str, &str, &str)> = exclusions
         .excluded
         .iter()
-        .map(|row| row.path.as_str())
-        .chain(exclusions.rejected.iter().map(|row| row.path.as_str()))
+        .map(|row| ("excluded", row.path.as_str(), row.reason.as_str()))
+        .chain(
+            exclusions
+                .rejected
+                .iter()
+                .map(|row| ("rejected", row.path.as_str(), row.reason.as_str())),
+        )
         .collect();
-    let mut resolved = std::collections::BTreeSet::new();
+    let mut taken = std::collections::BTreeSet::new();
     for row in &exclusions.resolved {
-        // The last line with the path: the earlier `excluded` or `rejected` row holds it first.
+        // The last line with the path: the `excluded` or `rejected` row holds it first.
         let needle = crate::tomlutil::string(&row.path);
         let at = text
             .lines()
@@ -365,21 +427,77 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             .filter(|(_, line)| line.contains(&needle))
             .last()
             .map_or(1, |(index, _)| index + 1);
-        if !superseded.contains(row.path.as_str()) {
+        let shared: Vec<_> = rows
+            .iter()
+            .filter(|(_, row_path, _)| *row_path == row.path)
+            .collect();
+        if shared.is_empty() {
             return Err(Error::new(
                 path,
                 at,
                 format!(
-                    "resolved row for {:?} supersedes nothing: no earlier excluded or rejected row has that path",
+                    "resolved row for {:?} supersedes nothing: no excluded or rejected row has that path",
                     row.path
                 ),
             ));
         }
-        if !resolved.insert(row.path.as_str()) {
+        if row
+            .supersedes
+            .as_deref()
+            .is_some_and(|s| s.trim().is_empty())
+        {
             return Err(Error::new(
                 path,
                 at,
-                format!("duplicate resolved row for {:?}", row.path),
+                format!("resolved row for {:?} has an empty `supersedes`", row.path),
+            ));
+        }
+        let matched: Vec<_> = shared
+            .iter()
+            .filter(|(_, row_path, reason)| row.supersedes_row(row_path, reason))
+            .collect();
+        match matched.len() {
+            0 => {
+                return Err(Error::new(
+                    path,
+                    at,
+                    format!(
+                        "resolved row for {:?} supersedes nothing: `supersedes` is not the start of the reason of any row with that path",
+                        row.path
+                    ),
+                ));
+            }
+            1 => {}
+            n => {
+                let hint = if row.supersedes.is_some() {
+                    "make `supersedes` longer"
+                } else {
+                    "add `supersedes`, the start of the reason of the row it resolves"
+                };
+                return Err(Error::new(
+                    path,
+                    at,
+                    format!(
+                        "resolved row for {:?} is ambiguous: it matches {n} rows with that path ({}); {hint}",
+                        row.path,
+                        matched
+                            .iter()
+                            .map(|(kind, _, _)| *kind)
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                ));
+            }
+        }
+        let (kind, _, reason) = matched[0];
+        if !taken.insert((*kind, row.path.as_str(), *reason)) {
+            return Err(Error::new(
+                path,
+                at,
+                format!(
+                    "duplicate resolved row for {:?}: another `resolved` row already supersedes that row",
+                    row.path
+                ),
             ));
         }
         if row.entries.is_empty() || row.reason.trim().is_empty() {
@@ -798,17 +916,31 @@ mod tests {
     }
 
     #[test]
-    fn a_resolved_row_without_an_earlier_excluded_row_is_refused() {
+    fn a_resolved_row_that_matches_no_excluded_or_rejected_row_is_refused() {
         let path = Path::new("exclusions.toml");
         let orphan =
             "[[resolved]]\npath = \"json/a.json#x\"\nentries = [\"ref/a/x\"]\nreason = \"ships\"\n";
         let error = read_exclusions(path, orphan).unwrap_err();
         assert!(error.message.contains("supersedes nothing"), "{error}");
 
-        // A row for another path than the rejected row's is still an orphan.
-        let other = format!("[[rejected]]\npath = \"json/b.json#y\"\nreason = \"r\"\n\n{orphan}");
-        let error = read_exclusions(path, &other).unwrap_err();
-        assert!(error.message.contains("supersedes nothing"), "{error}");
+        // A row for another path than the excluded or rejected row's is still an orphan.
+        for kind in ["excluded", "rejected"] {
+            let records = if kind == "excluded" {
+                "records = 1\n"
+            } else {
+                ""
+            };
+            let other = format!(
+                "[[{kind}]]\npath = \"json/b.json#y\"\n{records}reason = \"r\"\n\n{orphan}"
+            );
+            let error = read_exclusions(path, &other).unwrap_err();
+            assert!(error.message.contains("supersedes nothing"), "{error}");
+        }
+
+        // The reader looks at the whole file, so a `resolved` row that comes first still finds
+        // its row. Appending last is a convention.
+        let first = "[[resolved]]\npath = \"json/a.json#x\"\nentries = [\"ref/a/x\"]\nreason = \"ships\"\n\n[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n";
+        assert!(read_exclusions(path, first).is_ok());
     }
 
     #[test]
@@ -818,6 +950,7 @@ mod tests {
         let before = read_exclusions(path, old).unwrap();
         assert_eq!(before.active_rejected(), before.rejected);
         assert_eq!(before.active_excluded(), before.excluded);
+        assert!(before.resolved_rows().is_empty());
 
         let text = format!(
             "{old}\n[[resolved]]\npath = \"json/domains.json#x\"\nentries = [\"ref/domain/x\"]\nreason = \"ships now. Refs #103.\"\n"
@@ -829,10 +962,97 @@ mod tests {
         assert_eq!(rejected.len(), 1);
         assert_eq!(rejected[0].path, "json/domains.json#y");
         assert_eq!(after.active_excluded(), before.excluded);
+        let resolved = after.resolved_rows();
+        assert_eq!(resolved.len(), 1);
+        assert_eq!(resolved[0].path, "json/domains.json#x");
+        assert_eq!(resolved[0].was, "rejected");
+        assert_eq!(resolved[0].entries, vec!["ref/domain/x".to_string()]);
         assert_eq!(
             read_exclusions(path, &write_exclusions(&after)).unwrap(),
             after
         );
+    }
+
+    /// The pinned corpus has two `rejected` rows for `json/main04.json#traits_race`, and the
+    /// Death and Repose domains have an `excluded` and a `rejected` row for one path.
+    #[test]
+    fn a_resolved_row_names_which_of_several_rows_with_its_path_it_supersedes() {
+        let path = Path::new("exclusions.toml");
+        let old = "[[excluded]]\npath = \"json/d.json#death\"\nrecords = 1\nreason = \"Paizo Blog: an adjustment\"\n\n[[rejected]]\npath = \"json/d.json#death\"\nreason = \"converter native exclusion (ref/domain/death): bad directive\"\n\n[[rejected]]\npath = \"json/m.json#race\"\nreason = \"converter native exclusion (ref/main/race): bad\"\n\n[[rejected]]\npath = \"json/m.json#race\"\nreason = \"converter rule exclusion (ref/rule/race/core): skipped\"\n";
+        let row = |path: &str, supersedes: Option<&str>| {
+            let key = supersedes.map_or(String::new(), |s| format!("supersedes = {s:?}\n"));
+            format!(
+                "\n[[resolved]]\npath = {path:?}\n{key}entries = [\"ref/x/x\"]\nreason = \"ships now\"\n"
+            )
+        };
+        let read = |extra: &str| read_exclusions(path, &format!("{old}{extra}"));
+
+        // The path alone is ambiguous, across kinds and within one kind.
+        for shared in ["json/d.json#death", "json/m.json#race"] {
+            let error = read(&row(shared, None)).unwrap_err();
+            assert!(error.message.contains("is ambiguous"), "{error}");
+            assert!(error.message.contains("supersedes"), "{error}");
+        }
+        // A start of the reason that several rows share is still ambiguous.
+        let error = read(&row("json/m.json#race", Some("converter "))).unwrap_err();
+        assert!(error.message.contains("is ambiguous"), "{error}");
+        // A start that no row has supersedes nothing, and a blank one is refused.
+        let error = read(&row("json/d.json#death", Some("nothing like it"))).unwrap_err();
+        assert!(error.message.contains("supersedes nothing"), "{error}");
+        assert!(read(&row("json/d.json#death", Some(" "))).is_err());
+
+        // Naming the rejected row resolves it and leaves the excluded row with the same path.
+        let death = read(&row(
+            "json/d.json#death",
+            Some("converter native exclusion (ref/domain/death)"),
+        ))
+        .unwrap();
+        assert_eq!(death.active_rejected().len(), 2);
+        assert!(
+            death
+                .active_rejected()
+                .iter()
+                .all(|r| r.path != "json/d.json#death")
+        );
+        assert_eq!(death.active_excluded(), death.excluded);
+        assert_eq!(death.resolved_rows()[0].was, "rejected");
+
+        // Naming the excluded row resolves that one and leaves the rejected row.
+        let blog = read(&row("json/d.json#death", Some("Paizo Blog"))).unwrap();
+        assert!(blog.active_excluded().is_empty());
+        assert_eq!(blog.active_rejected(), blog.rejected);
+        assert_eq!(blog.resolved_rows()[0].was, "excluded");
+
+        // Two rows with the same path in one kind: each is resolved on its own.
+        let derived = read(&row("json/m.json#race", Some("converter rule exclusion"))).unwrap();
+        let left = derived.active_rejected();
+        assert_eq!(left.len(), 2);
+        assert!(
+            left.iter().any(|r| r.path == "json/m.json#race"
+                && r.reason.starts_with("converter native exclusion"))
+        );
+        assert!(!left.iter().any(|r| r.reason.starts_with("converter rule")));
+        let both = read(&format!(
+            "{}{}",
+            row("json/m.json#race", Some("converter rule exclusion")),
+            row("json/m.json#race", Some("converter native exclusion"))
+        ))
+        .unwrap();
+        assert_eq!(both.active_rejected().len(), 1);
+        assert_eq!(both.resolved_rows().len(), 2);
+
+        // Two rows that pick the same row repeat each other.
+        let error = read(&format!(
+            "{}{}",
+            row("json/m.json#race", Some("converter rule exclusion")),
+            row("json/m.json#race", Some("converter rule exclusion (ref"))
+        ))
+        .unwrap_err();
+        assert!(error.message.contains("duplicate resolved"), "{error}");
+
+        // The key is optional and additive: a row without it writes back without it.
+        let plain = "[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n\n[[resolved]]\npath = \"json/a.json#x\"\nentries = [\"ref/a/x\"]\nreason = \"ships\"\n";
+        assert!(!write_exclusions(&read_exclusions(path, plain).unwrap()).contains("supersedes"));
     }
 
     #[test]
@@ -848,7 +1068,7 @@ mod tests {
         let no_reason = row.replace("ships", " ");
         assert!(read_exclusions(path, &format!("{base}{no_reason}")).is_err());
 
-        // The same holds when the earlier row is a rejected row.
+        // The same holds when the row is a rejected row.
         let rejected = "[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n\n";
         assert!(read_exclusions(path, &format!("{rejected}{row}")).is_ok());
         let error = read_exclusions(path, &format!("{rejected}{row}{row}")).unwrap_err();

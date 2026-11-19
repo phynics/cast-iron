@@ -116,15 +116,17 @@ pub fn build_with_slots(
         book_slots::assign(&listed, &mut sources).map_err(|lines| Failure { lines })?;
     }
 
-    // A `resolved` row supersedes its earlier `excluded` or `rejected` row: the record ships, so
-    // the report lists its path as neither.
+    // A `resolved` row supersedes the one `excluded` or `rejected` row it names: the record
+    // ships, so the report lists that row as resolved instead of excluded or rejected.
     let active_excluded = corpus.exclusions.active_excluded();
     let active_rejected = corpus.exclusions.active_rejected();
+    let resolved = corpus.exclusions.resolved_rows();
     let coverage = corpus_coverage::derive(
         &entries,
         &sources,
         &active_excluded,
         &active_rejected,
+        &resolved,
         history,
     )
     .map_err(failure)?;

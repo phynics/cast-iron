@@ -16,7 +16,7 @@ use crate::lists;
 use crate::relations;
 use cast_iron_schema::{
     CoverageHistory, CoverageReport, Exclusion, LinkCoverage, PublicationCoverage, Rejection,
-    RelationCoverage, RuleEntry, SourceInfo, UpstreamPublication,
+    RelationCoverage, ResolvedExclusion, RuleEntry, SourceInfo, UpstreamPublication,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -26,6 +26,7 @@ pub fn derive(
     sources: &[SourceInfo],
     excluded: &[Exclusion],
     rejected: &[Rejection],
+    resolved: &[ResolvedExclusion],
     history: &CoverageHistory,
 ) -> Result<CoverageReport, String> {
     let mut by_kind: BTreeMap<String, u32> = BTreeMap::new();
@@ -74,6 +75,7 @@ pub fn derive(
         by_kind,
         excluded: excluded.to_vec(),
         rejected: rejected.to_vec(),
+        resolved: resolved.to_vec(),
         links: LinkCoverage {
             resolved: entries.iter().map(|entry| entry.links.len() as u32).sum(),
             out_of_selection: 0,
@@ -206,7 +208,7 @@ mod tests {
             path: "json/y.json#z".into(),
             reason: "bad".into(),
         }];
-        let report = derive(&entries, &sources, &excluded, &rejected, &history).unwrap();
+        let report = derive(&entries, &sources, &excluded, &rejected, &[], &history).unwrap();
         assert_eq!(report.by_kind["rule"], 2);
         assert_eq!(report.links.resolved, 1);
         assert_eq!(report.relations.edges["part"], 1);
@@ -247,6 +249,7 @@ mod tests {
             &sources,
             &[],
             &[],
+            &[],
             &history,
         )
         .unwrap();
@@ -256,6 +259,7 @@ mod tests {
                 entry("ref/rule/b", EntryKind::Rule, &["book"], Some("ref/rule/a")),
             ],
             &sources,
+            &[],
             &[],
             &[],
             &history,
