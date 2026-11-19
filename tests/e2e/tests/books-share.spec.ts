@@ -37,6 +37,9 @@ const more = corpus.catalog.sources
 const countLine = (active: number, name?: string) =>
   `${count(active)} of ${count(allBooks.length)} books active` + (name ? ` · ${name}` : "");
 
+/** The count line of Manage books: it names no preset. */
+const activeLine = (active: number) => `${count(active)} of ${count(allBooks.length)} books active`;
+
 // ---- the format, again, in TypeScript -------------------------------------------------------
 
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -126,7 +129,7 @@ const countText = (page: any) => page.locator(".books-count");
 const disclosure = (page: any) => page.locator(".share-set");
 
 async function openShare(page: any) {
-  await page.goto("#/books");
+  await page.goto("#/books/manage");
   await waitReady(page);
   const details = disclosure(page);
   await expect(details).toBeVisible();
@@ -158,6 +161,15 @@ async function enterCode(page: any, text: string) {
   await page.getByRole("button", { name: "Review", exact: true }).click();
 }
 
+/** Opens the section, if closed, and reviews a code. */
+async function enterCodeOpen(page: any, text: string) {
+  const details = disclosure(page);
+  if (!(await details.evaluate((element: HTMLDetailsElement) => element.open))) {
+    await details.locator("summary").click();
+  }
+  await enterCode(page, text);
+}
+
 async function applyPreset(page: any, name: string) {
   await page.goto("#/books/manage");
   await waitReady(page);
@@ -173,7 +185,7 @@ test("The slots in the catalog are the lines of published-books.txt", async () =
   }
 });
 
-installedTest("Books shows the code of the active set, and Copy puts it on the clipboard", async ({ page, context, browserName }) => {
+installedTest("Manage books shows the code of the active set, and Copy puts it on the clipboard", async ({ page, context, browserName }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks & More");
   // One more change, so the set is a custom one.
@@ -213,9 +225,9 @@ installedTest("Books shows the code of the active set, and Copy puts it on the c
     await page.getByRole("button", { name: "Copy link", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Copied the link." })).toBeVisible();
     const link = await page.evaluate(() => navigator.clipboard.readText());
-    expect(link).toBe(`${new URL(page.url()).origin}/cast-iron/#/books?set=${code}`);
+    expect(link).toBe(`${new URL(page.url()).origin}/cast-iron/#/books/manage?set=${code}`);
     // A link opened on this page asks a new question, so the note about the old code goes.
-    await page.goto(`#/books?set=${codeFor(rulebooks)}`);
+    await page.goto(`#/books/manage?set=${codeFor(rulebooks)}`);
     await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
     await expect(page.getByText("Copied the link.")).toHaveCount(0);
     await expect(page.getByText("Copied the code.")).toHaveCount(0);
@@ -246,13 +258,18 @@ installedTest("A code made on one profile gives a fresh profile the exact same s
     await other.goto("#/books");
     await waitReady(other);
     await expect(countText(other)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+    // Books has no share section; Manage books has it.
+    await expect(disclosure(other)).toHaveCount(0);
+    await other.goto("#/books/manage");
+    await waitReady(other);
+    await expect(countText(other)).toHaveText(activeLine(rulebooks.length));
     await disclosure(other).locator("summary").click();
     await enterCode(other, code);
     await expect(other.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
     // Nothing has changed yet.
-    await expect(countText(other)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+    await expect(countText(other)).toHaveText(activeLine(rulebooks.length));
     await other.getByRole("button", { name: "Use this set", exact: true }).click();
-    await expect(countText(other)).toHaveText(countLine(expected.length, "Custom"));
+    await expect(countText(other)).toHaveText(activeLine(expected.length));
     expect(await checkedBooks(other)).toEqual(expected);
     // The other profile's code is now the same code.
     await openShare(other);
@@ -266,7 +283,7 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
   const code = codeFor(paizoBooks);
-  await page.goto(`#/books?set=${code}`);
+  await page.goto(`#/books/manage?set=${code}`);
   await waitReady(page);
 
   const heading = page.getByRole("heading", { name: "Use this set of books?", exact: true });
@@ -279,41 +296,100 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
   );
   await expect(page.getByTestId("share-skipped")).toHaveCount(0);
   // The link only asks: the books and the address are as they were.
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
-  await expect(page).toHaveURL(/#\/books\?set=/);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
   // Nothing is saved by opening the link, so a reload asks again.
   await page.reload();
   await waitReady(page);
   await expect(heading).toBeVisible();
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
   await expect(heading).toHaveCount(0);
-  await expect(page).toHaveURL(/#\/books$/);
+  await expect(page).toHaveURL(/#\/books\/manage$/);
   // The status names the preset the set made.
   await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
 
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
   await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
   // The answer survives a reload: it was written once.
   await page.reload();
   await waitReady(page);
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+});
+
+installedTest("A link made when the section sat on Books still opens the question on Manage books", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await page.goto(`#/books?set=${codeFor(paizoBooks)}`);
+  await waitReady(page);
+  const heading = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  // Done leaves for Books, which names the set the link made.
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+});
+
+installedTest("Books has no share section, and its first group starts under the Manage books link", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await waitReady(page);
+  await expect(disclosure(page)).toHaveCount(0);
+  await expect(page.getByText("Share these books or enter a code")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Manage books", exact: true })).toBeVisible();
+  // The count line, the link, then the first group: nothing between them.
+  const order = await page.locator(".wide").evaluate((wide: Element) => {
+    const children = [...wide.children];
+    const index = (selector: string) => children.findIndex((child) => child.matches(selector));
+    return { count: index(".books-count"), link: index(".filter-row"), group: index("section, .tier-group, h2") };
+  });
+  expect(order.count).toBeGreaterThan(0);
+  expect(order.link).toBe(order.count + 1);
+  expect(order.group).toBe(order.link + 1);
+});
+
+installedTest("Another change on Manage books ends the share Undo, and a share ends the preset Undo", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const undo = page.getByRole("button", { name: "Undo", exact: true });
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(undo).toHaveCount(1);
+  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
+  // A preset replaces the share's Undo: one Undo line at a time.
+  await page.getByRole("button", { name: "Paizo Rulebooks", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Rulebooks." })).toBeVisible();
+  await expect(undo).toHaveCount(1);
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(undo).toHaveCount(1);
+  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Rulebooks." })).toHaveCount(0);
 });
 
 installedTest("Cancel leaves the books alone and drops the code from the address", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
-  await page.goto(`#/books?set=${codeFor(paizoBooks)}`);
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
-  await expect(page).toHaveURL(/#\/books$/);
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(page.locator(".share-status").getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
 });
 
 installedTest("A typo is rejected with a clear message and changes nothing", async ({ page }) => {
@@ -338,7 +414,7 @@ installedTest("A typo is rejected with a clear message and changes nothing", asy
     await expect(problem).toContainText("This code does not look right");
     await expect(problem).toContainText("Your books did not change");
     await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
-    await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+    await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
   }
   await enterCode(page, "hello!");
   await expect(problem).toContainText("A code has no “!”");
@@ -348,13 +424,13 @@ installedTest("A typo is rejected with a clear message and changes nothing", asy
   await page.getByLabel("Enter a code", { exact: true }).fill("1");
   await expect(problem).toHaveCount(0);
   // A bad link says so, shows no question, and leaves the address clean.
-  await page.goto(`#/books?set=${cases[0]}`);
+  await page.goto(`#/books/manage?set=${cases[0]}`);
   await expect(page.getByTestId("share-notice")).toContainText(
     "This link's code does not look right. Check it for typos or a missing part. Your books did not change.",
   );
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
-  await expect(page).toHaveURL(/#\/books$/);
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 });
 
 installedTest("A bad link from another route explains itself while the disclosure is closed", async ({ page }) => {
@@ -363,10 +439,12 @@ installedTest("A bad link from another route explains itself while the disclosur
   const good = codeFor(paizoBooks);
   const typo = good.slice(0, 4) + (good[4] === "7" ? "8" : "7") + good.slice(5);
   for (const bad of [typo, "7".repeat(5000), "1"]) {
-    // Arrive from another route, so Books mounts with the link and the disclosure starts closed.
+    const old = bad === typo;
+    // Arrive from another route, so Manage books mounts with the link and the disclosure starts
+    // closed. The first address is the link as it was made when the section sat on Books.
     await page.goto("#/settings");
     await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
-    await page.goto(`#/books?set=${bad}`);
+    await page.goto(`${old ? "#/books" : "#/books/manage"}?set=${bad}`);
     await waitReady(page);
     const notice = page.getByRole("alert").filter({ hasText: "This link's code" });
     await expect(notice).toBeVisible();
@@ -382,11 +460,11 @@ installedTest("A bad link from another route explains itself while the disclosur
     expect(await disclosure(page).evaluate((element: HTMLDetailsElement) => element.open)).toBe(false);
     expect(await disclosure(page).getByTestId("share-notice").count()).toBe(0);
     await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toHaveCount(0);
-    await expect(page).toHaveURL(/#\/books$/);
-    await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+    await expect(page).toHaveURL(/#\/books\/manage$/);
+    await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
   }
   // A later good link replaces the error with the question.
-  await page.goto(`#/books?set=${good}`);
+  await page.goto(`#/books/manage?set=${good}`);
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
   await expect(page.getByTestId("share-notice")).toHaveCount(0);
 });
@@ -396,9 +474,9 @@ installedTest("Undo stays through a rejected typo, a bad link and a cancelled re
   await applyPreset(page, "Paizo Rulebooks");
   const everything = codeFor(paizoBooks);
   const undo = page.getByRole("button", { name: "Undo", exact: true });
-  await page.goto(`#/books?set=${everything}`);
+  await page.goto(`#/books/manage?set=${everything}`);
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
   await expect(undo).toBeVisible();
 
   // A typo changes nothing, so Undo stays.
@@ -407,7 +485,7 @@ installedTest("Undo stays through a rejected typo, a bad link and a cancelled re
   await expect(page.getByTestId("share-problem")).toBeVisible();
   await expect(undo).toBeVisible();
   // So does a bad link opened on this page.
-  await page.goto(`#/books?set=${everything.slice(0, -1)}`);
+  await page.goto(`#/books/manage?set=${everything.slice(0, -1)}`);
   await expect(page.getByTestId("share-notice")).toBeVisible();
   await expect(undo).toBeVisible();
   // Reviewing another set and cancelling changes nothing either.
@@ -416,14 +494,14 @@ installedTest("Undo stays through a rejected typo, a bad link and a cancelled re
   await expect(undo).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(undo).toBeVisible();
-  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
 
   // A second set that is applied replaces Undo: it now restores the set before it.
   await enterCode(page, codeFor(more));
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(more.length, "Paizo Rulebooks & More"));
+  await expect(countText(page)).toHaveText(activeLine(more.length));
   await undo.click();
-  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
   await expect(undo).toHaveCount(0);
 });
 
@@ -438,6 +516,7 @@ installedTest("Typing is forgiving: lower case, groups, look-alikes and a pasted
     code.toLowerCase(),
     grouped.toLowerCase(),
     code.replace(/1/g, "l").replace(/0/g, "o"),
+    `https://example.test/cast-iron/#/books/manage?set=${code}`,
     `https://example.test/cast-iron/#/books?set=${code}`,
   ]) {
     await enterCode(page, text);
@@ -495,7 +574,7 @@ installedTest("A code from a newer library skips the books this one lacks, and s
   await expect(page.getByTestId("share-summary")).toHaveText("Turns on 1 book.");
   await expect(page.getByTestId("share-skipped")).toBeVisible();
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length + 1, "Custom"));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length + 1));
   // No preset matches, so the status gives the count.
   await expect(page.getByRole("status").filter({ hasText: `Now using ${count(rulebooks.length + 1)} books.` })).toBeVisible();
 });
@@ -514,7 +593,7 @@ installedTest("A code made before a library gained books leaves those books as t
   await enterCode(page, bitCode(28, slots));
   await expect(page.getByTestId("share-summary")).toHaveText("Turns off 1 book.");
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(paizoBooks.length - 1, "Custom"));
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length - 1));
 });
 
 installedTest("A code with a later version says so instead of calling it a typo", async ({ page }) => {
@@ -532,7 +611,7 @@ installedTest("Sharing makes no network request beyond the app's own files", asy
   await server.clearLog();
   await enterCode(page, codeFor(rulebooks));
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
-  await expect(countText(page)).toHaveText(countLine(rulebooks.length, "Paizo Rulebooks"));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toBeVisible();
   // Opening, reviewing, applying and Undo are local: the server saw no request besides those (the

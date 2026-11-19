@@ -59,9 +59,11 @@ pub enum Route {
     /// Manage books: the presets and one checkbox per book. It is a route, so a reload and
     /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
     BooksManage,
-    /// A shared book set (#408): `#/books?set=<code>`. The page is Books, which asks before it
-    /// changes anything; the route only carries the code. The text is the code as written, so a
-    /// typo is the page's to report, not the router's.
+    /// A shared book set (#408): `#/books/manage?set=<code>`. The page is Manage books, which
+    /// asks before it changes anything; the route only carries the code. The text is the code as
+    /// written, so a typo is the page's to report, not the router's. Links made while the section
+    /// sat on Books (`#/books?set=<code>`) still parse to this route, and the router rewrites
+    /// their address to the canonical one.
     BooksSet(String),
     /// An old address of a book that the corpus deleted and that has no replacement (a blog
     /// post, a comic issue). The page is Books with a plain line on top that says so, and the
@@ -265,14 +267,15 @@ impl Route {
                 }
                 _ => not_found(),
             },
-            // `active` is the old address of the page; both parse to the same route.
-            ["books", "manage"] | ["books", "active"] => Route::BooksManage,
+            // `active` is the old address of the page; both parse to the same route. A `set`
+            // query is a shared book set (#408): the canonical address is under `manage`, and
+            // `#/books?set=` (where the link pointed first) means the same.
+            ["books", "manage"] | ["books", "active"] => match shared_set(query) {
+                Some(code) if segments == ["books", "manage"] => Route::BooksSet(code),
+                _ => Route::BooksManage,
+            },
             // There is one order. A link from when Books had sort options opens the list.
-            ["books"] | ["browse", "books"] => match query
-                .and_then(|q| query_pairs(q).find(|(key, _)| key == "set"))
-                .map(|(_, code)| code)
-                .filter(|code| !code.trim().is_empty())
-            {
+            ["books"] | ["browse", "books"] => match shared_set(query) {
                 Some(code) if segments == ["books"] => Route::BooksSet(code),
                 _ => Route::Books,
             },
@@ -416,7 +419,7 @@ impl Route {
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::BooksManage => "#/books/manage".into(),
-            Route::BooksSet(code) => format!("#/books?set={}", percent_encode(code)),
+            Route::BooksSet(code) => format!("#/books/manage?set={}", percent_encode(code)),
             Route::BookRemoved(source) => format!("#/browse/book/{}", percent_encode(source)),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
@@ -666,6 +669,14 @@ fn legacy_school(value: &str) -> String {
     }
 }
 
+/// The code of a share link (`set=<code>`), unless it is empty.
+fn shared_set(query: Option<&str>) -> Option<String> {
+    query
+        .and_then(|q| query_pairs(q).find(|(key, _)| key == "set"))
+        .map(|(_, code)| code)
+        .filter(|code| !code.trim().is_empty())
+}
+
 /// Decoded `key=value` pairs. Pairs with undecodable escapes are skipped.
 fn query_pairs(query: &str) -> impl Iterator<Item = (String, String)> + '_ {
     query
@@ -750,8 +761,9 @@ fn read_location_route() -> Route {
         || hash.starts_with("#/browse/books")
         // The page that manages books used to live at `#/books/active`.
         || hash.starts_with("#/books/active")
-        // Books had sort links; the one order is the list, and the address says so.
-        || (hash.starts_with("#/books?") && !matches!(route, Route::BooksSet(_)));
+        // Books had sort links; the one order is the list, and the address says so. A share link
+        // from when the section sat on Books opens Manage books, and the address says so.
+        || hash.starts_with("#/books?");
     if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
         replace_url_keeping_state(&history, &route.href());
     }
@@ -1255,16 +1267,22 @@ mod tests {
         assert_eq!(Route::parse("#/books/active").href(), "#/books/manage");
         // The page takes no sort; a stray query does not change the route.
         assert_eq!(Route::parse("#/books/manage?sort=date"), Route::BooksManage);
-        // A share link opens Books with the code (#408); a sort link or an empty code is Books.
+        // A share link opens Manage books with the code (#408); a sort link or an empty code is
+        // Books or Manage books. A link made while the section sat on Books means the same.
         assert_eq!(
-            Route::parse("#/books?set=1ABC-DEF2"),
+            Route::parse("#/books/manage?set=1ABC-DEF2"),
             Route::BooksSet("1ABC-DEF2".into())
         );
         assert_eq!(
             Route::BooksSet("1ABC-DEF2".into()).href(),
-            "#/books?set=1ABC-DEF2"
+            "#/books/manage?set=1ABC-DEF2"
+        );
+        assert_eq!(
+            Route::parse("#/books?set=1ABC-DEF2"),
+            Route::BooksSet("1ABC-DEF2".into())
         );
         assert_eq!(Route::parse("#/books?set="), Route::Books);
+        assert_eq!(Route::parse("#/books/manage?set="), Route::BooksManage);
         assert_eq!(Route::parse("#/books?sort=date"), Route::Books);
         assert_eq!(
             Route::parse("#/books?sort=date&set=1ABC"),

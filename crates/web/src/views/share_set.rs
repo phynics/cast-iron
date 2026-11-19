@@ -1,6 +1,7 @@
-//! Sharing the active books (#408): on Books, a disclosure that shows the code for the books that
-//! are on now (Copy code, Copy link) and takes a code, and the confirmation that every code and
-//! every `#/books?set=<code>` link opens. Nothing changes until the reader presses `Use this set`;
+//! Sharing the active books (#408): on Manage books, a disclosure that shows the code for the books
+//! that are on now (Copy code, Copy link) and takes a code, and the confirmation that every code
+//! and every `#/books/manage?set=<code>` link opens. A link made while the section sat on Books
+//! (`#/books?set=<code>`) is rewritten to that address by the router. Nothing changes until the reader presses `Use this set`;
 //! the write goes through `Library::apply_active_plan`, and Undo restores the earlier set.
 //!
 //! The codec and the plan are pure and native-tested (`book_code`, `book_share`); this file is
@@ -11,7 +12,7 @@ use crate::book_presets::{self, Change};
 use crate::book_share::{self, Offer};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, use_route};
-use crate::views::active_books::focus_after_frame;
+use crate::views::active_books::focus_and_reveal_after_frame;
 use crate::views::icons;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -40,6 +41,9 @@ struct Panel {
     undo: RwSignal<Option<Change>>,
     /// The line next to the copy buttons.
     copied: RwSignal<Option<String>>,
+    /// Tells the rest of the page that this section changed the books, so a preset's Undo that
+    /// no longer describes the set goes away.
+    changed: Callback<()>,
 }
 
 impl Panel {
@@ -55,7 +59,7 @@ impl Panel {
             Ok(shared) => {
                 self.problem.set(None);
                 self.pending.set(Some(shared));
-                focus_after_frame(CONFIRM_HEADING);
+                focus_and_reveal_after_frame(CONFIRM_HEADING);
             }
             Err(error) => {
                 self.pending.set(None);
@@ -75,7 +79,7 @@ impl Panel {
         self.pending.set(None);
         self.entered.set(String::new());
         if matches!(self.route.get_untracked(), Route::BooksSet(_)) {
-            replace(&Route::Books);
+            replace(&Route::BooksManage);
         }
     }
 
@@ -98,6 +102,7 @@ impl Panel {
             match result {
                 Ok(change) if change.is_empty() => {}
                 Ok(change) => {
+                    panel.changed.run(());
                     panel.status.set(Some(applied_line(&panel.library)));
                     panel.undo.set(Some(change.inverse()));
                 }
@@ -122,6 +127,7 @@ impl Panel {
                 .await
             {
                 Ok(()) => {
+                    panel.changed.run(());
                     panel.undo.set(None);
                     panel
                         .status
@@ -189,8 +195,12 @@ fn page_address() -> String {
 
 /// The question, the share disclosure and the status line. It renders nothing for a library
 /// whose books carry no slots (compiled before #408): such a library cannot name a set.
+///
+/// `others` counts the changes that the rest of the page made (a preset, a checkbox, Undo): each
+/// one ends this section's Undo, which would no longer describe the set. `changed` is called when
+/// this section changed the books, so the page can end the presets' Undo in turn.
 #[component]
-pub fn ShareSet() -> impl IntoView {
+pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView {
     let library = use_library();
     if book_share::slot_map(library.sources()).is_none() {
         return ().into_any();
@@ -206,7 +216,19 @@ pub fn ShareSet() -> impl IntoView {
         status: RwSignal::new(None),
         undo: RwSignal::new(None),
         copied: RwSignal::new(None),
+        changed,
     };
+
+    // One Undo line at a time on this page: a change from elsewhere on it ends this one.
+    let ended = panel.clone();
+    Effect::new(move |seen: Option<u32>| {
+        let now = others.get();
+        if seen.is_some_and(|seen| seen != now) {
+            ended.undo.set(None);
+            ended.status.set(None);
+        }
+        now
+    });
 
     // A link opens the question. The address keeps the code until the reader answers.
     let linked = panel.clone();
@@ -216,7 +238,7 @@ pub fn ShareSet() -> impl IntoView {
             linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
                 // A bad link has nothing left to answer; its error stays on the page.
-                replace(&Route::Books);
+                replace(&Route::BooksManage);
             }
         }
     });

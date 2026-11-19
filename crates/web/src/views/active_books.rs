@@ -5,18 +5,22 @@
 //! `Library::update_active_books`, so nothing can be left half edited, a reload stays on the
 //! page, and Settings can link to it. Books is the place to read; this is the place to change.
 //! The presets are page-wide bulk actions, and Undo reverses the last one until the next change.
+//! The share section (#408, moved here from Books in #504) sits between the presets and the book
+//! groups: a code or a link changes the active set, as a preset does, so it is a change made
+//! here. It keeps its own Undo, and a change made by either side ends the other's.
 //! An Adventures series group also carries its own on/off bulk button (#159); a tier itself
 //! still has no control.
 
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, use_library};
-use crate::route::{Route, replace};
+use crate::route::{Route, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::browse::{
     BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, adventure_tier_section,
     book_groups, tier_section,
 };
 use crate::views::icons;
+use crate::views::share_set::ShareSet;
 use crate::views::util::{Shared, set_title};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -59,6 +63,22 @@ pub fn focus_after_frame(id: &'static str) {
                 let options = web_sys::FocusOptions::new();
                 options.set_prevent_scroll(true);
                 let _ = element.focus_with_options(&options);
+            }
+        });
+    });
+}
+
+/// Like [`focus_after_frame`], but scrolls the element into view when it is off screen: the
+/// question that a share link or a typed code opens can sit below the first screen.
+pub fn focus_and_reveal_after_frame(id: &'static str) {
+    request_animation_frame(move || {
+        request_animation_frame(move || {
+            if let Some(element) = web_sys::window()
+                .and_then(|window| window.document())
+                .and_then(|document| document.get_element_by_id(id))
+                .and_then(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+            {
+                let _ = element.focus();
             }
         });
     });
@@ -112,11 +132,20 @@ struct Panel {
     error: RwSignal<Option<String>>,
     status: RwSignal<Option<String>>,
     applied: RwSignal<Option<Applied>>,
+    /// Counts the changes made on this page, so the share section can end its own Undo.
+    changes: RwSignal<u32>,
 }
 
 impl Panel {
     /// A single-book change replaces the preset message: Undo would no longer describe the set.
     fn clear_status(&self) {
+        self.status.set(None);
+        self.applied.set(None);
+        self.changes.update(|count| *count = count.wrapping_add(1));
+    }
+
+    /// The share section changed the books: the presets' Undo no longer describes the set.
+    fn shared_changed(&self) {
         self.status.set(None);
         self.applied.set(None);
     }
@@ -139,6 +168,7 @@ impl Panel {
                 // The set already matched: nothing was written, so there is nothing to undo.
                 Ok(change) if change.is_empty() => {}
                 Ok(change) => {
+                    panel.changes.update(|count| *count = count.wrapping_add(1));
                     panel
                         .status
                         .set(Some(format!("Applied {}.", preset.label())));
@@ -197,6 +227,7 @@ impl Panel {
                 .await
             {
                 Ok(()) => {
+                    panel.changes.update(|count| *count = count.wrapping_add(1));
                     panel.applied.set(None);
                     panel
                         .status
@@ -301,9 +332,13 @@ pub fn ActiveBooks() -> impl IntoView {
         error: RwSignal::new(None),
         status: RwSignal::new(None),
         applied: RwSignal::new(None),
+        changes: RwSignal::new(0),
     };
-    // Entering moves focus to the heading, after the shell has moved it to `main`.
-    focus_after_frame("manage-books-heading");
+    // Entering moves focus to the heading, after the shell has moved it to `main`. A share link
+    // opens with its question, which takes the focus instead.
+    if !matches!(use_route().get_untracked(), Route::BooksSet(_)) {
+        focus_after_frame("manage-books-heading");
+    }
 
     let counts = library.source_entry_counts();
     let rows: Vec<BookListEntry> = library
@@ -417,6 +452,8 @@ pub fn ActiveBooks() -> impl IntoView {
         .collect_view();
     let undo_panel = panel.clone();
     let status_panel = panel.clone();
+    let share_panel = panel.clone();
+    let others = panel.changes.read_only();
     let error = panel.error;
     view! {
         <div class="wide active-books">
@@ -440,6 +477,7 @@ pub fn ActiveBooks() -> impl IntoView {
                 </p>
             </section>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
+            <ShareSet others changed=Callback::new(move |()| share_panel.shared_changed()) />
             {groups}
         </div>
     }

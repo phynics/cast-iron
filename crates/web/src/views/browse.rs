@@ -22,7 +22,6 @@ use crate::views::filter_menu::{
 use crate::views::icons;
 use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
-use crate::views::share_set::ShareSet;
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
@@ -971,7 +970,6 @@ pub fn Books(
                     {icons::chevron_right_large()}
                 </a>
             </div>
-            <ShareSet />
             {groups}
         </div>
     }
