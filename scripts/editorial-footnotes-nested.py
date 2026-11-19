@@ -45,6 +45,24 @@ Usage, to regenerate the committed TSV from itself::
 
 At a new corpus pin, run ``scripts/footnote-print-check-nested.py`` first and
 pass its output as ``--auto``; blocks whose text changed lose their review.
+Run ``scripts/footnote-aon-check-nested.py`` after this script has written
+``--outside-tsv`` (it reads that file), then run this script again with its
+output as ``--aon``.
+
+Owner rule of 2026-11-19, as ``on_aon_prd``:
+
+``yes``
+    One named AoN page or PRD document carries the note's text (90 % or more
+    of its shingles; ``carried_by`` names it), or a hand check found it there.
+``no``
+    The entry's AoN page does not carry it, no other AoN page this run read
+    carries 60 % of it, AND the PRD check ran and found it in no document.
+``candidate``
+    Needs review before anything is removed: a fuzzy or partial match, a
+    paraphrase, an AoN "no" with the PRD unchecked (a note under four words),
+    or an unresolved AoN page with a PRD "no".
+``unchecked``
+    Neither check could run: no AoN page, and a note under four words.
 
 The name ends in ``-nested.py`` so that the docs row of the AGENTS.md test
 scope covers it.
@@ -114,13 +132,12 @@ def parse_entry(path: Path):
 
 
 def paragraphs_after(lines: list[str], start: int):
-    """Return the note paragraphs after the heading at ``start``.
+    """Return the note after the footnote heading at ``start``.
 
-    The note is the first paragraph. Later paragraphs belong to it while they
-    are plain prose; a heading, a bold label paragraph, a list, a table or a
-    fenced block ends it. Returns (note paragraphs, end line index).
+    The note is the one paragraph after the heading (docs/corpus-format.md,
+    "Footnotes"); a later paragraph is body text, and the outside scan reads
+    it. Returns ([note paragraph], end line index).
     """
-    paras: list[str] = []
     cur: list[str] = []
     i = start + 1
     while i < len(lines):
@@ -129,17 +146,12 @@ def paragraphs_after(lines: list[str], start: int):
             break
         if not line.strip():
             if cur:
-                paras.append(" ".join(cur))
-                cur = []
+                break
             i += 1
             continue
-        if not cur and paras and re.match(r"^(\*\*|\||- |\+ |\d+\. |> )", line):
-            break
         cur.append(line.strip())
         i += 1
-    if cur:
-        paras.append(" ".join(cur))
-    return paras, i
+    return ([" ".join(cur)] if cur else []), i
 
 
 def strip_md(text: str) -> str:
@@ -247,39 +259,80 @@ def main() -> int:
                     help="hand AoN/PRD verdicts: entry_id, where, key, on_aon_prd, aon_evidence")
     args = ap.parse_args()
 
-    # AoN/PRD presence, keyed by (entry_id, "block" or "outside", seq or line).
-    aon: dict[tuple[str, str, str], tuple[str, str, str]] = {}
+    # AoN/PRD presence, keyed by (entry_id, "block" or "outside", seq or line):
+    # (aon_check, prd_check, carried_by, hand verdict "<verdict>: <evidence>").
+    aon: dict[tuple[str, str, str], tuple[str, str, str, str]] = {}
+
+    def from_tsv(row):
+        ev = f'{row["on_aon_prd"]}: {row["aon_evidence"]}' if row.get("aon_evidence") else ""
+        return (row["aon_check"], row["prd_check"], row.get("carried_by", ""), ev)
     for row in read_tsv(args.reuse):
         if "aon_check" in row:
-            ev = f'{row["on_aon_prd"]}: {row["aon_evidence"]}' if row["aon_evidence"] else ""
-            aon[(row["entry_id"], "block", row["seq"])] = (row["aon_check"], row["prd_check"], ev)
+            aon[(row["entry_id"], "block", row["seq"])] = from_tsv(row)
     for row in read_tsv(args.outside_review):
         if "aon_check" in row:
-            ev = f'{row["on_aon_prd"]}: {row["aon_evidence"]}' if row["aon_evidence"] else ""
-            aon[(row["entry_id"], "outside", row["line"])] = (row["aon_check"], row["prd_check"], ev)
+            aon[(row["entry_id"], "outside", row["line"])] = from_tsv(row)
     for row in read_tsv(args.aon):
-        page = f' {row["aon_page"]}' if row["aon_page"] else ""
-        aon[(row["entry_id"], row["where"], row["key"])] = (
-            f'{row["on_aon"]} note={row["note_score"]} control={row["control_score"]}{page}',
-            f'{row["on_prd"]} note={row["prd_score"]}', "")
+        a = f'{row["on_aon"]} note={row["note_score"]} control={row["control_score"]}'
+        if row["aon_page"]:
+            a += f' page={row["aon_page"]}'
+        if row["aon_match"]:
+            a += f' match={row["aon_match"]} ({row["match_score"]})'
+        p = f'{row["on_prd"]} best={row["prd_score"]} pooled={row["prd_pooled"]}'
+        if row["prd_doc"]:
+            p += f' doc={row["prd_doc"]}'
+        # The page or document that carries the note, or else the one that
+        # holds most of it.
+        ra, rp = row["on_aon"], row["on_prd"]
+        if ra == "yes":
+            by = row["aon_page"]
+        elif ra == "yes-other-page":
+            by = row["aon_match"]
+        elif rp == "yes":
+            by = row["prd_doc"]
+        elif ra == "fuzzy":
+            by = row["aon_match"] or row["aon_page"]
+        elif rp in ("fuzzy", "partial"):
+            by = row["prd_doc"]
+        else:
+            by = row["aon_page"] if ra == "partial" else ""
+        key = (row["entry_id"], row["where"], row["key"])
+        # A hand verdict from --reuse or --outside-review stays, with its page.
+        _, _, hand_by, ev = aon.get(key, ("", "", "", ""))
+        aon[key] = (a, p, hand_by if ev else by, ev)
     for row in read_tsv(args.aon_review):
         key = (row["entry_id"], row["where"], row["key"])
-        a, p, _ = aon.get(key, ("", "", ""))
-        aon[key] = (a, p, f'{row["on_aon_prd"]}: {row["aon_evidence"]}')
+        a, p, by, _ = aon.get(key, ("", "", "", ""))
+        aon[key] = (a, p, row.get("carried_by") or by, f'{row["on_aon_prd"]}: {row["aon_evidence"]}')
 
     def presence(key):
-        a, p, ev = aon.get(key, ("", "", ""))
+        a, p, by, ev = aon.get(key, ("", "", "", ""))
+        on_aon = a.split(" ", 1)[0] or "unchecked"
+        on_prd = p.split(" ", 1)[0] or "unchecked"
         if ev:
-            verdict = ev.split(":", 1)[0]
-        elif a.startswith("yes") or p.startswith("yes"):
+            verdict, note = ev.split(": ", 1)
+            basis = "hand: " + note.split(":", 1)[0] if verdict == "candidate" else "hand"
+        elif on_aon in ("yes", "yes-other-page") or on_prd == "yes":
             verdict = "yes"
-        elif a.startswith("no"):
-            verdict = "no"
+            basis = {"yes": "aon-page", "yes-other-page": "aon-other-page"}.get(on_aon, "prd-document")
+        elif on_aon == "no" and on_prd == "no":
+            verdict, basis = "no", "aon-no+prd-no"
+        elif on_aon == "unchecked" and on_prd == "unchecked":
+            verdict, basis = "unchecked", "aon-unresolved+prd-unchecked"
         else:
-            verdict = "unchecked"
-        action = {"yes": "keep", "no": "remove"}.get(verdict, "check")
+            verdict = "candidate"
+            if "fuzzy" in (on_aon, on_prd):
+                basis = "fuzzy"
+            elif "partial" in (on_aon, on_prd):
+                basis = "partial"
+            elif on_prd == "unchecked":
+                basis = "aon-no+prd-unchecked"
+            else:
+                basis = "aon-unresolved+prd-no"
+        action = {"yes": "keep", "no": "remove", "candidate": "review"}.get(verdict, "check")
         return {"aon_check": a, "prd_check": p, "aon_evidence": ev.split(": ", 1)[1] if ev else "",
-                "on_aon_prd": verdict, "action": action}
+                "on_aon_prd": verdict, "presence_basis": basis,
+                "carried_by": by if verdict in ("yes", "candidate") else "", "action": action}
 
     pubs = tomllib.loads((args.corpus / "publications.toml").read_text(encoding="utf-8"))
     pub_date = {p["id"]: p.get("publication_date") for p in pubs["publication"]}
@@ -435,7 +488,11 @@ def main() -> int:
     print("outside paragraphs", len(outside), "entries", len({o["entry_id"] for o in outside}),
           dict(Counter(o["signals"] for o in outside).most_common()))
     print("on_aon_prd", dict(Counter(r["on_aon_prd"] for r in rows)),
-          "remove entries", len({r["entry_id"] for r in rows if r["action"] == "remove"}))
+          "entries", {v: len({r["entry_id"] for r in rows if r["on_aon_prd"] == v})
+                      for v in ("yes", "no", "candidate", "unchecked")})
+    print("presence_basis", dict(sorted(Counter((r["on_aon_prd"], r["presence_basis"]) for r in rows).items())))
+    print("outside presence_basis", dict(sorted(Counter((o["on_aon_prd"], o["presence_basis"], o["review"])
+                                                        for o in outside).items())))
     print("on_aon_prd x classification", dict(Counter((r["on_aon_prd"], r["classification"]) for r in rows)))
     print("on_aon_prd x subclass", dict(Counter((r["on_aon_prd"], r["subclass"]) for r in rows)))
     print("orphans x on_aon_prd", dict(Counter((r["orphan_cause"], r["on_aon_prd"]) for r in rows if r["orphan_cause"])))
