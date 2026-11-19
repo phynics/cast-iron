@@ -8,16 +8,16 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.27`, commit `65f396735d6c7a685cc89782cc5b113c854bf76f` (`sources/corpus.toml`). Pin entry: [2026-11-18](status/2026-11-18-corpus-pinned-to-v0-1-27.md) |
-| Content version | `v6bd1da0aee54f66d` (`cargo xtask content` on `main` at `02490f4` plus the v0.1.27 pin, 2026-11-18) |
-| Library | 31,808 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.28`, commit `24d393a23a8d4edb45f2382f12cbf9fe40c831f2` (`sources/corpus.toml`). Pin entry: [2026-11-19](status/2026-11-19-corpus-pinned-to-v0-1-28.md) |
+| Content version | `vc382c8d199d77e72` (`cargo xtask content` on `main` at `2a0f1e4` plus the v0.1.28 pin, 2026-11-19) |
+| Library | 31,825 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
 
 ## Main and release
 
 - **`release` is at `52086b3`**, published 2026-11-19: corpus `v0.1.27`, schema 6, index format 2 ([release entry](status/2026-11-19-release-52086b3-corpus-v0-1-27-schema-6.md)). That is what Pages serves.
-- **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
+- **`main`** is ahead of `release`: it pins corpus `v0.1.28` (content version `vc382c8d199d77e72`), and `release` serves `v0.1.27`. It equaled `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 
 ## Latest runs
 
