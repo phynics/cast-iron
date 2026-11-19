@@ -1,4 +1,4 @@
-import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test as base, expect, type BrowserContext, type Frame, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -181,6 +181,18 @@ export class ServerControl {
 
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
+/**
+ * Listens to the frame's `navigated` event, which tells a new document from a same-document change
+ * (`newDocument`). Playwright's public `framenavigated` event does not. This reads the client
+ * frame's internal emitter, so it is tied to the pinned Playwright version: it fails loudly when
+ * the emitter is gone, and `console-guard.spec.ts` covers the behaviour.
+ */
+function onFrameNavigated(frame: Frame, listener: (event: { newDocument?: unknown; error?: string }) => void) {
+  const emitter = (frame as unknown as { _eventEmitter?: { on(name: string, fn: typeof listener): void } })._eventEmitter;
+  if (!emitter) throw new Error("Playwright no longer exposes the frame's navigated event; update the console guard");
+  emitter.on("navigated", listener);
+}
+
 class Guard {
   console: string[] = [];
   external: string[] = [];
@@ -212,9 +224,9 @@ class Guard {
       page.on("requestfailed", (r) => {
         if (r.isNavigationRequest() && r.frame() === page.mainFrame()) teardownWindow.fail(r);
       });
-      page.on("framenavigated", (f) => {
-        if (f === page.mainFrame()) teardownWindow.commit();
-      });
+      // Not `framenavigated`: it also fires for a same-document URL change of the old page
+      // (`pushState`, `replaceState`, a hash change), which does not end the teardown.
+      onFrameNavigated(page.mainFrame(), (event) => teardownWindow.navigated(event));
       page.on("pageerror", (e) => {
         const navigating = teardownWindow.navigating;
         if (navigating !== null && e.message === "Context is stopped" && page.context().browser()?.browserType().name() === "webkit") {

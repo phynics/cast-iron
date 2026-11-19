@@ -43,6 +43,38 @@ test("The error is tolerated while the page navigates away, and recorded", async
   await navigation;
 });
 
+test("A same-document URL change of the old page does not end the window: the new document's commit does", async ({ page, guard }) => {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let requested!: () => void;
+  const seen = new Promise<void>((resolve) => (requested = resolve));
+  await page.route("**/hold", async (route) => {
+    requested();
+    await held;
+    await route.fulfill({ status: 200, contentType: "text/html", body: "<!doctype html><title>held</title>" });
+  });
+  await page.goto(PLAIN);
+  const navigation = page.goto("hold");
+  await seen;
+  // The old page rewrites its own address, as the app does for an address it cannot honour. This
+  // is a main-frame `framenavigated` event with no new document.
+  const rewritten = page.waitForEvent("framenavigated");
+  await page.evaluate(() => history.replaceState(history.state, "", "#same-document"));
+  await rewritten;
+  expect(page.url()).toContain("#same-document");
+  await raise(page);
+  await expect.poll(() => guard.teardown.length).toBe(1);
+  expect(guard.teardown[0]).toContain("/cast-iron/hold");
+  expect(guard.problems()).toEqual([]);
+  release();
+  await navigation;
+  // The new document committed: the window is closed again.
+  await raise(page);
+  await expect.poll(() => guard.console.length).toBe(1);
+  expect(guard.problems()).toEqual(["pageerror: Context is stopped"]);
+  guard.console.length = 0;
+});
+
 test("The same error after the new document committed fails the test", async ({ page, guard }) => {
   await page.goto(PLAIN);
   await raise(page);
