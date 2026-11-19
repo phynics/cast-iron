@@ -17,6 +17,7 @@ use crate::views::active_books::{Recent, focus_and_reveal_after_frame, live_rece
 use crate::views::icons;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -64,16 +65,21 @@ struct Panel {
     /// search's, say), so its address still holds the code. It is taken out when the reader is
     /// back on that entry. Zero when there is none.
     settled: Arc<AtomicU32>,
-    /// The marks of the link entries whose link was answered (cancelled, applied or failed). The
-    /// entry that Quick search leaves behind over such an entry keeps the link's address; going
-    /// Forward into it is no new link.
-    handled: Arc<Mutex<HashSet<u32>>>,
     /// The text that the current review read from the `Enter a code` field (empty for a link).
     /// Ending that review clears the field only while it still holds this text: a code that the
     /// reader pasted meanwhile and has not yet reviewed is theirs.
     reviewed: Arc<Mutex<String>>,
     /// False once the view is gone. A write that finishes after that has no screen to update.
     alive: Arc<AtomicBool>,
+}
+
+thread_local! {
+    /// The marks of the link entries whose link was answered (cancelled, applied or failed). The
+    /// entry that Quick search leaves behind over such an entry keeps the link's address; going
+    /// Forward into it is no new link. It lives as long as the loaded app, not the panel:
+    /// Settings unmounts the panel, and Forward must still find the marks when the panel is built
+    /// again. A reload forgets them, and a leftover link entry then asks once more.
+    static HANDLED: RefCell<HashSet<u32>> = RefCell::new(HashSet::new());
 }
 
 /// Whether the address on screen still carries a share link's code.
@@ -134,7 +140,7 @@ impl Panel {
     /// link has been answered.
     fn is_handled_layer(&self) -> bool {
         route::current_entry_mark(route::SHARE_LINK_LAYER_FIELD)
-            .is_some_and(|mark| self.handled.lock().unwrap().contains(&mark))
+            .is_some_and(|mark| HANDLED.with_borrow(|handled| handled.contains(&mark)))
     }
 
     /// The reader moved to another history entry, by Back or Forward: the question and the error
@@ -185,10 +191,9 @@ impl Panel {
     /// rewritten when the reader comes back to it.
     fn finish(&self, asked_on: Option<u32>) {
         let own = self.link_entry.swap(0, Ordering::Relaxed);
-        {
-            let mut handled = self.handled.lock().unwrap();
+        HANDLED.with_borrow_mut(|handled| {
             handled.extend(asked_on.into_iter().chain((own != 0).then_some(own)));
-        }
+        });
         self.pending.set(None);
         if self.entered.get_untracked() == *self.reviewed.lock().unwrap() {
             self.entered.set(String::new());
@@ -355,7 +360,6 @@ pub fn ShareSet() -> impl IntoView {
         review_no: Arc::new(AtomicU64::new(0)),
         link_entry: Arc::new(AtomicU32::new(0)),
         settled: Arc::new(AtomicU32::new(0)),
-        handled: Arc::new(Mutex::new(HashSet::new())),
         reviewed: Arc::new(Mutex::new(String::new())),
         alive: Arc::new(AtomicBool::new(true)),
     };

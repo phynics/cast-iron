@@ -1021,6 +1021,35 @@ installedTest("Forward into the entry Quick search left behind does not reopen a
   await expect(applied(page, "Paizo Everything")).toBeVisible();
 });
 
+installedTest("Forward into the Quick search entry after Settings unmounted the panel does not reopen a cancelled link", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+
+  // Open the link in the same tab, put Quick search over it, close it, and cancel the review.
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await expect(question).toBeVisible();
+  await openQuickSearch(page);
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(question).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+
+  // Back to Settings unmounts the panel. The first Forward builds a new one; the second reaches
+  // the entry that Quick search left behind, which still carries the link's address.
+  await page.goBack();
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+});
+
 installedTest("Cancel leaves the books alone and drops the code from the address", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
