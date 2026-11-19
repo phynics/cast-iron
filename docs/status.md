@@ -16,7 +16,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 ## Main and release
 
-- **`release` is at `52086b3`**, published 2026-11-19: corpus `v0.1.27`, schema 6, index format 2 ([release entry](status/2026-11-19-release-52086b3-corpus-v0-1-27-schema-6.md)). That is what Pages serves. The previous release was `1324e1d` ([entry](status/2026-11-17-release-1324e1d-corpus-v0-1-26-schema-6.md)).
+- **`release` is at `52086b3`**, published 2026-11-19: corpus `v0.1.27`, schema 6, index format 2 ([release entry](status/2026-11-19-release-52086b3-corpus-v0-1-27-schema-6.md)). That is what Pages serves.
 - **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 
 ## Latest runs

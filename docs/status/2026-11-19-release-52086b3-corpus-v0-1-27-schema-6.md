@@ -22,10 +22,13 @@ and #484 to #495, #497 to #499).
 
 **CI.** Main full CI run
 [44481627642](https://github.com/phynics/cast-iron/actions/runs/44481627642) succeeded at `52086b3`
-with every job green, all three WebKit shards included. An earlier attempt at `3b79760` was refused by
-the helper because its informational WebKit shards had failed
-([#477](https://github.com/phynics/cast-iron/issues/477)); [#499](https://github.com/phynics/cast-iron/pull/499)
-fixed the racing test. The owner accepted this run as the promotion testing; no second full suite was run.
+with every job green, all three WebKit shards included. An earlier run,
+[44422502000](https://github.com/phynics/cast-iron/actions/runs/44422502000) at `3b79760`, concluded
+**cancelled**: WebKit shard 3 failed, shard 2 was cancelled and shard 1 passed
+([#477](https://github.com/phynics/cast-iron/issues/477)). The promotion helper requires a successful main CI
+run on the exact candidate SHA, so it refused that candidate. A rerun of the failed jobs failed the same way.
+[#499](https://github.com/phynics/cast-iron/pull/499) fixed the racing test, and the run above is the new one.
+The owner accepted this run as the promotion testing; no second full suite was run.
 
 **Deployment.** Pages run
 [44484570445](https://github.com/phynics/cast-iron/actions/runs/44484570445) succeeded for
@@ -52,9 +55,10 @@ The first WebKit run passed every check above and then failed at its own full-pa
 shown. The first Chromium and WebKit attempts also failed on a wrong wait in the script, before the entry check;
 that was the script, not the site.
 
-**Not run.** No physical-device check ([#423](https://github.com/phynics/cast-iron/issues/423)); the owner
-accepts browser evidence in its place. No upgrade-from-previous-release acceptance was run for this release:
-the library format is unchanged, and CI's update spec covers schema 6 to 6.
+**Not run.** No check on the real iPhone ([#423](https://github.com/phynics/cast-iron/issues/423)); the owner
+accepts browser evidence for releases. No upgrade-from-previous-release acceptance was run for this release:
+the library format is unchanged, and CI's update spec covers schema 6 to 6. That spec updates a modified copy
+of the candidate library and checks a star and a disabled book; it is not an upgrade of the published library.
 
 **Known open issue.** [#121](https://github.com/phynics/cast-iron/issues/121): WebKit can raise
 `Context is stopped` around navigation. Unchanged by this release.
@@ -67,21 +71,24 @@ Changes since the release at `1324e1d` (corpus v0.1.26, 2026-11-17). The release
 
 The library format does not change (schema 6, search index 2). The new library is about 223 MB (213 MiB), the
 same size as before, so download it on Wi-Fi. Install it from **Settings**; the app does not download it by
-itself and keeps the old library in use until the new one has passed its hash checks. Stars, recent entries
-and active books are kept.
+itself and keeps the old library in use until the new one has passed its hash checks. Keeping stars, recent entries
+and active books is the intended behaviour. CI's update spec checks a star and a disabled book on a modified copy of
+the new library, but the upgrade from the published library was not tested for this release.
 
 ### New in the library
 
-- **Paizo blog sources.** Eight records that were held back before now ship, under Paizo's Community Use Policy
-  (and the Open Game License where the source has it): the archetype Thought Thief (Arcane Trickster), six cantrips
-  from Ultimate Cantrips (Breeze, Drench, Jolt, Penumbra, Root, Scoop), and the race Primitive Human. The library
+- **Paizo blog sources.** Eight records that were held back before now ship, each on its own
+  licence basis: the archetype Thought Thief (Arcane Trickster) under Paizo's Community Use Policy only (its
+  publication, Hodgepodge from the Grand Lodge!, lists both licences, but the entry does not); six cantrips from
+  Ultimate Cantrips (Breeze, Drench, Jolt, Penumbra, Root, Scoop) under the Community Use Policy only; and the race
+  Primitive Human under the Open Game License, from its source. The library
   has 31,808 entries, up from 31,800.
 - **Four new books.** Hodgepodge from the Grand Lodge!, Golarion Day: Other Gods and New Subdomains, Ultimate
   Cantrips and The Gauntlet Will Be Ours!. The library lists 443 books, up from 439. Golarion Day adds Scalykind
   and Void as book members; The Gauntlet Will Be Ours! also places Primitive Human under Rare Races.
 - **Web supplements.** The four new books are web supplements, and More Magic of Thassilon moves into the same
-  category. The category "Web supplement" sits under Other on the Books page. These books list their entries
-  without chapters. (#495)
+  category. The category "Web supplement" sits under Other on the Books page. The four new web supplements list
+  their entries without chapters; More Magic of Thassilon still has one chapter. (#495)
 
 ### Changes to what you see
 
@@ -90,8 +97,6 @@ and active books are kept.
 - **Legal page.** A new section, **Sources using the Community Use Policy**, lists each source under that policy and
   says whether it is "Community Use Policy only" or also under the Open Game License. A source under the policy alone
   is no longer listed as a publication with a pending Open Game License notice.
-- **Share codes.** A share code now describes the library's book slots, so a code made on this library does not
-  count slots that the library does not have yet. (#494)
 - **Wide entry pages.** The layout of a wide entry page is declared in one place. The computed grid is the same, so
   no visible change is intended. (#482)
 
@@ -106,16 +111,18 @@ and active books are kept.
   pinned corpus (#488, #490).
 - The corpus can mark a source as Community Use only, and an exclusion row can be superseded by a later resolved row
   (#491, #493).
-- The publication screen has unit tests and accepts an entry without Open Game License text only when the entry and
-  every source it cites name the Community Use Policy (#491, #498).
+- The publication screen checks an entry's Open Game License reference. It accepts an entry without one only when the
+  entry has a Community Use reference, cites at least one source, and every cited source is Community Use only
+  (#495); it has unit tests (#498). A share-code test now documents that codes cover the highest slot in the library
+  catalog, which was already the behaviour (#494).
 - A WebKit test race around the install button and update check is fixed (#499), and the specs that the v0.1.27 pin
   broke are repaired (#497).
 - The previous release record, the deferred upgrade acceptance from `6365dba` and the conditional-view assessment
-  (#448) are recorded (#484, #486, #487). The AoN coverage report is published (#488). Three book slots are reserved
-  ahead of the corpus (#489, #492).
+  (#448) are recorded (#484, #486, #487). The AoN coverage report is published (#488). Four book slots are reserved
+  ahead of the corpus: slot 439 (#489) and slots 440 to 442 (#492).
 
 ### Known limits
 
-- The four web supplements have no chapter tree, so the book page lists their entries flat.
+- The four new web supplements have no chapter tree, so the book page lists their entries flat.
 - Hodgepodge from the Grand Lodge!, Kingmaker Player's Guide and Serpent's Skull Player's Guide still have a
   Section 15 notice pending.
