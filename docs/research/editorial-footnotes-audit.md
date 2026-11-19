@@ -15,8 +15,9 @@ group since [cast-iron #509](https://github.com/phynics/cast-iron/pull/509)
 (merged). The `on_aon_prd` column applies this rule. The printed/editorial
 classification stays as supporting evidence.
 
-**Verdicts.** `yes`: one named AoN page or PRD document carries the note's
-text, and the TSV names it in `carried_by`. `no`: AoN does not carry it AND
+**Verdicts.** `yes`: one named AoN page or PRD document carries the WHOLE
+note as written, and the TSV names it in `carried_by`; most of the note is
+not enough. `no`: AoN does not carry it AND
 the PRD check ran and found it in no document; both checks must say no.
 `candidate`: needs review before anything is removed (a fuzzy or partial
 match, a paraphrase, or only one of the two checks could run). `unchecked`:
@@ -26,10 +27,10 @@ neither check could run.
 
 - The corpus has **1,284 footnote blocks in 664 entries**. All of them came
   from the Pathfinder Data 1e dataset; none came from PSRD-Data.
-- **On AoN or the PRD (owner rule): 722 yes, 138 no, 385 candidate, 39
-  unchecked.** 722 blocks in 336 entries stay (shown de-emphasized). 138
+- **On AoN or the PRD (owner rule): 716 yes, 138 no, 391 candidate, 39
+  unchecked.** 716 blocks in 335 entries stay (shown de-emphasized). 138
   blocks in 105 entries are confirmed absent from both AoN and the PRD and
-  go. 385 blocks in 299 entries need review, and 39 blocks in 12 entries could
+  go. 391 blocks in 302 entries need review, and 39 blocks in 12 entries could
   not be checked at all.
 - The 138 confirmed "no" blocks are 73 Pathfinder Data commentary notes (all
   nine *Summon Monster* spells among them, 18 blocks), 55 page citations, 3
@@ -39,11 +40,12 @@ neither check could run.
   words) are standalone "Bonus feat." legends. The owner decides how to treat
   them; see [Owner decisions](#owner-decisions). Another 131 candidates have
   no usable AoN page (85 are rule entries) and a PRD "no", 43 match partly,
-  36 match fuzzily (most of the note on one page, not all), and 3 are
-  paraphrases.
-- **No Pathfinder Data commentary note is on AoN or in the PRD.** The only
-  editorial blocks that pass are page citations that AoN prints as an item's
-  source line (323).
+  42 match fuzzily (most of the note on one page, but not the whole note),
+  and 3 are paraphrases.
+- **Zero confirmed AoN or PRD matches for Pathfinder Data commentary.** 73
+  commentary blocks are confirmed absent; the other 15 are still candidates
+  (14 with no usable AoN page, 1 partial). The only editorial blocks that
+  pass are page citations that AoN prints as an item's source line (323).
 - As supporting evidence, each block is also classified against the owner's
   PDFs: **688 printed, 575 editorial, 21 unclear**. The editorial blocks are
   438 page citations, 88 commentary notes, 43 pointers and 6 compiled
@@ -54,8 +56,8 @@ neither check could run.
   markers as text and still emitted the note.
 - 108 paragraphs outside footnote blocks carry an editorial signal. A hand
   review found **76 editorial paragraphs across 68 entries** (6 of those
-  entries also have footnote blocks). 61 of them are confirmed not on AoN or
-  in the PRD; 15 are candidates.
+  entries also have footnote blocks). 61 of them (18 inline notes) are
+  confirmed not on AoN or in the PRD; 15 (3 inline notes) are candidates.
 - Licensing: the dataset's notices support two readings for its editor's
   notes (its own Open Game Content, or GPL-3.0-or-later). Removing the notes
   that AoN and the PRD do not carry removes the question for them.
@@ -96,9 +98,10 @@ in `-nested.py` so that the docs row of the AGENTS.md test scope covers them.
 | `prd_check` | PRD verdict (`yes`, `fuzzy`, `partial`, `no`, `unchecked`), the best single-document score, the score pooled over all PRD text, and the best document (`doc=`: a legacy PRD URL or a `ref/carried/` entry id). |
 | `aon_evidence` | A hand AoN/PRD verdict, when one was made. |
 | `on_aon_prd` | `yes`, `no`, `candidate`, or `unchecked` (see [AoN and PRD presence](#aon-and-prd-presence)). |
-| `presence_basis` | Why: `aon-page`, `aon-other-page`, `prd-document`, `aon-no+prd-no`, `fuzzy`, `partial`, `aon-no+prd-unchecked`, `aon-unresolved+prd-no`, `aon-unresolved+prd-unchecked`, `hand`, or `hand: paraphrase`. |
+| `presence_basis` | Why: `aon-page`, `aon-other-page`, `prd-document`, `aon-no+prd-no`, `fuzzy`, `partial`, `aon-no+prd-unchecked`, `aon-unresolved+prd-no`, `aon-unresolved+prd-unchecked`, `hand`, `hand: paraphrase`, or `conflict: …` (a hand verdict made on other check results; none on this pin). |
 | `carried_by` | For `yes`: the AoN page or PRD document that carries the note. For a candidate: the one that holds most of it, when there is one. |
 | `action` | Owner rule: `keep` (yes), `remove` (no), `review` (candidate), `check` (unchecked). |
+| `text_sha` | The first 16 hex digits of the SHA-256 of the note's full text. A rerun reuses a row's reviews only when this matches. |
 | `text` | The first 160 characters of the note, to identify it. |
 
 ## Where the notes come from
@@ -233,17 +236,32 @@ Owner rule test: does the note's text appear on AoN or in the Paizo PRD?
 `footnote-aon-check-nested.py` measures it for each block and each outside
 paragraph, and `editorial-footnotes-nested.py` combines the two checks.
 
-**One page at a time.** Every score is the share of the note's four-word
-shingles found on ONE AoN page or ONE PRD document, and the TSV names that
-page or document. A score pooled over many pages is reported (`pooled=`) but
-never makes a `yes`: it does not show that any page carries the note. A page
-*carries* the note when it holds 90 % or more of its shingles. From 60 % to
-90 % the match is fuzzy: a quotation or a paraphrase lands there. The
-earlier version of this audit accepted 60 % and pooled shingles over all
-pages, which counted, for example, a Wild Stalker note as present because it
-quotes a printed sentence. Notes under four words are matched whole, in their
-printed key form ("D Domain spell"), because "bonus feat" also occurs in
-ordinary text.
+**One page at a time, the whole note.** Every score is the share of the
+note's four-word shingles found on ONE AoN page or ONE PRD document, and the
+TSV names that page or document. A score pooled over many pages is reported
+(`pooled=`) but never makes a `yes`: it does not show that any page carries
+the note. A page *carries* the note only when the whole note appears on it as
+written: after lower-casing and normalising punctuation and spacing, the
+note's words form one unbroken run of the page's words. A shingle share does
+not prove that: a page that omits the note's opening words still holds 90 %
+of its shingles. A page with 60 % or more of the note but not the whole note
+is a fuzzy match; quotations, paraphrases and shortened notes land there.
+Every `yes` row decided by a check has a score of 1.00 on the page or document
+it names. Notes under four words are matched whole, in their printed key form
+("D Domain spell"), because "bonus feat" also occurs in ordinary text.
+
+Earlier versions of this audit were looser. The first accepted 60 % pooled
+over all pages, which counted, for example, a Wild Stalker note as present
+because it quotes a printed sentence. The second accepted 90 % on one page.
+The whole-note test moved six blocks from `yes` to candidate: three deity
+notes whose AoN bracket omits the note's opening words (Shelyn block 2:
+"This spell may be prepared …" against the bracket "may be prepared by any
+priest …"; Besmara block 1; Ydersius block 3), and three PRD table notes
+whose page text either is broken up by table cells or lacks words of the
+note (Breaking Things block 2, Miscellaneous Actions block 5, Terrain
+Improvements block 1, which cites a "Table 3-3" that the page does not
+print). Two outside paragraphs of book prose (Harrower line 13, How to Play
+line 22) moved the same way; their action stays "not a note".
 
 **AoN.** For each of the 754 entries (the 664 with footnote blocks and those
 with an outside paragraph) the script read one AoN page and scored the
@@ -283,13 +301,14 @@ needs both checks, and why a row where only one check ran is a candidate.
 
 | `on_aon_prd` | When |
 |---|---|
-| `yes` | The entry's AoN page carries the note (≥ 0.9), another single AoN page carries it, or a single PRD document carries it. `carried_by` names the page or document. |
-| `no` | The entry's AoN page (control ≥ 0.3) has 0.2 or less of the note, no AoN page read has 0.6 or more, AND the PRD check ran and no document has more than 0.2 (pooled under 0.6). |
-| `candidate` | Anything between: a fuzzy match (0.6 to 0.9 on one page), a partial match, a paraphrase, an AoN "no" with the PRD unchecked, or no AoN page with a PRD "no". |
+| `yes` | The entry's AoN page carries the whole note, another single AoN page carries it, or a single PRD document carries it. `carried_by` names the page or document. One row is `yes` by hand (Urgathoa "Arcane version.", see below). |
+| `no` | The entry's AoN page (control ≥ 0.3) has 0.2 or less of the note, no AoN page read has 0.6 or more, AND the PRD check ran and no document has more than 0.2 (pooled under 0.6). Two rows are `no` by hand: the Groetus note, and the Wild Stalker outside paragraph at line 90, whose raw checks are `partial` because it quotes a printed sentence (see below). |
+| `candidate` | Anything between: a fuzzy match (0.6 or more on one page, not the whole note), a partial match, a paraphrase, an AoN "no" with the PRD unchecked, no AoN page with a PRD "no", or a hand verdict that conflicts with a newer check. |
 | `unchecked` | No AoN page and a note under four words. |
 
 **Hand verdicts.** Six rows got a hand verdict, recorded in `aon_evidence`
-with the page:
+with the page. A hand verdict holds only for the text and the checks it was
+made on: see [Reproduce](#reproduce).
 
 - Urgathoa's note "Arcane version." is printed word for word on the AoN
   [Urgathoa](https://aonprd.com/DeityDisplay.aspx?ItemName=Urgathoa) page as
@@ -316,23 +335,23 @@ usable AoN page, so they are `unchecked`.
 
 | `on_aon_prd` | Blocks | Entries | How |
 |---|---:|---:|---|
-| yes | 722 | 336 | 536 on the entry's AoN page, 42 on another AoN page, 143 in a PRD document, 1 by hand |
+| yes | 716 | 335 | 534 on the entry's AoN page, 41 on another AoN page, 140 in a PRD document, 1 by hand |
 | no | 138 | 105 | 137 by both checks, 1 by hand |
-| candidate | 385 | 299 | 172 AoN no with PRD unchecked, 131 no AoN page with PRD no, 43 partial, 36 fuzzy, 3 paraphrases by hand |
+| candidate | 391 | 302 | 172 AoN no with PRD unchecked, 131 no AoN page with PRD no, 43 partial, 42 fuzzy, 3 paraphrases by hand |
 | unchecked | 39 | 12 | No AoN page and a note under four words |
 
 By subclass:
 
 | Subclass | yes | no | candidate | unchecked |
 |---|---:|---:|---:|---:|
-| `print-match` | 313 | 1 | 178 | 35 |
-| `paraphrase` | 75 | 1 | 11 | 0 |
+| `print-match` | 310 | 1 | 181 | 35 |
+| `paraphrase` | 74 | 1 | 12 | 0 |
 | `legend` | 7 | 1 | 63 | 3 |
 | `source-citation` | 323 | 55 | 60 | 0 |
 | `commentary` | 0 | 73 | 15 | 0 |
 | `pointer` | 0 | 3 | 39 | 1 |
 | `compiled` | 0 | 1 | 5 | 0 |
-| unclear | 4 | 3 | 14 | 0 |
+| unclear | 2 | 3 | 16 | 0 |
 
 **"Bonus feat." notes.** 205 blocks in 179 entries are a standalone "Bonus
 feat." note: 143 classified `print-match` and 62 `legend`. (The print check
@@ -413,10 +432,11 @@ on mounts, and the app plug in `ref/rule/tavern-toolbox`.
 The AoN and PRD checks score the full paragraph, read from the corpus at its
 line; the TSV keeps only a 160-character excerpt. Under the owner rule the 76
 editorial paragraphs split **61 no** (60 by both checks, plus the Wild
-Stalker paragraph at line 90 by hand) and **15 candidates** (13 with no usable
-AoN page and a PRD "no", 2 partial). The 3 unclear paragraphs are candidates.
-None is on AoN or in the PRD. The 29 printed paragraphs are book prose, not
-notes (`action` "not a note").
+Stalker paragraph at line 90 by hand; 18 of the 61 are inline notes) and **15
+candidates** (13 with no usable AoN page and a PRD "no", 2 partial; 3 of the
+15 are inline notes). The 3 unclear paragraphs are candidates. None of the 79
+is confirmed on AoN or in the PRD. The 29 printed paragraphs are book prose,
+not notes (`action` "not a note").
 
 **The Tavern Toolbox plug is a candidate, not a removal.** The paragraph
 ("The developer of this app also created Writing Quirks …") is in no PRD
@@ -537,9 +557,9 @@ Apply the owner rule as one corpus pass per follow-up ticket below:
    block, keep the printed `^B^` superscript as a plain marker
    (docs/corpus-format.md allows an unlinked superscript) and remove only the
    note.
-2. **Keep the 722 "yes" blocks.** The app already shows them de-emphasized
+2. **Keep the 716 "yes" blocks.** The app already shows them de-emphasized
    ([#509](https://github.com/phynics/cast-iron/pull/509)).
-3. **Review the 385 candidate and 39 unchecked blocks and the 18 candidate
+3. **Review the 391 candidate and 39 unchecked blocks and the 18 candidate
    outside paragraphs** before removing anything. The owner decisions above
    settle 205 of the blocks and the citation group.
 4. **Fix the orphaned markers of the notes that stay** (83 blocks). The 75
@@ -565,13 +585,14 @@ ticket ends with `corpus-check` passing and a pin bump PR.
    `^n^` ones are checked by the script). Printed `^B^` superscripts stay.
 2. **Remove editorial paragraphs outside footnote blocks that are confirmed
    absent from AoN and the PRD** (cast-iron-data). Scope: the 61 rows with
-   `action = remove` in `editorial-notes-outside-footnotes.tsv`, including 21
-   inline notes. The Tavern Toolbox plug is not in scope until ticket 3
-   confirms it. Acceptance: the outside scan on the new pin lists none of
+   `action = remove` in `editorial-notes-outside-footnotes.tsv`, 18 of them
+   inline notes. No candidate row is in scope: the 3 inline notes and the
+   Tavern Toolbox plug that are still candidates wait for ticket 3. Acceptance: the outside scan on the new pin lists none of
    them; each removal has its own `exclusions.toml` row.
 3. **Review the candidates and unchecked rows** (cast-iron-data, research).
-   Scope: the 385 candidate and 39 unchecked blocks, and the 18 candidate
-   editorial and unclear outside paragraphs (Tavern Toolbox among them).
+   Scope: the 391 candidate and 39 unchecked blocks, and the 18 candidate
+   editorial and unclear outside paragraphs (Tavern Toolbox and 3 inline
+   notes among them).
    Apply the owner decisions on "Bonus feat." legends and paraphrases first.
    Acceptance: each row has `on_aon_prd` yes or no with evidence (the AoN or
    legacy PRD URL that carries the note, or the resolved pages that do not),
@@ -618,9 +639,20 @@ python3 scripts/editorial-footnotes-nested.py .cache/sources/cast-iron-data \
     --outside-tsv docs/research/editorial-notes-outside-footnotes.tsv
 ```
 
-The output is byte-identical on the same pin. To rerun the checks (at a new
-pin, or to reproduce the method), keep both cache directories out of the
-repository and run, in this order:
+The output is byte-identical on the same pin.
+
+**Reuse at a new pin.** Every row carries `text_sha`, a hash of the note's or
+paragraph's full text. The script reuses an earlier row's print check, hand
+review and hand AoN/PRD verdict only when the current text has the same hash;
+a row whose text changed starts unreviewed. A reused hand AoN/PRD verdict
+also needs this run's AoN and PRD check verdicts to equal the ones in the
+row's `aon_check` and `prd_check` (what the reviewer saw). When they differ,
+the row becomes a `candidate` with the basis `conflict: …`, keeps the old
+evidence, and needs a new hand verdict through `--aon-review`. The script
+prints how many rows it did not reuse and how many conflict.
+
+To rerun the checks (at a new pin, or to reproduce the method), keep both
+cache directories out of the repository and run, in this order:
 
 ```sh
 CORPUS=.cache/sources/cast-iron-data
@@ -638,7 +670,8 @@ python3 scripts/footnote-aon-check-nested.py $CORPUS AON_CACHE --out aon.tsv \
     --legacy-books coreRulebook gameMasteryGuide ultimateEquipment \
         ultimateCampaign ultimateCombat ultimateMagic advancedPlayersGuide \
         occultAdventures unchained bestiary
-# 4. Merge (hand verdicts already in the TSVs stay; add new ones with --aon-review):
+# 4. Merge. A hand verdict in the TSVs stays only when its row's text hash and
+#    its AoN/PRD check verdicts are unchanged; settle conflicts with --aon-review:
 python3 scripts/editorial-footnotes-nested.py $CORPUS --aon aon.tsv \
     --reuse docs/research/editorial-footnotes.tsv \
     --outside-review docs/research/editorial-notes-outside-footnotes.tsv \

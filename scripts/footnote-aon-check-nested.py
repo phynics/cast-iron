@@ -42,13 +42,21 @@ Every score is the share of the note's shingles on ONE page or ONE document,
 and the output names that page or document, so a reader can open it. A share
 pooled over many pages does not show that any page carries the note.
 
+A page *carries* a note only when the WHOLE note occurs on it as written: the
+note's words, lower-cased and with punctuation and spacing normalised, form
+one unbroken run of the page's words (``note_whole``). A share of 0.9 or more
+alone is not enough: a page that omits the note's opening words ("This spell
+may be prepared ..." against "may be prepared ...") still holds 0.9 of its
+shingles. Such a row is ``fuzzy``.
+
 AoN verdicts (``on_aon``):
 
-* ``yes``: the entry's page carries the note (note >= 0.9).
-* ``yes-other-page``: another single AoN page carries it (>= 0.9);
+* ``yes``: the entry's page carries the whole note.
+* ``yes-other-page``: another single AoN page carries the whole note;
   ``aon_match`` names that page.
-* ``fuzzy``: the best single page has 0.6 to 0.9 of the note. Quotations and
-  paraphrases land here; the row needs a hand look.
+* ``fuzzy``: the best single page has 0.6 or more of the note but not the
+  whole note. Quotations, paraphrases and notes that lose words land here;
+  the row needs a hand look.
 * ``partial``: the entry's page has more than 0.2 and less than 0.6, and no
   page reaches 0.6.
 * ``no``: the entry's page (control >= 0.3) has 0.2 or less, and no other
@@ -56,8 +64,8 @@ AoN verdicts (``on_aon``):
 * ``unchecked``: no page with control >= 0.3, and no page reaches 0.6.
 
 PRD verdicts (``on_prd``), from the best single document (``prd_doc``) and
-the score pooled over all PRD text (``prd_pooled``): ``yes`` (best >= 0.9),
-``fuzzy`` (best 0.6 to 0.9), ``partial`` (best above 0.2, or pooled 0.6 or
+the score pooled over all PRD text (``prd_pooled``): ``yes`` (one document
+carries the whole note), ``fuzzy`` (best 0.6 or more, not whole), ``partial`` (best above 0.2, or pooled 0.6 or
 more), ``no`` (best 0.2 or less and pooled under 0.6), ``unchecked`` (a note
 under four words).
 
@@ -97,7 +105,8 @@ BASE = "https://aonprd.com/"
 # A page counts as the entry's page when this share of the entry's body
 # shingles occurs on it. Wrong pages score near 0.
 CONTROL = 0.3
-# A page carries a note's text when this share of the note's shingles is on it.
+# A page with this share of the note's shingles is tested for the whole note;
+# only a page that holds the whole note carries it.
 CARRIES = 0.9
 # From this share up to CARRIES a page has most of the note: a candidate.
 FUZZY = 0.6
@@ -149,6 +158,11 @@ def score(words, page_words, page_sh) -> float:
         return 1.0 if " " + " ".join(words) + " " in page_words else 0.0
     sh = shingles(words)
     return sum(1 for s in sh if s in page_sh) / len(sh)
+
+
+def whole(words, page_words: str) -> bool:
+    """True when the note's words form one unbroken run of the page's words."""
+    return bool(words) and " " + " ".join(words) + " " in page_words
 
 
 class Blocked(Exception):
@@ -306,19 +320,26 @@ class Docs:
 
     def __init__(self):
         self.names: list[str] = []
+        self.texts: list[str] = []
         self.index: dict[tuple, list[int]] = {}
 
     def add(self, name: str, words: list[str]):
         n = len(self.names)
         self.names.append(name)
+        self.texts.append(" " + " ".join(words) + " ")
         for sh in shingles(words):
             self.index.setdefault(sh, []).append(n)
 
-    def best(self, words: list[str], skip: str = "") -> tuple[float, str, float]:
-        """(best single-document share, its name, share pooled over all documents)."""
+    def best(self, words: list[str], skip: str = "") -> tuple[float, str, float, bool]:
+        """(best single-document share, its name, share pooled over all documents,
+        whether that document holds the whole note).
+
+        Among the documents with CARRIES or more, the first (by share, then
+        name) that holds the whole note is preferred.
+        """
         sh = shingles(words)
         if not sh:
-            return 0.0, "", 0.0
+            return 0.0, "", 0.0, False
         count: dict[int, int] = {}
         pooled = 0
         for s_ in sh:
@@ -330,8 +351,14 @@ class Docs:
         ranked = sorted(((c, self.names[d]) for d, c in count.items() if self.names[d] != skip),
                         key=lambda x: (-x[0], x[1]))
         if not ranked:
-            return 0.0, "", pooled / len(sh)
-        return ranked[0][0] / len(sh), ranked[0][1], pooled / len(sh)
+            return 0.0, "", pooled / len(sh), False
+        by_name = {name: i for i, name in enumerate(self.names)}
+        for c, name in ranked:
+            if c / len(sh) < CARRIES:
+                break
+            if whole(words, self.texts[by_name[name]]):
+                return c / len(sh), name, pooled / len(sh), True
+        return ranked[0][0] / len(sh), ranked[0][1], pooled / len(sh), False
 
 
 def prd_index(corpus: Path, docs: Docs):
@@ -386,11 +413,12 @@ def paragraph_at(lines: list[str], line: int) -> str:
     return " ".join(out)
 
 
-def aon_verdict(own: float, ctl: float, url: str, other: float) -> str:
+def aon_verdict(own: float, own_whole: bool, ctl: float, url: str,
+                other: float, other_whole: bool) -> str:
     resolved = bool(url) and ctl >= CONTROL
-    if resolved and own >= CARRIES:
+    if resolved and own_whole:
         return "yes"
-    if other >= CARRIES:
+    if other_whole:
         return "yes-other-page"
     if max(own if resolved else 0.0, other) >= FUZZY:
         return "fuzzy"
@@ -399,10 +427,10 @@ def aon_verdict(own: float, ctl: float, url: str, other: float) -> str:
     return "no" if own <= ABSENT else "partial"
 
 
-def prd_verdict(words: list[str], best: float, pooled: float) -> str:
+def prd_verdict(words: list[str], best: float, pooled: float, is_whole: bool) -> str:
     if len(words) < 4:
         return "unchecked"
-    if best >= CARRIES:
+    if is_whole:
         return "yes"
     if best >= FUZZY:
         return "fuzzy"
@@ -498,16 +526,19 @@ def main() -> int:
             # form, marker then note ("D domain spell").
             probes = [norm(k) + words for k in label] if len(words) < 4 else [words]
             s = max((score(p_, pw, ps) for p_ in probes), default=0.0) if url else 0.0
-            pending.append((len(rows), words, probes, s, ctl, url))
-            best, doc, pooled = prd.best(words) if len(words) >= 4 else (0.0, "", 0.0)
+            own_whole = bool(url) and any(whole(p_, pw) for p_ in probes)
+            pending.append((len(rows), words, probes, s, own_whole, ctl, url))
+            best, doc, pooled, prd_whole = prd.best(words) if len(words) >= 4 else (0.0, "", 0.0, False)
             rows.append({"entry_id": eid, "where": where, "key": key,
                          "aon_page": BASE + url if url and ctl >= CONTROL else "",
                          "aon_source": ("corpus" if front.get("aon") else "derived") if url and ctl >= CONTROL else "",
-                         "note_score": f"{s:.2f}", "control_score": f"{ctl:.2f}",
-                         "aon_match": "", "match_score": "", "on_aon": "",
+                         "note_score": f"{s:.2f}", "note_whole": "yes" if own_whole else "no",
+                         "control_score": f"{ctl:.2f}",
+                         "aon_match": "", "match_score": "", "match_whole": "", "on_aon": "",
                          "prd_score": f"{best:.2f}", "prd_pooled": f"{pooled:.2f}",
                          "prd_doc": doc if best > ABSENT else "",
-                         "on_prd": prd_verdict(words, best, pooled)})
+                         "prd_whole": "yes" if prd_whole else "no",
+                         "on_prd": prd_verdict(words, best, pooled, prd_whole)})
 
     # A note that is not on its entry's page may be on another AoN page, such
     # as the base spell of a "functions like" spell. Match it against each
@@ -518,20 +549,21 @@ def main() -> int:
         words_ = page_text(fetch.read[path_])[0]
         texts[BASE + path_] = words_
         pages.add(BASE + path_, words_.split())
-    for idx, words, probes, own, ctl, url in pending:
+    for idx, words, probes, own, own_whole, ctl, url in pending:
         row = rows[idx]
         page = row["aon_page"]
         if len(words) >= 4:
-            other, match, _ = pages.best(words, skip=page)
+            other, match, _, other_whole = pages.best(words, skip=page)
         else:
             # A short note in its key form ("B bonus feat") must occur whole.
             hits = sorted(n for n, t in texts.items() if n != page
-                          and any(" " + " ".join(p_) + " " in t for p_ in probes))
-            other, match = (1.0, hits[0]) if hits else (0.0, "")
-        verdict = aon_verdict(own, ctl, url, other)
+                          and any(whole(p_, t) for p_ in probes))
+            other, match, other_whole = (1.0, hits[0], True) if hits else (0.0, "", False)
+        verdict = aon_verdict(own, own_whole, ctl, url, other, other_whole)
         row["on_aon"] = verdict
         if verdict in ("yes-other-page", "fuzzy") and other >= max(own if page else 0.0, FUZZY):
             row["aon_match"], row["match_score"] = match, f"{other:.2f}"
+            row["match_whole"] = "yes" if other_whole else "no"
 
     with args.out.open("w", encoding="utf-8", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]), delimiter="\t", lineterminator="\n")

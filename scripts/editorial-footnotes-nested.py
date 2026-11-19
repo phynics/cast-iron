@@ -31,6 +31,18 @@ with ``entry_id``, ``seq``, ``review``, ``subclass``, ``evidence``). A hand
 review wins over the automatic check, and the automatic check wins over the
 text signals for a block with no editorial signal.
 
+Reuse is checked against the text. Each output row carries ``text_sha``, a
+hash of the note's or paragraph's full text. A row of ``--reuse`` or
+``--outside-review`` gives its print check, hand review and hand AoN/PRD
+verdict to the current row only when the current text has the same hash; a
+row whose text changed starts unreviewed. (An input without ``text_sha``
+compares the 160-character ``text`` excerpt.) A reused hand AoN/PRD verdict
+also needs the AoN and PRD check verdicts of ``--aon`` to equal the ones that
+the reviewer saw (the row's ``aon_check`` and ``prd_check``). When they
+differ, the row becomes a ``candidate`` with the basis ``conflict: ...`` and
+keeps the old hand evidence, until a new hand verdict (``--aon-review``)
+settles it. ``--aon-review`` verdicts are current and always apply.
+
 ``--outside-tsv`` also lists paragraphs outside the footnote blocks that carry
 a strong editorial signal ("this app", "rules-as-written"). Printed text also
 says "consult your GM", so each of those rows needs review.
@@ -44,23 +56,28 @@ Usage, to regenerate the committed TSV from itself::
         --outside-tsv docs/research/editorial-notes-outside-footnotes.tsv
 
 At a new corpus pin, run ``scripts/footnote-print-check-nested.py`` first and
-pass its output as ``--auto``; blocks whose text changed lose their review.
-Run ``scripts/footnote-aon-check-nested.py`` after this script has written
-``--outside-tsv`` (it reads that file), then run this script again with its
-output as ``--aon``.
+pass its output as ``--auto``; rows whose text changed lose their reviews (see
+above). Run ``scripts/footnote-aon-check-nested.py`` after this script has
+written ``--outside-tsv`` (it reads that file), then run this script again
+with its output as ``--aon``. The script prints how many reviews it dropped
+and how many hand verdicts conflict with the new checks.
 
 Owner rule of 2026-11-19, as ``on_aon_prd``:
 
 ``yes``
-    One named AoN page or PRD document carries the note's text (90 % or more
-    of its shingles; ``carried_by`` names it), or a hand check found it there.
+    One named AoN page or PRD document carries the WHOLE note as written
+    (its words form one unbroken run of the page's words after normalising
+    case, punctuation and spacing; ``carried_by`` names it), or a hand check
+    found it there.
 ``no``
     The entry's AoN page does not carry it, no other AoN page this run read
     carries 60 % of it, AND the PRD check ran and found it in no document.
 ``candidate``
-    Needs review before anything is removed: a fuzzy or partial match, a
-    paraphrase, an AoN "no" with the PRD unchecked (a note under four words),
-    or an unresolved AoN page with a PRD "no".
+    Needs review before anything is removed: a fuzzy match (60 % or more of
+    the note's shingles on one page, but not the whole note), a partial
+    match, a paraphrase, an AoN "no" with the PRD unchecked (a note under four
+    words), an unresolved AoN page with a PRD "no", or a hand verdict that
+    conflicts with a newer check.
 ``unchecked``
     Neither check could run: no AoN page, and a note under four words.
 
@@ -72,6 +89,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import re
 import sys
 import tomllib
@@ -259,19 +277,27 @@ def main() -> int:
                     help="hand AoN/PRD verdicts: entry_id, where, key, on_aon_prd, aon_evidence")
     args = ap.parse_args()
 
-    # AoN/PRD presence, keyed by (entry_id, "block" or "outside", seq or line):
-    # (aon_check, prd_check, carried_by, hand verdict "<verdict>: <evidence>").
-    aon: dict[tuple[str, str, str], tuple[str, str, str, str]] = {}
+    def text_sha(text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
-    def from_tsv(row):
-        ev = f'{row["on_aon_prd"]}: {row["aon_evidence"]}' if row.get("aon_evidence") else ""
-        return (row["aon_check"], row["prd_check"], row.get("carried_by", ""), ev)
+    def same_text(old: dict[str, str], text: str) -> bool:
+        """True when an earlier output row was made from this exact text."""
+        if old.get("text_sha"):
+            return old["text_sha"] == text_sha(text)
+        return old.get("text", "") == text.replace("\t", " ")[:EXCERPT]
+
+    def verdicts(check: str) -> str:
+        return check.split(" ", 1)[0]
+
+    # Earlier output rows, keyed by (entry_id, "block" or "outside", seq or
+    # line). They are used only after same_text() accepts them.
+    prior: dict[tuple[str, str, str], dict[str, str]] = {}
     for row in read_tsv(args.reuse):
-        if "aon_check" in row:
-            aon[(row["entry_id"], "block", row["seq"])] = from_tsv(row)
+        prior[(row["entry_id"], "block", row["seq"])] = row
     for row in read_tsv(args.outside_review):
-        if "aon_check" in row:
-            aon[(row["entry_id"], "outside", row["line"])] = from_tsv(row)
+        prior[(row["entry_id"], "outside", row["line"])] = row
+    # This run's AoN/PRD checks: (aon_check, prd_check, carried_by).
+    fresh: dict[tuple[str, str, str], tuple[str, str, str]] = {}
     for row in read_tsv(args.aon):
         a = f'{row["on_aon"]} note={row["note_score"]} control={row["control_score"]}'
         if row["aon_page"]:
@@ -296,20 +322,42 @@ def main() -> int:
             by = row["prd_doc"]
         else:
             by = row["aon_page"] if ra == "partial" else ""
-        key = (row["entry_id"], row["where"], row["key"])
-        # A hand verdict from --reuse or --outside-review stays, with its page.
-        _, _, hand_by, ev = aon.get(key, ("", "", "", ""))
-        aon[key] = (a, p, hand_by if ev else by, ev)
+        fresh[(row["entry_id"], row["where"], row["key"])] = (a, p, by)
+    hand: dict[tuple[str, str, str], tuple[str, str]] = {}
     for row in read_tsv(args.aon_review):
-        key = (row["entry_id"], row["where"], row["key"])
-        a, p, by, _ = aon.get(key, ("", "", "", ""))
-        aon[key] = (a, p, row.get("carried_by") or by, f'{row["on_aon_prd"]}: {row["aon_evidence"]}')
+        hand[(row["entry_id"], row["where"], row["key"])] = (
+            row.get("carried_by", ""), f'{row["on_aon_prd"]}: {row["aon_evidence"]}')
+    stats: Counter = Counter()
 
-    def presence(key):
-        a, p, by, ev = aon.get(key, ("", "", "", ""))
-        on_aon = a.split(" ", 1)[0] or "unchecked"
-        on_prd = p.split(" ", 1)[0] or "unchecked"
-        if ev:
+    def presence(key, text):
+        old = prior.get(key)
+        if old is not None and not same_text(old, text):
+            stats["text changed: earlier row not reused"] += 1
+            old = None
+        if key in fresh:
+            a, p, by = fresh[key]
+        elif old is not None and old.get("aon_check"):
+            a, p, by = old["aon_check"], old["prd_check"], old.get("carried_by", "")
+        else:
+            a, p, by = "", "", ""
+        ev, conflict = "", ""
+        if key in hand:
+            hand_by, ev = hand[key]
+            by = hand_by or by
+        elif old is not None and old.get("aon_evidence"):
+            old_ev = f'{old["on_aon_prd"]}: {old["aon_evidence"]}'
+            if (verdicts(a), verdicts(p)) == (verdicts(old["aon_check"]), verdicts(old["prd_check"])):
+                ev, by = old_ev, old.get("carried_by", "") or by
+            else:
+                stats["hand verdict conflicts with the new check"] += 1
+                ev = old_ev
+                conflict = (f'conflict: hand {old["on_aon_prd"]} on aon {verdicts(old["aon_check"])}'
+                            f'/prd {verdicts(old["prd_check"])}, now {verdicts(a)}/{verdicts(p)}')
+        on_aon = verdicts(a) or "unchecked"
+        on_prd = verdicts(p) or "unchecked"
+        if conflict:
+            verdict, basis = "candidate", conflict
+        elif ev:
             verdict, note = ev.split(": ", 1)
             basis = "hand: " + note.split(":", 1)[0] if verdict == "candidate" else "hand"
         elif on_aon in ("yes", "yes-other-page") or on_prd == "yes":
@@ -339,13 +387,10 @@ def main() -> int:
     pub_title = {p["id"]: p["title"] for p in pubs["publication"]}
     by_title = {p["title"].lower(): p.get("publication_date") for p in pubs["publication"]}
 
+    # Print checks and hand reviews of this run; earlier ones come from
+    # ``prior`` once the text matches.
     auto: dict[tuple[str, str], str] = {}
     review: dict[tuple[str, str], tuple[str, str, str]] = {}
-    for row in read_tsv(args.reuse):
-        key = (row["entry_id"], row["seq"])
-        auto[key] = row["auto_print"]
-        if row["review"]:
-            review[key] = (row["review"], row["subclass"], row["evidence"])
     for row in read_tsv(args.auto):
         auto[(row["entry_id"], row["seq"])] = (
             f'{row["auto_verdict"]} note={row["note_score"]} control={row["control_score"]}'
@@ -353,8 +398,9 @@ def main() -> int:
     for row in read_tsv(args.review):
         review[(row["entry_id"], row["seq"])] = (row["review"], row["subclass"], row["evidence"])
 
-    outside_review = {(r["entry_id"], r["line"]): (r["review"], r["evidence"])
-                      for r in read_tsv(args.outside_review)}
+    def earlier(key, text):
+        old = prior.get(key)
+        return old if old is not None and same_text(old, text) else None
     rows, outside = [], []
     bodies: dict[str, str] = {}
     blockless: list[tuple[str, str]] = []
@@ -379,11 +425,14 @@ def main() -> int:
         records = ";".join(f'{p.get("path", "")}#{p.get("record", "")}' for p in prov)
         category = path.relative_to(args.corpus / "entries").parts[0]
         for start, hits, text in outside_notes(lines, mask):
-            rv, ev = outside_review.get((entry_id, str(start + 1)), ("", ""))
+            okey = (entry_id, "outside", str(start + 1))
+            old = earlier(okey, text)
+            rv, ev = (old["review"], old["evidence"]) if old else ("", "")
             outside.append({"entry_id": entry_id, "category": category, "line": str(start + 1),
                             "signals": ",".join(hits), "datasets": datasets,
                             "review": rv, "evidence": ev,
-                            **presence((entry_id, "outside", str(start + 1))),
+                            **presence(okey, text),
+                            "text_sha": text_sha(text),
                             "text": text.replace("\t", " ")[:EXCERPT]})
         if not notes:
             for m in re.finditer(r"\^([A-Za-z0-9]{1,2})\^", "\n".join(lines)):
@@ -404,9 +453,15 @@ def main() -> int:
             linked = bool(forms[0].search(rest))
             bare = bool(forms[1].search(rest))
             note = " ".join(paras)
+            flat = strip_md(note)
             cls, sub, signals = classify(note)
             later = later_books(note, entry_date, by_title)
             key = (entry_id, str(seq))
+            old = earlier((entry_id, "block", str(seq)), flat)
+            if old is not None:
+                auto.setdefault(key, old["auto_print"])
+                if old["review"]:
+                    review.setdefault(key, (old["review"], old["subclass"], old["evidence"]))
             a = auto.get(key, "")
             evidence = ""
             if key in review:
@@ -436,8 +491,9 @@ def main() -> int:
                 "classification": cls,
                 "subclass": sub,
                 "evidence": evidence,
-                **presence((entry_id, "block", str(seq))),
-                "text": strip_md(note).replace("\t", " ")[:EXCERPT],
+                **presence((entry_id, "block", str(seq)), flat),
+                "text_sha": text_sha(flat),
+                "text": flat.replace("\t", " ")[:EXCERPT],
             })
 
     # Why a marker is absent. The importer wrote "#D", "#M" and "#B" spell
@@ -497,6 +553,7 @@ def main() -> int:
     print("on_aon_prd x subclass", dict(Counter((r["on_aon_prd"], r["subclass"]) for r in rows)))
     print("orphans x on_aon_prd", dict(Counter((r["orphan_cause"], r["on_aon_prd"]) for r in rows if r["orphan_cause"])))
     print("outside on_aon_prd x review", dict(Counter((o["on_aon_prd"], o["review"]) for o in outside)))
+    print("reuse", dict(sorted(stats.items())) or "all earlier rows matched their text")
     print("outside review", dict(Counter(o["review"] for o in outside)),
           "editorial entries", len({o["entry_id"] for o in outside if o["review"] == "editorial"}))
     return 0
