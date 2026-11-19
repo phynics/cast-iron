@@ -231,6 +231,22 @@ async function holdWrites(page: any) {
 }
 
 /**
+ * From now on the browser aborts the transaction of every save of the book choice as soon as the
+ * save is requested, before the request answers: a store that gave up while the write was pending.
+ * The page's request fails first, so the save returns before it awaits the transaction.
+ */
+async function abortWrites(page: any) {
+  await page.evaluate(() => {
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      const request = put.call(this, value, key);
+      if (key === "disabled_books") this.transaction.abort();
+      return request;
+    };
+  });
+}
+
+/**
  * Waits a moment after a write that was queued behind another one has had its turn. The app
  * starts a queued write within a few milliseconds of the slot freeing, and a write that runs
  * opens its transaction at once; this one is created after the 100 ms wait, so it completes after
@@ -876,6 +892,19 @@ installedTest("A save that fails late reports nothing next to another review's q
   await third.release({ fail: true });
   await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
   await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+});
+
+installedTest("A save whose transaction aborts before its request answers is reported and leaves no page error", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  await openShare(page);
+  await abortWrites(page);
+  await enterCode(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  // The guard of the fixture fails the test on the page error that an unobserved transaction
+  // promise used to leave behind ("pageerror: null").
 });
 
 installedTest("A save that finishes under Quick search rewrites no entry but the link's own", async ({ page }) => {

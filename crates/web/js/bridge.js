@@ -26,13 +26,24 @@ export function idbRequest(request) {
   });
 }
 
-/** Resolves when the transaction commits and rejects when it aborts or fails. */
+/**
+ * Resolves when the transaction commits and rejects when it aborts or fails. Rust creates this
+ * promise before the first request, so a request that fails first can return before anyone
+ * awaits it. The no-op `catch` marks the outcome as observed: such a return reports the failure
+ * from the request, and the promise must not also leave an unhandled rejection (a page error).
+ * A caller that awaits the promise still gets the rejection.
+ */
 export function idbTxDone(transaction) {
-  return new Promise((resolve, reject) => {
+  const done = new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
+    // A request's error event reaches the transaction before the abort, while `transaction.error`
+    // is still null (after `abort()` it stays null): take the reason from the request.
+    transaction.onerror = (event) =>
+      reject(transaction.error || event.target?.error || new Error("transaction failed"));
     transaction.onabort = () => reject(transaction.error || new Error("transaction aborted"));
   });
+  done.catch(() => {});
+  return done;
 }
 
 /** Lowercase hex SHA-256 of an ArrayBuffer. */
