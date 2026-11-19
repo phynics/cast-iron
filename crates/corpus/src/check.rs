@@ -3675,6 +3675,7 @@ mod tests {
         let row = |entry: &str| crate::Resolution {
             path: "json/a.json#x".into(),
             supersedes: None,
+            kind: None,
             entries: vec![entry.into()],
             reason: "ships. Refs #36.".into(),
         };

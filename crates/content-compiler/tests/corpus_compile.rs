@@ -454,7 +454,7 @@ fn one_resolved_row_does_not_hide_another_row_with_its_path() {
     // Naming the rejected row resolves it and leaves the excluded row listed.
     let named = plain.replace(
         "entries",
-        "supersedes = \"converter native exclusion (ref/domain/death)\"\nentries",
+        "supersedes = \"converter native exclusion (ref/domain/death): bad directive\"\nentries",
     );
     fs::write(&file, format!("{before}{shared}{named}")).unwrap();
     let (_, json) =

@@ -578,23 +578,33 @@ whole file, so a `resolved` row finds its row wherever it stands.
 A `resolved` row supersedes exactly one row. Several rows can share a `path`: an `excluded` and a
 `rejected` row (the Death and Repose domains have both), or two `rejected` rows with different
 reasons (`json/main04.json#traits_race` has two). Then `path` alone is ambiguous, and the row must
-carry `supersedes`, the start of the `reason` of the row it resolves:
+carry `supersedes`, the full `reason` of the row it resolves, copied exactly (string equality, not a
+prefix):
 
 ```toml
 [[resolved]]
 path = "json/class_ability_domains.json#death"
-supersedes = "converter native exclusion (ref/domain/death)"
+supersedes = "converter native exclusion (ref/domain/death): <the rest of the reason>"
 entries = ["ref/domain/death"]
 reason = "The domain ships since the @list directive reads. Refs #103."
 ```
 
-`supersedes` must select exactly one row with that `path`. The other rows with the path stay in
-the report. To resolve several rows that share a path, append one `resolved` row for each, each
-with its own `supersedes`. When only one row has the path, leave `supersedes` out. The keys are
-optional and additive: a file with no `resolved` row reads and writes back byte for byte as before,
-a report with no `resolved` row has no `resolved` key and no "Resolved records" section, and the
-corpus format does not change. A row is resolved once; to exclude a record again, add an `excluded`
-row under a new path and say why in a decision.
+The identity of a row is its table, its `path` and its `reason`; the reader refuses a repeated
+`path` and `reason` within one table. `supersedes` with `path` therefore selects one row, unless an
+`excluded` and a `rejected` row have the same `path` and `reason`. Then add `kind = "excluded"` or
+`kind = "rejected"` to name the table. A `kind` is never needed otherwise, and a row may carry it
+anyway. A reason that is the start of another reason on the same path (`unsupported directive`
+and `unsupported directive @list`) needs nothing more: each full reason selects its own row, and a
+later row cannot make an earlier `supersedes` ambiguous.
+
+The other rows with the path stay in the report. To resolve several rows that share a path, append
+one `resolved` row for each, each with its own `supersedes`. A `path` that two rows share needs one
+`resolved` row for each of them: the Death and Repose domains need two (the converter `rejected`
+row and the Pharasma-friendly blog `excluded` row). When only one row has the path, leave
+`supersedes` out. The keys are optional and additive: a file with no `resolved` row reads and
+writes back byte for byte as before, a report with no `resolved` row has no `resolved` key and no
+"Resolved records" section, and the corpus format does not change. A row is resolved once; to
+exclude a record again, add an `excluded` row under a new path and say why in a decision.
 
 **`history.toml`** holds the results of the one-time import that the entries
 cannot state, kept as they were at the cut:
@@ -936,7 +946,8 @@ file and line, when:
   web post or comic issue gets no book;
 - `exclusions.toml` repeats a row, resolves one row twice, has a `resolved` row that matches no
   `excluded` or `rejected` row of the file (an orphan), has one that matches several rows because
-  `supersedes` is missing or too short (ambiguous), leaves `entries` or `reason` empty, or names an
+  `supersedes` is missing, or `kind` is missing for a path and reason that both tables hold
+  (ambiguous), names a `supersedes` that is not the exact full reason of a row, leaves `entries` or `reason` empty, or names an
   entry that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
