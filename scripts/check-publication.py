@@ -86,11 +86,7 @@ def nodes(value):
 
 COMMUNITY_USE = publication_license.COMMUNITY_USE
 # Publications whose reviewed legal basis names the Community Use Policy (corpus `legal.toml`).
-cup_publications = {
-    row["publication_id"]
-    for row in legal.get("publication_licenses", [])
-    if COMMUNITY_USE in row["license_refs"]
-}
+cup_publications = publication_license.cup_publications(legal.get("publication_licenses", []))
 outbound = re.compile(r"https?://|pathfinderwiki", re.IGNORECASE)
 cup_named = 0
 counts = {}
@@ -101,9 +97,7 @@ for entry in entries:
     counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
     if not set(entry["source_ids"]) <= sources or not entry["source_ids"]:
         issues.append(f"Unreviewed source: {entry['id']}")
-    # A Community Use only entry is allowed only when every cited source has a
-    # reviewed publication_licenses row that names Community Use.
-    if not publication_license.has_reviewed_license_basis(entry, sources, cup_publications):
+    if not publication_license.has_license_basis(entry, cup_publications):
         issues.append(f"Missing OGL reference: {entry['id']}")
     displayed = [entry["title"], entry["body"], entry["fields"], entry.get("tags", [])]
     text = "\n".join(strings(displayed))
