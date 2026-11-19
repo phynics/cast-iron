@@ -186,6 +186,23 @@ async function useWidth(page: Page, width: number) {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
 }
 
+/**
+ * Reloads the page at an address it did not open with, as a bookmark or a typed address would.
+ * The caller has let the page settle, so nothing is in flight.
+ *
+ * `goto` of a hash on the open page changes the hash, and the page then drops a section it lacks
+ * with `replaceState`. A `reload()` right after raced that rewrite: it reloaded either address,
+ * and in WebKit the old document's work then surfaced as `pageerror: Context is stopped` after
+ * the console guard's navigation window had closed on the rewrite's `framenavigated` (#121).
+ * `replaceState` fires no `hashchange`, so the open page does not react, and the reload is the
+ * only new-document navigation. (`replaceState` still fires Playwright's same-document
+ * `framenavigated` event on the open page, which the console guard's teardown window ignores.)
+ */
+async function coldLoad(page: Page, address: string) {
+  await page.evaluate((hash) => history.replaceState(history.state, "", hash), address);
+  await page.reload();
+}
+
 /** A section address opens at that section, from a real load of the address. */
 async function expectOpensAtSection(page: Page, width: number, id: string, slug: string) {
   await installLibrary(page);
@@ -207,8 +224,7 @@ async function expectOpensAtTop(page: Page, width: number, query: string) {
   await installLibrary(page);
   await useWidth(page, width);
   const label = `${query} at ${width}px`;
-  await page.goto(`#/entry/${FIGHTER}${query}`);
-  await page.reload();
+  await coldLoad(page, `#/entry/${FIGHTER}${query}`);
   await expect(page.getByRole("heading", { level: 1, name: "Fighter" }), label).toBeVisible();
   await expect(stop(page, "Overview"), label).toHaveAttribute("aria-current", "true");
   await expect(switcher(page).locator('[aria-current="true"]'), label).toHaveCount(1);
@@ -253,8 +269,7 @@ test("An old entry id keeps the section of its address", async ({ page }) => {
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     // `core-rulebook/classes/wizard` is a retired id that resolves to the Wizard.
-    await page.goto(`#/entry/core-rulebook/classes/wizard?s=archetypes`);
-    await page.reload();
+    await coldLoad(page, `#/entry/core-rulebook/classes/wizard?s=archetypes`);
     await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
     await expect(page).toHaveURL(/#\/entry\/ref\/class\/wizard\?s=archetypes$/);
     await expect(stop(page, "Archetypes")).toHaveAttribute("aria-current", "true");
@@ -299,22 +314,6 @@ test("A stop chosen from a heading address is a jump: the page stays and the hea
     await expect(stop(page, "Overview")).toHaveAttribute("aria-current", "true");
   }
 });
-
-/**
- * Reloads the page at an address it did not open with, as a bookmark or a typed address would.
- * The caller has let the page settle, so nothing is in flight.
- *
- * `goto` of a hash on the open page changes the hash, and the page then drops a section it lacks
- * with `replaceState`. A `reload()` right after raced that rewrite: it reloaded either address,
- * and in WebKit the old document's work then surfaced as `pageerror: Context is stopped` after
- * the console guard's navigation window had closed on the rewrite's `framenavigated` (#121).
- * `replaceState` fires no `hashchange`, so the open page does not react, and the reload is the
- * only navigation.
- */
-async function coldLoad(page: Page, address: string) {
-  await page.evaluate((hash) => history.replaceState(history.state, "", hash), address);
-  await page.reload();
-}
 
 test("An address that names a section the page lacks drops it and opens at the top", async ({ page }) => {
   await installLibrary(page);
