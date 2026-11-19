@@ -129,7 +129,7 @@ const countText = (page: any) => page.locator(".books-count");
 const disclosure = (page: any) => page.locator(".share-set");
 
 async function openShare(page: any) {
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await waitReady(page);
   const details = disclosure(page);
   await expect(details).toBeVisible();
@@ -141,9 +141,19 @@ async function openShare(page: any) {
 
 const shownCode = async (page: any) => (await page.getByTestId("share-code").innerText()).trim();
 
+/**
+ * Goes to a route of the app unless the page is already there. WebKit reloads the document when
+ * `page.goto` names the URL the page has (Chromium treats it as a no-op), and a reload drops the
+ * in-memory Undo and costs a whole start-up. A test that wants a reload says `page.reload()`.
+ */
+async function visit(page: any, hash: string) {
+  if (new URL(page.url()).hash === hash) return;
+  await page.goto(hash);
+}
+
 /** The ids that Manage books shows as checked. */
 async function checkedBooks(page: any): Promise<string[]> {
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await waitReady(page);
   await openBookGroups(page);
   const ids: string[] = await page
@@ -171,7 +181,7 @@ async function enterCodeOpen(page: any, text: string) {
 }
 
 async function applyPreset(page: any, name: string) {
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await waitReady(page);
   await page.getByRole("button", { name, exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: `Applied ${name}.` })).toBeVisible();
@@ -305,7 +315,7 @@ installedTest("Manage books shows the code of the active set, and Copy puts it o
   await applyPreset(page, "Paizo Rulebooks & More");
   // One more change, so the set is a custom one.
   const extra = rulebooks[rulebooks.length - 1];
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await openBookGroups(page);
   const row = page.locator(`.book-directory-item[data-book-id="${extra}"]`).getByRole("checkbox");
   await row.uncheck();
@@ -366,7 +376,7 @@ installedTest("A code made on one profile gives a fresh profile the exact same s
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks & More");
   const dropped = rulebooks[0];
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await openBookGroups(page);
   await page.locator(`.book-directory-item[data-book-id="${dropped}"]`).getByRole("checkbox").uncheck();
   const expected = await checkedBooks(page);
@@ -452,7 +462,7 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
 installedTest("A link made when the section sat on Books still opens the question on Manage books", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
   await page.goto(`#/books?set=${codeFor(paizoBooks)}`);
   await waitReady(page);
@@ -473,7 +483,7 @@ installedTest("A link made when the section sat on Books still opens the questio
 
 installedTest("Books has no share section, and its first group starts under the Manage books link", async ({ page }) => {
   await installLibrary(page);
-  await page.goto("#/books");
+  await visit(page, "#/books");
   await waitReady(page);
   await expect(disclosure(page)).toHaveCount(0);
   await expect(page.getByText("Share these books or enter a code")).toHaveCount(0);
@@ -643,7 +653,7 @@ installedTest("Back and Forward take a share link's question with them, and Done
   const manage = page.getByRole("link", { name: "Manage books", exact: true });
 
   // Books, then the Manage books link (the first entry), then a share link in the same tab.
-  await page.goto("#/books");
+  await visit(page, "#/books");
   await waitReady(page);
   await manage.click();
   await expect(page).toHaveURL(/#\/books\/manage$/);
@@ -711,12 +721,12 @@ installedTest("Leaving Manage books while a share is saving breaks nothing and c
   let hold = await holdWrites(page);
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
   await hold.held(1);
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
   await hold.release();
   // The books were saved, and the page that is on screen did not stop. The fixture also fails the
   // test on any error the page logged, which a panic would be.
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
   await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/#\/books\/manage$/);
@@ -728,10 +738,10 @@ installedTest("Leaving Manage books while a share is saving breaks nothing and c
   hold = await holdWrites(page);
   await shareUndo(page).click();
   await hold.held(1);
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
   await hold.release();
-  await page.goto("#/books/manage");
+  await visit(page, "#/books/manage");
   await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
 
   // A write that finishes after the reader opened another link must not close that link's
@@ -759,7 +769,7 @@ installedTest("Leaving Manage books while a share is saving breaks nothing and c
 
 installedTest("A modified click on Manage books marks no entry: Done from Settings goes to Books", async ({ page, context }) => {
   await installLibrary(page);
-  await page.goto("#/books");
+  await visit(page, "#/books");
   await waitReady(page);
   const manage = page.getByRole("link", { name: "Manage books", exact: true });
   // Ctrl-click (Cmd on a Mac) opens the page in another tab. This tab stays on Books and pushes
@@ -770,7 +780,7 @@ installedTest("A modified click on Manage books marks no entry: Done from Settin
   await expect(page).toHaveURL(/#\/books$/);
 
   // From Settings the link pushes an entry whose Back is Settings: Done must not use it.
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await page.getByRole("link", { name: "Manage books", exact: true }).click();
   await expect(page).toHaveURL(/#\/books\/manage$/);
   await page.getByRole("button", { name: "Done", exact: true }).click();
@@ -781,12 +791,12 @@ installedTest("A modified click on Manage books marks no entry: Done from Settin
   await expect(page).toHaveURL(/#\/settings$/);
 
   // The same for a share link opened from Settings: no stale request marks it either.
-  await page.goto("#/books");
+  await visit(page, "#/books");
   await waitReady(page);
   const again = context.waitForEvent("page", { timeout: 15_000 });
   await manage.click({ modifiers: ["ControlOrMeta"] });
   await (await again).close();
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await page.goto(`#/books/manage?set=${codeFor(more)}`);
   await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -797,7 +807,7 @@ installedTest("A modified click on Manage books marks no entry: Done from Settin
 
   // A plain click still pushes an entry that Done goes Back from, and Books gets its focus back.
   // The mark is in the entry's history state, so a reload of Manage books keeps it.
-  await page.goto("#/books");
+  await visit(page, "#/books");
   await waitReady(page);
   await manage.click();
   await expect(page).toHaveURL(/#\/books\/manage$/);
@@ -913,7 +923,7 @@ installedTest("A save that finishes under Quick search rewrites no entry but the
   const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
   const use = page.getByRole("button", { name: "Use this set", exact: true });
   // An entry of another page, so that Back from the link's entry names it.
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
   await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
   await expect(question).toBeVisible();
@@ -982,7 +992,7 @@ installedTest("Forward into the entry Quick search left behind does not reopen a
   await applyPreset(page, "Paizo Rulebooks");
   const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
   const use = page.getByRole("button", { name: "Use this set", exact: true });
-  await page.goto("#/settings");
+  await visit(page, "#/settings");
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
 
   // Cancelled: the entry that Quick search left forward of the link still has the old address.
@@ -1083,7 +1093,7 @@ installedTest("A bad link from another route explains itself while the disclosur
     const old = bad === typo;
     // Arrive from another route, so Manage books mounts with the link and the disclosure starts
     // closed. The first address is the link as it was made when the section sat on Books.
-    await page.goto("#/settings");
+    await visit(page, "#/settings");
     await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
     await page.goto(`${old ? "#/books" : "#/books/manage"}?set=${bad}`);
     await waitReady(page);
