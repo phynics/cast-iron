@@ -11,8 +11,12 @@ import json
 from pathlib import Path
 import re
 import sys
+import importlib.util
 
 ROOT = Path(__file__).resolve().parents[1]
+license_spec = importlib.util.spec_from_file_location("publication_license", Path(__file__).with_name("publication-license.py"))
+publication_license = importlib.util.module_from_spec(license_spec)
+license_spec.loader.exec_module(publication_license)
 CONTENT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist/content"
 manifest = json.loads((CONTENT / "manifest.json").read_text())
 library = CONTENT / manifest["content_version"]
@@ -80,13 +84,9 @@ def nodes(value):
             yield from nodes(child)
 
 
-COMMUNITY_USE = "legal#community-use"
+COMMUNITY_USE = publication_license.COMMUNITY_USE
 # Publications whose reviewed legal basis names the Community Use Policy (corpus `legal.toml`).
-cup_publications = {
-    row["publication_id"]
-    for row in legal.get("publication_licenses", [])
-    if COMMUNITY_USE in row["license_refs"]
-}
+cup_publications = publication_license.cup_publications(legal.get("publication_licenses", []))
 outbound = re.compile(r"https?://|pathfinderwiki", re.IGNORECASE)
 cup_named = 0
 counts = {}
@@ -95,15 +95,7 @@ for file in sorted((library / "entries").glob("*.json")):
     entries.extend(json.loads(file.read_text()))
 for entry in entries:
     counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
-    if not set(entry["source_ids"]) <= sources or not entry["source_ids"]:
-        issues.append(f"Unreviewed source: {entry['id']}")
-    if "ogl-1.0a" not in entry["license_refs"]:
-        # A Community Use only entry (decision 2026-11-18, Paizo Blog source bases) is allowed
-        # only when it carries the Community Use path and every source it cites has a reviewed
-        # `publication_licenses` row that names Community Use.
-        cup_sources = all(source in cup_publications for source in entry["source_ids"])
-        if COMMUNITY_USE not in entry["license_refs"] or not entry["source_ids"] or not cup_sources:
-            issues.append(f"Missing OGL reference: {entry['id']}")
+    issues.extend(publication_license.entry_issues(entry, sources, cup_publications))
     displayed = [entry["title"], entry["body"], entry["fields"], entry.get("tags", [])]
     text = "\n".join(strings(displayed))
     matches = sorted(set(named_material.findall(text)))

@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from "./fixtures";
-import { installLibrary, waitControlled, waitReady, afterRouteFrame } from "./helpers";
+import { installLibrary, storedMeta, waitControlled, waitReady, afterRouteFrame } from "./helpers";
 
 // The header Install button and the Settings install option. Real browsers fire
 // `beforeinstallprompt` on their own terms, so these tests dispatch a fake one that has the same
@@ -105,6 +105,12 @@ test("The header button lasts five launches, and Settings keeps offering install
   await firePromptEarly(context);
   await installLibrary(page);
   expect(await launches(page)).toBe("1");
+  // The first launch starts the automatic update check (#206), which records its answer when the
+  // manifest fetch settles. Leaving the page before that aborts the fetch, and WebKit reports an
+  // aborted same-origin fetch as the page error "... content/manifest.json due to access control
+  // checks." (#477). The app handles the fetch's rejection, so no app code can hide that report.
+  // With the record stored, the daily limit means no later page in this test fetches the manifest.
+  await expect.poll(() => storedMeta(page, "update_check")).not.toBeNull();
 
   // A reload is the same session, so it does not count again.
   await page.reload();
