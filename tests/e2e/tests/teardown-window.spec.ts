@@ -61,3 +61,23 @@ test("After the commit a later failure of the same request does not reopen the w
   window.fail(nav);
   expect(window.navigating).toBeNull();
 });
+
+test("A same-document change of the old page leaves the window open until a new document commits", () => {
+  const window = new TeardownWindow();
+  const nav = request("nav");
+  window.begin(nav, "http://127.0.0.1/cast-iron/#/a");
+  window.navigated({});
+  expect(window.navigating).toBe("http://127.0.0.1/cast-iron/#/a");
+  window.navigated({ newDocument: {} });
+  expect(window.navigating).toBeNull();
+});
+
+test("A navigated event that carries an error does not close the window; the failed request does", () => {
+  const window = new TeardownWindow();
+  const nav = request("nav");
+  window.begin(nav, "http://127.0.0.1/cast-iron/");
+  window.navigated({ newDocument: {}, error: "aborted" });
+  expect(window.navigating).toBe("http://127.0.0.1/cast-iron/");
+  window.fail(nav);
+  expect(window.navigating).toBeNull();
+});

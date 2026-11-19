@@ -4,8 +4,10 @@
  * WebKit raises that error while it tears down a document that a service worker controls
  * (docs/decisions/2026-11-17-webkit-context-stopped-at-teardown.md). In every recorded timeline it
  * arrives after the main frame's navigation request starts and before the new document commits
- * (`framenavigated`). So the window opens with a main-frame navigation request and closes at the
- * commit or at the failure of the request that is being tracked. The message does not say which
+ * of a new document. So the window opens with a main-frame navigation request and closes at that
+ * commit or at the failure of the request that is being tracked. A same-document change of the old
+ * page (`pushState`, `replaceState`, a hash change) also fires `framenavigated`, but it is not a
+ * commit: the old document is still there, so it leaves the window open. The message does not say which
  * document it came from, so nothing outside the window is tolerated: not the replacement
  * document's own start-up, and not a page that survived a failed navigation.
  *
@@ -26,6 +28,15 @@ export class TeardownWindow {
   /** The main frame committed a document: the old document is gone, so the window closes. */
   commit() {
     this.tracked = null;
+  }
+
+  /**
+   * The main frame navigated. Only a new document closes the window. Playwright's `navigated` event
+   * of a frame carries `newDocument` for a commit (also for a failed one, with `error`) and not for
+   * a same-document URL change; the public `framenavigated` event does not tell them apart.
+   */
+  navigated(event: { newDocument?: unknown; error?: string }) {
+    if (event.newDocument && !event.error) this.commit();
   }
 
   /** A request failed or was cancelled. Only the tracked request closes the window: an older request that a newer one superseded must not. */
