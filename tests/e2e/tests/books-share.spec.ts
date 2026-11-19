@@ -825,6 +825,27 @@ installedTest("A save that finishes late closes only the review it answered", as
   await expect(field).toHaveValue("");
 });
 
+installedTest("A save that finishes late keeps a code the reader pasted and has not reviewed", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+  const field = page.getByLabel("Enter a code", { exact: true });
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await expect(question).toBeVisible();
+  const hold = await holdWrites(page);
+  await use.click();
+  await hold.held(1);
+  // B is pasted, not submitted.
+  const other = codeFor(more);
+  await field.fill(other);
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await afterQueuedWrites(page);
+  await expect(question).toHaveCount(0);
+  await expect(field).toHaveValue(other);
+});
+
 installedTest("A save that fails late reports nothing next to another review's question", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
@@ -925,6 +946,50 @@ installedTest("A save that finishes under Quick search rewrites no entry but the
   await expect(quickSearch(page)).toBeHidden();
   await expect(question).toHaveCount(0);
   await expect(page).toHaveURL(/#\/books\/manage$/);
+});
+
+installedTest("Forward into the entry Quick search left behind does not reopen an answered link", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+
+  // Cancelled: the entry that Quick search left forward of the link still has the old address.
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await expect(question).toBeVisible();
+  await openQuickSearch(page);
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(question).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await page.goBack();
+  await page.goForward();
+  await expect(question).toHaveCount(0);
+
+  // A link opened again from outside is a new link and asks.
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await expect(question).toBeVisible();
+
+  // Applied: the same entry path, after the save.
+  await openQuickSearch(page);
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await use.click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(question).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(applied(page, "Paizo Everything")).toBeVisible();
 });
 
 installedTest("Cancel leaves the books alone and drops the code from the address", async ({ page }) => {

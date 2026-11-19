@@ -899,6 +899,14 @@ pub fn replace_url_keeping_state(history: &web_sys::History, url: &str) {
 const SCROLL_ID_FIELD: &str = "scrollId";
 /// The field that marks the history entry that Quick search pushed.
 pub const QUICK_SEARCH_FIELD: &str = "quickSearch";
+/// The field that marks the history entry that holds a share link (#504): a number drawn once
+/// for the entry (see [`mark_current_entry`]). Only that entry has it.
+pub const SHARE_LINK_FIELD: &str = "shareLink";
+/// The field of an entry that Quick search pushed over a share link's entry: the link entry's
+/// mark. The layer keeps the link's address, so Forward into it after the question was answered
+/// must not read that address as a new link. It is a separate field, so a task that finds
+/// [`SHARE_LINK_FIELD`] on the entry on screen still knows that entry is the link's own.
+pub const SHARE_LINK_LAYER_FIELD: &str = "shareLinkLayer";
 /// How many history entries keep a scroll offset in memory.
 const SCROLL_MEMORY_LIMIT: usize = 100;
 
@@ -965,7 +973,8 @@ pub fn mark_current_entry(field: &str) -> u32 {
 /// the scroll id of the page, so Back to it restores the same offset, and nothing else: every
 /// other field of the page's entry (a share link's mark, how Manage books was opened) says
 /// something about that one entry, and a copy on this one would let a task that finishes later
-/// take the new entry for the old one. Returns false when the browser refuses the push.
+/// take the new entry for the old one. The one thing it records about a share link's mark is
+/// [`SHARE_LINK_LAYER_FIELD`], under another name. Returns false when the browser refuses the push.
 pub fn push_flagged_entry(field: &str) -> bool {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return false;
@@ -975,6 +984,10 @@ pub fn push_flagged_entry(field: &str) -> bool {
         state = state_with(&state, SCROLL_ID_FIELD, &id);
     }
     let state = state_with(&state, field, &wasm_bindgen::JsValue::TRUE);
+    let state = match current_entry_mark(SHARE_LINK_FIELD) {
+        Some(mark) => state_with(&state, SHARE_LINK_LAYER_FIELD, &f64::from(mark).into()),
+        None => state,
+    };
     history.push_state_with_url(&state, "", None).is_ok()
 }
 

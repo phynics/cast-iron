@@ -17,8 +17,9 @@ use crate::views::active_books::{Recent, focus_and_reveal_after_frame, live_rece
 use crate::views::icons;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use std::sync::Arc;
+use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 /// The id of the confirmation heading. Focus moves there when a question appears.
 const CONFIRM_HEADING: &str = "share-confirm-heading";
@@ -30,7 +31,7 @@ const CONFIRM_HEADING: &str = "share-confirm-heading";
 /// state. An entry that another page pushes on top of it (Quick search) does not copy it, so a
 /// task that finishes later and finds the mark on the entry on screen knows that entry is the one
 /// it began on.
-const LINK_ENTRY: &str = "shareLink";
+const LINK_ENTRY: &str = route::SHARE_LINK_FIELD;
 
 #[derive(Clone)]
 struct Panel {
@@ -63,6 +64,14 @@ struct Panel {
     /// search's, say), so its address still holds the code. It is taken out when the reader is
     /// back on that entry. Zero when there is none.
     settled: Arc<AtomicU32>,
+    /// The marks of the link entries whose link was answered (cancelled, applied or failed). The
+    /// entry that Quick search leaves behind over such an entry keeps the link's address; going
+    /// Forward into it is no new link.
+    handled: Arc<Mutex<HashSet<u32>>>,
+    /// The text that the current review read from the `Enter a code` field (empty for a link).
+    /// Ending that review clears the field only while it still holds this text: a code that the
+    /// reader pasted meanwhile and has not yet reviewed is theirs.
+    reviewed: Arc<Mutex<String>>,
     /// False once the view is gone. A write that finishes after that has no screen to update.
     alive: Arc<AtomicBool>,
 }
@@ -98,6 +107,11 @@ impl Panel {
             0
         };
         self.link_entry.store(mark, Ordering::Relaxed);
+        *self.reviewed.lock().unwrap() = if from_link {
+            String::new()
+        } else {
+            text.to_string()
+        };
         match book_code::decode(text) {
             Ok(shared) => {
                 self.problem.set(None);
@@ -114,6 +128,13 @@ impl Panel {
                 }
             }
         }
+    }
+
+    /// Whether the entry on screen is a layer that Quick search pushed over a link entry whose
+    /// link has been answered.
+    fn is_handled_layer(&self) -> bool {
+        route::current_entry_mark(route::SHARE_LINK_LAYER_FIELD)
+            .is_some_and(|mark| self.handled.lock().unwrap().contains(&mark))
     }
 
     /// The reader moved to another history entry, by Back or Forward: the question and the error
@@ -163,9 +184,15 @@ impl Panel {
     /// another entry on top (Quick search), that one is not rewritten, and the link's own is
     /// rewritten when the reader comes back to it.
     fn finish(&self, asked_on: Option<u32>) {
-        self.link_entry.store(0, Ordering::Relaxed);
+        let own = self.link_entry.swap(0, Ordering::Relaxed);
+        {
+            let mut handled = self.handled.lock().unwrap();
+            handled.extend(asked_on.into_iter().chain((own != 0).then_some(own)));
+        }
         self.pending.set(None);
-        self.entered.set(String::new());
+        if self.entered.get_untracked() == *self.reviewed.lock().unwrap() {
+            self.entered.set(String::new());
+        }
         if !address_holds_link() {
             return;
         }
@@ -328,6 +355,8 @@ pub fn ShareSet() -> impl IntoView {
         review_no: Arc::new(AtomicU64::new(0)),
         link_entry: Arc::new(AtomicU32::new(0)),
         settled: Arc::new(AtomicU32::new(0)),
+        handled: Arc::new(Mutex::new(HashSet::new())),
+        reviewed: Arc::new(Mutex::new(String::new())),
         alive: Arc::new(AtomicBool::new(true)),
     };
     let alive = panel.alive.clone();
@@ -338,6 +367,11 @@ pub fn ShareSet() -> impl IntoView {
     let linked = panel.clone();
     Effect::new(move |_| match route.get() {
         Route::BooksSet(code) => {
+            // The entry that Quick search left over an answered link keeps the link's address.
+            if linked.is_handled_layer() {
+                replace(&Route::BooksManage);
+                return;
+            }
             linked.entered.set(String::new());
             linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
