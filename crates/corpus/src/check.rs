@@ -532,7 +532,7 @@ fn check_publication_aon(corpus: &Corpus, report: &mut Report) {
 
 /// Every `resolved` row of `exclusions.toml` names entries that exist: a superseded exclusion
 /// must point at the records that now ship. (The reader has already refused a row with no
-/// earlier `excluded` row, a repeated row, and an empty one.)
+/// earlier `excluded` or `rejected` row, a repeated row, and an empty one.)
 fn check_resolved_exclusions(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mut Report) {
     if corpus.exclusions.resolved.is_empty() {
         return;

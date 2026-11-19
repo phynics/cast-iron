@@ -116,14 +116,15 @@ pub fn build_with_slots(
         book_slots::assign(&listed, &mut sources).map_err(|lines| Failure { lines })?;
     }
 
-    // A `resolved` row supersedes its earlier `excluded` row: the record ships, so the report
-    // does not list its path as excluded.
+    // A `resolved` row supersedes its earlier `excluded` or `rejected` row: the record ships, so
+    // the report lists its path as neither.
     let active_excluded = corpus.exclusions.active_excluded();
+    let active_rejected = corpus.exclusions.active_rejected();
     let coverage = corpus_coverage::derive(
         &entries,
         &sources,
         &active_excluded,
-        &corpus.exclusions.rejected,
+        &active_rejected,
         history,
     )
     .map_err(failure)?;
@@ -170,7 +171,7 @@ pub fn build_with_slots(
         entries.len(),
         corpus.publications.len(),
         active_excluded.len(),
-        corpus.exclusions.rejected.len(),
+        active_rejected.len(),
     )];
     let mut books = corpus.book_index();
     cast_iron_schema::books::mark_listed_children(&mut books, &entries);

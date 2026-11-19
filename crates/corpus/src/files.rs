@@ -257,9 +257,10 @@ pub fn read_legal(path: &Path, text: &str) -> Result<LegalNotices> {
 
 /// `exclusions.toml`: what the import left out and why. Rows are only appended.
 ///
-/// A row is never edited, so a later change that ships an excluded record appends a
+/// A row is never edited, so a later change that ships an excluded or rejected record appends a
 /// [`Resolution`] instead. The newest word on a path wins: the coverage report lists a resolved
-/// path as included, not excluded ([`Exclusions::active_excluded`]).
+/// path as included, not as excluded ([`Exclusions::active_excluded`]) or rejected
+/// ([`Exclusions::active_rejected`]).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Exclusions {
@@ -269,18 +270,20 @@ pub struct Exclusions {
     /// Records selected but dropped, with the reason.
     #[serde(default)]
     pub rejected: Vec<Rejection>,
-    /// Later rows that supersede an earlier `excluded` row because the record now ships. Absent
+    /// Later rows that supersede an earlier `excluded` or `rejected` row because the record now
+    /// ships. Absent
     /// from files that have none, so an older file writes back unchanged.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub resolved: Vec<Resolution>,
 }
 
-/// A superseding row: the upstream `path` of an earlier `excluded` row is no longer excluded,
-/// because the corpus now holds the record as the entries in `entries`.
+/// A superseding row: the upstream `path` of an earlier `excluded` or `rejected` row is no longer
+/// left out, because the corpus now holds the record as the entries in `entries`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Resolution {
-    /// The upstream path of the earlier `excluded` row. Matches it exactly.
+    /// The upstream path of the earlier `excluded` or `rejected` row. Matches it exactly; it
+    /// supersedes every row of either kind with that path.
     pub path: String,
     /// Entry ids that now hold the record. At least one; `corpus-check` verifies each exists.
     pub entries: Vec<String>,
@@ -295,6 +298,18 @@ impl Exclusions {
         let resolved: std::collections::BTreeSet<&str> =
             self.resolved.iter().map(|row| row.path.as_str()).collect();
         self.excluded
+            .iter()
+            .filter(|row| !resolved.contains(row.path.as_str()))
+            .cloned()
+            .collect()
+    }
+
+    /// The `rejected` rows whose path no `resolved` row supersedes, in file order. This is what
+    /// the coverage report lists as rejected. With no `resolved` row it equals `rejected`.
+    pub fn active_rejected(&self) -> Vec<Rejection> {
+        let resolved: std::collections::BTreeSet<&str> =
+            self.resolved.iter().map(|row| row.path.as_str()).collect();
+        self.rejected
             .iter()
             .filter(|row| !resolved.contains(row.path.as_str()))
             .cloned()
@@ -334,14 +349,15 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             ));
         }
     }
-    let excluded: std::collections::BTreeSet<&str> = exclusions
+    let superseded: std::collections::BTreeSet<&str> = exclusions
         .excluded
         .iter()
         .map(|row| row.path.as_str())
+        .chain(exclusions.rejected.iter().map(|row| row.path.as_str()))
         .collect();
     let mut resolved = std::collections::BTreeSet::new();
     for row in &exclusions.resolved {
-        // The last line with the path: the earlier `excluded` row holds it first.
+        // The last line with the path: the earlier `excluded` or `rejected` row holds it first.
         let needle = crate::tomlutil::string(&row.path);
         let at = text
             .lines()
@@ -349,12 +365,12 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             .filter(|(_, line)| line.contains(&needle))
             .last()
             .map_or(1, |(index, _)| index + 1);
-        if !excluded.contains(row.path.as_str()) {
+        if !superseded.contains(row.path.as_str()) {
             return Err(Error::new(
                 path,
                 at,
                 format!(
-                    "resolved row for {:?} supersedes nothing: no earlier excluded row has that path",
+                    "resolved row for {:?} supersedes nothing: no earlier excluded or rejected row has that path",
                     row.path
                 ),
             ));
@@ -789,10 +805,34 @@ mod tests {
         let error = read_exclusions(path, orphan).unwrap_err();
         assert!(error.message.contains("supersedes nothing"), "{error}");
 
-        // A rejected row is not an excluded row.
-        let rejected =
-            format!("[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n\n{orphan}");
-        assert!(read_exclusions(path, &rejected).is_err());
+        // A row for another path than the rejected row's is still an orphan.
+        let other = format!("[[rejected]]\npath = \"json/b.json#y\"\nreason = \"r\"\n\n{orphan}");
+        let error = read_exclusions(path, &other).unwrap_err();
+        assert!(error.message.contains("supersedes nothing"), "{error}");
+    }
+
+    #[test]
+    fn a_resolved_row_supersedes_its_rejected_row() {
+        let path = Path::new("exclusions.toml");
+        let old = "[[rejected]]\npath = \"json/domains.json#x\"\nreason = \"converter\"\n\n[[rejected]]\npath = \"json/domains.json#y\"\nreason = \"converter\"\n\n[[excluded]]\npath = \"json/b.json#z\"\nrecords = 1\nreason = \"art\"\n";
+        let before = read_exclusions(path, old).unwrap();
+        assert_eq!(before.active_rejected(), before.rejected);
+        assert_eq!(before.active_excluded(), before.excluded);
+
+        let text = format!(
+            "{old}\n[[resolved]]\npath = \"json/domains.json#x\"\nentries = [\"ref/domain/x\"]\nreason = \"ships now. Refs #103.\"\n"
+        );
+        let after = read_exclusions(path, &text).unwrap();
+        // The old rows stay in the file; only the report's view changes.
+        assert_eq!(after.rejected, before.rejected);
+        let rejected = after.active_rejected();
+        assert_eq!(rejected.len(), 1);
+        assert_eq!(rejected[0].path, "json/domains.json#y");
+        assert_eq!(after.active_excluded(), before.excluded);
+        assert_eq!(
+            read_exclusions(path, &write_exclusions(&after)).unwrap(),
+            after
+        );
     }
 
     #[test]
@@ -807,6 +847,12 @@ mod tests {
         assert!(read_exclusions(path, &format!("{base}{no_entries}")).is_err());
         let no_reason = row.replace("ships", " ");
         assert!(read_exclusions(path, &format!("{base}{no_reason}")).is_err());
+
+        // The same holds when the earlier row is a rejected row.
+        let rejected = "[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n\n";
+        assert!(read_exclusions(path, &format!("{rejected}{row}")).is_ok());
+        let error = read_exclusions(path, &format!("{rejected}{row}{row}")).unwrap_err();
+        assert!(error.message.contains("duplicate resolved"), "{error}");
     }
 
     #[test]

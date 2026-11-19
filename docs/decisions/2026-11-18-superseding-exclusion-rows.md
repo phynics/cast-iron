@@ -1,8 +1,8 @@
 ---
 title: "Superseding exclusion rows"
 date: 2026-11-18
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-19-resolved-rows-supersede-rejected-rows"]
 issues: [36]
 prs: []
 area: corpus

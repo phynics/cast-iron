@@ -345,6 +345,37 @@ fn a_resolved_exclusion_leaves_the_coverage_report_and_an_orphan_stops_the_build
     );
 }
 
+#[test]
+fn a_resolved_row_moves_a_rejected_record_out_of_the_coverage_report() {
+    let corpus = temp("resolved-rejected-corpus");
+    write_corpus(&corpus);
+    let file = corpus.join("exclusions.toml");
+    // The writer emits an empty `rejected = []`, which a `[[rejected]]` table cannot follow.
+    let before = fs::read_to_string(&file)
+        .unwrap()
+        .replace("rejected = []\n", "");
+    let rejected = "\n[[rejected]]\npath = \"json/domains.json#sun\"\nreason = \"converter could not read it\"\n";
+    fs::write(&file, format!("{before}{rejected}")).unwrap();
+    let compile = |name: &str| {
+        let reports = temp(&format!("{name}-reports"));
+        compile_corpus(
+            &corpus,
+            &temp(&format!("{name}-out")),
+            &reports,
+            None,
+            Some("v0.1.6"),
+        )
+        .map(|_| fs::read_to_string(reports.join("coverage.md")).unwrap())
+    };
+    let listed = compile("was-rejected").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(listed.contains("json/domains.json#sun"), "{listed}");
+
+    let row = "\n[[resolved]]\npath = \"json/domains.json#sun\"\nentries = [\"ref/rule/combat\"]\nreason = \"ships now. Refs #103.\"\n";
+    fs::write(&file, format!("{before}{rejected}{row}")).unwrap();
+    let after = compile("now-resolved").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(!after.contains("json/domains.json#sun"), "{after}");
+}
+
 fn typed_entry(
     id: &str,
     kind: EntryKind,

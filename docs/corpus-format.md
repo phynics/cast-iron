@@ -557,8 +557,8 @@ what is absent. Rows are only appended: a pull request that edits or removes a
 row is wrong, and a duplicate `path` plus `reason` is a read error. The file may
 be empty.
 
-When a later change ships a record that an earlier `excluded` row left out, do not edit that row.
-Append a `resolved` row after the `rejected` rows:
+When a later change ships a record that an earlier `excluded` or `rejected` row left out, do not
+edit that row. Append a `resolved` row after the `rejected` rows:
 
 ```toml
 [[resolved]]
@@ -567,11 +567,12 @@ entries = ["ref/spell/breeze"]
 reason = "Ships from the Ultimate Cantrips blog post. Refs #36."
 ```
 
-`path` is the exact `path` of an earlier `excluded` row. `entries` lists the entry ids that now
+`path` is the exact `path` of an earlier `excluded` or `rejected` row. `entries` lists the entry ids that now
 hold the record (at least one; each must exist), and `reason` says why the exclusion no longer
 applies and cites the issue. The newest word on a path wins: the coverage report leaves a
-resolved path out of `excluded`, and the old row stays in the file as history. A `resolved` row
-supersedes only `excluded` rows, never a `rejected` row. The key is optional and additive: a file
+resolved path out of both `excluded` and `rejected` and counts the record as shipped, and the old
+row stays in the file as history. A `resolved` row supersedes every `excluded` and `rejected` row
+with its `path`; a path that has neither is an orphan. The key is optional and additive: a file
 with no `resolved` row reads and writes back byte for byte as before, and the corpus format does
 not change. A path is resolved once; to exclude it again, add an `excluded` row under a new path
 and say why in a decision.
@@ -915,7 +916,7 @@ file and line, when:
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;
 - `exclusions.toml` repeats a row, repeats a `resolved` path, has a `resolved` row for a path no
-  earlier `excluded` row names (an orphan), leaves `entries` or `reason` empty, or names an entry
+  earlier `excluded` or `rejected` row names (an orphan), leaves `entries` or `reason` empty, or names an entry
   that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
