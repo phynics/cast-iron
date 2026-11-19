@@ -1953,6 +1953,108 @@ mark {
   text-indent: -1.2em;
 }
 
+/* Notes (#507): an entry's footnotes, as one quiet group after the rules text. Smaller type, the
+   muted ink and a hairline rule keep them from reading as rules. rem units follow Dynamic Type. */
+.rich > .notes {
+  max-width: var(--measure);
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  line-height: 1.5;
+}
+
+.rich .notes .notes-title {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  border: 0;
+  font-family: var(--font-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.note {
+  display: grid;
+  grid-template-columns: 1.75rem minmax(0, 1fr);
+  column-gap: var(--space-2);
+  scroll-margin-top: calc(var(--header-h) + var(--space-3));
+}
+
+.note-label {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+}
+
+.note-body p {
+  margin: 0;
+}
+
+.note-body p + p {
+  margin-top: var(--space-2);
+}
+
+.note-body .xref {
+  color: inherit;
+}
+
+/* The way back sits at the end of the note's text. Its hit area reaches 44 px through ::after,
+   so a note stays compact. */
+.note-back {
+  position: relative;
+  display: inline-block;
+  width: 1.5rem;
+  margin-left: var(--space-1);
+  text-align: center;
+  vertical-align: -0.1em;
+  color: var(--ink-muted);
+}
+
+.note-back::after {
+  content: "";
+  position: absolute;
+  inset: -0.85rem 0;
+}
+
+.note-back:hover {
+  color: var(--accent);
+}
+
+.fn-ref {
+  font-size: 0.75em;
+  line-height: 0;
+  font-weight: 600;
+  scroll-margin-top: calc(var(--header-h) + var(--space-5));
+}
+
+.fn-ref > a,
+.fn-ref .xref {
+  color: var(--accent);
+  text-decoration: none;
+  padding-inline: 0.15em;
+  position: relative;
+}
+
+.fn-ref > a::after,
+.fn-ref .xref::after {
+  content: "";
+  position: absolute;
+  inset: -0.9em -0.35em;
+}
+
 .entry-links {
   list-style: none;
   padding: 0;
