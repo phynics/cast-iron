@@ -498,14 +498,40 @@ impl Library {
     /// the state at that moment (`true` for an active book) and returns the change to make. A
     /// preset must use this: a plan made from the screen's state before a second tap's earlier
     /// write landed would keep a stray book active. Returns the change that was applied, which is
-    /// what Undo reverses.
-    pub async fn apply_active_plan<F>(&self, plan: F) -> Result<Change, LibraryError>
+    /// what Undo reverses, and the selection revision that followed it.
+    pub async fn apply_active_plan<F>(&self, plan: F) -> Result<Planned, LibraryError>
     where
         F: FnOnce(&dyn Fn(&str) -> bool) -> Change,
     {
-        // A write that arrives while another is saving waits its turn, so no control has to
-        // disable itself (which would drop keyboard focus) and two quick toggles both land. The
-        // new set is computed only after the earlier write has finished.
+        let _slot = self.wait_for_write_slot().await;
+        self.write_plan(plan).await
+    }
+
+    /// Like [`Self::apply_active_plan`], but only while the selection is still at `revision`:
+    /// the check runs once this write owns the slot, after every earlier write has landed. Undo
+    /// uses it, bound to the revision that its change produced, so an Undo that was clicked
+    /// while another change was saving does nothing once that change has landed: it would
+    /// otherwise put back books that the newer change had chosen on purpose. Returns `None`
+    /// when the selection had moved on, and writes nothing.
+    pub async fn apply_active_plan_at<F>(
+        &self,
+        revision: u64,
+        plan: F,
+    ) -> Result<Option<Planned>, LibraryError>
+    where
+        F: FnOnce(&dyn Fn(&str) -> bool) -> Change,
+    {
+        let _slot = self.wait_for_write_slot().await;
+        if self.0.selection_revision.get_untracked() != revision {
+            return Ok(None);
+        }
+        self.write_plan(plan).await.map(Some)
+    }
+
+    /// Waits for the write slot. A write that arrives while another is saving waits its turn, so
+    /// no control has to disable itself (which would drop keyboard focus) and two quick toggles
+    /// both land. The new set is computed only after the earlier write has finished.
+    async fn wait_for_write_slot(&self) -> WriteSlot<'_> {
         loop {
             {
                 let mut busy = self.0.selection_write_in_flight.borrow_mut();
@@ -516,25 +542,28 @@ impl Library {
             }
             crate::js::sleep(5).await;
         }
-        struct Reset<'a>(&'a RefCell<bool>);
-        impl Drop for Reset<'_> {
-            fn drop(&mut self) {
-                *self.0.borrow_mut() = false;
-            }
-        }
-        let _reset = Reset(&self.0.selection_write_in_flight);
+        WriteSlot(&self.0.selection_write_in_flight)
+    }
+
+    /// Plans and writes one change. The caller holds the write slot.
+    async fn write_plan<F>(&self, plan: F) -> Result<Planned, LibraryError>
+    where
+        F: FnOnce(&dyn Fn(&str) -> bool) -> Change,
+    {
         let (change, next) = commit_plan(&self.0.disabled_books.borrow(), plan);
-        if next == *self.0.disabled_books.borrow() {
-            return Ok(change);
+        if next != *self.0.disabled_books.borrow() {
+            store::set_disabled_books(&next)
+                .await
+                .map_err(|e| LibraryError::Storage(e.to_string()))?;
+            *self.0.disabled_books.borrow_mut() = next;
+            self.0
+                .selection_revision
+                .update(|revision| *revision = revision.wrapping_add(1));
         }
-        store::set_disabled_books(&next)
-            .await
-            .map_err(|e| LibraryError::Storage(e.to_string()))?;
-        *self.0.disabled_books.borrow_mut() = next;
-        self.0
-            .selection_revision
-            .update(|revision| *revision = revision.wrapping_add(1));
-        Ok(change)
+        Ok(Planned {
+            change,
+            revision: self.0.selection_revision.get_untracked(),
+        })
     }
 
     /// The eligibility snapshot for the current active-book selection. Every call at the same
@@ -938,6 +967,26 @@ fn canonical_target_in(catalog: &Catalog, aliases: &AliasIndex, stored: &EntryId
     match resolve_in(catalog, aliases, stored) {
         Resolution::Aliased { canonical, .. } => canonical,
         _ => stored.clone(),
+    }
+}
+
+/// What a selection write did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Planned {
+    /// The books that the write turned on and off. It is empty when the set already matched, and
+    /// then nothing was written.
+    pub change: Change,
+    /// The selection revision after the write: the one a change reads back as its own. Undo binds
+    /// to it, and it stops describing the set as soon as any later change succeeds.
+    pub revision: u64,
+}
+
+/// Holds the write slot of the selection, and frees it when dropped, however the write ends.
+struct WriteSlot<'a>(&'a RefCell<bool>);
+
+impl Drop for WriteSlot<'_> {
+    fn drop(&mut self) {
+        *self.0.borrow_mut() = false;
     }
 }
 

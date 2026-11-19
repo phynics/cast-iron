@@ -8,7 +8,7 @@ use crate::library::{Library, LibraryError, use_library};
 use crate::revisions::EffectiveRevisions;
 use crate::route::{Route, navigate, replace};
 use crate::views::active_books::{
-    MANAGE_LINK_ID, focus_after_frame, note_opened_from_books, take_link_focus,
+    MANAGE_LINK_ID, focus_after_frame, open_from_books, take_link_focus,
 };
 use crate::views::book_series::{
     NamedGroup, SeasonGroup, SeriesFields, adventure_sections, display_title,
@@ -22,7 +22,6 @@ use crate::views::filter_menu::{
 use crate::views::icons;
 use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
-use crate::views::share_set::ShareSet;
 use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
@@ -966,12 +965,11 @@ pub fn Books(
             <p class="muted books-count" aria-live="polite">{count_line}</p>
             <div class="filter-row">
                 <a class="page-link" id=MANAGE_LINK_ID href=Route::BooksManage.href()
-                    on:click=|_| note_opened_from_books()>
+                    on:click=open_from_books>
                     <span>"Manage books"</span>
                     {icons::chevron_right_large()}
                 </a>
             </div>
-            <ShareSet />
             {groups}
         </div>
     }

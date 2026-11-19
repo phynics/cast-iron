@@ -231,7 +231,7 @@ fn check(values: &[u8]) -> u8 {
 // ---- reading --------------------------------------------------------------------------------
 
 /// Reads a code. It accepts any case, groups, spaces, the Crockford look-alikes, and a pasted
-/// share link (`…#/books?set=CODE`).
+/// share link (`…#/books/manage?set=CODE`, or `…#/books?set=CODE` from before the section moved).
 pub fn decode(text: &str) -> Result<Shared, CodeError> {
     let values = normalize(text)?;
     if values.len() < 3 {

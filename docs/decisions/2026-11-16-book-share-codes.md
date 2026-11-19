@@ -1,8 +1,8 @@
 ---
 title: "Book share codes"
 date: 2026-11-16
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-19-share-section-lives-on-manage-books"]
 issues: [408]
 prs: [410]
 area: ui

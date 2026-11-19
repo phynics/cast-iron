@@ -59,9 +59,11 @@ pub enum Route {
     /// Manage books: the presets and one checkbox per book. It is a route, so a reload and
     /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
     BooksManage,
-    /// A shared book set (#408): `#/books?set=<code>`. The page is Books, which asks before it
-    /// changes anything; the route only carries the code. The text is the code as written, so a
-    /// typo is the page's to report, not the router's.
+    /// A shared book set (#408): `#/books/manage?set=<code>`. The page is Manage books, which
+    /// asks before it changes anything; the route only carries the code. The text is the code as
+    /// written, so a typo is the page's to report, not the router's. Links made while the section
+    /// sat on Books (`#/books?set=<code>`) still parse to this route, and the router rewrites
+    /// their address to the canonical one.
     BooksSet(String),
     /// An old address of a book that the corpus deleted and that has no replacement (a blog
     /// post, a comic issue). The page is Books with a plain line on top that says so, and the
@@ -265,14 +267,15 @@ impl Route {
                 }
                 _ => not_found(),
             },
-            // `active` is the old address of the page; both parse to the same route.
-            ["books", "manage"] | ["books", "active"] => Route::BooksManage,
+            // `active` is the old address of the page; both parse to the same route. A `set`
+            // query is a shared book set (#408): the canonical address is under `manage`, and
+            // `#/books?set=` (where the link pointed first) means the same.
+            ["books", "manage"] | ["books", "active"] => match shared_set(query) {
+                Some(code) if segments == ["books", "manage"] => Route::BooksSet(code),
+                _ => Route::BooksManage,
+            },
             // There is one order. A link from when Books had sort options opens the list.
-            ["books"] | ["browse", "books"] => match query
-                .and_then(|q| query_pairs(q).find(|(key, _)| key == "set"))
-                .map(|(_, code)| code)
-                .filter(|code| !code.trim().is_empty())
-            {
+            ["books"] | ["browse", "books"] => match shared_set(query) {
                 Some(code) if segments == ["books"] => Route::BooksSet(code),
                 _ => Route::Books,
             },
@@ -416,7 +419,7 @@ impl Route {
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
             Route::Books => "#/books".into(),
             Route::BooksManage => "#/books/manage".into(),
-            Route::BooksSet(code) => format!("#/books?set={}", percent_encode(code)),
+            Route::BooksSet(code) => format!("#/books/manage?set={}", percent_encode(code)),
             Route::BookRemoved(source) => format!("#/browse/book/{}", percent_encode(source)),
             Route::Book { source, chapter } => match chapter {
                 Some(path) if !path.is_empty() => format!(
@@ -666,6 +669,14 @@ fn legacy_school(value: &str) -> String {
     }
 }
 
+/// The code of a share link (`set=<code>`), unless it is empty.
+fn shared_set(query: Option<&str>) -> Option<String> {
+    query
+        .and_then(|q| query_pairs(q).find(|(key, _)| key == "set"))
+        .map(|(_, code)| code)
+        .filter(|code| !code.trim().is_empty())
+}
+
 /// Decoded `key=value` pairs. Pairs with undecodable escapes are skipped.
 fn query_pairs(query: &str) -> impl Iterator<Item = (String, String)> + '_ {
     query
@@ -750,8 +761,9 @@ fn read_location_route() -> Route {
         || hash.starts_with("#/browse/books")
         // The page that manages books used to live at `#/books/active`.
         || hash.starts_with("#/books/active")
-        // Books had sort links; the one order is the list, and the address says so.
-        || (hash.starts_with("#/books?") && !matches!(route, Route::BooksSet(_)));
+        // Books had sort links; the one order is the list, and the address says so. A share link
+        // from when the section sat on Books opens Manage books, and the address says so.
+        || hash.starts_with("#/books?");
     if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
         replace_url_keeping_state(&history, &route.href());
     }
@@ -809,11 +821,28 @@ pub fn navigate(route: &Route) {
 /// pushed. Copying them (as [`push_flagged_entry`] does for the page that is on screen) would
 /// give two entries one scroll offset and mark this one as a Quick search entry.
 pub fn push(route: &Route) {
+    push_with_state(route, &wasm_bindgen::JsValue::NULL);
+}
+
+/// [`push`], with `field` set to true in the new entry's history state. The flag says how the
+/// reader came to this one entry; it is on the entry the moment it exists, so a click that
+/// pushes nothing (one that asks for another tab) sets nothing, and no later page can read a
+/// request that this entry never made.
+pub fn push_flagged(route: &Route, field: &str) {
+    let state = state_with(
+        &wasm_bindgen::JsValue::NULL,
+        field,
+        &wasm_bindgen::JsValue::TRUE,
+    );
+    push_with_state(route, &state);
+}
+
+fn push_with_state(route: &Route, state: &wasm_bindgen::JsValue) {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return;
     };
     if history
-        .push_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()))
+        .push_state_with_url(state, "", Some(&route.href()))
         .is_err()
     {
         navigate(route);
@@ -870,6 +899,14 @@ pub fn replace_url_keeping_state(history: &web_sys::History, url: &str) {
 const SCROLL_ID_FIELD: &str = "scrollId";
 /// The field that marks the history entry that Quick search pushed.
 pub const QUICK_SEARCH_FIELD: &str = "quickSearch";
+/// The field that marks the history entry that holds a share link (#504): a number drawn once
+/// for the entry (see [`mark_current_entry`]). Only that entry has it.
+pub const SHARE_LINK_FIELD: &str = "shareLink";
+/// The field of an entry that Quick search pushed over a share link's entry: the link entry's
+/// mark. The layer keeps the link's address, so Forward into it after the question was answered
+/// must not read that address as a new link. It is a separate field, so a task that finds
+/// [`SHARE_LINK_FIELD`] on the entry on screen still knows that entry is the link's own.
+pub const SHARE_LINK_LAYER_FIELD: &str = "shareLinkLayer";
 /// How many history entries keep a scroll offset in memory.
 const SCROLL_MEMORY_LIMIT: usize = 100;
 
@@ -909,14 +946,48 @@ pub fn current_entry_has_flag(field: &str) -> bool {
     state_field(&current_state(), field).is_some_and(|value| value.is_truthy())
 }
 
+/// The mark that `field` holds on the current history entry, if the entry has one.
+pub fn current_entry_mark(field: &str) -> Option<u32> {
+    state_field(&current_state(), field)
+        .and_then(|value| value.as_f64())
+        .map(|value| value as u32)
+}
+
+/// Gives the current history entry a mark in `field`, or returns the one it already has. A mark
+/// tells two entries apart that have the same route, which the address cannot: Back from a share
+/// link lands on an entry whose address is the one the link was rewritten to. It lives in the
+/// entry's history state, so Back, Forward and a reload keep it, and it is never zero.
+pub fn mark_current_entry(field: &str) -> u32 {
+    if let Some(mark) = current_entry_mark(field) {
+        return mark;
+    }
+    let mark = (js_sys::Math::random() * f64::from(u32::MAX - 1)) as u32 + 1;
+    if let Some(history) = web_sys::window().and_then(|w| w.history().ok()) {
+        let state = state_with(&current_state(), field, &f64::from(mark).into());
+        let _ = history.replace_state(&state, "");
+    }
+    mark
+}
+
 /// Pushes a history entry for the page that is on screen, flagged with `field`. The entry keeps
-/// the scroll id of the page, so Back to it restores the same offset. Returns false when the
-/// browser refuses the push.
+/// the scroll id of the page, so Back to it restores the same offset, and nothing else: every
+/// other field of the page's entry (a share link's mark, how Manage books was opened) says
+/// something about that one entry, and a copy on this one would let a task that finishes later
+/// take the new entry for the old one. The one thing it records about a share link's mark is
+/// [`SHARE_LINK_LAYER_FIELD`], under another name. Returns false when the browser refuses the push.
 pub fn push_flagged_entry(field: &str) -> bool {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return false;
     };
-    let state = state_with(&current_state(), field, &wasm_bindgen::JsValue::TRUE);
+    let mut state = js_sys::Object::new();
+    if let Some(id) = state_field(&current_state(), SCROLL_ID_FIELD) {
+        state = state_with(&state, SCROLL_ID_FIELD, &id);
+    }
+    let state = state_with(&state, field, &wasm_bindgen::JsValue::TRUE);
+    let state = match current_entry_mark(SHARE_LINK_FIELD) {
+        Some(mark) => state_with(&state, SHARE_LINK_LAYER_FIELD, &f64::from(mark).into()),
+        None => state,
+    };
     history.push_state_with_url(&state, "", None).is_ok()
 }
 
@@ -1255,16 +1326,22 @@ mod tests {
         assert_eq!(Route::parse("#/books/active").href(), "#/books/manage");
         // The page takes no sort; a stray query does not change the route.
         assert_eq!(Route::parse("#/books/manage?sort=date"), Route::BooksManage);
-        // A share link opens Books with the code (#408); a sort link or an empty code is Books.
+        // A share link opens Manage books with the code (#408); a sort link or an empty code is
+        // Books or Manage books. A link made while the section sat on Books means the same.
         assert_eq!(
-            Route::parse("#/books?set=1ABC-DEF2"),
+            Route::parse("#/books/manage?set=1ABC-DEF2"),
             Route::BooksSet("1ABC-DEF2".into())
         );
         assert_eq!(
             Route::BooksSet("1ABC-DEF2".into()).href(),
-            "#/books?set=1ABC-DEF2"
+            "#/books/manage?set=1ABC-DEF2"
+        );
+        assert_eq!(
+            Route::parse("#/books?set=1ABC-DEF2"),
+            Route::BooksSet("1ABC-DEF2".into())
         );
         assert_eq!(Route::parse("#/books?set="), Route::Books);
+        assert_eq!(Route::parse("#/books/manage?set="), Route::BooksManage);
         assert_eq!(Route::parse("#/books?sort=date"), Route::Books);
         assert_eq!(
             Route::parse("#/books?sort=date&set=1ABC"),
