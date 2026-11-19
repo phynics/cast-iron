@@ -1,8 +1,8 @@
 ---
 title: "CI browser shards and early cache saves"
 date: 2026-11-05
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-19-webkit-ci-runs-in-four-shards"]
 issues: [87]
 prs: []
 area: process

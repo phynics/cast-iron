@@ -279,7 +279,7 @@ jobs:
           retention-days: 3
 
   e2e-webkit:
-    name: WebKit shard ${{ matrix.shard }}/3 (informational)
+    name: WebKit shard ${{ matrix.shard }}/4 (informational)
     needs: [site]
     runs-on: ubuntu-latest
     # WebKit remains informational until its service worker behavior is stable on
@@ -291,12 +291,17 @@ jobs:
     # system libraries, which removes the apt step that used to stall.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
-    # Longest normal successful shard: 7m16s.
-    timeout-minutes: 15
+    # The suite has grown to about 38 runner minutes of WebKit tests (run 44555076541:
+    # 2300 s over 372 tests, against 1800 s over 358 in run 44508434885), and WebKit runs
+    # the same tests 2 to 4 times slower than Chromium. Four shards keep each at about
+    # 11 minutes. The limit only cuts a hang: a cancelled shard makes the whole run
+    # `cancelled`, which scripts/promote-release.py refuses, so it keeps the Chromium
+    # jobs' 20 minutes.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -314,7 +319,7 @@ jobs:
         run: >-
           npm --prefix tests/e2e test --
           --project=webkit
-          --shard=${{ matrix.shard }}/3
+          --shard=${{ matrix.shard }}/4
           --reporter=list,github,blob
           --output=test-results/webkit-${{ matrix.shard }}
       - name: Upload the blob report
