@@ -823,14 +823,22 @@ installedTest("A save that finishes late closes only the review it answered", as
   await expect(countText(page)).toHaveText(activeLine(more.length));
   await expect(question).toHaveCount(0);
   await expect(field).toHaveValue("");
+});
 
-  // The same when A fails: its error belongs to A's review, not to B's question.
+installedTest("A save that fails late reports nothing next to another review's question", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+
+  // A fails after the reader opened another link on another entry: its error belongs to A's
+  // review, not to B's question.
   await openShare(page);
   const second = await holdWrites(page);
   await enterCode(page, codeFor(paizoBooks));
   await use.click();
   await second.held(1);
-  await page.goto(`#/books/manage?set=${codeFor(rulebooks)}`);
+  await page.goto(`#/books/manage?set=${codeFor(more)}`);
   await expect(question).toBeVisible();
   await expect(page).toHaveURL(/#\/books\/manage\?set=/);
   await second.release({ fail: true });
@@ -838,7 +846,7 @@ installedTest("A save that finishes late closes only the review it answered", as
   await expect(page.getByTestId("share-notice")).toHaveCount(0);
   await expect(question).toBeVisible();
   await expect(page).toHaveURL(/#\/books\/manage\?set=/);
-  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 
   // A failure of the review that is still on screen is reported, as before.
   const third = await holdWrites(page);
@@ -846,7 +854,7 @@ installedTest("A save that finishes late closes only the review it answered", as
   await third.held(1);
   await third.release({ fail: true });
   await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
-  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 });
 
 installedTest("A save that finishes under Quick search rewrites no entry but the link's own", async ({ page }) => {
