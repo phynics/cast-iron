@@ -7,9 +7,9 @@ use crate::config::SPLIT_BOOKS_FORMAT;
 use crate::drift::{Disagreement, find_drift, printed_replaces_alters};
 use crate::entry::entry_path;
 use crate::load::Corpus;
-use cast_iron_schema::headings::{keyed_headings, slugify};
+use cast_iron_schema::headings::{headings_in_order, keyed_headings, plain_text, slugify};
 use cast_iron_schema::{
-    Block, BookNode, BookTree, EntryId, EntryKind, Relation, RelationKind, RelationLabel,
+    Block, BookNode, BookTree, EntryId, EntryKind, Inline, Relation, RelationKind, RelationLabel,
     RuleEntry, TypedFields,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -153,6 +153,129 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
                 }
             }
             _ => i += 1,
+        }
+    }
+    out
+}
+
+/// Every inline run of `blocks`, in document order. Headings are skipped: a footnote heading
+/// holds its own label, which is not a marker.
+fn body_inlines<'a>(blocks: &'a [Block], out: &mut Vec<&'a [Inline]>) {
+    for block in blocks {
+        match block {
+            Block::Heading { .. } | Block::EntryLink { .. } => {}
+            Block::Paragraph { content, .. } => out.push(content),
+            Block::List { items, .. } => {
+                for item in items {
+                    body_inlines(item, out);
+                }
+            }
+            Block::Quote { content } => body_inlines(content, out),
+            Block::StatBlock { rows, .. } => out.extend(rows.iter().map(|row| &row.value[..])),
+            Block::Table(table) => {
+                out.push(&table.caption);
+                for row in table.head.iter().chain(&table.body).chain(&table.foot) {
+                    out.extend(row.cells.iter().map(|cell| &cell.content[..]));
+                }
+            }
+        }
+    }
+}
+
+/// Collects what can mark a footnote: the text of each superscript, and the anchor of each link.
+fn footnote_markers(
+    items: &[Inline],
+    labels: &mut BTreeSet<String>,
+    anchors: &mut BTreeSet<String>,
+) {
+    for item in items {
+        match item {
+            Inline::Sup { c } => {
+                labels.insert(plain_text(c).trim().to_string());
+                footnote_markers(c, labels, anchors);
+            }
+            Inline::Link { anchor, c, .. } => {
+                if let Some(anchor) = anchor {
+                    anchors.insert(anchor.clone());
+                }
+                footnote_markers(c, labels, anchors);
+            }
+            Inline::Em { c } | Inline::Strong { c } | Inline::Sub { c } => {
+                footnote_markers(c, labels, anchors)
+            }
+            Inline::Text { .. } | Inline::Break => {}
+        }
+    }
+}
+
+/// Warn about a footnote block whose marker is not in the entry body (an orphan).
+///
+/// A footnote is a level-six heading with a `footnote-` anchor. Its marker is a superscript with
+/// the heading label (`^B^`) or a link to the anchor (`^[1](id#footnote-1)^`). The audit in
+/// `docs/research/editorial-footnotes-audit.md` found 140 orphans.
+fn check_orphan_footnotes(stored: &crate::load::Stored, report: &mut Report) {
+    let entry = &stored.entry;
+    let footnotes: Vec<(&str, String)> = headings_in_order(&entry.body)
+        .into_iter()
+        .filter_map(|block| match block {
+            Block::Heading {
+                level: 6,
+                anchor: Some(anchor),
+                content,
+            } if anchor.starts_with("footnote-") => {
+                Some((anchor.as_str(), plain_text(content).trim().to_string()))
+            }
+            _ => None,
+        })
+        .collect();
+    if footnotes.is_empty() {
+        return;
+    }
+    let mut runs = Vec::new();
+    body_inlines(&entry.body, &mut runs);
+    let (mut labels, mut anchors) = (BTreeSet::new(), BTreeSet::new());
+    for run in runs {
+        footnote_markers(run, &mut labels, &mut anchors);
+    }
+    for (anchor, label) in footnotes {
+        if anchors.contains(anchor) || labels.contains(&label) {
+            continue;
+        }
+        let line = line_of(&stored.text, &format!("{{#{anchor}}}"));
+        report.warnings.push(format!(
+            "{}:{line}: footnote `{label}` (`#{anchor}`) has no marker in the entry body: add `^{label}^` or a link to `#{anchor}`, or remove the note",
+            stored.path.display()
+        ));
+    }
+}
+
+/// Converter residue such as `\|X~` in `text`, with its 1-based line: a pipe after a backslash,
+/// one to three letters or digits, and a tilde. The importer left it where it did not split a
+/// multi-note `::mfn`. The writer escapes the tilde, so a backslash may sit before it.
+fn footnote_residue(text: &str) -> Vec<(usize, String)> {
+    let bytes = text.as_bytes();
+    let mut out: Vec<(usize, String)> = Vec::new();
+    let mut line = 1;
+    for (i, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' {
+            line += 1;
+            continue;
+        }
+        if *byte != b'|' || i == 0 || bytes[i - 1] != b'\\' {
+            continue;
+        }
+        let mut end = i + 1;
+        while end < bytes.len() && bytes[end].is_ascii_alphanumeric() {
+            end += 1;
+        }
+        if !(1..=3).contains(&(end - i - 1)) {
+            continue;
+        }
+        if bytes.get(end) == Some(&b'\\') {
+            end += 1;
+        }
+        if bytes.get(end) == Some(&b'~') {
+            out.push((line, text[i - 1..=end].to_string()));
         }
     }
     out
@@ -830,6 +953,14 @@ pub fn check(corpus: &Corpus) -> Report {
                 body_start + line - 1
             ));
         }
+        for (line, residue) in footnote_residue(body) {
+            report.warnings.push(format!(
+                "{}:{}: footnote converter residue `{residue}`: split it into one note per marker",
+                path.display(),
+                body_start + line - 1
+            ));
+        }
+        check_orphan_footnotes(stored, &mut report);
         for (line, token) in upstream_markup_tokens(body) {
             report.problems.push(format!(
                 "{}:{}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
@@ -2185,6 +2316,91 @@ mod tests {
         c.publications[0].copyright = Some("Necromancer Games, (c) 2011".into());
         c.legal.section_15[0].notice = "Necromancer Games, (c) 2011".into();
         assert!(check(&c).problems.is_empty(), "{:?}", check(&c).problems);
+    }
+
+    fn footnote_heading(anchor: &str, label: &str) -> Block {
+        Block::Heading {
+            level: 6,
+            anchor: Some(anchor.into()),
+            content: vec![Inline::Sup {
+                c: vec![Inline::text(label)],
+            }],
+        }
+    }
+
+    fn footnote_warnings(body: Vec<Block>) -> Vec<String> {
+        let report = check(&corpus(vec![rule("ref/rule/note", body)]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        report.warnings
+    }
+
+    #[test]
+    fn a_footnote_without_a_marker_in_the_body_is_a_warning() {
+        let warnings = footnote_warnings(vec![
+            paragraph(vec![Inline::text("Text with no marker.")]),
+            footnote_heading("footnote-b", "B"),
+            paragraph(vec![Inline::text("The note.")]),
+        ]);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("footnote `B` (`#footnote-b`) has no marker"),
+            "{warnings:?}"
+        );
+    }
+
+    #[test]
+    fn a_footnote_with_a_superscript_or_linked_marker_does_not_warn() {
+        let note = |anchor: &str, label: &str| {
+            [
+                footnote_heading(anchor, label),
+                paragraph(vec![Inline::text("The note.")]),
+            ]
+        };
+        // A plain superscript with the heading label.
+        let mut body = vec![paragraph(vec![
+            Inline::text("Bonus"),
+            Inline::Sup {
+                c: vec![Inline::text("B")],
+            },
+        ])];
+        body.extend(note("footnote-b", "B"));
+        assert!(footnote_warnings(body).is_empty());
+
+        // A superscript that links to the anchor, whatever its label.
+        let mut body = vec![paragraph(vec![Inline::Sup {
+            c: vec![link("ref/rule/note", Some("footnote-1"), "1")],
+        }])];
+        body.extend(note("footnote-1", "1"));
+        assert!(footnote_warnings(body).is_empty());
+
+        // A heading level other than six, or an anchor without the prefix, is not a footnote.
+        let body = vec![
+            heading(Some("footnote-x"), "Title"),
+            Block::Heading {
+                level: 6,
+                anchor: Some("section".into()),
+                content: vec![Inline::text("Section")],
+            },
+        ];
+        assert!(footnote_warnings(body).is_empty());
+    }
+
+    #[test]
+    fn converter_residue_in_a_body_is_a_warning() {
+        let warnings = footnote_warnings(vec![paragraph(vec![Inline::text(
+            "ability.\\|M~mythic spells",
+        )])]);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("footnote converter residue"),
+            "{warnings:?}"
+        );
+
+        // A pipe or a tilde alone is ordinary text.
+        let warnings = footnote_warnings(vec![paragraph(vec![Inline::text(
+            "about 5~10 | fine, a|b and x~y",
+        )])]);
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 
     #[test]

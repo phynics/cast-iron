@@ -736,6 +736,21 @@ every inbound link, so treat that edit as a data change.
 Do not use Markdown footnote syntax such as `[^5]` or `[^5]: ...`. The reader
 accepts neither.
 
+`corpus-check` warns, and does not fail, in two cases:
+
+- a footnote heading (level six, anchor starting `footnote-`) has no marker in the
+  entry body. A marker is a superscript with the heading label (`^B^`) or a link
+  to the anchor (`^[1](id#footnote-1)^`). The warning names the line of the
+  heading. An orphaned note reads as a stray paragraph, so add the marker or
+  remove the note (`docs/research/editorial-footnotes-audit.md`, "Orphaned
+  markers").
+- the body holds converter residue such as `\|X~`, a pipe after a backslash, one
+  to three letters or digits, and a tilde. The importer left it where it did not
+  split a multi-note `::mfn`. Split it into one note per marker.
+
+Both stay warnings until the corpus clean-up (phynics/cast-iron-data#114 and the
+marker restoration) lands. Then they can become errors.
+
 A footnote heading is still a heading. The parser treats it as one, the renderer
 emits `<h6>`, and when the page shows its "On this page" list, the list includes
 the note with every other heading. Use the short marker, the
