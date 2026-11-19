@@ -599,6 +599,7 @@ The selection rule. N is the number of rows, in both tables, whose `path` is the
 | 1 | none | its table | The row |
 | 1 | none | the other table | Error: supersedes nothing |
 | 1 | its exact reason | none, or its table | The row |
+| 1 | its exact reason | the other table | Error: supersedes nothing; the message says the reason exists in the other table |
 | 1 | not its exact reason | any | Error: supersedes nothing |
 | 2 or more | none | any (none, `excluded`, `rejected`) | Error: ambiguous, add `supersedes` (`kind` alone never selects a row on a shared path) |
 | 2 or more | the exact reason of one row | none, or that row's table | That row |
@@ -618,8 +619,13 @@ The identity of a row is its table, its `path` and its `reason`; the reader refu
 `kind = "rejected"` to name the table. A `kind` is never needed otherwise, and a row may carry it
 anyway when the path is unique or `supersedes` is given. A reason that is the start of another
 reason on the same path (`unsupported directive` and `unsupported directive @list`) needs nothing
-more: each full reason selects its own row, and a later row cannot make an earlier `supersedes`
-ambiguous.
+more: each full reason selects its own row.
+
+The reader matches each `resolved` row against the whole file, not only the rows above it. So an
+`excluded` or `rejected` row appended later under a path that already has a `resolved` row can
+make that resolution ambiguous (for example, it then needs `supersedes` or `kind`), and
+`corpus-check` fails. Do not add a row under a resolved path: a resolved record that must be
+excluded again gets an `excluded` row under a new path (see below).
 
 The other rows with the path stay in the report. To resolve several rows that share a path, append
 one `resolved` row for each, each with its own `supersedes`. A `path` that two rows share needs one

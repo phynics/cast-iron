@@ -1183,6 +1183,12 @@ mod tests {
         err(rejected, Some("conv"), None, "supersedes nothing");
         err(rejected, None, Some("excluded"), "supersedes nothing");
         err(rejected, Some("blog"), None, "supersedes nothing");
+        err(
+            rejected,
+            Some("converter"),
+            Some("excluded"),
+            "exists in the rejected table",
+        );
 
         // N >= 2 (both tables, or one table): `supersedes` is required, `kind` alone is not enough.
         for old in [
