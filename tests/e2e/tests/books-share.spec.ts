@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { test, installedTest, expect, loadCorpus, ROOT } from "./fixtures";
-import { count, expectPreinstalled, installLibrary, openBookGroups, waitReady } from "./helpers";
+import { count, expectPreinstalled, installLibrary, openBookGroups, openQuickSearch, quickSearch, waitReady } from "./helpers";
 
 /**
  * Share the active book set as a code (#408). The page reads and writes a code through Rust; this
@@ -187,18 +187,24 @@ const applied = (page: any, name: string) => page.getByRole("status").filter({ h
  * Holds every save of the book choice that starts after the call, until `release()`. The save is
  * the browser's own: the page's transaction stays open on a chain of reads, so the write is half
  * done (the app's earlier-write flag is up, its revision has not moved) with no timer to race.
- * `writes()` counts the choices that were saved since the call.
+ * `release({ fail: true })` aborts the held transactions instead, as a store that gave up does.
+ * `writes()` counts every choice that was saved since the call, the ones that start after the
+ * release included.
  */
 async function holdWrites(page: any) {
   await page.evaluate(() => {
     const w = window as any;
-    const put = IDBObjectStore.prototype.put;
+    // The browser's own `put`, kept across calls: a later call replaces the wrapper of the
+    // earlier one instead of stacking on it, so a write is counted once.
+    w.__put ??= IDBObjectStore.prototype.put;
+    const put = w.__put;
     let open = true;
     w.__held = 0;
     w.__saved = 0;
-    w.__release = () => {
+    w.__held_transactions = [];
+    w.__release = (fail: boolean) => {
       open = false;
-      IDBObjectStore.prototype.put = put;
+      if (fail) for (const transaction of w.__held_transactions) transaction.abort();
     };
     IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
       const request = put.call(this, value, key);
@@ -206,6 +212,7 @@ async function holdWrites(page: any) {
         w.__saved++;
         if (open) {
           w.__held++;
+          w.__held_transactions.push(this.transaction);
           const store = this;
           const keep = () => {
             if (open) store.get(key as IDBValidKey).onsuccess = keep;
@@ -218,16 +225,18 @@ async function holdWrites(page: any) {
   });
   return {
     held: (n: number) => page.waitForFunction((count: number) => (window as any).__held >= count, n),
-    release: () => page.evaluate(() => (window as any).__release()),
+    release: ({ fail = false } = {}) => page.evaluate((fail: boolean) => (window as any).__release(fail), fail),
     writes: (): Promise<number> => page.evaluate(() => (window as any).__saved),
   };
 }
 
 /**
- * Waits until a write that was queued behind another one has had its turn. The app starts a
- * queued write within a few milliseconds of the slot freeing, and a write that runs opens its
- * transaction at once; this one is created after that, so it completes after any such write
- * has committed. It lets a test say that a queued write did NOT happen.
+ * Waits a moment after a write that was queued behind another one has had its turn. The app
+ * starts a queued write within a few milliseconds of the slot freeing, and a write that runs
+ * opens its transaction at once; this one is created after the 100 ms wait, so it completes after
+ * any such write has committed. This is a heuristic, not an observation: nothing tells the test
+ * that the queued write started. A test that needs to say a write did NOT happen pairs it with
+ * `hold.writes()`, which keeps counting after the release, and with the final selection.
  */
 async function afterQueuedWrites(page: any) {
   await page.evaluate(
@@ -294,6 +303,19 @@ installedTest("Manage books shows the code of the active set, and Copy puts it o
   // Read by the written format, the code names the same books that Manage books shows as on.
   expect(idsOf(code)).toEqual(await checkedBooks(page));
   expect(readCode(code).described).toBe(librarySlots);
+  await openShare(page);
+
+  // The open section shows the one disclosure chevron of the app, turned down: once the 0.12 s
+  // turn is over, the same quarter turn that every other open disclosure ends on.
+  const chevron = disclosure(page).locator("summary > .disclosure-chevron");
+  await expect(chevron).toHaveCount(1);
+  await expect
+    .poll(() => chevron.evaluate((element: Element) => getComputedStyle(element).transform))
+    .toBe("matrix(0, 1, -1, 0, 0, 0)");
+  await disclosure(page).locator("summary").click();
+  await expect
+    .poll(() => chevron.evaluate((element: Element) => getComputedStyle(element).transform))
+    .toBe("none");
   await openShare(page);
 
   // Every control is a 44 px target; nothing scrolls sideways.
@@ -716,6 +738,184 @@ installedTest("Leaving Manage books while a share is saving breaks nothing and c
   await expect(page).toHaveURL(new RegExp(`#/books/manage\\?set=${other}$`));
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
   await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+});
+
+installedTest("A modified click on Manage books marks no entry: Done from Settings goes to Books", async ({ page, context }) => {
+  await installLibrary(page);
+  await page.goto("#/books");
+  await waitReady(page);
+  const manage = page.getByRole("link", { name: "Manage books", exact: true });
+  // Ctrl-click (Cmd on a Mac) opens the page in another tab. This tab stays on Books and pushes
+  // no entry, so nothing about it may reach the next time Manage books opens here.
+  const opened = context.waitForEvent("page", { timeout: 15_000 });
+  await manage.click({ modifiers: ["ControlOrMeta"] });
+  await (await opened).close();
+  await expect(page).toHaveURL(/#\/books$/);
+
+  // From Settings the link pushes an entry whose Back is Settings: Done must not use it.
+  await page.goto("#/settings");
+  await page.getByRole("link", { name: "Manage books", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+  // Done replaced the entry: Back from Books is Settings, and Forward has nothing.
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/settings$/);
+
+  // The same for a share link opened from Settings: no stale request marks it either.
+  await page.goto("#/books");
+  await waitReady(page);
+  const again = context.waitForEvent("page", { timeout: 15_000 });
+  await manage.click({ modifiers: ["ControlOrMeta"] });
+  await (await again).close();
+  await page.goto("#/settings");
+  await page.goto(`#/books/manage?set=${codeFor(more)}`);
+  await expect(page.getByRole("heading", { name: "Use this set of books?", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/settings$/);
+
+  // A plain click still pushes an entry that Done goes Back from, and Books gets its focus back.
+  // The mark is in the entry's history state, so a reload of Manage books keeps it.
+  await page.goto("#/books");
+  await waitReady(page);
+  await manage.click();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.reload();
+  await waitReady(page);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(manage).toBeFocused();
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+});
+
+installedTest("A save that finishes late closes only the review it answered", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+  const field = page.getByLabel("Enter a code", { exact: true });
+
+  // Code A is saving when the reader pastes code B: B's question and text stay when A lands.
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await expect(question).toBeVisible();
+  const hold = await holdWrites(page);
+  await use.click();
+  await hold.held(1);
+  const other = codeFor(more);
+  await enterCode(page, other);
+  await expect(question).toBeVisible();
+  await expect(page.getByTestId("share-summary")).toBeVisible();
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(applied(page, "Paizo Everything")).toBeVisible();
+  await afterQueuedWrites(page);
+  expect(await hold.writes()).toBe(1);
+  await expect(question).toBeVisible();
+  await expect(field).toHaveValue(other);
+  // B is answerable, and it is B that is answered.
+  await use.click();
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(question).toHaveCount(0);
+  await expect(field).toHaveValue("");
+
+  // The same when A fails: its error belongs to A's review, not to B's question.
+  await openShare(page);
+  const second = await holdWrites(page);
+  await enterCode(page, codeFor(paizoBooks));
+  await use.click();
+  await second.held(1);
+  await page.goto(`#/books/manage?set=${codeFor(rulebooks)}`);
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await second.release({ fail: true });
+  await afterQueuedWrites(page);
+  await expect(page.getByTestId("share-notice")).toHaveCount(0);
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+
+  // A failure of the review that is still on screen is reported, as before.
+  const third = await holdWrites(page);
+  await use.click();
+  await third.held(1);
+  await third.release({ fail: true });
+  await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+});
+
+installedTest("A save that finishes under Quick search rewrites no entry but the link's own", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+  // An entry of another page, so that Back from the link's entry names it.
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await expect(question).toBeVisible();
+
+  // An unanswered question stays with its entry through Quick search, and through Forward into
+  // the entry that Quick search leaves behind after it closes.
+  await openQuickSearch(page);
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await page.goForward();
+  await expect(question).toBeVisible();
+  await page.goBack();
+  await expect(question).toBeVisible();
+  await expect(use).toBeVisible();
+
+  // The reader answers, and opens Quick search while the books are still saving.
+  const hold = await holdWrites(page);
+  await use.click();
+  await hold.held(1);
+  await openQuickSearch(page);
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await afterQueuedWrites(page);
+  // Quick search's own entry is not the link's: the save left it, and Quick search, alone.
+  await expect(quickSearch(page)).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(question).toHaveCount(0);
+
+  // Closing Quick search is Back to the link's entry, which takes the answered code out of its
+  // address, and Back from there is the page before the link.
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+  await expect(applied(page, "Paizo Everything")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+
+  // A plain page with no link: Quick search over it, and a save that lands under it, change nothing.
+  await page.reload();
+  await waitReady(page);
+  await enterCodeOpen(page, codeFor(rulebooks));
+  await expect(question).toBeVisible();
+  const second = await holdWrites(page);
+  await use.click();
+  await second.held(1);
+  await openQuickSearch(page);
+  await second.release();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await afterQueuedWrites(page);
+  await expect(quickSearch(page)).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.keyboard.press("Escape");
+  await expect(quickSearch(page)).toBeHidden();
+  await expect(question).toHaveCount(0);
   await expect(page).toHaveURL(/#\/books\/manage$/);
 });
 

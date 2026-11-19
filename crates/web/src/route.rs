@@ -821,11 +821,28 @@ pub fn navigate(route: &Route) {
 /// pushed. Copying them (as [`push_flagged_entry`] does for the page that is on screen) would
 /// give two entries one scroll offset and mark this one as a Quick search entry.
 pub fn push(route: &Route) {
+    push_with_state(route, &wasm_bindgen::JsValue::NULL);
+}
+
+/// [`push`], with `field` set to true in the new entry's history state. The flag says how the
+/// reader came to this one entry; it is on the entry the moment it exists, so a click that
+/// pushes nothing (one that asks for another tab) sets nothing, and no later page can read a
+/// request that this entry never made.
+pub fn push_flagged(route: &Route, field: &str) {
+    let state = state_with(
+        &wasm_bindgen::JsValue::NULL,
+        field,
+        &wasm_bindgen::JsValue::TRUE,
+    );
+    push_with_state(route, &state);
+}
+
+fn push_with_state(route: &Route, state: &wasm_bindgen::JsValue) {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return;
     };
     if history
-        .push_state_with_url(&wasm_bindgen::JsValue::NULL, "", Some(&route.href()))
+        .push_state_with_url(state, "", Some(&route.href()))
         .is_err()
     {
         navigate(route);
@@ -945,13 +962,19 @@ pub fn mark_current_entry(field: &str) -> u32 {
 }
 
 /// Pushes a history entry for the page that is on screen, flagged with `field`. The entry keeps
-/// the scroll id of the page, so Back to it restores the same offset. Returns false when the
-/// browser refuses the push.
+/// the scroll id of the page, so Back to it restores the same offset, and nothing else: every
+/// other field of the page's entry (a share link's mark, how Manage books was opened) says
+/// something about that one entry, and a copy on this one would let a task that finishes later
+/// take the new entry for the old one. Returns false when the browser refuses the push.
 pub fn push_flagged_entry(field: &str) -> bool {
     let Some(history) = web_sys::window().and_then(|w| w.history().ok()) else {
         return false;
     };
-    let state = state_with(&current_state(), field, &wasm_bindgen::JsValue::TRUE);
+    let mut state = js_sys::Object::new();
+    if let Some(id) = state_field(&current_state(), SCROLL_ID_FIELD) {
+        state = state_with(&state, SCROLL_ID_FIELD, &id);
+    }
+    let state = state_with(&state, field, &wasm_bindgen::JsValue::TRUE);
     history.push_state_with_url(&state, "", None).is_ok()
 }
 

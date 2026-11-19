@@ -32,9 +32,6 @@ use wasm_bindgen::JsCast;
 // ---- how the page is entered and left -------------------------------------------------------
 
 thread_local! {
-    /// Set when the `Manage books ›` link on Books is followed, until the page that the link opens
-    /// is built. That page then marks its history entry (see [`OPENED_FROM_BOOKS`]).
-    static OPENED_FROM_BOOKS_NEXT: Cell<bool> = const { Cell::new(false) };
     /// Set by Done, so Books puts focus back on the `Manage books ›` link it was left from.
     static FOCUS_LINK_NEXT: Cell<bool> = const { Cell::new(false) };
 }
@@ -43,14 +40,29 @@ thread_local! {
 /// Back to that Books entry (which restores its scroll position) instead of stacking a new one.
 /// It belongs to the entry, not to the page that is mounted: the entry that a share link pushes
 /// on the same page has no mark, and Back from it would land on Manage books, not on Books.
+/// The link sets it when it pushes the entry (see [`open_from_books`]), never beforehand.
 const OPENED_FROM_BOOKS: &str = "openedFromBooks";
 
 /// The id of the `Manage books ›` link on Books.
 pub const MANAGE_LINK_ID: &str = "manage-books-link";
 
-/// Call from the Books link, before the route changes.
-pub fn note_opened_from_books() {
-    OPENED_FROM_BOOKS_NEXT.with(|flag| flag.set(true));
+/// The click on the `Manage books ›` link. A plain click pushes the Manage books entry here and
+/// marks that very entry, so Done knows it can go Back. A click that asks for something else
+/// (another tab or window by Ctrl, Cmd or Shift, a download by Alt) is left to the browser: it
+/// pushes nothing in this tab, so it marks nothing, and nothing is left over for the next page
+/// that Manage books opens from somewhere else.
+pub fn open_from_books(event: web_sys::MouseEvent) {
+    if event.default_prevented()
+        || event.button() != 0
+        || event.ctrl_key()
+        || event.meta_key()
+        || event.shift_key()
+        || event.alt_key()
+    {
+        return;
+    }
+    event.prevent_default();
+    route::push_flagged(&Route::BooksManage, OPENED_FROM_BOOKS);
 }
 
 /// Reads and clears the request that Done left. Books calls it once, when it is built.
@@ -368,10 +380,6 @@ fn preset_list(panel: &Panel) -> impl IntoView + use<> {
 pub fn ActiveBooks() -> impl IntoView {
     set_title("Manage books");
     let library = use_library();
-    // The Books link asked for this page: mark the entry that it pushed, once.
-    if OPENED_FROM_BOOKS_NEXT.with(|flag| flag.replace(false)) {
-        route::mark_current_entry(OPENED_FROM_BOOKS);
-    }
     let panel = Panel {
         library: library.clone(),
         error: RwSignal::new(None),

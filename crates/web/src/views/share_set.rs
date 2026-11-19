@@ -18,7 +18,7 @@ use crate::views::icons;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 /// The id of the confirmation heading. Focus moves there when a question appears.
 const CONFIRM_HEADING: &str = "share-confirm-heading";
@@ -26,13 +26,15 @@ const CONFIRM_HEADING: &str = "share-confirm-heading";
 /// The history-state field that marks the entry that holds a share link. Back and Forward change
 /// the entry without changing the page, so the route alone cannot say that the reader left the
 /// entry whose question is on screen: `#/books/manage` is also the address of the entry before it.
+/// The mark is a number that is drawn once for the entry and lives only in that entry's history
+/// state. An entry that another page pushes on top of it (Quick search) does not copy it, so a
+/// task that finishes later and finds the mark on the entry on screen knows that entry is the one
+/// it began on.
 const LINK_ENTRY: &str = "shareLink";
 
 #[derive(Clone)]
 struct Panel {
     library: Library,
-    /// The route signal, held here because a write finishes outside any reactive owner.
-    route: ReadSignal<Route>,
     /// The text in the `Enter a code` field.
     entered: RwSignal<String>,
     /// The line under the field when a typed code could not be read. It sits inside the
@@ -49,19 +51,44 @@ struct Panel {
     recent: RwSignal<Option<Recent>>,
     /// The line next to the copy buttons.
     copied: RwSignal<Option<String>>,
+    /// Counts the reviews: a new code, a cancel, an answer, and leaving the entry that held the
+    /// question each start the next number. A write that finishes late closes the question or
+    /// reports its failure only while the number it started under is still the current one, so
+    /// it can end the review it answered and no other.
+    review_no: Arc<AtomicU64>,
     /// The mark of the history entry whose link opened the question or the error on screen, or
     /// zero (a mark is never zero). The question belongs to that entry: Back leaves it behind.
     link_entry: Arc<AtomicU32>,
+    /// The mark of an entry whose link was answered while the reader was on another entry (Quick
+    /// search's, say), so its address still holds the code. It is taken out when the reader is
+    /// back on that entry. Zero when there is none.
+    settled: Arc<AtomicU32>,
     /// False once the view is gone. A write that finishes after that has no screen to update.
     alive: Arc<AtomicBool>,
 }
 
+/// Whether the address on screen still carries a share link's code.
+fn address_holds_link() -> bool {
+    matches!(Route::parse(&route::current_hash()), Route::BooksSet(_))
+}
+
 impl Panel {
+    /// Starts the next review and returns its number.
+    fn next_review(&self) -> u64 {
+        self.review_no.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    fn current_review(&self) -> u64 {
+        self.review_no.load(Ordering::Relaxed)
+    }
+
     /// Reads `text` as a code. A good code waits for an answer; a bad one says why and changes
     /// nothing. Neither touches Undo: the earlier answer stays undoable until another selection
     /// change succeeds. `from_link` puts an error outside the disclosure, which a link's reader
     /// has not opened, and ties the question to the history entry that holds the link.
     fn review(&self, text: &str, from_link: bool) {
+        self.next_review();
+        self.settled.store(0, Ordering::Relaxed);
         self.notice.set(None);
         // A copy note describes the code that was on screen; a new question makes it stale.
         self.copied.set(None);
@@ -91,30 +118,61 @@ impl Panel {
 
     /// The reader moved to another history entry, by Back or Forward: the question and the error
     /// that a link opened belong to the entry that was left. The same entry with a new address
-    /// (the rewrite that takes the code out) is not leaving.
+    /// (the rewrite that takes the code out) is not leaving, and neither is the entry that Quick
+    /// search pushes on top of it: that is the same page with a layer over it, and Forward from
+    /// the entry reaches it after the layer has closed.
     fn left_link_entry(&self) {
         let mark = self.link_entry.load(Ordering::Relaxed);
-        if mark == 0 || route::current_entry_mark(LINK_ENTRY) == Some(mark) {
+        if mark == 0
+            || route::current_entry_mark(LINK_ENTRY) == Some(mark)
+            || route::current_entry_has_flag(route::QUICK_SEARCH_FIELD)
+        {
             return;
         }
         self.link_entry.store(0, Ordering::Relaxed);
+        self.next_review();
         self.pending.set(None);
         self.notice.set(None);
     }
 
-    /// Ends the question that the entry marked `asked_on` (`None`: an entry that holds no link)
-    /// put, applied or not, and takes its code out of the address so a reload or Back does not ask
-    /// again. When the reader has moved to another entry since, the question on screen is that
-    /// entry's own and stays as it is: a write that finishes late must not close it or rewrite its
-    /// address.
-    fn close(&self, asked_on: Option<u32>) {
-        if route::current_entry_mark(LINK_ENTRY) != asked_on {
+    /// Back or Forward fired `popstate`. When the reader is back on an entry whose link was
+    /// answered meanwhile, the address gets rewritten now; any other move may leave a question.
+    fn moved_to_entry(&self) {
+        let settled = self.settled.load(Ordering::Relaxed);
+        if settled != 0 && route::current_entry_mark(LINK_ENTRY) == Some(settled) {
+            self.settled.store(0, Ordering::Relaxed);
+            if address_holds_link() {
+                replace(&Route::BooksManage);
+            }
             return;
         }
+        self.left_link_entry();
+    }
+
+    /// The reader cancelled the question on screen. A write that is still saving it answers
+    /// nothing now: its books are saved all the same, and the line for them says so.
+    fn cancel(&self) {
+        self.next_review();
+        self.finish(route::current_entry_mark(LINK_ENTRY));
+    }
+
+    /// Ends the question, applied or not, and takes its code out of the address so a reload or
+    /// Back does not ask again. `asked_on` is the mark of the entry the reader was on when
+    /// answering (`None`: an entry that holds no link). The address that gets rewritten is that
+    /// entry's, and only while it is the entry on screen: when the reader has since opened
+    /// another entry on top (Quick search), that one is not rewritten, and the link's own is
+    /// rewritten when the reader comes back to it.
+    fn finish(&self, asked_on: Option<u32>) {
+        self.link_entry.store(0, Ordering::Relaxed);
         self.pending.set(None);
         self.entered.set(String::new());
-        if matches!(self.route.get_untracked(), Route::BooksSet(_)) {
+        if !address_holds_link() {
+            return;
+        }
+        if route::current_entry_mark(LINK_ENTRY) == asked_on {
             replace(&Route::BooksManage);
+        } else if let Some(mark) = asked_on {
+            self.settled.store(mark, Ordering::Relaxed);
         }
     }
 
@@ -123,6 +181,7 @@ impl Panel {
             return;
         };
         self.copied.set(None);
+        let review = self.current_review();
         let asked_on = route::current_entry_mark(LINK_ENTRY);
         let panel = self.clone();
         spawn_local(async move {
@@ -140,17 +199,27 @@ impl Panel {
             if !panel.alive.load(Ordering::Relaxed) {
                 return;
             }
+            // Whether the question on screen is still the one this write answers. The reader may
+            // have reviewed another code, cancelled, or left the entry while it saved.
+            let current = panel.current_review() == review;
             match result {
                 Ok(planned) if planned.change.is_empty() => {}
+                // The books changed, whatever the screen shows now: the line follows the books.
                 Ok(planned) => {
                     let text = applied_line(&panel.library);
                     panel.recent.set(Some(Recent::applied(&planned, text)));
                 }
-                Err(failure) => panel.notice.set(Some(format!(
+                // A failure belongs to its own review: next to another question it would read as
+                // that question's failure.
+                Err(failure) if current => panel.notice.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
+                Err(_) => {}
             }
-            panel.close(asked_on);
+            if current {
+                panel.next_review();
+                panel.finish(asked_on);
+            }
         });
     }
 
@@ -250,14 +319,15 @@ pub fn ShareSet() -> impl IntoView {
     let route = use_route();
     let panel = Panel {
         library: library.clone(),
-        route,
         entered: RwSignal::new(String::new()),
         problem: RwSignal::new(None),
         notice: RwSignal::new(None),
         pending: RwSignal::new(None),
         recent: RwSignal::new(None),
         copied: RwSignal::new(None),
+        review_no: Arc::new(AtomicU64::new(0)),
         link_entry: Arc::new(AtomicU32::new(0)),
+        settled: Arc::new(AtomicU32::new(0)),
         alive: Arc::new(AtomicBool::new(true)),
     };
     let alive = panel.alive.clone();
@@ -278,10 +348,10 @@ pub fn ShareSet() -> impl IntoView {
         _ => linked.left_link_entry(),
     });
     // Back or Forward between two entries with the same address (a link answered or rejected
-    // there, and the entry before it) fires `popstate` and no `hashchange`: the route does not
-    // change, so the effect above cannot see it.
+    // there, and the entry before it; the entry that Quick search pushes) fires `popstate` and
+    // no `hashchange`: the route does not change, so the effect above cannot see it.
     let popped = panel.clone();
-    let history = window_event_listener(leptos::ev::popstate, move |_| popped.left_link_entry());
+    let history = window_event_listener(leptos::ev::popstate, move |_| popped.moved_to_entry());
     on_cleanup(move || history.remove());
 
     let revision = library.selection_revision();
@@ -328,7 +398,7 @@ pub fn ShareSet() -> impl IntoView {
                                 on:click=move |_| apply.apply()>"Use this set"</button>
                         })}
                         <button type="button" class="btn"
-                            on:click=move |_| cancel.close(route::current_entry_mark(LINK_ENTRY))>
+                            on:click=move |_| cancel.cancel()>
                             {if empty { "Close" } else { "Cancel" }}
                         </button>
                     </div>
