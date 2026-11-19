@@ -876,6 +876,10 @@ fn EntryView(
     // A link to `?s=archetypes` opens at that section once the page has rendered. The page keys
     // on the route without its section, so the address is read from the live route.
     let live = route::use_route().get_untracked();
+    let live_book = match &live {
+        Route::Entry { book, .. } => book.clone(),
+        _ => None,
+    };
     let live_anchor = match &live {
         Route::Entry { anchor, .. } => anchor.clone(),
         _ => anchor.clone(),
@@ -960,7 +964,7 @@ fn EntryView(
         {class_card}
         {switcher}
         {contents}
-        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
         {aon_line(entry.aon.as_deref())}

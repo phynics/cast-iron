@@ -106,6 +106,17 @@ pub fn arrow_left(class: &'static str) -> impl IntoView {
     }
 }
 
+/// An arrow that turns back up, for the link from a note to the text that cites it.
+pub fn note_back() -> impl IntoView {
+    view! {
+        <svg class="note-back-icon" viewBox="0 0 24 24" width="14" height="14" fill="none"
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 14 4 9l5-5"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+        </svg>
+    }
+}
+
 /// A right arrow, for going forward.
 pub fn arrow_right(class: &'static str) -> impl IntoView {
     view! {

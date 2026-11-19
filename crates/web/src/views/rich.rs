@@ -2,10 +2,12 @@
 //! node; nothing here builds markup from strings. Pure helpers sit at the top and have native
 //! tests.
 
-use super::progression;
+use super::{footnotes, icons, progression};
 use crate::class_sections::Section;
 use crate::route::{self, Route};
-use cast_iron_schema::{Block, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow};
+use cast_iron_schema::{
+    Block, EntryId, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow,
+};
 use leptos::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -122,6 +124,29 @@ struct Renderer {
     changed: BTreeSet<String>,
     /// The headings where a class page's sections start, by heading key.
     marks: BTreeMap<String, Section>,
+    /// The footnotes of an entry page, once its body is split (#507).
+    notes: Option<NoteState>,
+}
+
+/// What the renderer knows about the footnotes of the entry it renders: where each note stands,
+/// how markers find it, and which markers cited it (for the way back).
+struct NoteState {
+    entry: EntryId,
+    book: Option<String>,
+    /// Per note, in order: the final heading key, the printed label, the anchor as written, and
+    /// how many main blocks come before it.
+    notes: Vec<NoteInfo>,
+    /// The ids of the markers that cite each note, in the order they appear.
+    cited_by: Vec<Vec<String>>,
+    /// The index of the top-level main block being rendered.
+    position: usize,
+}
+
+struct NoteInfo {
+    key: String,
+    label: String,
+    anchor: String,
+    at: usize,
 }
 
 impl Renderer {
@@ -134,6 +159,7 @@ impl Renderer {
             keys,
             changed: BTreeSet::new(),
             marks: BTreeMap::new(),
+            notes: None,
         }
     }
 
@@ -150,9 +176,62 @@ impl Renderer {
 
 impl Renderer {
     fn blocks(&mut self, items: &[Block]) -> Vec<AnyView> {
-        let mut out = Vec::with_capacity(items.len());
+        self.blocks_of(items.iter(), false)
+    }
+
+    /// The body of an entry page: the rules text, then its footnotes as one quiet group (#507).
+    /// A body without notes renders as [`Self::blocks`] does.
+    fn entry_body(&mut self, body: &[Block], entry: EntryId, book: Option<String>) -> Vec<AnyView> {
+        let split = footnotes::split(body);
+        if split.notes.is_empty() {
+            return self.blocks(body);
+        }
+        let notes = split
+            .notes
+            .iter()
+            .map(|note| {
+                let key = self
+                    .keys
+                    .get(&std::ptr::from_ref(note.heading))
+                    .cloned()
+                    .flatten()
+                    .unwrap_or_default();
+                let anchor = match note.heading {
+                    Block::Heading {
+                        anchor: Some(anchor),
+                        ..
+                    } => anchor.clone(),
+                    _ => key.clone(),
+                };
+                NoteInfo {
+                    key,
+                    label: note.label.to_string(),
+                    anchor,
+                    at: note.at,
+                }
+            })
+            .collect::<Vec<_>>();
+        self.notes = Some(NoteState {
+            entry,
+            book,
+            cited_by: vec![Vec::new(); notes.len()],
+            notes,
+            position: 0,
+        });
+        let mut out = self.blocks_of(split.main.iter().copied(), true);
+        out.push(self.notes_group(&split.notes));
+        out
+    }
+
+    /// `top` marks the blocks of the entry body itself, so a marker knows which notes follow it.
+    /// A block nested in a list or a quote has the position of the block that holds it.
+    fn blocks_of<'a>(&mut self, items: impl Iterator<Item = &'a Block>, top: bool) -> Vec<AnyView> {
+        let mut out = Vec::new();
         let mut run: Vec<AnyView> = Vec::new();
-        for item in items {
+        for (index, item) in items.enumerate() {
+            if top && let Some(state) = self.notes.as_mut() {
+                state.position = index;
+            }
             if let Block::EntryLink { target, title } = item {
                 let href = Route::entry(target.clone()).href();
                 run.push(view! { <li><a href=href>{title.clone()}</a></li> }.into_any());
@@ -188,8 +267,7 @@ impl Renderer {
                     ParagraphStyle::StatLine => Some("stat-line"),
                     ParagraphStyle::Indented => Some("indented"),
                 };
-                view! { <p class=class>{inlines_with_changed(content, &self.changed)}</p> }
-                    .into_any()
+                view! { <p class=class>{self.paragraph_content(content)}</p> }.into_any()
             }
             Block::List { ordered, items } => {
                 let rows: Vec<AnyView> = items
@@ -216,6 +294,133 @@ impl Renderer {
                     .into_any()
             }
         }
+    }
+}
+
+impl Renderer {
+    /// Paragraph inlines. On an entry page, a footnote marker that cites a note of this entry
+    /// becomes a link to it, and gets an id so the note can link back.
+    fn paragraph_content(&mut self, items: &[Inline]) -> Vec<AnyView> {
+        let mut out = Vec::with_capacity(items.len());
+        for (index, item) in items.iter().enumerate() {
+            let previous = index.checked_sub(1).and_then(|before| items.get(before));
+            match self.marker(previous, item) {
+                Some(view) => out.push(view),
+                None => out.extend(inlines_with_changed(
+                    std::slice::from_ref(item),
+                    &self.changed,
+                )),
+            }
+        }
+        out
+    }
+
+    fn marker(&mut self, previous: Option<&Inline>, item: &Inline) -> Option<AnyView> {
+        let Inline::Sup { c } = item else {
+            return None;
+        };
+        let state = self.notes.as_mut()?;
+        let linked = footnotes::linked_anchor(c, &state.entry);
+        let note = match linked {
+            Some(anchor) => state.notes.iter().position(|note| note.anchor == anchor)?,
+            None => {
+                let label = footnotes::marker_label(previous, c)?;
+                footnotes::resolve(
+                    state
+                        .notes
+                        .iter()
+                        .map(|note| (note.label.as_str(), note.at)),
+                    &label,
+                    state.position,
+                )?
+            }
+        };
+        let info = &state.notes[note];
+        let id = format!("fnref-{}-{}", info.key, state.cited_by[note].len() + 1);
+        state.cited_by[note].push(id.clone());
+        let label = info.label.clone();
+        let content = match linked {
+            // The corpus wrote the link itself; it already points at the note.
+            Some(_) => inlines(c),
+            None => {
+                let href = Route::Entry {
+                    id: state.entry.clone(),
+                    anchor: Some(info.key.clone()),
+                    book: state.book.clone(),
+                    section: None,
+                }
+                .href();
+                vec![
+                    view! { <a href=href aria-label=format!("Note {label}")>{inlines(c)}</a> }
+                        .into_any(),
+                ]
+            }
+        };
+        Some(view! { <sup class="fn-ref" id=id>{content}</sup> }.into_any())
+    }
+
+    /// The notes of the entry as one `<aside>`, after the rules text. The note keeps the DOM id
+    /// that its heading would have had, so a link to `#footnote-1` still lands on it.
+    fn notes_group(&mut self, notes: &[footnotes::Note<'_>]) -> AnyView {
+        let title_id = unique("notes");
+        let rows: Vec<AnyView> = notes
+            .iter()
+            .enumerate()
+            .map(|(index, note)| {
+                let state = self.notes.as_ref().expect("notes are set before the group");
+                let info = &state.notes[index];
+                let id = heading_dom_id(&info.key);
+                let text = match note.text {
+                    Block::Paragraph { content, .. } => inlines(content),
+                    _ => Vec::new(),
+                };
+                let cited = &state.cited_by[index];
+                let back: Vec<AnyView> = cited
+                    .iter()
+                    .enumerate()
+                    .map(|(n, marker)| {
+                        let href = Route::Entry {
+                            id: state.entry.clone(),
+                            anchor: Some(marker.clone()),
+                            book: state.book.clone(),
+                            section: None,
+                        }
+                        .href();
+                        let name = match cited.len() {
+                            1 => format!("Back to note {} in the text", info.label),
+                            many => format!(
+                                "Back to note {} in the text, mention {} of {many}",
+                                info.label,
+                                n + 1
+                            ),
+                        };
+                        view! {
+                            <a class="note-back" href=href aria-label=name>
+                                {icons::note_back()}
+                            </a>
+                        }
+                        .into_any()
+                    })
+                    .collect();
+                let label = info.label.clone();
+                view! {
+                    <li class="note" id=id>
+                        <span class="note-label"><span class="sr-only">"Note "</span>{label}</span>
+                        <div class="note-body">
+                            <p>{text}{back}</p>
+                        </div>
+                    </li>
+                }
+                .into_any()
+            })
+            .collect();
+        view! {
+            <aside class="notes" aria-labelledby=title_id.clone()>
+                <h2 class="notes-title" id=title_id.clone()>"Notes"</h2>
+                <ul class="notes-list">{rows}</ul>
+            </aside>
+        }
+        .into_any()
     }
 }
 
@@ -405,12 +610,18 @@ pub fn RichBody(
     /// The headings where a class page's sections start, by heading key.
     #[prop(optional)]
     marks: Vec<(String, Section)>,
+    /// The entry this body belongs to, and the book the reader came from. With an entry, the
+    /// body's footnotes become one Notes group after the text (#507), and markers link to them.
+    #[prop(optional)]
+    entry: Option<EntryId>,
+    #[prop(into)] book: Option<String>,
 ) -> impl IntoView {
     let changed = changed.into_iter().collect::<BTreeSet<_>>();
-    let content = Renderer::new(&body)
-        .with_changed(changed)
-        .with_marks(marks)
-        .blocks(&body);
+    let mut renderer = Renderer::new(&body).with_changed(changed).with_marks(marks);
+    let content = match entry {
+        Some(entry) => renderer.entry_body(&body, entry, book),
+        None => renderer.blocks(&body),
+    };
     if let Some(anchor) = anchor {
         request_animation_frame(move || {
             route::scroll_to_anchor(&anchor);
