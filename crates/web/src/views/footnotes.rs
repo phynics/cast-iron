@@ -91,6 +91,21 @@ fn suffix(anchor: &str) -> &str {
     anchor.strip_prefix(ANCHOR_PREFIX).unwrap_or(anchor)
 }
 
+/// The accessible name of a marker that links to a note (#517). A bare `B` or `1` says nothing
+/// to a screen reader, so a number is `Note 1`. The `B` on a monster's feat is the printed
+/// bonus-feat mark: its note reads `Bonus feat.`, and only then is the marker named `Bonus feat,
+/// note B`. The note's text decides, not the label, because other books use `B` for other things.
+pub fn marker_name(label: &str, note: &Block) -> String {
+    let bonus = label == "B"
+        && matches!(note, Block::Paragraph { content, .. }
+            if plain_text(content).trim().trim_end_matches('.').eq_ignore_ascii_case("bonus feat"));
+    if bonus {
+        format!("Bonus feat, note {label}")
+    } else {
+        format!("Note {label}")
+    }
+}
+
 /// The label of an unlinked marker such as `^B^` or `^12^`: a short run of text with no space.
 /// A digit marker straight after a digit is a real exponent (`10^2^`), not a marker.
 pub fn marker_label(previous: Option<&Inline>, content: &[Inline]) -> Option<String> {
@@ -275,6 +290,18 @@ mod tests {
             linked_anchor(std::slice::from_ref(&link), &entry_id("ref/ability/other")),
             None
         );
+    }
+
+    #[test]
+    fn a_marker_is_named_by_its_note() {
+        let bonus = para("Bonus feat.");
+        assert_eq!(marker_name("B", &bonus), "Bonus feat, note B");
+        assert_eq!(marker_name("1", &bonus), "Note 1");
+        assert_eq!(
+            marker_name("B", &para("Heroes of Golarion pg. 18")),
+            "Note B"
+        );
+        assert_eq!(marker_name("2", &para("See the text.")), "Note 2");
     }
 
     #[test]

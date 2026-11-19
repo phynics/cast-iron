@@ -147,6 +147,8 @@ struct NoteInfo {
     label: String,
     anchor: String,
     at: usize,
+    /// The accessible name of a marker that links here (`Note 1`, `Bonus feat, note B`).
+    name: String,
 }
 
 impl Renderer {
@@ -208,6 +210,7 @@ impl Renderer {
                     label: note.label.to_string(),
                     anchor,
                     at: note.at,
+                    name: footnotes::marker_name(note.label, note.text),
                 }
             })
             .collect::<Vec<_>>();
@@ -338,24 +341,22 @@ impl Renderer {
         let info = &state.notes[note];
         let id = format!("fnref-{}-{}", info.key, state.cited_by[note].len() + 1);
         state.cited_by[note].push(id.clone());
-        let label = info.label.clone();
-        let content = match linked {
-            // The corpus wrote the link itself; it already points at the note.
-            Some(_) => inlines(c),
-            None => {
-                let href = Route::Entry {
-                    id: state.entry.clone(),
-                    anchor: Some(info.key.clone()),
-                    book: state.book.clone(),
-                    section: None,
-                }
-                .href();
-                vec![
-                    view! { <a href=href aria-label=format!("Note {label}")>{inlines(c)}</a> }
-                        .into_any(),
-                ]
-            }
+        // Both forms render as one link to the note with one accessible name. The corpus's own
+        // link (`^[5](ref/...#footnote-h)^`) keeps its text and loses its generic name.
+        let shown = match c.as_slice() {
+            [Inline::Link { c: inner, .. }] => inner.as_slice(),
+            _ => c.as_slice(),
         };
+        let href = Route::Entry {
+            id: state.entry.clone(),
+            anchor: Some(info.key.clone()),
+            book: state.book.clone(),
+            section: None,
+        }
+        .href();
+        let content = vec![
+            view! { <a href=href aria-label=info.name.clone()>{inlines(shown)}</a> }.into_any(),
+        ];
         Some(view! { <sup class="fn-ref" id=id>{content}</sup> }.into_any())
     }
 
