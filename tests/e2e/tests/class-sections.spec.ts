@@ -300,14 +300,29 @@ test("A stop chosen from a heading address is a jump: the page stays and the hea
   }
 });
 
+/**
+ * Reloads the page at an address it did not open with, as a bookmark or a typed address would.
+ * The caller has let the page settle, so nothing is in flight.
+ *
+ * `goto` of a hash on the open page changes the hash, and the page then drops a section it lacks
+ * with `replaceState`. A `reload()` right after raced that rewrite: it reloaded either address,
+ * and in WebKit the old document's work then surfaced as `pageerror: Context is stopped` after
+ * the console guard's navigation window had closed on the rewrite's `framenavigated` (#121).
+ * `replaceState` fires no `hashchange`, so the open page does not react, and the reload is the
+ * only navigation.
+ */
+async function coldLoad(page: Page, address: string) {
+  await page.evaluate((hash) => history.replaceState(history.state, "", hash), address);
+  await page.reload();
+}
+
 test("An address that names a section the page lacks drops it and opens at the top", async ({ page }) => {
   await installLibrary(page);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     // A class without a spell list, a prestige class (no switcher) and an entry that is no class.
     for (const [id, query] of [[FIGHTER, "?s=spells"], ["ref/pclass/arcane-archer", "?s=features"], ["ref/spell/fireball", "?s=archetypes"]]) {
-      await page.goto(`#/entry/${id}${query}`);
-      await page.reload();
+      await coldLoad(page, `#/entry/${id}${query}`);
       await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title })).toBeVisible();
       await expect(page, `${id}${query}`).toHaveURL(new RegExp(`#/entry/${id}$`));
       await expect.poll(() => scrollY(page)).toBe(0);
@@ -320,8 +335,7 @@ test("An address that names a section the page lacks drops it and opens at the t
     await expect(page).toHaveURL(new RegExp(`#/entry/${FIGHTER}$`));
     await expect(stop(page, "Overview")).toHaveAttribute("aria-current", "true");
     // A heading anchor in the same address stays.
-    await page.goto(`#/entry/${FIGHTER}?a=bravery&s=spells`);
-    await page.reload();
+    await coldLoad(page, `#/entry/${FIGHTER}?a=bravery&s=spells`);
     await expect(page.getByRole("heading", { level: 1, name: "Fighter" })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`#/entry/${FIGHTER}\\?a=bravery$`));
     await expect(page.locator("#h-bravery")).toBeInViewport();
