@@ -281,10 +281,11 @@ def main() -> int:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
     def same_text(old: dict[str, str], text: str) -> bool:
-        """True when an earlier output row was made from this exact text."""
-        if old.get("text_sha"):
-            return old["text_sha"] == text_sha(text)
-        return old.get("text", "") == text.replace("\t", " ")[:EXCERPT]
+        """True when an earlier output row was made from this exact text.
+
+        A row without `text_sha` is never reused: its excerpt cannot show that
+        the text after the first EXCERPT characters is unchanged."""
+        return bool(old.get("text_sha")) and old["text_sha"] == text_sha(text)
 
     def verdicts(check: str) -> str:
         return check.split(" ", 1)[0]
@@ -341,6 +342,14 @@ def main() -> int:
         else:
             a, p, by = "", "", ""
         ev, conflict = "", ""
+        if key not in hand and old is not None and old.get("presence_basis", "").startswith("conflict:"):
+            # An unresolved conflict keeps its original check context and stays
+            # a candidate until an explicit --aon-review row settles it.
+            stats["hand verdict conflicts with the new check"] += 1
+            return {"aon_check": old["aon_check"], "prd_check": old["prd_check"],
+                    "aon_evidence": old.get("aon_evidence", ""), "on_aon_prd": "candidate",
+                    "presence_basis": old["presence_basis"], "carried_by": old.get("carried_by", ""),
+                    "action": "review"}
         if key in hand:
             hand_by, ev = hand[key]
             by = hand_by or by

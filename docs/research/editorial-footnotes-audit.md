@@ -35,7 +35,7 @@ neither check could run.
 - The 138 confirmed "no" blocks are 73 Pathfinder Data commentary notes (all
   nine *Summon Monster* spells among them, 18 blocks), 55 page citations, 3
   pointers, 1 compiled addition, 3 printed notes, and 3 unclear notes.
-- **Most candidates are "Bonus feat." legends.** 171 of the 172 blocks whose
+- **"Bonus feat." legends are the largest candidate group** (171 of 391). 171 of the 172 blocks whose
   AoN page lacks the note but whose PRD check could not run (a note under four
   words) are standalone "Bonus feat." legends. The owner decides how to treat
   them; see [Owner decisions](#owner-decisions). Another 131 candidates have
@@ -591,8 +591,8 @@ ticket ends with `corpus-check` passing and a pin bump PR.
    them; each removal has its own `exclusions.toml` row.
 3. **Review the candidates and unchecked rows** (cast-iron-data, research).
    Scope: the 391 candidate and 39 unchecked blocks, and the 18 candidate
-   editorial and unclear outside paragraphs (Tavern Toolbox and 3 inline
-   notes among them).
+   editorial and unclear outside paragraphs (Tavern Toolbox, and 6 inline-note rows:
+   3 editorial and 3 unclear).
    Apply the owner decisions on "Bonus feat." legends and paraphrases first.
    Acceptance: each row has `on_aon_prd` yes or no with evidence (the AoN or
    legacy PRD URL that carries the note, or the resolved pages that do not),
