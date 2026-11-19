@@ -63,5 +63,40 @@ class LicenseBasisTests(unittest.TestCase):
         self.assertFalse(self.accepted([CUP], ["unknown"]))
 
 
+class EntryIssueTests(unittest.TestCase):
+    """The screen's diagnostics, through the function the screen calls."""
+
+    KNOWN = {"blog-a", "blog-b", "book-a", "book-ogl"}
+
+    def issues(self, refs, source_ids):
+        cup_sources = publication_license.cup_publications(LICENSE_ROWS)
+        entry = {"id": "ref/x", "license_refs": refs, "source_ids": source_ids}
+        return publication_license.entry_issues(entry, self.KNOWN, cup_sources)
+
+    def test_ogl_entry_with_unknown_source_reports_only_unreviewed_source(self):
+        self.assertEqual(self.issues([OGL], ["unknown"]), ["Unreviewed source: ref/x"])
+
+    def test_cup_entry_whose_unknown_source_has_a_cup_row_reports_only_unreviewed_source(self):
+        rows = LICENSE_ROWS + [{"publication_id": "unknown", "license_refs": [CUP]}]
+        entry = {"id": "ref/x", "license_refs": [CUP], "source_ids": ["unknown"]}
+        issues = publication_license.entry_issues(
+            entry, self.KNOWN, publication_license.cup_publications(rows)
+        )
+        self.assertEqual(issues, ["Unreviewed source: ref/x"])
+
+    def test_cup_entry_with_non_cup_source_reports_only_missing_license(self):
+        self.assertEqual(self.issues([CUP], ["book-a"]), ["Missing OGL reference: ref/x"])
+
+    def test_source_less_entry_reports_both(self):
+        self.assertEqual(
+            self.issues([CUP], []),
+            ["Unreviewed source: ref/x", "Missing OGL reference: ref/x"],
+        )
+
+    def test_clean_entries_report_nothing(self):
+        self.assertEqual(self.issues([OGL], ["book-a"]), [])
+        self.assertEqual(self.issues([CUP], ["blog-a"]), [])
+
+
 if __name__ == "__main__":
     unittest.main()

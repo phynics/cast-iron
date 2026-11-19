@@ -31,3 +31,18 @@ def has_license_basis(entry, cup_sources):
         and bool(source_ids)
         and all(source in cup_sources for source in source_ids)
     )
+
+
+def entry_issues(entry, known_sources, cup_sources):
+    """Return the screen's source and license diagnostics for one entry.
+
+    The two checks are independent: a source missing from the reviewed catalog
+    reports only `Unreviewed source`, and a missing license basis reports only
+    `Missing OGL reference`.
+    """
+    issues = []
+    if not entry["source_ids"] or not set(entry["source_ids"]) <= known_sources:
+        issues.append(f"Unreviewed source: {entry['id']}")
+    if not has_license_basis(entry, cup_sources):
+        issues.append(f"Missing OGL reference: {entry['id']}")
+    return issues

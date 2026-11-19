@@ -95,10 +95,7 @@ for file in sorted((library / "entries").glob("*.json")):
     entries.extend(json.loads(file.read_text()))
 for entry in entries:
     counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
-    if not set(entry["source_ids"]) <= sources or not entry["source_ids"]:
-        issues.append(f"Unreviewed source: {entry['id']}")
-    if not publication_license.has_license_basis(entry, cup_publications):
-        issues.append(f"Missing OGL reference: {entry['id']}")
+    issues.extend(publication_license.entry_issues(entry, sources, cup_publications))
     displayed = [entry["title"], entry["body"], entry["fields"], entry.get("tags", [])]
     text = "\n".join(strings(displayed))
     matches = sorted(set(named_material.findall(text)))
