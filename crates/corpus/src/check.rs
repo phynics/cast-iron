@@ -158,12 +158,19 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
-/// Every inline run of `blocks`, in document order. Headings are skipped: a footnote heading
-/// holds its own label, which is not a marker.
+/// Every inline run of `blocks`, in document order. Footnote headings are skipped: one holds its
+/// own label, which is not a marker. Other headings count, because a marker can sit in a
+/// section title (`### Removed Feats^[1](…#footnote-1)^`).
 fn body_inlines<'a>(blocks: &'a [Block], out: &mut Vec<&'a [Inline]>) {
     for block in blocks {
         match block {
-            Block::Heading { .. } | Block::EntryLink { .. } => {}
+            Block::Heading {
+                level: 6,
+                anchor: Some(anchor),
+                ..
+            } if anchor.starts_with("footnote-") => {}
+            Block::Heading { content, .. } => out.push(content),
+            Block::EntryLink { .. } => {}
             Block::Paragraph { content, .. } => out.push(content),
             Block::List { items, .. } => {
                 for item in items {
@@ -2372,6 +2379,22 @@ mod tests {
         }])];
         body.extend(note("footnote-1", "1"));
         assert!(footnote_warnings(body).is_empty());
+
+        // A marker in a section title counts (`### Removed Feats^[1](…#footnote-1)^`), but a
+        // footnote heading's own label does not mark itself.
+        let mut body = vec![Block::Heading {
+            level: 3,
+            anchor: None,
+            content: vec![
+                Inline::text("Removed Feats"),
+                Inline::Sup {
+                    c: vec![link("ref/rule/note", Some("footnote-1"), "1")],
+                },
+            ],
+        }];
+        body.extend(note("footnote-1", "1"));
+        assert!(footnote_warnings(body).is_empty());
+        assert_eq!(footnote_warnings(note("footnote-2", "2").to_vec()).len(), 1);
 
         // A heading level other than six, or an anchor without the prefix, is not a footnote.
         let body = vec![
