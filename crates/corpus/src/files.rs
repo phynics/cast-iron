@@ -282,8 +282,9 @@ pub struct Exclusions {
 ///
 /// A resolution supersedes exactly one row. When one row of either kind has the path, `path`
 /// alone names it. When several rows share the path (an `excluded` and a `rejected` row, or rows
-/// with different reasons), `supersedes` gives the full `reason` of the row, and `kind` names the
-/// table when both tables hold a row with that path and reason.
+/// with different reasons), `supersedes` is required: it gives the full `reason` of the row, which
+/// may be blank. `kind` alone never selects a row on a shared path; it names the table when both
+/// tables hold a row with that path and reason.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Resolution {
@@ -462,15 +463,23 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
                 ),
             ));
         }
-        if row
-            .supersedes
-            .as_deref()
-            .is_some_and(|s| s.trim().is_empty())
-        {
+        // A path with more than one row, across both tables, needs `supersedes`. `kind` alone
+        // would pick a row today and turn ambiguous when a row with that path is appended.
+        // `supersedes` may be blank: it is the exact reason of a row, and a row can have one.
+        if shared.len() > 1 && row.supersedes.is_none() {
             return Err(Error::new(
                 path,
                 at,
-                format!("resolved row for {:?} has an empty `supersedes`", row.path),
+                format!(
+                    "resolved row for {:?} is ambiguous: {} rows have that path ({}); add `supersedes`, the exact full `reason` of the row it resolves, copied from the file (`kind` alone does not select a row on a shared path)",
+                    row.path,
+                    shared.len(),
+                    shared
+                        .iter()
+                        .map(|(kind, _, _)| kind.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
             ));
         }
         let matched: Vec<_> = shared
@@ -479,10 +488,28 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             .collect();
         match matched.len() {
             0 => {
-                let what = if row.supersedes.is_some() {
-                    "`supersedes` is not the exact, full `reason` of any row with that path"
-                } else {
-                    "no row with that path is in the table `kind` names"
+                let what = match (row.supersedes.as_deref(), row.kind) {
+                    (Some(full), Some(kind))
+                        if shared
+                            .iter()
+                            .any(|(k, _, reason)| *k != kind && *reason == full) =>
+                    {
+                        let other = if kind == RowKind::Excluded {
+                            RowKind::Rejected
+                        } else {
+                            RowKind::Excluded
+                        };
+                        format!(
+                            "that `reason` exists in the {} table, not in the {} table `kind` names",
+                            other.as_str(),
+                            kind.as_str()
+                        )
+                    }
+                    (Some(_), _) => {
+                        "`supersedes` is not the exact, full `reason` of any row with that path"
+                            .to_string()
+                    }
+                    (None, _) => "no row with that path is in the table `kind` names".to_string(),
                 };
                 return Err(Error::new(
                     path,
@@ -492,13 +519,10 @@ pub fn read_exclusions(path: &Path, text: &str) -> Result<Exclusions> {
             }
             1 => {}
             n => {
-                let hint = if row.supersedes.is_none() {
-                    "add `supersedes`, the exact full `reason` of the row it resolves, copied from the file"
-                } else {
-                    // The reader rejects a repeated path and reason within one table, so the
-                    // rows left are one of each table.
-                    "add `kind = \"excluded\"` or `kind = \"rejected\"`"
-                };
+                // The path has several rows, so `supersedes` is set. The reader rejects a
+                // repeated path and reason within one table, so the rows left are one of each
+                // table.
+                let hint = "add `kind = \"excluded\"` or `kind = \"rejected\"`";
                 return Err(Error::new(
                     path,
                     at,
@@ -1038,10 +1062,17 @@ mod tests {
         let error = read(&row("json/d.json#death", Some("nothing like it"), None)).unwrap_err();
         assert!(error.message.contains("supersedes nothing"), "{error}");
         assert!(error.message.contains("exact, full `reason`"), "{error}");
-        // A `kind` with no row of that table for the path supersedes nothing.
-        let error = read(&row("json/m.json#race", None, Some("excluded"))).unwrap_err();
-        assert!(error.message.contains("supersedes nothing"), "{error}");
-        assert!(error.message.contains("`kind`"), "{error}");
+        // On a shared path `kind` alone selects nothing, even when it would pick one row.
+        for (shared, kind) in [
+            ("json/m.json#race", "excluded"),
+            ("json/m.json#race", "rejected"),
+            ("json/d.json#death", "excluded"),
+            ("json/d.json#death", "rejected"),
+        ] {
+            let error = read(&row(shared, None, Some(kind))).unwrap_err();
+            assert!(error.message.contains("is ambiguous"), "{error}");
+            assert!(error.message.contains("add `supersedes`"), "{error}");
+        }
 
         // Naming the rejected row resolves it and leaves the excluded row with the same path.
         let death = read(&row("json/d.json#death", Some(death_native), None)).unwrap();
@@ -1108,6 +1139,134 @@ mod tests {
         let plain = "[[rejected]]\npath = \"json/a.json#x\"\nreason = \"r\"\n\n[[resolved]]\npath = \"json/a.json#x\"\nentries = [\"ref/a/x\"]\nreason = \"ships\"\n";
         let written = write_exclusions(&read_exclusions(path, plain).unwrap());
         assert!(!written.contains("supersedes") && !written.contains("kind"));
+    }
+
+    /// The selection rule, cell by cell (docs/corpus-format.md has the same table): rows with the
+    /// path (N) against the keys the `resolved` row gives.
+    #[test]
+    fn the_selection_rule_holds_in_every_cell() {
+        let path = Path::new("exclusions.toml");
+        let excluded = "[[excluded]]\npath = \"json/d.json#x\"\nrecords = 1\nreason = \"blog\"\n\n";
+        let rejected = "[[rejected]]\npath = \"json/d.json#x\"\nreason = \"converter\"\n\n";
+        let rejected_more =
+            "[[rejected]]\npath = \"json/d.json#x\"\nreason = \"converter again\"\n\n";
+        let row = |supersedes: Option<&str>, kind: Option<&str>| {
+            let supersedes = supersedes.map_or(String::new(), |s| format!("supersedes = {s:?}\n"));
+            let kind = kind.map_or(String::new(), |k| format!("kind = {k:?}\n"));
+            format!(
+                "[[resolved]]\npath = \"json/d.json#x\"\n{supersedes}{kind}entries = [\"ref/x/x\"]\nreason = \"ships\"\n"
+            )
+        };
+        let read = |old: &str, supersedes: Option<&str>, kind: Option<&str>| {
+            read_exclusions(path, &format!("{old}{}", row(supersedes, kind)))
+        };
+        let err = |old: &str, supersedes: Option<&str>, kind: Option<&str>, expect: &str| {
+            let error = read(old, supersedes, kind).unwrap_err();
+            assert!(error.message.contains(expect), "{expect}: {error}");
+        };
+
+        // N = 0: always refused.
+        let error = read_exclusions(
+            path,
+            "[[resolved]]\npath = \"json/none.json#x\"\nentries = [\"ref/x/x\"]\nreason = \"ships\"\n",
+        )
+        .unwrap_err();
+        assert!(error.message.contains("supersedes nothing"), "{error}");
+
+        // N = 1, no keys: the unique-path shorthand.
+        assert!(read(rejected, None, None).is_ok());
+        assert!(read(excluded, None, None).is_ok());
+        // N = 1 with keys: each key present must match the row.
+        assert!(read(rejected, Some("converter"), None).is_ok());
+        assert!(read(rejected, Some("converter"), Some("rejected")).is_ok());
+        assert!(read(rejected, None, Some("rejected")).is_ok());
+        err(rejected, Some("conv"), None, "supersedes nothing");
+        err(rejected, None, Some("excluded"), "supersedes nothing");
+        err(rejected, Some("blog"), None, "supersedes nothing");
+
+        // N >= 2 (both tables, or one table): `supersedes` is required, `kind` alone is not enough.
+        for old in [
+            format!("{excluded}{rejected}"),
+            format!("{rejected}{rejected_more}"),
+        ] {
+            err(&old, None, None, "add `supersedes`");
+            err(&old, None, Some("rejected"), "add `supersedes`");
+            err(&old, None, Some("excluded"), "add `supersedes`");
+            // With the exact full reason, one row is selected.
+            assert!(read(&old, Some("converter"), None).is_ok());
+            assert!(read(&old, Some("converter"), Some("rejected")).is_ok());
+            err(&old, Some("conv"), None, "supersedes nothing");
+        }
+        // A reason in the other table is named as such.
+        let both = format!("{excluded}{rejected}");
+        err(
+            &both,
+            Some("converter"),
+            Some("excluded"),
+            "exists in the rejected table",
+        );
+        err(
+            &both,
+            Some("blog"),
+            Some("rejected"),
+            "exists in the excluded table",
+        );
+        assert!(read(&both, Some("blog"), Some("excluded")).is_ok());
+        // A `kind` names no row of the table and the reason is in no table.
+        err(
+            &both,
+            Some("nothing"),
+            Some("excluded"),
+            "exact, full `reason`",
+        );
+        // Within one table, a `kind` that names the other table has no row for the reason.
+        let two = format!("{rejected}{rejected_more}");
+        err(
+            &two,
+            Some("converter"),
+            Some("excluded"),
+            "supersedes nothing",
+        );
+
+        // The same path and reason in both tables: `supersedes` alone is ambiguous.
+        let same = "[[excluded]]\npath = \"json/d.json#x\"\nrecords = 1\nreason = \"same\"\n\n[[rejected]]\npath = \"json/d.json#x\"\nreason = \"same\"\n\n";
+        err(same, None, Some("rejected"), "add `supersedes`");
+        err(same, Some("same"), None, "add `kind");
+        assert!(read(same, Some("same"), Some("excluded")).is_ok());
+    }
+
+    /// A row can have a blank or whitespace-only reason. It is selected by the exact string.
+    #[test]
+    fn a_row_with_a_blank_reason_can_be_resolved() {
+        let path = Path::new("exclusions.toml");
+        for blank in ["", " ", "  \t"] {
+            let old = format!(
+                "[[rejected]]\npath = \"json/d.json#x\"\nreason = {blank:?}\n\n[[rejected]]\npath = \"json/d.json#x\"\nreason = \"converter error\"\n\n"
+            );
+            let row = |supersedes: &str| {
+                format!(
+                    "[[resolved]]\npath = \"json/d.json#x\"\nsupersedes = {supersedes:?}\nentries = [\"ref/x/x\"]\nreason = \"ships\"\n"
+                )
+            };
+            let read =
+                |supersedes: &str| read_exclusions(path, &format!("{old}{}", row(supersedes)));
+            let blank_row = read(blank).unwrap();
+            let left = blank_row.active_rejected();
+            assert_eq!(left.len(), 1, "{blank:?}");
+            assert_eq!(left[0].reason, "converter error");
+            assert_eq!(blank_row.resolved_rows()[0].was, "rejected");
+            // The other row is selected by its own reason, and blank is not a prefix match.
+            let other = read("converter error").unwrap();
+            assert_eq!(other.active_rejected()[0].reason, blank);
+            // A different blank string matches nothing.
+            let other_blank = if blank.is_empty() { " " } else { "" };
+            let error = read(other_blank).unwrap_err();
+            assert!(error.message.contains("supersedes nothing"), "{error}");
+        }
+        // A blank `supersedes` for a row with a non-blank reason matches nothing.
+        let old = "[[rejected]]\npath = \"json/d.json#x\"\nreason = \"converter\"\n\n[[resolved]]\npath = \"json/d.json#x\"\nsupersedes = \"\"\nentries = [\"ref/x/x\"]\nreason = \"ships\"\n";
+        let error = read_exclusions(path, old).unwrap_err();
+        assert!(error.message.contains("supersedes nothing"), "{error}");
     }
 
     /// A reason that is a whole prefix of another reason on the same path: a prefix `supersedes`

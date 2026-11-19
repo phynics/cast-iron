@@ -577,9 +577,9 @@ whole file, so a `resolved` row finds its row wherever it stands.
 
 A `resolved` row supersedes exactly one row. Several rows can share a `path`: an `excluded` and a
 `rejected` row (the Death and Repose domains have both), or two `rejected` rows with different
-reasons (`json/main04.json#traits_race` has two). Then `path` alone is ambiguous, and the row must
-carry `supersedes`, the full `reason` of the row it resolves, copied exactly (string equality, not a
-prefix):
+reasons (`json/main04.json#traits_race` has two). A path that more than one row has, across both
+tables, needs `supersedes`: the full `reason` of the row it resolves, copied exactly (string
+equality, not a prefix):
 
 ```toml
 [[resolved]]
@@ -589,13 +589,37 @@ entries = ["ref/domain/death"]
 reason = "The domain ships since the @list directive reads. Refs #103."
 ```
 
+The selection rule. N is the number of rows, in both tables, whose `path` is the `path` of the
+`resolved` row:
+
+| N | `supersedes` | `kind` | Result |
+|---|---|---|---|
+| 0 | any | any | Error: supersedes nothing |
+| 1 | none | none | The row (unique-path shorthand) |
+| 1 | none | its table | The row |
+| 1 | none | the other table | Error: supersedes nothing |
+| 1 | its exact reason | none, or its table | The row |
+| 1 | not its exact reason | any | Error: supersedes nothing |
+| 2 or more | none | any (none, `excluded`, `rejected`) | Error: ambiguous, add `supersedes` (`kind` alone never selects a row on a shared path) |
+| 2 or more | the exact reason of one row | none, or that row's table | That row |
+| 2 or more | the exact reason of one row in the other table than `kind` | a table | Error: supersedes nothing; the message says the reason exists in the other table |
+| 2 or more | no row's exact reason | any | Error: supersedes nothing |
+| 2 or more | the exact reason of a row in each table | none | Error: ambiguous, add `kind` |
+| 2 or more | the exact reason of a row in each table | a table | The row of that table |
+
+"Exact reason" is string equality with the whole `reason`, including a blank or whitespace-only
+reason: a row whose `reason` is `""` or `"  "` is selected by `supersedes = ""` or `supersedes =
+"  "`. A `supersedes` that is only a start of a reason selects nothing. A row that another
+`resolved` row already supersedes is a second error: duplicate resolved row.
+
 The identity of a row is its table, its `path` and its `reason`; the reader refuses a repeated
 `path` and `reason` within one table. `supersedes` with `path` therefore selects one row, unless an
 `excluded` and a `rejected` row have the same `path` and `reason`. Then add `kind = "excluded"` or
 `kind = "rejected"` to name the table. A `kind` is never needed otherwise, and a row may carry it
-anyway. A reason that is the start of another reason on the same path (`unsupported directive`
-and `unsupported directive @list`) needs nothing more: each full reason selects its own row, and a
-later row cannot make an earlier `supersedes` ambiguous.
+anyway when the path is unique or `supersedes` is given. A reason that is the start of another
+reason on the same path (`unsupported directive` and `unsupported directive @list`) needs nothing
+more: each full reason selects its own row, and a later row cannot make an earlier `supersedes`
+ambiguous.
 
 The other rows with the path stay in the report. To resolve several rows that share a path, append
 one `resolved` row for each, each with its own `supersedes`. A `path` that two rows share needs one
@@ -945,9 +969,9 @@ file and line, when:
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;
 - `exclusions.toml` repeats a row, resolves one row twice, has a `resolved` row that matches no
-  `excluded` or `rejected` row of the file (an orphan), has one that matches several rows because
-  `supersedes` is missing, or `kind` is missing for a path and reason that both tables hold
-  (ambiguous), names a `supersedes` that is not the exact full reason of a row, leaves `entries` or `reason` empty, or names an
+  `excluded` or `rejected` row of the file (an orphan), has one on a path with several rows but no
+  `supersedes` (`kind` alone is not enough), or `kind` is missing for a path and reason that both
+  tables hold (ambiguous), names a `supersedes` that is not the exact full reason of a row, leaves `entries` or `reason` empty, or names an
   entry that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
