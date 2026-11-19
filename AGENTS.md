@@ -96,7 +96,7 @@ Owner rules of 2026-11-17 (decision `docs/decisions/2026-11-17-test-scope-owner-
 |---|---|---|
 | Docs only (`docs/`, `AGENTS.md`, `DESIGN.md`, `.agents/skills/`), or research scripts the build does not run (`scripts/*-nested.py`) | `cargo xtask check` always (it validates `docs/decisions/`, `docs/status/` and the Markdown links). Run a changed script. No build, no e2e | No |
 | CI and build configuration: `.github/`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `Trunk.toml`, `tests/e2e/package*.json`, `playwright.config.ts`, `server.mjs` | `actionlint` for workflow files. `cargo xtask check` for Cargo or toolchain files | Yes |
-| `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`, or the screen on a built `dist/` | No |
+| `scripts/promote-release.py`, `scripts/check-publication.py` | `python3 scripts/test-promote-release.py`; `python3 scripts/test-check-publication.py` for the publication screen, or the screen on a built `dist/` | No |
 | `scripts/merge-pr.py`, `scripts/test-merge-pr.py` | `python3 scripts/test-merge-pr.py`, and a preview (no `--merge`) on a real PR | No |
 | Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Only when the change bumps `SCHEMA_VERSION` or `INDEX_FORMAT_VERSION` |
 | UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, then at most one spec (see Locally): `cargo xtask build-site --public-url /cast-iron/` and `--project=chromium` (add `--project=mobile-chromium` when `playwright.config.ts` lists the spec there) | No |
