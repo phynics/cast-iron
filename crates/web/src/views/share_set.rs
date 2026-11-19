@@ -2,23 +2,31 @@
 //! that are on now (Copy code, Copy link) and takes a code, and the confirmation that every code
 //! and every `#/books/manage?set=<code>` link opens. A link made while the section sat on Books
 //! (`#/books?set=<code>`) is rewritten to that address by the router. Nothing changes until the reader presses `Use this set`;
-//! the write goes through `Library::apply_active_plan`, and Undo restores the earlier set.
+//! the write goes through `Library::apply_active_plan`, and Undo restores the earlier set while
+//! nothing else has changed it (see `active_books::Recent`).
 //!
 //! The codec and the plan are pure and native-tested (`book_code`, `book_share`); this file is
 //! only the page around them.
 
 use crate::book_code::{self, Shared};
-use crate::book_presets::{self, Change};
+use crate::book_presets;
 use crate::book_share::{self, Offer};
 use crate::library::{Library, use_library};
-use crate::route::{Route, replace, use_route};
-use crate::views::active_books::focus_and_reveal_after_frame;
+use crate::route::{self, Route, replace, use_route};
+use crate::views::active_books::{Recent, focus_and_reveal_after_frame, live_recent};
 use crate::views::icons;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 /// The id of the confirmation heading. Focus moves there when a question appears.
 const CONFIRM_HEADING: &str = "share-confirm-heading";
+
+/// The history-state field that marks the entry that holds a share link. Back and Forward change
+/// the entry without changing the page, so the route alone cannot say that the reader left the
+/// entry whose question is on screen: `#/books/manage` is also the address of the entry before it.
+const LINK_ENTRY: &str = "shareLink";
 
 #[derive(Clone)]
 struct Panel {
@@ -35,26 +43,34 @@ struct Panel {
     notice: RwSignal<Option<String>>,
     /// The code that waits for an answer.
     pending: RwSignal<Option<Shared>>,
-    /// `Used the shared set.` and `Restored your earlier choice.`
-    status: RwSignal<Option<String>>,
-    /// What Undo writes. It lasts until the next change on this page, as for the presets.
-    undo: RwSignal<Option<Change>>,
+    /// What the last change made here did, with its Undo: `Applied Paizo Everything.`, `Now using
+    /// 27 books.`, and `Restored your earlier choice.` It lasts while nothing else has changed
+    /// the books.
+    recent: RwSignal<Option<Recent>>,
     /// The line next to the copy buttons.
     copied: RwSignal<Option<String>>,
-    /// Tells the rest of the page that this section changed the books, so a preset's Undo that
-    /// no longer describes the set goes away.
-    changed: Callback<()>,
+    /// The mark of the history entry whose link opened the question or the error on screen, or
+    /// zero (a mark is never zero). The question belongs to that entry: Back leaves it behind.
+    link_entry: Arc<AtomicU32>,
+    /// False once the view is gone. A write that finishes after that has no screen to update.
+    alive: Arc<AtomicBool>,
 }
 
 impl Panel {
     /// Reads `text` as a code. A good code waits for an answer; a bad one says why and changes
     /// nothing. Neither touches Undo: the earlier answer stays undoable until another selection
     /// change succeeds. `from_link` puts an error outside the disclosure, which a link's reader
-    /// has not opened.
+    /// has not opened, and ties the question to the history entry that holds the link.
     fn review(&self, text: &str, from_link: bool) {
         self.notice.set(None);
         // A copy note describes the code that was on screen; a new question makes it stale.
         self.copied.set(None);
+        let mark = if from_link {
+            route::mark_current_entry(LINK_ENTRY)
+        } else {
+            0
+        };
+        self.link_entry.store(mark, Ordering::Relaxed);
         match book_code::decode(text) {
             Ok(shared) => {
                 self.problem.set(None);
@@ -73,9 +89,28 @@ impl Panel {
         }
     }
 
-    /// Ends the question, applied or not, and takes the code out of the address so a reload or
-    /// Back does not ask again.
-    fn close(&self) {
+    /// The reader moved to another history entry, by Back or Forward: the question and the error
+    /// that a link opened belong to the entry that was left. The same entry with a new address
+    /// (the rewrite that takes the code out) is not leaving.
+    fn left_link_entry(&self) {
+        let mark = self.link_entry.load(Ordering::Relaxed);
+        if mark == 0 || route::current_entry_mark(LINK_ENTRY) == Some(mark) {
+            return;
+        }
+        self.link_entry.store(0, Ordering::Relaxed);
+        self.pending.set(None);
+        self.notice.set(None);
+    }
+
+    /// Ends the question that the entry marked `asked_on` (`None`: an entry that holds no link)
+    /// put, applied or not, and takes its code out of the address so a reload or Back does not ask
+    /// again. When the reader has moved to another entry since, the question on screen is that
+    /// entry's own and stays as it is: a write that finishes late must not close it or rewrite its
+    /// address.
+    fn close(&self, asked_on: Option<u32>) {
+        if route::current_entry_mark(LINK_ENTRY) != asked_on {
+            return;
+        }
         self.pending.set(None);
         self.entered.set(String::new());
         if matches!(self.route.get_untracked(), Route::BooksSet(_)) {
@@ -88,6 +123,7 @@ impl Panel {
             return;
         };
         self.copied.set(None);
+        let asked_on = route::current_entry_mark(LINK_ENTRY);
         let panel = self.clone();
         spawn_local(async move {
             // Worked out inside the write, after any earlier write has landed, as a preset is.
@@ -99,42 +135,52 @@ impl Panel {
                         .unwrap_or_default()
                 })
                 .await;
+            // The reader may have left the page while this saved. The books are saved either way;
+            // nothing on a page that is gone can be updated.
+            if !panel.alive.load(Ordering::Relaxed) {
+                return;
+            }
             match result {
-                Ok(change) if change.is_empty() => {}
-                Ok(change) => {
-                    panel.changed.run(());
-                    panel.status.set(Some(applied_line(&panel.library)));
-                    panel.undo.set(Some(change.inverse()));
+                Ok(planned) if planned.change.is_empty() => {}
+                Ok(planned) => {
+                    let text = applied_line(&panel.library);
+                    panel.recent.set(Some(Recent::applied(&planned, text)));
                 }
                 Err(failure) => panel.notice.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
             }
-            panel.close();
+            panel.close(asked_on);
         });
     }
 
     fn undo(&self) {
-        let Some(change) = self.undo.get_untracked() else {
+        let live = live_recent(&self.library, self.recent);
+        let Some(recent) = untrack(live) else {
+            return;
+        };
+        let Some(change) = recent.undo_change() else {
             return;
         };
         self.copied.set(None);
         let panel = self.clone();
         spawn_local(async move {
-            match panel
+            // Run against the revision that this Undo describes, once every earlier write has
+            // landed: a change that was saving when Undo was clicked has since replaced the set,
+            // and Undo must not put back books that it chose on purpose.
+            let written = panel
                 .library
-                .update_active_books(&change.activate, &change.deactivate)
-                .await
-            {
-                Ok(()) => {
-                    panel.changed.run(());
-                    panel.undo.set(None);
-                    panel
-                        .status
-                        .set(Some("Restored your earlier choice.".to_string()));
-                }
-                // The status line is outside the disclosure, so a link's reader sees it too.
-                Err(failure) => panel.status.set(Some(format!(
+                .apply_active_plan_at(recent.revision(), move |_| change)
+                .await;
+            if !panel.alive.load(Ordering::Relaxed) {
+                return;
+            }
+            match written {
+                Ok(Some(planned)) => panel.recent.set(Some(Recent::restored(&planned))),
+                // Another change landed first, so this Undo no longer describes the set.
+                Ok(None) => {}
+                // Nothing changed: the line, and its Undo, stay.
+                Err(failure) => panel.notice.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
             }
@@ -195,12 +241,8 @@ fn page_address() -> String {
 
 /// The question, the share disclosure and the status line. It renders nothing for a library
 /// whose books carry no slots (compiled before #408): such a library cannot name a set.
-///
-/// `others` counts the changes that the rest of the page made (a preset, a checkbox, Undo): each
-/// one ends this section's Undo, which would no longer describe the set. `changed` is called when
-/// this section changed the books, so the page can end the presets' Undo in turn.
 #[component]
-pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView {
+pub fn ShareSet() -> impl IntoView {
     let library = use_library();
     if book_share::slot_map(library.sources()).is_none() {
         return ().into_any();
@@ -213,27 +255,19 @@ pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView
         problem: RwSignal::new(None),
         notice: RwSignal::new(None),
         pending: RwSignal::new(None),
-        status: RwSignal::new(None),
-        undo: RwSignal::new(None),
+        recent: RwSignal::new(None),
         copied: RwSignal::new(None),
-        changed,
+        link_entry: Arc::new(AtomicU32::new(0)),
+        alive: Arc::new(AtomicBool::new(true)),
     };
+    let alive = panel.alive.clone();
+    on_cleanup(move || alive.store(false, Ordering::Relaxed));
 
-    // One Undo line at a time on this page: a change from elsewhere on it ends this one.
-    let ended = panel.clone();
-    Effect::new(move |seen: Option<u32>| {
-        let now = others.get();
-        if seen.is_some_and(|seen| seen != now) {
-            ended.undo.set(None);
-            ended.status.set(None);
-        }
-        now
-    });
-
-    // A link opens the question. The address keeps the code until the reader answers.
+    // A link opens the question. The address keeps the code until the reader answers. Leaving
+    // the link's history entry by Back or Forward takes the question away.
     let linked = panel.clone();
-    Effect::new(move |_| {
-        if let Route::BooksSet(code) = route.get() {
+    Effect::new(move |_| match route.get() {
+        Route::BooksSet(code) => {
             linked.entered.set(String::new());
             linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
@@ -241,7 +275,14 @@ pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView
                 replace(&Route::BooksManage);
             }
         }
+        _ => linked.left_link_entry(),
     });
+    // Back or Forward between two entries with the same address (a link answered or rejected
+    // there, and the entry before it) fires `popstate` and no `hashchange`: the route does not
+    // change, so the effect above cannot see it.
+    let popped = panel.clone();
+    let history = window_event_listener(leptos::ev::popstate, move |_| popped.left_link_entry());
+    on_cleanup(move || history.remove());
 
     let revision = library.selection_revision();
     let code_library = library.clone();
@@ -286,7 +327,8 @@ pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView
                             <button type="button" class="btn btn-primary"
                                 on:click=move |_| apply.apply()>"Use this set"</button>
                         })}
-                        <button type="button" class="btn" on:click=move |_| cancel.close()>
+                        <button type="button" class="btn"
+                            on:click=move |_| cancel.close(route::current_entry_mark(LINK_ENTRY))>
                             {if empty { "Close" } else { "Cancel" }}
                         </button>
                     </div>
@@ -301,8 +343,9 @@ pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView
     let typed = panel.clone();
     let value = panel.clone();
     let undo_panel = panel.clone();
-    let status = panel.status;
-    let undo_signal = panel.undo;
+    let live = live_recent(&library, panel.recent);
+    let live_text = live.clone();
+    let live_class = live.clone();
     let problem = panel.problem;
     let notice = panel.notice;
     let copied = panel.copied;
@@ -358,9 +401,9 @@ pub fn ShareSet(others: ReadSignal<u32>, changed: Callback<()>) -> impl IntoView
                 </form>
             </div>
         </details>
-        <div class="undo-line share-status" role="status" class:has-status=move || status.get().is_some()>
-            {move || status.get()}
-            {move || undo_signal.get().is_some().then(|| {
+        <div class="undo-line share-status" role="status" class:has-status=move || live_class().is_some()>
+            {move || live_text().map(|recent| recent.text)}
+            {move || live().is_some_and(|recent| recent.has_undo()).then(|| {
                 let panel = undo_panel.clone();
                 view! { <button type="button" class="text-btn" on:click=move |_| panel.undo()>"Undo"</button> }
             })}

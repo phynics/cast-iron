@@ -921,6 +921,29 @@ pub fn current_entry_has_flag(field: &str) -> bool {
     state_field(&current_state(), field).is_some_and(|value| value.is_truthy())
 }
 
+/// The mark that `field` holds on the current history entry, if the entry has one.
+pub fn current_entry_mark(field: &str) -> Option<u32> {
+    state_field(&current_state(), field)
+        .and_then(|value| value.as_f64())
+        .map(|value| value as u32)
+}
+
+/// Gives the current history entry a mark in `field`, or returns the one it already has. A mark
+/// tells two entries apart that have the same route, which the address cannot: Back from a share
+/// link lands on an entry whose address is the one the link was rewritten to. It lives in the
+/// entry's history state, so Back, Forward and a reload keep it, and it is never zero.
+pub fn mark_current_entry(field: &str) -> u32 {
+    if let Some(mark) = current_entry_mark(field) {
+        return mark;
+    }
+    let mark = (js_sys::Math::random() * f64::from(u32::MAX - 1)) as u32 + 1;
+    if let Some(history) = web_sys::window().and_then(|w| w.history().ok()) {
+        let state = state_with(&current_state(), field, &f64::from(mark).into());
+        let _ = history.replace_state(&state, "");
+    }
+    mark
+}
+
 /// Pushes a history entry for the page that is on screen, flagged with `field`. The entry keeps
 /// the scroll id of the page, so Back to it restores the same offset. Returns false when the
 /// browser refuses the push.

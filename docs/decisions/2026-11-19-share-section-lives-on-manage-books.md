@@ -1,0 +1,19 @@
+---
+title: "The share section lives on Manage books"
+date: 2026-11-19
+status: current
+superseded_by: []
+issues: [504]
+prs: [506]
+area: ui
+---
+
+# The share section lives on Manage books, 2026-11-19
+
+Replaces two bullets of "Book share codes, 2026-11-16" (`Where it lives` and `The link is`). The rest of that entry stands. The page is `views/share_set.rs`, inside `views/active_books.rs`.
+
+- **The section moved from Books to Manage books** (#504). A code changes the active set as a preset does, so it belongs where the set is changed. Books keeps the count line, the `Manage books ›` link and then the first group. The section sits after the presets and before the book groups. The 2026-11-16 decision put it on Books because a code is something a reader shares from the page they read; on a phone the section pushed the book list down (the owner's iPhone screenshot, 2026-11-19), and sharing and entering a code change the active set, which is Manage books's job.
+- **The canonical link is `#/books/manage?set=<code>`** (`Route::BooksSet`, `Route::href`). The link that earlier releases copied, `#/books?set=<code>`, still parses to the same route, and `read_location_route` rewrites its address to the canonical one with `replaceState`, keeping the history state. A pasted link of either form is read by the code field. The route is normalized to `BooksManage` for the shell, so answering (which replaces the address with `#/books/manage`) does not rebuild the page and drop the Undo line. The question takes the focus when a link opens it; the H1 takes it otherwise.
+- **An Undo belongs to the selection revision that its change produced.** Each status line (`Applied …`, `Now using 27 books.`, `Restored your earlier choice.`) and its Undo are shown only while `Library::selection_revision` equals the revision after that change, so any later change that succeeds ends every Undo line on the page without a counter or a callback between the presets and the share section. Undo itself runs through `Library::apply_active_plan_at(revision, …)`, which checks the revision once the write holds the slot, after every earlier write has landed. An Undo that was clicked while another change was saving therefore finds a newer revision and writes nothing. Reason: an Undo that captured its inverse before the other change landed would put back books that the newer change had chosen. A write that fails does not move the revision, so it leaves the line and its Undo alone; nothing clears an Undo before the write that replaces it has succeeded. This also fixes the same race between two presets, which existed before the move.
+- **A link's question belongs to the history entry that holds the link.** Back and Forward change the entry without changing the page, and the address of the entry before a link is the address that the link is rewritten to, so the route cannot say that the reader left. The entry carries a mark in its history state (`shareLink`); leaving it by Back or Forward closes the question and any error the link raised. Forward to the entry asks again while its address still carries the code. A write that finishes after the reader has moved to another entry closes nothing there and rewrites no other address, and a write that finishes after the page was left updates nothing: the books are saved either way. The section holds no `Callback` for the rest of the page, because `Callback::run` panics once the view that made it is disposed.
+- **Done reads the entry it leaves, not the page it was built for.** The `Manage books ›` link on Books marks the entry that it pushes (`openedFromBooks`, set when the page is built). Done goes Back only when the entry on screen carries the mark; any other entry, such as one that a share link pushed on the same page, is replaced with Books. Focus returns to the Books link in both cases. The mark survives Back, Forward and a reload, so after a reload on the first entry Done still returns to Books.

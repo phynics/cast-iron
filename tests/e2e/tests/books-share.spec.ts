@@ -177,6 +177,96 @@ async function applyPreset(page: any, name: string) {
   await expect(page.getByRole("status").filter({ hasText: `Applied ${name}.` })).toBeVisible();
 }
 
+const shareUndo = (page: any) => page.locator(".share-status").getByRole("button", { name: "Undo", exact: true });
+const presetUndo = (page: any) =>
+  page.locator('section[aria-labelledby="presets-heading"]').getByRole("button", { name: "Undo", exact: true });
+const usePreset = (page: any, name: string) => page.getByRole("button", { name, exact: true });
+const applied = (page: any, name: string) => page.getByRole("status").filter({ hasText: `Applied ${name}.` });
+
+/**
+ * Holds every save of the book choice that starts after the call, until `release()`. The save is
+ * the browser's own: the page's transaction stays open on a chain of reads, so the write is half
+ * done (the app's earlier-write flag is up, its revision has not moved) with no timer to race.
+ * `writes()` counts the choices that were saved since the call.
+ */
+async function holdWrites(page: any) {
+  await page.evaluate(() => {
+    const w = window as any;
+    const put = IDBObjectStore.prototype.put;
+    let open = true;
+    w.__held = 0;
+    w.__saved = 0;
+    w.__release = () => {
+      open = false;
+      IDBObjectStore.prototype.put = put;
+    };
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      const request = put.call(this, value, key);
+      if (key === "disabled_books") {
+        w.__saved++;
+        if (open) {
+          w.__held++;
+          const store = this;
+          const keep = () => {
+            if (open) store.get(key as IDBValidKey).onsuccess = keep;
+          };
+          keep();
+        }
+      }
+      return request;
+    };
+  });
+  return {
+    held: (n: number) => page.waitForFunction((count: number) => (window as any).__held >= count, n),
+    release: () => page.evaluate(() => (window as any).__release()),
+    writes: (): Promise<number> => page.evaluate(() => (window as any).__saved),
+  };
+}
+
+/**
+ * Waits until a write that was queued behind another one has had its turn. The app starts a
+ * queued write within a few milliseconds of the slot freeing, and a write that runs opens its
+ * transaction at once; this one is created after that, so it completes after any such write
+ * has committed. It lets a test say that a queued write did NOT happen.
+ */
+async function afterQueuedWrites(page: any) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        setTimeout(() => {
+          const open = indexedDB.open("cast-iron");
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            const tx = db.transaction("meta", "readwrite");
+            tx.objectStore("meta").get("disabled_books");
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onerror = () => reject(tx.error);
+          };
+        }, 100);
+      }),
+  );
+}
+
+/** From now on the browser refuses to save the book choice, as a full or locked store does. */
+async function refuseWrites(page: any) {
+  await page.evaluate(() => {
+    const w = window as any;
+    const put = IDBObjectStore.prototype.put;
+    w.__allow = () => {
+      IDBObjectStore.prototype.put = put;
+    };
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      if (key === "disabled_books") throw new DOMException("The store refused the write.", "QuotaExceededError");
+      return put.call(this, value, key);
+    };
+  });
+  return { allow: () => page.evaluate(() => (window as any).__allow()) };
+}
+
 test("The slots in the catalog are the lines of published-books.txt", async () => {
   expect(slotFile.length).toBeGreaterThanOrEqual(allBooks.length);
   expect(new Set(slotFile).size).toBe(slotFile.length);
@@ -368,16 +458,265 @@ installedTest("Another change on Manage books ends the share Undo, and a share e
   await enterCodeOpen(page, codeFor(paizoBooks));
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
   await expect(undo).toHaveCount(1);
-  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
+  await expect(shareUndo(page)).toBeVisible();
+  await expect(applied(page, "Paizo Everything")).toBeVisible();
   // A preset replaces the share's Undo: one Undo line at a time.
-  await page.getByRole("button", { name: "Paizo Rulebooks", exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Rulebooks." })).toBeVisible();
+  await usePreset(page, "Paizo Rulebooks").click();
+  await expect(applied(page, "Paizo Rulebooks")).toBeVisible();
   await expect(undo).toHaveCount(1);
+  await expect(presetUndo(page)).toBeVisible();
+  await expect(shareUndo(page)).toHaveCount(0);
+  // The Undo that is left restores the set before the preset, which was the shared one.
+  await presetUndo(page).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toBeVisible();
+  await expect(undo).toHaveCount(0);
+
+  // A share replaces the preset's Undo, and the share's own Undo restores the set before it.
+  await usePreset(page, "Paizo Rulebooks").click();
+  await expect(presetUndo(page)).toBeVisible();
   await enterCodeOpen(page, codeFor(paizoBooks));
   await page.getByRole("button", { name: "Use this set", exact: true }).click();
   await expect(undo).toHaveCount(1);
-  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Everything." })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Applied Paizo Rulebooks." })).toHaveCount(0);
+  await expect(shareUndo(page)).toBeVisible();
+  await expect(presetUndo(page)).toHaveCount(0);
+  await expect(applied(page, "Paizo Everything")).toBeVisible();
+  await expect(applied(page, "Paizo Rulebooks")).toHaveCount(0);
+  await shareUndo(page).click();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toBeVisible();
+  await expect(undo).toHaveCount(0);
+
+  // A checkbox ends the share's Undo too, once its write has landed.
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(shareUndo(page)).toBeVisible();
+  await openBookGroups(page);
+  const extra = paizoBooks.find((id) => !rulebooks.includes(id))!;
+  await page.locator(`.book-directory-item[data-book-id="${extra}"]`).getByRole("checkbox").uncheck();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length - 1));
+  await expect(undo).toHaveCount(0);
+});
+
+installedTest("An Undo that was clicked while another change was saving does nothing", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+
+  // A share Undo against a preset that is saving.
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(shareUndo(page)).toBeVisible();
+  let hold = await holdWrites(page);
+  await usePreset(page, "Paizo Rulebooks & More").click();
+  await hold.held(1);
+  // The preset is saving; the share's Undo is still on screen, and the reader clicks it.
+  await expect(shareUndo(page)).toBeVisible();
+  await shareUndo(page).click();
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(applied(page, "Paizo Rulebooks & More")).toBeVisible();
+  await afterQueuedWrites(page);
+  // The Undo was left out: it would have turned off the books that the preset kept on.
+  expect(await hold.writes()).toBe(1);
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(shareUndo(page)).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toHaveCount(0);
+  expect(await checkedBooks(page)).toEqual([...more].sort());
+
+  // A preset Undo against a share that is saving. The preset line holds the Undo to Everything.
+  await openShare(page);
+  await expect(presetUndo(page)).toBeVisible();
+  hold = await holdWrites(page);
+  await enterCode(page, codeFor(rulebooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await hold.held(1);
+  await expect(presetUndo(page)).toBeVisible();
+  await presetUndo(page).click();
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(applied(page, "Paizo Rulebooks")).toBeVisible();
+  await afterQueuedWrites(page);
+  expect(await hold.writes()).toBe(1);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(presetUndo(page)).toHaveCount(0);
+  expect(await checkedBooks(page)).toEqual([...rulebooks].sort());
+
+  // Undo twice in a row, as a double tap does: the second one finds the set already restored.
+  await usePreset(page, "Paizo Rulebooks & More").click();
+  await expect(presetUndo(page)).toBeVisible();
+  hold = await holdWrites(page);
+  await presetUndo(page).click();
+  await hold.held(1);
+  await presetUndo(page).click();
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await afterQueuedWrites(page);
+  expect(await hold.writes()).toBe(1);
+});
+
+installedTest("A write that fails leaves the Undo that is on screen", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  await enterCodeOpen(page, codeFor(paizoBooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(shareUndo(page)).toBeVisible();
+  await openBookGroups(page);
+  const extra = paizoBooks.find((id) => !rulebooks.includes(id))!;
+  const box = page.locator(`.book-directory-item[data-book-id="${extra}"]`).getByRole("checkbox");
+  const failed = page.getByRole("alert").filter({ hasText: "Could not save the book selection" });
+
+  const store = await refuseWrites(page);
+  // A checkbox that cannot be saved goes back, says why, and ends nothing.
+  await box.click();
+  await expect(failed).toBeVisible();
+  await expect(box).toBeChecked();
+  await expect(shareUndo(page)).toBeVisible();
+  // So does a preset.
+  await usePreset(page, "Paizo Rulebooks").click();
+  await expect(failed).toBeVisible();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(shareUndo(page)).toBeVisible();
+  // And a share.
+  await enterCodeOpen(page, codeFor(rulebooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
+  await expect(shareUndo(page)).toBeVisible();
+  // The Undo itself fails and stays.
+  await shareUndo(page).click();
+  await expect(page.getByTestId("share-notice")).toContainText("Could not save the book selection");
+  await expect(shareUndo(page)).toBeVisible();
+
+  // The store works again: the Undo that was kept restores the set.
+  await store.allow();
+  await shareUndo(page).click();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(page.getByRole("status").filter({ hasText: "Restored your earlier choice." })).toBeVisible();
+  await expect(shareUndo(page)).toHaveCount(0);
+});
+
+installedTest("Back and Forward take a share link's question with them, and Done follows the entry it leaves", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const code = codeFor(paizoBooks);
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  const use = page.getByRole("button", { name: "Use this set", exact: true });
+  const manage = page.getByRole("link", { name: "Manage books", exact: true });
+
+  // Books, then the Manage books link (the first entry), then a share link in the same tab.
+  await page.goto("#/books");
+  await waitReady(page);
+  await manage.click();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.goto(`#/books/manage?set=${code}`);
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+
+  // Back to the entry before the link: the address is the plain one, and the question is gone
+  // with the link. It cannot be answered from here.
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(question).toHaveCount(0);
+  await expect(use).toHaveCount(0);
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  // Forward to the link's entry asks again, because its address still carries the code.
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(question).toBeVisible();
+  await expect(use).toBeVisible();
+  await page.goBack();
+  await expect(question).toHaveCount(0);
+
+  // A bad link's error belongs to its entry as well.
+  await page.goto(`#/books/manage?set=${code.slice(0, -1)}`);
+  await expect(page.getByTestId("share-notice")).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(page.getByTestId("share-notice")).toHaveCount(0);
+
+  // The link again, from the first entry, answered. Done leaves this entry for Books in place
+  // of going Back to the first entry, which would show the same page again.
+  await page.goto(`#/books/manage?set=${code}`);
+  await expect(question).toBeVisible();
+  await use.click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+  // Focus is back on the link that Done's page was opened from.
+  await expect(manage).toBeFocused();
+  await expect(countText(page)).toHaveText(countLine(paizoBooks.length, "Paizo Everything"));
+  // The entry before Books is the first Manage books entry: Done did not use it.
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
+
+  // On the first entry, which the Books link pushed, Done still goes Back to Books.
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(manage).toBeFocused();
+  await page.goForward();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+});
+
+installedTest("Leaving Manage books while a share is saving breaks nothing and closes no other question", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  const question = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+
+  // The reader answers a link, then leaves the page before the write is done.
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await expect(question).toBeVisible();
+  let hold = await holdWrites(page);
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await hold.held(1);
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await hold.release();
+  // The books were saved, and the page that is on screen did not stop. The fixture also fails the
+  // test on any error the page logged, which a panic would be.
+  await page.goto("#/books/manage");
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(page.getByRole("heading", { level: 1, name: "Manage books", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+
+  // The same for Undo.
+  await enterCodeOpen(page, codeFor(rulebooks));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(shareUndo(page)).toBeVisible();
+  hold = await holdWrites(page);
+  await shareUndo(page).click();
+  await hold.held(1);
+  await page.goto("#/settings");
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await hold.release();
+  await page.goto("#/books/manage");
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+
+  // A write that finishes after the reader opened another link must not close that link's
+  // question or take its code out of the address.
+  await page.goto(`#/books/manage?set=${codeFor(rulebooks)}`);
+  await expect(question).toBeVisible();
+  hold = await holdWrites(page);
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await hold.held(1);
+  const other = codeFor(more);
+  await page.goto(`#/books/manage?set=${other}`);
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`#/books/manage\\?set=${other}$`));
+  await hold.release();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await expect(applied(page, "Paizo Rulebooks")).toBeVisible();
+  await afterQueuedWrites(page);
+  // The second link's question is still there, and so is its code.
+  await expect(question).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`#/books/manage\\?set=${other}$`));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(more.length));
+  await expect(page).toHaveURL(/#\/books\/manage$/);
 });
 
 installedTest("Cancel leaves the books alone and drops the code from the address", async ({ page }) => {

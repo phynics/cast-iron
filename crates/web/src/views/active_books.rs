@@ -7,13 +7,15 @@
 //! The presets are page-wide bulk actions, and Undo reverses the last one until the next change.
 //! The share section (#408, moved here from Books in #504) sits between the presets and the book
 //! groups: a code or a link changes the active set, as a preset does, so it is a change made
-//! here. It keeps its own Undo, and a change made by either side ends the other's.
+//! here. Each side keeps its own Undo line. An Undo belongs to the selection revision that its
+//! change produced (see [`Recent`]), so any later change that succeeds ends every Undo on the
+//! page, and an Undo that was clicked while another change was saving does nothing.
 //! An Adventures series group also carries its own on/off bulk button (#159); a tier itself
 //! still has no control.
 
 use crate::book_presets::{self, Change, Preset};
-use crate::library::{Library, use_library};
-use crate::route::{Route, replace, use_route};
+use crate::library::{Library, Planned, use_library};
+use crate::route::{self, Route, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::browse::{
     BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, adventure_tier_section,
@@ -30,19 +32,25 @@ use wasm_bindgen::JsCast;
 // ---- how the page is entered and left -------------------------------------------------------
 
 thread_local! {
-    /// Set when the `Manage books ›` link on Books is followed, so Done can go Back to that
-    /// Books entry (which restores its scroll position) instead of stacking a new one.
-    static OPENED_FROM_BOOKS: Cell<bool> = const { Cell::new(false) };
+    /// Set when the `Manage books ›` link on Books is followed, until the page that the link opens
+    /// is built. That page then marks its history entry (see [`OPENED_FROM_BOOKS`]).
+    static OPENED_FROM_BOOKS_NEXT: Cell<bool> = const { Cell::new(false) };
     /// Set by Done, so Books puts focus back on the `Manage books ›` link it was left from.
     static FOCUS_LINK_NEXT: Cell<bool> = const { Cell::new(false) };
 }
+
+/// The history-state field that marks the entry that the Books link pushed, so that Done can go
+/// Back to that Books entry (which restores its scroll position) instead of stacking a new one.
+/// It belongs to the entry, not to the page that is mounted: the entry that a share link pushes
+/// on the same page has no mark, and Back from it would land on Manage books, not on Books.
+const OPENED_FROM_BOOKS: &str = "openedFromBooks";
 
 /// The id of the `Manage books ›` link on Books.
 pub const MANAGE_LINK_ID: &str = "manage-books-link";
 
 /// Call from the Books link, before the route changes.
 pub fn note_opened_from_books() {
-    OPENED_FROM_BOOKS.with(|flag| flag.set(true));
+    OPENED_FROM_BOOKS_NEXT.with(|flag| flag.set(true));
 }
 
 /// Reads and clears the request that Done left. Books calls it once, when it is built.
@@ -84,12 +92,12 @@ pub fn focus_and_reveal_after_frame(id: &'static str) {
     });
 }
 
-/// Leaves the page: Back when Books is the previous entry, otherwise Books in its place.
-fn done(opened_from_books: bool) {
+/// Leaves the page: Back when the Books link pushed this very entry, otherwise Books in its place.
+fn done() {
     FOCUS_LINK_NEXT.with(|flag| flag.set(true));
     let history = web_sys::window().and_then(|window| window.history().ok());
     match history {
-        Some(history) if opened_from_books => {
+        Some(history) if route::current_entry_has_flag(OPENED_FROM_BOOKS) => {
             let _ = history.back();
         }
         _ => replace(&Route::Books),
@@ -120,36 +128,75 @@ pub fn save_book_active(
     });
 }
 
-/// The last preset, kept so Undo can reverse it. It lasts until the next change.
+/// What the last change on this page did, for the line under the controls that made it, and the
+/// Undo that reverses it. It belongs to the selection revision that the change produced: it is
+/// shown only while the selection is still at that revision, so any later change that succeeds
+/// ends it, whichever control made that change. A write that fails changes nothing, and the
+/// line stays. An Undo is also run against that revision (see
+/// [`Library::apply_active_plan_at`]), so one that was clicked while another change was saving
+/// does nothing once that change has landed.
 #[derive(Clone)]
-struct Applied {
-    undo: Change,
+pub struct Recent {
+    revision: u64,
+    pub text: String,
+    undo: Option<Change>,
+}
+
+impl Recent {
+    /// A change that was written, with Undo to put the books back.
+    pub fn applied(planned: &Planned, text: String) -> Recent {
+        Recent {
+            revision: planned.revision,
+            text,
+            undo: Some(planned.change.inverse()),
+        }
+    }
+
+    /// An Undo that was written: the books are back, and there is nothing left to undo.
+    pub fn restored(planned: &Planned) -> Recent {
+        Recent {
+            revision: planned.revision,
+            text: "Restored your earlier choice.".to_string(),
+            undo: None,
+        }
+    }
+
+    /// The change that Undo writes, if the line has an Undo.
+    pub fn undo_change(&self) -> Option<Change> {
+        self.undo.clone()
+    }
+
+    /// The selection revision that Undo is bound to.
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    pub fn has_undo(&self) -> bool {
+        self.undo.is_some()
+    }
+}
+
+/// The change to describe now: the last one made from `recent`, while no later change has
+/// succeeded. Read it inside a view and the line follows the selection.
+pub fn live_recent(
+    library: &Library,
+    recent: RwSignal<Option<Recent>>,
+) -> impl Fn() -> Option<Recent> + Clone + 'static + use<> {
+    let revision = library.selection_revision();
+    move || {
+        let now = revision.get();
+        recent.get().filter(|recent| recent.revision == now)
+    }
 }
 
 #[derive(Clone)]
 struct Panel {
     library: Library,
     error: RwSignal<Option<String>>,
-    status: RwSignal<Option<String>>,
-    applied: RwSignal<Option<Applied>>,
-    /// Counts the changes made on this page, so the share section can end its own Undo.
-    changes: RwSignal<u32>,
+    recent: RwSignal<Option<Recent>>,
 }
 
 impl Panel {
-    /// A single-book change replaces the preset message: Undo would no longer describe the set.
-    fn clear_status(&self) {
-        self.status.set(None);
-        self.applied.set(None);
-        self.changes.update(|count| *count = count.wrapping_add(1));
-    }
-
-    /// The share section changed the books: the presets' Undo no longer describes the set.
-    fn shared_changed(&self) {
-        self.status.set(None);
-        self.applied.set(None);
-    }
-
     fn apply(&self, preset: Preset) {
         self.error.set(None);
         let panel = self.clone();
@@ -166,16 +213,11 @@ impl Panel {
                 .await;
             match planned {
                 // The set already matched: nothing was written, so there is nothing to undo.
-                Ok(change) if change.is_empty() => {}
-                Ok(change) => {
-                    panel.changes.update(|count| *count = count.wrapping_add(1));
-                    panel
-                        .status
-                        .set(Some(format!("Applied {}.", preset.label())));
-                    panel.applied.set(Some(Applied {
-                        undo: change.inverse(),
-                    }));
-                }
+                Ok(planned) if planned.change.is_empty() => {}
+                Ok(planned) => panel.recent.set(Some(Recent::applied(
+                    &planned,
+                    format!("Applied {}.", preset.label()),
+                ))),
                 Err(failure) => panel.error.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
@@ -184,11 +226,9 @@ impl Panel {
     }
 
     /// Turns every book of one series group on or off. The change is planned inside the write
-    /// path, so a quick second tap lands on the set the first write left. A single-book or
-    /// group change ends the preset's Undo, which would no longer describe the set.
+    /// path, so a quick second tap lands on the set the first write left.
     fn set_books(&self, ids: Vec<String>, active: bool) {
         self.error.set(None);
-        self.clear_status();
         let panel = self.clone();
         spawn_local(async move {
             let planned = panel
@@ -215,24 +255,27 @@ impl Panel {
     }
 
     fn undo(&self) {
-        let Some(applied) = self.applied.get_untracked() else {
+        let live = live_recent(&self.library, self.recent);
+        let Some(recent) = untrack(live) else {
+            return;
+        };
+        let Some(change) = recent.undo_change() else {
             return;
         };
         self.error.set(None);
         let panel = self.clone();
         spawn_local(async move {
-            match panel
+            // Run against the revision that this Undo describes, once every earlier write has
+            // landed: a change that was saving when Undo was clicked has since replaced the set.
+            let written = panel
                 .library
-                .update_active_books(&applied.undo.activate, &applied.undo.deactivate)
-                .await
-            {
-                Ok(()) => {
-                    panel.changes.update(|count| *count = count.wrapping_add(1));
-                    panel.applied.set(None);
-                    panel
-                        .status
-                        .set(Some("Restored your earlier choice.".to_string()));
-                }
+                .apply_active_plan_at(recent.revision(), move |_| change)
+                .await;
+            match written {
+                Ok(Some(planned)) => panel.recent.set(Some(Recent::restored(&planned))),
+                // Another change landed first, so this Undo no longer describes the set.
+                Ok(None) => {}
+                // Nothing changed: the line, and its Undo, stay.
                 Err(failure) => panel.error.set(Some(format!(
                     "Could not save the book selection: {failure}"
                 ))),
@@ -268,7 +311,6 @@ fn toggle_row(row: BookListEntry, panel: Panel) -> AnyView {
                         let id = id.clone();
                         move |event| {
                             let input = event_target::<web_sys::HtmlInputElement>(&event);
-                            panel.clear_status();
                             save_book_active(&panel.library, id.clone(), input, panel.error);
                         }
                     } />
@@ -326,13 +368,14 @@ fn preset_list(panel: &Panel) -> impl IntoView + use<> {
 pub fn ActiveBooks() -> impl IntoView {
     set_title("Manage books");
     let library = use_library();
-    let opened_from_books = OPENED_FROM_BOOKS.with(|flag| flag.replace(false));
+    // The Books link asked for this page: mark the entry that it pushed, once.
+    if OPENED_FROM_BOOKS_NEXT.with(|flag| flag.replace(false)) {
+        route::mark_current_entry(OPENED_FROM_BOOKS);
+    }
     let panel = Panel {
         library: library.clone(),
         error: RwSignal::new(None),
-        status: RwSignal::new(None),
-        applied: RwSignal::new(None),
-        changes: RwSignal::new(0),
+        recent: RwSignal::new(None),
     };
     // Entering moves focus to the heading, after the shell has moved it to `main`. A share link
     // opens with its question, which takes the focus instead.
@@ -451,15 +494,15 @@ pub fn ActiveBooks() -> impl IntoView {
         })
         .collect_view();
     let undo_panel = panel.clone();
-    let status_panel = panel.clone();
-    let share_panel = panel.clone();
-    let others = panel.changes.read_only();
+    let live = live_recent(&library, panel.recent);
+    let live_text = live.clone();
+    let live_class = live.clone();
     let error = panel.error;
     view! {
         <div class="wide active-books">
             <div class="head-row">
                 <h1 id="manage-books-heading" tabindex="-1">"Manage books"</h1>
-                <button type="button" class="text-btn" on:click=move |_| done(opened_from_books)>"Done"</button>
+                <button type="button" class="text-btn" on:click=move |_| done()>"Done"</button>
             </div>
             <p class="muted books-count" aria-live="polite">{line}</p>
             {move || (empty() == 0).then(|| view! {
@@ -468,16 +511,16 @@ pub fn ActiveBooks() -> impl IntoView {
             <section aria-labelledby="presets-heading">
                 <h2 id="presets-heading" class="sub-head">"Presets"</h2>
                 {presets}
-                <p class="undo-line" role="status">
-                    {move || status_panel.status.get()}
-                    {move || undo_panel.applied.get().is_some().then(|| {
+                <p class="undo-line" role="status" class:has-status=move || live_class().is_some()>
+                    {move || live_text().map(|recent| recent.text)}
+                    {move || live().is_some_and(|recent| recent.has_undo()).then(|| {
                         let panel = undo_panel.clone();
                         view! { <button type="button" class="text-btn" on:click=move |_| panel.undo()>"Undo"</button> }
                     })}
                 </p>
             </section>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-            <ShareSet others changed=Callback::new(move |()| share_panel.shared_changed()) />
+            <ShareSet />
             {groups}
         </div>
     }
