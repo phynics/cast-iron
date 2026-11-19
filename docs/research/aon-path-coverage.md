@@ -6,11 +6,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/65f396735d6c7a685cc89782cc5b113c854bf76f) |
-| Tag | `v0.1.27` |
-| Commit | `65f396735d6c7a685cc89782cc5b113c854bf76f` |
-| Tree hash | `8d779094786c75acd978d231754d9f965f55b64f122c9493338cef8ec2848499` |
-| Entries | 31,808 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/24d393a23a8d4edb45f2382f12cbf9fe40c831f2) |
+| Tag | `v0.1.28` |
+| Commit | `24d393a23a8d4edb45f2382f12cbf9fe40c831f2` |
+| Tree hash | `a53c9b3f583a27f6f203f29c5c0df0527588b68f844f32cd8a4521ba803ee17f` |
+| Entries | 31,825 |
 | Publications | 443 |
 
 ## Totals by kind
@@ -22,7 +22,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | affliction | 0 | 369 | 369 |
 | archetype | 1,246 | 53 | 1,299 |
 | class | 49 | 0 | 49 |
-| class_option | 13 | 2,789 | 2,802 |
+| class_option | 30 | 2,789 | 2,819 |
 | creature | 2,193 | 1,469 | 3,662 |
 | feat | 3,442 | 215 | 3,657 |
 | item | 439 | 7,661 | 8,100 |
@@ -34,7 +34,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | spell | 2,999 | 89 | 3,088 |
 | trait | 1,897 | 40 | 1,937 |
 | trap | 0 | 48 | 48 |
-| **Total** | **12,467** | **19,341** | **31,808** |
+| **Total** | **12,484** | **19,341** | **31,825** |
 
 ## Publications
 
