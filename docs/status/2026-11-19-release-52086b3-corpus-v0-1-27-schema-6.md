@@ -55,8 +55,9 @@ The first WebKit run passed every check above and then failed at its own full-pa
 shown. The first Chromium and WebKit attempts also failed on a wrong wait in the script, before the entry check;
 that was the script, not the site.
 
-**Not run.** No check on the real iPhone ([#423](https://github.com/phynics/cast-iron/issues/423)); the owner
-accepts browser evidence for releases. No upgrade-from-previous-release acceptance was run for this release:
+**Not run.** No check on the real iPhone ([#423](https://github.com/phynics/cast-iron/issues/423)). The
+owner gave the go for this promotion on 2026-11-19 with Chromium and WebKit browser evidence in place of
+the device, as for the previous release ([#441](https://github.com/phynics/cast-iron/issues/441#issuecomment-6958680276)). No upgrade-from-previous-release acceptance was run for this release:
 the library format is unchanged, and CI's update spec covers schema 6 to 6. That spec updates a modified copy
 of the candidate library and checks a star and a disabled book; it is not an upgrade of the published library.
 
@@ -112,7 +113,7 @@ the new library, but the upgrade from the published library was not tested for t
 - The corpus can mark a source as Community Use only, and an exclusion row can be superseded by a later resolved row
   (#491, #493).
 - The publication screen checks an entry's Open Game License reference. It accepts an entry without one only when the
-  entry has a Community Use reference, cites at least one source, and every cited source is Community Use only
+  entry has a Community Use reference, cites at least one source, and every cited source lists Community Use among its licence bases
   (#495); it has unit tests (#498). A share-code test now documents that codes cover the highest slot in the library
   catalog, which was already the behaviour (#494).
 - A WebKit test race around the install button and update check is fixed (#499), and the specs that the v0.1.27 pin
