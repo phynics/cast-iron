@@ -196,3 +196,52 @@ test("A book with a source page links and one without shows no link", async ({ p
 
   expect(guard.problems(), "console errors or third-party requests").toEqual([]);
 });
+
+/**
+ * Tapping the link must leave Cast Iron's own window on the same entry (#514). Where the platform
+ * puts the new page is not the app's choice (see
+ * docs/decisions/2026-11-19-aon-link-opens-where-the-platform-decides.md), but the app must never
+ * navigate its own window to the reference site, and no app code may intercept the tap. The tap
+ * is the only moment a request to the reference site is allowed, so this test answers it locally.
+ */
+test("Tapping the link opens a separate page and leaves the app on its entry", async ({
+  page,
+  context,
+  guard,
+}) => {
+  const tapped: string[] = [];
+  await context.route("https://aonprd.com/**", (route) => {
+    tapped.push(route.request().url());
+    return route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<!doctype html><title>Archives of Nethys stand-in</title>",
+    });
+  });
+
+  await page.goto(`#/entry/${POWER_ATTACK.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: POWER_ATTACK.title })).toBeVisible();
+  await noAonResources(page);
+  const appUrl = page.url();
+  expect(tapped, "no request to the reference site before the tap").toEqual([]);
+
+  const popup = context.waitForEvent("page", { timeout: 15_000 });
+  await page.getByTestId("aon-link").click();
+  const opened = await popup;
+  await opened.waitForLoadState("domcontentloaded");
+
+  expect(opened, "the link opened a separate page").not.toBe(page);
+  expect(opened.url()).toBe(`https://aonprd.com/${POWER_ATTACK.aon}`);
+  expect(await opened.evaluate(() => window.opener), "noopener: no handle back to the app").toBeNull();
+
+  // The app's own window did not navigate, and the entry is still on screen.
+  expect(page.url(), "the app window keeps its address").toBe(appUrl);
+  await expect(page.getByRole("heading", { level: 1, name: POWER_ATTACK.title })).toBeVisible();
+  expect(tapped, "exactly the tapped request reached the reference site").toEqual([
+    `https://aonprd.com/${POWER_ATTACK.aon}`,
+  ]);
+
+  // The tap is the one request the console guard may not count against the test.
+  guard.external.length = 0;
+  await opened.close();
+});
