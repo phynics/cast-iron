@@ -57,7 +57,7 @@ pub use drift::{Disagreement, find_drift};
 pub use entry::{derived_links, entry_path, read_entry, write_entry};
 pub use error::{Error, Result};
 pub use files::{
-    Exclusions, OptionGroupDef, OptionGroups, Publication, PublicationsFile, Resolution,
+    Exclusions, OptionGroupDef, OptionGroups, Publication, PublicationsFile, Resolution, RowKind,
     read_aliases, read_books, read_curated_book, read_exclusions, read_history, read_legal,
     read_option_groups, read_publications, write_aliases, write_books, write_curated_book,
     write_exclusions, write_history, write_legal, write_option_groups, write_publication_list,

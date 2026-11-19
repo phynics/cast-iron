@@ -422,7 +422,7 @@ reviewed source material that an entry cannot express.
 | `option-groups.json` | **Derived** | It joins `option-groups.toml` with the `class_option` entries that name each group. |
 | `trades.json` | **Derived** | One `{ id, trades }` row per archetype or class option that has trades, sorted by id: the lowered trades (`class` filled only where the anchor is ambiguous). The entry shards hold no trades. It replaces `replaces.json` (schema 4 and 5, printed `replaces` names only), which a newer client still reads for an older library. |
 | `lists.json` | **Derived** | It indexes `SpellFields::levels`; the entries stay the source of truth. |
-| `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion and rejection rows, and a few results of the import, are stored. |
+| `coverage.json` | **Derived**, from the entries, `exclusions.toml`, and `history.toml` | Counts follow the entries, so an edit cannot leave them stale. The exclusion, rejection and resolved rows, and a few results of the import, are stored. |
 | `backlinks.json` and shards | **Derived** | They are a reverse index over the entries' body links. |
 | `search.bin` | **Derived** | Built from titles, aliases, sections, and body text. |
 | `manifest.json` | **Derived** | Hashes and byte counts describe build output. |
@@ -557,8 +557,8 @@ what is absent. Rows are only appended: a pull request that edits or removes a
 row is wrong, and a duplicate `path` plus `reason` is a read error. The file may
 be empty.
 
-When a later change ships a record that an earlier `excluded` row left out, do not edit that row.
-Append a `resolved` row after the `rejected` rows:
+When a later change ships a record that an `excluded` or `rejected` row left out, do not edit that
+row. Append a `resolved` row after the `rejected` rows:
 
 ```toml
 [[resolved]]
@@ -567,14 +567,74 @@ entries = ["ref/spell/breeze"]
 reason = "Ships from the Ultimate Cantrips blog post. Refs #36."
 ```
 
-`path` is the exact `path` of an earlier `excluded` row. `entries` lists the entry ids that now
-hold the record (at least one; each must exist), and `reason` says why the exclusion no longer
-applies and cites the issue. The newest word on a path wins: the coverage report leaves a
-resolved path out of `excluded`, and the old row stays in the file as history. A `resolved` row
-supersedes only `excluded` rows, never a `rejected` row. The key is optional and additive: a file
-with no `resolved` row reads and writes back byte for byte as before, and the corpus format does
-not change. A path is resolved once; to exclude it again, add an `excluded` row under a new path
-and say why in a decision.
+`path` is the exact `path` of the `excluded` or `rejected` row it supersedes. `entries` lists the
+entry ids that now hold the record (at least one; each must exist), and `reason` says why the
+exclusion no longer applies and cites the issue. The newest word on a path wins: the coverage
+report moves the row out of `excluded` or `rejected` into its `resolved` list (path, the kind of
+the old row, entry ids, reason) and counts the record as shipped. The old row stays in the file as
+history. Appending the `resolved` rows after the other rows is a convention. The reader checks the
+whole file, so a `resolved` row finds its row wherever it stands.
+
+A `resolved` row supersedes exactly one row. Several rows can share a `path`: an `excluded` and a
+`rejected` row (the Death and Repose domains have both), or two `rejected` rows with different
+reasons (`json/main04.json#traits_race` has two). A path that more than one row has, across both
+tables, needs `supersedes`: the full `reason` of the row it resolves, copied exactly (string
+equality, not a prefix):
+
+```toml
+[[resolved]]
+path = "json/class_ability_domains.json#death"
+supersedes = "converter native exclusion (ref/domain/death): <the rest of the reason>"
+entries = ["ref/domain/death"]
+reason = "The domain ships since the @list directive reads. Refs #103."
+```
+
+The selection rule. N is the number of rows, in both tables, whose `path` is the `path` of the
+`resolved` row:
+
+| N | `supersedes` | `kind` | Result |
+|---|---|---|---|
+| 0 | any | any | Error: supersedes nothing |
+| 1 | none | none | The row (unique-path shorthand) |
+| 1 | none | its table | The row |
+| 1 | none | the other table | Error: supersedes nothing |
+| 1 | its exact reason | none, or its table | The row |
+| 1 | its exact reason | the other table | Error: supersedes nothing; the message says the reason exists in the other table |
+| 1 | not its exact reason | any | Error: supersedes nothing |
+| 2 or more | none | any (none, `excluded`, `rejected`) | Error: ambiguous, add `supersedes` (`kind` alone never selects a row on a shared path) |
+| 2 or more | the exact reason of one row | none, or that row's table | That row |
+| 2 or more | the exact reason of one row in the other table than `kind` | a table | Error: supersedes nothing; the message says the reason exists in the other table |
+| 2 or more | no row's exact reason | any | Error: supersedes nothing |
+| 2 or more | the exact reason of a row in each table | none | Error: ambiguous, add `kind` |
+| 2 or more | the exact reason of a row in each table | a table | The row of that table |
+
+"Exact reason" is string equality with the whole `reason`, including a blank or whitespace-only
+reason: a row whose `reason` is `""` or `"  "` is selected by `supersedes = ""` or `supersedes =
+"  "`. A `supersedes` that is only a start of a reason selects nothing. A row that another
+`resolved` row already supersedes is a second error: duplicate resolved row.
+
+The identity of a row is its table, its `path` and its `reason`; the reader refuses a repeated
+`path` and `reason` within one table. `supersedes` with `path` therefore selects one row, unless an
+`excluded` and a `rejected` row have the same `path` and `reason`. Then add `kind = "excluded"` or
+`kind = "rejected"` to name the table. A `kind` is never needed otherwise, and a row may carry it
+anyway when the path is unique or `supersedes` is given. A reason that is the start of another
+reason on the same path (`unsupported directive` and `unsupported directive @list`) needs nothing
+more: each full reason selects its own row.
+
+The reader matches each `resolved` row against the whole file, not only the rows above it. So an
+`excluded` or `rejected` row appended later under a path that already has a `resolved` row can
+make that resolution ambiguous (for example, it then needs `supersedes` or `kind`), and
+`corpus-check` fails. Do not add a row under a resolved path: a resolved record that must be
+excluded again gets an `excluded` row under a new path (see below).
+
+The other rows with the path stay in the report. To resolve several rows that share a path, append
+one `resolved` row for each, each with its own `supersedes`. A `path` that two rows share needs one
+`resolved` row for each of them: the Death and Repose domains need two (the converter `rejected`
+row and the Pharasma-friendly blog `excluded` row). When only one row has the path, leave
+`supersedes` out. The keys are optional and additive: a file with no `resolved` row reads and
+writes back byte for byte as before, a report with no `resolved` row has no `resolved` key and no
+"Resolved records" section, and the corpus format does not change. A row is resolved once; to
+exclude a record again, add an `excluded` row under a new path and say why in a decision.
 
 **`history.toml`** holds the results of the one-time import that the entries
 cannot state, kept as they were at the cut:
@@ -914,9 +974,11 @@ file and line, when:
   `source_ids`. Remove the placement, or add the book to `source_ids` when it prints the entry;
 - a `[[books]]` block has no row in `publications.toml`. A book is a printed publication, so a
   web post or comic issue gets no book;
-- `exclusions.toml` repeats a row, repeats a `resolved` path, has a `resolved` row for a path no
-  earlier `excluded` row names (an orphan), leaves `entries` or `reason` empty, or names an entry
-  that does not exist;
+- `exclusions.toml` repeats a row, resolves one row twice, has a `resolved` row that matches no
+  `excluded` or `rejected` row of the file (an orphan), has one on a path with several rows but no
+  `supersedes` (`kind` alone is not enough), or `kind` is missing for a path and reason that both
+  tables hold (ambiguous), names a `supersedes` that is not the exact full reason of a row, leaves `entries` or `reason` empty, or names an
+  entry that does not exist;
 - a publication in `publications.toml` has no `copyright`, or is covered by neither a
   `section_15` notice in `legal.toml` (the notice text is part of the publication's
   `copyright`) nor a title in `notice_pending`. The message names `publications.toml`, the

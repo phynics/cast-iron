@@ -626,6 +626,23 @@ fn coverage_markdown(c: &CoverageReport, notes: &[String]) -> String {
     for r in &c.rejected {
         let _ = writeln!(s, "- `{}`: {}", r.path, r.reason);
     }
+    if !c.resolved.is_empty() {
+        let _ = writeln!(s, "\n## Resolved records ({})\n", c.resolved.len());
+        let _ = writeln!(
+            s,
+            "A later row superseded an earlier excluded or rejected row: the record ships.\n"
+        );
+        for r in &c.resolved {
+            let _ = writeln!(
+                s,
+                "- `{}` (was {}): {} Now: {}",
+                r.path,
+                r.was,
+                r.reason,
+                r.entries.join(", ")
+            );
+        }
+    }
     let _ = writeln!(s, "\n## Links\n");
     let _ = writeln!(
         s,

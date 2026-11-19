@@ -1,6 +1,7 @@
 //! The corpus build, end to end, on a tiny synthetic corpus.
 
 use cast_iron_content_compiler::corpus_build::{compile_corpus, compile_corpus_with_slots};
+use cast_iron_content_compiler::pipeline::Failure;
 use cast_iron_corpus::{
     Config, Exclusions, SPLIT_BOOKS_FORMAT, entry_path, write_books, write_config,
     write_curated_book, write_entry, write_exclusions, write_history, write_legal,
@@ -302,33 +303,67 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     assert_eq!(trees[0], trees[1]);
 }
 
+/// Compiles `corpus` and returns `coverage.md` and `coverage.json`.
+fn coverage_of(corpus: &Path, name: &str) -> Result<(String, serde_json::Value), Failure> {
+    let reports = temp(&format!("{name}-reports"));
+    let out = temp(&format!("{name}-out"));
+    let outcome = compile_corpus(corpus, &out, &reports, None, Some("v0.1.6"))?;
+    let json = fs::read(out.join(&outcome.content_version).join("coverage.json")).unwrap();
+    Ok((
+        fs::read_to_string(reports.join("coverage.md")).unwrap(),
+        serde_json::from_slice(&json).unwrap(),
+    ))
+}
+
+fn paths(json: &serde_json::Value, key: &str) -> Vec<String> {
+    json[key]
+        .as_array()
+        .map(|rows| {
+            rows.iter()
+                .map(|row| row["path"].as_str().unwrap().to_string())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[test]
-fn a_resolved_exclusion_leaves_the_coverage_report_and_an_orphan_stops_the_build() {
+fn a_resolved_exclusion_moves_to_the_resolved_list_and_an_orphan_stops_the_build() {
     let corpus = temp("resolved-corpus");
     write_corpus(&corpus);
     let file = corpus.join("exclusions.toml");
     let before = fs::read_to_string(&file).unwrap();
     assert!(before.contains("json/example.json"), "{before}");
-    let compile = |name: &str| {
-        let reports = temp(&format!("{name}-reports"));
-        compile_corpus(
-            &corpus,
-            &temp(&format!("{name}-out")),
-            &reports,
-            None,
-            Some("v0.1.6"),
-        )
-        .map(|_| fs::read_to_string(reports.join("coverage.md")).unwrap())
-    };
-    let listed = compile("excluded").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    let (listed, json) =
+        coverage_of(&corpus, "excluded").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
     assert!(listed.contains("json/example.json"), "{listed}");
+    // With no `resolved` row the report has no resolved section at all.
+    assert!(json.get("resolved").is_none(), "{json}");
+    assert!(!listed.contains("Resolved records"), "{listed}");
+    assert_eq!(paths(&json, "excluded"), ["json/example.json"]);
 
     let row = "\n[[resolved]]\npath = \"json/example.json\"\nentries = [\"ref/rule/combat\"]\nreason = \"ships now. Refs #36.\"\n";
     fs::write(&file, format!("{before}{row}")).unwrap();
-    let after = compile("resolved").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
-    assert!(!after.contains("json/example.json"), "{after}");
+    let (after, json) =
+        coverage_of(&corpus, "resolved").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(paths(&json, "excluded").is_empty(), "{json}");
+    assert_eq!(
+        json["resolved"],
+        serde_json::json!([{
+            "path": "json/example.json",
+            "was": "excluded",
+            "entries": ["ref/rule/combat"],
+            "reason": "ships now. Refs #36."
+        }])
+    );
+    assert!(after.contains("## Resolved records (1)"), "{after}");
+    assert!(
+        after.contains(
+            "- `json/example.json` (was excluded): ships now. Refs #36. Now: ref/rule/combat"
+        ),
+        "{after}"
+    );
 
-    // A row for a path no earlier row excludes is refused before anything is written.
+    // A row for a path no excluded or rejected row has is refused before anything is written.
     fs::write(
         &file,
         format!(
@@ -337,12 +372,97 @@ fn a_resolved_exclusion_leaves_the_coverage_report_and_an_orphan_stops_the_build
         ),
     )
     .unwrap();
-    let failure = compile("orphan").expect_err("an orphan row must fail");
+    let failure = coverage_of(&corpus, "orphan").expect_err("an orphan row must fail");
     assert!(
         failure.lines.join("\n").contains("supersedes nothing"),
         "{}",
         failure.lines.join("\n")
     );
+}
+
+#[test]
+fn a_resolved_row_moves_a_rejected_record_to_the_resolved_list() {
+    let corpus = temp("resolved-rejected-corpus");
+    write_corpus(&corpus);
+    let file = corpus.join("exclusions.toml");
+    // The writer emits an empty `rejected = []`, which a `[[rejected]]` table cannot follow.
+    let before = fs::read_to_string(&file)
+        .unwrap()
+        .replace("rejected = []\n", "");
+    let rejected = "\n[[rejected]]\npath = \"json/domains.json#sun\"\nreason = \"converter could not read it\"\n\n[[rejected]]\npath = \"json/domains.json#moon\"\nreason = \"converter could not read it either\"\n";
+    fs::write(&file, format!("{before}{rejected}")).unwrap();
+    let (listed, json) =
+        coverage_of(&corpus, "was-rejected").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(listed.contains("## Rejected records (2)"), "{listed}");
+    assert_eq!(
+        paths(&json, "rejected"),
+        ["json/domains.json#sun", "json/domains.json#moon"]
+    );
+    assert!(json.get("resolved").is_none(), "{json}");
+
+    let row = "\n[[resolved]]\npath = \"json/domains.json#sun\"\nentries = [\"ref/rule/combat\"]\nreason = \"ships now. Refs #103.\"\n";
+    fs::write(&file, format!("{before}{rejected}{row}")).unwrap();
+    let (after, json) =
+        coverage_of(&corpus, "now-resolved").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    // The path is resolved, not rejected, the rejected count falls, and the other row stays.
+    assert_eq!(
+        json["resolved"],
+        serde_json::json!([{
+            "path": "json/domains.json#sun",
+            "was": "rejected",
+            "entries": ["ref/rule/combat"],
+            "reason": "ships now. Refs #103."
+        }])
+    );
+    assert_eq!(paths(&json, "rejected"), ["json/domains.json#moon"]);
+    assert!(after.contains("## Rejected records (1)"), "{after}");
+    assert!(
+        after.contains("- `json/domains.json#moon`: converter could not read it either"),
+        "{after}"
+    );
+    assert!(after.contains("## Resolved records (1)"), "{after}");
+    assert!(
+        after.contains("- `json/domains.json#sun` (was rejected): ships now. Refs #103."),
+        "{after}"
+    );
+}
+
+#[test]
+fn one_resolved_row_does_not_hide_another_row_with_its_path() {
+    let corpus = temp("resolved-shared-corpus");
+    write_corpus(&corpus);
+    let file = corpus.join("exclusions.toml");
+    // An excluded and a rejected row share one path, like the Death domain in the pinned corpus.
+    let before = fs::read_to_string(&file)
+        .unwrap()
+        .replace("rejected = []\n", "");
+    let shared = "\n[[excluded]]\npath = \"json/domains.json#death\"\nrecords = 1\nreason = \"blog adjustment, not shipped\"\n\n[[rejected]]\npath = \"json/domains.json#death\"\nreason = \"converter native exclusion (ref/domain/death): bad directive\"\n";
+    fs::write(&file, format!("{before}{shared}")).unwrap();
+    let (_, json) =
+        coverage_of(&corpus, "shared").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert_eq!(paths(&json, "rejected"), ["json/domains.json#death"]);
+    assert!(paths(&json, "excluded").contains(&"json/domains.json#death".to_string()));
+
+    // The path alone is ambiguous: the build stops and says what to add.
+    let plain = "\n[[resolved]]\npath = \"json/domains.json#death\"\nentries = [\"ref/rule/combat\"]\nreason = \"ships now. Refs #103.\"\n";
+    fs::write(&file, format!("{before}{shared}{plain}")).unwrap();
+    let failure = coverage_of(&corpus, "ambiguous").expect_err("an ambiguous row must fail");
+    let text = failure.lines.join("\n");
+    assert!(text.contains("is ambiguous"), "{text}");
+    assert!(text.contains("supersedes"), "{text}");
+
+    // Naming the rejected row resolves it and leaves the excluded row listed.
+    let named = plain.replace(
+        "entries",
+        "supersedes = \"converter native exclusion (ref/domain/death): bad directive\"\nentries",
+    );
+    fs::write(&file, format!("{before}{shared}{named}")).unwrap();
+    let (_, json) =
+        coverage_of(&corpus, "named").unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
+    assert!(paths(&json, "rejected").is_empty(), "{json}");
+    assert!(paths(&json, "excluded").contains(&"json/domains.json#death".to_string()));
+    assert_eq!(json["resolved"][0]["was"], "rejected");
+    assert_eq!(json["resolved"][0]["path"], "json/domains.json#death");
 }
 
 fn typed_entry(
