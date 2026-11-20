@@ -43,6 +43,12 @@ recomputes it from the body. `license_refs` is written only when it differs from
 the default in `corpus.toml`, and `relations` never holds a prerequisite that
 `prerequisite_feats` already states (see the key table).
 
+Front-matter strings hold plain characters, not HTML entity references. `corpus-check`
+warns on a named or numeric reference (`&mdash;`, `&times;`, `&#39;`, `&#x2014;`) in the
+title, the tags, or a typed field. Write the character (`—`, `×`), or omit an optional key
+when the value means "none" (a `weight` printed as a dash). The warning does not fail the
+check, and body text is not scanned for it.
+
 ```text
 +++
 id = "ref/spell/fog-cloud"
