@@ -12,8 +12,9 @@
 //!
 //! Front matter is `key: value` lines between two `---` lines. A string and a list are JSON
 //! (`title: "..."`, `issues: [394, 420]`); `date`, `status`, `area` and `kind` are bare words.
-//! Decision keys: `title`, `date`, `status` (`current`, `superseded` or `partly-superseded`),
-//! `superseded_by` (file names without `.md`; empty exactly when the status is `current`), `issues`
+//! Decision keys: `title`, `date`, `status` (`proposed`, `current`, `superseded` or
+//! `partly-superseded`), `superseded_by` (file names without `.md`; empty exactly when the status
+//! is `proposed` or `current`), `issues`
 //! and `prs` (ascending numbers), `area`. Status keys: `title`, `date`, `kind`.
 
 use regex::Regex;
@@ -23,7 +24,7 @@ use std::path::{Path, PathBuf};
 
 type Result<T = ()> = std::result::Result<T, String>;
 
-const DECISION_STATUSES: [&str; 3] = ["current", "superseded", "partly-superseded"];
+const DECISION_STATUSES: [&str; 4] = ["proposed", "current", "superseded", "partly-superseded"];
 
 /// The areas of the decisions index, in the order of its sections: key and heading.
 const AREAS: [(&str, &str); 8] = [
@@ -205,9 +206,9 @@ fn parse_decision(stem: &str, text: &str) -> Result<Decision> {
         ));
     }
     let superseded_by = json_strings(field(&fields, "superseded_by"), "superseded_by")?;
-    if (status == "current") != superseded_by.is_empty() {
+    if matches!(status, "proposed" | "current") != superseded_by.is_empty() {
         return Err(
-            "`superseded_by` must be empty when the status is `current`, and name an entry otherwise"
+            "`superseded_by` must be empty when the status is `proposed` or `current`, and name an entry otherwise"
                 .into(),
         );
     }
@@ -643,6 +644,14 @@ mod tests {
     }
 
     #[test]
+    fn a_proposed_decision_parses() {
+        let text = decision_text("").replace("status: current", "status: proposed");
+        let parsed = parse_decision(STEM, &text).unwrap();
+        assert_eq!(parsed.status, "proposed");
+        assert!(parsed.superseded_by.is_empty());
+    }
+
+    #[test]
     fn a_title_keeps_quotes_backticks_and_unicode() {
         let text = decision_text("").replace("\"A title\"", "\"Book \\\"x\\\" `source_ids` é\"");
         assert_eq!(
@@ -686,6 +695,16 @@ mod tests {
             (
                 decision_text("").replace("status: current", "status: superseded"),
                 "superseded_by",
+            ),
+            (
+                decision_text("")
+                    .replace("status: current", "status: proposed")
+                    .replace("superseded_by: []", "superseded_by: [\"x\"]"),
+                "superseded_by",
+            ),
+            (
+                decision_text("").replace("status: current", "status: accepted"),
+                "status",
             ),
             (
                 decision_text("").replace("# A title, 2026-11-17", "A title"),

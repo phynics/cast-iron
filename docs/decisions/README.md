@@ -30,9 +30,10 @@ area: process
 ```
 
 - `title`: a JSON string. `date`: `YYYY-MM-DD`, equal to the date in the file name.
-- `status`: `current`, `superseded` or `partly-superseded`. A decision that a later one replaced keeps its
-  text; set `status` and list the file names (without `.md`) of the replacing entries in `superseded_by`.
-  `superseded_by` is empty exactly when the status is `current`.
+- `status`: `proposed`, `current`, `superseded` or `partly-superseded`. A `proposed` entry waits for the
+  owner's approval; its pull request sets `current` when the owner approves. A decision that a later one
+  replaced keeps its text; set `status` and list the file names (without `.md`) of the replacing entries in
+  `superseded_by`. `superseded_by` is empty exactly when the status is `proposed` or `current`.
 - `issues` and `prs`: ascending numbers of this repository, each once.
 - `area`: `corpus`, `content`, `search`, `ui`, `install-offline`, `releases`, `process` or `licensing`.
 
