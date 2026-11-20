@@ -257,7 +257,7 @@ fn footnote_markers(
     }
 }
 
-/// Warn about a footnote block whose marker is not in the entry body (an orphan).
+/// Report a footnote block whose marker is not in the entry body (an orphan) as a problem.
 ///
 /// A footnote is a level-six heading with a `footnote-` anchor. Its marker is a superscript with
 /// the heading label (`^B^`) or a link to the anchor (`^[1](id#footnote-1)^`). The audit in
@@ -291,7 +291,7 @@ fn check_orphan_footnotes(stored: &crate::load::Stored, report: &mut Report) {
             continue;
         }
         let line = line_of(&stored.text, &format!("{{#{anchor}}}"));
-        report.warnings.push(format!(
+        report.problems.push(format!(
             "{}:{line}: footnote `{label}` (`#{anchor}`) has no marker in the entry body: add `^{label}^` or a link to `#{anchor}`, or remove the note",
             stored.path.display()
         ));
@@ -1003,7 +1003,7 @@ pub fn check(corpus: &Corpus) -> Report {
             ));
         }
         for (line, residue) in footnote_residue(body) {
-            report.warnings.push(format!(
+            report.problems.push(format!(
                 "{}:{}: footnote converter residue `{residue}`: split it into one note per marker",
                 path.display(),
                 body_start + line - 1
@@ -1044,7 +1044,7 @@ pub fn check(corpus: &Corpus) -> Report {
                 ));
             }
             for entity in entities {
-                report.warnings.push(format!(
+                report.problems.push(format!(
                     "{}:{line}: HTML entity reference `{entity}` in {place}. Write the character, or omit the key when it means no value.",
                     path.display()
                 ));
@@ -2384,28 +2384,29 @@ mod tests {
         }
     }
 
-    fn footnote_warnings(body: Vec<Block>) -> Vec<String> {
+    /// The problems of a one-entry corpus; footnote findings fail the check.
+    fn footnote_problems(body: Vec<Block>) -> Vec<String> {
         let report = check(&corpus(vec![rule("ref/rule/note", body)]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        report.warnings
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        report.problems
     }
 
     #[test]
-    fn a_footnote_without_a_marker_in_the_body_is_a_warning() {
-        let warnings = footnote_warnings(vec![
+    fn a_footnote_without_a_marker_in_the_body_fails_the_check() {
+        let problems = footnote_problems(vec![
             paragraph(vec![Inline::text("Text with no marker.")]),
             footnote_heading("footnote-b", "B"),
             paragraph(vec![Inline::text("The note.")]),
         ]);
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(problems.len(), 1, "{problems:?}");
         assert!(
-            warnings[0].contains("footnote `B` (`#footnote-b`) has no marker"),
-            "{warnings:?}"
+            problems[0].contains("footnote `B` (`#footnote-b`) has no marker"),
+            "{problems:?}"
         );
     }
 
     #[test]
-    fn a_footnote_with_a_superscript_or_linked_marker_does_not_warn() {
+    fn a_footnote_with_a_superscript_or_linked_marker_passes() {
         let note = |anchor: &str, label: &str| {
             [
                 footnote_heading(anchor, label),
@@ -2420,14 +2421,14 @@ mod tests {
             },
         ])];
         body.extend(note("footnote-b", "B"));
-        assert!(footnote_warnings(body).is_empty());
+        assert!(footnote_problems(body).is_empty());
 
         // A superscript that links to the anchor, whatever its label.
         let mut body = vec![paragraph(vec![Inline::Sup {
             c: vec![link("ref/rule/note", Some("footnote-1"), "1")],
         }])];
         body.extend(note("footnote-1", "1"));
-        assert!(footnote_warnings(body).is_empty());
+        assert!(footnote_problems(body).is_empty());
 
         // A marker in a section title counts (`### Removed Feats^[1](…#footnote-1)^`), but a
         // footnote heading's own label does not mark itself.
@@ -2442,8 +2443,8 @@ mod tests {
             ],
         }];
         body.extend(note("footnote-1", "1"));
-        assert!(footnote_warnings(body).is_empty());
-        assert_eq!(footnote_warnings(note("footnote-2", "2").to_vec()).len(), 1);
+        assert!(footnote_problems(body).is_empty());
+        assert_eq!(footnote_problems(note("footnote-2", "2").to_vec()).len(), 1);
 
         // A heading level other than six, or an anchor without the prefix, is not a footnote.
         let body = vec![
@@ -2454,25 +2455,25 @@ mod tests {
                 content: vec![Inline::text("Section")],
             },
         ];
-        assert!(footnote_warnings(body).is_empty());
+        assert!(footnote_problems(body).is_empty());
     }
 
     #[test]
-    fn converter_residue_in_a_body_is_a_warning() {
-        let warnings = footnote_warnings(vec![paragraph(vec![Inline::text(
+    fn converter_residue_in_a_body_fails_the_check() {
+        let problems = footnote_problems(vec![paragraph(vec![Inline::text(
             "ability.\\|M~mythic spells",
         )])]);
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(problems.len(), 1, "{problems:?}");
         assert!(
-            warnings[0].contains("footnote converter residue"),
-            "{warnings:?}"
+            problems[0].contains("footnote converter residue"),
+            "{problems:?}"
         );
 
         // A pipe or a tilde alone is ordinary text.
-        let warnings = footnote_warnings(vec![paragraph(vec![Inline::text(
+        let problems = footnote_problems(vec![paragraph(vec![Inline::text(
             "about 5~10 | fine, a|b and x~y",
         )])]);
-        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(problems.is_empty(), "{problems:?}");
     }
 
     #[test]
@@ -2685,7 +2686,7 @@ mod tests {
     }
 
     #[test]
-    fn an_entity_reference_in_a_typed_field_warns() {
+    fn an_entity_reference_in_a_typed_field_fails_the_check() {
         let mut feat = rule("ref/feat/entity", vec![]);
         feat.kind = EntryKind::Feat;
         feat.fields = TypedFields::Feat(cast_iron_schema::FeatFields {
@@ -2693,8 +2694,8 @@ mod tests {
             ..Default::default()
         });
         let report = check(&corpus(vec![feat]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        let text = report.warnings.join("\n");
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        let text = report.problems.join("\n");
         for entity in ["&times;", "&#8212;", "&#x2020;"] {
             assert!(
                 text.contains(&format!("HTML entity reference `{entity}`")),
