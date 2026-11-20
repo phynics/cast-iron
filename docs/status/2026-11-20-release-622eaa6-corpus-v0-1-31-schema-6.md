@@ -35,14 +35,14 @@ of a fix. The promotion helper accepted the SHA.
 
 **Deployment.** Pages run
 [44759576175](https://github.com/phynics/cast-iron/actions/runs/44759576175) succeeded for
-`headBranch: release` at `622eaa6` (build and deploy). It was the newest run for this push and the only one. The live
-`content/manifest.json` reads `schema_version: 6`, `content_version: v4192151b29702eab`, `entry_count: 31825`,
-`total_bytes: 223207549`, `corpus_tag: v0.1.31`, 292 files. The live `sw.js` stamps
-`SHELL_VERSION = "0cc32985d5369a1e"` and `SHELL_DATE = "2026-11-20"`.
+`headBranch: release` at `622eaa6` (build and deploy). It was the newest run for this push and the only one.
 
 **Live check** on `https://phynics.github.io/cast-iron/`, 2026-11-20, with a throwaway Playwright script
 (Chromium and WebKit, a fresh profile for each run; the script is not committed). Each browser ran twice. The
 first runs reported one failure each in my script, described below the table; the second runs passed every check.
+The live `content/manifest.json` reads `schema_version: 6`, `content_version: v4192151b29702eab`,
+`entry_count: 31825`, `total_bytes: 223207549`, `corpus_tag: v0.1.31`, 292 files. The live `sw.js` stamps
+`SHELL_VERSION = "0cc32985d5369a1e"` and `SHELL_DATE = "2026-11-20"`.
 
 | Check | Chromium | WebKit |
 |---|---|---|
@@ -68,8 +68,8 @@ The install used the Download button that a profile without a library shows, not
 - **One 503 in the first Chromium run.** That run logged one console error, "Failed to load resource: the server
   responded with a status of 503", and the script did not record the URL. The second Chromium run logged the
   URL of every response with a status of 400 or more and saw none, and its console was clean. The first WebKit
-  run had no console error. I do not know which resource failed, and I did not reproduce it. Treat it as one
-  transient response from the host, not a finding about the library.
+  run had no console error. The failing resource and the source of the 503 are unknown. The error did not recur
+  on retry.
 
 **Not run.**
 
@@ -79,7 +79,8 @@ The install used the Download button that a profile without a library shows, not
   app-update or library-update flow was run. The library format is unchanged, and CI's update spec covers schema 6
   to 6 on a modified copy of the candidate library; it is not an upgrade of the published library.
 - The live check did not open entries other than those in the table. It did not check the marker styling or the
-  touch hit area of a marker; `footnotes.spec.ts` in the CI run covers them.
+  hit area of a marker. CI's `footnotes.spec.ts` checks marker styling and desktop hit-area dimensions. The
+  touch-specific hit area was not verified.
 - `cargo xtask published-ids` was not run for this release. The pin adds no entry and no alias, and the
   published-id guard of `cargo xtask content` passed at the pin.
 - The WebKit `mythic.spec.ts` failure of the previous release was not run again on its own.
