@@ -207,7 +207,17 @@ trades = [
 | `feature` | Optional. A heading anchor of a base class entry. A trade without it is unresolved: it keeps its printed name, and no compatibility filter treats it as compatible with anything. |
 | `class` | Optional, only with `feature`. The base class entry whose anchor it is. Required when more than one base class of the entry holds the anchor (an archetype of several classes, a class option whose group has several classes); otherwise the compiler drops it. |
 | `levels` | Optional, only with `feature`. The class levels at which the trade applies: 1 to 20, ascending, each once. No `levels` means every level of the feature. |
-| `power` | Optional, only with `feature`. A named power or qualifier inside the feature, such as a bloodline power, a domain power, `+4` of `Poison resistance +4`, or `minor` of `Touch treatment (minor)`. Compared by exact text. |
+| `power` | Optional, only with `feature`. A stable named component inside the feature, such as a bloodline power, a domain power, a bardic performance or a gunslinger deed, written the same in every entry. By corpus convention never a progression step (see below); the reader accepts any text and the check does not validate its meaning. Compared by exact text. |
+
+**Progression steps are grant levels.** This is a corpus authoring convention. `levels` identifies a progression step by the base-class grant levels, read from the class feature table of the base class: `Armor training 2` is `levels = [7]`, `Trap sense +3` is `[9]`, `Judgment 1/day` is `[1]`, and a list of steps names the levels of its steps (`Weapon training 1 and 3` is `[5, 13]`). `power` names a component only when the level alone is not enough, and a step is never a `power`. The adopted component names are:
+
+- a bardic performance or a gunslinger deed, by its name;
+- for `weapon-and-armor-proficiencies`: `weapons`, `armor`, `light armor`, `medium armor`, `heavy armor` and `shields`;
+- for a spell-list substitution: `feature = "spells"` with `power = "spell list"`.
+
+The migration of the corpus repository (#452) normalized the step powers that `migrate-trades` wrote (`power = "2"`, `power = "+4"`) into levels, with documented exceptions in its adjustment log (Proselytizer keeps `power = "major"`, because `[10]` would duplicate its alteration of the whole feature). `migrate-trades` itself still writes a step as a `power` (the qualifier rule below) until a later change.
+
+**Two different comparisons.** The duplicate check below compares exactly: two trades of one key overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. That matcher is not built yet; #170 part D tracks it.
 
 `corpus-check` holds these rules for the trades:
 
