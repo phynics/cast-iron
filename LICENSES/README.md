@@ -58,16 +58,25 @@ The corpus was written once from two public datasets, recorded in its
   under OGL 1.0a plus Paizo's Community Use Policy for permitted descriptive
   references.
 - [jasontankapps/pathfinder-data-1-e](https://github.com/jasontankapps/pathfinder-data-1-e).
-  Its `json/` directory is Open Game Content under OGL 1.0a. The non-OGC
+  Its `json/` directory contains Open Game Content under OGL 1.0a; the
+  dataset's Open Game Content notice excludes Product Identity. The non-OGC
   application content of that repository is under GPL-3.0-or-later; Cast Iron
-  never copied its renderer or other application code. The one part that may
-  count as application content is the dataset's editor's notes. The corpus
-  keeps only the notes whose text Archives of Nethys or the Paizo PRD carries,
-  and bases them on that game text (PRD text is Paizo's Open Game Content;
-  AoN-carried text is treated as the rest of the entry, under OGL 1.0a). The
-  corpus `LICENSE.md` states this basis, and `docs/research/editorial-footnotes-audit.md`
-  records the evidence. Its ORC-licensed Pathfinder Second Edition material was
-  out of scope and is not in the corpus.
+  never copied its renderer or other application code. The status of the
+  dataset's editor's notes is unresolved: its notices do not designate them
+  individually and support two readings (Open Game Content of the dataset, or
+  GPL application content). The corpus policy is to keep a note only when
+  Archives of Nethys or the Paizo PRD carries the same text; a match is
+  evidence of provenance, not a license. The OGL 1.0a covers text that is
+  identifiable as Open Game Content, and the basis for any original wording by
+  the dataset's editor or by AoN is unresolved. The corpus still holds notes
+  that have no recorded match and wait for review (data issue #117), and it
+  keeps the printed "Bonus feat." legends and the *Maniac Hand* stat paragraph
+  on purpose (data #115). The pinned corpus v0.1.30 `LICENSE.md` still says
+  that none of the dataset's application content was copied; data PR #119
+  corrects it, and the correction reaches this repository with the next corpus
+  pin after v0.1.30. `docs/research/editorial-footnotes-audit.md` records the
+  evidence. Its ORC-licensed Pathfinder Second Edition material was out of
+  scope and is not in the corpus.
 
 Cast Iron no longer downloads or reads either dataset. The import code, the
 pins, and the source selection are preserved in the git tag

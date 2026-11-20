@@ -23,10 +23,18 @@ Upstream renderer code is not being copied. `routes.json` contains factual
 file-to-protocol associations extracted without executing that renderer.
 
 The dataset's editor's notes (footnotes and similar notes) are the one part
-that may count as application content, because its notices do not mark them
-as OGC. The pinned corpus keeps a note only when AoN or the PRD carries the
-same text, and its `LICENSE.md` states that basis. The evidence and the two
-readings of the dataset's notices are in
+whose status is unresolved: its notices do not designate them individually, and
+they support two readings (Open Game Content of the dataset, or GPL
+application content). The corpus policy is to keep a note only when AoN or the
+PRD carries the same text. That match is evidence of provenance, not a license:
+the OGL 1.0a covers text that is identifiable as Open Game Content (the PRD and
+the dataset both exclude Product Identity), and the basis for original wording
+by the dataset's editor or by AoN is unresolved. Some remaining notes have no
+recorded match yet and wait for review (data issue #117); the printed "Bonus
+feat." legends and the *Maniac Hand* stat paragraph stay on purpose (data
+#115). The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
+#119); the v0.1.30 file still says none of the application content was copied.
+The evidence and the two readings are in
 [editorial-footnotes-audit.md](editorial-footnotes-audit.md#licensing).
 
 The PSRD carry-over library imports exactly one reviewed record from this pin:
