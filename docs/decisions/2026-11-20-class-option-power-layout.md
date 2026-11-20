@@ -11,7 +11,8 @@ area: ui
 # Class-option powers render as printed prose from canonical labeled rows, 2026-11-20
 
 Refs [#537](https://github.com/phynics/cast-iron/issues/537) and phynics/cast-iron-data#88. Status
-`proposed`: the owner approves the mockups and the open questions before any implementation.
+`proposed`: the owner answered the open questions on 2026-11-20 (see "Owner answers" below). The entry
+stays `proposed` until the owner approves the updated mockups. Nothing is implemented before that.
 
 ## Problem
 
@@ -99,7 +100,8 @@ broken layout.
 The rule excludes the affliction blocks inside powers (`**Poison**` then `Type`, `Save`,
 `Frequency`, `Effect`, `Cure`), which is why `Effect` is not an effect label. A looser rule that
 accepts any power label counted 10 such blocks as powers. The same row shape occurs in archetype
-entries (4,702 runs) and in 206 rule entries. They are out of scope here (see open questions).
+entries (4,702 runs) and in 206 rule entries. They are out of scope here. Class options ship first;
+a follow-up issue extends the same rule and corpus rewrite to archetypes (owner answer 5).
 
 **Counts on corpus `main` (cast-iron-data, after v0.1.26).** Ground truth is the pinned upstream
 dataset: every `::ab[...]` directive that carries a gained level, an effect, an upgrade or a usage,
@@ -123,16 +125,18 @@ and then runs the rule above:
   upgrades not above the gained level.
 
 Other counts after the rewrite: 1,138 powers have `Gained`, 1,000 have an action label, 712 have
-`Usage`, 770 have upgrades (1,729 lines), 388 have a prerequisite that is only a level
-(`7th-level oracle`), and 1,601 entries consist of a single power whose name is the entry title.
+`Usage`, 770 have upgrades (1,729 lines), and 388 have a prerequisite that is only a level
+(`7th-level oracle`). That prerequisite stays a `Prereq:` row (owner answer 2).
 Only about 20 of the 1,000 action-labeled effects state the action in their own text. The import
 moved `As a standard action` into the label, so the label must show.
 
 ### 3. What the layout shows
 
-- **Head.** The name on the left. On the right, `Level N` from `Gained`, or `Level N+` from a
-  prerequisite that is only a level, whose row is then not repeated. A dotted leader in `--line`
-  joins the name and the level. A power with neither has no right slot (most revelations).
+- **Head.** The name on the left. On the right, `Level N` from `Gained`, and from nothing else. A
+  prerequisite such as `11th-level oracle` stays a `Prereq:` row and never sets the level. A dotted
+  leader in `--line` joins the name and the level. A power without `Gained` has no right slot (most
+  revelations). The level is a presentation detail that groups and orders the powers of a page; it is
+  never part of the power's name.
 - **Meta line.** One muted line under the head, in the Metadata role (`--ink-muted`, `--step--1`, `·`
   separators). It holds the action as words (`Standard action`, `Swift action`, `Full-round action`)
   and the `Usage` text: `Standard action · 3 + Intelligence modifier times/day`. A power with neither
@@ -146,7 +150,38 @@ moved `As a standard action` into the label, so the label must show.
 - No box, no tint and no left rule (the stat block keeps the only rule). Space separates powers:
   `--space-5` between powers, `--space-1` under the head.
 
-### 4. Accessibility
+### 4. One-power pages
+
+1,606 class-option entries are one power: a talent, rage power, hex or discovery whose page is that
+power. On such a page the power head folds into the title, so the name does not appear twice.
+
+- **Recognition.** A page is a one-power page when all three hold, after the rewrite:
+  1. The body has exactly one recognized power.
+  2. The power's name paragraph is the first block of the body.
+  3. The name without its ability tag equals the entry title, ignoring case and apostrophe style.
+     The ability tag is a trailing `(Ex)`, `(Su)` or `(Sp)`, or a combination joined by `, `, ` or `
+     or ` and ` (`(Ex or Su)`, `(Sp and Ex)`).
+
+  Any other page is a multi-power page and keeps every power head. On corpus `main` after the
+  prototype rewrite: 2,106 entries hold a power, 1,606 are one-power pages, 465 have several powers,
+  and 35 have one power that is not the entry. Those 35 keep the head: 26 eidolon `Base Evolutions`,
+  2 inquisition `Granted Powers`, 5 spirits, 1 kineticist entry, and `Black Market Connection (Ex)`
+  under the title `Black Market Connections`. The last one is a corpus mismatch for #88 to check
+  against print.
+- **The title stays the entry title.** The `h1` text never takes the ability tag or the level.
+- **Facts line.** The power's facts move into the entry head, as one muted line directly under the
+  metadata line (`.entry-facts`, the Metadata role: `--ink-muted`, `--step--1`, `·` separators). The
+  order is the ability tag in words with the printed tag (`Supernatural (Su)`), then `Level N` from
+  `Gained`, then the action and the uses: `Supernatural (Su) · Swift action · Once per rage`. The
+  metadata line keeps its own role (kind and book, as links). The facts line holds only text, so the
+  two lines never mix links with plain facts. A page whose power has no tag, no `Gained`, no action
+  and no uses has no facts line.
+- **Body.** The body starts with the effect. It has no power heading, no leader and no power meta
+  line. The upgrades and the other rows follow, as on a multi-power page. Blocks after the power
+  (76 pages) render as today.
+- Of the 1,606 pages, 1,229 have an ability tag, 19 have `Gained`, and 250 have an action or uses.
+
+### 5. Accessibility
 
 - The name is a real heading element. Its level is one below the nearest preceding body heading.
   Before any body heading, the level is the shallowest heading level in the body, or `h2` when the
@@ -156,27 +191,40 @@ moved `As a standard action` into the label, so the label must show.
 - These headings are not added to `On this page`; the outline keeps the corpus headings only.
   They are not added to search or to heading keys, and they get no anchor.
 - Reading order is the visual order: name, level, meta line, effect, upgrades. The level is text,
-  never position only. It carries a visually hidden prefix (`.sr-only`): "Gained at Level 1", or
-  "Available from Level 7+". The leader is decorative (`aria-hidden`, or a pseudo-element).
+  never position only. It carries a visually hidden prefix (`.sr-only`): "Gained at Level 1". The
+  leader is decorative (`aria-hidden`, or a pseudo-element).
+- On a one-power page, the reading order is: title, metadata line, facts line, then the body. The
+  facts line spells out the tag ("Supernatural (Su)"), so a screen reader does not have to read "S u".
 - The power is a plain `div`, not a `section`, so a mystery with 20 revelations adds no landmarks.
 - Colors are existing tokens with their measured contrast. The meta line uses `--ink-muted`, the
   token that the entry metadata line already uses.
 
-### 5. At 390 px
+### 6. At 390 px
 
 The head is one flex row aligned on the baseline. The name shrinks and wraps (`text-wrap:
 balance`). The level never wraps and stays on the name's first line at the right edge. The leader
 takes only the space left, so it disappears when the name wraps. In the mockup, "In Accordance with
-the Prophecy (Su)" wraps to two lines with `Level 1` beside the first. The meta line wraps like
-prose.
+the Prophecy (Su)" wraps to two lines with `Level 1` beside the first. The meta line and the facts
+line wrap like prose.
+
+## Owner answers, 2026-11-20
+
+1. One-power pages: fold the power head into the title. The tag and the level are presentation near
+   the title, never title text (section 4).
+2. Minimum level of a revelation: keep the `Prereq:` row. The head shows a level only from `Gained`.
+   The earlier `Level N+` proposal is withdrawn.
+3. Action and uses: one muted meta line, as proposed. `Passive` shows nothing.
+4. Dotted leader: kept.
+5. Archetypes: class options first; a follow-up issue extends the rule to archetypes.
 
 ## Evidence
 
 Mockups at 390×844 and 1280×900, light and dark, are attached to the pull request for this file.
 The mockup HTML inlines `web/styles.css` and renders real corpus entries in the prototype canonical
 form: Abjuration (*Core Rulebook* p. 79), Flame (*Advanced Player's Guide* p. 47), Divination
-(*Core Rulebook* p. 80), and the Evil Eye hex (*Advanced Player's Guide*). The same pages also render as
-the app does today, for comparison. The counting and rewrite prototype moves to
+(*Core Rulebook* p. 80), and three one-power pages: the Evil Eye and Flight hexes (*Advanced Player's
+Guide*) and the Auspicious Mark rage power (*Ultimate Combat*). Abjuration, Flame and Evil Eye also
+render as the app does today, for comparison. The counting and rewrite prototype moves to
 cast-iron-data with #88 as the rerunnable script.
 
 ## Then
@@ -184,5 +232,6 @@ cast-iron-data with #88 as the rerunnable script.
 1. phynics/cast-iron-data#88: the rewrite script and its review queue, a print check on a sample,
    the canonical-order check, and a corpus tag.
 2. A pin pull request here. Then the renderer: recognition in `crates/web` (pure functions with
-   native tests), the `.power` styles, DESIGN.md set from proposed to current, and one e2e spec on
-   Abjuration.
+   native tests: power recognition, the one-power test, the heading level), the `.power` and
+   `.entry-facts` styles, DESIGN.md set from proposed to current, and one e2e spec on Abjuration.
+3. A follow-up issue for archetype features (same row shape, 4,702 runs).

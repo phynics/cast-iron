@@ -234,10 +234,10 @@ as printed prose. It sits in a plain `div.power`, with no box, no tint and no ru
 
 1. The head is one baseline-aligned row. On the left is the name, as a heading one level below the
    enclosing body heading (`.power-name`: display face, 1.125rem, weight 700). On the right is
-   `Level N` (from `Gained`) or `Level N+` (from a prerequisite that is only a level), in `--step--1`
-   weight 600 `--ink-muted` with tabular figures and no wrap. The level text has a visually hidden
-   prefix ("Gained at"). A dotted `--line` leader takes the space between them and disappears when
-   the name wraps.
+   `Level N`, only from `Gained`, in `--step--1` weight 600 `--ink-muted` with tabular figures and no
+   wrap. A prerequisite such as `11th-level oracle` stays a `Prereq:` row and never sets the level.
+   The level text has a visually hidden prefix ("Gained at"). A dotted `--line` leader takes the
+   space between them and disappears when the name wraps.
 2. An optional meta line in the Metadata role: the action in words and the uses, joined by `·`
    (`Standard action · 3 + Intelligence modifier times/day`).
 3. The base effect in body type, without its `Passive` or `Ability` label. `Flavor` reads as the
@@ -247,6 +247,14 @@ as printed prose. It sits in a plain `div.power`, with no box, no tint and no ru
 
 Powers are not added to `On this page`. A run that does not match the canonical form renders as
 today's labeled rows.
+
+**One-power page** (a talent, hex or rage power whose page is the power). The body has exactly one
+power, its name is the first block, and the name without its ability tag is the entry title. The
+power head folds into the title. The `h1` stays the entry title, never with the tag or the level.
+One muted `.entry-facts` line sits directly under the metadata line: the tag in words with the
+printed tag, `Level N` from `Gained`, then the action and the uses
+(`Supernatural (Su) · Swift action · Once per rage`). The metadata line keeps kind and book. The
+body starts with the effect, with no power heading and no power meta line.
 
 ## Tokens
 
