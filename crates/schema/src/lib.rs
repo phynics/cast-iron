@@ -41,6 +41,7 @@ use std::fmt;
 pub mod books;
 pub mod headings;
 pub mod manifest_check;
+pub mod power;
 pub mod validate;
 
 /// Version of the serialized content format.

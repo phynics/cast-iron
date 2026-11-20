@@ -75,11 +75,17 @@ pub fn corpus_in_format(format: u32, entries: Vec<RuleEntry>) -> Corpus {
     let mut by_id = BTreeMap::new();
     for entry in entries {
         let text = write_entry(&entry, &config);
+        let path = entry_path(&entry.id);
+        // The lines come from the real parser, as the loader records them.
+        let block_lines = crate::entry::read_entry_with_lines(&path, &text, &config)
+            .map(|(_, lines)| lines)
+            .unwrap_or_default();
         by_id.insert(
             entry.id.to_string(),
             Stored {
-                path: entry_path(&entry.id),
+                path,
                 text,
+                block_lines,
                 entry,
             },
         );

@@ -2,7 +2,7 @@
 
 use crate::books::{BOOKS_DIR, BookLayout, book_index};
 use crate::config::{Config, SPLIT_BOOKS_FORMAT, read_config};
-use crate::entry::read_entry;
+use crate::entry::read_entry_with_lines;
 use crate::error::{Error, Result};
 use crate::files::{
     Exclusions, OptionGroups, Publication, read_aliases, read_books, read_curated_book,
@@ -20,6 +20,9 @@ pub struct Stored {
     pub entry: RuleEntry,
     pub path: PathBuf,
     pub text: String,
+    /// The 1-based line of `text` that each top-level body block starts on, in body order. Empty
+    /// when the parser did not record it (an entry built in a test).
+    pub block_lines: Vec<usize>,
 }
 
 /// A corpus directory, read and parsed. The stored files keep their text so a
@@ -264,13 +267,14 @@ impl Corpus {
                     continue;
                 }
             };
-            match read_entry(&relative, &text, &read_config_value) {
-                Ok(entry) => {
+            match read_entry_with_lines(&relative, &text, &read_config_value) {
+                Ok((entry, block_lines)) => {
                     let id = entry.id.to_string();
                     let stored = Stored {
                         entry,
                         path: relative.clone(),
                         text,
+                        block_lines,
                     };
                     if entries.insert(id.clone(), stored).is_some() {
                         errors.push(Error::new(&relative, 1, format!("duplicate entry id {id}")));
