@@ -13,6 +13,9 @@ const SUMMON_ANCHOR = "footnote-t";
 const SUMMON_NOTE = "This creature is summoned with the celestial template";
 const MONSTER = "ref/monster/aatheriexa";
 const OTHER_MONSTER = "ref/monster/aether-elemental";
+// Nightmare (Core Rulebook, p. 316) cites its printed note from a table cell (#534).
+const TABLE_SPELL = "ref/spell/nightmare";
+const TABLE_ANCHOR = "footnote-n";
 
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
@@ -151,6 +154,43 @@ test("A printed stat-block note moves to Notes, and its markers link to it and b
   await page.locator("#h-footnote-b .note-back").first().click();
   await expect(page.locator("sup.fn-ref").first()).toBeInViewport();
   await expect(page.locator("#h-footnote-b")).toHaveCount(1);
+});
+
+test("A marker in a table cell is a footnote link, and its note links back to it", async ({ page }) => {
+  await page.goto(`#/entry/${TABLE_SPELL}`);
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  const notes = page.getByRole("complementary", { name: "Notes" });
+  const [text] = noteTexts(TABLE_SPELL);
+  await expect(notes.locator("li.note p")).toHaveText(text);
+
+  // Every marker of the fixture sits in a table cell here; each one is a `sup.fn-ref` link to the
+  // note with a unique id, and the note lists one back link per marker, in order.
+  const cited = markerCount(TABLE_SPELL, TABLE_ANCHOR);
+  expect(cited).toBeGreaterThan(0);
+  const markers = page.locator(".rich td sup.fn-ref");
+  await expect(markers).toHaveCount(cited);
+  await expect(page.locator(".rich sup.fn-ref")).toHaveCount(cited);
+  await expect(markers.getByRole("link", { name: "Note 1" })).toHaveCount(cited);
+  const forward = await markers.locator("a").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  for (const href of forward) {
+    expect(decodeURIComponent(href ?? "")).toMatch(new RegExp(`/entry/${TABLE_SPELL}.*[?&]a=${TABLE_ANCHOR}$`));
+  }
+  const markerIds = await markers.evaluateAll((els) => els.map((el) => el.id));
+  expect(markerIds.every((id) => id.startsWith("fnref-"))).toBe(true);
+  expect(new Set(markerIds).size).toBe(cited);
+  // Each id occurs once in the whole document, so a back link cannot land on another element.
+  for (const id of markerIds) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+  const backs = notes.locator(".note-back");
+  await expect(backs).toHaveCount(cited);
+  const backTargets = await backs.evaluateAll((links) =>
+    links.map((link) => /[?&]a=([^&]+)$/.exec(link.getAttribute("href") ?? "")?.[1]),
+  );
+  expect(backTargets).toEqual(markerIds);
+
+  await markers.first().getByRole("link").click();
+  await expect(page.locator(`#h-${TABLE_ANCHOR}`)).toBeInViewport();
+  await page.locator(`#h-${TABLE_ANCHOR} .note-back`).first().click();
+  await expect(markers.first()).toBeInViewport();
 });
 
 // De-emphasized markers (#517): the `B` after a bonus feat reads as a quiet annotation. It is
