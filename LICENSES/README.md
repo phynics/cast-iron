@@ -64,14 +64,17 @@ The corpus was written once from two public datasets, recorded in its
   never copied its renderer or other application code. The status of the
   dataset's editor's notes is unresolved: its notices do not designate them
   individually and support two readings (Open Game Content of the dataset, or
-  GPL application content). The corpus policy is to keep a note only when
-  Archives of Nethys or the Paizo PRD carries the same text; a match is
-  evidence of provenance, not a license. The OGL 1.0a covers text that is
-  identifiable as Open Game Content, and the basis for any original wording by
-  the dataset's editor or by AoN is unresolved. The corpus still holds notes
-  that have no recorded match and wait for review (data issue #117), and it
-  keeps the printed "Bonus feat." legends and the *Maniac Hand* stat paragraph
-  on purpose (data #115). The pinned corpus v0.1.30 `LICENSE.md` still says
+  GPL application content). The corpus keep test (owner decision of
+  2026-11-20): a note stays when Archives of Nethys or the Paizo PRD carries it,
+  or when the printed book carries it; a note that only the dataset's editor
+  added (a pointer, commentary, a compiled list) and a note of unclear origin
+  go. A match on AoN, in the PRD or in print is evidence of provenance, not a
+  license. The OGL 1.0a covers text that is identifiable as Open Game Content.
+  For a note kept because the printed book carries it, the basis is the same as
+  for the entry text around it (the book's Open Game Content and its Section 15
+  notice). The basis for any original wording by the dataset's editor or by AoN
+  is unresolved. The corpus still holds notes that the review in data issue #117
+  removes under this test. The pinned corpus v0.1.30 `LICENSE.md` still says
   that none of the dataset's application content was copied; data PR #119
   corrects it, and the correction reaches this repository with the next corpus
   pin after v0.1.30. `docs/research/editorial-footnotes-audit.md` records the

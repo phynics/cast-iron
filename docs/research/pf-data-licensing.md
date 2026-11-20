@@ -25,14 +25,18 @@ file-to-protocol associations extracted without executing that renderer.
 The dataset's editor's notes (footnotes and similar notes) are the one part
 whose status is unresolved: its notices do not designate them individually, and
 they support two readings (Open Game Content of the dataset, or GPL
-application content). The corpus policy is to keep a note only when AoN or the
-PRD carries the same text. That match is evidence of provenance, not a license:
-the OGL 1.0a covers text that is identifiable as Open Game Content (the PRD and
-the dataset both exclude Product Identity), and the basis for original wording
-by the dataset's editor or by AoN is unresolved. Some remaining notes have no
-recorded match yet and wait for review (data issue #117); the printed "Bonus
-feat." legends and the *Maniac Hand* stat paragraph stay on purpose (data
-#115). The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
+application content). The corpus keep test (owner decision of
+2026-11-20) is that a note stays when AoN or the PRD carries it, or when the
+printed book carries it; a note that only the dataset's editor added (a
+pointer, commentary, a compiled list) and a note of unclear origin go. A match
+on AoN, in the PRD or in print is evidence of provenance, not a license: the
+OGL 1.0a covers text that is identifiable as Open Game Content (the PRD and the
+dataset both exclude Product Identity). For a note kept because the printed
+book carries it, the basis is the same as for the entry text around it (the
+book's Open Game Content and its Section 15 notice). The basis for original
+wording by the dataset's editor or by AoN is unresolved. Some notes of the
+removed kinds are still in the corpus until the review in data issue #117
+merges. The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
 #119); the v0.1.30 file still says none of the application content was copied.
 The evidence and the two readings are in
 [editorial-footnotes-audit.md](editorial-footnotes-audit.md#licensing).
