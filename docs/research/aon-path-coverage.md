@@ -6,10 +6,10 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/4ec8d26683ea09b7aaba2336935dcddd179ea264) |
-| Tag | `v0.1.31` |
-| Commit | `4ec8d26683ea09b7aaba2336935dcddd179ea264` |
-| Tree hash | `5962f73867b220a5c0f8b5601213a48020282b19d649a63e5edff86fe5b6fbe9` |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/c265325ece61ef4fde220631a6865beef629472b) |
+| Tag | `v0.1.32` |
+| Commit | `c265325ece61ef4fde220631a6865beef629472b` |
+| Tree hash | `83560f950b7c6d8327a17fe5c9a69106af22507b3e17fb4a8c20b317ab963556` |
 | Entries | 31,825 |
 | Publications | 443 |
 
@@ -70,7 +70,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 [`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,341 data rows.
 
-SHA-256 of the list: `bac3e91188dfa64dfd350e73c2b7d25719f5bea254844c8f6abdf8d0d465c9af`
+SHA-256 of the list: `cce7337d188d5c43974799cf4be9a27c3f9a35556e4e08fcfe24eec98d2bde7c`
 
 ## What a missing row means
 
