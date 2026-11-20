@@ -3,12 +3,13 @@ import { installLibrary } from "./helpers";
 
 // Footnotes (#507): the corpus writes a note as a level-six `footnote-` heading and one paragraph.
 // The page shows the notes as one quiet "Notes" group after the rules text, smaller and in a
-// secondary colour, with markers that link to a note and back. Detect Law has one printed note
-// whose marker is missing from the text (the corpus keeps it, #114); Aatheriexa has a printed
-// stat-block note that two markers cite.
+// secondary colour, with markers that link to a note and back. Expanded Summon Monster (Monster
+// Summoner's Handbook, p. 28) has one printed note that the markers after some of the listed
+// creatures cite; Aatheriexa has a printed stat-block note that two markers cite.
 
 const corpus = loadCorpus();
-const DETECT_LAW = "ref/spell/detect-law";
+const SUMMON_FEAT = "ref/feat/expanded-summon-monster";
+const SUMMON_NOTE = "This creature is summoned with the celestial template";
 const MONSTER = "ref/monster/aatheriexa";
 const OTHER_MONSTER = "ref/monster/aether-elemental";
 
@@ -46,30 +47,34 @@ const style = (locator: ReturnType<import("@playwright/test").Page["locator"]>) 
   });
 
 for (const scheme of ["light", "dark"] as const) {
-  test(`Detect Law notes read as notes, not rules (${scheme})`, async ({ page }) => {
+  test(`Expanded Summon Monster notes read as notes, not rules (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await page.goto(`#/entry/${DETECT_LAW}`);
-    await expect(page.getByTestId("entry-title")).toHaveText("Detect Law");
+    await page.goto(`#/entry/${SUMMON_FEAT}`);
+    await expect(page.getByTestId("entry-title")).toHaveText("Expanded Summon Monster");
     const notes = page.getByRole("complementary", { name: "Notes" });
     await expect(notes).toBeVisible();
     await expect(notes.getByRole("heading", { level: 2, name: "Notes" })).toBeVisible();
     const items = notes.locator("li.note");
     await expect(items).toHaveCount(1);
     await expect(items.nth(0).locator(".note-label")).toHaveText("Note 1");
-    const expected = noteTexts(DETECT_LAW);
+    const expected = noteTexts(SUMMON_FEAT);
     for (let i = 0; i < expected.length; i++) {
       await expect(items.nth(i).locator("p")).toHaveText(expected[i].replace(/\s+/g, " "));
     }
-    await expect(items.nth(0)).toContainText("Excludes undead and outsiders");
+    await expect(items.nth(0)).toContainText(SUMMON_NOTE);
 
     // The group closes the body, and a note is not a section heading.
     await expect(page.locator(".rich > .notes")).toHaveCount(1);
     await expect(page.locator(".rich > *").last()).toHaveClass(/notes/);
     await expect(page.locator(".rich h6")).toHaveCount(0);
 
-    // The marker is missing from the text: the note still renders and has nothing to link back to.
-    await expect(page.locator(".rich sup.fn-ref")).toHaveCount(0);
-    await expect(notes.locator(".note-back")).toHaveCount(0);
+    // The markers sit in the lists of creatures: each one links to the note, and the note links
+    // back to each of them.
+    const markers = page.locator(".rich sup.fn-ref");
+    const cited = await markers.count();
+    expect(cited).toBeGreaterThan(1);
+    await expect(markers.first().getByRole("link", { name: "Note 1" })).toHaveAttribute("href", /[?&]a=footnote-t$/);
+    await expect(notes.locator(".note-back")).toHaveCount(cited);
 
     // Visibly secondary: smaller type and a different colour than the rules text.
     const rule = await style(page.locator(".rich > p").first());
@@ -78,10 +83,10 @@ for (const scheme of ["light", "dark"] as const) {
     expect(note.color).not.toBe(rule.color);
 
     // The rules text is unchanged and none of it moved into the group.
-    for (const text of rulesParagraphs(DETECT_LAW)) {
+    for (const text of rulesParagraphs(SUMMON_FEAT)) {
       await expect(page.locator(".rich > p", { hasText: text.replace(/\s+/g, " ").slice(0, 60) })).toHaveCount(1);
     }
-    await expect(page.locator(".rich > p", { hasText: "Excludes undead and outsiders" })).toHaveCount(0);
+    await expect(page.locator(".rich > p", { hasText: SUMMON_NOTE })).toHaveCount(0);
   });
 }
 
