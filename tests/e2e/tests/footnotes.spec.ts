@@ -176,8 +176,10 @@ test("A marker in a table cell is a footnote link, and its note links back to it
     expect(decodeURIComponent(href ?? "")).toMatch(new RegExp(`/entry/${TABLE_SPELL}.*[?&]a=${TABLE_ANCHOR}$`));
   }
   const markerIds = await markers.evaluateAll((els) => els.map((el) => el.id));
-  expect(markerIds.every(Boolean)).toBe(true);
+  expect(markerIds.every((id) => id.startsWith("fnref-"))).toBe(true);
   expect(new Set(markerIds).size).toBe(cited);
+  // Each id occurs once in the whole document, so a back link cannot land on another element.
+  for (const id of markerIds) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
   const backs = notes.locator(".note-back");
   await expect(backs).toHaveCount(cited);
   const backTargets = await backs.evaluateAll((links) =>

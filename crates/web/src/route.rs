@@ -1076,8 +1076,25 @@ pub fn scroll_to_anchor(anchor: &str) -> bool {
     let Some(element) = element else {
         return false;
     };
+    open_enclosing_disclosure(&element);
     element.scroll_into_view();
     true
+}
+
+/// Opens the closed `<details>` that holds an element, so that scrolling to it lands on
+/// something visible. A footnote marker in the spell columns of a class progression sits in
+/// such a disclosure, and the way back from its note must reach it (#534). A target in no
+/// disclosure is left alone. The `closest` call includes the element itself, so start at its
+/// parent.
+fn open_enclosing_disclosure(element: &web_sys::Element) {
+    let Some(parent) = element.parent_element() else {
+        return;
+    };
+    if let Ok(Some(details)) = parent.closest("details")
+        && !details.has_attribute("open")
+    {
+        let _ = details.set_attribute("open", "");
+    }
 }
 
 /// Scrolls to the start of a class page's section and puts focus on its heading, so that the

@@ -956,6 +956,91 @@ mod tests {
         assert!(state.cited_by[0].is_empty());
     }
 
+    fn paragraph(items: Vec<Inline>) -> Block {
+        Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: items,
+        }
+    }
+
+    fn marker_cell(label: &str) -> TableCell {
+        TableCell {
+            header: false,
+            colspan: 1,
+            rowspan: 1,
+            content: vec![
+                text("Yes"),
+                Inline::Sup {
+                    c: vec![text(label)],
+                },
+            ],
+        }
+    }
+
+    fn note_blocks(label: &str, note: &str) -> [Block; 2] {
+        [
+            Block::Heading {
+                level: 6,
+                anchor: Some(format!("footnote-{}", label.to_lowercase())),
+                content: vec![text(label)],
+            },
+            paragraph(vec![text(note)]),
+        ]
+    }
+
+    /// The real entry render path, not a hand-set position: a paragraph and a table cite the
+    /// first note, a stat row cites the second note, which has the same label.
+    #[test]
+    fn markers_in_paragraphs_tables_and_stat_rows_cite_by_the_position_of_their_block() {
+        let [first_heading, first_text] = note_blocks("B", "First.");
+        let [second_heading, second_text] = note_blocks("B", "Second.");
+        let body = vec![
+            paragraph(vec![text("Feats"), Inline::Sup { c: vec![text("B")] }]),
+            Block::Table(Table {
+                caption: Vec::new(),
+                head: Vec::new(),
+                body: vec![TableRow {
+                    cells: vec![marker_cell("B"), marker_cell("B")],
+                }],
+                foot: Vec::new(),
+            }),
+            first_heading,
+            first_text,
+            Block::StatBlock {
+                title: None,
+                rows: vec![StatRow {
+                    label: "Feats".to_string(),
+                    value: vec![text("Cleave"), Inline::Sup { c: vec![text("B")] }],
+                }],
+            },
+            second_heading,
+            second_text,
+        ];
+        let entry = EntryId::parse("ref/monster/example").unwrap();
+        let mut renderer = Renderer::new(&body);
+        let owner = Owner::new();
+        owner.with(|| {
+            renderer.entry_body(&body, entry, None);
+        });
+        let state = renderer.notes.as_ref().expect("the entry has notes");
+        assert_eq!(state.notes.len(), 2);
+        assert_eq!(state.notes[0].key, "footnote-b");
+        assert_eq!(state.notes[1].key, "footnote-b-2");
+        // Paragraph, then the two cells of the table, in document order, for the first note;
+        // the stat row, which stands after the first note, for the second.
+        assert_eq!(
+            state.cited_by,
+            [
+                vec![
+                    "fnref-footnote-b-1".to_string(),
+                    "fnref-footnote-b-2".to_string(),
+                    "fnref-footnote-b-3".to_string(),
+                ],
+                vec!["fnref-footnote-b-2-1".to_string()],
+            ]
+        );
+    }
+
     #[test]
     fn bare_cell_markers_pick_the_note_by_the_position_of_the_block() {
         // Two stat blocks with a note `B` each: notes stand after blocks 1 and 3.
