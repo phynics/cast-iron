@@ -81,6 +81,14 @@ Owner rule of 2026-11-19, as ``on_aon_prd``:
 ``unchecked``
     Neither check could run: no AoN page, and a note under four words.
 
+Owner decision of 2026-11-20 (cast-iron-data #117), as ``presence_basis = print``:
+a note also stays when the printed book carries it. A block whose ``on_aon_prd``
+is ``no`` and whose ``classification`` is ``printed`` (``print-match``,
+``paraphrase`` or ``legend``) keeps ``on_aon_prd = no``, because neither AoN nor
+the PRD carries it, but gets the basis ``print`` and the action ``keep``. A ``no``
+block that is ``editorial`` or ``unclear`` stays ``remove``. See
+docs/decisions/2026-11-20-printed-footnotes-stay.md.
+
 The name ends in ``-nested.py`` so that the docs row of the AGENTS.md test
 scope covers it.
 """
@@ -505,6 +513,12 @@ def main() -> int:
                 "text": flat.replace("\t", " ")[:EXCERPT],
             })
 
+    # Owner decision of 2026-11-20: a note that neither AoN nor the PRD carries
+    # still stays when the printed book carries it.
+    for r in rows:
+        if r["on_aon_prd"] == "no" and r["classification"] == "printed":
+            r["presence_basis"], r["action"] = "print", "keep"
+
     # Why a marker is absent. The importer wrote "#D", "#M" and "#B" spell
     # markers as text ("(domain spell)") and still emitted the note; a section
     # cut from a shared record keeps the notes but not the marker.
@@ -526,9 +540,14 @@ def main() -> int:
 
     # Book prose that merely contains a signal word is not a note; the owner
     # rule does not apply to it.
+    # An inline note that the printed book carries stays (owner decision of
+    # 2026-11-20, see above).
     for o in outside:
         if o["review"] == "printed":
-            o["action"] = "not a note"
+            if "inline-note" in o["signals"].split(","):
+                o["presence_basis"], o["action"] = "print", "keep"
+            else:
+                o["action"] = "not a note"
 
     for path, data in ((args.tsv, rows), (args.outside_tsv, outside)):
         if path and data:
