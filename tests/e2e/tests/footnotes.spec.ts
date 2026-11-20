@@ -3,8 +3,8 @@ import { installLibrary } from "./helpers";
 
 // Footnotes (#507): the corpus writes a note as a level-six `footnote-` heading and one paragraph.
 // The page shows the notes as one quiet "Notes" group after the rules text, smaller and in a
-// secondary colour, with markers that link to a note and back. Detect Law has two printed notes
-// whose markers are missing from the text (the corpus keeps them, #114); Aatheriexa has a printed
+// secondary colour, with markers that link to a note and back. Detect Law has one printed note
+// whose marker is missing from the text (the corpus keeps it, #114); Aatheriexa has a printed
 // stat-block note that two markers cite.
 
 const corpus = loadCorpus();
@@ -54,21 +54,20 @@ for (const scheme of ["light", "dark"] as const) {
     await expect(notes).toBeVisible();
     await expect(notes.getByRole("heading", { level: 2, name: "Notes" })).toBeVisible();
     const items = notes.locator("li.note");
-    await expect(items).toHaveCount(2);
-    await expect(items.nth(0).locator(".note-label")).toHaveText("Note 2");
-    await expect(items.nth(1).locator(".note-label")).toHaveText("Note 1");
+    await expect(items).toHaveCount(1);
+    await expect(items.nth(0).locator(".note-label")).toHaveText("Note 1");
     const expected = noteTexts(DETECT_LAW);
     for (let i = 0; i < expected.length; i++) {
       await expect(items.nth(i).locator("p")).toHaveText(expected[i].replace(/\s+/g, " "));
     }
-    await expect(items.nth(0)).toContainText("Some characters who are not clerics");
+    await expect(items.nth(0)).toContainText("Excludes undead and outsiders");
 
     // The group closes the body, and a note is not a section heading.
     await expect(page.locator(".rich > .notes")).toHaveCount(1);
     await expect(page.locator(".rich > *").last()).toHaveClass(/notes/);
     await expect(page.locator(".rich h6")).toHaveCount(0);
 
-    // Markers are missing from the text: the notes still render and have nothing to link back to.
+    // The marker is missing from the text: the note still renders and has nothing to link back to.
     await expect(page.locator(".rich sup.fn-ref")).toHaveCount(0);
     await expect(notes.locator(".note-back")).toHaveCount(0);
 
@@ -82,7 +81,7 @@ for (const scheme of ["light", "dark"] as const) {
     for (const text of rulesParagraphs(DETECT_LAW)) {
       await expect(page.locator(".rich > p", { hasText: text.replace(/\s+/g, " ").slice(0, 60) })).toHaveCount(1);
     }
-    await expect(page.locator(".rich > p", { hasText: "Some characters who are not clerics" })).toHaveCount(0);
+    await expect(page.locator(".rich > p", { hasText: "Excludes undead and outsiders" })).toHaveCount(0);
   });
 }
 

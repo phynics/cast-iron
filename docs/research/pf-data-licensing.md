@@ -25,8 +25,8 @@ file-to-protocol associations extracted without executing that renderer.
 The dataset's editor's notes (footnotes and similar notes) are the one part
 whose status is unresolved: its notices do not designate them individually, and
 they support two readings (Open Game Content of the dataset, or GPL
-application content). The corpus keep test (owner decision of
-2026-11-20) is that a note stays when AoN or the PRD carries it, or when the
+application content). The corpus keep test ([owner decision of
+2026-11-20](../decisions/2026-11-20-printed-footnotes-stay.md)) is that a note stays when AoN or the PRD carries it, or when the
 printed book carries it; a note that only the dataset's editor added (a
 pointer, commentary, a compiled list) and a note of unclear origin go. A match
 on AoN, in the PRD or in print is evidence of provenance, not a license: the
@@ -38,9 +38,10 @@ Section 15 notice), for wording identifiable as that content. A kept
 paraphrase has no basis beyond that, so its exact wording falls under the
 unresolved question, like any original wording by the dataset's editor or by
 AoN. The footnote audit (merged in cast-iron #526) found notes that only the
-editor added; their removal is data issue #117 and is pending, so the pinned
-corpus v0.1.30 still holds them. The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
-#119); the v0.1.30 file still says none of the application content was copied.
+editor added; the pinned corpus v0.1.31 removes them (data issue #117, PR
+#123). Its `LICENSE.md` names the Pathfinder Data notes that stay and their
+basis (data PR #119), and no longer says that none of the application content
+was copied.
 The evidence and the two readings are in
 [editorial-footnotes-audit.md](editorial-footnotes-audit.md#licensing).
 
