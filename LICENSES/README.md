@@ -69,12 +69,15 @@ The corpus was written once from two public datasets, recorded in its
   or when the printed book carries it; a note that only the dataset's editor
   added (a pointer, commentary, a compiled list) and a note of unclear origin
   go. A match on AoN, in the PRD or in print is evidence of provenance, not a
-  license. The OGL 1.0a covers text that is identifiable as Open Game Content.
-  For a note kept because the printed book carries it, the basis is the same as
-  for the entry text around it (the book's Open Game Content and its Section 15
-  notice). The basis for any original wording by the dataset's editor or by AoN
-  is unresolved. The corpus still holds notes that the review in data issue #117
-  removes under this test. The pinned corpus v0.1.30 `LICENSE.md` still says
+  license. The OGL 1.0a covers wording that is identifiable as the book's Open Game
+  Content, with Section 15 attribution. For a note kept because the printed
+  book carries it, the basis is the same as for the entry text around it (the
+  book's Open Game Content and its Section 15 notice), for wording identifiable
+  as that content. A kept paraphrase has no basis beyond that, so its exact
+  wording falls under the unresolved question, like any original wording by the
+  dataset's editor or by AoN. The footnote audit (merged in cast-iron #526)
+  found notes that only the editor added; their removal is data issue #117 and
+  is pending, so the pinned corpus v0.1.30 still holds them. The pinned corpus v0.1.30 `LICENSE.md` still says
   that none of the dataset's application content was copied; data PR #119
   corrects it, and the correction reaches this repository with the next corpus
   pin after v0.1.30. `docs/research/editorial-footnotes-audit.md` records the

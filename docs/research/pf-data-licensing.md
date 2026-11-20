@@ -30,13 +30,16 @@ application content). The corpus keep test (owner decision of
 printed book carries it; a note that only the dataset's editor added (a
 pointer, commentary, a compiled list) and a note of unclear origin go. A match
 on AoN, in the PRD or in print is evidence of provenance, not a license: the
-OGL 1.0a covers text that is identifiable as Open Game Content (the PRD and the
-dataset both exclude Product Identity). For a note kept because the printed
-book carries it, the basis is the same as for the entry text around it (the
-book's Open Game Content and its Section 15 notice). The basis for original
-wording by the dataset's editor or by AoN is unresolved. Some notes of the
-removed kinds are still in the corpus until the review in data issue #117
-merges. The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
+OGL 1.0a covers wording that is identifiable as the book's Open Game Content,
+with Section 15 attribution (the PRD and the dataset both exclude Product
+Identity). For a note kept because the printed book carries it, the basis is
+the same as for the entry text around it (the book's Open Game Content and its
+Section 15 notice), for wording identifiable as that content. A kept
+paraphrase has no basis beyond that, so its exact wording falls under the
+unresolved question, like any original wording by the dataset's editor or by
+AoN. The footnote audit (merged in cast-iron #526) found notes that only the
+editor added; their removal is data issue #117 and is pending, so the pinned
+corpus v0.1.30 still holds them. The corpus `LICENSE.md` states this from the pin after v0.1.30 (data PR
 #119); the v0.1.30 file still says none of the application content was copied.
 The evidence and the two readings are in
 [editorial-footnotes-audit.md](editorial-footnotes-audit.md#licensing).
