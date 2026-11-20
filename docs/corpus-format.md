@@ -963,9 +963,14 @@ file and line, when:
 - an entry `kind` does not match its `[fields]` kind;
 - the body holds a left-over `p!` import marker, which the upstream import wrote where a
   paragraph or list break had been. The same letters inside a word, as in `Help!`, are real text;
-- the body holds a left-over spell-list marker, `&Q`, `&EM`, `&EX` or `&S`, which the upstream
-  import wrote for the metamagic and summon entries of monster spell-like ability lists. Write
-  `quickened`, `empowered`, `extended` or `summon (level N, ...)`, as the books print them;
+- a creature entry holds a left-over spell-list marker, `&Q`, `&EM`, `&EX` or `&S`, in a spell-list
+  item. The upstream import wrote them for the metamagic and summon entries of monster
+  spell-like ability lists; write `quickened`, `empowered`, `extended` or `summon (level N, ...)`,
+  as the books print them. A spell-list item is a list item, with its indented continuation lines,
+  under a `**Spell-Like Abilities**`, `**Spells Known**`, `**Prepared Spells**`,
+  `**Psychic Magic**` or `**Spellcasting**` heading. The check skips code spans, link targets,
+  URLs, autolinks and escaped text (`\&Q`), and it does not read a longer word (`&Sword`,
+  `&Séance`) or the upstream token `&Q&` (reported as a token) as a marker;
 - a `source_id` is not in `publications.toml`;
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
 - a parent, body link, prerequisite feat, relation target, book node, or alias

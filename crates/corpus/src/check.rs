@@ -158,43 +158,168 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
-/// Left-over spell-list markers in body text: the upstream import wrote the metamagic and summon
-/// entries of monster spell-like ability lists as `&Q`, `&EM`, `&EX` and `&S`, where the books
-/// print `quickened`, `empowered`, `extended` and `summon (level N, ...)`. Returns each marker with
-/// its 1-based line and the wording that replaces it.
+/// The headings of the spell sections of a creature entry. The list items under one of them, up
+/// to the next heading, are the spell-list items.
+const SPELL_SECTIONS: [&str; 5] = [
+    "Spell-Like Abilities",
+    "Spells Known",
+    "Prepared Spells",
+    "Psychic Magic",
+    "Spellcasting",
+];
+
+/// The name inside a bold-only line (`**Spell-Like Abilities**`, `**Per day:**`).
+fn bold_only(line: &str) -> Option<&str> {
+    let inner = line
+        .trim_end_matches([' ', '\t'])
+        .strip_prefix("**")?
+        .strip_suffix("**")?;
+    (!inner.is_empty() && !inner.contains('*')).then_some(inner)
+}
+
+/// The byte ranges (and 1-based start lines) of the spell-list items of a creature body: the
+/// list items and their indented continuation lines under a spell-section heading.
+fn spell_list_items(body: &str) -> Vec<(usize, usize, usize)> {
+    let mut items = Vec::new();
+    let mut in_section = false;
+    // Start offset and line of the open item, and the end offset of its last line.
+    let mut open: Option<(usize, usize)> = None;
+    let mut open_end = 0;
+    let mut offset = 0;
+    for (index, line) in body.split('\n').enumerate() {
+        let bold = bold_only(line);
+        let heading =
+            line.starts_with('#') || bold.is_some_and(|name| !name.trim_end().ends_with(':'));
+        let continues = in_section && open.is_some() && line.starts_with(' ');
+        if !continues && let Some((start, first_line)) = open.take() {
+            items.push((start, open_end, first_line));
+        }
+        if heading {
+            in_section = bold.is_some_and(|name| SPELL_SECTIONS.contains(&name.trim()));
+        } else if in_section && (line.starts_with("- ") || line.starts_with("* ")) {
+            open = Some((offset, index + 1));
+        }
+        if open.is_some() {
+            open_end = offset + line.len();
+        }
+        offset += line.len() + 1;
+    }
+    if let Some((start, first_line)) = open {
+        items.push((start, open_end, first_line));
+    }
+    items
+}
+
+/// Which bytes of `text` are literal text: code spans, link targets (`](...)`), bare URLs and
+/// autolinks. A marker-shaped sequence there is not a marker (`?x=&Q`).
+fn literal_bytes(text: &str) -> Vec<bool> {
+    let bytes = text.as_bytes();
+    let mut mask = vec![false; bytes.len()];
+    let mut i = 0;
+    while i < bytes.len() {
+        let mut span_end = None;
+        match bytes[i] {
+            b'\\' => {
+                i += 2;
+                continue;
+            }
+            b'`' => {
+                let run = bytes[i..].iter().take_while(|b| **b == b'`').count();
+                let mut j = i + run;
+                while j < bytes.len() {
+                    let next = bytes[j..].iter().take_while(|b| **b == b'`').count();
+                    if next == run {
+                        span_end = Some(j + run);
+                        break;
+                    }
+                    j += next.max(1);
+                }
+                if span_end.is_none() {
+                    i += run;
+                    continue;
+                }
+            }
+            b']' if bytes.get(i + 1) == Some(&b'(') => {
+                span_end = bytes[i..]
+                    .iter()
+                    .position(|b| *b == b')' || *b == b'\n')
+                    .filter(|at| bytes[i + at] == b')')
+                    .map(|at| i + at + 1);
+            }
+            b'h' if bytes[i..].starts_with(b"http://") || bytes[i..].starts_with(b"https://") => {
+                let len = bytes[i..]
+                    .iter()
+                    .position(|b| b.is_ascii_whitespace() || matches!(b, b'<' | b'>' | b')' | b']'))
+                    .unwrap_or(bytes.len() - i);
+                span_end = Some(i + len);
+            }
+            b'<' => {
+                span_end = bytes[i + 1..]
+                    .iter()
+                    .position(|b| b.is_ascii_whitespace() || matches!(b, b'<' | b'>'))
+                    .filter(|at| *at > 0 && bytes[i + 1 + at] == b'>')
+                    .map(|at| i + at + 2);
+            }
+            _ => {}
+        }
+        match span_end {
+            Some(end) => {
+                mask[i..end].iter_mut().for_each(|b| *b = true);
+                i = end;
+            }
+            None => i += 1,
+        }
+    }
+    mask
+}
+
+/// Left-over spell-list markers in the body of a creature entry: the upstream import wrote the
+/// metamagic and summon entries of monster spell-like ability lists as `&Q`, `&EM`, `&EX` and
+/// `&S`, where the books print `quickened`, `empowered`, `extended` and `summon (level N, ...)`.
+/// Returns each marker with its 1-based body line and the wording that replaces it.
 ///
-/// A marker starts at a `&` that does not follow a letter, digit, `_` or `&`, and the letters
-/// after it end the word. So `AT&T`, `&Sword`, `&Q&` (reported as an upstream token) and
-/// `&quot&S` are not markers.
-fn spell_list_markers(text: &str) -> Vec<(usize, &'static str, &'static str)> {
+/// Only the spell-list items count (see [`spell_list_items`]). A `&` starts a marker when no
+/// letter, digit, `_`, `&` or backslash comes before it and no letter, digit, `_` or `&` comes
+/// after the letters (Unicode letters count), so `AT&T`, `&Sword`, `&Séance`, `\&Q` and the
+/// upstream token `&Q&` are not markers. Code spans, link targets, URLs and autolinks are
+/// skipped.
+fn spell_list_markers(body: &str) -> Vec<(usize, &'static str, &'static str)> {
     const MARKERS: [(&str, &str); 4] = [
-        ("&Q", "quickened"),
         ("&EM", "empowered"),
         ("&EX", "extended"),
+        ("&Q", "quickened"),
         ("&S", "summon (level N, ...)"),
     ];
-    let bytes = text.as_bytes();
+    let word = |c: char| c.is_alphanumeric() || c == '_';
     let mut out = Vec::new();
-    let mut line = 1;
-    for (i, byte) in bytes.iter().enumerate() {
-        if *byte == b'\n' {
-            line += 1;
-            continue;
-        }
-        if *byte != b'&' {
-            continue;
-        }
-        if i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || matches!(bytes[i - 1], b'_' | b'&')) {
-            continue;
-        }
-        for (marker, wording) in MARKERS {
-            if bytes[i..].starts_with(marker.as_bytes()) {
-                let after = bytes.get(i + marker.len());
-                if !after.is_some_and(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'&')) {
-                    out.push((line, marker, wording));
-                }
-                break;
+    for (start, end, first_line) in spell_list_items(body) {
+        let item = &body[start..end];
+        let literal = literal_bytes(item);
+        for (at, _) in item.match_indices('&') {
+            if literal[at]
+                || item[..at]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| word(c) || matches!(c, '&' | '\\'))
+            {
+                continue;
             }
+            let Some((marker, wording)) = MARKERS.iter().find(|(m, _)| item[at..].starts_with(m))
+            else {
+                continue;
+            };
+            if item[at + marker.len()..]
+                .chars()
+                .next()
+                .is_some_and(|c| word(c) || c == '&')
+            {
+                continue;
+            }
+            out.push((
+                first_line + item[..at].matches('\n').count(),
+                *marker,
+                *wording,
+            ));
         }
     }
     out
@@ -1059,12 +1184,14 @@ pub fn check(corpus: &Corpus) -> Report {
                 body_start + line - 1
             ));
         }
-        for (line, marker, wording) in spell_list_markers(body) {
-            report.problems.push(format!(
-                "{}:{}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}.",
-                path.display(),
-                body_start + line - 1
-            ));
+        if entry.kind == EntryKind::Creature {
+            for (line, marker, wording) in spell_list_markers(body) {
+                report.problems.push(format!(
+                    "{}:{}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}.",
+                    path.display(),
+                    body_start + line - 1
+                ));
+            }
         }
         // The writer puts each display string on one line. When the same value appears more
         // than once, consume the next matching line so every occurrence reports its own
@@ -2648,41 +2775,82 @@ mod tests {
         let clean = rule(
             "ref/rule/b",
             vec![paragraph(vec![Inline::text(
-                "&times& &quot& &mdash &Next1&",
+                "&times& &quot& &mdash &S &Next1&",
             )])],
         );
         assert!(check(&corpus(vec![clean])).problems.is_empty());
     }
 
-    #[test]
-    fn a_left_over_spell_list_marker_fails() {
-        let dirty = rule(
-            "ref/rule/spell-list-marker",
-            vec![paragraph(vec![Inline::text(
-                "&Q holy smite, &EM magic missile, &EX good hope, &S level 4; 1 imp 35%",
-            )])],
-        );
-        let text = check(&corpus(vec![dirty])).problems.join("\n");
-        for marker in ["`&Q`", "`&EM`", "`&EX`", "`&S`"] {
-            assert!(
-                text.contains(&format!("left-over spell-list marker {marker}")),
-                "{text}"
-            );
-        }
-        assert!(text.contains("quickened"), "{text}");
-        assert!(text.contains("summon (level N, ...)"), "{text}");
+    /// A corpus with one creature whose file text ends in `body`.
+    fn creature_with_body(body: &str) -> Corpus {
+        let mut c = corpus(vec![creature(
+            "ref/creature/spell-list-marker",
+            "magicalBeast",
+        )]);
+        let stored = c.entries.values_mut().next().unwrap();
+        stored.text = format!("{}\n{body}", stored.text.trim_end());
+        c
     }
 
     #[test]
-    fn printed_spell_list_wording_and_lookalikes_are_not_markers() {
-        let clean = rule(
-            "ref/rule/spell-list-wording",
-            vec![paragraph(vec![Inline::text(
-                "quickened holy smite, summon (level 4, 1 imp 35%), AT&T, &Sword, &EMBER, &quot&S",
-            )])],
+    fn a_left_over_spell_list_marker_fails_with_its_path_and_line() {
+        let c = creature_with_body(
+            "**Spell-Like Abilities**\n\n**Per day:**\n\n- &Q holy smite, &EM magic missile,\n  &EX good hope, &S level 4; 1 imp 35%\n",
         );
-        let report = check(&corpus(vec![clean]));
+        let text = &c.entries.values().next().unwrap().text;
+        let first = line_of(text, "- &Q holy smite");
+        let path = "entries/creature/spell-list-marker.md";
+        let problem = |line: usize, marker: &str, wording: &str| {
+            format!(
+                "{path}:{line}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}."
+            )
+        };
+        assert_eq!(
+            check(&c).problems,
+            vec![
+                problem(first, "&Q", "quickened"),
+                problem(first, "&EM", "empowered"),
+                problem(first + 1, "&EX", "extended"),
+                problem(first + 1, "&S", "summon (level N, ...)"),
+            ]
+        );
+    }
+
+    #[test]
+    fn printed_wording_literal_text_and_lookalikes_are_not_markers() {
+        let c = creature_with_body(
+            "**Spell-Like Abilities**\n\n- quickened holy smite, summon (level 4, 1 imp 35%), AT&T, &Sword, &EMBER, &quot&S,\n  &Séance, &Éclair, \\&Q fly, `&Q` fly, [a](https://e.test/?x=&Q), https://e.test/?y=&EX\n",
+        );
+        let report = check(&c);
         assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    #[test]
+    fn the_upstream_token_form_is_reported_once_as_a_token() {
+        let c = creature_with_body("**Spell-Like Abilities**\n\n- &Q&EM fly\n");
+        let problems = check(&c).problems;
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(
+            problems[0].contains("left-over upstream token `&Q&`"),
+            "{problems:?}"
+        );
+    }
+
+    #[test]
+    fn a_marker_outside_the_spell_list_items_of_a_creature_is_not_checked() {
+        // Prose and a list under another heading hold the shapes as text; a rule entry is no
+        // creature.
+        let c = creature_with_body(
+            "&Q in prose.\n\n- &Q in a list before any section\n\n**Spell-Like Abilities**\n\nProse &EM here.\n\n**Statistics**\n\n- &S level 4; 1 imp 35%\n\n###### Notes\n\n- &EX note\n",
+        );
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let rule_entry = rule(
+            "ref/rule/spell-list-text",
+            vec![paragraph(vec![Inline::text("&Q holy smite")])],
+        );
+        assert!(check(&corpus(vec![rule_entry])).problems.is_empty());
     }
 
     #[test]
