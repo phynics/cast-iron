@@ -1381,16 +1381,24 @@ fn check_third_party_sharing(corpus: &Corpus, report: &mut Report) {
 /// The book memberships that no `[[sources]]` row supports (issue #461).
 ///
 /// An entry's first book is its home and needs no row here. Every later book in `source_ids`
-/// is a claim that the book prints the entry or a section of it, and the page citation is the
-/// only evidence the corpus holds. Memberships without one are the unreviewed rest of the
-/// cleanup of unprinted memberships. Each pair is `(entry id, publication id)`.
-fn uncited_memberships(corpus: &Corpus) -> Vec<(&str, &str)> {
+/// is a claim that the book prints the entry or a section of it, and the structured citation (a
+/// `[[sources]]` row, with or without a page) is the evidence that the corpus can check. A body
+/// `**Sources:**` line or an `[[expanded_in]]` credit does not count: the first is free text, the
+/// second sits outside membership. Memberships without a row are the unreviewed rest of the
+/// cleanup of unprinted memberships. Each item is the entry's location (`path:line` of its
+/// `source_ids`), its id and the publication id.
+fn uncited_memberships(corpus: &Corpus) -> Vec<(String, &str, &str)> {
     let mut out = Vec::new();
     for stored in corpus.entries.values() {
         let entry = &stored.entry;
+        let at = format!(
+            "{}:{}",
+            stored.path.display(),
+            line_of(&stored.text, "source_ids")
+        );
         for book in entry.source_ids.iter().skip(1) {
             if !entry.sources.iter().any(|row| &row.publication == book) {
-                out.push((entry.id.as_str(), book.as_str()));
+                out.push((at.clone(), entry.id.as_str(), book.as_str()));
             }
         }
     }
@@ -1405,14 +1413,14 @@ fn check_uncited_memberships(corpus: &Corpus, report: &mut Report) {
     if uncited.is_empty() {
         return;
     }
-    let entries: BTreeSet<&str> = uncited.iter().map(|(id, _)| *id).collect();
+    let entries: BTreeSet<&str> = uncited.iter().map(|(_, id, _)| *id).collect();
     let examples: Vec<String> = uncited
         .iter()
         .take(3)
-        .map(|(id, book)| format!("`{id}` in `{book}`"))
+        .map(|(at, id, book)| format!("{at}: `{id}` in `{book}`"))
         .collect();
     report.warnings.push(format!(
-        "{} book memberships in {} entries have no `[[sources]]` citation, although the book is not the entry's first (for example {}); cite the page, or remove the book if it does not print the entry (#461)",
+        "{} book memberships in {} entries have no `[[sources]]` row, although the book is not the entry's first (for example {}); add the row if the book prints the entry (a verified body citation becomes a row), or remove the book if it does not (#461)",
         uncited.len(),
         entries.len(),
         examples.join(", ")
@@ -2590,12 +2598,13 @@ mod tests {
         assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
         assert!(
             report.warnings[0]
-                .contains("2 book memberships in 2 entries have no `[[sources]]` citation"),
+                .contains("2 book memberships in 2 entries have no `[[sources]]` row"),
             "{:?}",
             report.warnings
         );
         assert!(
-            report.warnings[0].contains("`ref/rule/shared` in `second-book`"),
+            report.warnings[0]
+                .contains("entries/rule/shared.md:5: `ref/rule/shared` in `second-book`"),
             "{:?}",
             report.warnings
         );
