@@ -226,6 +226,28 @@ makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
 
+## Class-option powers (proposed)
+
+Proposed, not built: the owner approves the mockups first (#537; decision
+`docs/decisions/2026-11-20-class-option-power-layout.md`). On a `class_option` entry, a power reads
+as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
+
+1. The head is one baseline-aligned row. On the left is the name, as a heading one level below the
+   enclosing body heading (`.power-name`: display face, 1.125rem, weight 700). On the right is
+   `Level N` (from `Gained`) or `Level N+` (from a prerequisite that is only a level), in `--step--1`
+   weight 600 `--ink-muted` with tabular figures and no wrap. The level text has a visually hidden
+   prefix ("Gained at"). A dotted `--line` leader takes the space between them and disappears when
+   the name wraps.
+2. An optional meta line in the Metadata role: the action in words and the uses, joined by `·`
+   (`Standard action · 3 + Intelligence modifier times/day`).
+3. The base effect in body type, without its `Passive` or `Ability` label. `Flavor` reads as the
+   first sentence.
+4. One paragraph per upgrade, with the lead `At 11th level,` in weight 600.
+5. The other rows (`Special:`, `Prereq:`, `Replaces:`) keep their bold label.
+
+Powers are not added to `On this page`. A run that does not match the canonical form renders as
+today's labeled rows.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.
