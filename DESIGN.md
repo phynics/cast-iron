@@ -229,8 +229,17 @@ document order, because a sticky grid item cannot leave its grid row.
 ## Class-option powers
 
 Approved by the owner on 2026-11-20 (#537; decision
-`docs/decisions/2026-11-20-class-option-power-layout.md`). The app builds it after
-phynics/cast-iron-data#88 rewrites the powers into the canonical row order. Archetypes follow in #540.
+`docs/decisions/2026-11-20-class-option-power-layout.md`, which also holds the fixtures). The work
+runs in this order:
+
+1. An app pull request puts the shared power classifier and validator over typed `Block`s in
+   `cast-iron-schema`, with a corpus-check warning and native tests from the fixtures.
+2. phynics/cast-iron-data#88 rewrites the powers with a script that mirrors those functions, and
+   the warning checks the result.
+3. The pin pull request of the migrated corpus turns the warning into an error.
+4. The renderer calls the same functions.
+
+Archetypes follow in #540.
 On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
 1. The head is one baseline-aligned row. On the left is the name, as a heading: `h2` before the first
@@ -257,8 +266,10 @@ ability tag is the entry title. The
 power head folds into the title. The `h1` stays the entry title, never with the tag or the level.
 One muted `.entry-facts` line sits directly under the metadata line: the tag in words with the
 printed tag, `Level N` from `Gained`, then the action and the uses
-(`Supernatural (Su) · Swift action · Once per rage`). The metadata line keeps kind and book. The
-body starts with the effect, with no power heading and no power meta line.
+(`Supernatural (Su) · Swift action · Once per rage`). The metadata line keeps kind and book. Only
+the name and the facts move. The body starts with the optional `Flavor` paragraph (without its
+label), then the effect, with no power heading and no power meta line. Auspicious Mark keeps its
+`Flavor` paragraph.
 
 ## Tokens
 

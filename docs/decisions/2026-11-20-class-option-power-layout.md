@@ -12,7 +12,8 @@ area: ui
 
 Refs [#537](https://github.com/phynics/cast-iron/issues/537) and phynics/cast-iron-data#88. The owner
 answered the open questions on 2026-11-20 (see "Owner answers" below) and approved the revised design
-on 2026-11-20. The implementation order is in "Hand-off".
+on 2026-11-20. The implementation order is in "Hand-off". The fixtures in "Fixtures" are the
+acceptance cases for every implementation of this spec.
 
 ## Problem
 
@@ -54,22 +55,30 @@ type.
 7. Upgrades, in strictly ascending level, each above the `Gained` level: `**At 11th level,** <printed
    sentence>`.
 8. `**Prereq:**`, then `**Replaces:**`: optional, at most one each.
-9. Other rows (`Special`, `Penalty`, `Functions As`, …) in their printed order.
+9. Other rows (`Special`, `Penalty`, `Functions As`, …), keeping their source order.
 
-A power extends to the next structural boundary: the next name, a heading, a list, a table, a fence,
-a quote, a stat block, an entry link, or the end of the body. An unlabeled paragraph is part of the
-power only in position 5. That position is how the canonical form marks a trailing continuation
-(Foretell has three effect paragraphs). Prose that does not belong to the power must be separated
-from it by a boundary. A paragraph anywhere else in the run makes the run invalid (section 2).
+Every row has content. A power extends to the next structural boundary (section 2). An unlabeled
+paragraph is part of the power only in position 5; that position marks it as the effect's
+continuation. Elixir of Life is the example: an `Ability` row, one continuation paragraph, then
+`Prereq`. Its wording matches print (*Advanced Player's Guide* p. 30), which sets it as one paragraph.
+Prose that does not belong to the power must be separated from it by a boundary. A legacy plain-text
+upgrade (section 2) is invalid in every position.
 
 The two changes of form are the upgrade lead and the name without a colon. The upgrade line holds
-the printed wording, so the corpus produces it, not the renderer. The bold lead `At 11th level,` is
-the typed marker (a `Strong` inline at the start of the paragraph) that the renderer reads. A
-renderer that does not know the layout still shows correct prose. The rewrite in #88 also folds the
-import's other shapes into this one, but only where nothing is guessed. Anything else is queued for
-print review, and its run stays exactly as it is until a reviewer resolves it:
+the printed wording, so the corpus produces it, not the renderer. A renderer that does not know the
+layout still shows correct prose.
 
-- `**Action:** <value>` uses an explicit map, with no catch-all:
+**The rewrite in #88** folds the import's shapes into this form only where nothing is guessed. Any
+other run is queued for print review with its whole span (name to boundary) unchanged:
+
+- **Deduplication.** Only structurally identical original `Usage` rows are deduplicated. This
+  happens before any alias mapping. No other row is ever deduplicated.
+- **Aliases.** `Fullround` becomes `Full-round`, `Passive Ability` becomes `Passive`, and
+  `Standard Action` becomes `Standard`. Mapping never merges rows: a `Fullround` row and an equal
+  `Full-round` row are two effect rows, so the run is queued.
+- **Upgrades.** Old `**At Nth Level:**` rows and legacy plain-text upgrades in the colon form become
+  leads when their ordinal is well-formed. The comma form and ill-formed ordinals are queued.
+- **`**Action:** <value>`** uses an explicit map, with no catch-all:
 
   | Value | Becomes |
   |---|---|
@@ -81,37 +90,39 @@ print review, and its run stays exactly as it is until a reviewer resolves it:
   | `Immediate Action` | `Immediate` |
   | `Free Action` | `Free` |
   | `Full-Round Action`, `Full-round.` | `Full-round` |
-  | `At Nth Level` | a `Gained` row |
+  | `At Nth Level` | a `Gained` row only (metadata: it never takes effect text) |
 
-  Any other value is queued. On corpus `main` these are `Move-Equivalent Action` (One with Nature,
-  fey bloodline), `Benefit`, `Choice`, `Free Action=` and `Info`. The effect text of an `Action`
-  row is the run's one group of unlabeled paragraphs after it. The first paragraph becomes the
-  effect row's text, and the rest become its continuation. A run with no such group, or with more
-  than one group, is queued.
-- `Fullround` becomes `Full-round`, `Passive Ability` becomes `Passive`, and `Standard Action`
-  becomes `Standard`.
-- Old `**At Nth Level:**` rows and plain-text `At 8th level: These bonuses …` paragraphs become
-  upgrade leads.
-- Rows that repeat an earlier row exactly are removed (the import doubles some `Usage` rows).
-- Queued, never guessed:
-  - a numbered effect label (`Ability2`, as in Coven);
+  Any other value is queued. On corpus `main` these are `Move-Equivalent Action`, `Benefit`,
+  `Choice`, `Free Action=` and `Info`.
+- **Effect text of a mapped `Action` row.** The run must hold exactly one group of consecutive
+  unlabeled paragraphs. It must come after the `Action` row, and only rows labeled `Gained`,
+  `Flavor`, `Usage`, `Prereq` or `Replaces`, each with content, may stand between them. The group's
+  first paragraph becomes the effect row's content, and the rest become the continuation. Anything
+  else is queued: a lead, a legacy upgrade, an empty row or any other row in between, a group
+  before the row, or a second group.
+- **Effect text of an ordinary effect row.** Unlabeled paragraphs must form no group, or exactly
+  one group directly after the effect row. Anything else is queued.
+- **Always queued:**
+  - an empty row anywhere after the name: a probable sub-option heading, such as Utility Shot's
+    `**Blast Lock:**`;
+  - a numbered effect label (`Ability2`);
   - no effect row, or more than one;
-  - conflicting singleton rows (two different `Gained`, `Flavor`, `Usage`, `Prereq` or `Replaces`
-    rows);
-  - unlabeled paragraphs that are not one group directly after the effect row;
-  - two upgrades at one level, or an upgrade not above `Gained`;
-  - an upgrade whose first word is not on the lowercase list.
+  - conflicting singleton rows;
+  - two upgrades at one level;
+  - an upgrade not above `Gained`;
+  - an upgrade whose first word is not on the lowercase list;
+  - a seeded print item (Foretell, see "Fixtures").
 
-  A power with no effect row and no `Gained` row but with upgrades (Fire Resistance of the Fire
-  domain prints `At 6th level, you gain resist fire 10.`) is queued with a suggestion: make its
-  lowest upgrade the `Gained` level and the base effect.
-- The renderer never changes the case of corpus text. The rewrite lowercases the first word of an
-  upgrade only when that word is on a fixed list (see "Rewrite and survey algorithm").
+  A power with no effect row and no `Gained` row but with upgrades is queued with a suggestion:
+  make the lowest upgrade the `Gained` level and the base effect.
+- **Order of the output.** The rewrite emits section 1's order. Rows in position 9 keep their
+  source order. The proposed replacement is validated, and if it fails, the original run is queued.
+- **Case.** The renderer never changes the case of corpus text. The rewrite lowercases the first
+  word of an upgrade only when that word is on the lowercase list.
 
 **Not a corpus format change.** The files keep the same syntax and the same meaning. Each one is
 still a paragraph with `Strong` inlines, which every reader of formats 1 to 3 accepts. Only the
-content and its order change. `SCHEMA_VERSION` and the corpus `format` stay. #88 adds the canonical
-validation (section 2) as a corpus check for class options, so the renderer's input stays fixed.
+content and its order change. `SCHEMA_VERSION` and the corpus `format` stay.
 
 **Rejected alternatives.**
 
@@ -125,58 +136,75 @@ validation (section 2) as a corpus check for class options, so the renderer's in
   proper nouns: 164 upgrade sentences start with a word that keeps its capital (`Aberrant`, `Aeon`,
   `Anytime`, other creature and spell names).
 
-### 2. Candidates and the one canonical validation
+### 2. Classification, candidates and the one validation
 
-Detection and validation are separate steps. Both read the parsed corpus blocks, never text split
-on blank lines:
+All three are functions over typed `Block`s in `cast-iron-schema`, the crate that both
+`crates/corpus` and `crates/web` already depend on. There is one implementation (see "Hand-off").
 
-- **Block kinds.** Each top-level block of the body is one of the following. The first match wins,
-  so an empty `**Usage:**` paragraph is a row and never a name.
+**Level grammar.**
+- A well-formed ordinal is a number from 1 to 20 with no leading zero, followed by its English
+  suffix: `st` for 1, `nd` for 2, `rd` for 3, and `th` for 4 to 20.
+- Detection is broad: `At ` + digits + one of `st`, `nd`, `rd`, `th` + a space + `Level` or
+  `level`. Conversion and validation also require a well-formed ordinal.
 
-  | Kind | Test |
-  |---|---|
-  | Lead | a normal paragraph whose first inline is a `Strong` with exactly the text `At Nth level,` |
-  | Row | a normal paragraph whose first inline is a `Strong` whose text ends with `:`. The label is that text without the colon, and the row's content is the remaining inlines, possibly none |
-  | Name | a normal paragraph whose only inline is one `Strong` of plain text that does not end with `:` |
-  | Boundary | a heading, list, table, quote, stat block, entry link or styled paragraph |
-  | Paragraph | any other paragraph |
+**Block kinds.** Each top-level block is one of the following, and the first match wins:
 
-- **Candidate.** A name directly followed by a row or a lead. The run extends to the next boundary
-  or name. It must hold a power marker: a lead, a plain-text upgrade paragraph, or a row labeled
-  `Gained`, `Action`, an effect label, an alias, a numbered effect label or an old upgrade label.
-  Affliction blocks (`Type`, `Save`, `Frequency`, `Effect`, `Cure`) hold no marker, so they are not
-  candidates. That is also why `Effect` is not an effect label.
-- **Validation.** One function checks a candidate against the canonical order of section 1. It
-  rejects:
-  - each rule in section 1 that the run breaks;
-  - any legacy label (`Action`, an alias, `Ability2`, `At Nth Level:`);
-  - a missing effect row, or more than one;
-  - a second singleton row;
-  - a paragraph outside position 5.
+1. **Lead:** a normal paragraph whose first inline is a `Strong` whose plain text is
+   `At <digits><suffix> <L|l>evel,`. It is canonical only when the ordinal is well-formed, the word
+   is `level`, and at least one inline follows.
+2. **Row:** a normal paragraph whose first inline is a `Strong` whose plain text ends with `:`. The
+   label is that text without the colon. The content is the remaining inlines, possibly none: an
+   empty `**Usage:**` paragraph is a row, never a name.
+3. **Name:** a normal paragraph whose only inline is one `Strong` of plain text that does not end
+   with `:`.
+4. **Legacy upgrade:** a normal paragraph whose first inline is a `Text` whose value starts with
+   `At <digits><suffix> <L|l>evel` followed by `:` or `,`. Its upgrade text is the rest of that
+   `Text` after the separator and one optional space, followed by the remaining inlines.
+5. **Boundary:** a heading, list, table, quote, stat block, entry link or styled paragraph.
+6. **Paragraph:** any other paragraph.
 
-  Firestorm today (`Flavor`, `Prereq`, `Standard`, `Usage`, `Usage`) fails it. After the rewrite
-  (`Flavor`, `Standard`, `Usage`, `Prereq`) it passes.
-- **One function, two users.** The corpus check (#88) reports every candidate that fails
-  validation. The renderer lays out a candidate only when validation passes. A candidate that fails
-  renders exactly as today's labeled rows, so a queued power never shows a broken layout. The
-  renderer applies this only on `class_option` entries.
+**Other values.**
+- An old upgrade label is a row label `At <digits><suffix> <L|l>evel`.
+- A `Gained` value is canonical when the row's content is the text `At <well-formed ordinal> Level`.
+
+**Candidate.** A name, directly followed by a row, a lead or a legacy upgrade. The run extends to
+the next boundary or name. It must hold a power marker: a lead, a legacy upgrade, or a row labeled
+`Gained`, `Action`, an effect label, an alias, a numbered effect label or an old upgrade label.
+Affliction blocks (`Type`, `Save`, `Frequency`, `Effect`, `Cure`) hold no marker; that is also why
+`Effect` is not an effect label.
+
+**Validation.** Checks a candidate against section 1. It rejects:
+- each rule there that the run breaks;
+- an empty row;
+- a legacy upgrade in any position;
+- any legacy label (`Action`, an alias, `Ability2`, `At Nth Level:`);
+- a non-canonical lead or `Gained` value;
+- a missing effect row, or more than one;
+- a second singleton row;
+- a paragraph outside position 5.
+
+**One function, three users.**
+- The corpus check reports the candidates that fail validation: first as a warning, later as an
+  error (see "Hand-off").
+- #88's rewrite script mirrors the classifier and the validator. The corpus check verifies its
+  output.
+- The renderer lays out a candidate only when validation passes. Otherwise it renders today's
+  labeled rows. It applies this only on `class_option` entries.
 
 **Counts on corpus `main` (cast-iron-data at `c265325e`, after tag v0.1.26).**
 
 - **Ground truth.** 3,707 upstream powers in 2,047 class-option entries. The method is in
-  "Rewrite and survey algorithm". 772 class options have no upstream record with a power directive
-  and are left out of the comparison.
-- **Candidate detection on today's text.** It finds 3,884 candidates in 2,102 entries. Against the
-  ground truth it finds 3,704, misses 3 and adds 3:
-  - The 3 misses are sub-options of the Utility Shot deed that the corpus writes as empty rows
-    (`**Blast Lock:**`). They are rows by the precedence rule, so they are correctly not names.
-  - The 3 extras are real powers. Heresy and Necromantic Arcana carry spell keys upstream, and
-    Student of Humanity is written differently upstream.
-- **Validation on today's text.** 1,720 candidates already pass, so they get the layout with no
-  rewrite.
-- **Rewrite prototype.** It rewrites 1,652 candidates and queues 512, which it leaves unchanged.
-  After the rewrite, 3,372 candidates in 1,918 entries pass validation. A second pass changes
-  nothing (idempotent).
+  "Rewrite and survey algorithm". 772 class options have no upstream record with a power and are
+  left out.
+- **Candidates today.** 3,884 in 2,102 entries.
+  - Against the ground truth they find 3,704 powers and miss 3: Utility Shot's empty sub-option rows,
+    which are rows, not names.
+  - The 3 extras are real powers: Heresy and Necromantic Arcana carry spell keys upstream, and
+    Student of Humanity is written differently there.
+- **Already valid today.** 1,720 candidates.
+- **Rewrite prototype.** It rewrites 1,640 candidates and queues 524, which it leaves unchanged.
+  After the rewrite, 3,360 candidates in 1,909 entries pass validation. A second pass changes
+  nothing.
 - **Queue reasons.** A power can have several:
 
   | Reason | Powers |
@@ -186,22 +214,25 @@ on blank lines:
   | Upgrade text keeps a capital | 164 |
   | Numbered effect label | 62 |
   | Unlabeled paragraphs not one group directly after the effect row | 45 |
+  | `Action` paragraph group crosses another row | 12 |
   | Unmapped `Action` value | 5 |
   | Upgrade not above `Gained` | 5 |
-  | `Action` row without one effect paragraph group | 2 |
+  | `Action` row without one paragraph group after it | 2 |
   | Two upgrades at one level | 2 |
+  | Empty row (Utility Shot, 3 rows) | 1 |
+  | Seeded print item (Foretell) | 1 |
 
-- **Validated runs after the rewrite.** 813 have `Gained`, 902 have an action label, 671 have
-  `Usage`, and 644 have upgrades (1,368 lines). 388 class-option powers have a prerequisite that is
-  only a level (`7th-level oracle`); that prerequisite stays a `Prereq:` row (owner answer 2).
+- **Validated runs after the rewrite.** 810 have `Gained`, 898 have an action label, 667 have
+  `Usage`, and 643 have upgrades (1,365 lines). 388 powers have a prerequisite that is only a level;
+  it stays a `Prereq:` row (owner answer 2).
 - **Action wording.** Only about 20 of the 1,000 or so action-labeled effects state the action in
-  their own text. The import moved `As a standard action` into the label, so the label must show.
-
-The same row shape occurs in archetype entries (5,915 candidates in 1,290 entries) and in rule
-entries (349 in 79). #540 was opened with the earlier rule's counts (4,702 and 206). They are out
-of scope here. Class options ship first, and
-[#540](https://github.com/phynics/cast-iron/issues/540) extends the same rule and corpus rewrite
-(owner answer 5).
+  their own text, so the label must show.
+- **Parser agreement.** The prototype classifies blocks exactly as the compiled library of the
+  pinned corpus (v0.1.26) does, for all 2,802 class options.
+- **Out of scope.** The same row shape occurs in archetype entries (5,915 candidates in 1,290
+  entries) and in rule entries (360 in 79).
+  [#540](https://github.com/phynics/cast-iron/issues/540) extends this spec after class options ship
+  (owner answer 5).
 
 ### 3. What the layout shows
 
@@ -237,29 +268,26 @@ page the power head folds into the title, so the name does not appear twice.
      or ` and ` (`(Ex or Su)`, `(Sp and Ex)`).
 
   Any other page keeps every power head, and a failing candidate keeps its labeled rows.
-- **Counts after the rewrite prototype.** 2,102 entries hold a candidate. 1,603 have one candidate
-  that is the first block and matches the title:
-  - 1,492 of these pass validation and fold the head now;
-  - 111 are queued and keep their labeled rows until resolved.
+- **Counts after the rewrite prototype.** 1,603 entries have one candidate that is the first block
+  and matches the title:
+  - 1,483 of these pass validation and fold the head;
+  - 120 are queued and keep their labeled rows.
 
   464 entries have several candidates. 35 have one candidate that is not the entry, and those keep
   the head: 26 eidolon `Base Evolutions`, 2 inquisition `Granted Powers`, 5 spirits, 1 kineticist
-  entry, and `Black Market Connection (Ex)` under the title `Black Market Connections`. The last one
-  is a corpus mismatch for #88 to check against print.
+  entry, and `Black Market Connection (Ex)` under the title `Black Market Connections`.
 - **The title stays the entry title.** The `h1` text never takes the ability tag or the level.
 - **Facts line.** The power's facts move into the entry head, as one muted line directly under the
   metadata line (`.entry-facts`, the Metadata role: `--ink-muted`, `--step--1`, `·` separators). The
   order is the ability tag in words with the printed tag (`Supernatural (Su)`), then `Level N` from
   `Gained`, then the action and the uses: `Supernatural (Su) · Swift action · Once per rage`. The
-  metadata line keeps its own role (kind and book, as links). The facts line holds only text, so the
-  two lines never mix links with plain facts. A page whose power has no tag, no `Gained`, no action
-  and no uses has no facts line.
-- **Body.** The body starts with the effect. It has no power heading, no leader and no power meta
-  line. The upgrades and the other rows follow, as on a multi-power page. Blocks after the power
-  (15 of the validated pages) render as today.
-- Of the 1,492 validated one-power pages, 1,152 have an ability tag and 220 have an action or uses.
-  None has `Gained` yet: the one-power pages with a level, such as Flight, are in the queue with the
-  lowest-upgrade suggestion.
+  metadata line keeps its own role (kind and book, as links). The facts line holds only text. A
+  page whose power has no tag, no `Gained`, no action and no uses has no facts line.
+- **Body.** Only the name and the facts move. The body starts with the optional `Flavor` paragraph
+  (without its label), then the effect, its continuation, the upgrades and the other rows, as on a
+  multi-power page. Auspicious Mark keeps its `Flavor` paragraph before the effect. Of the 1,483
+  validated pages, 306 have `Flavor`, 1,144 have an ability tag, 217 have an action or uses, and 11
+  have blocks after the power, which render as today.
 
 ### 5. Accessibility
 
@@ -286,6 +314,42 @@ takes only the space left, so it disappears when the name wraps. In the mockup, 
 the Prophecy (Su)" wraps to two lines with `Level 1` beside the first. The meta line and the facts
 line wrap like prose.
 
+## Fixtures
+
+Each row is an acceptance test for the shared classifier and validator and for #88's rewrite.
+The occurrence is the position among candidates with the same original name in that entry.
+`canonical` means the candidate already passes validation and is left unchanged. `rewritten` means
+the rewrite produces a run that passes. `queued` means the whole span stays unchanged and goes to
+print review.
+
+| Entry id | Original name | # | Expected | Why |
+|---|---|---|---|---|
+| `ref/discovery/elixir-of-life` | Elixir of Life | 1 | canonical | Effect, one continuation paragraph, `Prereq`; wording matches *Advanced Player's Guide* p. 30; a one-power page |
+| `ref/arcaneschool/abjuration` | Resistance (Ex) | 1 | rewritten | Upgrades move after the effect, ascending |
+| `ref/arcaneschool/abjuration` | Counterspell Mastery | 1 | queued | Two effect rows (`Ability`, `Immediate`) |
+| `ref/aspect/giant-wasp` | Minor Form | 1 | rewritten | Two legacy plain-text upgrades after `Passive` become leads |
+| `ref/deed/utility-shot` | Utility Shot (Ex) | 1 | queued | Three empty sub-option rows (`Blast Lock`, `Scoot Unattended Object`, `Stop Bleeding`). The span runs from the name to the end of the body. Disposition: #88 decides from print whether the sub-options become names of their own |
+| `ref/blrgbloodline/fey` | One with Nature (Su) | 1 | queued | `Action: Move-Equivalent Action` is not in the map |
+| `ref/hex/coven` | Coven (Ex) | 1 | queued | Numbered effect label `Ability2` |
+| `ref/mystery/flame` | Firestorm (Su) | 1 | rewritten | `Prereq` moves after `Usage`; the identical second `Usage` row goes |
+| `ref/mystery/reaper` | Haunt Channeler (Su) | 1 | canonical | Already valid |
+| `ref/mystery/reaper` | Haunt Channeler (Su) | 2 | queued | `Ability2` and two effect rows; the occurrence tells it from the first |
+| `ref/arcaneschool/divination` | Foretell (Su) | 1 | queued | Seeded print item: the corpus says `1 time/day per wizard level`, while print gives a number of rounds per day equal to the wizard level, not consecutive. The Foresight School starts on *Advanced Player's Guide* p. 145, and Foretell is on p. 146 |
+| `ref/arcaneschool/divination` | Forewarned (Su) | 1 | queued | Upgrade starts with `Anytime`, which is not on the lowercase list |
+| `ref/ragepower/auspicious-mark` | Auspicious Mark (Su) | 1 | rewritten | `Flavor`, effect, `Usage`, then `Special`; the identical second `Usage` row goes. A one-power page that keeps its `Flavor` paragraph |
+| `ref/hex/evil-eye` | Evil Eye (Su) | 1 | rewritten | `Flavor` moves before the effect; the upgrade becomes a lead; a one-power page |
+| `ref/hex/flight` | Flight (Su) | 1 | queued | No effect row; suggestion: the lowest upgrade becomes the base |
+| `ref/domain/fire` | Fire Resistance (Ex) | 1 | queued | No effect row; suggestion: the lowest upgrade becomes the base |
+| `ref/hex/blight` | Blight (Su) | 1 | queued | The `Action` paragraph group would cross a `Special` row |
+| `ref/arcana/accurate-strike` | Accurate Strike (Ex): | 1 | rewritten | The name loses its colon; a one-power page |
+| `ref/talent/black-market-connections` | Black Market Connection (Ex) | 1 | rewritten | The name differs from the title `Black Market Connections`, so the head stays; the spelling is a separate print item for #88 |
+| synthetic S1 | name, `**Fullround:** X`, `**Full-round:** X` | 1 | queued | Two effect rows; alias mapping never merges rows |
+| synthetic S2 | name, `**Ability:** X`, `**Usage:**` (empty) | 1 | queued | An empty row; it is a row, never a name |
+| synthetic S3 | a canonical run | 1 | canonical | Rerunning the rewrite on its own output changes nothing |
+
+No corpus instance of S1 exists on `c265325e`. The only structurally identical duplicates there
+are `Usage` rows, which is why deduplication stops at them.
+
 ## Owner answers, 2026-11-20
 
 1. One-power pages: fold the power head into the title. The tag and the level are presentation near
@@ -297,10 +361,9 @@ line wrap like prose.
 5. Archetypes: class options first; [#540](https://github.com/phynics/cast-iron/issues/540) extends the
    rule to archetypes and rule entries.
 
-The owner approved the revised mockups and this decision on 2026-11-20. A review of PR #538 on the
-same day tightened the hand-off: the explicit `Action` map, continuation by position, one shared
-validation, parser-based blocks, the survey method and the heading rule. The display choices did
-not change.
+The owner approved the revised mockups and this decision on 2026-11-20. Two reviews of PR #538 on
+the same day tightened the hand-off: the rewrite rules, the level grammar, one shared validation,
+the fixtures and the order of the work. The display choices did not change.
 
 ## Evidence
 
@@ -315,84 +378,68 @@ prototype. It covered:
   Auspicious Mark rage power (*Ultimate Combat* p. 26).
 
 Abjuration, Flame and Evil Eye also rendered as the app does today, for comparison. In the
-regenerated mockups, queued powers render as labeled rows (Counterspell Mastery, Forewarned). Flight
-is shown with its lowest-upgrade suggestion accepted, to show a one-power page with a level.
-
-The counts come from corpus `main` at `c265325e` (after tag v0.1.26) and the upstream pin in the
-corpus `legal.toml`. The prototype's block parser was checked against the compiled library of the
-pinned corpus (v0.1.26): for all 2,802 class options, it gives the same sequence of block kinds as
-the corpus parser.
+regenerated mockups, queued powers render as labeled rows (Counterspell Mastery, Foretell,
+Forewarned). Flight is shown with its suggestion accepted, to show a one-power page with a level.
+The counts come from corpus `main` at `c265325e` and the upstream pin in the corpus `legal.toml`.
 
 ## Hand-off
 
-1. **phynics/cast-iron-data#88** rewrites the class-option powers into the canonical order of
-   section 1, with the printed upgrade sentences behind a bold lead, using a rerunnable script. Its
-   scope:
-   - the rewrite, applied to every class option, then `corpus-fmt`;
-   - the print-review queue, 512 powers in the prototype (reasons in section 2). Each is checked
-     against print. A queued run stays unchanged until its resolution is recorded. The script keeps
-     resolutions in a committed file keyed by entry id and power name, so a rerun applies them and
-     does not ask again;
-   - the title mismatch `Black Market Connection (Ex)` under the entry title `Black Market
-     Connections` (`talent/black-market-connections`). Print decides which spelling is right. The
-     entry id never changes (rule 3);
-   - a print check on a sample of rewritten powers;
-   - the canonical validation of section 2 as a corpus check for class options, enabled once the
-     queue is empty, and a corpus tag.
-2. **This repository, #537**: a pin pull request for that tag, then the renderer. It adds pure
-   functions with native tests in `crates/web`: the block kinds, the candidate test, the shared
-   validation, the one-power test and the heading level. It also adds the `.power` and
-   `.entry-facts` styles and one e2e spec on Abjuration. The validation is the same rule set as the
-   corpus check. If the code is shared, it lives in a crate that both the corpus check and
-   `crates/web` already depend on.
-3. **[#540](https://github.com/phynics/cast-iron/issues/540)**: archetype features and rule entries,
-   after class options ship.
+The work runs in this order, so that one classifier and one validator exist before anything
+depends on them:
+
+1. **App pull request (#537, first part).** It adds the shared classifier, candidate test,
+   validation and one-power test over typed `Block`s to `cast-iron-schema`, with native tests built
+   from "Fixtures". The class-option corpus check calls them and reports failing candidates as
+   warnings, which do not fail the run.
+2. **phynics/cast-iron-data#88.** It rewrites the class options with a script that mirrors those
+   functions, and the warning report checks the result. Its scope:
+   - the rewrite and `corpus-fmt`;
+   - the print-review queue: 524 powers in the prototype;
+   - a print check on a sample;
+   - the `Black Market Connection(s)` spelling;
+   - a corpus tag.
+
+   **Resolutions** are recorded in a committed file. Each is keyed by:
+   - the entry id;
+   - the original name as written in the source (with any colon);
+   - the occurrence among candidates with that name in the entry;
+   - the SHA-256 of the original span's source text.
+
+   A resolution applies only when the current span matches that hash exactly. A span that already
+   equals the recorded replacement is a no-op. Any other span is reported as a stale resolution and
+   queued again. Entry ids never change (rule 3).
+3. **Enforcement (app pin pull request).** It pins the migrated corpus tag and turns the warning
+   into an error. The check then fails on any class-option candidate that fails validation, except
+   the ones still queued in #88's resolution file.
+4. **Renderer (#537, app layout).** `crates/web` calls the same functions for the layout gate, the
+   one-power test and the heading level. It adds the `.power` and `.entry-facts` styles and one e2e
+   spec on Abjuration.
+
+Then [#540](https://github.com/phynics/cast-iron/issues/540) extends the spec to archetype features
+and rule entries.
 
 ## Rewrite and survey algorithm
 
-The prototype is not committed. It belongs in cast-iron-data with #88, next to
-`scripts/survey-class-option-residue.py`. This section specifies it closely enough to reimplement.
+The prototype is not committed. Section 1 specifies the rewrite, section 2 the classifier and the
+validator, and "Fixtures" the expected outcomes. This section adds what an implementer still
+needs.
 
-**Blocks.** Use the corpus parser (`crates/corpus`) and classify its top-level blocks as in
-section 2. Do not split text on blank lines: lists with indented items, fences and quotes contain
-blank lines. The rewrite moves whole blocks and whole inline sequences: links, emphasis and hard
-breaks stay as they are. Lowercasing changes only the first word of the first `Text` node. The
-corpus writer then serializes the result.
+**Inline handling.**
+- The rewrite moves whole blocks and whole inline sequences: links, emphasis and hard breaks stay
+  as they are.
+- Converting a legacy upgrade keeps every inline after the separator.
+- Lowercasing changes only the first word of the first `Text` node.
+- The corpus writer serializes the result.
 
 **Legacy names.** For the rewrite only, an empty row is treated as a name written with a colon
 when it is the first block of the body or its label ends in an ability tag. This covers the 64
 magus arcana such as `**Accurate Strike (Ex):**`, and the rewrite drops the colon. The renderer
 never treats a row as a name.
 
-**Vocabulary.**
-- Effect labels: `Passive`, `Ability`, `Standard`, `Move`, `Swift`, `Immediate`, `Free`,
-  `Full-round`, `Benefit`.
-- Aliases: `Fullround` → `Full-round`, `Passive Ability` → `Passive`, `Standard Action` → `Standard`.
-- Numbered effect labels: `Ability`, `Passive` or `Benefit` followed by digits.
-- Old upgrade label: `At Nth Level`. Plain-text upgrade paragraph: `At Nth level: <text>`.
-- `Gained` value: `At Nth Level`. Singletons: `Gained`, `Flavor`, `Usage`, `Prereq`, `Replaces`.
-- Lowercase list for the first word of an upgrade: `You`, `Your`, `The`, `This`, `These`, `That`,
-  `Those`, `Its`, `It`, `A`, `An`, `Any`, `All`, `Each`, `In`, `Once`, `When`, `Whenever`, `While`,
-  `If`, `As`, `For`, `Add`, `By`, `She`, `He`, `Her`, `His`, `They`, `Their`, `Instead`,
-  `Additionally`, `Also`, `Every`, `Allies`.
-
-**Rewrite one candidate.** If it passes validation, leave it unchanged. Otherwise:
-1. Map aliases. Old upgrade labels and plain-text upgrade paragraphs become upgrades (level and
-   content). `Action` rows follow the explicit map of section 1. A numbered effect label is queued.
-2. Remove rows that repeat an earlier row exactly. Queue conflicting singletons.
-3. Count the effect rows, including a mapped `Action` row. Queue when there are none, adding the
-   lowest-upgrade suggestion when the run has upgrades and no `Gained` row. Queue when there is
-   more than one.
-4. Group the unlabeled paragraphs into runs of consecutive paragraphs.
-   - With a mapped `Action` row, there must be exactly one group, after that row. Its first
-     paragraph is the effect text, and the rest is the continuation.
-   - Otherwise there must be no group, or exactly one group directly after the effect row; that
-     group is the continuation.
-   - Anything else is queued.
-5. Sort the upgrades by level. Queue duplicates, upgrades not above `Gained`, and upgrades whose
-   first word is not on the lowercase list. Lowercase the others.
-6. If anything was queued, return the candidate unchanged together with its reasons. Otherwise emit
-   it in the order of section 1, validate the result, and replace the candidate.
+**Lowercase list** for the first word of an upgrade: `You`, `Your`, `The`, `This`, `These`, `That`,
+`Those`, `Its`, `It`, `A`, `An`, `Any`, `All`, `Each`, `In`, `Once`, `When`, `Whenever`, `While`,
+`If`, `As`, `For`, `Add`, `By`, `She`, `He`, `Her`, `His`, `They`, `Their`, `Instead`,
+`Additionally`, `Also`, `Every`, `Allies`.
 
 **Ground truth (survey only).**
 - Read every JSON file of the upstream pin.
@@ -408,5 +455,4 @@ never treats a row as a name.
   that exist upstream and hold at least one power count. An entry with no such record stays out of
   the comparison totals.
 - Normalize names: lowercase, `’` read as `'`, runs of spaces folded, a trailing `:` dropped.
-- Per entry, match names one occurrence at a time: a name that appears twice upstream needs two
-  candidates.
+- Per entry, match names one occurrence at a time.
