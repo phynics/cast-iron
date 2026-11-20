@@ -809,3 +809,24 @@ python3 scripts/editorial-footnotes-nested.py .cache/sources/cast-iron-data \
     --tsv docs/research/editorial-footnotes.tsv \
     --outside-tsv docs/research/editorial-notes-outside-footnotes.tsv
 ```
+
+## Owner decision on the keep test (2026-11-20)
+
+Step 2 of [cast-iron-data #117](https://github.com/phynics/cast-iron-data/issues/117). The owner
+changed the keep test: **a note stays when AoN or the PRD carries it, or when the printed book carries it**
+([decision](../decisions/2026-11-20-printed-footnotes-stay.md)). The script now gives a `no` block
+classified `printed` the basis `presence_basis = print` and `action = keep`; `on_aon_prd` stays `no`.
+Both TSVs are regenerated on v0.1.30 with the review command above; only these 80 rows changed.
+
+| Footnote blocks (767) | Count |
+|---|---:|
+| `keep`, AoN or PRD carries it (`on_aon_prd = yes`) | 408 |
+| `keep`, printed book carries it (`presence_basis = print`: 65 print-match, 11 paraphrase, 4 legend) | 80 |
+| `remove` (40 pointer, 15 commentary, 5 compiled, 13 unclear; 32 entries) | 73 |
+| `review` (candidate "Bonus feat." legends) | 171 |
+| `check` (unchecked "Bonus feat." legends) | 35 |
+
+The four deity notes with the leading-word allowance are among the 408. Of the 48 outside paragraphs,
+19 carry `action = remove` (16 editorial, 3 unclear). The corpus change removes 18 of them; the 19th,
+`ref/magic-wondrous/maniac-hand`, is a stat line of the item, which data PR #115 also left. The book-prose
+rows stay as "not a note".
