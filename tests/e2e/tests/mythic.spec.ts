@@ -103,6 +103,9 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
 
   // In a feat list the add-on is its own row directly after its base, with its own label.
   await page.goto("#/browse/kind/feat?l=P");
+  // `evaluateAll` does not wait for the list, so read it only after both rows are on the page.
+  await expect(page.locator(`.entry-list > li > a[href="#/entry/${BASE}"]`)).toBeVisible();
+  await expect(page.locator(`.entry-list > li > a[href="#/entry/${MYTHIC}"]`)).toBeVisible();
   const hrefs = await page
     .locator(".entry-list > li > a")
     .evaluateAll((links) => links.map((link) => (link as HTMLAnchorElement).hash));
