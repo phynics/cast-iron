@@ -13,15 +13,18 @@ hash is `83560f950b7c6d8327a17fe5c9a69106af22507b3e17fb4a8c20b317ab963556`
 (`cargo xtask corpus-tree-hash` on the extracted codeload archive). The pin ships two corpus
 changes on top of v0.1.31, both from the footnote and front-matter clean-up:
 
-- **HTML entity references in front matter replaced** (data PR #126, issue #125). 328 references
-  in 302 files become plain characters (`&times;` to `×`, `&mdash;` inside a longer value to `—`),
-  and 249 `weight = "&mdash;"` keys are removed, so the typed weight field is empty instead of the
-  six characters `&mdash;`. Three item titles change (`Telescope (×10)`, `×50`, `×250`).
+- **HTML entity references in front matter replaced** (data PR #126, issue #125). Of the 328 HTML
+  entity references in 302 files, 249 were removed with their empty `weight` keys and 79 were
+  replaced with plain characters (`&times;` to `×`, `&mdash;` inside a longer value to `—`). The
+  typed weight field is now empty instead of the six characters `&mdash;`. Three item titles
+  change (`Telescope (×10)`, `×50`, `×250`).
 - **The last orphan footnote markers restored** (data PR #127, issue #124). 13 Bonus-feat legends
   that held `^B|param^` now hold `^B^`; four idols got `^S^` and Old-Mage Jatembe got `^F^`; and
   the `footnote-e` note is removed from Detect Chaos, Detect Fiendish Presence, Detect Good and
-  Detect Law. That note was a copy of the table note of Detect Evil (*Core Rulebook* p. 266), and
-  the four spells have no table for it to refer to. Each removal has an exclusion row.
+  Detect Law. The v0.1.32 tag annotation misstates the reason for the four removals, which
+  [data PR #127](https://github.com/phynics/cast-iron-data/pull/127) records as follows:
+  `footnote-e` copied Detect Evil's printed table note (*Core Rulebook* p. 266) into four spells
+  that have no table for it to annotate. Each removal has an exclusion row.
 
 - **Counts.** 31,825 entries and 443 publications and books, all unchanged: the pin edits
   existing entries and adds none. Reachability: 31,825 reachable, 0 unreachable. Links: 147,298
@@ -48,17 +51,18 @@ changes on top of v0.1.31, both from the footnote and front-matter clean-up:
   and each marker links to the note and the note links back to each marker. The other tests
   are unchanged. Every other spell with a kept note has its marker in a table cell (Nightmare,
   Detect Evil, Major Creation, Polymorph Any Object, Prismatic Wall, Sacrifice, Call Spirit).
-  A trial on Nightmare showed no marker link and no back link there, because the renderer links
-  markers only in paragraph text (`Renderer::paragraph_content`), so the spec does not use them.
+  A trial on Nightmare rendered the marker as a plain link without a back link, because the
+  renderer gives a marker its note link and id only in paragraph text
+  (`Renderer::paragraph_content`), so the spec does not use those entries. Refs #534.
 - **Docs.** `README.md`, `LICENSES/README.md` and `docs/research/pf-data-licensing.md` name the
   pinned corpus v0.1.32; the removal of the editor-added notes is dated to v0.1.31. No legal claim
   changed.
 - **Legal.** `notice_pending` is unchanged.
-- **Local verification** (CI not run, nothing deployed), on `origin/main` at `622eaa6e8` plus this
+- **Local verification** (nothing deployed), on `origin/main` at `622eaa6e8` plus this
   pin. Content version `vac36ce2cc1ac05cb` (was `v4192151b29702eab`). `cargo xtask content`
   passed the published-id guard and the book-slot guard. `cargo xtask check` passed (with
   `check-book-slots` and `aon-coverage --check`). `build-site --public-url /cast-iron/` passed
   (shell `d06317e4b655275e`). `size-budget`: library 223,246,449 of 234,300,000 bytes (95.3%),
   largest file 68,766,167 of 72,300,000 (95.1%), WASM 3,380,944 of 3,460,000 (97.7%); no limit
   raised. Spec on `--project=chromium`, one worker: `footnotes.spec.ts`, 7 passed. The full suite
-  runs in CI.
+  runs in batch CI on `main`.
