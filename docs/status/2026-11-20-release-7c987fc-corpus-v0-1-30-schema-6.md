@@ -26,8 +26,8 @@ The content compiler, Rust checks, content determinism, the site build and the t
 passed, and so did WebKit shards 1, 3 and 4 of 4. **WebKit shard 2/4 (informational) failed one test:**
 `mythic.spec.ts:68`, "Mythic Adventures active: the base stacks one expanded version", at a
 `toBeGreaterThanOrEqual` assertion (`Expected: >= 0`). WebKit is informational, so the run is green. The failure
-was not investigated or fixed for this release. The owner accepted this run as the promotion testing; no second
-full suite was run. The promotion helper accepted the SHA.
+was not investigated or fixed for this release. No second full suite was run. The promotion helper accepted the
+SHA.
 
 **Deployment.** Pages run
 [44645225960](https://github.com/phynics/cast-iron/actions/runs/44645225960) succeeded for
@@ -56,9 +56,8 @@ The install used the Download button that a profile without a library shows, not
 
 **Not run.**
 
-- No check on the real iPhone ([#423](https://github.com/phynics/cast-iron/issues/423)). The owner gave the go for
-  this promotion on 2026-11-19 ("after these finish we can do a release and cleanup") with Chromium and WebKit
-  browser evidence in place of the device, as for the previous release.
+- No check on the real iPhone ([#423](https://github.com/phynics/cast-iron/issues/423)). The release was checked
+  with Chromium and WebKit in a browser only.
 - No upgrade from the previous release: no profile with the `58ca785` library and stars was updated, and no
   offline reload of this release was run. The library format is unchanged, and CI's update spec covers schema 6
   to 6 on a modified copy of the candidate library; it is not an upgrade of the published library.
@@ -85,11 +84,12 @@ active books is the intended behaviour; it was not tested for this release again
 
 ### Changes to the library
 
-- **Page citations are sources** (corpus v0.1.30). 438 footnotes in 70 entries that only said where a rule is printed
-  (for example "Ultimate Equipment pg. 297") are now rows of the entry's **Sources** line, with the page, and the
-  footnotes and their markers are gone. The Figurine of Wondrous Power (Basalt Dragon) entry is an example: its Sources line
+- **Page citations are sources** (corpus v0.1.30). 438 footnotes in 70 entries only said where a rule is printed
+  (for example "Ultimate Equipment pg. 297"). They held 484 book-and-page citations. 480 of those are now on the
+  entry's **Sources** line (as new rows, as pages added to a row, or as pages the row already had), and the
+  footnote blocks and their markers are gone. The Figurine of Wondrous Power (Basalt Dragon) entry is an example: its Sources line
   lists 15 books with pages, and it carries no note for them. 4 citations to Pathfinder #30 and #43 could
-  not be checked against print and are recorded in the corpus's `exclusions.toml`.
+  not be checked against print and are recorded in the corpus's `exclusions.toml` instead.
 - **Notes that no source carries are removed** (corpus v0.1.30). 81 footnotes and 60 editorial paragraphs that
   neither Archives of Nethys nor the PRD carries are gone, each recorded in the exclusions. Summon Monster II no
   longer shows notes. Three footnote blocks with converter residue are split into one block per note, 27 duplicate note
@@ -99,11 +99,12 @@ active books is the intended behaviour; it was not tested for this release again
 
 ### Changes to what you see
 
-- **Quieter note markers.** The mark after a monster's bonus feat (the `B`) and every other footnote marker is now a
-  small superscript in the muted colour of the notes, in regular weight and without an underline, so it no longer
+- **Quieter note markers.** A footnote marker that links to its note, such as the mark after a monster's bonus feat
+  (the `B`), is now a small superscript in the muted colour of the notes, in regular weight and without an underline, so it no longer
   reads as a bold part of the feat name. It is still a link to its note; hover and keyboard focus bring back the
   accent colour and an underline. A screen reader announces the `B` of a bonus feat as "Bonus feat, note B" and
-  other markers as "Note 1". Its tap area grows up, down and to the right, not onto the feat name, and is taller
+  another marker by its own label, for example "Note 1". Plain superscripts in tables and stat rows keep their
+  earlier look. Its tap area grows up, down and to the right, not onto the feat name, and is taller
   on a touch screen. (#519)
 
 ### For contributors
