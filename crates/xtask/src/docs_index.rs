@@ -649,6 +649,13 @@ mod tests {
         let parsed = parse_decision(STEM, &text).unwrap();
         assert_eq!(parsed.status, "proposed");
         assert!(parsed.superseded_by.is_empty());
+        let index = render_decisions(&[parsed], "");
+        let row = index
+            .lines()
+            .find(|line| line.contains(&format!("({STEM}.md)")))
+            .unwrap();
+        let cells: Vec<&str> = row.split('|').map(str::trim).collect();
+        assert_eq!(cells[3], "proposed", "{row}");
     }
 
     #[test]
