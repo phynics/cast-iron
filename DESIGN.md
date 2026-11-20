@@ -233,8 +233,9 @@ Approved by the owner on 2026-11-20 (#537; decision
 phynics/cast-iron-data#88 rewrites the powers into the canonical row order. Archetypes follow in #540.
 On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
-1. The head is one baseline-aligned row. On the left is the name, as a heading one level below the
-   enclosing body heading (`.power-name`: display face, 1.125rem, weight 700). On the right is
+1. The head is one baseline-aligned row. On the left is the name, as a heading: `h2` before the first
+   top-level body heading, after it one level below the preceding top-level body heading, capped at
+   `h6` (`.power-name`: display face, 1.125rem, weight 700). On the right is
    `Level N`, only from `Gained`, in `--step--1` weight 600 `--ink-muted` with tabular figures and no
    wrap. A prerequisite such as `11th-level oracle` stays a `Prereq:` row and never sets the level.
    The level text has a visually hidden prefix ("Gained at"). A dotted `--line` leader takes the
@@ -246,11 +247,13 @@ On a `class_option` entry, a power reads as printed prose. It sits in a plain `d
 4. One paragraph per upgrade, with the lead `At 11th level,` in weight 600.
 5. The other rows (`Special:`, `Prereq:`, `Replaces:`) keep their bold label.
 
-Powers are not added to `On this page`. A run that does not match the canonical form renders as
+Powers are not added to `On this page`. The layout applies only to a power that passes the canonical
+validation, the same check that the corpus runs on class options. A power that fails it renders as
 today's labeled rows.
 
 **One-power page** (a talent, hex or rage power whose page is the power). The body has exactly one
-power, its name is the first block, and the name without its ability tag is the entry title. The
+candidate power, it passes the validation, its name is the first block, and the name without its
+ability tag is the entry title. The
 power head folds into the title. The `h1` stays the entry title, never with the tag or the level.
 One muted `.entry-facts` line sits directly under the metadata line: the tag in words with the
 printed tag, `Level N` from `Gained`, then the action and the uses
