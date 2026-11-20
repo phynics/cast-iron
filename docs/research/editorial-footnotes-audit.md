@@ -681,3 +681,121 @@ python3 scripts/editorial-footnotes-nested.py $CORPUS --aon aon.tsv \
 
 Steps 3 and 4, run with `--offline` on the page cache of the live AoN run,
 reproduce the committed TSVs byte for byte.
+
+## Review of the candidates and unchecked rows (2026-11-20)
+
+Step 1 of [cast-iron-data #117](https://github.com/phynics/cast-iron-data/issues/117)
+(follow-up ticket 3 above). The TSVs are now regenerated on corpus pin v0.1.30
+(`phynics/cast-iron-data` commit `fb77db5d9e7ee4bb7cedde53b4b295095d560044`, equal to
+its `main`), which already contains data PR #113 (the 438 source citations, now
+`[[sources]]` rows) and data PR #115 (the confirmed "no" blocks and paragraphs, removed).
+No corpus file was changed.
+
+**Scope.** On v0.1.30 the footnote TSV has 767 blocks: 393 yes, 0 no, 330 candidate,
+44 unchecked. Out of scope, left unchanged: the **206 standalone "Bonus feat." legends**
+(171 candidate, 35 unchecked; the audit's 205 plus the Psychopomp Morrigna legend that
+#115 split out of its residue block), which the owner keeps. No `source-citation` block
+is left (#113), and the rows that #115 removed are gone from the corpus. #115 skipped
+one outside row (`ref/magic-wondrous/maniac-hand`, `no`); it is not a candidate and
+stays as it is. In scope: **168 blocks in 93 entries** and **30 outside paragraphs**
+(18 editorial or unclear, 12 printed book prose).
+
+**Method.** Each row got a hand verdict in
+[`editorial-footnotes-aon-review.tsv`](editorial-footnotes-aon-review.tsv) (the
+`--aon-review` input: `entry_id`, `where`, `key`, `on_aon_prd`, `aon_evidence`,
+`carried_by`), merged into both TSVs. For each entry the review read the entry's AoN
+page (control score on the entry's body, as in the check script) and the legacy PRD
+page that holds the same rule, and ran the whole-note test of the check script on
+them. Where the check had found no AoN page, the page came from AoN search, the rule
+chapter pages (a chapter page prints all its sections), and the AoN source pages
+(`SourceDisplay.aspx?FixedSource=<book>`, which list everything AoN carries from a
+book). About 300 AoN and legacy PRD pages were read, one request every two seconds;
+no request was refused. Every verdict names the pages in `aon_evidence`.
+
+The whole-note test stays the rule. Three hand allowances, each named in the row's
+evidence:
+
+- Hyphenation and spacing only: Armor as DR block 3 ("oozelike"); three outside
+  paragraphs of book prose ("nonplayer", "standalone", AoN's run-together "thespot").
+- Two adjacent printed footnotes: Breaking Things block 2 is the table's footnotes 2
+  and 3; on the page the only word between them is the footnote number.
+- Leading subject only: the note adds "This", "This spell" or "The" before AoN's
+  bracket text, and every other word is one unbroken run on the page. Four deity
+  notes are `yes` only by this allowance: Shelyn block 2, Besmara block 1, Ydersius
+  block 3, Geryon block 1. If the owner wants the strict test, these four become
+  `no`.
+
+**Results.**
+
+| Footnote blocks | yes | no | candidate | unchecked |
+|---|---:|---:|---:|---:|
+| Committed audit, pin v0.1.28 (1,284 blocks) | 716 | 138 | 391 | 39 |
+| Regenerated on v0.1.30, before this review (767 blocks) | 393 | 0 | 330 | 44 |
+| After this review (767 blocks) | 406 | 155 | 171 | 35 |
+
+| Outside paragraphs | yes | no | candidate | unchecked |
+|---|---:|---:|---:|---:|
+| Committed audit, pin v0.1.28 (108 rows) | 16 | 62 | 30 | 0 |
+| Regenerated on v0.1.30, before this review (48 rows) | 16 | 2 | 30 | 0 |
+| After this review (48 rows) | 22 | 26 | 0 | 0 |
+
+The 171 candidate and 35 unchecked blocks left are exactly the 206 "Bonus feat."
+legends. Of the 168 reviewed blocks, **13 are `yes`** (the four Kortash Khain and
+Old-Mage Jatembe notes and the Solar Pitri legend on their AoN mythic monster pages;
+Terrain Improvements 1 and Breaking Things 3 on AoN rule pages that keep the printed
+table number; Breaking Things 2; Armor as DR 3; the four deity notes above) and
+**155 are `no`** (84 entries; `action = remove`). Of the 30 outside paragraphs, 6 are
+`yes` (all book prose) and 24 are `no`: all 18 editorial and unclear paragraphs
+(Tavern Toolbox and the 6 inline-note rows among them; `action = remove`) and 6 book
+prose paragraphs, whose action stays "not a note".
+
+**Patterns.**
+
+- **AoN has no page for the entry at all** in 91 of the 155 `no` blocks: the
+  *Ultimate Equipment* treasure types F to I (35 "Refer to Type ..." pointers; the
+  legacy PRD appendix carries the tables but names the target table instead), the
+  *GameMastery Guide* random magic item tables (34; AoN's chapter 5 and the legacy
+  PRD folder have no such tables), the two *Ultimate Equipment* random
+  special-ability tables, rules from *Black Markets*, *Cohorts and Companions*,
+  *Faction Guide*, *Occult Mysteries* and the *Skull & Shackles Player's Guide* (10),
+  the Paizo blog post on feat taxes (5), two *Planar Adventures* plane entries, the
+  compiled Other Feats entry (2) and *Midnight Milk*. 67 of the 155 `no` blocks are
+  printed notes (`print-match`), mostly in these tables. The owner rule removes them;
+  removing them removes printed table notes from entries whose table stays. The owner
+  may want to confirm this before step 2.
+- **The legacy PRD drops table numbers.** It prints "see Table: Substance Hardness and
+  Hit Points" or "on from the Armor and Shield Pricing by Bonus table" where the book
+  and AoN print "Table 7-13" or "Table 3-1". A note that keeps the number fails the
+  whole-note test on the PRD page; AoN carries it when AoN has the table (Breaking
+  Things 3, Terrain Improvements 1). *Magic Armor* 2, *Magic Weapons* 3 and the two
+  random special-ability tables are `no` because AoN has no page with those tables.
+- **Near misses that are `no`.** One word or one reference differs from AoN: the five
+  *detect* spell table notes ("Excludes" where AoN prints "Except for"), the deity
+  notes Abadar 2, Cayden Cailean 1, Ydersius 2 and Calistria 2, and Miscellaneous
+  Actions 5 and Overland Movement 1 (the note drops "in Chapter 4" or "on page 171").
+  Removing a deity note also removes the spell restriction from the entry, unless the
+  body states it; step 2 could put AoN's wording in place of the note instead.
+- **An editorial placeholder inside printed stat blocks.** The *Detect Relations* and
+  *Torrent of Elemental Rage* outside rows are printed spell statistics (review
+  `printed`, action "not a note"), but their Range line holds the dataset text "The
+  original source did not include a range line". AoN prints no Range line. This is a
+  separate fix, outside the footnote removal.
+- **Residue blocks split by #115.** Five blocks have new text and so started
+  unreviewed: Kortash Khain "mythic spell" and "domain spell" and Old-Mage Jatembe's
+  F note and "mythic spells" are `yes` on their AoN mythic monster pages; the
+  Morrigna "Bonus feat." legend is out of scope.
+
+**Unchecked.** No reviewed row is left `unchecked`: every page that the review
+needed could be read.
+
+Reproduce (the review file is input; the output is byte-identical on v0.1.30, and
+the plain regeneration under [Reproduce](#reproduce) then gives the same TSVs):
+
+```sh
+python3 scripts/editorial-footnotes-nested.py .cache/sources/cast-iron-data \
+    --reuse docs/research/editorial-footnotes.tsv \
+    --outside-review docs/research/editorial-notes-outside-footnotes.tsv \
+    --aon-review docs/research/editorial-footnotes-aon-review.tsv \
+    --tsv docs/research/editorial-footnotes.tsv \
+    --outside-tsv docs/research/editorial-notes-outside-footnotes.tsv
+```
