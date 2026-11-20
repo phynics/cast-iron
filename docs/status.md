@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-20. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
+Updated 2026-11-21. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
 
 Edit this page only where a change makes a line untrue, and add a log file for the event (`docs/status/YYYY-MM-DD-<slug>.md`). Keep local verification, CI and deployment apart.
 
@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.32`, commit `c265325ece61ef4fde220631a6865beef629472b` (`sources/corpus.toml`). Pin entry: [2026-11-20](status/2026-11-20-corpus-pinned-to-v0-1-32.md) |
-| Content version | `vac36ce2cc1ac05cb` (`cargo xtask content` on `main` at `622eaa6e8` plus the v0.1.32 pin, 2026-11-20). The release serves `v4192151b29702eab` (corpus v0.1.31); v0.1.32 is on `main` only. |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.33`, commit `dc3e2020ff439f1d1894de5ff3f9313d25f381f0` (`sources/corpus.toml`). Pin entry: [2026-11-21](status/2026-11-21-corpus-pinned-to-v0-1-33.md) |
+| Content version | `v65e2fb8a7e1ae499` (`cargo xtask content` on `main` at `27fb428f9` plus the v0.1.33 pin, 2026-11-21). The release serves `v4192151b29702eab` (corpus v0.1.31); v0.1.32 and v0.1.33 are on `main` only. |
 | Library | 31,825 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
