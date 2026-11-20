@@ -22,6 +22,13 @@ Cast Iron must preserve complete applicable notices and screen imported text.
 Upstream renderer code is not being copied. `routes.json` contains factual
 file-to-protocol associations extracted without executing that renderer.
 
+The dataset's editor's notes (footnotes and similar notes) are the one part
+that may count as application content, because its notices do not mark them
+as OGC. The pinned corpus keeps a note only when AoN or the PRD carries the
+same text, and its `LICENSE.md` states that basis. The evidence and the two
+readings of the dataset's notices are in
+[editorial-footnotes-audit.md](editorial-footnotes-audit.md#licensing).
+
 The PSRD carry-over library imports exactly one reviewed record from this pin:
 `pf-data/rule/magic`, the Core Rulebook page 206 opening passage, which is
 ordinary OGC game mechanics under the OGL. Its `approved.json` row records
