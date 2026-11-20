@@ -3,12 +3,14 @@ import { installLibrary } from "./helpers";
 
 // Footnotes (#507): the corpus writes a note as a level-six `footnote-` heading and one paragraph.
 // The page shows the notes as one quiet "Notes" group after the rules text, smaller and in a
-// secondary colour, with markers that link to a note and back. Detect Law has one printed note
-// whose marker is missing from the text (the corpus keeps it, #114); Aatheriexa has a printed
-// stat-block note that two markers cite.
+// secondary colour, with markers that link to a note and back. Expanded Summon Monster (Monster
+// Summoner's Handbook, p. 28) has one printed note that the markers after some of the listed
+// creatures cite; Aatheriexa has a printed stat-block note that two markers cite.
 
 const corpus = loadCorpus();
-const DETECT_LAW = "ref/spell/detect-law";
+const SUMMON_FEAT = "ref/feat/expanded-summon-monster";
+const SUMMON_ANCHOR = "footnote-t";
+const SUMMON_NOTE = "This creature is summoned with the celestial template";
 const MONSTER = "ref/monster/aatheriexa";
 const OTHER_MONSTER = "ref/monster/aether-elemental";
 
@@ -16,8 +18,9 @@ test.beforeEach(async ({ page }) => {
   await installLibrary(page);
 });
 
+// A `break` inline is a line break in the page, which reads as whitespace.
 const inlineText = (items: any[] = []): string =>
-  items.map((item) => (item.t === "text" ? item.v : inlineText(item.c ?? []))).join("");
+  items.map((item) => (item.t === "text" ? item.v : item.t === "break" ? " " : inlineText(item.c ?? []))).join("");
 const isNote = (block: any) => block.t === "heading" && block.level === 6 && String(block.anchor ?? "").startsWith("footnote-");
 
 /** The paragraph texts of an entry body that are not a note: heading and the paragraph after it. */
@@ -34,6 +37,17 @@ function rulesParagraphs(id: string): string[] {
   return out;
 }
 
+/** How many markers of the compiled fixture link to the note `anchor` of the entry `id`. */
+function markerCount(id: string, anchor: string): number {
+  const walk = (node: any): number => {
+    if (Array.isArray(node)) return node.reduce((sum: number, child: any) => sum + walk(child), 0);
+    if (node === null || typeof node !== "object") return 0;
+    const own = node.t === "link" && node.target === id && node.anchor === anchor ? 1 : 0;
+    return Object.values(node).reduce((sum: number, child: any) => sum + walk(child), own);
+  };
+  return walk(corpus.entries.get(id)!.body);
+}
+
 function noteTexts(id: string): string[] {
   const body: any[] = corpus.entries.get(id)!.body;
   return body.flatMap((block, i) => (isNote(block) ? [inlineText(body[i + 1].content).trim()] : []));
@@ -46,30 +60,45 @@ const style = (locator: ReturnType<import("@playwright/test").Page["locator"]>) 
   });
 
 for (const scheme of ["light", "dark"] as const) {
-  test(`Detect Law notes read as notes, not rules (${scheme})`, async ({ page }) => {
+  test(`Expanded Summon Monster notes read as notes, not rules (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
-    await page.goto(`#/entry/${DETECT_LAW}`);
-    await expect(page.getByTestId("entry-title")).toHaveText("Detect Law");
+    await page.goto(`#/entry/${SUMMON_FEAT}`);
+    await expect(page.getByTestId("entry-title")).toHaveText("Expanded Summon Monster");
     const notes = page.getByRole("complementary", { name: "Notes" });
     await expect(notes).toBeVisible();
     await expect(notes.getByRole("heading", { level: 2, name: "Notes" })).toBeVisible();
     const items = notes.locator("li.note");
     await expect(items).toHaveCount(1);
     await expect(items.nth(0).locator(".note-label")).toHaveText("Note 1");
-    const expected = noteTexts(DETECT_LAW);
+    const expected = noteTexts(SUMMON_FEAT);
     for (let i = 0; i < expected.length; i++) {
       await expect(items.nth(i).locator("p")).toHaveText(expected[i].replace(/\s+/g, " "));
     }
-    await expect(items.nth(0)).toContainText("Excludes undead and outsiders");
+    await expect(items.nth(0)).toContainText(SUMMON_NOTE);
 
     // The group closes the body, and a note is not a section heading.
     await expect(page.locator(".rich > .notes")).toHaveCount(1);
     await expect(page.locator(".rich > *").last()).toHaveClass(/notes/);
     await expect(page.locator(".rich h6")).toHaveCount(0);
 
-    // The marker is missing from the text: the note still renders and has nothing to link back to.
-    await expect(page.locator(".rich sup.fn-ref")).toHaveCount(0);
-    await expect(notes.locator(".note-back")).toHaveCount(0);
+    // The markers sit in the lists of creatures. Every marker of the fixture is rendered, each one
+    // links to this entry's note, and the note links back to each marker, one back link per marker.
+    const cited = markerCount(SUMMON_FEAT, SUMMON_ANCHOR);
+    expect(cited).toBeGreaterThan(1);
+    const markers = page.locator(".rich sup.fn-ref");
+    await expect(markers).toHaveCount(cited);
+    await expect(markers.getByRole("link", { name: "Note 1" })).toHaveCount(cited);
+    const forward = await markers.locator("a").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    for (const href of forward) {
+      expect(decodeURIComponent(href ?? "")).toMatch(new RegExp(`/entry/${SUMMON_FEAT}.*[?&]a=${SUMMON_ANCHOR}$`));
+    }
+    const markerIds = await markers.evaluateAll((els) => els.map((el) => el.id));
+    expect(new Set(markerIds).size).toBe(cited);
+    await expect(notes.locator(".note-back")).toHaveCount(cited);
+    const backTargets = await notes
+      .locator(".note-back")
+      .evaluateAll((links) => links.map((link) => /[?&]a=([^&]+)$/.exec(link.getAttribute("href") ?? "")?.[1]));
+    expect(backTargets).toEqual(markerIds);
 
     // Visibly secondary: smaller type and a different colour than the rules text.
     const rule = await style(page.locator(".rich > p").first());
@@ -77,11 +106,13 @@ for (const scheme of ["light", "dark"] as const) {
     expect(note.size).toBeLessThan(rule.size);
     expect(note.color).not.toBe(rule.color);
 
-    // The rules text is unchanged and none of it moved into the group.
-    for (const text of rulesParagraphs(DETECT_LAW)) {
-      await expect(page.locator(".rich > p", { hasText: text.replace(/\s+/g, " ").slice(0, 60) })).toHaveCount(1);
-    }
-    await expect(page.locator(".rich > p", { hasText: "Excludes undead and outsiders" })).toHaveCount(0);
+    // The rules text is unchanged and none of it moved into the group: the whole text of the
+    // body's paragraphs matches the fixture, line breaks read as spaces.
+    await expect(page.locator(".rich > p")).toHaveText(
+      rulesParagraphs(SUMMON_FEAT).map((text) => text.replace(/\s+/g, " ")),
+      { useInnerText: true },
+    );
+    await expect(page.locator(".rich > p", { hasText: SUMMON_NOTE })).toHaveCount(0);
   });
 }
 
