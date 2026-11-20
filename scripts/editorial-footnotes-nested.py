@@ -540,9 +540,14 @@ def main() -> int:
 
     # Book prose that merely contains a signal word is not a note; the owner
     # rule does not apply to it.
+    # An inline note that the printed book carries stays (owner decision of
+    # 2026-11-20, see above).
     for o in outside:
         if o["review"] == "printed":
-            o["action"] = "not a note"
+            if "inline-note" in o["signals"].split(","):
+                o["presence_basis"], o["action"] = "print", "keep"
+            else:
+                o["action"] = "not a note"
 
     for path, data in ((args.tsv, rows), (args.outside_tsv, outside)):
         if path and data:

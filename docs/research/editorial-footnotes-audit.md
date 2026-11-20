@@ -816,17 +816,27 @@ Step 2 of [cast-iron-data #117](https://github.com/phynics/cast-iron-data/issues
 changed the keep test: **a note stays when AoN or the PRD carries it, or when the printed book carries it**
 ([decision](../decisions/2026-11-20-printed-footnotes-stay.md)). The script now gives a `no` block
 classified `printed` the basis `presence_basis = print` and `action = keep`; `on_aon_prd` stays `no`.
-Both TSVs are regenerated on v0.1.30 with the review command above; only these 80 rows changed.
+An outside paragraph that is an inline note and that the book prints gets the same basis and action.
+Both TSVs are regenerated on v0.1.30 with the review command above.
+
+A review of the corpus PR ([cast-iron-data #123](https://github.com/phynics/cast-iron-data/pull/123))
+moved 12 rows from `editorial` or `unclear` to `printed`, because the printed source carries them
+(or AoN carries the same rule): the *Skull & Shackles Player's Guide* ship-table notes (3, pp. 10-11),
+the *Legacy of Dragons* Pyrausta familiar note (p. 27), the Underhanded and Underwater ranger style
+paragraphs (3 outside rows; *Ultimate Intrigue* p. 40, *Aquatic Adventures* p. 55), Gozreh
+(*Inner Sea Gods* p. 75), Iapholi, Ydersius, and the two feat-swap conditions of `ref/rule/bestiary-errata`.
+Each row's `evidence` column says what was checked. The Skull & Shackles and bestiary-errata rows rest on the
+review's reading of the source, not on a print check here: the Skull & Shackles guide is not in the print-check set.
 
 | Footnote blocks (767) | Count |
 |---|---:|
 | `keep`, AoN or PRD carries it (`on_aon_prd = yes`) | 408 |
-| `keep`, printed book carries it (`presence_basis = print`: 65 print-match, 11 paraphrase, 4 legend) | 80 |
-| `remove` (40 pointer, 15 commentary, 5 compiled, 13 unclear; 32 entries) | 73 |
+| `keep`, printed book carries it (`presence_basis = print`: 71 print-match, 14 paraphrase, 4 legend) | 89 |
+| `remove` (40 pointer, 15 commentary, 5 compiled, 4 unclear; 26 entries) | 64 |
 | `review` (candidate "Bonus feat." legends) | 171 |
 | `check` (unchecked "Bonus feat." legends) | 35 |
 
 The four deity notes with the leading-word allowance are among the 408. Of the 48 outside paragraphs,
-19 carry `action = remove` (16 editorial, 3 unclear). The corpus change removes 18 of them; the 19th,
-`ref/magic-wondrous/maniac-hand`, is a stat line of the item, which data PR #115 also left. The book-prose
-rows stay as "not a note".
+16 carry `action = remove` (all editorial) and 3 `keep` (printed inline notes). The corpus change removes 15
+of the 16; the 16th, `ref/magic-wondrous/maniac-hand`, is a stat line of the item, which data PR #115 also
+left. The book-prose rows stay as "not a note".
