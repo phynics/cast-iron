@@ -236,6 +236,51 @@ makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
 
+## Class-option powers
+
+Approved by the owner on 2026-11-20 (#537; decision
+`docs/decisions/2026-11-20-class-option-power-layout.md`, which also holds the fixtures). The work
+runs in this order:
+
+1. An app pull request puts the shared power classifier and validator over typed `Block`s in
+   `cast-iron-schema`, with a corpus-check warning and native tests from the fixtures.
+2. phynics/cast-iron-data#88 rewrites the powers with a script that mirrors those functions, and
+   the warning checks the result.
+3. The pin pull request of the migrated corpus turns the warning into an error.
+4. The renderer calls the same functions.
+
+Archetypes follow in #540.
+On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
+
+1. The head is one baseline-aligned row. On the left is the name, as a heading: `h2` before the first
+   top-level body heading, after it one level below the preceding top-level body heading, capped at
+   `h6` (`.power-name`: display face, 1.125rem, weight 700). On the right is
+   `Level N`, only from `Gained`, in `--step--1` weight 600 `--ink-muted` with tabular figures and no
+   wrap. A prerequisite such as `11th-level oracle` stays a `Prereq:` row and never sets the level.
+   The level text has a visually hidden prefix ("Gained at"). A dotted `--line` leader takes the
+   space between them and disappears when the name wraps.
+2. An optional meta line in the Metadata role: the action in words and the uses, joined by `·`
+   (`Standard action · 3 + Intelligence modifier times/day`).
+3. The base effect in body type, without its `Passive` or `Ability` label. `Flavor` reads as the
+   first sentence.
+4. One paragraph per upgrade, with the lead `At 11th level,` in weight 600.
+5. The other rows (`Special:`, `Prereq:`, `Replaces:`) keep their bold label.
+
+Powers are not added to `On this page`. The layout applies only to a power that passes the canonical
+validation, the same check that the corpus runs on class options. A power that fails it renders as
+today's labeled rows.
+
+**One-power page** (a talent, hex or rage power whose page is the power). The body has exactly one
+candidate power, it passes the validation, its name is the first block, and the name without its
+ability tag is the entry title. The
+power head folds into the title. The `h1` stays the entry title, never with the tag or the level.
+One muted `.entry-facts` line sits directly under the metadata line: the tag in words with the
+printed tag, `Level N` from `Gained`, then the action and the uses
+(`Supernatural (Su) · Swift action · Once per rage`). The metadata line keeps kind and book. Only
+the name and the facts move. The body starts with the optional `Flavor` paragraph (without its
+label), then the effect, with no power heading and no power meta line. Auspicious Mark keeps its
+`Flavor` paragraph.
+
 ## Tokens
 
 Colors: `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--line`, `--accent`, `--accent-ink`, `--focus`, `--error`. Type: `--font-text`, `--font-display`, `--step--1` to `--step-3`. Space: `--space-1` to `--space-6`. Shape: `--radius` (6 px) for rectangles; 999 px only for filters. Touch size: `--touch`.
