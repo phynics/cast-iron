@@ -1016,6 +1016,16 @@ an unchanged Paizo base. A mixed entry is either a missed split or a shared-prin
 that a reviewer must confirm. The warnings stay non-failing while genuine shared printings
 remain; a clean corpus can promote them to errors.
 
+`corpus-check` also **warns** once per run about unsupported book memberships (#461): an
+entry lists a book in `source_ids` other than its first, and the entry has no `[[sources]]` row
+for that book. The first book is the entry's home and needs no row. Every later book claims that
+it prints the entry or a section of its body, and the page citation is the only evidence the
+corpus holds. The warning gives the number of memberships and of entries, and three examples. It
+measures what remains of the cleanup of memberships that a book does not print: each batch either
+cites a page, or removes the book (a book that only expands the entry goes to
+[`expanded_in`](#expanded_in)). When the count reaches 0 the warning becomes an error, as the
+footnote findings did (#531).
+
 ## Drift between fields and body
 
 Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`

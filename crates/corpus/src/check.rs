@@ -1227,6 +1227,7 @@ pub fn check(corpus: &Corpus) -> Report {
 
     check_relations(corpus, &mut report);
     check_third_party_sharing(corpus, &mut report);
+    check_uncited_memberships(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
@@ -1375,6 +1376,47 @@ fn check_third_party_sharing(corpus: &Corpus, report: &mut Report) {
             ));
         }
     }
+}
+
+/// The book memberships that no `[[sources]]` row supports (issue #461).
+///
+/// An entry's first book is its home and needs no row here. Every later book in `source_ids`
+/// is a claim that the book prints the entry or a section of it, and the page citation is the
+/// only evidence the corpus holds. Memberships without one are the unreviewed rest of the
+/// cleanup of unprinted memberships. Each pair is `(entry id, publication id)`.
+fn uncited_memberships(corpus: &Corpus) -> Vec<(&str, &str)> {
+    let mut out = Vec::new();
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        for book in entry.source_ids.iter().skip(1) {
+            if !entry.sources.iter().any(|row| &row.publication == book) {
+                out.push((entry.id.as_str(), book.as_str()));
+            }
+        }
+    }
+    out
+}
+
+/// Warns, once per run, about memberships in `source_ids` without a `[[sources]]` row. It is a
+/// warning while the cleanup of #461 runs: the count measures what is left. When it reaches 0 it
+/// becomes an error, as the footnote findings did.
+fn check_uncited_memberships(corpus: &Corpus, report: &mut Report) {
+    let uncited = uncited_memberships(corpus);
+    if uncited.is_empty() {
+        return;
+    }
+    let entries: BTreeSet<&str> = uncited.iter().map(|(id, _)| *id).collect();
+    let examples: Vec<String> = uncited
+        .iter()
+        .take(3)
+        .map(|(id, book)| format!("`{id}` in `{book}`"))
+        .collect();
+    report.warnings.push(format!(
+        "{} book memberships in {} entries have no `[[sources]]` citation, although the book is not the entry's first (for example {}); cite the page, or remove the book if it does not print the entry (#461)",
+        uncited.len(),
+        entries.len(),
+        examples.join(", ")
+    ));
 }
 
 fn check_relations(corpus: &Corpus, report: &mut Report) {
@@ -2500,6 +2542,10 @@ mod tests {
     fn mixed_sources_warn_but_a_third_party_only_entry_does_not() {
         let mut mixed = in_publication(rule("ref/rule/mixed", vec![]), "core-rulebook");
         mixed.source_ids.push("third-party".into());
+        mixed.sources.push(Citation {
+            publication: "third-party".into(),
+            page: Some("12".into()),
+        });
         let mut c = corpus(vec![mixed]);
         add_third_party(&mut c, "third-party", None);
 
@@ -2516,6 +2562,65 @@ mod tests {
         let only = in_publication(rule("ref/rule/only", vec![]), "third-party");
         let mut c = corpus(vec![only]);
         add_third_party(&mut c, "third-party", None);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    #[test]
+    fn a_later_book_without_a_citation_row_is_counted_in_one_warning() {
+        let mut entry = rule("ref/rule/shared", vec![]);
+        entry.source_ids.push("second-book".into());
+        entry.source_ids.push("third-book".into());
+        entry.sources.push(Citation {
+            publication: "third-book".into(),
+            page: Some("7".into()),
+        });
+        let mut other = rule("ref/rule/other", vec![]);
+        other.source_ids.push("second-book".into());
+        let mut c = corpus(vec![entry, other]);
+        for id in ["second-book", "third-book"] {
+            let mut publication = c.publications[0].clone();
+            publication.id = id.into();
+            publication.title = id.into();
+            c.publications.push(publication);
+        }
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0]
+                .contains("2 book memberships in 2 entries have no `[[sources]]` citation"),
+            "{:?}",
+            report.warnings
+        );
+        assert!(
+            report.warnings[0].contains("`ref/rule/shared` in `second-book`"),
+            "{:?}",
+            report.warnings
+        );
+        assert!(
+            !report.warnings[0].contains("`ref/rule/shared` in `third-book`"),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn a_first_book_and_cited_later_books_raise_no_membership_warning() {
+        // The first book needs no row; a later book with a row does not warn.
+        let home_only = rule("ref/rule/home", vec![]);
+        let mut cited = rule("ref/rule/cited", vec![]);
+        cited.source_ids.push("second-book".into());
+        cited.sources.push(Citation {
+            publication: "second-book".into(),
+            page: None,
+        });
+        let mut c = corpus(vec![home_only, cited]);
+        let mut publication = c.publications[0].clone();
+        publication.id = "second-book".into();
+        publication.title = "second-book".into();
+        c.publications.push(publication);
         let report = check(&c);
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
