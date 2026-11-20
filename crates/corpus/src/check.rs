@@ -158,6 +158,48 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
+/// Well-formed HTML entity references in a front-matter string: `&mdash;`, `&times;`, `&#39;`,
+/// `&#x2014;`. The retired import left them in typed fields, where a reader or a filter would see
+/// the literal characters. Broken fragments (`&times&`) are not matched.
+fn entity_references(text: &str) -> Vec<String> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] != b'&' {
+            i += 1;
+            continue;
+        }
+        let rest = &text[i + 1..];
+        let (name, hex) = match rest.strip_prefix('#') {
+            Some(number) => match number.strip_prefix(['x', 'X']) {
+                Some(digits) => (digits, true),
+                None => (number, false),
+            },
+            None => (rest, false),
+        };
+        let len = name
+            .bytes()
+            .take_while(|b| match (rest.starts_with('#'), hex) {
+                (true, true) => b.is_ascii_hexdigit(),
+                (true, false) => b.is_ascii_digit(),
+                (false, _) => b.is_ascii_alphanumeric(),
+            })
+            .count();
+        let valid_start =
+            rest.starts_with('#') || name.starts_with(|c: char| c.is_ascii_alphabetic());
+        if len > 0 && valid_start && name[len..].starts_with(';') {
+            let prefix = rest.len() - name.len();
+            let end = i + 1 + prefix + len + 1;
+            out.push(text[i..end].to_string());
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    out
+}
+
 /// Every inline run of `blocks`, in document order. Footnote headings are skipped: one holds its
 /// own label, which is not a marker. Other headings count, because a marker can sit in a
 /// section title (`### Removed Feats^[1](…#footnote-1)^`).
@@ -982,7 +1024,8 @@ pub fn check(corpus: &Corpus) -> Report {
         for text in entry_display_texts(entry) {
             let value = text.value();
             let tokens = upstream_markup_tokens(value);
-            if tokens.is_empty() {
+            let entities = entity_references(value);
+            if tokens.is_empty() && entities.is_empty() {
                 continue;
             }
             let needle = crate::tomlutil::string(value);
@@ -997,6 +1040,12 @@ pub fn check(corpus: &Corpus) -> Report {
             for (_, token) in tokens {
                 report.problems.push(format!(
                     "{}:{line}: left-over upstream token `{token}` in {place}. Convert it to plain text or a typed link.",
+                    path.display()
+                ));
+            }
+            for entity in entities {
+                report.warnings.push(format!(
+                    "{}:{line}: HTML entity reference `{entity}` in {place}. Write the character, or omit the key when it means no value.",
                     path.display()
                 ));
             }
@@ -2633,6 +2682,38 @@ mod tests {
             ..Default::default()
         });
         assert!(check(&corpus(vec![feat])).problems.is_empty());
+    }
+
+    #[test]
+    fn an_entity_reference_in_a_typed_field_warns() {
+        let mut feat = rule("ref/feat/entity", vec![]);
+        feat.kind = EntryKind::Feat;
+        feat.fields = TypedFields::Feat(cast_iron_schema::FeatFields {
+            benefit: Some("deal &times;2 damage&#8212;or &#x2020;".into()),
+            ..Default::default()
+        });
+        let report = check(&corpus(vec![feat]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let text = report.warnings.join("\n");
+        for entity in ["&times;", "&#8212;", "&#x2020;"] {
+            assert!(
+                text.contains(&format!("HTML entity reference `{entity}`")),
+                "{text}"
+            );
+        }
+        assert!(text.contains("`[fields]` key `benefit`"), "{text}");
+    }
+
+    #[test]
+    fn broken_fragments_and_bare_ampersands_do_not_warn_as_entities() {
+        assert_eq!(
+            entity_references("Swords & Sorcery &times& 2 &Q; &;"),
+            vec!["&Q;"]
+        );
+        assert_eq!(
+            entity_references("&mdash; &#39; &#;"),
+            vec!["&mdash;", "&#39;"]
+        );
     }
 
     #[test]
