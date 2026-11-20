@@ -963,6 +963,9 @@ file and line, when:
 - an entry `kind` does not match its `[fields]` kind;
 - the body holds a left-over `p!` import marker, which the upstream import wrote where a
   paragraph or list break had been. The same letters inside a word, as in `Help!`, are real text;
+- the body holds a left-over spell-list marker, `&Q`, `&EM`, `&EX` or `&S`, which the upstream
+  import wrote for the metamagic and summon entries of monster spell-like ability lists. Write
+  `quickened`, `empowered`, `extended` or `summon (level N, ...)`, as the books print them;
 - a `source_id` is not in `publications.toml`;
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
 - a parent, body link, prerequisite feat, relation target, book node, or alias

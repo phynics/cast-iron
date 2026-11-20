@@ -158,6 +158,48 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
+/// Left-over spell-list markers in body text: the upstream import wrote the metamagic and summon
+/// entries of monster spell-like ability lists as `&Q`, `&EM`, `&EX` and `&S`, where the books
+/// print `quickened`, `empowered`, `extended` and `summon (level N, ...)`. Returns each marker with
+/// its 1-based line and the wording that replaces it.
+///
+/// A marker starts at a `&` that does not follow a letter, digit, `_` or `&`, and the letters
+/// after it end the word. So `AT&T`, `&Sword`, `&Q&` (reported as an upstream token) and
+/// `&quot&S` are not markers.
+fn spell_list_markers(text: &str) -> Vec<(usize, &'static str, &'static str)> {
+    const MARKERS: [(&str, &str); 4] = [
+        ("&Q", "quickened"),
+        ("&EM", "empowered"),
+        ("&EX", "extended"),
+        ("&S", "summon (level N, ...)"),
+    ];
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut line = 1;
+    for (i, byte) in bytes.iter().enumerate() {
+        if *byte == b'\n' {
+            line += 1;
+            continue;
+        }
+        if *byte != b'&' {
+            continue;
+        }
+        if i > 0 && (bytes[i - 1].is_ascii_alphanumeric() || matches!(bytes[i - 1], b'_' | b'&')) {
+            continue;
+        }
+        for (marker, wording) in MARKERS {
+            if bytes[i..].starts_with(marker.as_bytes()) {
+                let after = bytes.get(i + marker.len());
+                if !after.is_some_and(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'&')) {
+                    out.push((line, marker, wording));
+                }
+                break;
+            }
+        }
+    }
+    out
+}
+
 /// Well-formed HTML entity references in a front-matter string: `&mdash;`, `&times;`, `&#39;`,
 /// `&#x2014;`. The retired import left them in typed fields, where a reader or a filter would see
 /// the literal characters. Broken fragments (`&times&`) are not matched.
@@ -1013,6 +1055,13 @@ pub fn check(corpus: &Corpus) -> Report {
         for (line, token) in upstream_markup_tokens(body) {
             report.problems.push(format!(
                 "{}:{}: left-over upstream token `{token}`. Convert it to plain text or a typed link.",
+                path.display(),
+                body_start + line - 1
+            ));
+        }
+        for (line, marker, wording) in spell_list_markers(body) {
+            report.problems.push(format!(
+                "{}:{}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}.",
                 path.display(),
                 body_start + line - 1
             ));
@@ -2599,10 +2648,41 @@ mod tests {
         let clean = rule(
             "ref/rule/b",
             vec![paragraph(vec![Inline::text(
-                "&times& &quot& &mdash &S &Next1&",
+                "&times& &quot& &mdash &Next1&",
             )])],
         );
         assert!(check(&corpus(vec![clean])).problems.is_empty());
+    }
+
+    #[test]
+    fn a_left_over_spell_list_marker_fails() {
+        let dirty = rule(
+            "ref/rule/spell-list-marker",
+            vec![paragraph(vec![Inline::text(
+                "&Q holy smite, &EM magic missile, &EX good hope, &S level 4; 1 imp 35%",
+            )])],
+        );
+        let text = check(&corpus(vec![dirty])).problems.join("\n");
+        for marker in ["`&Q`", "`&EM`", "`&EX`", "`&S`"] {
+            assert!(
+                text.contains(&format!("left-over spell-list marker {marker}")),
+                "{text}"
+            );
+        }
+        assert!(text.contains("quickened"), "{text}");
+        assert!(text.contains("summon (level N, ...)"), "{text}");
+    }
+
+    #[test]
+    fn printed_spell_list_wording_and_lookalikes_are_not_markers() {
+        let clean = rule(
+            "ref/rule/spell-list-wording",
+            vec![paragraph(vec![Inline::text(
+                "quickened holy smite, summon (level 4, 1 imp 35%), AT&T, &Sword, &EMBER, &quot&S",
+            )])],
+        );
+        let report = check(&corpus(vec![clean]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
     }
 
     #[test]
