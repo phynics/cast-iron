@@ -99,7 +99,10 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
 
   // The add-on is not a chain follower: the base's Leads to panel omits it.
   await page.goto(`#/entry/${BASE}`);
-  await expect(page.locator("#rel-leads").getByRole("link", { name: "Power Attack, Mythic", exact: true })).toHaveCount(0);
+  // The links sit in the list beside the heading, so search the whole panel, and only after it lists its feats.
+  const leads = page.locator('section[aria-labelledby="rel-leads"]');
+  await expect(leads.getByRole("link", { name: "Cleave", exact: true })).toBeVisible();
+  await expect(leads.getByRole("link", { name: "Power Attack, Mythic", exact: true })).toHaveCount(0);
 
   // In a feat list the add-on is its own row directly after its base, with its own label.
   await page.goto("#/browse/kind/feat?l=P");
