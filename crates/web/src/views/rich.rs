@@ -142,6 +142,33 @@ struct NoteState {
     position: usize,
 }
 
+impl NoteState {
+    /// The note that a superscript cites, if it cites one of this entry, and the new id of the
+    /// marker. The citation is recorded here, so the way back lists the markers in the order
+    /// this is called: the order the page renders in, whether a marker stands in a paragraph, a
+    /// table cell or a stat row (#534).
+    fn cite(&mut self, previous: Option<&Inline>, content: &[Inline]) -> Option<(usize, String)> {
+        let note = match footnotes::linked_anchor(content, &self.entry) {
+            Some(anchor) => self.notes.iter().position(|note| note.anchor == anchor)?,
+            None => {
+                let label = footnotes::marker_label(previous, content)?;
+                footnotes::resolve(
+                    self.notes.iter().map(|note| (note.label.as_str(), note.at)),
+                    &label,
+                    self.position,
+                )?
+            }
+        };
+        let id = format!(
+            "fnref-{}-{}",
+            self.notes[note].key,
+            self.cited_by[note].len() + 1
+        );
+        self.cited_by[note].push(id.clone());
+        Some((note, id))
+    }
+}
+
 struct NoteInfo {
     key: String,
     label: String,
@@ -284,13 +311,13 @@ impl Renderer {
                 }
             }
             Block::Table(table) => match progression::split(table) {
-                Some(split) => progression_tables(split),
-                None => rules_table(table, None, None),
+                Some(split) => self.progression_tables(split),
+                None => self.rules_table(table, None, None),
             },
             Block::Quote { content } => {
                 view! { <blockquote>{self.blocks(content)}</blockquote> }.into_any()
             }
-            Block::StatBlock { title, rows } => stat_block(title.as_deref(), rows, &self.changed),
+            Block::StatBlock { title, rows } => self.stat_block(title.as_deref(), rows),
             Block::EntryLink { target, title } => {
                 let href = Route::entry(target.clone()).href();
                 view! { <ul class="entry-links"><li><a href=href>{title.clone()}</a></li></ul> }
@@ -304,15 +331,24 @@ impl Renderer {
     /// Paragraph inlines. On an entry page, a footnote marker that cites a note of this entry
     /// becomes a link to it, and gets an id so the note can link back.
     fn paragraph_content(&mut self, items: &[Inline]) -> Vec<AnyView> {
+        self.marked_inlines(items, true)
+    }
+
+    /// Inlines where a marker becomes a link to its note, in a table cell or a stat row as well
+    /// as in a paragraph (#534). `label_changes` adds the `changed` tag after a stat label that
+    /// a revision changed, which only the paragraphs of a feat body use. Every marker records
+    /// its citation as it renders, so the back links follow the order the page renders in.
+    fn marked_inlines(&mut self, items: &[Inline], label_changes: bool) -> Vec<AnyView> {
         let mut out = Vec::with_capacity(items.len());
         for (index, item) in items.iter().enumerate() {
             let previous = index.checked_sub(1).and_then(|before| items.get(before));
             match self.marker(previous, item) {
                 Some(view) => out.push(view),
-                None => out.extend(inlines_with_changed(
+                None if label_changes => out.extend(inlines_with_changed(
                     std::slice::from_ref(item),
                     &self.changed,
                 )),
+                None => out.push(inline(item)),
             }
         }
         out
@@ -323,24 +359,8 @@ impl Renderer {
             return None;
         };
         let state = self.notes.as_mut()?;
-        let linked = footnotes::linked_anchor(c, &state.entry);
-        let note = match linked {
-            Some(anchor) => state.notes.iter().position(|note| note.anchor == anchor)?,
-            None => {
-                let label = footnotes::marker_label(previous, c)?;
-                footnotes::resolve(
-                    state
-                        .notes
-                        .iter()
-                        .map(|note| (note.label.as_str(), note.at)),
-                    &label,
-                    state.position,
-                )?
-            }
-        };
+        let (note, id) = state.cite(previous, c)?;
         let info = &state.notes[note];
-        let id = format!("fnref-{}-{}", info.key, state.cited_by[note].len() + 1);
-        state.cited_by[note].push(id.clone());
         // Both forms render as one link to the note with one accessible name. The corpus's own
         // link (`^[5](ref/...#footnote-h)^`) keeps its text and loses its generic name.
         let shown = match c.as_slice() {
@@ -460,140 +480,161 @@ fn unique(prefix: &str) -> String {
     format!("{prefix}-{}", UNIQUE.fetch_add(1, Ordering::Relaxed))
 }
 
-fn stat_block(title: Option<&str>, rows: &[StatRow], changed: &BTreeSet<String>) -> AnyView {
-    let title_id = title.map(|_| unique("stat"));
-    let heading = title.map(|t| {
-        let id = title_id.clone();
-        view! { <p class="stat-title" id=id>{t.to_string()}</p> }
-    });
-    let rows: Vec<AnyView> = rows
-        .iter()
-        .map(|row| {
-            let changed = changed.contains(&row.label.trim().to_lowercase()).then(|| {
-                view! { <span class="tag changed-tag">"changed"</span> }
-            });
-            view! {
-                <div class="stat-row">
-                    <dt>{row.label.clone()}{changed}</dt>
-                    <dd>{inlines(&row.value)}</dd>
-                </div>
-            }
-            .into_any()
-        })
-        .collect();
-    view! {
-        <div class="stat-block">
-            {heading}
-            <dl aria-labelledby=title_id>{rows}</dl>
-        </div>
-    }
-    .into_any()
-}
-
-/// A class progression: the core columns, then any spell columns in a native disclosure. The
-/// core table pins its Level column and fits a phone; the disclosure keeps the slots one tap
-/// away without widening the page.
-fn progression_tables(split: progression::Progression) -> AnyView {
-    let core = rules_table(
-        &split.core,
-        Some("progression-table"),
-        Some("Class progression"),
-    );
-    let spells = split.spells.map(|spells| {
-        let (summary, region) = progression::spells_labels(&spells);
-        let table = rules_table(&spells, Some("progression-table"), Some(region));
-        view! {
-            <details class="progression-spells">
-                <summary>{summary}</summary>
-                {table}
-            </details>
-        }
-    });
-    view! { {core}{spells} }.into_any()
-}
-
-/// `class` adds a modifier class to the table. `label` names the region of a table without a
-/// caption; the default is `Table`.
-fn rules_table(table: &Table, class: Option<&'static str>, label: Option<&'static str>) -> AnyView {
-    let caption_id = unique("cap");
-    let has_caption = !table.caption.is_empty();
-    let caption = has_caption.then(|| {
-        view! { <caption id=caption_id.clone()>{inlines(&table.caption)}</caption> }
-    });
-    let label = (!has_caption).then_some(label.unwrap_or("Table"));
-    let labelled_by = has_caption.then(|| caption_id.clone());
-    let head = (!table.head.is_empty()).then(|| {
-        view! { <thead>{table_rows(&table.head, "head", class.is_some())}</thead> }
-    });
-    let body = view! { <tbody>{table_rows(&table.body, "body", class.is_some())}</tbody> };
-    let foot = (!table.foot.is_empty()).then(|| {
-        view! { <tfoot>{table_rows(&table.foot, "foot", class.is_some())}</tfoot> }
-    });
-    let table_class = match class {
-        Some(extra) => format!("rules-table {extra}"),
-        None => "rules-table".to_string(),
-    };
-    view! {
-        <div class="table-wrap" role="region" tabindex="0" aria-labelledby=labelled_by aria-label=label>
-            <table class=table_class>{caption}{head}{body}{foot}</table>
-        </div>
-    }
-    .into_any()
-}
-
-/// A cell's content. In a progression table an iterative attack bonus gets a break opportunity
-/// after each slash, so the column can narrow and leave room for Special. Each part is its own
-/// `.atk` span. A bonus of three or more parts is stacked, one per line, on a phone (`atk-stack`);
-/// a two-part bonus such as `+6/+1` stays on one line while it fits.
-fn cell_content(content: &[Inline], breakable: bool) -> Vec<AnyView> {
-    if breakable
-        && let [Inline::Text { v }] = content
-        && let Some(parts) = progression::attack_bonus_parts(v)
-    {
-        let span_class = if parts.len() > 2 {
-            "atk atk-stack"
-        } else {
-            "atk"
-        };
-        return parts
-            .into_iter()
-            .map(|part| {
-                view! { <span class=span_class>{part.to_string()}</span><wbr /> }.into_any()
+/// Stat blocks and tables (#534). Their cells and values go through the same marker logic as a
+/// paragraph, so a footnote marker in one is the same link, and the note links back to it. The
+/// table and stat block markup is unchanged.
+impl Renderer {
+    fn stat_block(&mut self, title: Option<&str>, rows: &[StatRow]) -> AnyView {
+        let title_id = title.map(|_| unique("stat"));
+        let heading = title.map(|t| {
+            let id = title_id.clone();
+            view! { <p class="stat-title" id=id>{t.to_string()}</p> }
+        });
+        let rows: Vec<AnyView> = rows
+            .iter()
+            .map(|row| {
+                let changed = self
+                    .changed
+                    .contains(&row.label.trim().to_lowercase())
+                    .then(|| {
+                        view! { <span class="tag changed-tag">"changed"</span> }
+                    });
+                view! {
+                    <div class="stat-row">
+                        <dt>{row.label.clone()}{changed}</dt>
+                        <dd>{self.marked_inlines(&row.value, false)}</dd>
+                    </div>
+                }
+                .into_any()
             })
             .collect();
+        view! {
+            <div class="stat-block">
+                {heading}
+                <dl aria-labelledby=title_id>{rows}</dl>
+            </div>
+        }
+        .into_any()
     }
-    inlines(content)
-}
 
-fn table_rows(rows: &[TableRow], section: &'static str, breakable: bool) -> Vec<AnyView> {
-    rows.iter()
-        .map(|row| {
-            let cells: Vec<AnyView> = row
-                .cells
-                .iter()
-                .enumerate()
-                .map(|(i, cell)| {
-                    let colspan = span_attr(cell.colspan);
-                    let rowspan = span_attr(cell.rowspan);
-                    if cell.header {
-                        let scope = th_scope(section, cell, i);
-                        view! {
-                            <th scope=scope colspan=colspan rowspan=rowspan>
-                                {cell_content(&cell.content, breakable)}
-                            </th>
-                        }
-                        .into_any()
-                    } else {
-                        view! {
-                            <td colspan=colspan rowspan=rowspan>{cell_content(&cell.content, breakable)}</td>
-                        }
-                        .into_any()
-                    }
+    /// A class progression: the core columns, then any spell columns in a native disclosure. The
+    /// core table pins its Level column and fits a phone; the disclosure keeps the slots one tap
+    /// away without widening the page. The core columns render before the spell columns, so a
+    /// marker in a spell column counts after the markers of every row of the core columns.
+    fn progression_tables(&mut self, split: progression::Progression) -> AnyView {
+        let core = self.rules_table(
+            &split.core,
+            Some("progression-table"),
+            Some("Class progression"),
+        );
+        let spells = split.spells.map(|spells| {
+            let (summary, region) = progression::spells_labels(&spells);
+            let table = self.rules_table(&spells, Some("progression-table"), Some(region));
+            view! {
+                <details class="progression-spells">
+                    <summary>{summary}</summary>
+                    {table}
+                </details>
+            }
+        });
+        view! { {core}{spells} }.into_any()
+    }
+
+    /// `class` adds a modifier class to the table. `label` names the region of a table without a
+    /// caption; the default is `Table`.
+    fn rules_table(
+        &mut self,
+        table: &Table,
+        class: Option<&'static str>,
+        label: Option<&'static str>,
+    ) -> AnyView {
+        let caption_id = unique("cap");
+        let has_caption = !table.caption.is_empty();
+        let caption = has_caption.then(|| {
+            view! { <caption id=caption_id.clone()>{inlines(&table.caption)}</caption> }
+        });
+        let label = (!has_caption).then_some(label.unwrap_or("Table"));
+        let labelled_by = has_caption.then(|| caption_id.clone());
+        let breakable = class.is_some();
+        // The sections render in document order, so the citations record in that order.
+        let head = (!table.head.is_empty()).then(|| {
+            view! { <thead>{self.table_rows(&table.head, "head", breakable)}</thead> }
+        });
+        let body = view! { <tbody>{self.table_rows(&table.body, "body", breakable)}</tbody> };
+        let foot = (!table.foot.is_empty()).then(|| {
+            view! { <tfoot>{self.table_rows(&table.foot, "foot", breakable)}</tfoot> }
+        });
+        let table_class = match class {
+            Some(extra) => format!("rules-table {extra}"),
+            None => "rules-table".to_string(),
+        };
+        view! {
+            <div class="table-wrap" role="region" tabindex="0" aria-labelledby=labelled_by aria-label=label>
+                <table class=table_class>{caption}{head}{body}{foot}</table>
+            </div>
+        }
+        .into_any()
+    }
+
+    /// A cell's content. In a progression table an iterative attack bonus gets a break
+    /// opportunity after each slash, so the column can narrow and leave room for Special. Each
+    /// part is its own `.atk` span. A bonus of three or more parts is stacked, one per line, on a
+    /// phone (`atk-stack`); a two-part bonus such as `+6/+1` stays on one line while it fits.
+    fn cell_content(&mut self, content: &[Inline], breakable: bool) -> Vec<AnyView> {
+        if breakable
+            && let [Inline::Text { v }] = content
+            && let Some(parts) = progression::attack_bonus_parts(v)
+        {
+            let span_class = if parts.len() > 2 {
+                "atk atk-stack"
+            } else {
+                "atk"
+            };
+            return parts
+                .into_iter()
+                .map(|part| {
+                    view! { <span class=span_class>{part.to_string()}</span><wbr /> }.into_any()
                 })
                 .collect();
-            view! { <tr>{cells}</tr> }.into_any()
-        })
-        .collect()
+        }
+        self.marked_inlines(content, false)
+    }
+
+    fn table_rows(
+        &mut self,
+        rows: &[TableRow],
+        section: &'static str,
+        breakable: bool,
+    ) -> Vec<AnyView> {
+        rows.iter()
+            .map(|row| {
+                let cells: Vec<AnyView> = row
+                    .cells
+                    .iter()
+                    .enumerate()
+                    .map(|(i, cell)| {
+                        let colspan = span_attr(cell.colspan);
+                        let rowspan = span_attr(cell.rowspan);
+                        if cell.header {
+                            let scope = th_scope(section, cell, i);
+                            view! {
+                                <th scope=scope colspan=colspan rowspan=rowspan>
+                                    {self.cell_content(&cell.content, breakable)}
+                                </th>
+                            }
+                            .into_any()
+                        } else {
+                            view! {
+                                <td colspan=colspan rowspan=rowspan>{self.cell_content(&cell.content, breakable)}</td>
+                            }
+                            .into_any()
+                        }
+                    })
+                    .collect();
+                view! { <tr>{cells}</tr> }.into_any()
+            })
+            .collect()
+    }
 }
 
 // ---- body ---------------------------------------------------------------------------------
@@ -849,5 +890,89 @@ mod tests {
             foot: vec![],
         };
         assert_eq!(table_stats(&table), (3, 1));
+    }
+
+    fn note(key: &str, label: &str, at: usize) -> NoteInfo {
+        NoteInfo {
+            key: key.to_string(),
+            label: label.to_string(),
+            anchor: format!("footnote-{label}").to_lowercase(),
+            at,
+            name: format!("Note {label}"),
+        }
+    }
+
+    fn note_state(notes: Vec<NoteInfo>) -> NoteState {
+        NoteState {
+            entry: EntryId::parse("ref/spell/nightmare").unwrap(),
+            book: None,
+            cited_by: vec![Vec::new(); notes.len()],
+            notes,
+            position: 0,
+        }
+    }
+
+    fn linked_marker(label: &str, anchor: &str) -> Vec<Inline> {
+        vec![Inline::Link {
+            target: EntryId::parse("ref/spell/nightmare").unwrap(),
+            anchor: Some(anchor.to_string()),
+            c: vec![text(label)],
+        }]
+    }
+
+    #[test]
+    fn a_cell_marker_cites_its_note_like_a_paragraph_marker() {
+        let mut state = note_state(vec![note("footnote-1", "1", 2)]);
+        // A paragraph marker, then a linked marker and a bare marker in table cells.
+        let paragraph = state.cite(Some(&text("word")), &[text("1")]);
+        let linked = state.cite(None, &linked_marker("1", "footnote-1"));
+        let bare = state.cite(Some(&text("Yes")), &[text("1")]);
+        assert_eq!(paragraph, Some((0, "fnref-footnote-1-1".to_string())));
+        assert_eq!(linked, Some((0, "fnref-footnote-1-2".to_string())));
+        assert_eq!(bare, Some((0, "fnref-footnote-1-3".to_string())));
+        // The way back lists the three citations in the order they were met.
+        assert_eq!(
+            state.cited_by[0],
+            [
+                "fnref-footnote-1-1",
+                "fnref-footnote-1-2",
+                "fnref-footnote-1-3"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_cell_marker_that_cites_no_note_of_the_entry_stays_plain() {
+        let mut state = note_state(vec![note("footnote-1", "1", 2)]);
+        // An exponent, a marker with no such note, and a link into another entry.
+        assert_eq!(state.cite(Some(&text("10")), &[text("2")]), None);
+        assert_eq!(state.cite(None, &[text("7")]), None);
+        let other = vec![Inline::Link {
+            target: EntryId::parse("ref/spell/other").unwrap(),
+            anchor: Some("footnote-1".to_string()),
+            c: vec![text("1")],
+        }];
+        assert_eq!(state.cite(None, &other), None);
+        assert!(state.cited_by[0].is_empty());
+    }
+
+    #[test]
+    fn bare_cell_markers_pick_the_note_by_the_position_of_the_block() {
+        // Two stat blocks with a note `B` each: notes stand after blocks 1 and 3.
+        let mut state = note_state(vec![
+            note("footnote-b", "B", 1),
+            note("footnote-b-2", "B", 3),
+        ]);
+        state.position = 0;
+        assert_eq!(state.cite(None, &[text("B")]).map(|c| c.0), Some(0));
+        state.position = 2;
+        assert_eq!(state.cite(None, &[text("B")]).map(|c| c.0), Some(1));
+        state.position = 4;
+        assert_eq!(state.cite(None, &[text("B")]).map(|c| c.0), Some(1));
+        assert_eq!(state.cited_by[0].len(), 1);
+        assert_eq!(
+            state.cited_by[1],
+            ["fnref-footnote-b-2-1", "fnref-footnote-b-2-2"]
+        );
     }
 }
