@@ -109,7 +109,7 @@ pub fn heading_keys(entry: &RuleEntry) -> Vec<(String, String)> {
 }
 
 /// The body part of an entry file, with the 1-based line number it starts on.
-fn body_text(text: &str) -> (usize, &str) {
+pub(crate) fn body_text(text: &str) -> (usize, &str) {
     let mut offset = 0;
     let mut fences = 0;
     for line in text.split_inclusive('\n') {
@@ -1230,6 +1230,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
+    crate::check_powers::check_class_option_powers(corpus, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
     let publication_ids: BTreeSet<&str> = corpus

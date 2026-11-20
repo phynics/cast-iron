@@ -1072,6 +1072,51 @@ part. A value stated in only one place is not drift. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader
 sees.
 
+## Class-option powers
+
+A class-option power (a school power, revelation, hex, curse, spirit ability or domain power)
+is a bold name paragraph followed by labeled rows. The decision
+[`2026-11-20-class-option-power-layout`](decisions/2026-11-20-class-option-power-layout.md)
+fixes one canonical order for the rows, so that the app can show the power as printed prose
+without reordering anything:
+
+```markdown
+**Resistance (Ex)**
+
+**Gained:** At 1st Level
+
+**Passive:** You gain resistance 5 to an energy type of your choice.
+
+**At 11th level,** this resistance increases to 10.
+```
+
+The order is: the name (one bold span, no colon); an optional `Gained` row (`At Nth Level`); an
+optional `Flavor` row; exactly one effect row (`Passive`, `Ability`, `Standard`, `Move`, `Swift`,
+`Immediate`, `Free`, `Full-round` or `Benefit`); the effect's continuation, as unlabeled
+paragraphs directly after the effect row and nowhere else; an optional `Usage` row; the upgrades,
+each `**At Nth level,** sentence` in strictly ascending level and above `Gained`; an optional
+`Prereq` row, then an optional `Replaces` row; every other row in its source order. Every row has
+content. A legacy label (`Action`, `Fullround`, `Passive Ability`, `Standard Action`, a numbered
+label such as `Ability2`, or `At Nth Level:`) and a plain-text upgrade (`At 8th level: ...`) are not
+canonical. The text and the order are the only change from the old import: the files keep the same
+syntax, so this is not a corpus format change.
+
+`corpus-check` runs the shared classifier and validator
+(`cast_iron_schema::power`) on every entry of kind `class_option`. A *candidate* is a name
+directly followed by a row, a lead or a legacy upgrade, with a power marker in the run that
+extends to the next heading, list, table, quote, stat block or name. Each candidate that fails
+validation is reported as a **warning** with its path and line, the entry id, the power name and
+every reason:
+
+```text
+warning: entries/hex/evil-eye.md:15: [powers] entry `ref/hex/evil-eye`: the power `Evil Eye (Su)` is not in the canonical form: `Flavor` is out of order [out-of-order]; the legacy label `At 8th Level:` [legacy-label]
+```
+
+A last warning counts the failing powers and the entries that hold a power. The rule stays a
+warning until the corpus repository has rewritten its class options (phynics/cast-iron-data#88).
+The app pull request that pins the rewritten corpus turns it into an error, except for the powers
+that #88 still queues for print review in its resolutions file.
+
 ## Formatting
 
 `corpus-fmt <dir>` rewrites every file into its one canonical form, and
