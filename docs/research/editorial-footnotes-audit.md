@@ -715,15 +715,16 @@ no request was refused. Every verdict names the pages in `aon_evidence`.
 The whole-note test stays the rule. Three hand allowances, each named in the row's
 evidence:
 
-- Hyphenation and spacing only: Armor as DR block 3 ("oozelike"); three outside
-  paragraphs of book prose ("nonplayer", "standalone", AoN's run-together "thespot").
+- Hyphenation and spacing only: Armor as DR block 3 ("oozelike"); two outside
+  paragraphs of book prose ("standalone", AoN's run-together "thespot").
 - Two adjacent printed footnotes: Breaking Things block 2 is the table's footnotes 2
   and 3; on the page the only word between them is the footnote number.
 - Leading subject only: the note adds "This", "This spell" or "The" before AoN's
   bracket text, and every other word is one unbroken run on the page. Four deity
   notes are `yes` only by this allowance: Shelyn block 2, Besmara block 1, Ydersius
-  block 3, Geryon block 1. If the owner wants the strict test, these four become
-  `no`.
+  block 3, Geryon block 1. Their evidence says "yes only with a leading-word
+  exception (owner decision pending)": the owner decides whether this exception
+  stands. Under the strict test these four become `no`.
 
 **Results.**
 
@@ -731,35 +732,40 @@ evidence:
 |---|---:|---:|---:|---:|
 | Committed audit, pin v0.1.28 (1,284 blocks) | 716 | 138 | 391 | 39 |
 | Regenerated on v0.1.30, before this review (767 blocks) | 393 | 0 | 330 | 44 |
-| After this review (767 blocks) | 406 | 155 | 171 | 35 |
+| After this review (767 blocks) | 408 | 153 | 171 | 35 |
 
 | Outside paragraphs | yes | no | candidate | unchecked |
 |---|---:|---:|---:|---:|
 | Committed audit, pin v0.1.28 (108 rows) | 16 | 62 | 30 | 0 |
 | Regenerated on v0.1.30, before this review (48 rows) | 16 | 2 | 30 | 0 |
-| After this review (48 rows) | 22 | 26 | 0 | 0 |
+| After this review (48 rows) | 21 | 27 | 0 | 0 |
 
 The 171 candidate and 35 unchecked blocks left are exactly the 206 "Bonus feat."
-legends. Of the 168 reviewed blocks, **13 are `yes`** (the four Kortash Khain and
+legends. Of the 168 reviewed blocks, **15 are `yes`** (the four Kortash Khain and
 Old-Mage Jatembe notes and the Solar Pitri legend on their AoN mythic monster pages;
 Terrain Improvements 1 and Breaking Things 3 on AoN rule pages that keep the printed
-table number; Breaking Things 2; Armor as DR 3; the four deity notes above) and
-**155 are `no`** (84 entries; `action = remove`). Of the 30 outside paragraphs, 6 are
-`yes` (all book prose) and 24 are `no`: all 18 editorial and unclear paragraphs
-(Tavern Toolbox and the 6 inline-note rows among them; `action = remove`) and 6 book
-prose paragraphs, whose action stays "not a note".
+table number; Breaking Things 2; Armor as DR 3; the two Other Feats legends, which
+the compiled entry has no page for but AoN's monster feats list
+(https://aonprd.com/Feats.aspx?Category=Monster) prints in full; the four deity notes
+above) and **153 are `no`** (83 entries; `action = remove`). Of the 30 outside
+paragraphs, 5 are `yes` (all book prose) and 25 are `no`: all 18 editorial and
+unclear paragraphs (Tavern Toolbox and the 6 inline-note rows among them;
+`action = remove`) and 7 book prose paragraphs, whose action stays "not a note".
+Generating Ability Scores line 38 is one of the 7: AoN prints "See Table 1-2 on the
+next page" where the paragraph has "below", and the PRD prints the table's title
+in place of its number.
 
 **Patterns.**
 
-- **AoN has no page for the entry at all** in 91 of the 155 `no` blocks: the
+- **AoN has no page for the entry at all** in 89 of the 153 `no` blocks: the
   *Ultimate Equipment* treasure types F to I (35 "Refer to Type ..." pointers; the
   legacy PRD appendix carries the tables but names the target table instead), the
   *GameMastery Guide* random magic item tables (34; AoN's chapter 5 and the legacy
   PRD folder have no such tables), the two *Ultimate Equipment* random
   special-ability tables, rules from *Black Markets*, *Cohorts and Companions*,
   *Faction Guide*, *Occult Mysteries* and the *Skull & Shackles Player's Guide* (10),
-  the Paizo blog post on feat taxes (5), two *Planar Adventures* plane entries, the
-  compiled Other Feats entry (2) and *Midnight Milk*. 67 of the 155 `no` blocks are
+  the Paizo blog post on feat taxes (5), two *Planar Adventures* plane entries and
+  *Midnight Milk*. 65 of the 153 `no` blocks are
   printed notes (`print-match`), mostly in these tables. The owner rule removes them;
   removing them removes printed table notes from entries whose table stays. The owner
   may want to confirm this before step 2.
@@ -784,6 +790,10 @@ prose paragraphs, whose action stays "not a note".
   unreviewed: Kortash Khain "mythic spell" and "domain spell" and Old-Mage Jatembe's
   F note and "mythic spells" are `yes` on their AoN mythic monster pages; the
   Morrigna "Bonus feat." legend is out of scope.
+
+A review of PR #526 corrected the first version of this section: Other Feats 1
+and 2 moved to `yes`, Generating Ability Scores line 38 moved to `no`, and the
+evidence of the rows that rest on AoN search or source pages now gives those URLs.
 
 **Unchecked.** No reviewed row is left `unchecked`: every page that the review
 needed could be read.
