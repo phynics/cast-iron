@@ -4,7 +4,7 @@ import { installLibrary } from "./helpers";
 // Footnotes (#507): the corpus writes a note as a level-six `footnote-` heading and one paragraph.
 // The page shows the notes as one quiet "Notes" group after the rules text, smaller and in a
 // secondary colour, with markers that link to a note and back. Detect Law has one printed note
-// whose marker is missing from the text (the corpus keeps it, #114, #117); Aatheriexa has a printed
+// whose marker is missing from the text (the corpus keeps it, #114); Aatheriexa has a printed
 // stat-block note that two markers cite.
 
 const corpus = loadCorpus();

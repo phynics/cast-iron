@@ -18,11 +18,14 @@ changes, all from the editorial footnotes audit
 - **LICENSE.md names the notes that stay** (data PR #119). The Pathfinder Data notes that stay and
   their basis are named in the corpus `LICENSE.md`, which no longer says that none of the dataset's
   application content was copied.
-- **Markers of kept footnotes are restored** (data PR #120, issue #116).
-- **Placeholder Range line dropped** (data PR #122). Two spell stat blocks lose the placeholder
-  `Range` line.
-- **Editorial footnotes removed** (data PR #123, issue #117). The notes that only the dataset's
-  editor added, and the notes of unclear origin, are removed, each with an exclusion row.
+- **Markers of kept footnotes are restored** (data PR #120, issue #116). It also removes the note
+  on Detect Law that was a copy of a note from the detect evil table.
+- **Placeholder Range line dropped** (data PR #122). Detect Relations keeps `Range: N/A`;
+  Torrent of Elemental Rage loses its `Range` line.
+- **Editorial footnotes removed** (data PR #123, issue #117). 60 footnotes that only the dataset's
+  editor added (40 pointers, 15 commentary notes, 5 compiled lists) and 15 editorial paragraphs
+  are removed, each with an exclusion row. No note of unclear origin is removed: those notes were
+  restored as printed.
 
 - **Counts.** 31,825 entries and 443 publications and books, all unchanged: the pin edits
   existing entries and adds none. Reachability: 31,825 reachable, 0 unreachable. Links: 147,298
@@ -39,7 +42,7 @@ changes, all from the editorial footnotes audit
   42 warnings (was 130): 22 footnotes without a marker in the entry body (the orphan warning of
   #521; was 110), 16 duplicate trade-feature warnings, 3 mixed third-party and Paizo source
   warnings and the one trade-resolution summary.
-- **Spec change.** `footnotes.spec.ts` expected two notes on Detect Law. #123 removed the note that
+- **Spec change.** `footnotes.spec.ts` expected two notes on Detect Law. #120 removed the note that
   began "Some characters who are not clerics", so the entry keeps one printed note ("Excludes
   undead and outsiders"). The spec now expects one note, labelled "Note 1". The other assertions
   are the same: the Notes group, no marker or back link, smaller type and a different colour than
