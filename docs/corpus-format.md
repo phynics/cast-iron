@@ -750,7 +750,8 @@ accepts neither.
   remove the note (`docs/research/editorial-footnotes-audit.md`, "Orphaned
   markers").
 - the body holds converter residue such as `\|X~`, a pipe after a backslash, one
-  to three letters or digits, and a tilde. The importer left it where it did not
+  to three letters or digits, and a tilde. The tilde may be escaped, as in
+  `\|X\~`. The importer left it where it did not
   split a multi-note `::mfn`. Split it into one note per marker.
 
 A footnote heading is still a heading. The parser treats it as one, the renderer
