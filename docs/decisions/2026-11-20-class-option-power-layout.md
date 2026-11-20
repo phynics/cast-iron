@@ -1,18 +1,18 @@
 ---
 title: "Class-option powers render as printed prose from canonical labeled rows"
 date: 2026-11-20
-status: proposed
+status: current
 superseded_by: []
-issues: [537]
-prs: []
+issues: [537, 540]
+prs: [538]
 area: ui
 ---
 
 # Class-option powers render as printed prose from canonical labeled rows, 2026-11-20
 
-Refs [#537](https://github.com/phynics/cast-iron/issues/537) and phynics/cast-iron-data#88. Status
-`proposed`: the owner answered the open questions on 2026-11-20 (see "Owner answers" below). The entry
-stays `proposed` until the owner approves the updated mockups. Nothing is implemented before that.
+Refs [#537](https://github.com/phynics/cast-iron/issues/537) and phynics/cast-iron-data#88. The owner
+answered the open questions on 2026-11-20 (see "Owner answers" below) and approved the revised design
+on 2026-11-20. The implementation order is in "Hand-off".
 
 ## Problem
 
@@ -101,12 +101,13 @@ The rule excludes the affliction blocks inside powers (`**Poison**` then `Type`,
 `Frequency`, `Effect`, `Cure`), which is why `Effect` is not an effect label. A looser rule that
 accepts any power label counted 10 such blocks as powers. The same row shape occurs in archetype
 entries (4,702 runs) and in 206 rule entries. They are out of scope here. Class options ship first;
-a follow-up issue extends the same rule and corpus rewrite to archetypes (owner answer 5).
+[#540](https://github.com/phynics/cast-iron/issues/540) extends the same rule and corpus rewrite to
+archetypes and rule entries (owner answer 5).
 
 **Counts on corpus `main` (cast-iron-data, after v0.1.26).** Ground truth is the pinned upstream
 dataset: every `::ab[...]` directive that carries a gained level, an effect, an upgrade or a usage,
 2,248 powers in 617 class-option entries. A prototype script applies the canonical rewrite in memory
-and then runs the rule above:
+and then runs the rule above (algorithm in "Rewrite and survey algorithm"):
 
 | Corpus state | Recognized | Found of 2,248 | Missed | Extra | Extra that are not powers |
 |---|---|---|---|---|---|
@@ -212,26 +213,121 @@ line wrap like prose.
 1. One-power pages: fold the power head into the title. The tag and the level are presentation near
    the title, never title text (section 4).
 2. Minimum level of a revelation: keep the `Prereq:` row. The head shows a level only from `Gained`.
-   The earlier `Level N+` proposal is withdrawn.
-3. Action and uses: one muted meta line, as proposed. `Passive` shows nothing.
+   The head never derives a level such as `Level 7+` from a prerequisite.
+3. Action and uses: one muted meta line. `Passive` shows nothing.
 4. Dotted leader: kept.
-5. Archetypes: class options first; a follow-up issue extends the rule to archetypes.
+5. Archetypes: class options first; [#540](https://github.com/phynics/cast-iron/issues/540) extends the
+   rule to archetypes and rule entries.
+
+The owner approved the revised mockups and this decision on 2026-11-20.
 
 ## Evidence
 
-Mockups at 390×844 and 1280×900, light and dark, are attached to the pull request for this file.
-The mockup HTML inlines `web/styles.css` and renders real corpus entries in the prototype canonical
+The owner reviewed mockups at 390×844 and 1280×900, light and dark, on 2026-11-20. They are not
+committed. The mockup HTML inlined `web/styles.css` and rendered real corpus entries in the prototype canonical
 form: Abjuration (*Core Rulebook* p. 79), Flame (*Advanced Player's Guide* p. 47), Divination
 (*Core Rulebook* p. 80), and three one-power pages: the Evil Eye and Flight hexes (*Advanced Player's
 Guide*) and the Auspicious Mark rage power (*Ultimate Combat*). Abjuration, Flame and Evil Eye also
-render as the app does today, for comparison. The counting and rewrite prototype moves to
-cast-iron-data with #88 as the rerunnable script.
+render as the app does today, for comparison. The counts come from corpus `main` at `c265325e`
+(after tag v0.1.26) and the upstream pin in the corpus `legal.toml`.
 
-## Then
+## Hand-off
 
-1. phynics/cast-iron-data#88: the rewrite script and its review queue, a print check on a sample,
-   the canonical-order check, and a corpus tag.
-2. A pin pull request here. Then the renderer: recognition in `crates/web` (pure functions with
-   native tests: power recognition, the one-power test, the heading level), the `.power` and
-   `.entry-facts` styles, DESIGN.md set from proposed to current, and one e2e spec on Abjuration.
-3. A follow-up issue for archetype features (same row shape, 4,702 runs).
+1. **phynics/cast-iron-data#88** rewrites the class-option powers into the fixed row order of section
+   1, with the printed upgrade sentences behind a bold lead, using a rerunnable script. Its scope:
+   - the rewrite below, applied to every class option, then `corpus-fmt`;
+   - the hand-review queue: the prototype found 234 powers, namely 187 with more than one effect row,
+     136 upgrades whose first word stays capitalized, and 5 upgrades not above the gained level.
+     Each is checked against print. The script records the resolution, so a rerun does not ask again;
+   - the title mismatch `Black Market Connection (Ex)` under the entry title `Black Market
+     Connections` (`talent/black-market-connections`). Print decides which spelling is right. The
+     entry id never changes (rule 3);
+   - a print check on a sample of rewritten powers;
+   - the canonical-order check for class options, and a corpus tag.
+2. **This repository, #537**: a pin pull request for that tag, then the renderer. It adds pure
+   functions with native tests in `crates/web` (power recognition, the one-power test, the heading
+   level), the `.power` and `.entry-facts` styles, and one e2e spec on Abjuration.
+3. **[#540](https://github.com/phynics/cast-iron/issues/540)**: archetype features (4,702 runs in 1,234
+   entries) and rule entries (206 runs in 41 entries), after class options ship.
+
+## Rewrite and survey algorithm
+
+The prototype is not committed. It belongs in cast-iron-data with #88, next to
+`scripts/survey-class-option-residue.py`. This section specifies it closely enough to reimplement.
+
+**Blocks.** Read the body after the closing `+++`. Split it into blocks on blank lines. Join the lines
+of a block with one space. A line ending in an odd number of `\` ends in a line break. Classify each
+block, first match wins:
+
+| Kind | Test |
+|---|---|
+| heading | the first line starts with `#` |
+| other | the first line starts with `- `, `1. `, `\|`, `:::` or `>` |
+| head | the whole block matches `^\*\*([^*]+)\*\*$` |
+| up (canonical lead) | `^\*\*At (\d+)(st\|nd\|rd\|th) level,\*\* (.*)$` |
+| row | `^\*\*([^*]+?):\*\*(?:\s+(.*))?$`: label and text |
+| para | anything else |
+
+**Vocabulary.**
+- Effect labels: `Passive`, `Ability`, `Standard`, `Move`, `Swift`, `Immediate`, `Free`,
+  `Full-round`, `Benefit`.
+- Aliases: `Fullround` → `Full-round`, `Passive Ability` → `Passive`, `Standard Action` → `Standard`.
+- Old upgrade label: `^At (\d+)(st|nd|rd|th) Level$`.
+- Plain-text upgrade paragraph: `^At (\d+)(st|nd|rd|th) level: (.*)$`.
+- `Gained` value: `^At (\d+)(st|nd|rd|th) Level$`.
+
+**Find today's runs.** At each head, take the following rows, leads and paragraphs:
+- A paragraph stays in the run when it directly follows an `Action` row, or when the next block
+  after its group of consecutive paragraphs is a row or a lead. A plain-text upgrade paragraph always
+  counts as a row.
+- When the run holds an `Action` row whose value is not a `Gained` value, the run also takes the
+  paragraphs after its last row, because that form puts the effect text last.
+- The run ends after its last row.
+- It is a power run when the block after the head is a row or a lead, and the run holds a
+  plain-text upgrade or a label that is `Gained`, `Action`, an effect label, an alias, or an old
+  upgrade label.
+
+**Rewrite one run.**
+1. Strip a trailing `:` from the name.
+2. Map aliases.
+3. Handle each `Action` row:
+   - A value that is a `Gained` value becomes a `Gained` row.
+   - Otherwise the row becomes an effect row. `Standard Action`, `Swift Action`, `Move Action`,
+     `Immediate Action`, `Free Action`, `Full-Round Action` and `Passive Ability` map to their label;
+     any other value maps to `Ability`. The row's text is the first later unlabeled paragraph of the
+     run, which is removed from where it was. With no such paragraph, queue the power.
+4. Turn old upgrade labels and plain-text upgrade paragraphs into upgrades (level, text).
+5. Drop rows that repeat an earlier row exactly.
+6. If the run has no effect row, no `Gained` row and at least one upgrade, the lowest upgrade becomes
+   `Gained: At Nth Level` plus an `Ability` row with that upgrade's text.
+7. Emit, in order:
+   1. the name;
+   2. `Gained`;
+   3. `Flavor`;
+   4. the effect rows, with all the run's unlabeled paragraphs directly after the first one (after
+      `Flavor` when the run has no effect row);
+   5. `Usage`;
+   6. the upgrades by ascending level, as `**At Nth level,** <text>`;
+   7. `Prereq`;
+   8. `Replaces`;
+   9. every other row in its original order.
+
+   Lowercase the first word of an upgrade's text only when that word is one of `You`, `Your`, `The`,
+   `This`, `These`, `That`, `Those`, `Its`, `It`, `A`, `An`, `Any`, `All`, `Each`, `In`, `Once`,
+   `When`, `Whenever`, `While`, `If`, `As`, `For`, `Add`, `By`, `She`, `He`, `Her`, `His`, `They`,
+   `Their`, `Instead`, `Additionally`, `Also`, `Every` or `Allies`. Queue every other upgrade.
+8. Queue the power when it has more than one effect row, or an upgrade whose level is not above the
+   `Gained` level.
+
+**Recognize (the renderer's rule, on rewritten text).** A head is a power when the next block is a
+lead or a row labeled `Gained`, `Flavor` or an effect label. The run extends over rows, leads and
+paragraphs and ends at its last row or lead. The run must hold a `Gained` row, an effect row or a lead.
+The one-power test is in section 4.
+
+**Ground truth.** Read every `json/class_ability_*.json` of the upstream pin. In each record's
+`description`, a `::ab[Name]{attrs}` line is a power when its attribute keys include any of `l`,
+`passive`, `ability`, `standard`, `swift`, `immediate`, `free`, `move`, `fullround`, `benefit`,
+`usage`, `imp<N>`, `use<Anything>`, `increment<anything>` or `l<N>`, and no `s<N>` (a spell list).
+Match a corpus entry to its records through its `provenance` `path` and `record`. Compare names
+case-insensitively, with `’` read as `'`, runs of spaces folded, and a trailing `:` dropped. Count
+found, missed and extra names per entry.

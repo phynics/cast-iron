@@ -226,11 +226,12 @@ makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
 
-## Class-option powers (proposed)
+## Class-option powers
 
-Proposed, not built: the owner approves the mockups first (#537; decision
-`docs/decisions/2026-11-20-class-option-power-layout.md`). On a `class_option` entry, a power reads
-as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
+Approved by the owner on 2026-11-20 (#537; decision
+`docs/decisions/2026-11-20-class-option-power-layout.md`). The app builds it after
+phynics/cast-iron-data#88 rewrites the powers into the canonical row order. Archetypes follow in #540.
+On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
 1. The head is one baseline-aligned row. On the left is the name, as a heading one level below the
    enclosing body heading (`.power-name`: display face, 1.125rem, weight 700). On the right is
