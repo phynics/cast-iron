@@ -2,7 +2,7 @@
 //! per row of its "Fixtures" table, against the shared classifier and validator.
 //!
 //! Each fixture is the minimal block structure of the real corpus text at the pinned corpus
-//! (`phynics/cast-iron-data` v0.1.26): the same rows in the same order, with the effect text
+//! (`phynics/cast-iron-data` v0.1.32, `c265325e`): the same rows in the same order, with the effect text
 //! shortened. The table's `#` column is the 1-based `occurrence` of a candidate.
 //!
 //! This PR holds the classifier and the validator, not the rewrite. For a `rewritten` fixture the
@@ -10,6 +10,13 @@
 //! the rewrite resolves, and that the run in the rewrite's target form passes. For a `queued`
 //! fixture it asserts the candidate and the reasons that validation gives. A reason that only the
 //! rewrite knows (a capital in an upgrade, a seeded print item) is noted where it applies.
+//!
+//! Three assertions of the fixtures table are the rewrite's and belong to the corpus repository
+//! (phynics/cast-iron-data#88), not to this validator: Foretell's seed (a print item that no
+//! block structure shows), Forewarned's lowercase rule (the first word of an upgrade on the
+//! lowercase list) and S3's second pass (rerunning the rewrite on its own output changes
+//! nothing). The tests for them show only what the validator can: the shape of the run, that a
+//! capital is no validation rule, and that a canonical run passes.
 
 use cast_iron_schema::power::{
     ActionGroupProblem, ActionMapping, Candidate, EFFECT_LABELS, PowerProblem, action_effect_group,
@@ -245,9 +252,20 @@ fn utility_shot_spans_to_the_end_of_the_body_and_has_empty_rows() {
     ];
     let found = only_candidate(&body);
     assert_eq!((found.start, found.end), (0, body.len()));
-    let slugs = reasons(&body, "Utility Shot (Ex)", 1);
-    assert!(slugs.contains(&"empty-row"), "{slugs:?}");
-    assert!(slugs.contains(&"multiple-effect-rows"), "{slugs:?}");
+    let found = candidate(&body, "Utility Shot (Ex)", 1);
+    let problems = validate_power(found.blocks(&body)).unwrap_err();
+    let empty: Vec<&str> = problems
+        .iter()
+        .filter_map(|problem| match problem {
+            PowerProblem::EmptyRow { label } => Some(label.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        empty,
+        ["Blast Lock", "Scoot Unattended Object", "Stop Bleeding"]
+    );
+    assert!(problems.contains(&PowerProblem::MultipleEffectRows));
     // The empty rows are rows, never names: they start no candidate of their own.
     assert_eq!(candidates(&body).len(), 1);
 }
@@ -540,6 +558,7 @@ fn blight_action_group_crosses_a_special_row() {
         para("**Special:** Both types of curse can be removed with a remove curse."),
         para("The witch can curse an animal, plant creature, or plot of land."),
         para("If it's used on a plot of land, the land begins to wither the following day."),
+        para("Blighting a creature is a **standard action** that requires a melee touch attack."),
         para("**Blight Hex**"),
         para("**Type:** Curse"),
         para("**Save:** Will negates"),
@@ -547,7 +566,7 @@ fn blight_action_group_crosses_a_special_row() {
         para("**Effect:** Constitution damage 1"),
     ];
     let found = only_candidate(&body);
-    assert_eq!((found.start, found.end), (0, 5));
+    assert_eq!((found.start, found.end), (0, 6));
     assert_fails(
         &body,
         "Blight (Su)",
@@ -580,6 +599,21 @@ fn accurate_strike_legacy_name_is_an_empty_row_and_the_rewrite_target_passes() {
         para("**Swift:** The magus can expend 2 points from his arcane pool."),
     ];
     assert!(candidates(&body).is_empty());
+    // Validating the span directly cannot accept it either: no power with an empty name.
+    assert_eq!(
+        validate_power(&body),
+        Err(vec![
+            PowerProblem::NotAName,
+            PowerProblem::OutOfOrder {
+                label: "Swift".into()
+            }
+        ])
+    );
+    let with_effect_first = [&body[..1], &body[2..]].concat();
+    assert_eq!(
+        validate_power(&with_effect_first),
+        Err(vec![PowerProblem::NotAName])
+    );
 
     let rewritten = vec![
         para("**Accurate Strike (Ex)**"),
@@ -602,6 +636,7 @@ fn black_market_connection_is_not_a_one_power_page_for_its_title() {
         para(
             "With a successful Diplomacy check, the rogue can treat the settlement as two sizes larger.",
         ),
+        para("With a successful check, the rogue can also sell stolen items on the black market."),
         table(),
     ];
     assert_fails(
@@ -611,8 +646,8 @@ fn black_market_connection_is_not_a_one_power_page_for_its_title() {
         &["legacy-label", "no-effect-row", "stray-paragraph"],
     );
     let found = only_candidate(&body);
-    assert_eq!((found.start, found.end), (0, 4), "the table is a boundary");
-    assert_eq!(action_effect_group(found.blocks(&body), 1), Ok(2..4));
+    assert_eq!((found.start, found.end), (0, 5), "the table is a boundary");
+    assert_eq!(action_effect_group(found.blocks(&body), 1), Ok(2..5));
 
     let rewritten = vec![
         para("**Black Market Connection (Ex)**"),
@@ -620,9 +655,13 @@ fn black_market_connection_is_not_a_one_power_page_for_its_title() {
         para(
             "With a successful Diplomacy check, the rogue can treat the settlement as two sizes larger.",
         ),
+        para("With a successful check, the rogue can also sell stolen items on the black market."),
         table(),
     ];
     assert_canonical(&rewritten, "Black Market Connection (Ex)", 1);
+    let found = candidate(&rewritten, "Black Market Connection (Ex)", 1);
+    let power = validate_power(found.blocks(&rewritten)).unwrap();
+    assert_eq!(power.effect.continuation.len(), 2);
     assert!(one_power_page("Black Market Connections", &rewritten).is_none());
     assert!(one_power_page("Black Market Connection", &rewritten).is_some());
 }

@@ -378,6 +378,7 @@ mod tests {
         Stored {
             path: crate::entry::entry_path(&entry.id),
             text: String::new(),
+            block_lines: Vec::new(),
             entry,
         }
     }

@@ -337,6 +337,11 @@ pub fn candidates(body: &[Block]) -> Vec<Candidate> {
 /// A reason a candidate fails validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PowerProblem {
+    /// The first block is not a name (`**Name**`). A legacy name such as `**Accurate Strike (Ex):**`
+    /// is an empty row, so a run that starts with it is no candidate.
+    NotAName,
+    /// A name or a boundary inside the span: the span is more than one power's run.
+    BlockInSpan,
     /// A row with no content after its label. It is a row, never a name.
     EmptyRow { label: String },
     /// A plain-text upgrade, which is invalid in every position.
@@ -372,6 +377,8 @@ impl PowerProblem {
     /// A stable slug for counts and reports.
     pub fn reason(&self) -> &'static str {
         match self {
+            PowerProblem::NotAName => "not-a-name",
+            PowerProblem::BlockInSpan => "block-in-span",
             PowerProblem::EmptyRow { .. } => "empty-row",
             PowerProblem::LegacyUpgrade => "legacy-upgrade",
             PowerProblem::LegacyLabel { .. } => "legacy-label",
@@ -393,6 +400,10 @@ impl PowerProblem {
 impl fmt::Display for PowerProblem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            PowerProblem::NotAName => write!(f, "the first block is not a power name"),
+            PowerProblem::BlockInSpan => {
+                write!(f, "a name or a boundary inside the power's run")
+            }
             PowerProblem::EmptyRow { label } => {
                 write!(f, "the `{label}:` row has no content")
             }
@@ -539,13 +550,29 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
         }
     };
 
+    // The span must be what `candidates` finds: a name, then a run with no name or boundary.
+    if !matches!(kinds.first(), Some(BlockKind::Name(_))) {
+        note(PowerProblem::NotAName);
+    }
+    if run
+        .iter()
+        .any(|kind| matches!(kind, BlockKind::Name(_) | BlockKind::Boundary))
+    {
+        note(PowerProblem::BlockInSpan);
+    }
+
     let gained = run.iter().find_map(|kind| match kind {
         BlockKind::Row(row) if row.label == GAINED => gained_level(row.content),
         _ => None,
     });
-    let has_gained_row = run
-        .iter()
-        .any(|kind| matches!(kind, BlockKind::Row(row) if row.label == GAINED));
+    // `Gained` metadata: a `Gained` row, or an `Action` row whose value is `At Nth Level`.
+    let has_gained_row = run.iter().any(|kind| match kind {
+        BlockKind::Row(row) if row.label == GAINED => true,
+        BlockKind::Row(row) if row.label == ACTION_LABEL => {
+            matches!(map_action_value(row.content), ActionMapping::Gained(_))
+        }
+        _ => false,
+    });
     let has_upgrade = run.iter().any(|kind| match kind {
         BlockKind::Lead(_) | BlockKind::LegacyUpgrade(_) => true,
         BlockKind::Row(row) => row.old_upgrade_label().is_some(),
@@ -694,6 +721,7 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
                     note(PowerProblem::StrayParagraph);
                 }
             }
+            // Reported once above.
             BlockKind::Name(_) | BlockKind::Boundary => {}
         }
     }
@@ -756,6 +784,9 @@ pub fn map_action_value(value: &[Inline]) -> ActionMapping {
 /// Why the effect text of a mapped `Action` row cannot be settled without a person.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActionGroupProblem {
+    /// The block at the index is not an `Action` row whose value maps to an effect label. An
+    /// `At Nth Level` value is `Gained` metadata and never takes effect text.
+    NotAnEffectAction,
     /// No group of unlabeled paragraphs after the `Action` row.
     NoGroup,
     /// A group of unlabeled paragraphs before the `Action` row.
@@ -768,7 +799,8 @@ pub enum ActionGroupProblem {
 }
 
 /// Find the effect text of the `Action` row at `action` in a candidate's blocks (the name is
-/// block 0). The run must hold exactly one group of consecutive unlabeled paragraphs. It must come
+/// block 0). The block at `action` must be an `Action` row whose value maps to an effect label
+/// ([`ActionMapping::Effect`]). The run must hold exactly one group of consecutive unlabeled paragraphs. It must come
 /// after the `Action` row, and only rows labeled `Gained`, `Flavor`, `Usage`, `Prereq` or
 /// `Replaces`, each with content, may stand between them. The result is the range of the group in
 /// `blocks`.
@@ -777,6 +809,16 @@ pub fn action_effect_group(
     action: usize,
 ) -> Result<Range<usize>, ActionGroupProblem> {
     let kinds: Vec<BlockKind<'_>> = blocks.iter().map(classify).collect();
+    let is_effect_action = action > 0
+        && matches!(
+            kinds.get(action),
+            Some(BlockKind::Row(row))
+                if row.label == ACTION_LABEL
+                    && matches!(map_action_value(row.content), ActionMapping::Effect(_))
+        );
+    if !is_effect_action {
+        return Err(ActionGroupProblem::NotAnEffectAction);
+    }
     let mut groups: Vec<Range<usize>> = Vec::new();
     for (index, kind) in kinds.iter().enumerate().skip(1) {
         if matches!(kind, BlockKind::Paragraph) {
@@ -837,16 +879,32 @@ pub fn split_ability_tag(name: &str) -> (&str, Option<&str>) {
         return (trimmed, None);
     };
     let inner = &trimmed[open + 1..trimmed.len() - 1];
-    let joined = inner
-        .replace(", or ", "|")
-        .replace(", and ", "|")
-        .replace(", ", "|")
-        .replace(" or ", "|")
-        .replace(" and ", "|");
-    if joined.split('|').all(|tag| ABILITY_TAGS.contains(&tag)) {
+    if is_tag_list(inner) {
         (trimmed[..open].trim_end(), Some(&trimmed[open..]))
     } else {
         (trimmed, None)
+    }
+}
+
+/// The separators of a combined ability tag, longest first.
+const TAG_SEPARATORS: [&str; 5] = [", or ", ", and ", ", ", " or ", " and "];
+
+/// `Ex`, `Su` and `Sp` joined by the allowed separators and nothing else.
+fn is_tag_list(mut rest: &str) -> bool {
+    loop {
+        let Some(after) = ABILITY_TAGS.iter().find_map(|tag| rest.strip_prefix(tag)) else {
+            return false;
+        };
+        if after.is_empty() {
+            return true;
+        }
+        let Some(next) = TAG_SEPARATORS
+            .iter()
+            .find_map(|separator| after.strip_prefix(separator))
+        else {
+            return false;
+        };
+        rest = next;
     }
 }
 
@@ -1578,6 +1636,13 @@ mod tests {
             ("Name (ex)", "Name (ex)", None),
             ("Name (Ex) trailing", "Name (Ex) trailing", None),
             ("Name ()", "Name ()", None),
+            // A literal pipe is no separator: the suffix stays in the name.
+            ("Gaze (Ex|Su)", "Gaze (Ex|Su)", None),
+            ("Gaze (Ex||Su)", "Gaze (Ex||Su)", None),
+            ("Gaze (Ex | Su)", "Gaze (Ex | Su)", None),
+            ("Gaze (Ex or)", "Gaze (Ex or)", None),
+            ("Gaze (Ex, )", "Gaze (Ex, )", None),
+            ("Gaze (Exx)", "Gaze (Exx)", None),
         ] {
             assert_eq!(split_ability_tag(name), (base, tag), "{name}");
         }
@@ -1641,6 +1706,102 @@ mod tests {
         assert_eq!(power_heading_level(&body, 2), 3);
         assert_eq!(power_heading_level(&body, 5), 4);
         assert_eq!(power_heading_level(&body, 7), 6);
+    }
+
+    #[test]
+    fn a_span_must_be_what_candidates_finds() {
+        // The legacy name `**Accurate Strike (Ex):**` is an empty row, not a name: a rewrite that
+        // validates its replacement directly cannot get a power with an empty name out of it.
+        let legacy = vec![
+            paragraph(vec![strong("Accurate Strike (Ex):")]),
+            row("Swift", "The magus can expend 2 points."),
+            row("Prereq", "9th-level magus"),
+        ];
+        assert!(candidates(&legacy).is_empty());
+        let problems = validate_power(&legacy).unwrap_err();
+        assert_eq!(problems, [PowerProblem::NotAName]);
+        // Neither a first block that is a row, a lead or a paragraph.
+        for first in [row("Passive", "x"), lead("3rd", "x"), plain("Prose.")] {
+            let span = vec![first, row("Passive", "y")];
+            assert!(
+                validate_power(&span)
+                    .unwrap_err()
+                    .contains(&PowerProblem::NotAName)
+            );
+        }
+        assert_eq!(
+            validate_power(&[]).unwrap_err(),
+            [
+                PowerProblem::NotAName,
+                PowerProblem::NoEffectRow {
+                    suggest_lowest_upgrade: false
+                }
+            ]
+        );
+        // A boundary or a second name inside the span is not one power's run.
+        let heading = Block::Heading {
+            level: 3,
+            anchor: None,
+            content: vec![text("School")],
+        };
+        for inner in [heading, name("Other")] {
+            let span = vec![name("P"), row("Passive", "x"), inner, row("Usage", "u")];
+            assert_eq!(
+                validate_power(&span).unwrap_err(),
+                [PowerProblem::BlockInSpan]
+            );
+        }
+        // What `candidates` finds is still accepted as before.
+        let ok = vec![name("P"), row("Passive", "x")];
+        assert!(validate_power(&ok).is_ok());
+    }
+
+    #[test]
+    fn a_gained_action_value_is_existing_gained_metadata() {
+        // Fascinate: `Action: At 1st Level` already says the level, so no suggestion.
+        let body = vec![name("P"), row("Action", "At 1st Level"), lead("3rd", "x")];
+        let list = candidates(&body);
+        let problems = validate_power(list[0].blocks(&body)).unwrap_err();
+        assert!(problems.contains(&PowerProblem::NoEffectRow {
+            suggest_lowest_upgrade: false
+        }));
+        // An `Action` row that names an action is not Gained metadata.
+        let body = vec![name("P"), row("Action", "Ability"), lead("3rd", "x")];
+        let list = candidates(&body);
+        let problems = validate_power(list[0].blocks(&body)).unwrap_err();
+        assert!(problems.contains(&PowerProblem::NoEffectRow {
+            suggest_lowest_upgrade: true
+        }));
+    }
+
+    #[test]
+    fn the_action_group_needs_an_effect_action_row_at_the_index() {
+        let blocks = vec![
+            name("P"),
+            row("Action", "Ability"),
+            row("Gained", "At 1st Level"),
+            plain("One."),
+            plain("Two."),
+        ];
+        assert_eq!(action_effect_group(&blocks, 1), Ok(3..5));
+        // The first paragraph of the group, the name, a row that is no `Action` row, and an index
+        // past the end: an error, never a panic.
+        for index in [3, 4, 0, 2, 5, 99] {
+            assert_eq!(
+                action_effect_group(&blocks, index),
+                Err(ActionGroupProblem::NotAnEffectAction),
+                "{index}"
+            );
+        }
+        // An `Action` value that is Gained metadata or not in the map takes no effect text.
+        for value in ["At 1st Level", "Move-Equivalent Action"] {
+            let blocks = vec![name("P"), row("Action", value), plain("One.")];
+            assert_eq!(
+                action_effect_group(&blocks, 1),
+                Err(ActionGroupProblem::NotAnEffectAction),
+                "{value}"
+            );
+        }
     }
 
     #[test]

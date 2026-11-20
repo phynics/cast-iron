@@ -39,7 +39,16 @@ fn paragraph_text(content: &[Inline], width: usize) -> String {
     write_flow(content, Flow { width, guard: true })
 }
 
+#[cfg(test)]
 pub fn parse_blocks(path: &Path, lines: &[(usize, &str)]) -> Result<Vec<Block>> {
+    parse_blocks_with_lines(path, lines).map(|(blocks, _)| blocks)
+}
+
+/// [`parse_blocks`], and the line number each top-level block starts on.
+pub fn parse_blocks_with_lines(
+    path: &Path,
+    lines: &[(usize, &str)],
+) -> Result<(Vec<Block>, Vec<usize>)> {
     let owned: Vec<Line> = lines
         .iter()
         .map(|(number, text)| Line {
@@ -47,7 +56,7 @@ pub fn parse_blocks(path: &Path, lines: &[(usize, &str)]) -> Result<Vec<Block>> 
             number: *number,
         })
         .collect();
-    parse_lines(path, &owned)
+    parse_lines_at(path, &owned)
 }
 
 fn write_block(block: &Block, width: usize) -> String {
@@ -316,7 +325,13 @@ fn escape_label(label: &str) -> String {
 }
 
 fn parse_lines(path: &Path, lines: &[Line]) -> Result<Vec<Block>> {
+    parse_lines_at(path, lines).map(|(blocks, _)| blocks)
+}
+
+/// The blocks of `lines`, and the line number each one starts on.
+fn parse_lines_at(path: &Path, lines: &[Line]) -> Result<(Vec<Block>, Vec<usize>)> {
     let mut blocks = Vec::new();
+    let mut starts = Vec::new();
     let mut index = 0;
     while index < lines.len() {
         if is_blank(&lines[index].text) {
@@ -324,6 +339,7 @@ fn parse_lines(path: &Path, lines: &[Line]) -> Result<Vec<Block>> {
             continue;
         }
         let line = &lines[index];
+        starts.push(line.number);
         let text = line.text.as_str();
         if text == ":::" || text.starts_with("::: ") || text.starts_with(":::") {
             let (block, next) = parse_fence(path, lines, index)?;
@@ -351,7 +367,7 @@ fn parse_lines(path: &Path, lines: &[Line]) -> Result<Vec<Block>> {
             index = next;
         }
     }
-    Ok(blocks)
+    Ok((blocks, starts))
 }
 
 fn is_blank(text: &str) -> bool {

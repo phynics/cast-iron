@@ -7,34 +7,19 @@
 //! its path, line, entry id, power name and reasons. It is a warning until the corpus is rewritten
 //! (phynics/cast-iron-data#88); the pin of the rewritten corpus turns it into an error.
 
-use crate::block::write_blocks;
 use crate::check::{Report, body_text};
-use crate::load::Corpus;
-use cast_iron_schema::power::{BlockKind, candidates, classify, validate_power};
-use cast_iron_schema::{Block, EntryKind};
+use crate::load::{Corpus, Stored};
+use cast_iron_schema::EntryKind;
+use cast_iron_schema::power::{candidates, validate_power};
 
-/// The 1-based line of the power name at block `index` of `body`, in the entry file `text`.
-///
-/// The name's own written line is looked up by its text. When several names read alike (a
-/// repeated `Haunt Channeler (Su)`), the occurrence among the name blocks picks the line.
-fn name_line(text: &str, body: &[Block], index: usize) -> usize {
-    let (start, body_lines) = body_text(text);
-    let written = write_blocks(&body[index..=index]);
-    let first = written.lines().next().unwrap_or_default();
-    let occurrence = body[..index]
-        .iter()
-        .filter(|block| {
-            matches!(classify(block), BlockKind::Name(_)) && {
-                write_blocks(std::slice::from_ref(*block)).lines().next() == Some(first)
-            }
-        })
-        .count();
-    body_lines
-        .lines()
-        .enumerate()
-        .filter(|(_, line)| line.trim_end() == first)
-        .nth(occurrence)
-        .map_or(start, |(offset, _)| start + offset)
+/// The 1-based line of the top-level body block `index`, as the parser recorded it. An entry that
+/// carries no recorded lines (one built in a test) falls back to the first line of its body.
+fn block_line(stored: &Stored, index: usize) -> usize {
+    stored
+        .block_lines
+        .get(index)
+        .copied()
+        .unwrap_or_else(|| body_text(&stored.text).0)
 }
 
 pub(crate) fn check_class_option_powers(corpus: &Corpus, report: &mut Report) {
@@ -65,7 +50,7 @@ pub(crate) fn check_class_option_powers(corpus: &Corpus, report: &mut Report) {
             report.warnings.push(format!(
                 "{}:{}: [powers] entry `{}`: the power `{}` is not in the canonical form: {}",
                 stored.path.display(),
-                name_line(&stored.text, &entry.body, candidate.start),
+                block_line(stored, candidate.start),
                 entry.id,
                 candidate.name,
                 reasons.join("; ")
@@ -87,7 +72,7 @@ pub(crate) fn check_class_option_powers(corpus: &Corpus, report: &mut Report) {
 mod tests {
     use super::*;
     use crate::testkit::{corpus, paragraph, rule};
-    use cast_iron_schema::{ClassOptionFields, Inline, TypedFields};
+    use cast_iron_schema::{Block, ClassOptionFields, Inline, TypedFields};
 
     fn strong(text: &str) -> Inline {
         Inline::Strong {
@@ -199,6 +184,36 @@ mod tests {
             })
             .collect();
         assert_ne!(lines[0], lines[1], "{warnings:?}");
+    }
+
+    #[test]
+    fn a_matching_line_inside_an_earlier_paragraph_does_not_take_the_warning() {
+        // A hard break puts `**Bad Power (Su)**` alone on a line of a prose paragraph.
+        let prose = paragraph(vec![
+            Inline::text("Intro"),
+            Inline::Break,
+            strong("Bad Power (Su)"),
+        ]);
+        let mut body = vec![prose];
+        body.extend(failing("Bad Power (Su)"));
+        let (warnings, corpus) =
+            warnings(vec![option("ref/hex/prose", EntryKind::ClassOption, body)]);
+        let line: usize = warnings[0]
+            .split("prose.md:")
+            .nth(1)
+            .and_then(|rest| rest.split(':').next())
+            .and_then(|digits| digits.parse().ok())
+            .expect("a line number");
+        let text = &corpus.entries["ref/hex/prose"].text;
+        let lines: Vec<&str> = text.lines().collect();
+        let matching: Vec<usize> = lines
+            .iter()
+            .enumerate()
+            .filter(|(_, l)| **l == "**Bad Power (Su)**")
+            .map(|(i, _)| i + 1)
+            .collect();
+        assert_eq!(matching.len(), 2, "{text}");
+        assert_eq!(line, matching[1], "{text}");
     }
 
     #[test]

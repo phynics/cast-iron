@@ -1104,7 +1104,8 @@ syntax, so this is not a corpus format change.
 `corpus-check` runs the shared classifier and validator
 (`cast_iron_schema::power`) on every entry of kind `class_option`. A *candidate* is a name
 directly followed by a row, a lead or a legacy upgrade, with a power marker in the run that
-extends to the next heading, list, table, quote, stat block or name. Each candidate that fails
+extends to the next boundary or name. A boundary is a heading, list, table, quote, stat block,
+entry link or styled paragraph (`statline` or `indented`). Each candidate that fails
 validation is reported as a **warning** with its path and line, the entry id, the power name and
 every reason:
 
