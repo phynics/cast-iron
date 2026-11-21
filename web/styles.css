@@ -3400,6 +3400,22 @@ main,
   font-weight: inherit;
 }
 
+/* `Copy link` is a button that reads like the link beside it: the same muted text, underline and
+   44 px hit area (`.meta-link::after`), with the button's own chrome removed. */
+.aon-line .aon-copy {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  text-decoration-line: underline;
+}
+
+.aon-copy-status {
+  margin-left: 0.5em;
+}
+
 /* The original-text disclosure is a block of its own, so the body's first line does not touch
    its summary. */
 .entry > .rel-original {

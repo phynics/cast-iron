@@ -245,3 +245,50 @@ test("Tapping the link opens a separate page and leaves the app on its entry", a
   guard.external.length = 0;
   await opened.close();
 });
+
+/**
+ * Neither Android (a Custom Tab) nor iOS (Safari View Controller) lets a page choose the browser
+ * (docs/decisions/2026-11-21-aon-link-copy-action.md), so `Copy link` puts the same URL on the
+ * clipboard for any browser. It makes no request, and it does not move the app.
+ */
+test("Copy link puts the stored URL on the clipboard and makes no request", async ({
+  page,
+  context,
+  guard,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const tapped: string[] = [];
+  await context.route("https://aonprd.com/**", (route) => {
+    tapped.push(route.request().url());
+    return route.abort();
+  });
+
+  await page.goto(`#/entry/${POWER_ATTACK.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: POWER_ATTACK.title })).toBeVisible();
+  const appUrl = page.url();
+  const copy = page.getByTestId("aon-copy");
+  await expect(copy).toHaveCount(1);
+  await expect(copy).toHaveText("Copy link");
+  await expect(page.getByTestId("aon-copy-status")).toHaveText("");
+
+  await copy.click();
+  await expect(page.getByTestId("aon-copy-status")).toHaveText("Link copied.");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    `https://aonprd.com/${POWER_ATTACK.aon}`,
+  );
+  expect(page.url(), "the app window keeps its address").toBe(appUrl);
+  expect(tapped, "copying makes no request to the reference site").toEqual([]);
+  await noAonResources(page);
+
+  // At a phone width the button keeps the 44 px target, and the link keeps its own edge.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const target = await hitHeight(page, ".entry > .aon-line .aon-copy");
+  expect(target.hit, "the hit area reaches the 44 px target").toBeGreaterThanOrEqual(44);
+
+  // An entry without a stored path has neither the link nor the button.
+  await page.goto(`#/entry/${CASTING_CONDUIT.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: CASTING_CONDUIT.title })).toBeVisible();
+  await expect(page.getByTestId("aon-copy")).toHaveCount(0);
+
+  expect(guard.problems(), "console errors or third-party requests").toEqual([]);
+});
