@@ -22,6 +22,7 @@ exclusions.toml                 what the import left out and why; rows are only 
 history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
 option-groups.toml              class-option vocabulary (optional, schema 4)
+power-exceptions.toml           class-option powers that stay non-canonical on purpose (optional; read only by corpus-check)
 ```
 
 The path is derived from the permanent id. `ref/spell/fog-cloud` is
@@ -1147,9 +1148,35 @@ warning: entries/hex/evil-eye.md:15: [powers] entry `ref/hex/evil-eye`: the powe
 ```
 
 A last warning counts the failing powers and the entries that hold a power. The rule stays a
-warning until the corpus repository has rewritten its class options (phynics/cast-iron-data#88).
-The app pull request that pins the rewritten corpus turns it into an error, except for the powers
-that #88 still queues for print review in its resolutions file.
+warning until the corpus repository has resolved its class options (phynics/cast-iron-data#88,
+phynics/cast-iron#557). The app pull request that pins the resolved corpus turns it into an
+error, except for the powers that `power-exceptions.toml` names.
+
+### Power exceptions
+
+`power-exceptions.toml` in the corpus root is optional. It lists the class-option powers that print
+cannot settle (a book that is not among the reviewed PDFs, a block that print does not set as a
+power, an effect that the corpus does not hold) and that therefore stay in a non-canonical form.
+The check skips a failing power that the file names, counts it in the last line, and never hides
+the others. The file is plain data that only `corpus-check` reads; the entries, the compiler and the
+format number do not change.
+
+```toml
+[[exception]]
+id = "ref/hkorder/order-of-the-chain"   # the entry id
+name = "Reckoning"                       # the power's name as the entry writes it
+occurrence = 1                           # which power of that name in the entry, from 1
+span_sha256 = "..."                      # the corpus repository's script checks it; corpus-check does not read it
+reason = "..."                           # why print cannot settle the power
+print = "Path of the Hellknight p. 10"   # the book title and page that was checked, or why none exists
+```
+
+Every key but `span_sha256` is required, `reason` and `print` need a text, and a second row for one
+`(id, name, occurrence)` is an error, as is an unknown key. An exception that matches no
+class-option power, and one whose power passes validation, is a warning (`remove the exception`).
+A power that an exception names and that later passes validation therefore reports its exception
+until the row is removed. The occurrence counts the candidates of that name in the entry, in file
+order, as the corpus repository's script does.
 
 ### Class-option residue
 
