@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.34`, commit `724016823d36061b6d53777a53acb31c2e7d53b4` (`sources/corpus.toml`). Pin entry: [2026-11-21](status/2026-11-21-corpus-pinned-to-v0-1-34.md) |
-| Content version | `v24010454fb1d951c` (`cargo xtask content` on `main` at `e599eafaa` plus the v0.1.34 pin, 2026-11-21). The release serves the same version (corpus v0.1.34). |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.35`, commit `c8aa0bc33b88d1df804d4d135fbc43b27576b6ea` (`sources/corpus.toml`). Pin entry: [2026-11-21](status/2026-11-21-corpus-pinned-to-v0-1-35.md) |
+| Content version | `v52638e804064b300` (`cargo xtask content` on `main` at `72f89db83` plus the v0.1.35 pin, 2026-11-21). The release still serves `v24010454fb1d951c` (corpus v0.1.34). |
 | Library | 31,825 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
@@ -18,7 +18,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 - **`release` is at `d200b4d`**, published 2026-11-21: corpus `v0.1.34`, schema 6, index format 2 ([release entry](status/2026-11-21-release-d200b4d-corpus-v0-1-34-schema-6.md)). That is what Pages serves.
 - **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
-- **No open gate** beyond [releasing.md](releasing.md): [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed and released by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). The class-option power check is still a warning for the 133 queued powers; making it an error waits until that queue is resolved ([#557](https://github.com/phynics/cast-iron/issues/557)). It does not block promotion.
+- **No open gate** beyond [releasing.md](releasing.md): [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed and released by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). The class-option power check is an error from the v0.1.35 pin: 0 power errors, 19 powers excepted in `power-exceptions.toml` ([#557](https://github.com/phynics/cast-iron/issues/557)).
 
 ## Latest runs
 

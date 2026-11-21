@@ -1140,17 +1140,18 @@ holds the rules for the two effect rows, `Special`, `Choice` and `Info`, and the
 directly followed by a row, a lead or a legacy upgrade, with a power marker in the run that
 extends to the next boundary or name. A boundary is a heading, list, table, quote, stat block,
 entry link or styled paragraph (`statline` or `indented`). Each candidate that fails
-validation is reported as a **warning** with its path and line, the entry id, the power name and
+validation is reported as an **error** with its path and line, the entry id, the power name and
 every reason:
 
 ```text
-warning: entries/hex/evil-eye.md:15: [powers] entry `ref/hex/evil-eye`: the power `Evil Eye (Su)` is not in the canonical form: `Flavor` is out of order [out-of-order]; the legacy label `At 8th Level:` [legacy-label]
+error: entries/hex/evil-eye.md:15: [powers] entry `ref/hex/evil-eye`: the power `Evil Eye (Su)` is not in the canonical form: `Flavor` is out of order [out-of-order]; the legacy label `At 8th Level:` [legacy-label]
 ```
 
-A last warning counts the failing powers and the entries that hold a power. The rule stays a
-warning until the corpus repository has resolved its class options (phynics/cast-iron-data#88,
-phynics/cast-iron#557). The app pull request that pins the resolved corpus turns it into an
-error, except for the powers that `power-exceptions.toml` names.
+A last line counts the failing powers and the entries that hold a power (or, when every failing power
+has an exception, the excepted powers). That line is a **warning** and stays informational. The rule
+has been an error since the pin of corpus v0.1.35, which resolved the class options of the corpus
+repository (phynics/cast-iron-data#88, phynics/cast-iron#557); only the powers that
+`power-exceptions.toml` names are excepted.
 
 ### Power exceptions
 
@@ -1158,7 +1159,7 @@ error, except for the powers that `power-exceptions.toml` names.
 cannot settle (a book that is not among the reviewed PDFs, a block that print does not set as a
 power, an effect that the corpus does not hold) and that therefore stay in a non-canonical form.
 The check skips a failing power that the file names, counts it in the last line, and never hides
-the others. The file is plain data that only `corpus-check` reads. When the file is absent, no power is
+the others (each of those is an error). The file is plain data that only `corpus-check` reads. When the file is absent, no power is
 excepted. The content compiler does not read it, and the entries and the format number do not change.
 
 ```toml
@@ -1174,9 +1175,9 @@ print = "Path of the Hellknight p. 10"   # the book title and page that was chec
 Every key is required, `span_sha256` is 64 lowercase hex digits, `reason` and `print` need a text, and a
 second row for one `(id, name, occurrence)` is an error, as is an unknown key. An exception that
 matches no class-option power (an unused row), and one whose power passes validation (an obsolete
-row), is a warning (`remove the exception`) while the power check is a warning. When the pin pull
-request makes the check an error, both kinds of row become errors too. A power that an exception
-names and that later passes validation therefore reports its exception until the row is removed. The occurrence counts the candidates of that name in the entry, in file
+row), is an error (`remove the exception`), so the file cannot keep a row that excepts nothing. A power
+that an exception names and that later passes validation therefore fails the check until the row is
+removed. A malformed file is an error too, and the failing powers are then checked without exceptions. The occurrence counts the candidates of that name in the entry, in file
 order, as the corpus repository's script does.
 
 ### Class-option residue
