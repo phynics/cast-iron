@@ -229,7 +229,7 @@ The migration of the corpus repository (#452) normalized the step powers that `m
 | `levels` run from 1 to 20, ascending, each once. | Fails. |
 | No two trades of one key (two `replaces`, or two `alters`) name the same anchor with a shared level (no `levels` shares every level) and the same `power`. An archetype may alter a feature and replace one instance of it. | Fails in format 2, warns in format 1. |
 | A printed name resolves confidently to another anchor than the `feature`. | Warns. |
-| Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many trades have a provable match that `migrate-trades` would write, and no per-trade warning, so the pinned corpus stays green until #452. |
+| Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many trades have a provable match that `migrate-trades` would write, and no per-trade warning, so a format 1 corpus stays green. |
 
 The compiler lowers the trades (see [Library files](#stored-and-derived-data)): it fails in format 2 when an
 anchor several base classes hold has no `class` (in format 1 it leaves that trade unresolved), and it writes the trades into `trades.json` only.
@@ -298,8 +298,8 @@ reaches), the reader keeps the list so that `fmt` writes the file back unchanged
 format 1, so the compiler leaves that trade unresolved rather than fail. Format 1 cannot write a
 `class`, `levels` or `power`, a feature that is not the slug of its printed name, or a list that mixes `replaces` and `alters` in other than that
 order; `corpus-check` rejects such a trade in a format 1 corpus. The command above migrates
-a corpus (#451); applying it to the corpus repository is #452. Until then the pinned corpus is
-format 1 and this tool reads both.
+a corpus (#451). The corpus repository applied it in v0.1.33 (#452); the pinned corpus is
+format 2, and this tool still reads format 1.
 
 ## `corpus.toml`
 
@@ -973,6 +973,17 @@ file and line, when:
 - an entry `kind` does not match its `[fields]` kind;
 - the body holds a left-over `p!` import marker, which the upstream import wrote where a
   paragraph or list break had been. The same letters inside a word, as in `Help!`, are real text;
+- a creature entry holds a left-over spell-list marker, `&Q`, `&EM`, `&EX` or `&S`, in a spell-list
+  item. The upstream import wrote them for the metamagic and summon entries of monster
+  spell-like ability lists; write `quickened`, `empowered`, `extended` or `summon (level N, ...)`,
+  as the books print them. A spell-list item is an item of a bulleted or numbered list under a
+  `**Spell-Like Abilities**`, `**Spells Known**`, `**Prepared Spells**`, `**Psychic Magic**` or
+  `**Spellcasting**` heading, up to the next heading. It holds the lines that the corpus reader
+  gives the item: the indented lines after it, a nested list, and the text after a blank line
+  when the next line is indented. The check skips code spans, link targets, bare URLs (they may
+  hold balanced parentheses and end at whitespace), URI and email autolinks, and escaped text
+  (`\&Q`). It does not read a longer word (`&Sword`, `&Séance`) or the upstream token `&Q&`
+  (reported as a token) as a marker, and `<&Q>` is plain text, so it counts;
 - a `source_id` is not in `publications.toml`;
 - a `license_ref` is not in `legal.toml` and is not `legal#community-use`;
 - a parent, body link, prerequisite feat, relation target, book node, or alias
@@ -1132,6 +1143,27 @@ A last warning counts the failing powers and the entries that hold a power. The 
 warning until the corpus repository has rewritten its class options (phynics/cast-iron-data#88).
 The app pull request that pins the rewritten corpus turns it into an error, except for the powers
 that #88 still queues for print review in its resolutions file.
+
+### Class-option residue
+
+The retired upstream import left eight defects in class-option entries. The corpus repository fixed
+them (phynics/cast-iron-data#95), and `corpus-check` now fails when one comes back. Each is an error
+that names the path, line, entry id and defect slug:
+
+| Slug | What it is |
+|---|---|
+| `skill-code` | A `Gained class skills:` or `Lost class skills:` value that is an upstream skill code (`kd`, `stl`, `perf\|dance`) |
+| `spell-no-level` | A `Spells:` row that does not end in its granted level, such as `(3rd)` |
+| `spell-order` | A run of `Spells:` and `Cantrips:` rows whose stated levels are not ascending |
+| `key-tilde` | A `**Key:** ~` row: the import's line-break marker |
+| `misplaced-title` | A `Title:` row directly after a `Details:` row |
+| `bonus-feats-glue` | A `Details:` row followed by a `Title:` row whose feat links have no separator |
+| `import-key` | An `Id:`, `From:` or `Save: domain` row |
+| `glued-modifier` | A `Usage:` row such as `Charisma3 modifier times/day` |
+
+Only top-level paragraphs of `class_option` entries are scanned. A literal `~` inside prose and a
+numbered effect label such as `Ability2` are not residue guards: the first is report-only in the
+corpus survey, and the power validator above reports the second.
 
 ## Formatting
 
