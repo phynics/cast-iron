@@ -4,7 +4,9 @@
 
 use super::{footnotes, icons, progression};
 use crate::class_sections::Section;
+use crate::powers::{self, Placed, Plan};
 use crate::route::{self, Route};
+use cast_iron_schema::power::{Effect, upgrade_lead};
 use cast_iron_schema::{
     Block, EntryId, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow,
 };
@@ -205,15 +207,21 @@ impl Renderer {
 
 impl Renderer {
     fn blocks(&mut self, items: &[Block]) -> Vec<AnyView> {
-        self.blocks_of(items.iter(), false)
+        self.blocks_of(items.iter(), false, None)
     }
 
     /// The body of an entry page: the rules text, then its footnotes as one quiet group (#507).
     /// A body without notes renders as [`Self::blocks`] does.
-    fn entry_body(&mut self, body: &[Block], entry: EntryId, book: Option<String>) -> Vec<AnyView> {
+    fn entry_body(
+        &mut self,
+        body: &[Block],
+        entry: EntryId,
+        book: Option<String>,
+        plan: &Plan<'_>,
+    ) -> Vec<AnyView> {
         let split = footnotes::split(body);
         if split.notes.is_empty() {
-            return self.blocks(body);
+            return self.blocks_of(body.iter(), true, Some(plan));
         }
         let notes = split
             .notes
@@ -248,19 +256,39 @@ impl Renderer {
             notes,
             position: 0,
         });
-        let mut out = self.blocks_of(split.main.iter().copied(), true);
+        let mut out = self.blocks_of(split.main.iter().copied(), true, Some(plan));
         out.push(self.notes_group(&split.notes));
         out
     }
 
     /// `top` marks the blocks of the entry body itself, so a marker knows which notes follow it.
-    /// A block nested in a list or a quote has the position of the block that holds it.
-    fn blocks_of<'a>(&mut self, items: impl Iterator<Item = &'a Block>, top: bool) -> Vec<AnyView> {
+    /// A block nested in a list or a quote has the position of the block that holds it. A power
+    /// of the `plan` takes the place of its blocks.
+    fn blocks_of<'a>(
+        &mut self,
+        items: impl Iterator<Item = &'a Block>,
+        top: bool,
+        plan: Option<&Plan<'_>>,
+    ) -> Vec<AnyView> {
         let mut out = Vec::new();
         let mut run: Vec<AnyView> = Vec::new();
+        let mut covered = 0;
         for (index, item) in items.enumerate() {
             if top && let Some(state) = self.notes.as_mut() {
                 state.position = index;
+            }
+            if covered > 0 {
+                covered -= 1;
+                continue;
+            }
+            if let Some(placed) = plan.and_then(|plan| plan.at(item)) {
+                if !run.is_empty() {
+                    let list = std::mem::take(&mut run);
+                    out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
+                }
+                covered = placed.len - 1;
+                out.push(self.power(placed));
+                continue;
             }
             if let Block::EntryLink { target, title } = item {
                 let href = Route::entry(target.clone()).href();
@@ -325,6 +353,116 @@ impl Renderer {
             }
         }
     }
+}
+
+impl Renderer {
+    /// A power of a class option (decision `2026-11-20-class-option-power-layout`): the head and
+    /// the meta line, then the rows in the order the corpus wrote them. The renderer never
+    /// reorders and never changes the case of the corpus text. A folded power (a one-power page)
+    /// has no head and no meta line: the entry head carries the name and the facts.
+    fn power(&mut self, placed: &Placed<'_>) -> AnyView {
+        let power = &placed.power;
+        let mut parts: Vec<AnyView> = Vec::new();
+        if !placed.folded {
+            parts.push(power_head(placed));
+            let meta = powers::meta_parts(power);
+            if !meta.is_empty() {
+                parts.push(muted_line("power-meta", &meta));
+            }
+        }
+        if let Some(flavor) = power.flavor {
+            parts.push(self.power_line(flavor));
+        }
+        for row in &power.preface {
+            parts.push(self.labeled_line(&row.label, row.content));
+        }
+        for effect in std::iter::once(&power.effect).chain(power.second_effect.as_ref()) {
+            parts.push(self.effect_line(effect));
+            for paragraph in &effect.continuation {
+                parts.push(self.power_line(paragraph));
+            }
+        }
+        for upgrade in &power.upgrades {
+            let text = self.paragraph_content(&powers::trimmed(upgrade.text));
+            parts.push(
+                view! {
+                    <p class="power-upgrade"><strong>{upgrade_lead(upgrade.level)}</strong>" "{text}</p>
+                }
+                .into_any(),
+            );
+        }
+        if let Some(prereq) = power.prereq {
+            parts.push(self.labeled_line("Prereq", prereq));
+        }
+        if let Some(replaces) = power.replaces {
+            parts.push(self.labeled_line("Replaces", replaces));
+        }
+        for row in &power.other {
+            parts.push(self.labeled_line(&row.label, row.content));
+            for paragraph in &row.continuation {
+                parts.push(self.power_line(paragraph));
+            }
+        }
+        view! { <div class="power">{parts}</div> }.into_any()
+    }
+
+    /// A paragraph of the power: the base text of a row, or a continuation.
+    fn power_line(&mut self, content: &[Inline]) -> AnyView {
+        let content = self.paragraph_content(&powers::trimmed(content));
+        view! { <p>{content}</p> }.into_any()
+    }
+
+    /// A row that keeps its bold label, as it renders on a page without the layout.
+    fn labeled_line(&mut self, label: &str, content: &[Inline]) -> AnyView {
+        let content = self.paragraph_content(&powers::trimmed(content));
+        view! { <p><strong>{format!("{label}:")}</strong>" "{content}</p> }.into_any()
+    }
+
+    /// An effect row. `Passive`, `Ability` and an action label show no label: the meta line says
+    /// the action. `Benefit` keeps its label, which nothing else carries.
+    fn effect_line(&mut self, effect: &Effect<'_>) -> AnyView {
+        let quiet = effect.is_action() || matches!(effect.label.as_str(), "Passive" | "Ability");
+        if quiet {
+            self.power_line(effect.content)
+        } else {
+            self.labeled_line(&effect.label, effect.content)
+        }
+    }
+}
+
+/// The head of a power: the name as a heading, a dotted leader, and `Level N` from `Gained`.
+fn power_head(placed: &Placed<'_>) -> AnyView {
+    let name = placed.power.name.clone();
+    let level = placed.power.gained.map(|level| {
+        view! {
+            <span class="power-leader" aria-hidden="true"></span>
+            <span class="power-level">
+                <span class="sr-only">"Gained at "</span>{powers::level_text(level)}
+            </span>
+        }
+    });
+    let heading = match placed.heading {
+        0..=2 => view! { <h2 class="power-name">{name}</h2> }.into_any(),
+        3 => view! { <h3 class="power-name">{name}</h3> }.into_any(),
+        4 => view! { <h4 class="power-name">{name}</h4> }.into_any(),
+        5 => view! { <h5 class="power-name">{name}</h5> }.into_any(),
+        _ => view! { <h6 class="power-name">{name}</h6> }.into_any(),
+    };
+    view! { <div class="power-head">{heading}{level}</div> }.into_any()
+}
+
+/// A muted line of facts joined by `·`. The dots are hidden from assistive technology.
+pub fn muted_line(class: &'static str, parts: &[String]) -> AnyView {
+    let items = parts
+        .iter()
+        .enumerate()
+        .map(|(index, part)| {
+            let sep =
+                (index > 0).then(|| view! { <span class="meta-sep" aria-hidden="true">"·"</span> });
+            view! { {sep}<span>{part.clone()}</span> }
+        })
+        .collect_view();
+    view! { <p class=class>{items}</p> }.into_any()
 }
 
 impl Renderer {
@@ -657,11 +795,18 @@ pub fn RichBody(
     #[prop(optional)]
     entry: Option<EntryId>,
     #[prop(into)] book: Option<String>,
+    /// The entry's title, set on a class option only: its powers take the layout of decision
+    /// `2026-11-20-class-option-power-layout`. Any other entry renders its body as printed.
+    #[prop(optional_no_strip)]
+    power_title: Option<String>,
 ) -> impl IntoView {
     let changed = changed.into_iter().collect::<BTreeSet<_>>();
     let mut renderer = Renderer::new(&body).with_changed(changed).with_marks(marks);
+    let plan = power_title
+        .map(|title| powers::plan(&title, &body))
+        .unwrap_or_default();
     let content = match entry {
-        Some(entry) => renderer.entry_body(&body, entry, book),
+        Some(entry) => renderer.entry_body(&body, entry, book, &plan),
         None => renderer.blocks(&body),
     };
     if let Some(anchor) = anchor {
@@ -1020,7 +1165,7 @@ mod tests {
         let mut renderer = Renderer::new(&body);
         let owner = Owner::new();
         owner.with(|| {
-            renderer.entry_body(&body, entry, None);
+            renderer.entry_body(&body, entry, None, &Plan::default());
         });
         let state = renderer.notes.as_ref().expect("the entry has notes");
         assert_eq!(state.notes.len(), 2);
