@@ -12,6 +12,7 @@
 //! The crate compiles for the host too, so the pure logic has native tests. Browser calls
 //! panic if run natively; tests only touch the pure parts.
 
+pub mod also_available;
 pub mod app;
 pub mod book_code;
 pub mod book_presets;

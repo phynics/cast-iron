@@ -87,6 +87,25 @@ test("The Wizard page offers its class-option groups and opens the filtered list
   ).toBe(true);
 });
 
+test("The Wizard's Also available capstones link to the shared Alternate Capstones entry", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto(`#/entry/${wizard.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: wizard.title })).toBeVisible();
+
+  const line = page.locator("p", { has: page.locator("strong", { hasText: "Also available:" }) });
+  await expect(line).toHaveText("Also available: Walking Library, Arch-Familiar");
+  for (const name of ["Walking Library", "Arch-Familiar"]) {
+    await expect(line.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "href",
+      "#/entry/ref/ability/capstones",
+    );
+  }
+  await line.getByRole("link", { name: "Arch-Familiar", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Alternate Capstones" })).toBeVisible();
+  await expect(page.getByText("Arch-Familiar (Su)")).toBeVisible();
+});
+
 test("A group shared by several classes names the class it was opened from", async ({ page }) => {
   await installLibrary(page);
   const shared = groups.groups.find((group) => group.classes.length > 1)!;
