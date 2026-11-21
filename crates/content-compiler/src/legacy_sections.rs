@@ -128,6 +128,7 @@ pub fn chapter_coverage(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cast_iron_schema::books::resolve_legacy_anchor;
 
     fn table(text: &str) -> Vec<u8> {
         text.as_bytes().to_vec()
@@ -148,6 +149,70 @@ mod tests {
         assert_eq!(book["toc-2-27"], "row-ref-class-rogue");
         // The Contents rows of the same book: its second chapter row is the Classes page.
         assert!(table.chapters["blood-of-the-beast"].contains_key("toc-2"));
+    }
+
+    /// The Elephant in the Room: format 3 derives the book from the pages, so the stored
+    /// `Ranger` grouping row (`row-h-unpaged--h-ranger`) is gone. By owner decision of
+    /// 2026-11-21 its old address `toc-1-1` opens the Ranger revision row, which `toc-1-1-1`
+    /// already named. Read from the cache that `cargo xtask fetch-sources` fills; CI (the `CI`
+    /// variable is set) fails when it is missing, a local run prints a skip message.
+    #[test]
+    fn the_old_ranger_grouping_address_of_the_elephant_in_the_room_opens_the_ranger_revision_row() {
+        const BOOK: &str = "the-elephant-in-the-room-feat-taxes-in-pathfinder";
+        const RANGER_REVISION: &str = "row-ref-rule-class-ranger-ranger-teitr";
+        let corpus_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../.cache/sources/cast-iron-data");
+        if !corpus_dir.join("corpus.toml").is_file() {
+            assert!(
+                std::env::var_os("CI").is_none(),
+                "the pinned corpus is not in .cache/sources/cast-iron-data; the CI job must run \
+                 `cargo xtask fetch-sources` first"
+            );
+            eprintln!("skipped: run `cargo xtask fetch-sources` to check the cached corpus");
+            return;
+        }
+        let bytes = std::fs::read(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../sources/legacy-sections.json"
+        ))
+        .unwrap();
+        let table = parse(&bytes).unwrap_or_else(|problems| panic!("{}", problems.join("\n")));
+        let rows = &table.books[BOOK];
+        // The hand edit, and the neighbour that already named the same row.
+        assert_eq!(rows["toc-1-1"], RANGER_REVISION);
+        assert_eq!(rows["toc-1-1-1"], RANGER_REVISION);
+
+        let corpus = cast_iron_corpus::Corpus::load(&corpus_dir)
+            .unwrap_or_else(|errors| panic!("{errors:?}"));
+        let mut entries: Vec<RuleEntry> = corpus
+            .entries
+            .values()
+            .map(|stored| stored.entry.clone())
+            .collect();
+        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut books = corpus.book_index();
+        cast_iron_schema::books::mark_listed_children(&mut books, &entries);
+        let kinds: BTreeMap<&EntryId, EntryKind> = entries
+            .iter()
+            .map(|entry| (&entry.id, entry.kind))
+            .collect();
+        let hide = |id: &EntryId| {
+            kinds
+                .get(id)
+                .is_some_and(|kind| hidden_from_contents(*kind))
+        };
+        let book = books
+            .books
+            .iter()
+            .find(|book| book.source == BOOK)
+            .expect("the book is in the pinned corpus");
+        // The chapter id of the old address is what the page of the old address named.
+        let chapter = &table.chapters[BOOK]["toc-1"];
+        for address in ["toc-1-1", "toc-1-1-1"] {
+            let target = resolve_legacy_anchor(book, &hide, Some(rows), chapter, address)
+                .unwrap_or_else(|| panic!("{address} opens no row of {BOOK}"));
+            assert_eq!(target.anchor, RANGER_REVISION, "{address}");
+        }
     }
 
     #[test]
