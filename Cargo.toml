@@ -35,14 +35,19 @@ unsafe_code = "forbid"
 all = { level = "warn", priority = -1 }
 
 [profile.release]
-# Optimised for size: the WASM budget has little room left (docs/decisions/2026-11-21-wasm-built-for-size.md).
-opt-level = "z"
+opt-level = "s"
 lto = true
 codegen-units = 1
 panic = "abort"
 
+# The WASM is built for size (docs/decisions/2026-11-21-wasm-built-for-size.md). Trunk builds it
+# with this profile (`data-cargo-profile` in web/index.html); the native tools keep `release`.
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+
 # The search code is the one hot path in WASM; keep it at "s". It costs about 28 KB over "z".
-[profile.release.package.cast-iron-search]
+[profile.wasm-release.package.cast-iron-search]
 opt-level = "s"
 
 # Line tables keep panic locations and backtraces; dropping full debug info
