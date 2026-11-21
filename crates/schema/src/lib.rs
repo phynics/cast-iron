@@ -1272,6 +1272,31 @@ pub struct LegacySections {
     pub format: u32,
     /// By book source: old positional anchor to stable anchor.
     pub books: BTreeMap<String, BTreeMap<String, String>>,
+    /// By book source: the old positional anchor of each top-level Contents row (`toc-3`) to the
+    /// permanent id of its chapter page. Contents addresses (`?c=3.2`) name chapter rows too, and
+    /// `books` holds only the rows below them. Optional: a table made before Contents addresses
+    /// followed the row has none, and its chapter addresses open the top of Contents.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub chapters: BTreeMap<String, BTreeMap<String, String>>,
+}
+
+/// The rows of [`LegacySections`] that belong to one book.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LegacyBook {
+    /// Old positional anchor of a row below chapter level to its stable anchor.
+    pub sections: BTreeMap<String, String>,
+    /// Old positional anchor of a chapter row to its chapter id.
+    pub chapters: BTreeMap<String, String>,
+}
+
+impl LegacySections {
+    /// The rows of `source`. A book the table does not mention has none.
+    pub fn book(&self, source: &str) -> LegacyBook {
+        LegacyBook {
+            sections: self.books.get(source).cloned().unwrap_or_default(),
+            chapters: self.chapters.get(source).cloned().unwrap_or_default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

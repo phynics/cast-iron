@@ -7284,5 +7284,908 @@
       "toc-2-37": "row-ref-rule-types-of-traits",
       "toc-2-39": "row-ref-ability-ward-aspects"
     }
+  },
+  "chapters": {
+    "advanced-class-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "advanced-players-guide": {
+      "toc-1": "races",
+      "toc-2": "classes",
+      "toc-3": "feats",
+      "toc-4": "equipment",
+      "toc-5": "spells",
+      "toc-6": "prestige-classes",
+      "toc-7": "magic-items",
+      "toc-8": "new-rules"
+    },
+    "advanced-race-guide": {
+      "toc-1": "core-races",
+      "toc-2": "featured-races",
+      "toc-3": "uncommon-races",
+      "toc-4": "race-builder",
+      "toc-5": "age",
+      "toc-6": "height-and-weight"
+    },
+    "adventurers-armory": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "adventurers-armory-2": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "adventurers-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "agents-of-evil": {
+      "toc-1": "page-order"
+    },
+    "alchemy-manual": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "andoran-birthplace-of-freedom": {
+      "toc-1": "page-order"
+    },
+    "animal-archive": {
+      "toc-2": "unpaged"
+    },
+    "antiheros-handbook": {
+      "toc-1": "page-order"
+    },
+    "aquatic-adventures": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "arcane-anthology": {
+      "toc-2": "unpaged"
+    },
+    "armor-masters-handbook": {
+      "toc-1": "page-order"
+    },
+    "bastards-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "belkzen-hold-of-the-orc-hordes": {
+      "toc-1": "page-order"
+    },
+    "bestiary": {
+      "toc-1": "introduction",
+      "toc-10": "monster-roles",
+      "toc-11": "encounter-tables",
+      "toc-2": "monsters-a-to-z",
+      "toc-3": "universal-monster-rules",
+      "toc-4": "monster-creation",
+      "toc-5": "monster-advancement",
+      "toc-6": "monsters-as-pcs",
+      "toc-7": "monster-feats",
+      "toc-8": "monster-cohorts",
+      "toc-9": "monsters-by-type"
+    },
+    "bestiary-2": {
+      "toc-1": "monsters-a-to-z",
+      "toc-2": "universal-monster-rules",
+      "toc-3": "monster-subtypes"
+    },
+    "bestiary-3": {
+      "toc-1": "monsters-a-to-z",
+      "toc-2": "universal-monster-rules",
+      "toc-4": "monsters-by-type"
+    },
+    "bestiary-4": {
+      "toc-1": "monsters-a-to-z",
+      "toc-2": "universal-monster-rules"
+    },
+    "bestiary-5": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "bestiary-6": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "black-markets": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "blood-of-angels": {
+      "toc-1": "page-order"
+    },
+    "blood-of-fiends": {
+      "toc-1": "page-order"
+    },
+    "blood-of-shadows": {
+      "toc-2": "unpaged"
+    },
+    "blood-of-the-beast": {
+      "toc-2": "unpaged"
+    },
+    "blood-of-the-coven": {
+      "toc-1": "page-order"
+    },
+    "blood-of-the-elements": {
+      "toc-1": "page-order"
+    },
+    "blood-of-the-moon": {
+      "toc-1": "page-order"
+    },
+    "blood-of-the-night": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "blood-of-the-sea": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "book-of-the-damned": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "book-of-the-damned-volume-2-lords-of-chaos": {
+      "toc-1": "page-order"
+    },
+    "champions-of-balance": {
+      "toc-1": "page-order"
+    },
+    "champions-of-corruption": {
+      "toc-1": "page-order"
+    },
+    "cheliax-the-infernal-empire": {
+      "toc-1": "page-order"
+    },
+    "chronicle-of-legends": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "chronicle-of-the-righteous": {
+      "toc-1": "page-order"
+    },
+    "city-of-golden-death": {
+      "toc-1": "page-order"
+    },
+    "classic-horrors-revisited": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "cohorts-and-companions": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "concordance-of-rivals": {
+      "toc-1": "page-order"
+    },
+    "construct-handbook": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "core-rulebook": {
+      "toc-1": "getting-started",
+      "toc-10": "spells",
+      "toc-11": "prestige-classes",
+      "toc-12": "gamemastering",
+      "toc-13": "environment",
+      "toc-14": "creating-npcs",
+      "toc-15": "magic-items",
+      "toc-16": "special-abilities",
+      "toc-17": "conditions",
+      "toc-3": "classes",
+      "toc-4": "skills",
+      "toc-5": "feats",
+      "toc-6": "equipment",
+      "toc-7": "additional-rules",
+      "toc-8": "combat",
+      "toc-9": "magic"
+    },
+    "cult-of-the-ebon-destroyers": {
+      "toc-1": "page-order"
+    },
+    "curse-of-the-crimson-throne": {
+      "toc-1": "page-order"
+    },
+    "darklands-revisited": {
+      "toc-1": "page-order"
+    },
+    "demons-revisited": {
+      "toc-1": "page-order"
+    },
+    "disciples-doctrine": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "distant-shores": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "divine-anthology": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "doom-comes-to-dustpawn": {
+      "toc-1": "page-order"
+    },
+    "dragon-empires-gazetteer": {
+      "toc-1": "page-order"
+    },
+    "dragon-empires-primer": {
+      "toc-2": "unpaged"
+    },
+    "dragonslayers-handbook": {
+      "toc-1": "page-order"
+    },
+    "druma-profit-and-prophecy": {
+      "toc-1": "page-order"
+    },
+    "dungeoneers-handbook": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "dungeons-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "dwarves-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "elemental-masters-handbook": {
+      "toc-1": "page-order"
+    },
+    "elves-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "faction-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "faiths-and-philosophies": {
+      "toc-1": "page-order"
+    },
+    "faiths-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "familiar-folio": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "game-mastery-guide": {
+      "toc-1": "introduction",
+      "toc-10": "npc-gallery",
+      "toc-2": "getting-started",
+      "toc-3": "running-a-game",
+      "toc-4": "player-characters",
+      "toc-5": "nonplayer-characters",
+      "toc-6": "rewards",
+      "toc-7": "creating-a-world",
+      "toc-8": "adventures",
+      "toc-9": "advanced-topics"
+    },
+    "giants-revisited": {
+      "toc-1": "page-order"
+    },
+    "goblins-of-golarion": {
+      "toc-2": "unpaged"
+    },
+    "gods-and-magic": {
+      "toc-1": "page-order"
+    },
+    "haunted-heroes-handbook": {
+      "toc-1": "page-order"
+    },
+    "healers-handbook": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "heart-of-the-jungle": {
+      "toc-1": "page-order"
+    },
+    "heroes-from-the-fringe": {
+      "toc-1": "page-order"
+    },
+    "heroes-of-golarion": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "heroes-of-the-high-court": {
+      "toc-1": "page-order"
+    },
+    "heroes-of-the-wild": {
+      "toc-1": "page-order"
+    },
+    "horror-adventures": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "horror-realms": {
+      "toc-1": "page-order"
+    },
+    "inner-sea-bestiary": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "inner-sea-combat": {
+      "toc-2": "unpaged"
+    },
+    "inner-sea-faiths": {
+      "toc-1": "page-order"
+    },
+    "inner-sea-gods": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "inner-sea-intrigue": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "inner-sea-magic": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "inner-sea-monster-codex": {
+      "toc-1": "page-order"
+    },
+    "inner-sea-races": {
+      "toc-1": "page-order"
+    },
+    "inner-sea-taverns": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "inner-sea-temples": {
+      "toc-1": "page-order"
+    },
+    "inner-sea-world-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "iron-gods-players-guide": {
+      "toc-1": "page-order"
+    },
+    "ironfang-invasion-players-guide": {
+      "toc-1": "unpaged"
+    },
+    "irrisen-land-of-eternal-winter": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "isles-of-the-shackles": {
+      "toc-1": "page-order"
+    },
+    "jade-regent-players-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "kobolds-of-golarion": {
+      "toc-2": "unpaged"
+    },
+    "lands-of-conflict": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "lands-of-the-linnorm-kings": {
+      "toc-1": "page-order"
+    },
+    "legacy-of-dragons": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "legacy-of-fire-players-guide": {
+      "toc-1": "page-order"
+    },
+    "legacy-of-the-first-world": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "lost-cities-of-golarion": {
+      "toc-1": "page-order"
+    },
+    "lost-kingdoms": {
+      "toc-1": "page-order"
+    },
+    "lost-treasures": {
+      "toc-1": "page-order"
+    },
+    "magic-tactics-toolbox": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "martial-arts-handbook": {
+      "toc-1": "page-order"
+    },
+    "monster-codex": {
+      "toc-1": "boggards",
+      "toc-10": "hobgoblins",
+      "toc-11": "kobolds",
+      "toc-12": "lizardfolk",
+      "toc-13": "ogres",
+      "toc-14": "orcs",
+      "toc-15": "ratfolk",
+      "toc-16": "sahuagin",
+      "toc-17": "serpentfolk",
+      "toc-18": "troglodytes",
+      "toc-19": "trolls",
+      "toc-2": "bugbears",
+      "toc-20": "vampires",
+      "toc-21": "appendix",
+      "toc-3": "drow",
+      "toc-4": "duergar",
+      "toc-5": "fire-giants",
+      "toc-6": "frost-giants",
+      "toc-7": "ghouls",
+      "toc-8": "gnolls",
+      "toc-9": "goblins"
+    },
+    "monster-summoners-handbook": {
+      "toc-1": "page-order"
+    },
+    "mythic-adventures": {
+      "toc-1": "introduction",
+      "toc-2": "glossary",
+      "toc-3": "mythic-heroes",
+      "toc-4": "mythic-feats",
+      "toc-5": "mythic-spells",
+      "toc-6": "running-a-mythic-game",
+      "toc-7": "mythic-magic-items",
+      "toc-8": "mythic-monsters"
+    },
+    "mythic-origins": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "mythic-realms": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "nidal-land-of-shadows": {
+      "toc-1": "page-order"
+    },
+    "no-response-from-deepmar": {
+      "toc-1": "page-order"
+    },
+    "npc-codex": {
+      "toc-1": "core-classes",
+      "toc-2": "prestige-classes",
+      "toc-3": "npc-classes"
+    },
+    "numeria-land-of-fallen-stars": {
+      "toc-1": "page-order"
+    },
+    "occult-adventures": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "occult-bestiary": {
+      "toc-1": "page-order"
+    },
+    "occult-mysteries": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "occult-origins": {
+      "toc-1": "page-order"
+    },
+    "occult-realms": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-1-burnt-offerings": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-100-a-song-of-silver": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-101-the-kintargo-contract": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-102-breaking-the-bones-of-hell": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-103-the-hellfire-compact": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-105-the-inferno-gate": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-107-scourge-of-the-godclaw": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-109-in-search-of-sanity": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-11-skeletons-of-scarwall": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-110-the-thrushmoor-terror": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-111-dreams-of-the-yellow-king": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-113-what-grows-within": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-115-trail-of-the-hunted": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-117-assault-on-longshadow": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-119-prisoners-of-the-blight": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-123-the-flooded-cathedral": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-125-tower-of-the-drowned-dead": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-128-songbird-scion-saboteur": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-13-shadow-in-the-sky": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-131-the-reapers-right-hand": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-133-secrets-of-roderics-cove": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-134-it-came-from-hollow-mountain": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-135-runeplague": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-137-the-city-outside-of-time": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-138-rise-of-new-thassilon": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-139-the-dead-road": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-14-children-of-the-void": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-140-eulogy-for-roslars-coffer": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-142-gardens-of-gallowspire": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-143-borne-by-the-suns-grace": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-144-midwives-to-death": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-17-a-memory-of-darkness": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-18-descent-into-midnight": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-2-the-skinsaw-murders": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-20-house-of-the-beast": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-23-the-impossible-eye": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-25-the-bastards-of-erebus": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-26-the-sixfold-trial": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-27-what-lies-in-dust": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-28-the-infernal-syndrome": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-29-mother-of-flies": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-30-the-twice-damned-prince": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-32-rivers-run-red": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-35-war-of-the-river-kings": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-38-racing-to-ruin": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-41-the-thousand-fangs-below": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-42-sanctum-of-the-serpent-god": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-43-haunting-of-harrowstone": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-44-trial-of-the-beast": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-46-wake-of-the-watcher": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-47-ashes-at-dawn": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-49-the-brinewall-legacy": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-5-sins-of-the-saviors": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-50-night-of-frozen-shadows": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-51-the-hungry-storm": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-52-forest-of-spirits": {
+      "toc-2": "unpaged"
+    },
+    "pathfinder-53-tide-of-honor": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-54-the-empty-throne": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-55-the-wormwood-mutiny": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-58-island-of-empty-eyes": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-59-the-price-of-infamy": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-62-curse-of-the-ladys-light": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-64-beyond-the-doomsday-door": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-65-into-the-nightmare-rift": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-67-the-snows-of-summer": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-68-the-shackled-hut": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-69-maiden-mother-crone": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-70-the-frozen-stars": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-71-rasputin-must-die": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-74-sword-of-valor": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-75-demons-heresy": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-77-herald-of-the-ivory-labyrinth": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-78-city-of-locusts": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-8-seven-days-to-the-grave": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-80-empty-graves": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-81-shifting-sands": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-83-the-slave-trenches-of-hakotep": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-84-pyramid-of-the-sky-pharaoh": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-86-lords-of-rust": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-89-palace-of-fallen-stars": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-91-battle-of-bloodmarch-hills": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-93-forge-of-the-giant-god": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-95-anvil-of-fire": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-99-dance-of-the-damned": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-campaign-setting": {
+      "toc-1": "page-order"
+    },
+    "pathfinder-society-primer": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "pathfinder-unchained": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "people-of-the-stars": {
+      "toc-1": "page-order"
+    },
+    "planar-adventures": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "plane-hoppers-handbook": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "planes-of-power": {
+      "toc-1": "page-order"
+    },
+    "plunder-and-peril": {
+      "toc-1": "page-order"
+    },
+    "potions-and-poisons": {
+      "toc-1": "page-order"
+    },
+    "psychic-anthology": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "qadira-gateway-to-the-east": {
+      "toc-1": "page-order"
+    },
+    "quests-and-campaigns": {
+      "toc-1": "page-order"
+    },
+    "rise-of-the-runelords-anniversary-edition": {
+      "toc-1": "page-order"
+    },
+    "rival-guide": {
+      "toc-1": "page-order"
+    },
+    "seven-swords-of-sin": {
+      "toc-1": "page-order"
+    },
+    "skull-and-shackles-players-guide": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "spymasters-handbook": {
+      "toc-1": "page-order"
+    },
+    "technology-guide": {
+      "toc-1": "technology-in-the-world",
+      "toc-2": "technological-equipment",
+      "toc-3": "technological-hazards-and-artifacts"
+    },
+    "the-elephant-in-the-room-feat-taxes-in-pathfinder": {
+      "toc-1": "unpaged"
+    },
+    "the-emerald-spire-superdungeon": {
+      "toc-1": "page-order"
+    },
+    "the-first-world-realm-of-the-fey": {
+      "toc-1": "page-order"
+    },
+    "the-great-beyond-a-guide-to-the-multiverse": {
+      "toc-1": "page-order"
+    },
+    "the-house-on-hook-street": {
+      "toc-1": "page-order"
+    },
+    "the-witchwar-legacy": {
+      "toc-1": "page-order"
+    },
+    "the-worldwound": {
+      "toc-1": "page-order"
+    },
+    "tomb-of-the-iron-medusa": {
+      "toc-1": "page-order"
+    },
+    "treasure-of-chimera-cove": {
+      "toc-1": "page-order"
+    },
+    "ultimate-campaign": {
+      "toc-1": "character-background",
+      "toc-2": "downtime",
+      "toc-3": "campaign-systems",
+      "toc-4": "kingdoms-and-war"
+    },
+    "ultimate-combat": {
+      "toc-1": "classes",
+      "toc-2": "feats",
+      "toc-3": "mastering-combat",
+      "toc-4": "vehicles",
+      "toc-5": "variant-rules",
+      "toc-6": "spells"
+    },
+    "ultimate-equipment": {
+      "toc-1": "arms-and-armor",
+      "toc-2": "gear",
+      "toc-3": "magic-arms-and-armor",
+      "toc-4": "rings-rods-and-staves",
+      "toc-5": "wondrous-items",
+      "toc-6": "artifacts-and-other-items",
+      "toc-7": "appendix"
+    },
+    "ultimate-intrigue": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "ultimate-magic": {
+      "toc-1": "spellcasters",
+      "toc-2": "mastering-magic",
+      "toc-3": "feats",
+      "toc-4": "words-of-power",
+      "toc-6": "appendix"
+    },
+    "ultimate-wilderness": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "undead-revisited": {
+      "toc-1": "page-order"
+    },
+    "undead-slayers-handbook": {
+      "toc-1": "page-order"
+    },
+    "undead-unleashed": {
+      "toc-1": "page-order"
+    },
+    "villain-codex": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "wardens-of-the-reborn-forge": {
+      "toc-1": "page-order"
+    },
+    "weapon-masters-handbook": {
+      "toc-1": "page-order",
+      "toc-2": "unpaged"
+    },
+    "wilderness-origins": {
+      "toc-2": "unpaged"
+    }
   }
 }

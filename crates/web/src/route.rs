@@ -12,7 +12,11 @@
 //!                                    legacy addresses that the router replaces with `#/books`)
 //! #/books/manage                     Manage books: the presets and one checkbox per book
 //!                                    (`#/books/active` is the old address and still parses)
-//! #/browse/book/<source>?c=3.2       a book's contents; `c` is the old 1-based chapter path
+//! #/browse/book/<source>?c=~<chapter>&a=<row anchor>
+//!                                    a book's contents, with one row marked: the chapter page's
+//!                                    id and the row's stable anchor (`a` is absent for the chapter
+//!                                    row itself). `?c=3.2`, the 1-based position in the tree, is
+//!                                    the old form and still opens the row it named
 //! #/browse/book/<source>/<chapter>    one chapter page; the id is the anchor or title slug
 //! #/spells                           #/spells/<class>         #/spells/<class>/<level>
 //! #/feats/chains                     feats that unlock others
@@ -24,6 +28,7 @@
 //! #/settings[?section=updates]       #/settings/diagnostics       #/legal
 //! ```
 
+use cast_iron_schema::books::ContentsRow;
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
@@ -69,11 +74,12 @@ pub enum Route {
     /// post, a comic issue). The page is Books with a plain line on top that says so, and the
     /// route only carries the id the address named.
     BookRemoved(String),
-    /// One book's contents in original chapter order. `chapter` is the 0-based path of the
-    /// open or highlighted node; the URL holds it 1-based, as `c=3.2`.
+    /// One book's contents in original chapter order. `chapter` is the row that the address
+    /// marks. New addresses name it by identity, which a pin does not move; an old one holds its
+    /// position in the tree (`c=3.2`) and the page resolves it.
     Book {
         source: String,
-        chapter: Option<Vec<usize>>,
+        chapter: Option<ContentsRow>,
     },
     /// One chapter page of a book. `chapter` is the permanent id: the chapter's anchor or a
     /// slug of its printed title, never its row number. `#/books/<source>/<chapter>` parses
@@ -283,9 +289,7 @@ impl Route {
                 Some(source) if retirement(&source).is_some() => retired_book_route(&source),
                 Some(source) if !source.is_empty() => Route::Book {
                     source: aliased_book_source(&source).to_string(),
-                    chapter: query
-                        .and_then(|q| query_pairs(q).find(|(k, _)| k == "c"))
-                        .and_then(|(_, v)| parse_chapter_path(&v)),
+                    chapter: query.and_then(parse_contents_row),
                 },
                 _ => not_found(),
             },
@@ -421,14 +425,27 @@ impl Route {
             Route::BooksManage => "#/books/manage".into(),
             Route::BooksSet(code) => format!("#/books/manage?set={}", percent_encode(code)),
             Route::BookRemoved(source) => format!("#/browse/book/{}", percent_encode(source)),
-            Route::Book { source, chapter } => match chapter {
-                Some(path) if !path.is_empty() => format!(
-                    "#/browse/book/{}?c={}",
-                    percent_encode(source),
-                    format_chapter_path(path)
-                ),
-                _ => format!("#/browse/book/{}", percent_encode(source)),
-            },
+            Route::Book { source, chapter } => {
+                let base = format!("#/browse/book/{}", percent_encode(source));
+                match chapter {
+                    Some(ContentsRow::Position(path)) if !path.is_empty() => {
+                        format!("{base}?c={}", format_chapter_path(path))
+                    }
+                    Some(ContentsRow::Stable {
+                        chapter,
+                        anchor: None,
+                    }) => format!("{base}?c=~{}", percent_encode(chapter)),
+                    Some(ContentsRow::Stable {
+                        chapter,
+                        anchor: Some(anchor),
+                    }) => format!(
+                        "{base}?c=~{}&a={}",
+                        percent_encode(chapter),
+                        percent_encode(anchor)
+                    ),
+                    _ => base,
+                }
+            }
             Route::BookChapter {
                 source,
                 chapter,
@@ -528,13 +545,30 @@ impl Route {
             Route::Entry { anchor, .. } | Route::BookChapter { anchor, .. } => {
                 anchor.as_deref().map(std::borrow::Cow::Borrowed)
             }
-            Route::Book {
-                chapter: Some(path),
-                ..
-            } if !path.is_empty() => Some(std::borrow::Cow::Owned(toc_id(path))),
             _ => None,
         }
     }
+}
+
+/// The Contents row that a book address marks. A `c` that starts with `~` names a chapter page by
+/// id and, with `a`, a row on it. Any other `c` is the old position, `3.2`. A chapter id that is
+/// digits and dots is still unambiguous, because the id always follows the `~`.
+fn parse_contents_row(query: &str) -> Option<ContentsRow> {
+    let (_, value) = query_pairs(query).find(|(k, _)| k == "c")?;
+    let Some(chapter) = value.strip_prefix('~') else {
+        return parse_chapter_path(&value).map(ContentsRow::Position);
+    };
+    if chapter.is_empty() {
+        return None;
+    }
+    let anchor = query_pairs(query)
+        .find(|(k, _)| k == "a")
+        .map(|(_, v)| v)
+        .filter(|v| !v.is_empty());
+    Some(ContentsRow::Stable {
+        chapter: chapter.to_string(),
+        anchor,
+    })
 }
 
 /// `3.2` for the 0-based path `[2, 1]`: the URL numbers chapters from 1, as a reader counts.
@@ -1393,11 +1427,12 @@ mod tests {
         round_trip(plain);
         let deep = Route::Book {
             source: "core-rulebook".into(),
-            chapter: Some(vec![6, 0, 11]),
+            chapter: Some(ContentsRow::Position(vec![6, 0, 11])),
         };
         assert_eq!(deep.href(), "#/browse/book/core-rulebook?c=7.1.12");
         round_trip(deep.clone());
-        assert_eq!(deep.anchor().as_deref(), Some("toc-7-1-12"));
+        // The page scrolls to the row itself once it has resolved the address.
+        assert_eq!(deep.anchor(), None);
         // Old links to a publication and links without a chapter still parse.
         assert_eq!(
             Route::parse("#/browse/book/core-rulebook?c="),
@@ -1427,6 +1462,47 @@ mod tests {
     }
 
     #[test]
+    fn a_contents_row_is_named_by_identity() {
+        let stable = |chapter: &str, anchor: Option<&str>| Route::Book {
+            source: "core-rulebook".into(),
+            chapter: Some(ContentsRow::Stable {
+                chapter: chapter.into(),
+                anchor: anchor.map(str::to_string),
+            }),
+        };
+        let row = stable("combat", Some("row-ref-rule-actions--h-full-attack"));
+        assert_eq!(
+            row.href(),
+            "#/browse/book/core-rulebook?c=~combat&a=row-ref-rule-actions--h-full-attack"
+        );
+        round_trip(row);
+        let chapter = stable("combat", None);
+        assert_eq!(chapter.href(), "#/browse/book/core-rulebook?c=~combat");
+        round_trip(chapter);
+        // A chapter id that reads as a position stays an id after the marker.
+        let numeric = stable("2", None);
+        assert_eq!(numeric.href(), "#/browse/book/core-rulebook?c=~2");
+        round_trip(numeric);
+        // Characters that a query reserves survive.
+        round_trip(stable("a&b/c", Some("row-x y")));
+        // A bare marker, or an anchor without a chapter, names no row.
+        for bad in ["~", "", "a=row-x"] {
+            let Route::Book { chapter, .. } =
+                Route::parse(&format!("#/browse/book/core-rulebook?c={bad}"))
+            else {
+                panic!("a book route");
+            };
+            assert_eq!(chapter, None, "{bad}");
+        }
+        let Route::Book { chapter, .. } =
+            Route::parse("#/browse/book/core-rulebook?a=row-ref-class-ranger")
+        else {
+            panic!("a book route");
+        };
+        assert_eq!(chapter, None);
+    }
+
+    #[test]
     fn a_retired_book_id_opens_the_surviving_book() {
         // The corpus once exported the GameMastery Guide under two book ids. The old
         // address keeps opening the one book record.
@@ -1441,7 +1517,7 @@ mod tests {
             Route::parse("#/browse/book/gamemastery-guide?c=7.1"),
             Route::Book {
                 source: "game-mastery-guide".into(),
-                chapter: Some(vec![6, 0])
+                chapter: Some(ContentsRow::Position(vec![6, 0]))
             }
         );
         assert_eq!(

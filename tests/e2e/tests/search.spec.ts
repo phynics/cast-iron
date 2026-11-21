@@ -1543,6 +1543,38 @@ installedTest("A saved book section address from before stable anchors opens the
   await expect(page).toHaveURL(new RegExp(`/${chapterId}$`));
 });
 
+installedTest("A saved book section Contents address from before stable rows opens the row it named (#550)", async ({ page }) => {
+  // `?c=2.26` named a row of the Contents page by its place in the tree. In corpus v0.1.31 that
+  // place held Ranger; v0.1.33 moved other rows in front of it, so read by position the address
+  // marks another class. The library keeps the table of published addresses, so the old address
+  // opens Ranger, and is rewritten to the stable form that later pins do not move.
+  await installLibrary(page);
+  const marked = page.locator(".toc [aria-current='location']");
+  await page.goto("#/browse/book/blood-of-the-beast?c=2.26");
+  await expect(page).toHaveURL(/\?c=~unpaged&a=row-ref-class-ranger$/);
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toContainText("Ranger");
+  await expect(marked).toBeInViewport();
+
+  // The stable address opens the same row, and the old Rogue address the next one.
+  await page.goto("#/browse/book/blood-of-the-beast?c=~unpaged&a=row-ref-class-ranger");
+  await expect(marked).toContainText("Ranger");
+  await page.goto("#/browse/book/blood-of-the-beast?c=2.27");
+  await expect(page).toHaveURL(/\?c=~unpaged&a=row-ref-class-rogue$/);
+  await expect(marked).toContainText("Rogue");
+
+  // A chapter row keeps its chapter, whatever its place now is.
+  await page.goto("#/browse/book/blood-of-the-beast?c=2");
+  await expect(page).toHaveURL(/\?c=~unpaged$/);
+  await expect(marked).toContainText("Unpaged");
+
+  // An address that no published tree made opens the top of Contents, with nothing marked.
+  await page.goto("#/browse/book/blood-of-the-beast?c=2.999");
+  await expect(page.locator(".toc")).toBeVisible();
+  await expect(page).toHaveURL(/blood-of-the-beast$/);
+  await expect(marked).toHaveCount(0);
+});
+
 installedTest("A query that matches only book sections lists them open, with the count and the cap", async ({ page }) => {
   // A section title that no entry's title or text contains, so the results hold sections alone.
   const entryText = [...corpus.entries.values()]

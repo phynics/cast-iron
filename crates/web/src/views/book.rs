@@ -4,8 +4,9 @@
 //! Nothing in this module sorts. Every list below follows the draft order in `books.json`.
 //! Contents leaves out every kind that has its own list page and the `In this book` links reach
 //! (see `cast_iron_schema::books::LEAVE_OUT_LINKED_KINDS`); the page keeps every chapter's real
-//! path, so a chapter link,
-//! `c=3.2` in the address and the trail above an entry all mean what they meant.
+//! path, so a chapter link and the trail above an entry mean what they meant. A `?c=` address
+//! names its row by identity (`ContentsRow`); an old one that holds a position resolves through
+//! the library's legacy table.
 //!
 //! A corpus-marked node collapses to one row at any level. Otherwise a node below chapter level
 //! that is itself an entry collapses when its own page lists every entry below it
@@ -22,13 +23,14 @@ use crate::views::icons;
 use crate::views::sources::aon_line;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
-    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents,
-    legacy_anchor_path, listed_children, listed_under, resolve_legacy_anchor, section_anchors,
+    ChapterRow, ContentsRow, Hide, chapter_rows as schema_chapter_rows, contents_row,
+    hidden_from_contents, legacy_anchor_path, listed_children, listed_under, resolve_contents_row,
+    resolve_legacy_anchor, section_anchors,
 };
-use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind, LegacySections};
+use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind, LegacyBook, LegacySections};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 /// Distinct entries that a book's contents tree reaches. Every placement counts once, whether
 /// or not the book is active and whether or not the entry's first placement is another book.
@@ -53,8 +55,8 @@ pub fn kinds_in_book(counts: &[(EntryKind, usize)]) -> Vec<(EntryKind, usize)> {
     primary.into_iter().chain(more).collect()
 }
 
-/// The chapter path that a route asks for.
-fn chapter_of(route: &Route, source: &str) -> Option<Vec<usize>> {
+/// The Contents row that a route marks.
+fn chapter_of(route: &Route, source: &str) -> Option<ContentsRow> {
     match route {
         Route::Book {
             source: s,
@@ -345,7 +347,8 @@ pub fn ChapterView(
             let Some(tree) = books.book(&source) else {
                 return;
             };
-            let rows = legacy_rows(library.legacy_sections().await, &source);
+            let rows =
+                legacy_rows(library.legacy_sections().await, &source).map(|book| book.sections);
             let hide = |id: &EntryId| {
                 library
                     .stub(id)
@@ -560,7 +563,8 @@ fn chapter_list_item(
     walk(node, source, hide, &mut path, anchors)
 }
 
-/// The rows of the legacy table for `source`, as `resolve_legacy_anchor` takes them.
+/// The rows of the legacy table for `source`, as `resolve_legacy_anchor` and
+/// `resolve_contents_row` take them.
 ///
 /// `Ok(None)` is a library without the table: `None`, which resolves an old address against the
 /// library's own tree. A table that exists but could not be read is an empty table, never `None`:
@@ -569,11 +573,11 @@ fn chapter_list_item(
 fn legacy_rows<E>(
     table: Result<Option<std::rc::Rc<LegacySections>>, E>,
     source: &str,
-) -> Option<BTreeMap<String, String>> {
+) -> Option<LegacyBook> {
     match table {
-        Ok(Some(table)) => Some(table.books.get(source).cloned().unwrap_or_default()),
+        Ok(Some(table)) => Some(table.book(source)),
         Ok(None) => None,
-        Err(_) => Some(BTreeMap::new()),
+        Err(_) => Some(LegacyBook::default()),
     }
 }
 
@@ -604,7 +608,7 @@ fn Contents(
     lookup: Shared<BookLookup>,
     library: Library,
     book: usize,
-    target: RwSignal<Option<Vec<usize>>>,
+    target: RwSignal<Option<ContentsRow>>,
     /// Whether `In this book` has a list-page link to offer. A book with no chapters and no
     /// links has nothing to show, and says so.
     has_kind_links: bool,
@@ -618,6 +622,7 @@ fn Contents(
             .stub(id)
             .is_some_and(|stub| hidden_from_contents(stub.kind))
     };
+    let target = resolve_target(lookup.clone(), library.clone(), book, target);
     let chapters = chapter_rows(tree, &hide);
     let review = review_line(&tree.review);
     if chapters.is_empty() {
@@ -640,6 +645,78 @@ fn Contents(
         </nav>
     }
     .into_any()
+}
+
+/// The path of the row that the address marks, in the tree that is loaded. A stable address
+/// resolves at once. An old positional one (`?c=3.2`) needs the library's legacy table, so it
+/// resolves when the table has loaded, and then the address is replaced by the stable form of the
+/// row, or by the plain book address when the row has left the book. The path scrolls into view
+/// when it changes.
+fn resolve_target(
+    lookup: Shared<BookLookup>,
+    library: Library,
+    book: usize,
+    target: RwSignal<Option<ContentsRow>>,
+) -> RwSignal<Option<Vec<usize>>> {
+    let resolved = RwSignal::new(None::<Vec<usize>>);
+    let current = use_route();
+    Effect::new(move |_| {
+        let row = target.get();
+        resolved.set(None);
+        let Some(row) = row else {
+            return;
+        };
+        let Some(tree) = lookup.book_at(book) else {
+            return;
+        };
+        let hide = |id: &EntryId| {
+            library
+                .stub(id)
+                .is_some_and(|stub| hidden_from_contents(stub.kind))
+        };
+        let ContentsRow::Position(_) = &row else {
+            resolved.set(resolve_contents_row(tree, &hide, None, &row));
+            return;
+        };
+        let (lookup, library) = (lookup.clone(), library.clone());
+        spawn_local(async move {
+            let Some(tree) = lookup.book_at(book) else {
+                return;
+            };
+            let source = tree.source.clone();
+            let rows = legacy_rows(library.legacy_sections().await, &source);
+            let hide = |id: &EntryId| {
+                library
+                    .stub(id)
+                    .is_some_and(|stub| hidden_from_contents(stub.kind))
+            };
+            let path = resolve_contents_row(tree, &hide, rows.as_ref(), &row);
+            // The table can load slowly. The reader may have gone Back or followed a link
+            // meanwhile, and a `replace` now would overwrite that page.
+            let here = Route::Book {
+                source: source.clone(),
+                chapter: Some(row),
+            };
+            if current.get_untracked() != here {
+                return;
+            }
+            let stable = path
+                .as_deref()
+                .and_then(|path| contents_row(tree, &hide, path));
+            replace(&Route::Book {
+                source,
+                chapter: stable,
+            });
+        });
+    });
+    Effect::new(move |_| {
+        if let Some(path) = resolved.get() {
+            request_animation_frame(move || {
+                crate::route::scroll_to_anchor(&toc_id(&path));
+            });
+        }
+    });
+    resolved
 }
 
 /// One row of the contents. Every branch is expanded: a nested list carries its children, so the
@@ -840,9 +917,16 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             for depth in 1..trail.len() {
                 let path = trail[..depth].to_vec();
                 if let Some(node) = node_at(book, &path) {
+                    // The stable form of the row, so a link that is shared or saved from this
+                    // trail survives the next pin. A row the walk does not reach keeps no marker.
+                    let hide = |id: &EntryId| {
+                        library
+                            .stub(id)
+                            .is_some_and(|stub| hidden_from_contents(stub.kind))
+                    };
                     let href = Route::Book {
                         source: source.clone(),
-                        chapter: Some(path),
+                        chapter: contents_row(book, &hide, &path),
                     }
                     .href();
                     crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&node.title)}</a></li> }.into_any());
@@ -912,20 +996,29 @@ mod tests {
                 [("toc-2-1".to_string(), "row-x".to_string())].into(),
             )]
             .into(),
+            chapters: [(
+                "b".to_string(),
+                [("toc-2".to_string(), "classes".to_string())].into(),
+            )]
+            .into(),
         };
         let rc = std::rc::Rc::new(table);
-        // The table lists the book: its rows.
+        // The table lists the book: its rows and its chapter rows.
         let rows = legacy_rows::<()>(Ok(Some(rc.clone())), "b").unwrap();
-        assert_eq!(rows["toc-2-1"], "row-x");
+        assert_eq!(rows.sections["toc-2-1"], "row-x");
+        assert_eq!(rows.chapters["toc-2"], "classes");
         // The table lacks the book: no row resolves, so every address opens its chapter.
         assert_eq!(
             legacy_rows::<()>(Ok(Some(rc)), "other"),
-            Some(BTreeMap::new())
+            Some(LegacyBook::default())
         );
         // A library without the table resolves against its own tree.
         assert_eq!(legacy_rows::<()>(Ok(None), "b"), None);
         // A table that is listed but cannot be read is empty, not absent.
-        assert_eq!(legacy_rows(Err("corrupt"), "b"), Some(BTreeMap::new()));
+        assert_eq!(
+            legacy_rows(Err("corrupt"), "b"),
+            Some(LegacyBook::default())
+        );
     }
     use cast_iron_schema::books::{contents_roots, linked_kind, shows_in_contents};
 
@@ -1229,11 +1322,14 @@ mod tests {
 
     #[test]
     fn only_a_chapter_change_inside_one_book_keeps_the_page_mounted() {
-        let book = |source: &str, chapter: Option<Vec<usize>>| Route::Book {
+        let book = |source: &str, chapter: Option<ContentsRow>| Route::Book {
             source: source.into(),
             chapter,
         };
-        assert!(same_book(&book("a", None), &book("a", Some(vec![1]))));
+        assert!(same_book(
+            &book("a", None),
+            &book("a", Some(ContentsRow::Position(vec![1])))
+        ));
         assert!(!same_book(&book("a", None), &book("b", None)));
         assert!(!same_book(&Route::Home, &book("a", None)));
     }
@@ -1242,9 +1338,12 @@ mod tests {
     fn the_chapter_of_a_route_belongs_to_its_own_book() {
         let route = Route::Book {
             source: "a".into(),
-            chapter: Some(vec![2]),
+            chapter: Some(ContentsRow::Position(vec![2])),
         };
-        assert_eq!(chapter_of(&route, "a"), Some(vec![2]));
+        assert_eq!(
+            chapter_of(&route, "a"),
+            Some(ContentsRow::Position(vec![2]))
+        );
         assert_eq!(chapter_of(&route, "b"), None);
         assert_eq!(chapter_of(&Route::Home, "a"), None);
     }

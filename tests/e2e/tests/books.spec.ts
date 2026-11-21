@@ -3,6 +3,7 @@ import {
   bookPlacements,
   bookReadingOrder,
   bookTrees,
+  chapterIds,
   CONTENTS_HIDDEN_KINDS,
   installLibrary,
   isMember,
@@ -984,9 +985,12 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   // No row on the page carries a flag or a note about its position.
   await expect(page.locator(".toc-flag, .toc-note")).toHaveCount(0);
 
-  // A `?c=` address still marks the row it names, without a disclosure.
+  // A `?c=` address marks the row it names, without a disclosure. It names the chapter by its
+  // permanent id, so a pin that moves the row does not change what it opens.
   const firstListed = listedTop[0];
-  await page.goto(`#/browse/book/${book.source}?c=1`);
-  await expect(page.locator("#toc-1")).toHaveAttribute("aria-current", "location");
-  await expect(page.locator("#toc-1")).toContainText(firstListed.title);
+  const first = chapterIds(book)[0];
+  await page.goto(`#/browse/book/${book.source}?c=~${encodeURIComponent(first.id)}`);
+  const firstRow = page.locator(`#toc-${first.path[0] + 1}`);
+  await expect(firstRow).toHaveAttribute("aria-current", "location");
+  await expect(firstRow).toContainText(firstListed.title);
 });

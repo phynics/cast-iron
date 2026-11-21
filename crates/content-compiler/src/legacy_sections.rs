@@ -11,7 +11,7 @@
 //! `legacy-sections.json` and reports how many rows still find their row.
 
 use cast_iron_schema::books::{
-    SECTION_ANCHOR_PREFIX, hidden_from_contents, legacy_anchor_path, locate_section,
+    SECTION_ANCHOR_PREFIX, chapter_rows, hidden_from_contents, legacy_anchor_path, locate_section,
 };
 use cast_iron_schema::{
     BookIndex, EntryId, EntryKind, LEGACY_SECTIONS_FORMAT, LegacySections, RuleEntry,
@@ -40,6 +40,20 @@ pub fn parse(bytes: &[u8]) -> Result<LegacySections, Vec<String>> {
             if !new.starts_with(SECTION_ANCHOR_PREFIX) {
                 problems.push(format!(
                     "legacy-sections.json: {book}: {old} maps to {new:?}, which is not a stable anchor"
+                ));
+            }
+        }
+    }
+    for (book, rows) in &table.chapters {
+        for (old, chapter) in rows {
+            if legacy_anchor_path(old).is_none_or(|path| path.len() != 1) {
+                problems.push(format!(
+                    "legacy-sections.json: {book}: {old:?} is not the positional anchor of a chapter row"
+                ));
+            }
+            if chapter.is_empty() {
+                problems.push(format!(
+                    "legacy-sections.json: {book}: {old} maps to an empty chapter id"
                 ));
             }
         }
@@ -80,6 +94,37 @@ pub fn coverage(
     (rows, found)
 }
 
+/// How many chapter rows the table holds, and how many of those chapter ids still name a chapter
+/// page of the current books: the rows that `?c=3` opens in Contents.
+pub fn chapter_coverage(
+    table: &LegacySections,
+    books: &BookIndex,
+    entries: &[RuleEntry],
+) -> (usize, usize) {
+    let kinds: BTreeMap<&EntryId, EntryKind> = entries
+        .iter()
+        .map(|entry| (&entry.id, entry.kind))
+        .collect();
+    let hide = |id: &EntryId| {
+        kinds
+            .get(id)
+            .is_some_and(|kind| hidden_from_contents(*kind))
+    };
+    let (mut rows, mut found) = (0, 0);
+    for (source, table_rows) in &table.chapters {
+        rows += table_rows.len();
+        let Some(book) = books.books.iter().find(|book| &book.source == source) else {
+            continue;
+        };
+        let current = chapter_rows(book, &hide);
+        found += table_rows
+            .values()
+            .filter(|id| current.iter().any(|row| &row.id == *id))
+            .count();
+    }
+    (rows, found)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -101,6 +146,27 @@ mod tests {
         let book = &table.books["blood-of-the-beast"];
         assert_eq!(book["toc-2-26"], "row-ref-class-ranger");
         assert_eq!(book["toc-2-27"], "row-ref-class-rogue");
+        // The Contents rows of the same book: its second chapter row is the Classes page.
+        assert!(table.chapters["blood-of-the-beast"].contains_key("toc-2"));
+    }
+
+    #[test]
+    fn a_chapter_row_must_be_a_top_level_positional_anchor_with_an_id() {
+        let problems = parse(&table(
+            r#"{"format":1,"books":{},"chapters":{"b":{"toc-1":"classes","toc-1-2":"x","row-y":"z","toc-3":""}}}"#,
+        ))
+        .unwrap_err();
+        assert_eq!(problems.len(), 3, "{problems:?}");
+        assert!(
+            problems.iter().any(|p| p.contains("toc-1-2")),
+            "{problems:?}"
+        );
+        assert!(
+            problems.iter().any(|p| p.contains("empty chapter id")),
+            "{problems:?}"
+        );
+        // A table without the key (made before Contents addresses followed the row) still reads.
+        assert!(parse(&table(r#"{"format":1,"books":{}}"#)).is_ok());
     }
 
     #[test]

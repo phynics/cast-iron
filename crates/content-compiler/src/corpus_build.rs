@@ -195,6 +195,11 @@ pub fn build_with_slots(
                 "legacy section addresses: {found} of {rows} still open their row; the other {} open their chapter",
                 rows - found
             ));
+            let (rows, found) = crate::legacy_sections::chapter_coverage(&table, &books, &entries);
+            notes.push(format!(
+                "legacy contents addresses: {found} of {rows} chapter rows still open their chapter; the other {} open the top of Contents",
+                rows - found
+            ));
             Some(bytes)
         }
         None => None,
