@@ -1133,6 +1133,27 @@ warning until the corpus repository has rewritten its class options (phynics/cas
 The app pull request that pins the rewritten corpus turns it into an error, except for the powers
 that #88 still queues for print review in its resolutions file.
 
+### Class-option residue
+
+The retired upstream import left eight defects in class-option entries. The corpus repository fixed
+them (phynics/cast-iron-data#95), and `corpus-check` now fails when one comes back. Each is an error
+that names the path, line, entry id and defect slug:
+
+| Slug | What it is |
+|---|---|
+| `skill-code` | A `Gained class skills:` or `Lost class skills:` value that is an upstream skill code (`kd`, `stl`, `perf\|dance`) |
+| `spell-no-level` | A `Spells:` row that does not end in its granted level, such as `(3rd)` |
+| `spell-order` | A run of `Spells:` and `Cantrips:` rows whose stated levels are not ascending |
+| `key-tilde` | A `**Key:** ~` row: the import's line-break marker |
+| `misplaced-title` | A `Title:` row directly after a `Details:` row |
+| `bonus-feats-glue` | A `Details:` row followed by a `Title:` row whose feat links have no separator |
+| `import-key` | An `Id:`, `From:` or `Save: domain` row |
+| `glued-modifier` | A `Usage:` row such as `Charisma3 modifier times/day` |
+
+Only top-level paragraphs of `class_option` entries are scanned. A literal `~` inside prose and a
+numbered effect label such as `Ability2` are not residue guards: the first is report-only in the
+corpus survey, and the power validator above reports the second.
+
 ## Formatting
 
 `corpus-fmt <dir>` rewrites every file into its one canonical form, and
