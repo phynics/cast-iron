@@ -73,8 +73,7 @@ pub fn aon_line(path: Option<&str>) -> AnyView {
                 on:click=copy>
                 "Copy link"
             </button>
-            <span class="aon-copy-status" role="status" aria-live="polite"
-                data-testid="aon-copy-status">{move || status.get()}</span>
+            <span class="aon-copy-status" role="status" data-testid="aon-copy-status">{move || status.get()}</span>
         </p>
     }
     .into_any()
