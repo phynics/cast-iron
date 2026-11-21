@@ -10,6 +10,7 @@ use crate::route::Route;
 use crate::views::icons;
 use cast_iron_schema::{Citation, EntryId, Expansion};
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 
 /// The Archives of Nethys base. Every stored `aon` value is a path below it.
 pub const AON_BASE: &str = "https://aonprd.com/";
@@ -25,14 +26,39 @@ pub fn aon_href(path: Option<&str>) -> Option<String> {
         .map(|path| format!("{AON_BASE}{path}"))
 }
 
+/// What the status line says after a tap on `Copy link`.
+pub fn copy_status(copied: bool) -> &'static str {
+    if copied {
+        "Link copied."
+    } else {
+        "Could not copy. Press and hold the link to copy it."
+    }
+}
+
 /// The quiet `View on Archives of Nethys` line, in the Metadata role, directly under the
 /// Sources line. Nothing when the record has no stored path.
 ///
 /// The link opens in the device browser and fetches nothing itself, so reading stays offline.
 /// The wording names the reference site and never implies official status (AGENTS.md rule 11).
+/// It is a plain `target="_blank"` anchor with no handler: an installed app opens it in the
+/// platform's own in-app browser, which no page script can change (#514, see
+/// `docs/decisions/2026-11-21-aon-link-copy-action.md`). `Copy link` is the way out to any
+/// browser the reader likes; it writes the URL to the clipboard and makes no request.
 pub fn aon_line(path: Option<&str>) -> AnyView {
     let Some(href) = aon_href(path) else {
         return ().into_any();
+    };
+    let status = RwSignal::new(String::new());
+    let copy = {
+        let href = href.clone();
+        move |_| {
+            status.set(String::new());
+            let href = href.clone();
+            spawn_local(async move {
+                let line = copy_status(crate::js::copy_text(&href).await.is_ok());
+                status.try_set(line.to_string());
+            });
+        }
     };
     view! {
         <p class="aon-line">
@@ -42,6 +68,12 @@ pub fn aon_line(path: Option<&str>) -> AnyView {
                 {icons::external_link()}
                 <span class="sr-only">" (opens in a new tab)"</span>
             </a>
+            <span class="meta-sep" aria-hidden="true">" · "</span>
+            <button type="button" class="meta-link aon-copy" data-testid="aon-copy"
+                on:click=copy>
+                "Copy link"
+            </button>
+            <span class="aon-copy-status" role="status" data-testid="aon-copy-status">{move || status.get()}</span>
         </p>
     }
     .into_any()
@@ -278,6 +310,12 @@ pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn copy_status_names_the_outcome_and_the_fallback() {
+        assert_eq!(copy_status(true), "Link copied.");
+        assert!(copy_status(false).contains("Press and hold the link"));
+    }
 
     fn citation(publication: &str, page: Option<&str>) -> Citation {
         Citation {

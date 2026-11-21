@@ -1,8 +1,8 @@
 ---
 title: "The AoN link opens where the platform decides; the app keeps a plain target=_blank anchor"
 date: 2026-11-19
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-21-aon-link-copy-action"]
 issues: [514]
 prs: []
 area: ui
