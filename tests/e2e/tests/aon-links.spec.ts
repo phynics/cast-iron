@@ -245,3 +245,106 @@ test("Tapping the link opens a separate page and leaves the app on its entry", a
   guard.external.length = 0;
   await opened.close();
 });
+
+/**
+ * Neither Android (a Custom Tab) nor iOS (Safari View Controller) lets a page choose the browser
+ * (docs/decisions/2026-11-21-aon-link-copy-action.md), so `Copy link` puts the same URL on the
+ * clipboard for any browser. It makes no request, and it does not move the app.
+ */
+test("Copy link puts the stored URL on the clipboard and makes no request", async ({
+  page,
+  context,
+  guard,
+  browserName,
+}) => {
+  // Only Chromium lets a test grant the clipboard. Other browsers still run the click and status.
+  if (browserName === "chromium") {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  }
+  const tapped: string[] = [];
+  await context.route("https://aonprd.com/**", (route) => {
+    tapped.push(route.request().url());
+    return route.abort();
+  });
+
+  await page.goto(`#/entry/${POWER_ATTACK.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: POWER_ATTACK.title })).toBeVisible();
+  const appUrl = page.url();
+  const copy = page.getByRole("button", { name: "Copy link", exact: true });
+  await expect(copy).toHaveCount(1);
+  await expect(copy).toHaveAttribute("data-testid", "aon-copy");
+  const status = page.getByTestId("aon-copy-status");
+  await expect(status).toHaveText("");
+
+  const outcome = browserName === "chromium" ? "Link copied." : /^(Link copied\.|Could not copy\.)/;
+  await copy.click();
+  await expect(status).toHaveText(outcome);
+  if (browserName === "chromium") {
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      `https://aonprd.com/${POWER_ATTACK.aon}`,
+    );
+  }
+  // A second tap clears the line and sets it again.
+  await copy.click();
+  await expect(status).toHaveText(outcome);
+  expect(page.url(), "the app window keeps its address").toBe(appUrl);
+  expect(tapped, "copying makes no request to the reference site").toEqual([]);
+  await noAonResources(page);
+
+  // At a phone width the button keeps the 44 px target.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const target = await hitHeight(page, ".entry > .aon-line .aon-copy");
+  expect(target.hit, "the hit area reaches the 44 px target").toBeGreaterThanOrEqual(44);
+
+  // An entry without a stored path has neither the link nor the button.
+  await page.goto(`#/entry/${CASTING_CONDUIT.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: CASTING_CONDUIT.title })).toBeVisible();
+  await expect(page.getByTestId("aon-copy")).toHaveCount(0);
+
+  expect(guard.problems(), "console errors or third-party requests").toEqual([]);
+});
+
+/**
+ * The link and `Copy link` each expand their hit area past their text (`.meta-link::after`), and
+ * sit on one line. At a phone width each must still own a point 1 px inside its own edge, and the
+ * blocks above and below the line keep theirs.
+ */
+test("The AoN link and Copy link keep their own edges at a phone width", async ({ page, guard }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`#/entry/${DODGE.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: DODGE.title })).toBeVisible();
+
+  const owns = await page.evaluate(() => {
+    const link = document.querySelector(".entry > .aon-line a") as HTMLElement;
+    const button = document.querySelector(".entry > .aon-line .aon-copy") as HTMLElement;
+    const paragraph = document.querySelector(".entry > .sources-line") as HTMLElement;
+    const related = document.querySelector(".entry > #entry-related") as HTMLElement;
+    link.scrollIntoView({ block: "center" });
+    const ownedBy = (element: Element, x: number, y: number) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit !== null && (hit === element || element.contains(hit));
+    };
+    const a = link.getBoundingClientRect();
+    const b = button.getBoundingClientRect();
+    const block = paragraph.getBoundingClientRect();
+    const below = related.getBoundingClientRect();
+    const midA = a.y + a.height / 2;
+    const midB = b.y + b.height / 2;
+    return {
+      sameLine: Math.abs(midA - midB) < a.height,
+      linkRight: ownedBy(link, a.right - 1, midA),
+      buttonLeft: ownedBy(button, b.left + 1, midB),
+      buttonRight: ownedBy(button, b.right - 1, midB),
+      citationBlockEdge: ownedBy(paragraph, block.x + block.width / 2, block.bottom - 1),
+      relatedEdge: ownedBy(related, below.x + 20, below.top),
+    };
+  });
+  expect(owns.sameLine, "the link and the button share a line at 390 px").toBe(true);
+  expect(owns.linkRight, "the link owns a point 1 px inside its right edge").toBe(true);
+  expect(owns.buttonLeft, "the button owns a point 1 px inside its left edge").toBe(true);
+  expect(owns.buttonRight, "the button owns a point 1 px inside its right edge").toBe(true);
+  expect(owns.citationBlockEdge, "the citation block owns its bottom edge").toBe(true);
+  expect(owns.relatedEdge, "the related panel owns its top edge").toBe(true);
+
+  expect(guard.problems(), "console errors or third-party requests").toEqual([]);
+});
