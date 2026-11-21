@@ -35,25 +35,27 @@ pub fn live_target(library: &Library, entry_id: &EntryId) -> Option<EntryId> {
     }
 }
 
-/// Whether the library's catalog lists the entry among the member books of `source`, active or
-/// not. An entry the catalog lacks is in no book.
-pub fn entry_in_book(library: &Library, entry_id: &EntryId, source: &str) -> bool {
-    library
-        .stub(entry_id)
-        .is_some_and(|stub| library.stub_is_in_source(stub, source))
+/// The first content schema whose catalog stubs list their member books (#394). An older
+/// stub has none, so the catalog cannot say that a book dropped an entry.
+const MEMBERSHIP_SCHEMA: u32 = 5;
+
+/// Whether a book still holds an entry, given the library's content schema and whether the
+/// catalog lists the entry among the book's members. A library older than schema 5 cannot say
+/// a book dropped the entry (a reader can keep one, because updates are never automatic), so it
+/// keeps every point and records every visit as before. Stale memberships only arise from a
+/// library that lists them.
+fn book_holds(schema_version: u32, listed: bool) -> bool {
+    schema_version < MEMBERSHIP_SCHEMA || listed
 }
 
-/// The points whose book still holds their entry, in their order. `in_book` answers for an
-/// already resolved entry id and book id. A point whose book dropped the entry is left out, and
-/// every other point passes unchanged.
-pub fn keep_member_points(
-    points: Vec<ContinuePoint>,
-    in_book: impl Fn(&EntryId, &str) -> bool,
-) -> Vec<ContinuePoint> {
-    points
-        .into_iter()
-        .filter(|point| in_book(&point.entry_id, &point.source))
-        .collect()
+/// Whether the library's catalog lists the entry among the member books of `source`, active or
+/// not. An entry the catalog lacks is in no book. A library without member books (schema 4 and
+/// older) says nothing against any book, so this holds there.
+pub fn entry_in_book(library: &Library, entry_id: &EntryId, source: &str) -> bool {
+    let listed = library
+        .stub(entry_id)
+        .is_some_and(|stub| library.stub_is_in_source(stub, source));
+    book_holds(library.manifest().schema_version, listed)
 }
 
 /// The book a visit may record a point under: the route's book while it still holds the entry,
@@ -71,14 +73,15 @@ pub fn recordable_book<'a>(
 /// missing entry.
 pub async fn load(library: &Library) -> Vec<ContinuePoint> {
     let stored = store::continue_points().await.unwrap_or_default();
-    let resolved =
-        store::resolve_continue_points(&stored, |entry_id| live_target(library, entry_id))
-            .into_iter()
-            .filter(|point| library.source(&point.source).is_some())
-            .collect();
-    keep_member_points(resolved, |entry_id, source| {
-        entry_in_book(library, entry_id, source)
-    })
+    // The book and entry checks run inside the resolution, before a book's newest point shadows
+    // an older one stored under a retired id of the same book.
+    store::resolve_continue_points(
+        &stored,
+        |entry_id| live_target(library, entry_id),
+        |entry_id, source| {
+            library.source(source).is_some() && entry_in_book(library, entry_id, source)
+        },
+    )
 }
 
 /// The point for one book, when the reader has one there.
@@ -107,22 +110,15 @@ mod tests {
     }
 
     #[test]
-    fn a_point_whose_book_dropped_the_entry_is_hidden_and_the_rest_keep_their_order() {
-        let points = vec![
-            point("b", "ref/rule/a", 3.0), // book b no longer holds a
-            point("a", "ref/rule/b", 2.0),
-            point("c", "ref/rule/b", 1.0), // book c never held b
-        ];
-        assert_eq!(
-            keep_member_points(points, holds),
-            [point("a", "ref/rule/b", 2.0)]
-        );
-    }
-
-    #[test]
-    fn a_point_whose_entry_and_book_still_match_is_never_lost() {
-        let points = vec![point("a", "ref/rule/a", 2.0), point("b", "ref/rule/b", 1.0)];
-        assert_eq!(keep_member_points(points.clone(), holds), points);
+    fn a_library_without_member_books_never_says_a_book_dropped_an_entry() {
+        // Schema 4 and older: the catalog has no member books, so an unlisted book proves nothing.
+        assert!(book_holds(4, false));
+        assert!(book_holds(4, true));
+        // Schema 5 and newer: the catalog is the authority.
+        assert!(!book_holds(5, false));
+        assert!(!book_holds(6, false));
+        assert!(book_holds(5, true));
+        assert!(book_holds(6, true));
     }
 
     #[test]
@@ -135,18 +131,7 @@ mod tests {
 
     #[test]
     fn a_point_is_found_by_its_book_and_not_by_another() {
-        let points = [
-            ContinuePoint {
-                source: "a".into(),
-                entry_id: EntryId::parse("ref/rule/a").unwrap(),
-                read_at: 2.0,
-            },
-            ContinuePoint {
-                source: "b".into(),
-                entry_id: EntryId::parse("ref/rule/b").unwrap(),
-                read_at: 1.0,
-            },
-        ];
+        let points = [point("a", "ref/rule/a", 2.0), point("b", "ref/rule/b", 1.0)];
         assert_eq!(
             for_book(&points, "a").map(|point| point.entry_id.as_str()),
             Some("ref/rule/a")
