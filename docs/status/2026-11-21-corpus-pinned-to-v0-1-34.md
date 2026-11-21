@@ -30,9 +30,13 @@ corpus changes on top of v0.1.33:
   than one effect row 25, unlabeled paragraph not after the effect 22, out of order 8, legacy
   label 5, legacy upgrade 5, numbered effect label 2, second singleton row 1. All 133 are in the
   review queue of the corpus (`scripts/class-option-power-queue.tsv`). The decision makes the check
-  an error at the pin of the rewritten corpus. **It stays a warning in this pin:** an error would
-  fail the corpus check on the 133 queued powers. Enforcement waits until the queue is resolved
-  (follow-up issue).
+  an error at the pin of the rewritten corpus. **It stays a warning in this pin:** the decision exempts queued
+  powers, but `check_powers.rs` cannot read the corpus queue yet, so an error would fail on the 133
+  queued powers. Enforcement waits until the queue is resolved
+  ([#557](https://github.com/phynics/cast-iron/issues/557)).
+
+Checks on this pin:
+
 - **Corpus-check result.** `ok`, 0 errors. The eight residue guards (#548), the spell-list marker
   check (#539) and the footnote checks passed. 142 warnings by kind: 133 class-option powers (above)
   and one summary line of them; 1 summary of 2,021 book memberships in 695 entries without a

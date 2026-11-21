@@ -5,7 +5,7 @@
 //! `cast_iron_schema::power` holds the one classifier and validator for it. This rule runs them on
 //! every `class_option` entry and reports each candidate that fails validation as a warning, with
 //! its path, line, entry id, power name and reasons. It is a warning until the corpus is rewritten
-//! (phynics/cast-iron-data#88); the pin of the rewritten corpus turns it into an error.
+//! (phynics/cast-iron-data#88); it stays a warning until the review queue is resolved (#557).
 
 use crate::check::{Report, body_text};
 use crate::load::{Corpus, Stored};

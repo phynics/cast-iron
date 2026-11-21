@@ -18,7 +18,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 - **`release` is at `622eaa6`**, published 2026-11-20: corpus `v0.1.31`, schema 6, index format 2 ([release entry](status/2026-11-20-release-622eaa6-corpus-v0-1-31-schema-6.md)). That is what Pages serves.
 - **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
-- **Before promoting a `main` that carries v0.1.34:** [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed on `main` by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). The class-option power check is still a warning for the 133 queued powers; making it an error waits until that queue is resolved.
+- **No open gate for v0.1.32–v0.1.34** beyond [releasing.md](releasing.md): [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed on `main` by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). The class-option power check is still a warning for the 133 queued powers; making it an error waits until that queue is resolved ([#557](https://github.com/phynics/cast-iron/issues/557)). It does not block promotion.
 
 ## Latest runs
 
