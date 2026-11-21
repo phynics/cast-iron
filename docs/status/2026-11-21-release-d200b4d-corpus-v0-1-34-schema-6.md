@@ -8,8 +8,8 @@ kind: release
 
 `release` was promoted from `622eaa6` to `d200b4d81c393b12674c8edd5087a61d19765e65` with
 `scripts/promote-release.py --push`, a fast-forward push. The library format does not change: schema 6 and
-search index format 2, as in the previous release. The range is 18 first-parent merges (pull requests #532 to
-#556; #532 is the record of the previous release). It carries three corpus pins, v0.1.32 (#533), v0.1.33 (#545)
+search index format 2, as in the previous release. The range is 18 first-parent merges (pull requests numbered #532 to
+#556, the gaps being issues; #532 is the record of the previous release). It carries three corpus pins, v0.1.32 (#533), v0.1.33 (#545)
 and v0.1.34 (#556) ([v0.1.32](2026-11-20-corpus-pinned-to-v0-1-32.md), [v0.1.33](2026-11-21-corpus-pinned-to-v0-1-33.md),
 [v0.1.34](2026-11-21-corpus-pinned-to-v0-1-34.md)), and app changes. The app shell changed in the range
 (`web/` and `crates/web`), so the shell stamp is new.
@@ -87,9 +87,7 @@ links; they did not compare layout or styling.
   between the runs.
 - **One WebKit page error.** The first complete WebKit run logged `pageerror: Context is stopped` and every check
   passed. The error has the signature that [#121](https://github.com/phynics/cast-iron/issues/121) describes
-  (a navigation that interrupts a read of the library cache). A second WebKit run was clean. The script navigates
-  while Home or Settings may still be warming caches, so this is probably the same cause, but it was not
-  isolated.
+  (a navigation that interrupts a read of the library cache). A second WebKit run was clean; the cause was not isolated.
 
 **Not run.**
 
