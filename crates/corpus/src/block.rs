@@ -370,7 +370,7 @@ fn parse_lines_at(path: &Path, lines: &[Line]) -> Result<(Vec<Block>, Vec<usize>
     Ok((blocks, starts))
 }
 
-fn is_blank(text: &str) -> bool {
+pub(crate) fn is_blank(text: &str) -> bool {
     // Only the ASCII blank characters separate blocks. Unicode spaces such as a
     // non-breaking space are content and must survive as a paragraph.
     text.chars().all(|ch| ch == ' ' || ch == '\t')
@@ -453,11 +453,11 @@ fn parse_paragraph(path: &Path, lines: &[Line], index: usize) -> Result<(Block, 
     ))
 }
 
-fn is_unordered_item(text: &str) -> bool {
+pub(crate) fn is_unordered_item(text: &str) -> bool {
     text == "-" || text.starts_with("- ")
 }
 
-fn is_ordered_item(text: &str) -> bool {
+pub(crate) fn is_ordered_item(text: &str) -> bool {
     let digits = text.chars().take_while(char::is_ascii_digit).count();
     let rest = &text[digits..];
     digits > 0 && (rest == "." || rest.starts_with(". "))
@@ -523,7 +523,7 @@ fn parse_list(path: &Path, lines: &[Line], index: usize) -> Result<(Block, usize
     Ok((Block::List { ordered, items }, cursor))
 }
 
-fn indent_of(text: &str) -> usize {
+pub(crate) fn indent_of(text: &str) -> usize {
     text.chars().take_while(|ch| *ch == ' ').count()
 }
 

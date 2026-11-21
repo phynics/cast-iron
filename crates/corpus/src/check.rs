@@ -158,6 +158,253 @@ fn upstream_markup_tokens(text: &str) -> Vec<(usize, String)> {
     out
 }
 
+/// The headings of the spell sections of a creature entry. The list items under one of them, up
+/// to the next heading, are the spell-list items.
+const SPELL_SECTIONS: [&str; 5] = [
+    "Spell-Like Abilities",
+    "Spells Known",
+    "Prepared Spells",
+    "Psychic Magic",
+    "Spellcasting",
+];
+
+/// The name inside a bold-only line (`**Spell-Like Abilities**`, `**Per day:**`).
+fn bold_only(line: &str) -> Option<&str> {
+    let inner = line
+        .trim_end_matches([' ', '\t'])
+        .strip_prefix("**")?
+        .strip_suffix("**")?;
+    (!inner.is_empty() && !inner.contains('*')).then_some(inner)
+}
+
+/// The byte ranges (and 1-based start lines) of the spell-list items of a creature body: the
+/// list items under a spell-section heading, each with the lines that belong to it.
+///
+/// Items start and continue by the rules of the corpus reader (`block.rs`): an unindented `-` or
+/// `1.` line starts an item, and the item holds every following line that is indented two spaces
+/// or more, including a blank line when the line after it is indented. A nested list and the
+/// text after a blank line are part of the item.
+fn spell_list_items(body: &str) -> Vec<(usize, usize, usize)> {
+    use crate::block::{indent_of, is_blank, is_ordered_item, is_unordered_item};
+    let mut lines = Vec::new();
+    let mut offset = 0;
+    for line in body.split('\n') {
+        lines.push((offset, line));
+        offset += line.len() + 1;
+    }
+    let mut items = Vec::new();
+    let mut in_section = false;
+    let mut index = 0;
+    while index < lines.len() {
+        let (start, line) = lines[index];
+        let bold = bold_only(line);
+        if line.starts_with('#') || bold.is_some_and(|name| !name.trim_end().ends_with(':')) {
+            in_section = bold.is_some_and(|name| SPELL_SECTIONS.contains(&name.trim()));
+            index += 1;
+        } else if in_section && (is_unordered_item(line) || is_ordered_item(line)) {
+            let mut end = start + line.len();
+            let mut next = index + 1;
+            while let Some(&(at, text)) = lines.get(next) {
+                if is_blank(text) {
+                    if lines
+                        .get(next + 1)
+                        .is_some_and(|(_, after)| indent_of(after) >= 2)
+                    {
+                        next += 1;
+                        continue;
+                    }
+                    break;
+                }
+                if indent_of(text) < 2 {
+                    break;
+                }
+                end = at + text.len();
+                next += 1;
+            }
+            items.push((start, end, index + 1));
+            index = next;
+        } else {
+            index += 1;
+        }
+    }
+    items
+}
+
+/// The length in bytes of the bare URL that starts `text` (`http://` or `https://`). The URL
+/// ends at Unicode whitespace, at `<` or `>`, and at a `)` or `]` that closes nothing the URL
+/// opened, so `https://e.test/a(b)?x=` keeps its parentheses and `(see https://e.test/)` does not.
+fn url_length(text: &str) -> usize {
+    let (mut parens, mut brackets) = (0usize, 0usize);
+    for (at, c) in text.char_indices() {
+        match c {
+            c if c.is_whitespace() => return at,
+            '<' | '>' => return at,
+            '(' => parens += 1,
+            ')' if parens == 0 => return at,
+            ')' => parens -= 1,
+            '[' => brackets += 1,
+            ']' if brackets == 0 => return at,
+            ']' => brackets -= 1,
+            _ => {}
+        }
+    }
+    text.len()
+}
+
+/// Whether `inner`, the text between `<` and `>`, has the shape of a CommonMark autolink: an
+/// absolute URI (`scheme:rest`, a scheme of 2 to 32 letters, digits, `+`, `.`, `-` that starts
+/// with a letter) or an email address. `<&Q>` is neither, and the corpus reader keeps it as text.
+fn is_autolink(inner: &str) -> bool {
+    if let Some((scheme, rest)) = inner.split_once(':') {
+        let mut chars = scheme.chars();
+        let scheme_ok = (2..=32).contains(&scheme.chars().count())
+            && chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+            && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'));
+        if scheme_ok && !rest.chars().any(|c| c.is_control() || c.is_whitespace()) {
+            return true;
+        }
+    }
+    let Some((local, domain)) = inner.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && local
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".!#$%&'*+/=?^_`{|}~-".contains(c))
+        && domain.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        })
+}
+
+/// Which bytes of `text` are literal text: code spans, link targets (`](...)`), bare URLs and
+/// autolinks. A marker-shaped sequence there is not a marker (`?x=&Q`).
+fn literal_bytes(text: &str) -> Vec<bool> {
+    let bytes = text.as_bytes();
+    let mut mask = vec![false; bytes.len()];
+    let mut i = 0;
+    while i < bytes.len() {
+        let mut span_end = None;
+        match bytes[i] {
+            b'\\' => {
+                i += 2;
+                continue;
+            }
+            b'`' => {
+                let run = bytes[i..].iter().take_while(|b| **b == b'`').count();
+                let mut j = i + run;
+                while j < bytes.len() {
+                    let next = bytes[j..].iter().take_while(|b| **b == b'`').count();
+                    if next == run {
+                        span_end = Some(j + run);
+                        break;
+                    }
+                    j += next.max(1);
+                }
+                if span_end.is_none() {
+                    i += run;
+                    continue;
+                }
+            }
+            b']' if bytes.get(i + 1) == Some(&b'(') => {
+                // The target runs to the `)` that balances the `(`, on the same line.
+                let mut depth = 0usize;
+                let mut j = i + 1;
+                while j < bytes.len() && bytes[j] != b'\n' {
+                    match bytes[j] {
+                        b'\\' => j += 1,
+                        b'(' => depth += 1,
+                        b')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                span_end = Some(j + 1);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
+            }
+            b'h' if bytes[i..].starts_with(b"http://") || bytes[i..].starts_with(b"https://") => {
+                span_end = Some(i + url_length(&text[i..]));
+            }
+            b'<' => {
+                let inner = &text[i + 1..];
+                span_end = inner
+                    .char_indices()
+                    .find(|(_, c)| c.is_whitespace() || matches!(c, '<' | '>'))
+                    .filter(|(at, c)| *c == '>' && is_autolink(&inner[..*at]))
+                    .map(|(at, _)| i + 1 + at + 1);
+            }
+            _ => {}
+        }
+        match span_end {
+            Some(end) => {
+                mask[i..end].iter_mut().for_each(|b| *b = true);
+                i = end;
+            }
+            None => i += 1,
+        }
+    }
+    mask
+}
+
+/// Left-over spell-list markers in the body of a creature entry: the upstream import wrote the
+/// metamagic and summon entries of monster spell-like ability lists as `&Q`, `&EM`, `&EX` and
+/// `&S`, where the books print `quickened`, `empowered`, `extended` and `summon (level N, ...)`.
+/// Returns each marker with its 1-based body line and the wording that replaces it.
+///
+/// Only the spell-list items count (see [`spell_list_items`]). A `&` starts a marker when no
+/// letter, digit, `_`, `&` or backslash comes before it and no letter, digit, `_` or `&` comes
+/// after the letters (Unicode letters count), so `AT&T`, `&Sword`, `&Séance`, `\&Q` and the
+/// upstream token `&Q&` are not markers. Code spans, link targets, URLs and autolinks are
+/// skipped.
+fn spell_list_markers(body: &str) -> Vec<(usize, &'static str, &'static str)> {
+    const MARKERS: [(&str, &str); 4] = [
+        ("&EM", "empowered"),
+        ("&EX", "extended"),
+        ("&Q", "quickened"),
+        ("&S", "summon (level N, ...)"),
+    ];
+    let word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut out = Vec::new();
+    for (start, end, first_line) in spell_list_items(body) {
+        let item = &body[start..end];
+        let literal = literal_bytes(item);
+        for (at, _) in item.match_indices('&') {
+            if literal[at]
+                || item[..at]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| word(c) || matches!(c, '&' | '\\'))
+            {
+                continue;
+            }
+            let Some((marker, wording)) = MARKERS.iter().find(|(m, _)| item[at..].starts_with(m))
+            else {
+                continue;
+            };
+            if item[at + marker.len()..]
+                .chars()
+                .next()
+                .is_some_and(|c| word(c) || c == '&')
+            {
+                continue;
+            }
+            out.push((
+                first_line + item[..at].matches('\n').count(),
+                *marker,
+                *wording,
+            ));
+        }
+    }
+    out
+}
+
 /// Well-formed HTML entity references in a front-matter string: `&mdash;`, `&times;`, `&#39;`,
 /// `&#x2014;`. The retired import left them in typed fields, where a reader or a filter would see
 /// the literal characters. Broken fragments (`&times&`) are not matched.
@@ -1017,6 +1264,15 @@ pub fn check(corpus: &Corpus) -> Report {
                 body_start + line - 1
             ));
         }
+        if entry.kind == EntryKind::Creature {
+            for (line, marker, wording) in spell_list_markers(body) {
+                report.problems.push(format!(
+                    "{}:{}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}.",
+                    path.display(),
+                    body_start + line - 1
+                ));
+            }
+        }
         // The writer puts each display string on one line. When the same value appears more
         // than once, consume the next matching line so every occurrence reports its own
         // place instead of the first one over and over.
@@ -1232,6 +1488,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
     crate::check_powers::check_class_option_powers(corpus, &mut report);
+    crate::check_residue::check_class_option_residue(corpus, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
 
     let publication_ids: BTreeSet<&str> = corpus
@@ -2718,6 +2975,178 @@ mod tests {
             )])],
         );
         assert!(check(&corpus(vec![clean])).problems.is_empty());
+    }
+
+    /// A corpus with one creature whose file text ends in `body`.
+    fn creature_with_body(body: &str) -> Corpus {
+        let mut c = corpus(vec![creature(
+            "ref/creature/spell-list-marker",
+            "magicalBeast",
+        )]);
+        let stored = c.entries.values_mut().next().unwrap();
+        stored.text = format!("{}\n{body}", stored.text.trim_end());
+        c
+    }
+
+    #[test]
+    fn a_left_over_spell_list_marker_fails_with_its_path_and_line() {
+        let c = creature_with_body(
+            "**Spell-Like Abilities**\n\n**Per day:**\n\n- &Q holy smite, &EM magic missile,\n  &EX good hope, &S level 4; 1 imp 35%\n",
+        );
+        let text = &c.entries.values().next().unwrap().text;
+        let first = line_of(text, "- &Q holy smite");
+        let path = "entries/creature/spell-list-marker.md";
+        let problem = |line: usize, marker: &str, wording: &str| {
+            format!(
+                "{path}:{line}: left-over spell-list marker `{marker}`. Write the printed wording: {wording}."
+            )
+        };
+        assert_eq!(
+            check(&c).problems,
+            vec![
+                problem(first, "&Q", "quickened"),
+                problem(first, "&EM", "empowered"),
+                problem(first + 1, "&EX", "extended"),
+                problem(first + 1, "&S", "summon (level N, ...)"),
+            ]
+        );
+    }
+
+    #[test]
+    fn printed_wording_literal_text_and_lookalikes_are_not_markers() {
+        let c = creature_with_body(
+            "**Spell-Like Abilities**\n\n- quickened holy smite, summon (level 4, 1 imp 35%), AT&T, &Sword, &EMBER, &quot&S,\n  &Séance, &Éclair, \\&Q fly, `&Q` fly, [a](https://e.test/?x=&Q), https://e.test/?y=&EX\n",
+        );
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    /// The problem lines (1-based file lines) that `body` produces as spell-list markers, with the
+    /// marker each one names.
+    fn marker_problems(body: &str) -> Vec<(usize, String)> {
+        let c = creature_with_body(body);
+        let problems = check(&c).problems;
+        problems
+            .iter()
+            .map(|problem| {
+                let rest = problem
+                    .strip_prefix("entries/creature/spell-list-marker.md:")
+                    .unwrap_or_else(|| panic!("{problem}"));
+                let (line, message) = rest.split_once(": ").unwrap();
+                let marker = message
+                    .strip_prefix("left-over spell-list marker `")
+                    .unwrap_or_else(|| panic!("{problem}"));
+                (
+                    line.parse().unwrap(),
+                    marker.split('`').next().unwrap().to_string(),
+                )
+            })
+            .collect()
+    }
+
+    fn line_in(c: &Corpus, needle: &str) -> usize {
+        line_of(&c.entries.values().next().unwrap().text, needle)
+    }
+
+    #[test]
+    fn nested_and_ordered_list_items_are_spell_list_items() {
+        // A nested list after a blank line, as the corpus reader accepts it.
+        let body =
+            "**Spell-Like Abilities**\n\n- 1/day:\n\n  - &Q fly\n  - &EM haste\n\n- &EX bless\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![
+                (line_in(&c, "- &Q fly"), "&Q".to_string()),
+                (line_in(&c, "- &EM haste"), "&EM".to_string()),
+                (line_in(&c, "- &EX bless"), "&EX".to_string()),
+            ]
+        );
+
+        // A top-level ordered list, and an ordered list nested in a bullet.
+        let body = "**Spells Known**\n\n1. &Q fly\n2. 3rd:\n   1. &S level 4; 1 imp 35%\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![
+                (line_in(&c, "1. &Q fly"), "&Q".to_string()),
+                (line_in(&c, "1. &S level"), "&S".to_string()),
+            ]
+        );
+
+        // Text after a blank line that is not indented ends the item.
+        let body = "**Spell-Like Abilities**\n\n- fly\n\n  - haste\n\n&Q prose\n\n- &EM ok\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "- &EM ok"), "&EM".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_url_keeps_its_balanced_parentheses_and_ends_at_unicode_whitespace() {
+        // The marker-shaped text is part of the URL, which holds balanced parentheses.
+        let body = "**Spell-Like Abilities**\n\n- see https://e.test/a(b)?x=&Q and [t](https://e.test/a(b)?y=&EM)\n";
+        assert_eq!(marker_problems(body), vec![]);
+
+        // An unmatched `)` ends the URL, so the marker after it is real.
+        let body = "**Spell-Like Abilities**\n\n- (see https://e.test/a?x=y) &Q fly\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "(see https://"), "&Q".to_string())]
+        );
+
+        // A no-break space ends the URL, so the marker after it is real.
+        let body = "**Spell-Like Abilities**\n\n- see https://e.test/a\u{a0}&Q fly\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "see https://"), "&Q".to_string())]
+        );
+    }
+
+    #[test]
+    fn only_a_uri_or_email_in_angle_brackets_is_an_autolink() {
+        // `<&Q>` is plain text to the corpus reader: the marker counts, once.
+        let body = "**Spell-Like Abilities**\n\n- fly <&Q> now\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "- fly <&Q>"), "&Q".to_string())]
+        );
+
+        // A URI and an email address are autolinks and hide what they hold.
+        let body = "**Spell-Like Abilities**\n\n- <https://e.test/?x=&Q> <mailto:me@e.test?x=&EM> <me&Q@e.test>\n";
+        assert_eq!(marker_problems(body), vec![]);
+    }
+
+    #[test]
+    fn the_upstream_token_form_is_reported_once_as_a_token() {
+        let c = creature_with_body("**Spell-Like Abilities**\n\n- &Q&EM fly\n");
+        let problems = check(&c).problems;
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(
+            problems[0].contains("left-over upstream token `&Q&`"),
+            "{problems:?}"
+        );
+    }
+
+    #[test]
+    fn a_marker_outside_the_spell_list_items_of_a_creature_is_not_checked() {
+        // Prose and a list under another heading hold the shapes as text; a rule entry is no
+        // creature.
+        let c = creature_with_body(
+            "&Q in prose.\n\n- &Q in a list before any section\n\n**Spell-Like Abilities**\n\nProse &EM here.\n\n**Statistics**\n\n- &S level 4; 1 imp 35%\n\n###### Notes\n\n- &EX note\n",
+        );
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        let rule_entry = rule(
+            "ref/rule/spell-list-text",
+            vec![paragraph(vec![Inline::text("&Q holy smite")])],
+        );
+        assert!(check(&corpus(vec![rule_entry])).problems.is_empty());
     }
 
     #[test]
