@@ -337,41 +337,27 @@ pub fn ChapterView(
         .clone()
         .filter(|anchor| legacy_anchor_path(anchor).is_some())
     {
-        let library = library.clone();
-        let source = source.clone();
+        let here = Route::BookChapter {
+            source: source.clone(),
+            chapter: chapter.clone(),
+            anchor: Some(old.clone()),
+        };
         let chapter = chapter.clone();
-        spawn_local(async move {
-            let Ok(Some(books)) = library.books().await else {
-                return;
-            };
-            let Some(tree) = books.book(&source) else {
-                return;
-            };
-            let rows =
-                legacy_rows(library.legacy_sections().await, &source).map(|book| book.sections);
-            let hide = |id: &EntryId| {
-                library
-                    .stub(id)
-                    .is_some_and(|stub| hidden_from_contents(stub.kind))
-            };
-            let target = resolve_legacy_anchor(tree, &hide, rows.as_ref(), &chapter, &old);
-            // The books load can take seconds on a cold start. The reader may have gone Back or
-            // followed a link meanwhile, and a `replace` now would overwrite that page.
-            let here = Route::BookChapter {
-                source: source.clone(),
-                chapter: chapter.clone(),
-                anchor: Some(old),
-            };
-            if current.get_untracked() != here {
-                return;
-            }
-            replace(&Route::BookChapter {
-                source,
+        replace_from_legacy_table(&library, &source, here, move |tree, hide, rows| {
+            let target = resolve_legacy_anchor(
+                tree,
+                hide,
+                rows.as_ref().map(|book| &book.sections),
+                &chapter,
+                &old,
+            );
+            Route::BookChapter {
+                source: tree.source.clone(),
                 chapter: target
                     .as_ref()
                     .map_or(chapter, |target| target.chapter.clone()),
                 anchor: target.map(|target| target.anchor),
-            });
+            }
         });
     }
     {
@@ -416,11 +402,7 @@ pub fn ChapterView(
                                 <p class="notice">"This library has no chapter order for this book."</p>
                             }.into_any();
                         };
-                        let hide = |id: &EntryId| {
-                            library
-                                .stub(id)
-                                .is_some_and(|stub| hidden_from_contents(stub.kind))
-                        };
+                        let hide = hides_from_contents(&library);
                         let rows = chapter_rows(tree, &hide);
                         let Some(row) = rows.iter().find(|row| row.id == chapter) else {
                             return view! {
@@ -563,6 +545,49 @@ fn chapter_list_item(
     walk(node, source, hide, &mut path, anchors)
 }
 
+/// Whether Contents leaves an entry out: the kinds that `hidden_from_contents` names.
+fn hides_from_contents(library: &Library) -> impl Fn(&EntryId) -> bool + '_ {
+    move |id| {
+        library
+            .stub(id)
+            .is_some_and(|stub| hidden_from_contents(stub.kind))
+    }
+}
+
+/// Replace the address `here`, an old positional one, by the route `next` computes from the
+/// library's legacy table. It loads the table of `source` (`legacy_rows` keeps the rule for a
+/// missing or unreadable one) and replaces only if the route is still `here`: the books load can
+/// take seconds on a cold start, the reader may have gone Back or followed a link meanwhile, and
+/// a `replace` now would overwrite that page.
+fn replace_from_legacy_table(
+    library: &Library,
+    source: &str,
+    here: Route,
+    next: impl FnOnce(&BookTree, Hide<'_>, Option<LegacyBook>) -> Route + 'static,
+) {
+    // One boxed callback, so the async body below is compiled once, not once per caller.
+    replace_from_legacy_table_with(library, source, here, Box::new(next));
+}
+
+type NextRoute = Box<dyn FnOnce(&BookTree, Hide<'_>, Option<LegacyBook>) -> Route>;
+
+fn replace_from_legacy_table_with(library: &Library, source: &str, here: Route, next: NextRoute) {
+    let (library, source, current) = (library.clone(), source.to_string(), use_route());
+    spawn_local(async move {
+        let Ok(Some(books)) = library.books().await else {
+            return;
+        };
+        let Some(tree) = books.book(&source) else {
+            return;
+        };
+        let rows = legacy_rows(library.legacy_sections().await, &source);
+        let target = next(tree, &hides_from_contents(&library), rows);
+        if current.get_untracked() == here {
+            replace(&target);
+        }
+    });
+}
+
 /// The rows of the legacy table for `source`, as `resolve_legacy_anchor` and
 /// `resolve_contents_row` take them.
 ///
@@ -617,11 +642,7 @@ fn Contents(
         return ().into_any();
     };
     let label = format!("Contents of {}", tree.title);
-    let hide = |id: &EntryId| {
-        library
-            .stub(id)
-            .is_some_and(|stub| hidden_from_contents(stub.kind))
-    };
+    let hide = hides_from_contents(&library);
     let target = resolve_target(lookup.clone(), library.clone(), book, target);
     let chapters = chapter_rows(tree, &hide);
     let review = review_line(&tree.review);
@@ -659,7 +680,6 @@ fn resolve_target(
     target: RwSignal<Option<ContentsRow>>,
 ) -> RwSignal<Option<Vec<usize>>> {
     let resolved = RwSignal::new(None::<Vec<usize>>);
-    let current = use_route();
     Effect::new(move |_| {
         let row = target.get();
         resolved.set(None);
@@ -669,44 +689,27 @@ fn resolve_target(
         let Some(tree) = lookup.book_at(book) else {
             return;
         };
-        let hide = |id: &EntryId| {
-            library
-                .stub(id)
-                .is_some_and(|stub| hidden_from_contents(stub.kind))
-        };
         let ContentsRow::Position(_) = &row else {
-            resolved.set(resolve_contents_row(tree, &hide, None, &row));
+            resolved.set(resolve_contents_row(
+                tree,
+                &hides_from_contents(&library),
+                None,
+                &row,
+            ));
             return;
         };
-        let (lookup, library) = (lookup.clone(), library.clone());
-        spawn_local(async move {
-            let Some(tree) = lookup.book_at(book) else {
-                return;
-            };
-            let source = tree.source.clone();
-            let rows = legacy_rows(library.legacy_sections().await, &source);
-            let hide = |id: &EntryId| {
-                library
-                    .stub(id)
-                    .is_some_and(|stub| hidden_from_contents(stub.kind))
-            };
-            let path = resolve_contents_row(tree, &hide, rows.as_ref(), &row);
-            // The table can load slowly. The reader may have gone Back or followed a link
-            // meanwhile, and a `replace` now would overwrite that page.
-            let here = Route::Book {
-                source: source.clone(),
-                chapter: Some(row),
-            };
-            if current.get_untracked() != here {
-                return;
+        let here = Route::Book {
+            source: tree.source.clone(),
+            chapter: Some(row.clone()),
+        };
+        replace_from_legacy_table(&library, &tree.source, here, move |tree, hide, rows| {
+            let path = resolve_contents_row(tree, hide, rows.as_ref(), &row);
+            Route::Book {
+                source: tree.source.clone(),
+                chapter: path
+                    .as_deref()
+                    .and_then(|path| contents_row(tree, hide, path)),
             }
-            let stable = path
-                .as_deref()
-                .and_then(|path| contents_row(tree, &hide, path));
-            replace(&Route::Book {
-                source,
-                chapter: stable,
-            });
         });
     });
     Effect::new(move |_| {
@@ -911,6 +914,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                 chapter: None,
             }
             .href();
+            let hide = hides_from_contents(&library);
             let mut crumbs =
                 vec![view! { <li><a href=book_href>{book.title.clone()}</a></li> }.into_any()];
             let trail = &stop.path;
@@ -919,11 +923,6 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                 if let Some(node) = node_at(book, &path) {
                     // The stable form of the row, so a link that is shared or saved from this
                     // trail survives the next pin. A row the walk does not reach keeps no marker.
-                    let hide = |id: &EntryId| {
-                        library
-                            .stub(id)
-                            .is_some_and(|stub| hidden_from_contents(stub.kind))
-                    };
                     let href = Route::Book {
                         source: source.clone(),
                         chapter: contents_row(book, &hide, &path),
