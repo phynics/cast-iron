@@ -25,7 +25,7 @@ use cast_iron_schema::books::{
     ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents,
     legacy_anchor_path, listed_children, listed_under, resolve_legacy_anchor, section_anchors,
 };
-use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
+use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind, LegacySections};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -327,6 +327,7 @@ pub fn ChapterView(
         let library = library.clone();
         local_resource(async move { library.books().await })
     };
+    let current = use_route();
     // A saved `toc-2-26` address names a row by its old position. It opens the row it stood for,
     // as a stable address: the table of the library decides, or, for a library without one, the
     // library's own tree. A row that has left the book opens its chapter.
@@ -344,17 +345,23 @@ pub fn ChapterView(
             let Some(tree) = books.book(&source) else {
                 return;
             };
-            let table = library.legacy_sections().await.ok().flatten();
-            let none = BTreeMap::new();
-            let rows = table
-                .as_ref()
-                .map(|table| table.books.get(&source).unwrap_or(&none));
+            let rows = legacy_rows(library.legacy_sections().await, &source);
             let hide = |id: &EntryId| {
                 library
                     .stub(id)
                     .is_some_and(|stub| hidden_from_contents(stub.kind))
             };
-            let target = resolve_legacy_anchor(tree, &hide, rows, &old);
+            let target = resolve_legacy_anchor(tree, &hide, rows.as_ref(), &chapter, &old);
+            // The books load can take seconds on a cold start. The reader may have gone Back or
+            // followed a link meanwhile, and a `replace` now would overwrite that page.
+            let here = Route::BookChapter {
+                source: source.clone(),
+                chapter: chapter.clone(),
+                anchor: Some(old),
+            };
+            if current.get_untracked() != here {
+                return;
+            }
             replace(&Route::BookChapter {
                 source,
                 chapter: target
@@ -364,7 +371,6 @@ pub fn ChapterView(
             });
         });
     }
-    let current = use_route();
     {
         // The chapter page arrives after `books.json` loads, so the frame's own anchor scroll
         // may run before the row exists. Repeat it when the content is on screen.
@@ -552,6 +558,23 @@ fn chapter_list_item(
     }
     let mut path = path.to_vec();
     walk(node, source, hide, &mut path, anchors)
+}
+
+/// The rows of the legacy table for `source`, as `resolve_legacy_anchor` takes them.
+///
+/// `Ok(None)` is a library without the table: `None`, which resolves an old address against the
+/// library's own tree. A table that exists but could not be read is an empty table, never `None`:
+/// reading the address by position against the tree is the bug the table fixes, so the address
+/// opens its chapter instead.
+fn legacy_rows<E>(
+    table: Result<Option<std::rc::Rc<LegacySections>>, E>,
+    source: &str,
+) -> Option<BTreeMap<String, String>> {
+    match table {
+        Ok(Some(table)) => Some(table.books.get(source).cloned().unwrap_or_default()),
+        Ok(None) => None,
+        Err(_) => Some(BTreeMap::new()),
+    }
 }
 
 /// The DOM id of a chapter-page row: its stable anchor. A node that has none (a path the walk of
@@ -879,6 +902,31 @@ pub fn same_book(previous: &Route, next: &Route) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_unreadable_legacy_table_never_falls_back_to_position() {
+        let table = LegacySections {
+            format: 1,
+            books: [(
+                "b".to_string(),
+                [("toc-2-1".to_string(), "row-x".to_string())].into(),
+            )]
+            .into(),
+        };
+        let rc = std::rc::Rc::new(table);
+        // The table lists the book: its rows.
+        let rows = legacy_rows::<()>(Ok(Some(rc.clone())), "b").unwrap();
+        assert_eq!(rows["toc-2-1"], "row-x");
+        // The table lacks the book: no row resolves, so every address opens its chapter.
+        assert_eq!(
+            legacy_rows::<()>(Ok(Some(rc)), "other"),
+            Some(BTreeMap::new())
+        );
+        // A library without the table resolves against its own tree.
+        assert_eq!(legacy_rows::<()>(Ok(None), "b"), None);
+        // A table that is listed but cannot be read is empty, not absent.
+        assert_eq!(legacy_rows(Err("corrupt"), "b"), Some(BTreeMap::new()));
+    }
     use cast_iron_schema::books::{contents_roots, linked_kind, shows_in_contents};
 
     fn node(title: &str, entry: Option<&str>, children: Vec<BookNode>) -> BookNode {

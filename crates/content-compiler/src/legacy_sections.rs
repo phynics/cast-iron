@@ -74,7 +74,7 @@ pub fn coverage(
         };
         found += table_rows
             .values()
-            .filter(|anchor| locate_section(book, &hide, anchor).is_some())
+            .filter(|anchor| locate_section(book, &hide, anchor, None).is_some())
             .count();
     }
     (rows, found)

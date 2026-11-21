@@ -4,7 +4,7 @@ date: 2026-11-21
 status: current
 superseded_by: []
 issues: [546]
-prs: []
+prs: [549]
 area: content
 ---
 
@@ -52,9 +52,12 @@ book, or a path that no published tree made, opens its chapter with no anchor. A
   published meaning wins. The Blood of the Beast case is such a path: `toc-2-26` opens Ranger.
 - **Future pins need no change.** No release after this one makes a positional anchor, so the table does not
   grow. It stores stable anchors, which a pin does not move, so the table stays correct while rows stay in
-  their books. Nothing fails when a row leaves a book (unlike published entry ids, which an alias keeps
-  alive): the old address opens the chapter, and the compile note counts those rows. On v0.1.33, 6,794 of
-  6,795 still open their row.
+  their books, with one limit: a numbered anchor (`-2`, `-3`) renumbers when an earlier repeat leaves
+  the chapter, so about 130 repeated headings can open the repeat before or after the one that was saved. Nothing fails when a row
+  leaves a book (unlike published entry ids, which an alias keeps alive): the old address opens the
+  chapter, and the compile note counts those rows. The note counts rows whose anchor still exists, not
+  rows that still resolve to the same row, so a renumbered repeat counts as found. On v0.1.33, 6,794 of
+  6,795 still open a row.
 
 **Format impact.** `SCHEMA_VERSION` stays 6 and `INDEX_FORMAT_VERSION` stays 2. `books.json` and the index
 layout are unchanged; the book-section `anchor` field of `search.bin` carries the new string, and

@@ -429,14 +429,26 @@ pub struct SectionTarget {
 }
 
 /// The chapter page and row that carry `anchor` in `book`, or `None` when no rendered row has it.
-pub fn locate_section(book: &BookTree, hide: Hide<'_>, anchor: &str) -> Option<SectionTarget> {
-    sections(book, hide)
+/// Anchors are unique only within a chapter, so the chapter `prefer` is looked in first (the one
+/// an address names), then the rest of the book in Contents order.
+pub fn locate_section(
+    book: &BookTree,
+    hide: Hide<'_>,
+    anchor: &str,
+    prefer: Option<&str>,
+) -> Option<SectionTarget> {
+    let found = sections(book, hide)
         .into_iter()
-        .find(|section| section.anchor.as_deref() == Some(anchor))
-        .map(|section| SectionTarget {
-            chapter: section.chapter,
-            anchor: anchor.to_string(),
-        })
+        .filter(|section| section.anchor.as_deref() == Some(anchor))
+        .map(|section| section.chapter)
+        .collect::<Vec<_>>();
+    let chapter = prefer
+        .and_then(|prefer| found.iter().find(|chapter| chapter.as_str() == prefer))
+        .or_else(|| found.first())?;
+    Some(SectionTarget {
+        chapter: chapter.clone(),
+        anchor: anchor.to_string(),
+    })
 }
 
 /// The row that an old positional address (`toc-2-26`) opens now, or `None` when the row is gone
@@ -445,16 +457,22 @@ pub fn locate_section(book: &BookTree, hide: Hide<'_>, anchor: &str) -> Option<S
 /// `table` is the library's legacy table for this book ([`crate::LegacySections`]): the stable anchor
 /// that each published positional address stood for. A `None` table is a library built before
 /// the table existed. Its own tree is the one that its positional addresses (and its search
-/// index) were made against, so the row at the same path is the answer.
+/// index) were made against, so the row at the same path is the answer. A table that exists but
+/// cannot be read is an empty `Some`, never `None`: position in the new tree is the bug this
+/// table fixes.
+///
+/// `chapter` is the chapter id of the address. Its page is preferred when the row is in more than
+/// one chapter.
 pub fn resolve_legacy_anchor(
     book: &BookTree,
     hide: Hide<'_>,
     table: Option<&BTreeMap<String, String>>,
+    chapter: &str,
     anchor: &str,
 ) -> Option<SectionTarget> {
     let path = legacy_anchor_path(anchor)?;
     match table {
-        Some(table) => locate_section(book, hide, table.get(anchor)?),
+        Some(table) => locate_section(book, hide, table.get(anchor)?, Some(chapter)),
         None => {
             let section = sections(book, hide)
                 .into_iter()
@@ -724,7 +742,7 @@ mod tests {
         // A later pin adds Alchemist and Barbarian ahead of Ranger and drops Paladin. Read by
         // position, toc-2-2 would now open Barbarian and toc-2-3 Ranger.
         let current = classes(&["Alchemist", "Barbarian", "Ranger", "Rogue"]);
-        let open = |old: &str| resolve_legacy_anchor(&current, &hide, Some(&table), old);
+        let open = |old: &str| resolve_legacy_anchor(&current, &hide, Some(&table), "classes", old);
         assert_eq!(
             open("toc-2-2"),
             Some(SectionTarget {
@@ -749,26 +767,72 @@ mod tests {
         // That library's own search index and tree made the positional addresses.
         let book = classes(&["Paladin", "Ranger", "Rogue"]);
         assert_eq!(
-            resolve_legacy_anchor(&book, &hide, None, "toc-2-2"),
+            resolve_legacy_anchor(&book, &hide, None, "classes", "toc-2-2"),
             Some(SectionTarget {
                 chapter: "classes".into(),
                 anchor: "row-ref-class-ranger".into()
             })
         );
-        assert_eq!(resolve_legacy_anchor(&book, &hide, None, "toc-2-9"), None);
+        assert_eq!(
+            resolve_legacy_anchor(&book, &hide, None, "classes", "toc-2-9"),
+            None
+        );
+    }
+
+    #[test]
+    fn a_row_in_two_chapters_opens_in_the_chapter_the_address_names() {
+        let ranger = |title: &str| {
+            node(
+                title,
+                None,
+                vec![node("Ranger", Some("ref/class/ranger"), vec![])],
+            )
+        };
+        let book = BookTree {
+            source: "b".into(),
+            title: "B".into(),
+            basis: String::new(),
+            review: vec![],
+            chapters: vec![ranger("First"), ranger("Second")],
+        };
+        let at = |prefer: Option<&str>| {
+            locate_section(&book, &hide, "row-ref-class-ranger", prefer).map(|t| t.chapter)
+        };
+        assert_eq!(at(Some("second")).as_deref(), Some("second"));
+        assert_eq!(at(Some("first")).as_deref(), Some("first"));
+        // No preference, or a chapter that does not hold the row: the first that does.
+        assert_eq!(at(None).as_deref(), Some("first"));
+        assert_eq!(at(Some("third")).as_deref(), Some("first"));
+        let table: BTreeMap<String, String> =
+            [("toc-2-1".to_string(), "row-ref-class-ranger".to_string())].into();
+        assert_eq!(
+            resolve_legacy_anchor(&book, &hide, Some(&table), "second", "toc-2-1")
+                .map(|t| t.chapter)
+                .as_deref(),
+            Some("second")
+        );
+        // A table that could not be read is an empty table: nothing resolves by position.
+        let empty = BTreeMap::new();
+        assert_eq!(
+            resolve_legacy_anchor(&book, &hide, Some(&empty), "second", "toc-2-1"),
+            None
+        );
     }
 
     #[test]
     fn locating_a_section_names_the_chapter_that_holds_it() {
         let book = classes(&["Paladin", "Ranger"]);
         assert_eq!(
-            locate_section(&book, &hide, "row-ref-class-ranger"),
+            locate_section(&book, &hide, "row-ref-class-ranger", None),
             Some(SectionTarget {
                 chapter: "classes".into(),
                 anchor: "row-ref-class-ranger".into()
             })
         );
-        assert_eq!(locate_section(&book, &hide, "row-ref-class-rogue"), None);
+        assert_eq!(
+            locate_section(&book, &hide, "row-ref-class-rogue", None),
+            None
+        );
     }
 
     #[test]
