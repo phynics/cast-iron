@@ -56,8 +56,10 @@ corpus changes on top of v0.1.32:
   warnings and no error: one summary of 2,021 book memberships in 695 entries without a
   `[[sources]]` row (was 2,040 in 701; #461), one summary of 338 unresolved trades in 182 entries
   with 1 provable match (Roughrider's repeated `Armor training 4`, listed on its own line), and 3
-  mixed third-party and Paizo source warnings (the shadow rats). No unresolved-footnote, entity
-  or class-option-power warning.
+  mixed third-party and Paizo source warnings (the shadow rats). No unresolved-footnote or entity
+  warning. The class-option power check (#544) is not on this base; on `main` it adds warnings
+  only (2,099 failing powers and one count, decision `2026-11-21-class-option-power-counts`; no
+  `class_option` body changed between v0.1.32 and v0.1.33).
 - **Specs.** No spec asserts a membership that no longer exists: none of the 110 changed entries,
   nor the removed `books.toml` chapter entries, appears by id or title in `tests/e2e/tests/`. No
   spec changed.

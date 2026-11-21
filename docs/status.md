@@ -18,6 +18,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 - **`release` is at `622eaa6`**, published 2026-11-20: corpus `v0.1.31`, schema 6, index format 2 ([release entry](status/2026-11-20-release-622eaa6-corpus-v0-1-31-schema-6.md)). That is what Pages serves.
 - **`main`** equals `release` at the time of promotion. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
+- **Before promoting a `main` that carries v0.1.33:** fix [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry).
 
 ## Latest runs
 
