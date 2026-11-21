@@ -11,6 +11,12 @@
 //! fixture it asserts the candidate and the reasons that validation gives. A reason that only the
 //! rewrite knows (a capital in an upgrade, a seeded print item) is noted where it applies.
 //!
+//! The fixtures from the owner cases of `2026-11-21-class-option-power-owner-cases` follow the
+//! first table's fixtures at the end of the file: a passive row and an action row (Noble Visage), a
+//! continuation after `Special` (Natural Spell Combat), the progression rule, `Choice` and `Info`
+//! before the effect (Basic Magic), and the section labels that are never powers (Base
+//! Evolutions, Discipline Powers, Patron Spells).
+//!
 //! Three assertions of the fixtures table are the rewrite's and belong to the corpus repository
 //! (phynics/cast-iron-data#88), not to this validator: Foretell's seed (a print item that no
 //! block structure shows), Forewarned's lowercase rule (the first word of an upgrade on the
@@ -19,8 +25,9 @@
 //! capital is no validation rule, and that a canonical run passes.
 
 use cast_iron_schema::power::{
-    ActionGroupProblem, ActionMapping, Candidate, EFFECT_LABELS, PowerProblem, action_effect_group,
-    candidates, map_action_value, one_power_page, power_heading_level, validate_power,
+    ACTION_EFFECT_LABELS, ActionGroupProblem, ActionMapping, Candidate, EFFECT_LABELS,
+    NON_POWER_LABELS, PowerProblem, action_effect_group, candidates, is_non_power_label,
+    map_action_value, one_power_page, power_heading_level, validate_power,
 };
 use cast_iron_schema::{Block, Inline, ParagraphStyle, Table};
 
@@ -150,9 +157,11 @@ fn abjuration_resistance_has_old_upgrade_labels_and_the_rewrite_target_passes() 
     assert_eq!(levels, [11, 20]);
 }
 
-/// `ref/arcaneschool/abjuration`, Counterspell Mastery: queued (two effect rows).
+/// `ref/arcaneschool/abjuration`, Counterspell Mastery: two effect rows. Before the owner's
+/// decision 1 of 2026-11-21 it was queued. `Ability` then an action row is the valid pair; only
+/// the rows' places differ from the canonical order (`Gained` comes first).
 #[test]
-fn abjuration_counterspell_mastery_has_two_effect_rows() {
+fn abjuration_counterspell_mastery_is_an_ability_row_then_an_action_row() {
     let body = vec![
         para("**Counterspell Mastery**"),
         para("**Ability:** You gain Improved Counterspell as a bonus feat."),
@@ -160,8 +169,16 @@ fn abjuration_counterspell_mastery_has_two_effect_rows() {
         para("**Gained:** At 6th Level"),
         para("**Usage:** 1 time/day + 1 per 4 wizard levels beyond 6th"),
     ];
-    let slugs = reasons(&body, "Counterspell Mastery", 1);
-    assert!(slugs.contains(&"multiple-effect-rows"), "{slugs:?}");
+    assert_fails(&body, "Counterspell Mastery", 1, &["out-of-order"]);
+
+    let canonical = vec![
+        para("**Counterspell Mastery**"),
+        para("**Gained:** At 6th Level"),
+        para("**Ability:** You gain Improved Counterspell as a bonus feat."),
+        para("**Immediate:** You may attempt to counterspell an opponent's spell."),
+        para("**Usage:** 1 time/day + 1 per 4 wizard levels beyond 6th"),
+    ];
+    assert_canonical(&canonical, "Counterspell Mastery", 1);
 }
 
 /// The whole Abjuration body: the valid powers pass, the others fail, and the headings of the
@@ -548,10 +565,12 @@ fn fire_resistance_has_no_effect_row_and_gets_the_suggestion() {
     }));
 }
 
-/// `ref/hex/blight`, Blight (Su): queued (the `Action` paragraph group would cross a `Special`
-/// row). The affliction after it holds no power marker and is no candidate.
+/// `ref/hex/blight`, Blight (Su): queued. The affliction after it holds no power marker and is no
+/// candidate. Since decision 2 of 2026-11-21 the paragraphs after `Special` continue the Special
+/// note: they are no problem of their own and no effect group. The legacy `Action` row is still
+/// the reason, and it has no effect text left, so the group is `NoGroup` and Blight stays queued.
 #[test]
-fn blight_action_group_crosses_a_special_row() {
+fn blight_action_row_has_no_effect_group_once_special_keeps_its_paragraphs() {
     let body = vec![
         para("**Blight (Su)**"),
         para("**Action:** Ability"),
@@ -567,12 +586,7 @@ fn blight_action_group_crosses_a_special_row() {
     ];
     let found = only_candidate(&body);
     assert_eq!((found.start, found.end), (0, 6));
-    assert_fails(
-        &body,
-        "Blight (Su)",
-        1,
-        &["legacy-label", "no-effect-row", "stray-paragraph"],
-    );
+    assert_fails(&body, "Blight (Su)", 1, &["legacy-label", "no-effect-row"]);
     let Block::Paragraph { content, .. } = &body[1] else {
         unreachable!()
     };
@@ -582,9 +596,55 @@ fn blight_action_group_crosses_a_special_row() {
     );
     assert_eq!(
         action_effect_group(found.blocks(&body), 1),
-        Err(ActionGroupProblem::Crosses {
-            what: "the row `Special:`".into()
-        })
+        Err(ActionGroupProblem::NoGroup)
+    );
+}
+
+/// Owner decisions 2 and 4: the effect group of an `Action` row skips the paragraphs that continue
+/// `Special`, and `Choice` and `Info` rows do not block it.
+#[test]
+fn the_action_group_skips_special_paragraphs_and_crosses_choice_and_info() {
+    let body = vec![
+        para("**A Power (Su)**"),
+        para("**Action:** Swift Action"),
+        para("The effect text."),
+        para("**Special:** A note."),
+        para("The note continues."),
+    ];
+    let found = only_candidate(&body);
+    assert_eq!(
+        action_effect_group(found.blocks(&body), 1),
+        Ok(2..3),
+        "the paragraph after the Action row is the effect, the one after Special is not"
+    );
+
+    for label in ["Choice", "Info"] {
+        let body = vec![
+            para("**A Power (Su)**"),
+            para("**Action:** Swift Action"),
+            para(&format!("**{label}:** Pick one.")),
+            para("The effect text."),
+        ];
+        let found = only_candidate(&body);
+        assert_eq!(
+            action_effect_group(found.blocks(&body), 1),
+            Ok(3..4),
+            "{label}"
+        );
+    }
+
+    // A group that precedes `Special` and a second one after another row are still two groups.
+    let body = vec![
+        para("**A Power (Su)**"),
+        para("**Action:** Swift Action"),
+        para("The effect text."),
+        para("**Penalty:** x"),
+        para("Another group."),
+    ];
+    let found = only_candidate(&body);
+    assert_eq!(
+        action_effect_group(found.blocks(&body), 1),
+        Err(ActionGroupProblem::SecondGroup)
     );
 }
 
@@ -722,6 +782,12 @@ fn s3_a_canonical_run_passes_with_every_part() {
     assert!(power.prereq.is_some() && power.replaces.is_some());
     let other: Vec<&str> = power.other.iter().map(|row| row.label.as_str()).collect();
     assert_eq!(other, ["Special", "Penalty"]);
+    assert!(power.preface.is_empty() && power.second_effect.is_none());
+    // The one effect row is the action.
+    assert_eq!(
+        power.action().map(|effect| effect.label.as_str()),
+        Some("Standard")
+    );
 }
 
 /// Every canonical effect label is accepted in the effect position.
@@ -733,5 +799,503 @@ fn every_canonical_effect_label_passes() {
             para(&format!("**{label}:** It works.")),
         ];
         assert_canonical(&body, "A Power", 1);
+    }
+}
+
+// --- The owner cases of 2026-11-21. -------------------------------------------------------------
+
+/// Decision 1. `ref/domain/nobility` (the Aristocracy subdomain, *Champions of Balance* p. 16):
+/// the passive text first, then the action paragraph. The source order has `Replaces` between the
+/// two effect rows, which the canonical order moves after `Usage`.
+#[test]
+fn noble_visage_is_a_passive_row_then_an_action_row() {
+    let source = vec![
+        para("**Noble Visage (Su)**"),
+        para(
+            "**Passive:** You gain a bonus on Charisma checks against creatures that share your type.",
+        ),
+        para("**Replaces:** The inspiring word ability of the Nobility domain"),
+        para(
+            "**Standard:** You can touch an ally to grant her your noble visage bonus for 1 minute.",
+        ),
+        para("**Usage:** 3 + Wisdom modifier times/day"),
+    ];
+    assert_fails(&source, "Noble Visage (Su)", 1, &["out-of-order"]);
+
+    let canonical = vec![
+        para("**Noble Visage (Su)**"),
+        para(
+            "**Passive:** You gain a bonus on Charisma checks against creatures that share your type.",
+        ),
+        para(
+            "**Standard:** You can touch an ally to grant her your noble visage bonus for 1 minute.",
+        ),
+        para("**Usage:** 3 + Wisdom modifier times/day"),
+        para("**Replaces:** The inspiring word ability of the Nobility domain"),
+    ];
+    assert_canonical(&canonical, "Noble Visage (Su)", 1);
+    let found = candidate(&canonical, "Noble Visage (Su)", 1);
+    let power = validate_power(found.blocks(&canonical)).unwrap();
+    assert_eq!(power.effect.label, "Passive");
+    assert!(!power.effect.is_action());
+    let action = power.action().expect("the action row");
+    assert_eq!(action.label, "Standard");
+    assert_eq!(power.second_effect.as_ref().unwrap().label, "Standard");
+    assert!(power.usage.is_some() && power.replaces.is_some());
+    // A one-power page for its title: the head still folds.
+    assert!(one_power_page("Noble Visage", &canonical).is_some());
+}
+
+/// Decision 1: each row keeps its own continuation paragraphs, in print order.
+#[test]
+fn each_effect_row_of_a_pair_has_its_own_continuation() {
+    let body = vec![
+        para("**Aura (Su)**"),
+        para("**Gained:** At 3rd Level"),
+        para("**Passive:** The aura grants a bonus."),
+        para("The bonus is untyped."),
+        para("**Swift:** You can end the aura."),
+        para("The aura ends at once."),
+        para("It cannot be restarted that round."),
+        para("**Usage:** 3 times/day"),
+        para("**At 9th level,** the bonus doubles."),
+    ];
+    assert_canonical(&body, "Aura (Su)", 1);
+    let found = candidate(&body, "Aura (Su)", 1);
+    let power = validate_power(found.blocks(&body)).unwrap();
+    assert_eq!(power.effect.continuation.len(), 1);
+    assert_eq!(power.second_effect.as_ref().unwrap().continuation.len(), 2);
+}
+
+/// Decision 1 and owner answer A: one row is `Passive` or `Ability`, the other an action label,
+/// in either order. Print's order is authoritative, so the validator accepts both.
+#[test]
+fn every_passive_label_pairs_with_every_action_label_in_either_order() {
+    for passive in ["Passive", "Ability"] {
+        for action in ACTION_EFFECT_LABELS {
+            let passive_first = vec![
+                para("**A Power**"),
+                para(&format!("**{passive}:** It is always on.")),
+                para(&format!("**{action}:** You can use it.")),
+            ];
+            assert_canonical(&passive_first, "A Power", 1);
+            let found = candidate(&passive_first, "A Power", 1);
+            let power = validate_power(found.blocks(&passive_first)).unwrap();
+            assert_eq!(power.effect.label, passive);
+            assert_eq!(power.action().unwrap().label, action);
+
+            let action_first = vec![
+                para("**A Power**"),
+                para(&format!("**{action}:** You can use it.")),
+                para("The action's note."),
+                para(&format!("**{passive}:** It is always on.")),
+            ];
+            assert_canonical(&action_first, "A Power", 1);
+            let found = candidate(&action_first, "A Power", 1);
+            let power = validate_power(found.blocks(&action_first)).unwrap();
+            // The rows keep print's order; the action is the first row.
+            assert_eq!(power.effect.label, action);
+            assert!(power.effect.is_action());
+            assert_eq!(power.effect.continuation.len(), 1);
+            assert_eq!(power.second_effect.as_ref().unwrap().label, passive);
+            assert_eq!(power.action().unwrap().label, action);
+        }
+    }
+}
+
+/// Decision 1: two actions, two passives, a third row and `Benefit` beside another row stay
+/// invalid.
+#[test]
+fn the_combinations_that_stay_invalid_with_two_effect_rows() {
+    let pair = |first: &str, second: &str| {
+        vec![
+            para("**A Power**"),
+            para(&format!("**{first}:** One.")),
+            para(&format!("**{second}:** Two.")),
+        ]
+    };
+    // Two actions.
+    for (first, second) in [
+        ("Standard", "Swift"),
+        ("Swift", "Swift"),
+        ("Move", "Full-round"),
+    ] {
+        assert_fails(
+            &pair(first, second),
+            "A Power",
+            1,
+            &["multiple-effect-rows"],
+        );
+    }
+    // Two passives.
+    for (first, second) in [
+        ("Passive", "Passive"),
+        ("Passive", "Ability"),
+        ("Ability", "Passive"),
+        ("Ability", "Ability"),
+    ] {
+        assert_fails(
+            &pair(first, second),
+            "A Power",
+            1,
+            &["multiple-effect-rows"],
+        );
+    }
+    // `Benefit` is neither.
+    for (first, second) in [
+        ("Passive", "Benefit"),
+        ("Benefit", "Standard"),
+        ("Benefit", "Passive"),
+    ] {
+        assert_fails(
+            &pair(first, second),
+            "A Power",
+            1,
+            &["multiple-effect-rows"],
+        );
+    }
+    // Owner answer A: an action first, then the passive row, is valid (print's order).
+    for (first, second) in [
+        ("Standard", "Passive"),
+        ("Immediate", "Ability"),
+        ("Free", "Passive"),
+    ] {
+        assert_canonical(&pair(first, second), "A Power", 1);
+    }
+    // A third effect row, even after a valid pair.
+    let three = vec![
+        para("**A Power**"),
+        para("**Passive:** One."),
+        para("**Standard:** Two."),
+        para("**Swift:** Three."),
+    ];
+    assert_fails(&three, "A Power", 1, &["multiple-effect-rows"]);
+    // An alias is an effect row of its canonical label, and still a legacy label.
+    let alias = vec![
+        para("**A Power**"),
+        para("**Passive Ability:** One."),
+        para("**Fullround:** Two."),
+    ];
+    assert_fails(&alias, "A Power", 1, &["legacy-label"]);
+    // Another row between the pair, in either order.
+    for (first, second) in [("Passive", "Standard"), ("Standard", "Passive")] {
+        let usage_between = vec![
+            para("**A Power**"),
+            para(&format!("**{first}:** One.")),
+            para("**Usage:** 3/day"),
+            para(&format!("**{second}:** Two.")),
+        ];
+        assert_fails(&usage_between, "A Power", 1, &["out-of-order"]);
+    }
+}
+
+/// Decision 2. `ref/arcana/natural-spell-combat`, *Ultimate Magic* p. 15 style: the paragraphs
+/// after `Special` continue the Special note, in print order.
+#[test]
+fn natural_spell_combat_keeps_its_paragraphs_after_special() {
+    let body = vec![
+        para("**Natural Spell Combat (Ex)**"),
+        para(
+            "**Ability:** The magus can use his spell combat class feature with a natural attack.",
+        ),
+        para("If the natural attack is made with an appendage that would normally hold a weapon."),
+        para("**Special:** A magus can select this arcana more than once."),
+        para("Each time he selects this arcana, he selects another natural weapon."),
+        para("This arcana otherwise functions exactly like the spell combat class feature."),
+    ];
+    assert_canonical(&body, "Natural Spell Combat (Ex)", 1);
+    let found = candidate(&body, "Natural Spell Combat (Ex)", 1);
+    let power = validate_power(found.blocks(&body)).unwrap();
+    assert_eq!(power.effect.continuation.len(), 1);
+    assert_eq!(power.other.len(), 1);
+    assert_eq!(power.other[0].label, "Special");
+    assert_eq!(power.other[0].continuation.len(), 2);
+
+    // Prose after any other row stays invalid; so does prose after a `Special` that a row has left.
+    let penalty = vec![
+        para("**Natural Spell Combat (Ex)**"),
+        para("**Ability:** x"),
+        para("**Penalty:** y"),
+        para("Prose."),
+    ];
+    assert_fails(
+        &penalty,
+        "Natural Spell Combat (Ex)",
+        1,
+        &["stray-paragraph"],
+    );
+    let left = vec![
+        para("**Natural Spell Combat (Ex)**"),
+        para("**Ability:** x"),
+        para("**Special:** y"),
+        para("**Penalty:** z"),
+        para("Prose."),
+    ];
+    assert_fails(&left, "Natural Spell Combat (Ex)", 1, &["stray-paragraph"]);
+}
+
+/// Decision 3: a progression is one upgrade line per level, each above `Gained`, ascending. The
+/// validator has no rule for print's compact wording; each level is a lead of its own.
+#[test]
+fn a_progression_is_one_upgrade_line_per_level() {
+    let body = vec![
+        para("**Summon Nature's Ally (Sp)**"),
+        para("**Gained:** At 4th Level"),
+        para("**Standard:** You can cast summon nature's ally IV."),
+        para("**At 8th level,** this now behaves as summon nature's ally V."),
+        para("**At 12th level,** this now behaves as summon nature's ally VI."),
+        para("**At 16th level,** this now behaves as summon nature's ally VII."),
+    ];
+    assert_canonical(&body, "Summon Nature's Ally (Sp)", 1);
+    let found = candidate(&body, "Summon Nature's Ally (Sp)", 1);
+    let power = validate_power(found.blocks(&body)).unwrap();
+    let levels: Vec<u8> = power.upgrades.iter().map(|upgrade| upgrade.level).collect();
+    assert_eq!(levels, [8, 12, 16]);
+
+    // Two lines at one level, or a line below the one before it, are not progressions.
+    let mut twice = body.clone();
+    twice.insert(4, para("**At 8th level,** a second line."));
+    assert_fails(
+        &twice,
+        "Summon Nature's Ally (Sp)",
+        1,
+        &["upgrade-at-same-level"],
+    );
+    let mut backwards = body.clone();
+    backwards.swap(3, 4);
+    assert_fails(
+        &backwards,
+        "Summon Nature's Ally (Sp)",
+        1,
+        &["upgrades-not-ascending"],
+    );
+}
+
+/// Decision 4. `ref/evolution/basic-magic`, *Ultimate Magic* p. 76: `Choice` stands right after
+/// `Flavor`, before the effect. The source order has it after the effect.
+#[test]
+fn basic_magic_puts_its_choice_row_before_the_effect() {
+    let source = vec![
+        para("**Basic Magic (Sp)**"),
+        para("**Ability:** This spell can be cast once per day as a spell-like ability."),
+        para("**Choice:** Select one spell from the following list: acid splash, daze, light."),
+        para("**Flavor:** An eidolon learns to cast a basic spell as a spell-like ability."),
+        para("**At 4th Level:** This spell can be cast three times per day."),
+        para("**Prereq:** Eidolon has Charisma 10+"),
+        para("**Special:** This evolution can be selected more than once."),
+    ];
+    assert_fails(
+        &source,
+        "Basic Magic (Sp)",
+        1,
+        &["legacy-label", "out-of-order"],
+    );
+
+    let canonical = vec![
+        para("**Basic Magic (Sp)**"),
+        para("**Flavor:** An eidolon learns to cast a basic spell as a spell-like ability."),
+        para("**Choice:** Select one spell from the following list: acid splash, daze, light."),
+        para("**Ability:** This spell can be cast once per day as a spell-like ability."),
+        para("**At 4th level,** this spell can be cast three times per day."),
+        para("**Prereq:** Eidolon has Charisma 10+"),
+        para("**Special:** This evolution can be selected more than once."),
+    ];
+    assert_canonical(&canonical, "Basic Magic (Sp)", 1);
+    let found = candidate(&canonical, "Basic Magic (Sp)", 1);
+    let power = validate_power(found.blocks(&canonical)).unwrap();
+    assert!(power.flavor.is_some());
+    let preface: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+    assert_eq!(preface, ["Choice"]);
+    assert_eq!(power.upgrades.len(), 1);
+}
+
+/// Decision 4: `Choice` and `Info` stand after `Gained` and `Flavor`, before the effect, each at
+/// most once, in either order.
+#[test]
+fn choice_and_info_stand_between_flavor_and_the_effect() {
+    let body = |rows: &[&str]| {
+        let mut body = vec![para("**A Power**")];
+        body.extend(rows.iter().map(|row| para(row)));
+        body
+    };
+    let gained = "**Gained:** At 1st Level";
+    let flavor = "**Flavor:** f";
+    let choice = "**Choice:** c";
+    let info = "**Info:** i";
+    let effect = "**Passive:** e";
+    // Either order is valid, and the power keeps the source order for the renderer.
+    for (rows, expected) in [
+        (
+            vec![gained, flavor, choice, info, effect],
+            vec!["Choice", "Info"],
+        ),
+        (
+            vec![gained, flavor, info, choice, effect],
+            vec!["Info", "Choice"],
+        ),
+        (vec![gained, info, effect], vec!["Info"]),
+        (vec![choice, effect], vec!["Choice"]),
+        (vec![gained, flavor, effect], vec![]),
+    ] {
+        let body = body(&rows);
+        assert_canonical(&body, "A Power", 1);
+        let found = candidate(&body, "A Power", 1);
+        let power = validate_power(found.blocks(&body)).unwrap();
+        let labels: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(labels, expected, "{rows:?}");
+    }
+    // After the effect, after `Usage`, or before `Flavor` or `Gained`.
+    assert_fails(&body(&[effect, info]), "A Power", 1, &["out-of-order"]);
+    assert_fails(
+        &body(&[effect, "**Usage:** u", choice]),
+        "A Power",
+        1,
+        &["out-of-order"],
+    );
+    assert_fails(
+        &body(&[info, flavor, effect]),
+        "A Power",
+        1,
+        &["out-of-order"],
+    );
+    assert_fails(
+        &body(&[choice, gained, effect]),
+        "A Power",
+        1,
+        &["out-of-order"],
+    );
+    // Between the two effect rows.
+    assert_fails(
+        &body(&[effect, info, "**Standard:** a"]),
+        "A Power",
+        1,
+        &["out-of-order"],
+    );
+    // A second `Choice` or `Info` row.
+    assert_fails(
+        &body(&[choice, choice, effect]),
+        "A Power",
+        1,
+        &["second-singleton-row"],
+    );
+    assert_fails(
+        &body(&[info, info, effect]),
+        "A Power",
+        1,
+        &["second-singleton-row"],
+    );
+}
+
+/// Decision 5. `ref/eidolon/agathion`: `Base Evolutions` is a section label whose lines read like
+/// upgrades. It is no candidate, so no reason is reported for it.
+#[test]
+fn base_evolutions_is_never_a_candidate() {
+    let body = vec![
+        para("**Base Form**"),
+        para("**Details:** Biped (claws, limbs) or quadruped."),
+        para("**Base Evolutions**"),
+        para("**At 1st Level:** Agathion eidolons gain the resistance (electricity) evolution."),
+        para("**At 12th Level:** Agathion eidolons gain DR 5/evil."),
+        para("**At 4th Level:** Agathion eidolons gain cold resistance 10."),
+    ];
+    assert!(candidates(&body).is_empty(), "{:?}", candidates(&body));
+    assert!(one_power_page("Agathion", &body).is_none());
+}
+
+/// Decision 5. `ref/discipline/faith`: `Discipline Powers` is no candidate. The real powers after
+/// it are, and keep the layout.
+#[test]
+fn discipline_powers_is_a_label_and_the_powers_under_it_stay_candidates() {
+    let body = vec![
+        heading(3, "Bonus Spells"),
+        para("**Discipline Powers**"),
+        para("**At 1st Level:** Choose a deity to worship."),
+        para("**Description:** Your powers serve to protect or cure you and your allies."),
+        para("**Divine Energy**"),
+        para("**Ability:** You can channel spell energy into cure or inflict spells."),
+        para("Each day, you can convert up to one spell from each spell level you can cast."),
+        para("**Resilience of the Faithful (Su)**"),
+        para("**At 5th Level:** You gain a resistance bonus on all saving throws."),
+    ];
+    let found = candidates(&body);
+    let names: Vec<&str> = found
+        .iter()
+        .map(|candidate| candidate.name.as_str())
+        .collect();
+    assert_eq!(names, ["Divine Energy", "Resilience of the Faithful (Su)"]);
+    // The label's rows and its run do not end up in the real power before it.
+    assert_canonical(&body, "Divine Energy", 1);
+    assert_fails(
+        &body,
+        "Resilience of the Faithful (Su)",
+        1,
+        &["legacy-label", "no-effect-row"],
+    );
+}
+
+/// Decision 5. A witch patron (*Blood of the Coven*): the `Patron Spells` intro is a row of the
+/// power, and a `Patron Spells` block that a rewrite could turn into a power run is no candidate.
+#[test]
+fn patron_spells_is_never_a_candidate_and_its_intro_is_a_row_of_the_patron() {
+    let patron = vec![
+        para("**Celestial Agenda**"),
+        para("**Info:** While good deities have organized faiths, white witches defend the weak."),
+        para("**Passive:** Your patron holds you to a higher standard."),
+        para("**Spells:** Castigate (4th)"),
+        para("**Spells:** Rebuke (10th)"),
+        para("**Available patron themes:** Endurance, Healing, Light, Portents"),
+        para(
+            "**Patron Spells:** This unique patron grants these alternate spells at the listed witch levels.",
+        ),
+    ];
+    assert_canonical(&patron, "Celestial Agenda", 1);
+    let found = candidate(&patron, "Celestial Agenda", 1);
+    let power = validate_power(found.blocks(&patron)).unwrap();
+    let preface: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+    assert_eq!(preface, ["Info"]);
+    assert_eq!(power.other.last().unwrap().label, "Patron Spells");
+    assert!(one_power_page("Celestial Agenda", &patron).is_some());
+
+    // The name form (archetypes), with a row that would make the run a candidate.
+    let label = vec![
+        para("**Patron Spells**"),
+        para("**Info:** Regardless of which patron she selects, she replaces some patron spells."),
+        para("**Gained:** At 4th Level"),
+        para("**Spells:** Suffocation"),
+    ];
+    assert!(candidates(&label).is_empty());
+    // It still ends the run before it.
+    let mut after = vec![
+        para("**Alters:** x"),
+        para("**Real Power (Su)**"),
+        para("**Passive:** x"),
+    ];
+    after.extend(label);
+    let found = candidates(&after);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].end, 3);
+}
+
+/// Decision 5: the named list, and how a name is matched.
+#[test]
+fn a_section_label_is_matched_by_its_trimmed_folded_name_ignoring_case() {
+    for label in NON_POWER_LABELS {
+        assert!(is_non_power_label(label), "{label}");
+        assert!(is_non_power_label(&label.to_ascii_uppercase()), "{label}");
+        assert!(is_non_power_label(&format!("  {label}: ")), "{label}");
+    }
+    assert!(is_non_power_label("Base  Evolutions"));
+    // Only an exact name: a longer name, a tag or a part of a name is a power.
+    for name in [
+        "Base Evolutions (Su)",
+        "Evolutions",
+        "Bonus Spells Known",
+        "Patron",
+        "Spell Knowledge",
+        "Granted Powers",
+        "Class Skill",
+        "",
+    ] {
+        assert!(!is_non_power_label(name), "{name}");
     }
 }

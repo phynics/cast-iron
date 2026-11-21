@@ -7,6 +7,11 @@
 //! the corpus rewrite mirrors the classifier and the validator, and the renderer lays out a
 //! candidate only when [`validate_power`] accepts it.
 //!
+//! Decision `2026-11-21-class-option-power-owner-cases` refines that order with the owner's answers
+//! on the open cases: a passive row and an action row in either order, continuation paragraphs
+//! after `Special`, `Choice` and `Info` before the effect, and the section labels that are never
+//! powers.
+//!
 //! Everything here is a pure function over borrowed content: no I/O, no clock, and no hash-map
 //! iteration, so the output is deterministic.
 
@@ -34,11 +39,42 @@ pub const ALIAS_LABELS: [&str; 3] = ["Fullround", "Passive Ability", "Standard A
 /// The legacy row `**Action:** <value>`, whose value names the action.
 pub const ACTION_LABEL: &str = "Action";
 
+/// The effect labels that name an action. A power with two effect rows has one row with one of
+/// these labels, so the renderer tells the action paragraph from the passive text by its label.
+pub const ACTION_EFFECT_LABELS: [&str; 6] = [
+    "Standard",
+    "Move",
+    "Swift",
+    "Immediate",
+    "Free",
+    "Full-round",
+];
+
+/// The effect labels of the passive text that pairs with an action row, in either order:
+/// `Passive`, and `Ability`, which print does not mark as an action.
+pub const PASSIVE_EFFECT_LABELS: [&str; 2] = ["Passive", "Ability"];
+
+/// Block names that are section labels, never powers. [`candidates`] skips them, matched on the
+/// plain text of the name block: trimmed, without a trailing colon, with runs of white space
+/// folded, ignoring ASCII case. A block under one of them renders as it does today; the real
+/// powers after it are candidates of their own.
+pub const NON_POWER_LABELS: [&str; 6] = [
+    "Base Evolutions",
+    "Bonus Spells",
+    "Discipline Powers",
+    "Domain Spells",
+    "Patron Spells",
+    "Replacement Domain Spells",
+];
+
 const GAINED: &str = "Gained";
 const FLAVOR: &str = "Flavor";
+const CHOICE: &str = "Choice";
+const INFO: &str = "Info";
 const USAGE: &str = "Usage";
 const PREREQ: &str = "Prereq";
 const REPLACES: &str = "Replaces";
+const SPECIAL: &str = "Special";
 
 /// The highest level a class feature is gained at.
 const MAX_LEVEL: u8 = 20;
@@ -241,6 +277,48 @@ fn is_alias_label(label: &str) -> bool {
     ALIAS_LABELS.contains(&label)
 }
 
+/// What an effect row is, for the pair rule: its alias counts as the canonical label it becomes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EffectClass {
+    /// `Passive` or `Ability`.
+    Passive,
+    /// `Standard`, `Move`, `Swift`, `Immediate`, `Free` or `Full-round`.
+    Action,
+    /// `Benefit`: neither.
+    Neither,
+}
+
+fn effect_class(label: &str) -> EffectClass {
+    let label = match label {
+        "Fullround" => "Full-round",
+        "Passive Ability" => "Passive",
+        "Standard Action" => "Standard",
+        other => other,
+    };
+    if PASSIVE_EFFECT_LABELS.contains(&label) {
+        EffectClass::Passive
+    } else if ACTION_EFFECT_LABELS.contains(&label) {
+        EffectClass::Action
+    } else {
+        EffectClass::Neither
+    }
+}
+
+/// Which paragraphs the unlabeled paragraphs that follow a row continue.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Continues {
+    /// Nothing: an unlabeled paragraph here is stray.
+    Nothing,
+    /// The first effect row, in print order.
+    Effect,
+    /// The second effect row.
+    Second,
+    /// An effect row that is already a problem: its paragraphs are dropped without a new one.
+    Dropped,
+    /// The `Special` row at this index of `other`.
+    Special(usize),
+}
+
 /// An effect label, an alias or `Action` followed by digits: `Ability2`.
 fn is_numbered_effect_label(label: &str) -> bool {
     let base = label.trim_end_matches(|c: char| c.is_ascii_digit());
@@ -271,8 +349,23 @@ fn is_power_marker(kind: &BlockKind<'_>) -> bool {
 // Candidates
 // ---------------------------------------------------------------------------------------------
 
+/// A section label that is never a power: one of [`NON_POWER_LABELS`], matched on the name's
+/// text trimmed, without a trailing colon, with runs of white space folded, ignoring ASCII case.
+pub fn is_non_power_label(name: &str) -> bool {
+    let folded = name
+        .trim()
+        .trim_end_matches(':')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    NON_POWER_LABELS
+        .iter()
+        .any(|label| label.eq_ignore_ascii_case(&folded))
+}
+
 /// A name directly followed by a row, a lead or a legacy upgrade, and the run that follows it up
-/// to the next boundary or name, when that run holds a power marker.
+/// to the next boundary or name, when that run holds a power marker. A name that is a
+/// [`NON_POWER_LABELS`] section label is never a candidate; it still ends the run before it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Candidate {
     /// The index of the name block in the body.
@@ -307,7 +400,7 @@ pub fn candidates(body: &[Block]) -> Vec<Candidate> {
             kinds.get(at + 1),
             Some(BlockKind::Row(_) | BlockKind::Lead(_) | BlockKind::LegacyUpgrade(_))
         );
-        if !starts_run {
+        if !starts_run || is_non_power_label(name) {
             at += 1;
             continue;
         }
@@ -357,9 +450,10 @@ pub enum PowerProblem {
     /// No effect row. `suggest_lowest_upgrade` holds when the run has no `Gained` row but has an
     /// upgrade: its lowest upgrade can become the `Gained` level and the base effect.
     NoEffectRow { suggest_lowest_upgrade: bool },
-    /// More than one effect row.
+    /// More than one effect row, other than a passive row and an action row in either order: a
+    /// third effect row, two passive rows, two action rows, or a `Benefit` row beside another.
     MultipleEffectRows,
-    /// A second `Gained`, `Flavor`, `Usage`, `Prereq` or `Replaces` row.
+    /// A second `Gained`, `Flavor`, `Choice`, `Info`, `Usage`, `Prereq` or `Replaces` row.
     SecondSingletonRow { label: String },
     /// A row or an upgrade in the wrong position of the canonical order.
     OutOfOrder { label: String },
@@ -435,7 +529,10 @@ impl fmt::Display for PowerProblem {
                 }
                 Ok(())
             }
-            PowerProblem::MultipleEffectRows => write!(f, "more than one effect row"),
+            PowerProblem::MultipleEffectRows => write!(
+                f,
+                "more than one effect row (two are valid only as a passive row and an action row)"
+            ),
             PowerProblem::SecondSingletonRow { label } => {
                 write!(f, "a second `{label}:` row")
             }
@@ -459,13 +556,31 @@ impl fmt::Display for PowerProblem {
     }
 }
 
-/// The base effect of a valid power.
+/// An effect row of a valid power.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Effect<'a> {
     /// `Passive`, `Ability`, `Standard`, ...
     pub label: String,
     pub content: &'a [Inline],
     /// The unlabeled paragraphs directly after the effect row.
+    pub continuation: Vec<&'a [Inline]>,
+}
+
+impl Effect<'_> {
+    /// The row names an action: `Standard`, `Move`, `Swift`, `Immediate`, `Free` or `Full-round`.
+    pub fn is_action(&self) -> bool {
+        effect_class(&self.label) == EffectClass::Action
+    }
+}
+
+/// A row of position 11 with the unlabeled paragraphs that continue it. Only a `Special` row has
+/// continuation paragraphs.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OtherRow<'a> {
+    /// The bold text without its colon.
+    pub label: String,
+    pub content: &'a [Inline],
+    /// The unlabeled paragraphs directly after a `Special` row, in print order.
     pub continuation: Vec<&'a [Inline]>,
 }
 
@@ -484,29 +599,47 @@ pub struct Power<'a> {
     /// The level of the `Gained` row.
     pub gained: Option<u8>,
     pub flavor: Option<&'a [Inline]>,
+    /// The `Choice` and `Info` rows, which stand right after `Flavor`, in source order. Each label
+    /// appears at most once.
+    pub preface: Vec<Row<'a>>,
+    /// The first effect row, in print order.
     pub effect: Effect<'a>,
+    /// The second effect row, in print order, when the power has two. A power with two effect rows
+    /// has a passive row and an action row, in either order: print's order is authoritative.
+    pub second_effect: Option<Effect<'a>>,
     pub usage: Option<&'a [Inline]>,
     pub upgrades: Vec<Upgrade<'a>>,
     pub prereq: Option<&'a [Inline]>,
     pub replaces: Option<&'a [Inline]>,
-    /// Rows in position 9, in source order: `Special`, `Penalty`, `Functions As`, ...
-    pub other: Vec<Row<'a>>,
+    /// Rows in position 11, in source order: `Special`, `Penalty`, `Functions As`, ...
+    pub other: Vec<OtherRow<'a>>,
+}
+
+impl Power<'_> {
+    /// The effect row that names an action, if the power has one.
+    pub fn action(&self) -> Option<&Effect<'_>> {
+        std::iter::once(&self.effect)
+            .chain(self.second_effect.as_ref())
+            .find(|effect| effect.is_action())
+    }
 }
 
 // The position of a row in the canonical order.
 const RANK_GAINED: u8 = 2;
 const RANK_FLAVOR: u8 = 3;
-const RANK_EFFECT: u8 = 4;
-const RANK_USAGE: u8 = 6;
-const RANK_UPGRADE: u8 = 7;
-const RANK_PREREQ: u8 = 8;
-const RANK_REPLACES: u8 = 9;
-const RANK_OTHER: u8 = 10;
+const RANK_PREFACE: u8 = 4;
+const RANK_EFFECT: u8 = 5;
+const RANK_USAGE: u8 = 7;
+const RANK_UPGRADE: u8 = 8;
+const RANK_PREREQ: u8 = 9;
+const RANK_REPLACES: u8 = 10;
+const RANK_OTHER: u8 = 11;
 
 fn rank_of(label: &str) -> u8 {
     match label {
         GAINED => RANK_GAINED,
         FLAVOR => RANK_FLAVOR,
+        CHOICE | INFO => RANK_PREFACE,
         USAGE => RANK_USAGE,
         PREREQ => RANK_PREREQ,
         REPLACES => RANK_REPLACES,
@@ -532,9 +665,11 @@ fn gained_level(content: &[Inline]) -> Option<u8> {
 /// Validate one candidate against the canonical form: the blocks are the name, then its run.
 ///
 /// It rejects each rule of the canonical order that the run breaks, an empty row, a legacy upgrade
-/// in any position, any legacy label, a non-canonical lead or `Gained` value, a missing effect row
-/// or more than one, a second singleton row and a paragraph outside the effect's continuation.
-/// Every problem found is returned, in the order of the blocks.
+/// in any position, any legacy label, a non-canonical lead or `Gained` value, a missing effect row,
+/// more than one effect row unless they are a passive row (`Passive`, `Ability`) and an action row
+/// (`Standard`, `Move`, `Swift`, `Immediate`, `Free`, `Full-round`) in either order, a second
+/// singleton row, and an unlabeled paragraph that is not in the continuation of an effect row or
+/// of a `Special` row. Every problem found is returned, in the order of the blocks.
 pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> {
     let kinds: Vec<BlockKind<'_>> = blocks.iter().map(classify).collect();
     let name = match kinds.first() {
@@ -582,18 +717,21 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
     let mut last_rank = 1u8;
     let mut seen_singletons: Vec<&str> = Vec::new();
     let mut effect_rows = 0usize;
-    let mut after_effect = false;
+    let mut continues = Continues::Nothing;
+    let mut first_class = EffectClass::Neither;
     let mut last_upgrade: Option<u8> = None;
 
     let mut power = Power {
         name,
         gained,
         flavor: None,
+        preface: Vec::new(),
         effect: Effect {
             label: String::new(),
             content: &[],
             continuation: Vec::new(),
         },
+        second_effect: None,
         usage: None,
         upgrades: Vec::new(),
         prereq: None,
@@ -605,7 +743,7 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
         match kind {
             BlockKind::Row(row) => {
                 let label = row.label.as_str();
-                after_effect = false;
+                continues = Continues::Nothing;
                 if row.is_empty() {
                     note(PowerProblem::EmptyRow {
                         label: row.label.clone(),
@@ -613,23 +751,44 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
                 }
                 if is_effect_label(label) || is_alias_label(label) {
                     effect_rows += 1;
-                    after_effect = true;
                     if is_alias_label(label) {
                         note(PowerProblem::LegacyLabel {
                             label: row.label.clone(),
                         });
                     }
-                    if effect_rows > 1 {
+                    let class = effect_class(label);
+                    // Two rows are valid as a passive row and an action row, in either order.
+                    let pair_ok = effect_rows == 2
+                        && matches!(
+                            (first_class, class),
+                            (EffectClass::Passive, EffectClass::Action)
+                                | (EffectClass::Action, EffectClass::Passive)
+                        );
+                    if effect_rows > 2 || (effect_rows == 2 && !pair_ok) {
                         note(PowerProblem::MultipleEffectRows);
-                    } else {
+                    }
+                    if effect_rows == 1 || pair_ok {
                         if last_rank > RANK_EFFECT {
                             note(PowerProblem::OutOfOrder {
                                 label: row.label.clone(),
                             });
                         }
                         last_rank = last_rank.max(RANK_EFFECT);
+                    }
+                    if effect_rows == 1 {
+                        first_class = class;
                         power.effect.label = row.label.clone();
                         power.effect.content = row.content;
+                        continues = Continues::Effect;
+                    } else if pair_ok {
+                        power.second_effect = Some(Effect {
+                            label: row.label.clone(),
+                            content: row.content,
+                            continuation: Vec::new(),
+                        });
+                        continues = Continues::Second;
+                    } else {
+                        continues = Continues::Dropped;
                     }
                     continue;
                 }
@@ -669,14 +828,24 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
                         }
                     }
                     FLAVOR => power.flavor = Some(row.content),
+                    CHOICE | INFO => power.preface.push(row.clone()),
                     USAGE => power.usage = Some(row.content),
                     PREREQ => power.prereq = Some(row.content),
                     REPLACES => power.replaces = Some(row.content),
-                    _ => power.other.push(row.clone()),
+                    _ => {
+                        if label == SPECIAL {
+                            continues = Continues::Special(power.other.len());
+                        }
+                        power.other.push(OtherRow {
+                            label: row.label.clone(),
+                            content: row.content,
+                            continuation: Vec::new(),
+                        });
+                    }
                 }
             }
             BlockKind::Lead(lead) => {
-                after_effect = false;
+                continues = Continues::Nothing;
                 if !lead.is_canonical() {
                     note(PowerProblem::NonCanonicalLead);
                     continue;
@@ -707,18 +876,26 @@ pub fn validate_power(blocks: &[Block]) -> Result<Power<'_>, Vec<PowerProblem>> 
                 });
             }
             BlockKind::LegacyUpgrade(_) => {
-                after_effect = false;
+                continues = Continues::Nothing;
                 note(PowerProblem::LegacyUpgrade);
             }
             BlockKind::Paragraph => {
-                // Only the effect's continuation may be unlabeled, directly after the effect row.
-                if after_effect {
-                    // `blocks[0]` is the name, so the run's block `index` is `blocks[index + 1]`.
-                    if let Block::Paragraph { content, .. } = &blocks[index + 1] {
-                        power.effect.continuation.push(content);
+                // An unlabeled paragraph continues the row right before it, and only an effect row
+                // or a `Special` row has continuation paragraphs.
+                // `blocks[0]` is the name, so the run's block `index` is `blocks[index + 1]`.
+                let Block::Paragraph { content, .. } = &blocks[index + 1] else {
+                    continue;
+                };
+                match continues {
+                    Continues::Effect => power.effect.continuation.push(content),
+                    Continues::Second => {
+                        if let Some(second) = power.second_effect.as_mut() {
+                            second.continuation.push(content);
+                        }
                     }
-                } else {
-                    note(PowerProblem::StrayParagraph);
+                    Continues::Special(at) => power.other[at].continuation.push(content),
+                    Continues::Dropped => {}
+                    Continues::Nothing => note(PowerProblem::StrayParagraph),
                 }
             }
             // Reported once above.
@@ -794,16 +971,18 @@ pub enum ActionGroupProblem {
     /// More than one group of unlabeled paragraphs.
     SecondGroup,
     /// The group is not directly reachable: this lead, legacy upgrade, empty row or row other
-    /// than `Gained`, `Flavor`, `Usage`, `Prereq` and `Replaces` stands between the row and it.
+    /// than `Gained`, `Flavor`, `Choice`, `Info`, `Usage`, `Prereq` and `Replaces` stands between
+    /// the row and it.
     Crosses { what: String },
 }
 
 /// Find the effect text of the `Action` row at `action` in a candidate's blocks (the name is
 /// block 0). The block at `action` must be an `Action` row whose value maps to an effect label
-/// ([`ActionMapping::Effect`]). The run must hold exactly one group of consecutive unlabeled paragraphs. It must come
-/// after the `Action` row, and only rows labeled `Gained`, `Flavor`, `Usage`, `Prereq` or
-/// `Replaces`, each with content, may stand between them. The result is the range of the group in
-/// `blocks`.
+/// ([`ActionMapping::Effect`]). The run must hold exactly one group of consecutive unlabeled
+/// paragraphs, not counting the paragraphs that continue a `Special` row (those directly after a
+/// `Special` row, which stay with its note). The group must come after the `Action` row, and only
+/// rows labeled `Gained`, `Flavor`, `Choice`, `Info`, `Usage`, `Prereq` or `Replaces`, each with
+/// content, may stand between them. The result is the range of the group in `blocks`.
 pub fn action_effect_group(
     blocks: &[Block],
     action: usize,
@@ -820,12 +999,17 @@ pub fn action_effect_group(
         return Err(ActionGroupProblem::NotAnEffectAction);
     }
     let mut groups: Vec<Range<usize>> = Vec::new();
+    // The unlabeled paragraphs directly after a `Special` row continue its note, not the effect.
+    let mut in_special = false;
     for (index, kind) in kinds.iter().enumerate().skip(1) {
-        if matches!(kind, BlockKind::Paragraph) {
-            match groups.last_mut() {
+        match kind {
+            BlockKind::Paragraph if in_special => {}
+            BlockKind::Paragraph => match groups.last_mut() {
                 Some(group) if group.end == index => group.end = index + 1,
                 _ => groups.push(index..index + 1),
-            }
+            },
+            BlockKind::Row(row) => in_special = row.label == SPECIAL,
+            _ => in_special = false,
         }
     }
     let group = match groups.as_slice() {
@@ -842,7 +1026,7 @@ pub fn action_effect_group(
                 if !row.is_empty()
                     && matches!(
                         row.label.as_str(),
-                        GAINED | FLAVOR | USAGE | PREREQ | REPLACES
+                        GAINED | FLAVOR | CHOICE | INFO | USAGE | PREREQ | REPLACES
                     ) =>
             {
                 continue;
@@ -1398,10 +1582,53 @@ mod tests {
             row("Gained", "At 1st Level"),
             row("Flavor", "f"),
             row("Passive", "x"),
-            row("Special", "s"),
+            row("Penalty", "s"),
             plain("Stray."),
         ];
         assert_eq!(problems(&after_flavor), ["stray-paragraph"]);
+    }
+
+    #[test]
+    fn paragraphs_after_special_continue_the_special_note_in_print_order() {
+        let body = vec![
+            name("P"),
+            row("Passive", "x"),
+            row("Special", "First."),
+            plain("Second."),
+            plain("Third."),
+            row("Penalty", "p"),
+            row("Special", "Another."),
+            plain("Fourth."),
+        ];
+        let found = candidates(&body);
+        let power = validate_power(found[0].blocks(&body)).unwrap();
+        let labels: Vec<&str> = power.other.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(labels, ["Special", "Penalty", "Special"]);
+        assert_eq!(power.other[0].continuation.len(), 2);
+        assert_eq!(power.other[1].continuation.len(), 0);
+        assert_eq!(power.other[2].continuation.len(), 1);
+        // The effect has none: the paragraphs belong to `Special`.
+        assert!(power.effect.continuation.is_empty());
+
+        // After any other row, an unlabeled paragraph is still stray.
+        for label in ["Penalty", "Functions As", "Prereq", "Usage", "Replaces"] {
+            let body = vec![
+                name("P"),
+                row("Passive", "x"),
+                row(label, "v"),
+                plain("Stray."),
+            ];
+            assert_eq!(problems(&body), ["stray-paragraph"], "{label}");
+        }
+        // Between `Special` and its paragraph nothing may stand.
+        let body = vec![
+            name("P"),
+            row("Passive", "x"),
+            row("Special", "s"),
+            row("Penalty", "p"),
+            plain("Stray."),
+        ];
+        assert_eq!(problems(&body), ["stray-paragraph"]);
     }
 
     #[test]
@@ -1566,20 +1793,37 @@ mod tests {
     #[test]
     fn the_action_group_must_be_one_group_after_the_row() {
         let group = |body: &[Block], action: usize| action_effect_group(body, action);
-        // Gained, Flavor, Usage, Prereq and Replaces rows with content may stand between.
+        // Gained, Flavor, Choice, Info, Usage, Prereq and Replaces rows with content may stand
+        // between.
         let ok = vec![
             name("P"),
             row("Action", "Ability"),
             row("Gained", "At 1st Level"),
             row("Flavor", "f"),
+            row("Choice", "c"),
+            row("Info", "i"),
             row("Usage", "u"),
             row("Prereq", "p"),
             row("Replaces", "r"),
             plain("One."),
             plain("Two."),
             row("Special", "s"),
+            plain("The note continues."),
         ];
-        assert_eq!(group(&ok, 1), Ok(7..9));
+        assert_eq!(group(&ok, 1), Ok(9..11));
+        // The paragraphs that continue `Special` are not an effect group.
+        assert_eq!(
+            group(
+                &[
+                    name("P"),
+                    row("Action", "Ability"),
+                    row("Special", "s"),
+                    plain("The note.")
+                ],
+                1
+            ),
+            Err(ActionGroupProblem::NoGroup)
+        );
         // No group.
         assert_eq!(
             group(&[name("P"), row("Action", "Ability")], 1),
@@ -1609,7 +1853,7 @@ mod tests {
             (lead("3rd", "x"), "an upgrade lead"),
             (plain("At 3rd level: x"), "a plain-text upgrade"),
             (paragraph(vec![strong("Usage:")]), "the empty row `Usage:`"),
-            (row("Special", "s"), "the row `Special:`"),
+            (row("Penalty", "s"), "the row `Penalty:`"),
         ] {
             assert_eq!(
                 group(

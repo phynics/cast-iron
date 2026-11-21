@@ -1117,15 +1117,22 @@ without reordering anything:
 ```
 
 The order is: the name (one bold span, no colon); an optional `Gained` row (`At Nth Level`); an
-optional `Flavor` row; exactly one effect row (`Passive`, `Ability`, `Standard`, `Move`, `Swift`,
-`Immediate`, `Free`, `Full-round` or `Benefit`); the effect's continuation, as unlabeled
-paragraphs directly after the effect row and nowhere else; an optional `Usage` row; the upgrades,
-each `**At Nth level,** sentence` in strictly ascending level and above `Gained`; an optional
-`Prereq` row, then an optional `Replaces` row; every other row in its source order. Every row has
-content. A legacy label (`Action`, `Fullround`, `Passive Ability`, `Standard Action`, a numbered
-label such as `Ability2`, or `At Nth Level:`) and a plain-text upgrade (`At 8th level: ...`) are not
-canonical. The text and the order are the only change from the old import: the files keep the same
-syntax, so this is not a corpus format change.
+optional `Flavor` row; an optional `Choice` row and an optional `Info` row, in either order; the
+effect: one effect row (`Passive`, `Ability`, `Standard`, `Move`, `Swift`, `Immediate`, `Free`,
+`Full-round` or `Benefit`), or two, a `Passive` or `Ability` row and an action row (`Standard`,
+`Move`, `Swift`, `Immediate`, `Free` or `Full-round`) in print's order, each with its continuation,
+as unlabeled paragraphs directly after the row; an optional `Usage` row; the upgrades, one line per level, each
+`**At Nth level,** sentence` in strictly ascending level and above `Gained`; an optional `Prereq`
+row, then an optional `Replaces` row; every other row in its source order, where unlabeled
+paragraphs directly after a `Special` row continue its note. Every row has content. A legacy label
+(`Action`, `Fullround`, `Passive Ability`, `Standard Action`, a numbered label such as `Ability2`, or
+`At Nth Level:`) and a plain-text upgrade (`At 8th level: ...`) are not canonical. A block that is a
+section label and not a power (`Base Evolutions`, `Bonus Spells`, `Discipline Powers`, `Domain
+Spells`, `Patron Spells`, `Replacement Domain Spells`) is never a candidate. The text and the order
+are the only change from the old import: the files keep the same syntax, so this is not a corpus
+format change. The decision
+[`2026-11-21-class-option-power-owner-cases`](decisions/2026-11-21-class-option-power-owner-cases.md)
+holds the rules for the two effect rows, `Special`, `Choice` and `Info`, and the section labels.
 
 `corpus-check` runs the shared classifier and validator
 (`cast_iron_schema::power`) on every entry of kind `class_option`. A *candidate* is a name

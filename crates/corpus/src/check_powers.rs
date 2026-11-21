@@ -217,6 +217,56 @@ mod tests {
     }
 
     #[test]
+    fn the_owner_cases_of_2026_11_21_report_nothing_or_their_own_reason() {
+        let canonical = vec![
+            name("Noble Visage (Su)"),
+            row("Passive", "A bonus."),
+            row("Standard", "Touch an ally."),
+            row("Usage", "3 + Wisdom modifier times/day"),
+            row("Replaces", "The inspiring word ability"),
+            name("Natural Spell Combat (Ex)"),
+            row("Choice", "One spell."),
+            row("Ability", "Use spell combat."),
+            row("Special", "More than once."),
+            paragraph(vec![Inline::text("Another paragraph of the note.")]),
+            // A section label that holds upgrade-like rows is no power.
+            name("Base Evolutions"),
+            row("At 1st Level", "Gain an evolution."),
+        ];
+        let (none, _) = warnings(vec![option(
+            "ref/domain/nobility",
+            EntryKind::ClassOption,
+            canonical,
+        )]);
+        assert!(none.is_empty(), "{none:?}");
+
+        // The action row first, then the passive row, is print's order and valid.
+        let (none, _) = warnings(vec![option(
+            "ref/domain/backwards",
+            EntryKind::ClassOption,
+            vec![
+                name("Backwards (Su)"),
+                row("Standard", "Touch."),
+                row("Passive", "A bonus."),
+            ],
+        )]);
+        assert!(none.is_empty(), "{none:?}");
+
+        // Two actions are two effect rows.
+        let (found, _) = warnings(vec![option(
+            "ref/domain/twice",
+            EntryKind::ClassOption,
+            vec![
+                name("Twice (Su)"),
+                row("Standard", "Touch."),
+                row("Swift", "Again."),
+            ],
+        )]);
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found[0].contains("[multiple-effect-rows]"), "{found:?}");
+    }
+
+    #[test]
     fn canonical_powers_and_other_kinds_report_nothing() {
         let (none, _) = warnings(vec![option(
             "ref/hex/fine",
