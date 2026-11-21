@@ -7,6 +7,7 @@ import {
   openQuickSearch,
   quickGroup,
   searchFor,
+  seedHome,
   storedMeta,
   waitHomeIdle,
   waitReady,
@@ -153,4 +154,33 @@ test("Clear in Recently viewed removes the visit and the continue point, and bot
 
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toHaveCount(0);
+});
+
+test("A saved continue point for a book that does not hold the entry is not offered, and an old address does not record one (#543)", async ({ page }) => {
+  const { book, entry } = placedEntry();
+  // A book that the library installs and that does not print this entry: what a book looks
+  // like after a library update removed the entry from it.
+  const former = bookTrees().find(
+    (tree) => tree.source !== book.source && !entry.source_ids.includes(tree.source),
+  );
+  if (!former) throw new Error("The compiled corpus has no second book that omits the entry.");
+  const seeded = { source: former.source, entry_id: entry.id, read_at: 12345 };
+  await seedHome(page, { continuePoints: [seeded] });
+
+  // The book page offers no Continue link, and Quick search has no Continue row.
+  await page.goto(`#/browse/book/${former.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: former.title })).toBeVisible();
+  await expect(page.getByTestId("continue-reading")).toHaveCount(0);
+  await page.goto("#/");
+  await waitReady(page);
+  await waitHomeIdle(page);
+  await openQuickSearch(page);
+  await expect(continueRow(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // An old book-qualified address still opens the entry, but leaves the stored point as it was.
+  await page.goto(`#/entry/${entry.id}?book=${former.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(await storedContinuePoints(page)).toEqual([seeded]);
 });
