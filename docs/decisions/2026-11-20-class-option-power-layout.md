@@ -2,7 +2,7 @@
 title: "Class-option powers render as printed prose from canonical labeled rows"
 date: 2026-11-20
 status: partly-superseded
-superseded_by: ["2026-11-21-class-option-power-counts", "2026-11-21-class-option-power-owner-cases"]
+superseded_by: ["2026-11-21-class-option-power-counts", "2026-11-21-class-option-power-exceptions", "2026-11-21-class-option-power-owner-cases"]
 issues: [537, 540]
 prs: [538]
 area: ui

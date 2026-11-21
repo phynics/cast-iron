@@ -8,7 +8,7 @@
 //! resolved (#557); the app pull request that pins the resolved corpus makes it an error.
 //!
 //! A power that print cannot settle is listed in `power-exceptions.toml` in the corpus root (see
-//! `docs/corpus-format.md`, "Class-option powers"): the rule skips a failing power that the file
+//! `docs/corpus-format.md`, "Class-option powers", section "Power exceptions"): the rule skips a failing power that the file
 //! names, and reports an exception that names no power, or a power that passes, as a warning.
 
 use crate::check::{Report, body_text};
@@ -16,19 +16,20 @@ use crate::load::{Corpus, Stored};
 use cast_iron_schema::EntryKind;
 use cast_iron_schema::power::{candidates, validate_power};
 use serde::Deserialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// The optional file in the corpus root that lists the powers allowed to fail validation.
 pub const EXCEPTIONS_FILE: &str = "power-exceptions.toml";
 
 /// `power-exceptions.toml`: one `[[exception]]` row per power. The corpus repository's script
-/// writes `span_sha256` and checks it; the rule here does not read it.
+/// checks `span_sha256` against the power's source text; the rule here requires its form (64
+/// lowercase hex digits) and does not compute it.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ExceptionFile {
     #[serde(default)]
-    exception: Vec<PowerException>,
+    exception: Vec<toml::Spanned<PowerException>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -41,9 +42,7 @@ struct PowerException {
     /// Which power of that name in the entry, counting from 1.
     occurrence: u32,
     /// The SHA-256 of the power's source text, for the corpus repository's own check.
-    #[serde(default)]
-    #[allow(dead_code)]
-    span_sha256: Option<String>,
+    span_sha256: String,
     /// Why print cannot settle the power.
     reason: String,
     /// The book title and page that was checked, or why none exists.
@@ -82,15 +81,26 @@ fn parse_exceptions(text: &str) -> Result<Vec<PowerException>, String> {
         format!("{EXCEPTIONS_FILE}:{line}: {}", error.message())
     })?;
     let mut seen = BTreeSet::new();
-    for row in &file.exception {
+    let mut rows = Vec::new();
+    for spanned in file.exception {
+        let line = line_at(text, spanned.span().start);
+        let row = spanned.into_inner();
         let at = |message: String| {
             format!(
-                "{EXCEPTIONS_FILE}:1: exception `{}` of entry `{}`: {message}",
+                "{EXCEPTIONS_FILE}:{line}: exception `{}` of entry `{}`: {message}",
                 row.name, row.id
             )
         };
         if row.occurrence == 0 {
             return Err(at("`occurrence` counts from 1".into()));
+        }
+        if row.span_sha256.len() != 64
+            || !row
+                .span_sha256
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
+            return Err(at("`span_sha256` is 64 lowercase hex digits".into()));
         }
         if row.reason.trim().is_empty() || row.print.trim().is_empty() {
             return Err(at("`reason` and `print` need a text".into()));
@@ -101,8 +111,9 @@ fn parse_exceptions(text: &str) -> Result<Vec<PowerException>, String> {
                 row.occurrence
             )));
         }
+        rows.push(row);
     }
-    Ok(file.exception)
+    Ok(rows)
 }
 
 /// The 1-based line of the top-level body block `index`, as the parser recorded it. An entry that
@@ -145,12 +156,13 @@ fn check_powers(corpus: &Corpus, exceptions: &[PowerException], report: &mut Rep
         if !found.is_empty() {
             candidate_entries += 1;
         }
-        let mut occurrences: BTreeMap<String, u32> = BTreeMap::new();
         for candidate in found {
             candidate_total += 1;
-            let occurrence = occurrences.entry(candidate.name.clone()).or_insert(0);
-            *occurrence += 1;
-            let key: PowerKey = (entry.id.to_string(), candidate.name.clone(), *occurrence);
+            let key: PowerKey = (
+                entry.id.to_string(),
+                candidate.name.clone(),
+                u32::try_from(candidate.occurrence).unwrap_or(u32::MAX),
+            );
             let excepted = wanted.contains(&key);
             let Err(problems) = validate_power(candidate.blocks(&entry.body)) else {
                 if excepted {
@@ -442,6 +454,7 @@ mod tests {
 id = "ref/hex/example"
 name = "Bad Power (Su)"
 occurrence = 1
+span_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
 reason = "print cannot settle it"
 print = "Core Rulebook p. 1"
 "#;
@@ -557,8 +570,7 @@ print = "Core Rulebook p. 1"
     #[test]
     fn the_exceptions_file_is_read_strictly() {
         assert!(parse_exceptions("").expect("an empty file").is_empty());
-        let rows = parse_exceptions(&format!("{BAD_POWER_EXCEPTION}span_sha256 = \"ab\"\n"))
-            .expect("the optional hash is accepted");
+        let rows = parse_exceptions(BAD_POWER_EXCEPTION).expect("a valid file");
         assert_eq!(rows.len(), 1);
         for (broken, fragment) in [
             (
@@ -577,6 +589,21 @@ print = "Core Rulebook p. 1"
                 format!("{BAD_POWER_EXCEPTION}{BAD_POWER_EXCEPTION}"),
                 "a second exception",
             ),
+            (
+                BAD_POWER_EXCEPTION.replace(&"0".repeat(64), "abc"),
+                "64 lowercase hex digits",
+            ),
+            (
+                BAD_POWER_EXCEPTION.replace(&"0".repeat(64), &"A".repeat(64)),
+                "64 lowercase hex digits",
+            ),
+            (
+                BAD_POWER_EXCEPTION.replace(
+                    "span_sha256 = \"0000000000000000000000000000000000000000000000000000000000000000\"\n",
+                    "",
+                ),
+                "missing field `span_sha256`",
+            ),
         ] {
             let error = parse_exceptions(&broken).expect_err(&broken);
             assert!(
@@ -584,6 +611,21 @@ print = "Core Rulebook p. 1"
                 "{error}"
             );
         }
+    }
+
+    #[test]
+    fn an_error_inside_a_row_names_the_line_of_that_row() {
+        let file = format!(
+            "{BAD_POWER_EXCEPTION}{}",
+            BAD_POWER_EXCEPTION.replace("occurrence = 1", "occurrence = 0")
+        );
+        let error = parse_exceptions(&file).expect_err("the second row is bad");
+        // The row's span starts at its first key, the line after its `[[exception]]` header.
+        let second_row = BAD_POWER_EXCEPTION.lines().count() + 2;
+        assert!(
+            error.starts_with(&format!("power-exceptions.toml:{second_row}:")),
+            "{error} (the second row's first key is on line {second_row})"
+        );
     }
 
     #[test]
@@ -599,5 +641,49 @@ print = "Core Rulebook p. 1"
         let error = read_exceptions(&dir).expect_err("a bad file");
         assert!(error.starts_with("power-exceptions.toml:2:"), "{error}");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_malformed_file_is_one_problem_and_the_failing_powers_still_warn() {
+        let dir = std::env::temp_dir().join(format!("cast-iron-powers-bad-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("a temporary directory");
+        std::fs::write(dir.join(EXCEPTIONS_FILE), "[[exception]]\nid = 1\n").expect("write");
+        let mut corpus = corpus(vec![option(
+            "ref/hex/example",
+            EntryKind::ClassOption,
+            failing("Bad Power (Su)"),
+        )]);
+        corpus.dir = dir.clone();
+        let mut report = Report::default();
+        check_class_option_powers(&corpus, &mut report);
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(report.problems[0].starts_with("power-exceptions.toml:"));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("`Bad Power (Su)`")),
+            "{:?}",
+            report.warnings
+        );
+    }
+
+    #[test]
+    fn an_exception_for_an_entry_that_is_not_a_class_option_matches_no_power() {
+        // The same failing body in a rule entry is not checked, so the exception names nothing.
+        let warnings = excepted(
+            vec![option(
+                "ref/hex/example",
+                EntryKind::Rule,
+                failing("Bad Power (Su)"),
+            )],
+            BAD_POWER_EXCEPTION,
+        );
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("no class-option power matches"),
+            "{warnings:?}"
+        );
     }
 }
