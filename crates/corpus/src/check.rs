@@ -178,36 +178,106 @@ fn bold_only(line: &str) -> Option<&str> {
 }
 
 /// The byte ranges (and 1-based start lines) of the spell-list items of a creature body: the
-/// list items and their indented continuation lines under a spell-section heading.
+/// list items under a spell-section heading, each with the lines that belong to it.
+///
+/// Items start and continue by the rules of the corpus reader (`block.rs`): an unindented `-` or
+/// `1.` line starts an item, and the item holds every following line that is indented two spaces
+/// or more, including a blank line when the line after it is indented. A nested list and the
+/// text after a blank line are part of the item.
 fn spell_list_items(body: &str) -> Vec<(usize, usize, usize)> {
-    let mut items = Vec::new();
-    let mut in_section = false;
-    // Start offset and line of the open item, and the end offset of its last line.
-    let mut open: Option<(usize, usize)> = None;
-    let mut open_end = 0;
+    use crate::block::{indent_of, is_blank, is_ordered_item, is_unordered_item};
+    let mut lines = Vec::new();
     let mut offset = 0;
-    for (index, line) in body.split('\n').enumerate() {
-        let bold = bold_only(line);
-        let heading =
-            line.starts_with('#') || bold.is_some_and(|name| !name.trim_end().ends_with(':'));
-        let continues = in_section && open.is_some() && line.starts_with(' ');
-        if !continues && let Some((start, first_line)) = open.take() {
-            items.push((start, open_end, first_line));
-        }
-        if heading {
-            in_section = bold.is_some_and(|name| SPELL_SECTIONS.contains(&name.trim()));
-        } else if in_section && (line.starts_with("- ") || line.starts_with("* ")) {
-            open = Some((offset, index + 1));
-        }
-        if open.is_some() {
-            open_end = offset + line.len();
-        }
+    for line in body.split('\n') {
+        lines.push((offset, line));
         offset += line.len() + 1;
     }
-    if let Some((start, first_line)) = open {
-        items.push((start, open_end, first_line));
+    let mut items = Vec::new();
+    let mut in_section = false;
+    let mut index = 0;
+    while index < lines.len() {
+        let (start, line) = lines[index];
+        let bold = bold_only(line);
+        if line.starts_with('#') || bold.is_some_and(|name| !name.trim_end().ends_with(':')) {
+            in_section = bold.is_some_and(|name| SPELL_SECTIONS.contains(&name.trim()));
+            index += 1;
+        } else if in_section && (is_unordered_item(line) || is_ordered_item(line)) {
+            let mut end = start + line.len();
+            let mut next = index + 1;
+            while let Some(&(at, text)) = lines.get(next) {
+                if is_blank(text) {
+                    if lines
+                        .get(next + 1)
+                        .is_some_and(|(_, after)| indent_of(after) >= 2)
+                    {
+                        next += 1;
+                        continue;
+                    }
+                    break;
+                }
+                if indent_of(text) < 2 {
+                    break;
+                }
+                end = at + text.len();
+                next += 1;
+            }
+            items.push((start, end, index + 1));
+            index = next;
+        } else {
+            index += 1;
+        }
     }
     items
+}
+
+/// The length in bytes of the bare URL that starts `text` (`http://` or `https://`). The URL
+/// ends at Unicode whitespace, at `<` or `>`, and at a `)` or `]` that closes nothing the URL
+/// opened, so `https://e.test/a(b)?x=` keeps its parentheses and `(see https://e.test/)` does not.
+fn url_length(text: &str) -> usize {
+    let (mut parens, mut brackets) = (0usize, 0usize);
+    for (at, c) in text.char_indices() {
+        match c {
+            c if c.is_whitespace() => return at,
+            '<' | '>' => return at,
+            '(' => parens += 1,
+            ')' if parens == 0 => return at,
+            ')' => parens -= 1,
+            '[' => brackets += 1,
+            ']' if brackets == 0 => return at,
+            ']' => brackets -= 1,
+            _ => {}
+        }
+    }
+    text.len()
+}
+
+/// Whether `inner`, the text between `<` and `>`, has the shape of a CommonMark autolink: an
+/// absolute URI (`scheme:rest`, a scheme of 2 to 32 letters, digits, `+`, `.`, `-` that starts
+/// with a letter) or an email address. `<&Q>` is neither, and the corpus reader keeps it as text.
+fn is_autolink(inner: &str) -> bool {
+    if let Some((scheme, rest)) = inner.split_once(':') {
+        let mut chars = scheme.chars();
+        let scheme_ok = (2..=32).contains(&scheme.chars().count())
+            && chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+            && chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '.' | '-'));
+        if scheme_ok && !rest.chars().any(|c| c.is_control() || c.is_whitespace()) {
+            return true;
+        }
+    }
+    let Some((local, domain)) = inner.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && local
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".!#$%&'*+/=?^_`{|}~-".contains(c))
+        && domain.split('.').all(|label| {
+            !label.is_empty()
+                && label.len() <= 63
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        })
 }
 
 /// Which bytes of `text` are literal text: code spans, link targets (`](...)`), bare URLs and
@@ -240,25 +310,35 @@ fn literal_bytes(text: &str) -> Vec<bool> {
                 }
             }
             b']' if bytes.get(i + 1) == Some(&b'(') => {
-                span_end = bytes[i..]
-                    .iter()
-                    .position(|b| *b == b')' || *b == b'\n')
-                    .filter(|at| bytes[i + at] == b')')
-                    .map(|at| i + at + 1);
+                // The target runs to the `)` that balances the `(`, on the same line.
+                let mut depth = 0usize;
+                let mut j = i + 1;
+                while j < bytes.len() && bytes[j] != b'\n' {
+                    match bytes[j] {
+                        b'\\' => j += 1,
+                        b'(' => depth += 1,
+                        b')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                span_end = Some(j + 1);
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    j += 1;
+                }
             }
             b'h' if bytes[i..].starts_with(b"http://") || bytes[i..].starts_with(b"https://") => {
-                let len = bytes[i..]
-                    .iter()
-                    .position(|b| b.is_ascii_whitespace() || matches!(b, b'<' | b'>' | b')' | b']'))
-                    .unwrap_or(bytes.len() - i);
-                span_end = Some(i + len);
+                span_end = Some(i + url_length(&text[i..]));
             }
             b'<' => {
-                span_end = bytes[i + 1..]
-                    .iter()
-                    .position(|b| b.is_ascii_whitespace() || matches!(b, b'<' | b'>'))
-                    .filter(|at| *at > 0 && bytes[i + 1 + at] == b'>')
-                    .map(|at| i + at + 2);
+                let inner = &text[i + 1..];
+                span_end = inner
+                    .char_indices()
+                    .find(|(_, c)| c.is_whitespace() || matches!(c, '<' | '>'))
+                    .filter(|(at, c)| *c == '>' && is_autolink(&inner[..*at]))
+                    .map(|(at, _)| i + 1 + at + 1);
             }
             _ => {}
         }
@@ -2938,6 +3018,106 @@ mod tests {
         );
         let report = check(&c);
         assert!(report.problems.is_empty(), "{:?}", report.problems);
+    }
+
+    /// The problem lines (1-based file lines) that `body` produces as spell-list markers, with the
+    /// marker each one names.
+    fn marker_problems(body: &str) -> Vec<(usize, String)> {
+        let c = creature_with_body(body);
+        let problems = check(&c).problems;
+        problems
+            .iter()
+            .map(|problem| {
+                let rest = problem
+                    .strip_prefix("entries/creature/spell-list-marker.md:")
+                    .unwrap_or_else(|| panic!("{problem}"));
+                let (line, message) = rest.split_once(": ").unwrap();
+                let marker = message
+                    .strip_prefix("left-over spell-list marker `")
+                    .unwrap_or_else(|| panic!("{problem}"));
+                (
+                    line.parse().unwrap(),
+                    marker.split('`').next().unwrap().to_string(),
+                )
+            })
+            .collect()
+    }
+
+    fn line_in(c: &Corpus, needle: &str) -> usize {
+        line_of(&c.entries.values().next().unwrap().text, needle)
+    }
+
+    #[test]
+    fn nested_and_ordered_list_items_are_spell_list_items() {
+        // A nested list after a blank line, as the corpus reader accepts it.
+        let body =
+            "**Spell-Like Abilities**\n\n- 1/day:\n\n  - &Q fly\n  - &EM haste\n\n- &EX bless\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![
+                (line_in(&c, "- &Q fly"), "&Q".to_string()),
+                (line_in(&c, "- &EM haste"), "&EM".to_string()),
+                (line_in(&c, "- &EX bless"), "&EX".to_string()),
+            ]
+        );
+
+        // A top-level ordered list, and an ordered list nested in a bullet.
+        let body = "**Spells Known**\n\n1. &Q fly\n2. 3rd:\n   1. &S level 4; 1 imp 35%\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![
+                (line_in(&c, "1. &Q fly"), "&Q".to_string()),
+                (line_in(&c, "1. &S level"), "&S".to_string()),
+            ]
+        );
+
+        // Text after a blank line that is not indented ends the item.
+        let body = "**Spell-Like Abilities**\n\n- fly\n\n  - haste\n\n&Q prose\n\n- &EM ok\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "- &EM ok"), "&EM".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_url_keeps_its_balanced_parentheses_and_ends_at_unicode_whitespace() {
+        // The marker-shaped text is part of the URL, which holds balanced parentheses.
+        let body = "**Spell-Like Abilities**\n\n- see https://e.test/a(b)?x=&Q and [t](https://e.test/a(b)?y=&EM)\n";
+        assert_eq!(marker_problems(body), vec![]);
+
+        // An unmatched `)` ends the URL, so the marker after it is real.
+        let body = "**Spell-Like Abilities**\n\n- (see https://e.test/a?x=y) &Q fly\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "(see https://"), "&Q".to_string())]
+        );
+
+        // A no-break space ends the URL, so the marker after it is real.
+        let body = "**Spell-Like Abilities**\n\n- see https://e.test/a\u{a0}&Q fly\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "see https://"), "&Q".to_string())]
+        );
+    }
+
+    #[test]
+    fn only_a_uri_or_email_in_angle_brackets_is_an_autolink() {
+        // `<&Q>` is plain text to the corpus reader: the marker counts, once.
+        let body = "**Spell-Like Abilities**\n\n- fly <&Q> now\n";
+        let c = creature_with_body(body);
+        assert_eq!(
+            marker_problems(body),
+            vec![(line_in(&c, "- fly <&Q>"), "&Q".to_string())]
+        );
+
+        // A URI and an email address are autolinks and hide what they hold.
+        let body = "**Spell-Like Abilities**\n\n- <https://e.test/?x=&Q> <mailto:me@e.test?x=&EM> <me&Q@e.test>\n";
+        assert_eq!(marker_problems(body), vec![]);
     }
 
     #[test]
