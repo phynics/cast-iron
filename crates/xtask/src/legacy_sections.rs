@@ -13,7 +13,7 @@
 //! nothing and fails when the committed file differs.
 
 use crate::{Result, root};
-use cast_iron_schema::books::{sections, toc_id};
+use cast_iron_schema::books::{chapter_rows, sections, toc_id};
 use cast_iron_schema::{
     BookIndex, Catalog, EntryId, EntryKind, LEGACY_SECTIONS_FORMAT, LegacySections,
 };
@@ -24,7 +24,8 @@ use std::fs;
 pub const TABLE: &str = "sources/legacy-sections.json";
 
 /// The table for a published library: every row that a chapter page rendered, as its positional
-/// anchor and its stable anchor.
+/// anchor and its stable anchor, and every top-level Contents row, as its positional anchor and
+/// its chapter id.
 pub fn build(books: &BookIndex, catalog: &Catalog) -> LegacySections {
     let kinds: BTreeMap<&EntryId, EntryKind> = catalog
         .entries
@@ -39,6 +40,7 @@ pub fn build(books: &BookIndex, catalog: &Catalog) -> LegacySections {
     let mut table = LegacySections {
         format: LEGACY_SECTIONS_FORMAT,
         books: BTreeMap::new(),
+        chapters: BTreeMap::new(),
     };
     for book in &books.books {
         let rows: BTreeMap<String, String> = sections(book, &hide)
@@ -47,6 +49,14 @@ pub fn build(books: &BookIndex, catalog: &Catalog) -> LegacySections {
             .collect();
         if !rows.is_empty() {
             table.books.insert(book.source.clone(), rows);
+        }
+        // The top-level Contents rows, which `?c=3` names and `sections` does not list.
+        let chapters: BTreeMap<String, String> = chapter_rows(book, &hide)
+            .into_iter()
+            .map(|row| (toc_id(&row.path), row.id))
+            .collect();
+        if !chapters.is_empty() {
+            table.chapters.insert(book.source.clone(), chapters);
         }
     }
     table
@@ -101,8 +111,9 @@ pub fn run(args: &[String]) -> Result {
     }
     fs::write(&path, &bytes).map_err(|e| format!("cannot write {TABLE}: {e}"))?;
     let rows: usize = table.books.values().map(BTreeMap::len).sum();
+    let chapters: usize = table.chapters.values().map(BTreeMap::len).sum();
     println!(
-        "wrote {TABLE}: {rows} rows in {} books, {} bytes",
+        "wrote {TABLE}: {rows} rows and {chapters} chapter rows in {} books, {} bytes",
         table.books.len(),
         bytes.len()
     );

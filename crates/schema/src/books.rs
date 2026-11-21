@@ -5,7 +5,7 @@
 //! client renders the same rows, so a section result and its target cannot disagree. The
 //! functions are pure and hold no knowledge of routes, DOM, or search.
 
-use crate::{Block, BookIndex, BookNode, BookTree, EntryId, EntryKind, RuleEntry};
+use crate::{Block, BookIndex, BookNode, BookTree, EntryId, EntryKind, LegacyBook, RuleEntry};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Whether Contents leaves out the kinds that the `In this book` links reach.
@@ -247,10 +247,11 @@ pub fn chapter_rows(book: &BookTree, hide: Hide<'_>) -> Vec<ChapterRow> {
         .collect()
 }
 
-/// The DOM id of a row on the Contents page, which `?c=` addresses scroll to. It follows the
-/// row's position, so it is never an address that someone saves: a chapter page names its rows
-/// with [`section_anchors`], and `toc-` addresses that were saved from older libraries open
-/// through [`resolve_legacy_anchor`].
+/// The DOM id of a row on the Contents page, which the page scrolls to once a `?c=` address has
+/// resolved to the row's path. It follows the row's position, so it is never an address that
+/// someone saves: a chapter page names its rows with [`section_anchors`], Contents addresses
+/// name them with [`ContentsRow`], and addresses that were saved from older libraries open
+/// through [`resolve_legacy_anchor`] and [`resolve_contents_row`].
 pub fn toc_id(path: &[usize]) -> String {
     format!(
         "{LEGACY_ANCHOR_PREFIX}{}",
@@ -481,6 +482,107 @@ pub fn resolve_legacy_anchor(
                 chapter: section.chapter,
                 anchor: section.anchor?,
             })
+        }
+    }
+}
+
+/// A Contents row as an address (`#/browse/book/<id>?c=…`) names it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ContentsRow {
+    /// By position in the tree, as `?c=3.2` did up to corpus v0.1.31: 0-based path. A pin that
+    /// adds or removes a row moves it, so nothing writes this form any more; an address that
+    /// carries it opens through [`resolve_contents_row`].
+    Position(Vec<usize>),
+    /// By identity: the permanent id of the chapter page that holds the row, and, below chapter
+    /// level, the row's stable anchor on that page ([`section_anchors`]). Neither moves when a
+    /// pin changes the tree.
+    Stable {
+        chapter: String,
+        anchor: Option<String>,
+    },
+}
+
+/// The stable address of the Contents row at `path` of `book`, or `None` when `path` names no
+/// row of a listed chapter. This is the form that the trail above an entry writes.
+pub fn contents_row(book: &BookTree, hide: Hide<'_>, path: &[usize]) -> Option<ContentsRow> {
+    let first = *path.first()?;
+    let row = chapter_rows(book, hide)
+        .into_iter()
+        .find(|row| row.path == [first])?;
+    if path.len() == 1 {
+        return Some(ContentsRow::Stable {
+            chapter: row.id,
+            anchor: None,
+        });
+    }
+    let node = node_at_path(&book.chapters, &row.path)?;
+    let anchor = section_anchors(node, &row.path).remove(path)?;
+    Some(ContentsRow::Stable {
+        chapter: row.id,
+        anchor: Some(anchor),
+    })
+}
+
+/// The tree path of the section that carries `anchor` on the chapter page `chapter`.
+fn section_path(
+    book: &BookTree,
+    hide: Hide<'_>,
+    chapter: &str,
+    anchor: &str,
+) -> Option<Vec<usize>> {
+    sections(book, hide)
+        .into_iter()
+        .find(|section| section.chapter == chapter && section.anchor.as_deref() == Some(anchor))
+        .map(|section| section.path)
+}
+
+/// The path of the Contents row that an address opens in `book`, or `None` when the row is gone
+/// (the page then opens at the top of Contents).
+///
+/// A stable address finds its chapter by id and its row by anchor. A row that moved to another
+/// chapter is still found, as with section anchors ([`locate_section`]).
+///
+/// A positional address (`?c=3.2`) goes through `legacy`, the library's table for this book:
+/// the chapter id of a top-level row, or the stable anchor of a row below it, that the last
+/// published tree gave that position. A `None` table is a library built before the table
+/// existed, whose own tree made the position. A table that exists but could not be read is an
+/// empty `Some`, never `None`: reading the position against the new tree is the bug this fixes.
+pub fn resolve_contents_row(
+    book: &BookTree,
+    hide: Hide<'_>,
+    legacy: Option<&LegacyBook>,
+    row: &ContentsRow,
+) -> Option<Vec<usize>> {
+    let chapter_path = |chapter: &str| {
+        chapter_rows(book, hide)
+            .into_iter()
+            .find(|row| row.id == chapter)
+            .map(|row| row.path)
+    };
+    match row {
+        ContentsRow::Stable {
+            chapter,
+            anchor: None,
+        } => chapter_path(chapter),
+        ContentsRow::Stable {
+            chapter,
+            anchor: Some(anchor),
+        } => {
+            let target = locate_section(book, hide, anchor, Some(chapter))?;
+            section_path(book, hide, &target.chapter, &target.anchor)
+        }
+        ContentsRow::Position(path) => {
+            let first = *path.first()?;
+            let Some(legacy) = legacy else {
+                return node_at_path(&book.chapters, path).map(|_| path.clone());
+            };
+            let chapter = legacy.chapters.get(&toc_id(&[first]));
+            if path.len() == 1 {
+                return chapter_path(chapter?);
+            }
+            let anchor = legacy.sections.get(&toc_id(path))?;
+            let target = locate_section(book, hide, anchor, chapter.map(String::as_str))?;
+            section_path(book, hide, &target.chapter, &target.anchor)
         }
     }
 }
@@ -1026,5 +1128,130 @@ mod tests {
             .collect();
         // The hub section keeps its own row; the child it already lists has no separate row.
         assert_eq!(named, ["Combat", "Actions"]);
+    }
+
+    /// The table that the build of `published` would hold for its Contents rows.
+    fn legacy_of(published: &BookTree) -> LegacyBook {
+        LegacyBook {
+            sections: sections(published, &hide)
+                .into_iter()
+                .filter_map(|section| Some((toc_id(&section.path), section.anchor?)))
+                .collect(),
+            chapters: chapter_rows(published, &hide)
+                .into_iter()
+                .map(|row| (toc_id(&row.path), row.id))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn a_contents_address_names_the_row_and_survives_a_pin_that_adds_rows() {
+        let published = classes(&["Paladin", "Ranger", "Rogue"]);
+        let ranger = contents_row(&published, &hide, &[1, 1]).unwrap();
+        assert_eq!(
+            ranger,
+            ContentsRow::Stable {
+                chapter: "classes".into(),
+                anchor: Some("row-ref-class-ranger".into())
+            }
+        );
+        let chapter = contents_row(&published, &hide, &[1]).unwrap();
+        assert_eq!(
+            chapter,
+            ContentsRow::Stable {
+                chapter: "classes".into(),
+                anchor: None
+            }
+        );
+        // A later pin adds a chapter in front and two classes before Ranger.
+        let mut current = classes(&["Alchemist", "Barbarian", "Paladin", "Ranger", "Rogue"]);
+        current
+            .chapters
+            .insert(0, node("Foreword", Some("ref/rule/foreword"), vec![]));
+        assert_eq!(
+            resolve_contents_row(&current, &hide, None, &ranger),
+            Some(vec![2, 3])
+        );
+        assert_eq!(
+            resolve_contents_row(&current, &hide, None, &chapter),
+            Some(vec![2])
+        );
+        // The row that left the book, and a chapter that never existed, open the top.
+        let gone = classes(&["Alchemist"]);
+        assert_eq!(resolve_contents_row(&gone, &hide, None, &ranger), None);
+        let unknown = ContentsRow::Stable {
+            chapter: "nope".into(),
+            anchor: None,
+        };
+        assert_eq!(resolve_contents_row(&current, &hide, None, &unknown), None);
+    }
+
+    #[test]
+    fn a_row_that_moved_to_another_chapter_is_still_found() {
+        let ranger = ContentsRow::Stable {
+            chapter: "introduction".into(),
+            anchor: Some("row-ref-class-ranger".into()),
+        };
+        let current = classes(&["Ranger"]);
+        assert_eq!(
+            resolve_contents_row(&current, &hide, None, &ranger),
+            Some(vec![1, 0])
+        );
+    }
+
+    #[test]
+    fn an_old_positional_contents_address_opens_the_row_it_stood_for() {
+        let published = classes(&["Paladin", "Ranger", "Rogue"]);
+        let legacy = legacy_of(&published);
+        assert_eq!(legacy.chapters["toc-2"], "classes");
+        let current = classes(&["Alchemist", "Barbarian", "Ranger", "Rogue"]);
+        let open = |path: Vec<usize>| {
+            resolve_contents_row(&current, &hide, Some(&legacy), &ContentsRow::Position(path))
+        };
+        // `?c=2.2` was Ranger; the same position now holds Barbarian.
+        assert_eq!(open(vec![1, 1]), Some(vec![1, 2]));
+        assert_eq!(open(vec![1, 2]), Some(vec![1, 3]));
+        // The chapter row.
+        assert_eq!(open(vec![1]), Some(vec![1]));
+        // Paladin is gone, and no published tree made `?c=2.9`: the top of Contents.
+        assert_eq!(open(vec![1, 0]), None);
+        assert_eq!(open(vec![1, 8]), None);
+        assert_eq!(open(vec![7]), None);
+        // The chapter moves when a chapter is inserted before it; its id does not.
+        let mut shifted = current.clone();
+        shifted
+            .chapters
+            .insert(0, node("Foreword", Some("ref/rule/f"), vec![]));
+        assert_eq!(
+            resolve_contents_row(
+                &shifted,
+                &hide,
+                Some(&legacy),
+                &ContentsRow::Position(vec![1])
+            ),
+            Some(vec![2])
+        );
+    }
+
+    #[test]
+    fn a_library_without_the_table_reads_a_position_against_its_own_tree() {
+        let book = classes(&["Paladin", "Ranger"]);
+        let at = |path: Vec<usize>| {
+            resolve_contents_row(&book, &hide, None, &ContentsRow::Position(path))
+        };
+        assert_eq!(at(vec![1, 1]), Some(vec![1, 1]));
+        assert_eq!(at(vec![1, 9]), None);
+    }
+
+    #[test]
+    fn a_table_that_could_not_be_read_never_falls_back_to_position() {
+        let book = classes(&["Alchemist", "Ranger"]);
+        let empty = LegacyBook::default();
+        for path in [vec![1], vec![1, 1]] {
+            assert_eq!(
+                resolve_contents_row(&book, &hide, Some(&empty), &ContentsRow::Position(path)),
+                None
+            );
+        }
     }
 }

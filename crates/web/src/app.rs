@@ -665,7 +665,7 @@ mod tests {
             &Route::Books,
             &Route::Book {
                 source: "core-rulebook".into(),
-                chapter: Some(vec![1])
+                chapter: Some(cast_iron_schema::books::ContentsRow::Position(vec![1]))
             }
         ));
         assert!(in_section(
