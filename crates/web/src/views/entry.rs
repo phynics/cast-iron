@@ -354,10 +354,11 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
             }
         }
         if entry.kind == EntryKind::Class && also_available::has_line(&entry.body) {
-            // The names resolve against the capstones the shared entry prints. When its book is
-            // off or it cannot load, the line stays plain text.
+            // The names resolve against the capstones the shared entry prints. Like a link in the
+            // body, they stay links when the shared entry's book is off: its page says so. A
+            // library without the entry, or one that cannot load it, leaves the line plain.
             let shared = also_available::capstones_id();
-            if fetch_library.is_entry_active(&shared) {
+            if fetch_library.stub(&shared).is_some() {
                 match fetch_library.entry(&shared).await {
                     Ok(found) => indexes.capstone_names = also_available::names_in(&found.body),
                     Err(error) => leptos::logging::warn!("capstone links are off: {error}"),

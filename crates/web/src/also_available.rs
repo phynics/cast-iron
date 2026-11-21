@@ -5,13 +5,13 @@
 //! shared Alternate Capstones entry, and the corpus text names them without a link. This module
 //! links a name only when it is one of the names that the shared entry itself prints, read from
 //! its typed body, so a name that does not resolve stays plain text. Nothing is guessed: a name
-//! is never matched loosely, and a comma inside a name (`Old Dog, New Tricks`) is not a
-//! separator unless the shared entry has no capstone of that name.
+//! is never matched loosely (only a curly apostrophe equals a straight one), and a comma inside a
+//! name (`Old Dog, New Tricks`) is not a separator when the shared entry prints that name.
 //!
 //! Everything here is pure and has native tests.
 
 use cast_iron_schema::headings::plain_text;
-use cast_iron_schema::power::{candidates, split_ability_tag};
+use cast_iron_schema::power::{candidates, split_ability_tag, straight_apostrophe};
 use cast_iron_schema::{Block, EntryId, Inline};
 
 /// The shared entry that prints the capstones every class may take.
@@ -74,9 +74,47 @@ pub enum Piece {
     Text(String),
 }
 
+/// What the corpus writes between two names, longest first so that `, and ` is not read as `, `.
+const SEPARATORS: [&str; 5] = [", and ", ", or ", " and ", " or ", ", "];
+
+/// The length of the separator that `text` starts with.
+fn separator_len(text: &str) -> Option<usize> {
+    SEPARATORS
+        .iter()
+        .find(|separator| text.starts_with(**separator))
+        .map(|separator| separator.len())
+}
+
+/// How many bytes of `text` the `name` takes when `text` starts with it. The two match character
+/// for character, case-sensitively, except that a curly apostrophe equals the straight one.
+fn name_len(text: &str, name: &str) -> Option<usize> {
+    let mut chars = text.chars();
+    let mut used = 0;
+    for expected in name.chars() {
+        let found = chars.next()?;
+        if straight_apostrophe(found) != straight_apostrophe(expected) {
+            return None;
+        }
+        used += found.len_utf8();
+    }
+    Some(used)
+}
+
+/// What may follow a name: the end of the text, a separator, or a closing `.`, `;` or `)` with
+/// nothing after it but white space.
+fn ends_name(after: &str) -> bool {
+    after.trim().is_empty()
+        || separator_len(after).is_some()
+        || after
+            .strip_prefix(['.', ';', ')'])
+            .is_some_and(|rest| rest.trim().is_empty())
+}
+
 /// Split `text` (`" Walking Library, Arch-Familiar"`) into known names and the text between and
-/// around them. At each position the longest known name that ends at the end of the text or
-/// before a `, ` wins; otherwise the text up to the next `, ` is plain.
+/// around them. At each position the longest known name that is followed by the end of the text,
+/// a separator (see [`SEPARATORS`]) or a closing `.`, `;` or `)` wins; otherwise the text up to
+/// the next separator is plain. A name keeps the characters of the line, so a curly apostrophe
+/// stays curly.
 pub fn split_names(text: &str, known: &[String]) -> Vec<Piece> {
     let mut pieces: Vec<Piece> = Vec::new();
     let push_text = |pieces: &mut Vec<Piece>, value: &str| {
@@ -88,34 +126,38 @@ pub fn split_names(text: &str, known: &[String]) -> Vec<Piece> {
             _ => pieces.push(Piece::Text(value.to_string())),
         }
     };
-    let mut rest = text;
-    let lead = rest.len() - rest.trim_start().len();
-    push_text(&mut pieces, &rest[..lead]);
-    rest = &rest[lead..];
+    let mut rest = text.trim_start();
+    push_text(&mut pieces, &text[..text.len() - rest.len()]);
     while !rest.is_empty() {
-        let known_name = known
+        let longest = known
             .iter()
-            .filter(|name| {
-                rest.strip_prefix(name.as_str())
-                    .is_some_and(|after| after.is_empty() || after.starts_with(", "))
-            })
-            .max_by_key(|name| name.len());
-        let len = match known_name {
-            Some(name) => {
-                pieces.push(Piece::Name(name.clone()));
-                name.len()
+            .filter(|name| !name.is_empty())
+            .filter_map(|name| name_len(rest, name))
+            .filter(|len| ends_name(&rest[*len..]))
+            .max();
+        let len = match longest {
+            Some(len) => {
+                pieces.push(Piece::Name(rest[..len].to_string()));
+                len
             }
             None => {
-                let end = rest.find(", ").unwrap_or(rest.len());
+                let end = rest
+                    .char_indices()
+                    .map(|(at, _)| at)
+                    .find(|at| separator_len(&rest[*at..]).is_some())
+                    .unwrap_or(rest.len());
                 push_text(&mut pieces, &rest[..end]);
                 end
             }
         };
         rest = &rest[len..];
-        match rest.strip_prefix(", ") {
-            Some(after) => {
-                push_text(&mut pieces, ", ");
-                rest = after;
+        match separator_len(rest) {
+            Some(separator) => {
+                push_text(&mut pieces, &rest[..separator]);
+                rest = &rest[separator..];
+                let next = rest.trim_start();
+                push_text(&mut pieces, &rest[..rest.len() - next.len()]);
+                rest = next;
             }
             None => {
                 push_text(&mut pieces, rest);
@@ -253,6 +295,138 @@ mod tests {
         // A prefix of a name is not the name.
         assert!(names(&split_names(" Walking Libraryx", &known())).is_empty());
         assert!(names(&split_names(" walking library", &known())).is_empty());
+    }
+
+    fn joined(pieces: &[Piece]) -> String {
+        pieces
+            .iter()
+            .map(|piece| match piece {
+                Piece::Name(text) | Piece::Text(text) => text.as_str(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn and_and_or_join_names_like_a_comma() {
+        for (text, expected) in [
+            (" Walking Library and Great Beast", 2),
+            (" Walking Library or Great Beast", 2),
+            (" Walking Library, Great Beast and Arch-Familiar", 3),
+            (" Walking Library, Great Beast, and Arch-Familiar", 3),
+            (" Walking Library, Great Beast, or Arch-Familiar", 3),
+            (" Great Beast, Old Dog, New Tricks and Walking Library", 3),
+        ] {
+            let pieces = split_names(text, &known());
+            assert_eq!(names(&pieces).len(), expected, "{text}");
+            assert_eq!(joined(&pieces), text, "text is kept: {text}");
+        }
+        // An unknown name between known ones stays plain, and `and` in it does not split a name.
+        let pieces = split_names(" Great Beast and Made Up and Walking Library", &known());
+        assert_eq!(names(&pieces), ["Great Beast", "Walking Library"]);
+    }
+
+    #[test]
+    fn a_closing_mark_or_the_end_follows_the_last_name() {
+        for text in [
+            " Walking Library.",
+            " Walking Library;",
+            " Walking Library)",
+            " Walking Library. ",
+        ] {
+            let pieces = split_names(text, &known());
+            assert_eq!(names(&pieces), ["Walking Library"], "{text}");
+            assert_eq!(joined(&pieces), text);
+        }
+        // A mark that is followed by more text does not end a name.
+        assert!(names(&split_names(" Walking Library.x", &known())).is_empty());
+        assert!(names(&split_names(" Walking Library's", &known())).is_empty());
+    }
+
+    #[test]
+    fn white_space_after_a_separator_is_skipped() {
+        let text = " Walking Library,  Arch-Familiar";
+        let pieces = split_names(text, &known());
+        assert_eq!(names(&pieces), ["Walking Library", "Arch-Familiar"]);
+        assert_eq!(joined(&pieces), text);
+    }
+
+    #[test]
+    fn a_curly_apostrophe_matches_a_straight_one_and_case_still_counts() {
+        let known = vec!["Won't Stay Dead".to_string(), "Great Beast".to_string()];
+        let curly = " Great Beast, Won\u{2019}t Stay Dead";
+        let pieces = split_names(curly, &known);
+        assert_eq!(names(&pieces), ["Great Beast", "Won\u{2019}t Stay Dead"]);
+        // The line keeps its own character.
+        assert_eq!(joined(&pieces), curly);
+        // A straight name in the list also matches a straight line, and the reverse.
+        assert_eq!(names(&split_names(" Won't Stay Dead", &known)).len(), 1);
+        let curly_known = vec!["Won\u{2019}t Stay Dead".to_string()];
+        assert_eq!(
+            names(&split_names(" Won't Stay Dead", &curly_known)).len(),
+            1
+        );
+        // Only the apostrophe is folded.
+        assert!(names(&split_names(" won\u{2019}t stay dead", &known)).is_empty());
+        assert!(names(&split_names(" Wont Stay Dead", &known)).is_empty());
+    }
+
+    #[test]
+    fn the_names_of_a_real_capstones_body_come_through_the_classifier() {
+        // The shape of `ref/ability/capstones`: introduction paragraphs, then each capstone as a
+        // bold name, a bold `At 20th Level:` lead and optional `Prereq:` or `Special:` rows.
+        let body = vec![
+            para(vec![text(
+                "When a character reaches the 20th level of a class...",
+            )]),
+            para(vec![text(
+                "The following does not contain class-specific capstones.",
+            )]),
+            para(vec![strong("Old Dog, New Tricks (Ex)")]),
+            para(vec![
+                strong("At 20th Level:"),
+                text(" The character gains four combat feats."),
+            ]),
+            para(vec![
+                strong("Prereq:"),
+                text(" Is of a class that gains bonus combat feats"),
+            ]),
+            para(vec![strong("Perfect Body, Flawless Mind (Ex)")]),
+            para(vec![
+                strong("At 20th Level:"),
+                text(" Ability scores increase by 8."),
+            ]),
+            para(vec![strong("The Boss (Ex)")]),
+            para(vec![strong("At 20th Level:"), text(" A leader.")]),
+            para(vec![text("The character gains the Leadership feat.")]),
+            para(vec![strong("Won\u{2019}t Stay Dead (Ex)")]),
+            para(vec![
+                strong("At 20th Level:"),
+                text(" A paragon of resilience."),
+            ]),
+        ];
+        let found = names_in(&body);
+        assert_eq!(
+            found,
+            [
+                "Old Dog, New Tricks",
+                "Perfect Body, Flawless Mind",
+                "The Boss",
+                "Won\u{2019}t Stay Dead"
+            ]
+        );
+        // The line of a class resolves against them, commas inside names included.
+        let pieces = split_names(
+            " Perfect Body, Flawless Mind, Old Dog, New Tricks and Won't Stay Dead.",
+            &found,
+        );
+        assert_eq!(
+            names(&pieces),
+            [
+                "Perfect Body, Flawless Mind",
+                "Old Dog, New Tricks",
+                "Won't Stay Dead"
+            ]
+        );
     }
 
     #[test]

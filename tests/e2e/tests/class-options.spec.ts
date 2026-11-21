@@ -106,6 +106,29 @@ test("The Wizard's Also available capstones link to the shared Alternate Capston
   await expect(page.getByText("Arch-Familiar (Su)")).toBeVisible();
 });
 
+test("With Chronicle of Legends off, the Also available names still link and the page says the book is off", async ({ page }) => {
+  const shared = corpus.catalog.entries.find((stub) => stub.id === "ref/ability/capstones")!;
+  const book = corpus.catalog.sources.find((source) => source.id === shared.source)!;
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const toggle = page
+    .locator(`.book-directory-item[data-book-id="${book.id}"]`)
+    .getByRole("checkbox", { name: `Active ${book.title}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto(`#/entry/${wizard.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: wizard.title })).toBeVisible();
+  const line = page.locator("p", { has: page.locator("strong", { hasText: "Also available:" }) });
+  const link = line.getByRole("link", { name: "Walking Library", exact: true });
+  await expect(link).toHaveAttribute("href", "#/entry/ref/ability/capstones");
+  await link.click();
+  await expect(page.getByRole("heading", { level: 1, name: "Alternate Capstones" })).toBeVisible();
+  await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled");
+});
+
 test("A group shared by several classes names the class it was opened from", async ({ page }) => {
   await installLibrary(page);
   const shared = groups.groups.find((group) => group.classes.length > 1)!;
