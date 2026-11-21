@@ -88,6 +88,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
             Stored {
                 path: entry_path(&entry.id),
                 text,
+                block_lines: Vec::new(),
                 entry,
             },
         );

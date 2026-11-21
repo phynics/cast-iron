@@ -1,6 +1,6 @@
 //! Entry files: `+++` TOML front matter followed by the block body.
 
-use crate::block::{parse_blocks, write_blocks};
+use crate::block::{parse_blocks_with_lines, write_blocks};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::tomlutil;
@@ -437,6 +437,15 @@ struct RawExpansion {
 }
 
 pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntry> {
+    read_entry_with_lines(path, source, config).map(|(entry, _)| entry)
+}
+
+/// [`read_entry`], and the 1-based line of `source` that each top-level body block starts on.
+pub fn read_entry_with_lines(
+    path: &Path,
+    source: &str,
+    config: &Config,
+) -> Result<(RuleEntry, Vec<usize>)> {
     if let Some(index) = source.find('\r') {
         let line = 1 + source[..index]
             .bytes()
@@ -530,10 +539,10 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
         .enumerate()
         .map(|(index, text)| (body_start + index, *text))
         .collect();
-    let body = parse_blocks(path, &numbered)?;
+    let (body, block_lines) = parse_blocks_with_lines(path, &numbered)?;
     let links = derived_links(&body);
 
-    Ok(RuleEntry {
+    let entry = RuleEntry {
         id,
         kind,
         title: raw.title,
@@ -553,7 +562,8 @@ pub fn read_entry(path: &Path, source: &str, config: &Config) -> Result<RuleEntr
             .license_refs
             .unwrap_or_else(|| config.license_refs.clone()),
         relations,
-    })
+    };
+    Ok((entry, block_lines))
 }
 
 fn normalized(path: &Path) -> PathBuf {

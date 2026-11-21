@@ -860,6 +860,7 @@ mod tests {
         Stored {
             text: write_entry(&entry, &Config::default()),
             path: entry_path(&entry.id),
+            block_lines: Vec::new(),
             entry,
         }
     }

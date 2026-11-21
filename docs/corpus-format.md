@@ -207,7 +207,17 @@ trades = [
 | `feature` | Optional. A heading anchor of a base class entry. A trade without it is unresolved: it keeps its printed name, and no compatibility filter treats it as compatible with anything. |
 | `class` | Optional, only with `feature`. The base class entry whose anchor it is. Required when more than one base class of the entry holds the anchor (an archetype of several classes, a class option whose group has several classes); otherwise the compiler drops it. |
 | `levels` | Optional, only with `feature`. The class levels at which the trade applies: 1 to 20, ascending, each once. No `levels` means every level of the feature. |
-| `power` | Optional, only with `feature`. A named power or qualifier inside the feature, such as a bloodline power, a domain power, `+4` of `Poison resistance +4`, or `minor` of `Touch treatment (minor)`. Compared by exact text. |
+| `power` | Optional, only with `feature`. A stable named component inside the feature, such as a bloodline power, a domain power, a bardic performance or a gunslinger deed, written the same in every entry. By corpus convention never a progression step (see below); the reader accepts any text and the check does not validate its meaning. Compared by exact text. |
+
+**Progression steps are grant levels.** This is a corpus authoring convention. `levels` identifies a progression step by the base-class grant levels, read from the class feature table of the base class: `Armor training 2` is `levels = [7]`, `Trap sense +3` is `[9]`, `Judgment 1/day` is `[1]`, and a list of steps names the levels of its steps (`Weapon training 1 and 3` is `[5, 13]`). `power` names a component only when the level alone is not enough, and a step is never a `power`. The adopted component names are:
+
+- a bardic performance or a gunslinger deed, by its name;
+- for `weapon-and-armor-proficiencies`: `weapons`, `armor`, `light armor`, `medium armor`, `heavy armor` and `shields`;
+- for a spell-list substitution: `feature = "spells"` with `power = "spell list"`.
+
+The migration of the corpus repository (#452) normalized the step powers that `migrate-trades` wrote (`power = "2"`, `power = "+4"`) into levels, with documented exceptions in its adjustment log (Proselytizer keeps `power = "major"`, because `[10]` would duplicate its alteration of the whole feature). `migrate-trades` itself still writes a step as a `power` (the qualifier rule below) until a later change.
+
+**Two different comparisons.** The duplicate check below compares exactly: two trades of one key overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. That matcher is not built yet; #170 part D tracks it.
 
 `corpus-check` holds these rules for the trades:
 
@@ -1024,6 +1034,21 @@ an unchanged Paizo base. A mixed entry is either a missed split or a shared-prin
 that a reviewer must confirm. The warnings stay non-failing while genuine shared printings
 remain; a clean corpus can promote them to errors.
 
+`corpus-check` also **warns** once per run about book memberships that lack a structured citation
+(#461): an entry lists a book in `source_ids` other than its first, and the entry has no
+`[[sources]]` row for that book. A row without a `page` satisfies the rule, so the rule asks for
+the row, not for a page. The first book is the entry's home and needs no row. Every later book
+claims that it prints the entry or a section of its body, and the `[[sources]]` row is the
+evidence that the check can read. A body `**Sources:**` line does not count, even when someone
+verified it against print: a reviewer converts a verified body citation to a `[[sources]]` row. An
+[`expanded_in`](#expanded_in) credit sits outside membership and does not count either. The warning
+gives the number of memberships and of entries, and three examples, each as
+`path:line: entry id in book` with the line of `source_ids`. It measures what remains of the
+cleanup of memberships that a book does not print: each batch either adds the row (the book prints
+the entry), removes the book, or, for a book that only expands the entry, moves it to
+`expanded_in`. When the count reaches 0 the warning becomes an error, as the footnote findings did
+(#531).
+
 ## Drift between fields and body
 
 Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`
@@ -1069,6 +1094,52 @@ of every line in body order, and a comma-separated line contributes one item per
 part. A value stated in only one place is not drift. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader
 sees.
+
+## Class-option powers
+
+A class-option power (a school power, revelation, hex, curse, spirit ability or domain power)
+is a bold name paragraph followed by labeled rows. The decision
+[`2026-11-20-class-option-power-layout`](decisions/2026-11-20-class-option-power-layout.md)
+fixes one canonical order for the rows, so that the app can show the power as printed prose
+without reordering anything:
+
+```markdown
+**Resistance (Ex)**
+
+**Gained:** At 1st Level
+
+**Passive:** You gain resistance 5 to an energy type of your choice.
+
+**At 11th level,** this resistance increases to 10.
+```
+
+The order is: the name (one bold span, no colon); an optional `Gained` row (`At Nth Level`); an
+optional `Flavor` row; exactly one effect row (`Passive`, `Ability`, `Standard`, `Move`, `Swift`,
+`Immediate`, `Free`, `Full-round` or `Benefit`); the effect's continuation, as unlabeled
+paragraphs directly after the effect row and nowhere else; an optional `Usage` row; the upgrades,
+each `**At Nth level,** sentence` in strictly ascending level and above `Gained`; an optional
+`Prereq` row, then an optional `Replaces` row; every other row in its source order. Every row has
+content. A legacy label (`Action`, `Fullround`, `Passive Ability`, `Standard Action`, a numbered
+label such as `Ability2`, or `At Nth Level:`) and a plain-text upgrade (`At 8th level: ...`) are not
+canonical. The text and the order are the only change from the old import: the files keep the same
+syntax, so this is not a corpus format change.
+
+`corpus-check` runs the shared classifier and validator
+(`cast_iron_schema::power`) on every entry of kind `class_option`. A *candidate* is a name
+directly followed by a row, a lead or a legacy upgrade, with a power marker in the run that
+extends to the next boundary or name. A boundary is a heading, list, table, quote, stat block,
+entry link or styled paragraph (`statline` or `indented`). Each candidate that fails
+validation is reported as a **warning** with its path and line, the entry id, the power name and
+every reason:
+
+```text
+warning: entries/hex/evil-eye.md:15: [powers] entry `ref/hex/evil-eye`: the power `Evil Eye (Su)` is not in the canonical form: `Flavor` is out of order [out-of-order]; the legacy label `At 8th Level:` [legacy-label]
+```
+
+A last warning counts the failing powers and the entries that hold a power. The rule stays a
+warning until the corpus repository has rewritten its class options (phynics/cast-iron-data#88).
+The app pull request that pins the rewritten corpus turns it into an error, except for the powers
+that #88 still queues for print review in its resolutions file.
 
 ## Formatting
 

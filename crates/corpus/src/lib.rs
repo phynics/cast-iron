@@ -25,6 +25,7 @@
 mod block;
 mod books;
 mod check;
+mod check_powers;
 mod check_trades;
 pub mod cli;
 mod config;
