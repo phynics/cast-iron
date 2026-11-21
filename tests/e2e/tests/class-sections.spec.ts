@@ -2,7 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import { installLibrary } from "./helpers";
 
-// The section switcher of a class page (#170, part A): Overview · Features · Archetypes · Spells,
+// The section switcher of a class page (#170, part A): Overview · (Requirements) · Features · Archetypes · Spells,
 // the stops the class has, as a sticky bar of jump links. The page is one document, so every
 // section is in it; a stop moves the page, records `?s=` in the address, and moves focus to the
 // section's heading. Expectations come from the compiled corpus (docs/decisions.md, "Class pages:
@@ -319,8 +319,8 @@ test("An address that names a section the page lacks drops it and opens at the t
   await installLibrary(page);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    // A class without a spell list, a prestige class (no switcher) and an entry that is no class.
-    for (const [id, query] of [[FIGHTER, "?s=spells"], ["ref/pclass/arcane-archer", "?s=features"], ["ref/spell/fireball", "?s=archetypes"]]) {
+    // A class without a spell list or a Requirements section, a prestige class (no Spells or Archetypes) and an entry that is no class.
+    for (const [id, query] of [[FIGHTER, "?s=spells"], [FIGHTER, "?s=requirements"], ["ref/pclass/arcane-archer", "?s=archetypes"], ["ref/spell/fireball", "?s=archetypes"]]) {
       await coldLoad(page, `#/entry/${id}${query}`);
       await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title })).toBeVisible();
       await expect(page, `${id}${query}`).toHaveURL(new RegExp(`#/entry/${id}$`));
@@ -416,24 +416,70 @@ test("A section jump does not move focus to the page, and the switcher works by 
   }
 });
 
-test("A prestige class has no switcher and keeps the contents disclosure where it has one", async ({ page }) => {
+test("A prestige class has a Requirements stop before the long introduction and keeps its contents", async ({ page }) => {
   await installLibrary(page);
   const headingCount = (entry: any) => entry.body.filter((block: any) => block.t === "heading").length;
   const archer = entryOf("ref/pclass/arcane-archer");
-  // A prestige class has only Overview and Features, so the bar would add nothing: no switcher
-  // and no section targets. (#443 tracks its missing route to Requirements.)
   const withContents = [...corpus.entries.values()].find(
     (entry) => entry.kind === "prestige_class" && headingCount(entry) >= 4,
   )!;
   expect(withContents, "a prestige class with four headings").toBeTruthy();
+  const stops = ["Overview", "Requirements", "Features"];
   for (const width of WIDTHS) {
     for (const entry of [archer, withContents]) {
-      await openClass(page, entry.id, width);
-      await expect(switcher(page), entry.id).toHaveCount(0);
-      await expect(page.locator("[data-class-section]"), entry.id).toHaveCount(0);
-      await expect(page.locator(".article-contents"), entry.id).toHaveCount(entry === archer ? 0 : 1);
+      const id = entry.id;
+      const label = `${id} at ${width}px`;
+      await openClass(page, id, width);
+      await expect(switcher(page).getByRole("link"), label).toHaveText(stops);
+      for (const name of stops.slice(1)) {
+        await expect(stop(page, name), label).toHaveAttribute("href", `#/entry/${id}?s=${name.toLowerCase()}`);
+      }
+      // The bar is in the first viewport; the Requirements heading is below it before the jump
+      // (Arcane Archer at 390 px) and the page keeps every section.
+      const bar = (await switcher(page).boundingBox())!;
+      expect(bar.y + bar.height, label).toBeLessThanOrEqual(page.viewportSize()!.height);
+      expect(bar.height, label).toBeGreaterThanOrEqual(44);
+      await expect(section(page, "requirements"), label).toHaveText("Requirements");
+      await expect(section(page, "features"), label).toHaveText(
+        topHeadings(id).find((title) => title.toLowerCase().startsWith("class features"))!,
+      );
+      // The contents disclosure stays where the page has one (four headings or more).
+      await expect(page.locator(".article-contents"), label).toHaveCount(id === archer.id ? 0 : 1);
+      // The full introduction is still in the page, ahead of Requirements.
+      const intro = entry.body.find((block: any) => block.t === "paragraph");
+      if (intro) {
+        const words = inlineText(intro.content).trim().split(/\s+/).slice(0, 6).join(" ");
+        await expect(page.locator(".rich").getByText(words, { exact: false }).first(), label).toBeAttached();
+      }
+      await page.locator("article.entry").evaluate((el) => el.setAttribute("data-kept", "1"));
+      for (const name of stops.slice(1)) {
+        await stop(page, name).click();
+        const slug = name.toLowerCase();
+        await expect.poll(() => page.evaluate(() => location.hash), label).toBe(`#/entry/${id}?s=${slug}`);
+        await expect(stop(page, name), label).toHaveAttribute("aria-current", "true");
+        await expect(section(page, slug), label).toBeFocused();
+        await expectAtTop(page, slug, { exact: false });
+        expect(Math.abs((await top(switcher(page))) - (await headerBottom(page))), `${label} ${name}`).toBeLessThanOrEqual(1);
+        await expect(page.locator("article.entry"), label).toHaveAttribute("data-kept", "1");
+      }
+      // Back returns to the stop before it.
+      await page.goBack();
+      await expect.poll(() => page.evaluate(() => location.hash), label).toBe(`#/entry/${id}?s=requirements`);
+      await expect(stop(page, "Requirements"), label).toHaveAttribute("aria-current", "true");
+      await expectAtTop(page, "requirements", { exact: false });
+      expect(await overflow(page), label).toBeLessThanOrEqual(0);
     }
   }
+  // A shared link opens at the Requirements, and a heading link into the page still works.
+  await coldLoad(page, `#/entry/${archer.id}?s=requirements`);
+  await expect(page.getByRole("heading", { level: 1, name: archer.title })).toBeVisible();
+  await expectAtTop(page, "requirements", { exact: false });
+  await expect(stop(page, "Requirements")).toHaveAttribute("aria-current", "true");
+  const featuresId = (await section(page, "features").getAttribute("id"))!;
+  expect(featuresId).toMatch(/^h-/);
+  await coldLoad(page, `#/entry/${archer.id}?a=${featuresId.slice(2)}`);
+  await expect(page.getByRole("heading", { level: 1, name: archer.title })).toBeVisible();
+  await expect(page.locator(`#${featuresId}`)).toBeInViewport();
 });
 
 test("An NPC class has the stops it has, and a casting one gets Spells", async ({ page }) => {

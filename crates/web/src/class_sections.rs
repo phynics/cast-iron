@@ -2,12 +2,13 @@
 //!
 //! A class page is one long document. The switcher is a sticky bar of links that jump to the
 //! start of a section; the whole page stays in the document (Find in page, screen readers). The
-//! four stops are **Overview · Features · Archetypes · Spells**, and a class shows only the stops
-//! it has:
+//! five stops are **Overview · Requirements · Features · Archetypes · Spells**, and a class shows
+//! only the stops it has:
 //!
 //! | Stop | Where it starts |
 //! |---|---|
 //! | Overview | the top of the page: title, summary card, introduction |
+//! | Requirements | the top-level heading `Requirements` (a prestige class; #443) |
 //! | Features | the first top-level heading that begins `Class Features` |
 //! | Archetypes | the top-level heading `Archetypes` |
 //! | Spells | the `Spell list` panel, which exists when the class has a spell list |
@@ -21,6 +22,7 @@ use cast_iron_schema::{Block, headings::keyed_headings, headings::plain_text};
 /// of the Overview link has no `s=`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Section {
+    Requirements,
     Features,
     Archetypes,
     Spells,
@@ -28,11 +30,17 @@ pub enum Section {
 
 impl Section {
     /// The stops in the order the switcher shows them, after Overview.
-    pub const ALL: [Section; 3] = [Section::Features, Section::Archetypes, Section::Spells];
+    pub const ALL: [Section; 4] = [
+        Section::Requirements,
+        Section::Features,
+        Section::Archetypes,
+        Section::Spells,
+    ];
 
     /// The `s=` value of the address, and the `data-class-section` of the target element.
     pub fn slug(self) -> &'static str {
         match self {
+            Section::Requirements => "requirements",
             Section::Features => "features",
             Section::Archetypes => "archetypes",
             Section::Spells => "spells",
@@ -41,6 +49,7 @@ impl Section {
 
     pub fn label(self) -> &'static str {
         match self {
+            Section::Requirements => "Requirements",
             Section::Features => "Features",
             Section::Archetypes => "Archetypes",
             Section::Spells => "Spells",
@@ -58,6 +67,8 @@ impl Section {
 /// The sections that one class page has.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Sections {
+    /// The heading key where Requirements starts.
+    requirements: Option<String>,
     /// The heading key (the `h-` id without its prefix) where Features starts.
     features: Option<String>,
     /// The heading key where Archetypes starts.
@@ -67,8 +78,9 @@ pub struct Sections {
 }
 
 /// How many stops, Overview included, a switcher needs. A class with only Overview and Features
-/// (a prestige class) has a short page, and two segments would add a jump it hardly needs; it
-/// keeps whatever contents disclosure it has.
+/// has a short page, and two segments would add a jump it hardly needs; it keeps whatever contents
+/// disclosure it has. A prestige class has Requirements as well, so it gets the bar: its
+/// introduction can run to 2,000 px at 390 px before the Requirements (#443).
 const MIN_STOPS: usize = 3;
 
 impl Sections {
@@ -93,6 +105,7 @@ impl Sections {
                 .map(|(.., key)| key.clone())
         };
         Self {
+            requirements: top_level(&|title| title.trim() == "requirements"),
             features: top_level(&|title| title.trim().starts_with("class features")),
             archetypes: top_level(&|title| title.trim() == "archetypes"),
             spells: has_spell_list,
@@ -101,6 +114,7 @@ impl Sections {
 
     pub fn has(&self, section: Section) -> bool {
         match section {
+            Section::Requirements => self.requirements.is_some(),
             Section::Features => self.features.is_some(),
             Section::Archetypes => self.archetypes.is_some(),
             Section::Spells => self.spells,
@@ -124,6 +138,7 @@ impl Sections {
     /// Spells has no body heading: its target is the panel.
     pub fn body_marks(&self) -> Vec<(String, Section)> {
         [
+            (self.requirements.as_ref(), Section::Requirements),
             (self.features.as_ref(), Section::Features),
             (self.archetypes.as_ref(), Section::Archetypes),
         ]
@@ -217,14 +232,49 @@ mod tests {
     }
 
     #[test]
-    fn a_stop_without_its_heading_is_left_out() {
-        // A prestige class: Requirements, Class Skills, Class Features. Two stops, Overview and
-        // Features, are too few for a switcher.
+    fn a_prestige_class_has_requirements_and_features() {
+        // Requirements, Class Skills, Class Features: Overview, Requirements and Features are
+        // three stops, so the page gets a switcher (#443).
         let prestige = vec![
-            h(2, "Requirements", None),
-            h(2, "Class Skills", None),
-            h(2, "Class Features", None),
+            p("A long introduction."),
+            h(3, "Requirements", Some("requirements")),
+            h(3, "Class Skills", None),
+            h(3, "Class Features", Some("class-features")),
         ];
+        let sections = Sections::read(&prestige, false);
+        assert_eq!(
+            sections.present(),
+            [Section::Requirements, Section::Features]
+        );
+        assert!(sections.worth_a_switcher());
+        assert_eq!(
+            sections.body_marks(),
+            [
+                ("requirements".to_string(), Section::Requirements),
+                ("class-features".to_string(), Section::Features),
+            ]
+        );
+    }
+
+    #[test]
+    fn requirements_is_a_stop_only_at_the_top_level_and_with_its_exact_title() {
+        // A deeper `Requirements` (an archetype's, under a top-level heading) and a heading that
+        // only mentions the word are not stops.
+        let body = vec![
+            h(2, "Class Features", None),
+            h(3, "Requirements", None),
+            h(2, "Requirements for Entry", None),
+        ];
+        let sections = Sections::read(&body, false);
+        assert!(!sections.has(Section::Requirements));
+        assert_eq!(sections.present(), [Section::Features]);
+    }
+
+    #[test]
+    fn a_stop_without_its_heading_is_left_out() {
+        // A prestige class without a Requirements heading has Overview and Features: too few for
+        // a switcher.
+        let prestige = vec![h(2, "Class Skills", None), h(2, "Class Features", None)];
         let sections = Sections::read(&prestige, false);
         assert_eq!(sections.present(), [Section::Features]);
         assert!(!sections.worth_a_switcher());

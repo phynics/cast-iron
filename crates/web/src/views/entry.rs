@@ -941,8 +941,7 @@ fn EntryView(
             }
         });
     }
-    // An address that names a section this page lacks (`?s=spells` on a fighter, or any section
-    // on a prestige class or a spell) opens at the top, and the address stops claiming it, so
+    // An address that names a section this page lacks (`?s=spells` on a fighter, `?s=features` on a spell) opens at the top, and the address stops claiming it, so
     // the address and the page agree. The effect follows the route, so an address typed into the
     // page that is on screen is dropped too, not only the one it was opened with.
     let present = class_sections
@@ -970,7 +969,9 @@ fn EntryView(
             });
         }
     });
-    let contents = class_sections.is_none().then(|| {
+    // A prestige class keeps its contents disclosure beside the switcher: the switcher has only
+    // the stops, and the disclosure reaches one feature (#443).
+    let contents = (class_sections.is_none() || kind == EntryKind::PrestigeClass).then(|| {
         view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
     });
     view! {

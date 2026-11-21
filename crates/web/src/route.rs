@@ -1684,6 +1684,19 @@ mod tests {
             Route::parse("#/entry/ref/class/wizard?s=FEATURES").section(),
             Some(Section::Features)
         );
+        // A prestige class's Requirements stop is a query of the same kind.
+        let archer = EntryId::parse("ref/pclass/arcane-archer").unwrap();
+        let requirements = Route::Entry {
+            id: archer,
+            anchor: None,
+            book: None,
+            section: Some(Section::Requirements),
+        };
+        assert_eq!(
+            requirements.href(),
+            "#/entry/ref/pclass/arcane-archer?s=requirements"
+        );
+        round_trip(requirements);
         // Another route has no section.
         assert_eq!(Route::Home.section(), None);
     }

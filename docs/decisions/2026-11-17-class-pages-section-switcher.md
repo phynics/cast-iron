@@ -1,8 +1,8 @@
 ---
 title: "Class pages: section switcher"
 date: 2026-11-17
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-21-prestige-class-requirements-stop"]
 issues: [170, 391, 433]
 prs: []
 area: ui

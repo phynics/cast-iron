@@ -230,10 +230,13 @@ class page is one column with no side panel. Other entries keep them open, in th
 ## Class section switcher
 
 A class page with at least three stops (Overview and two more) has `nav.section-switcher` under the
-summary card, in place of the `On this page` disclosure: **Overview · Features · Archetypes ·
-Spells**, only the stops the class has (Wizard and Arcanist four, Fighter three). A prestige class
-has only Overview and Features, so it gets no switcher and keeps the contents disclosure it has
-today (#443 tracks its route to Requirements).
+summary card: **Overview · Requirements · Features · Archetypes · Spells**, only the stops the class
+has (Wizard and Arcanist four, Fighter three). Requirements starts at the top-level `Requirements`
+heading, so a prestige class has Overview, Requirements and Features and gets the bar (#443): its
+introduction can run past 2,000 px at 390 px before the Requirements. The bar replaces the
+`On this page` disclosure on base classes, whose list was 40 or more headings. A prestige class keeps
+its disclosure (where it has four headings or more) beside the bar, below it, because the disclosure
+reaches one feature and the bar does not. A page with only Overview and Features has no bar.
 
 It is a row of jump links, not tabs: Navigation role, `--radius` rectangles of 44 px, equal in rhythm,
 the stop last chosen filled with `--accent` and marked `aria-current="true"` (the form of the
@@ -241,7 +244,7 @@ spell level links). It is `position: sticky` under the masthead (`top: var(--hea
 opaque `--bg` that runs out to the page gutters, with a short fade under its edge. The whole page
 stays one document, so Find in page and a screen reader's heading list reach every section. A link
 moves the page to the start of its section and focus to that section's heading; the address
-records the stop as `?s=features`, `?s=archetypes` or `?s=spells` (Overview has no value), which
+records the stop as `?s=requirements`, `?s=features`, `?s=archetypes` or `?s=spells` (Overview has no value), which
 makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
