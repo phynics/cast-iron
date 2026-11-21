@@ -20,7 +20,10 @@ const power = (page: Page, name: string) =>
 async function open(page: Page, id: string, width = 1280) {
   await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
   await page.goto(`#/entry/${id}`);
-  await expect(page.getByRole("heading", { level: 1, name: corpus.entries.get(id)!.title })).toBeVisible();
+  // The loading view shows the stub's title in an `h1` too. The entry itself is up when its own
+  // title (`data-testid`) and its head are there, so a later `allInnerTexts` never reads a stub.
+  await expect(page.getByTestId("entry-title")).toHaveText(corpus.entries.get(id)!.title);
+  await expect(page.locator(".entry-head")).toBeVisible();
 }
 
 const overflow = (page: Page) =>
@@ -210,17 +213,41 @@ test("Continuation paragraphs stay with their row, in print order", async ({ pag
   expect(await page.locator(".rich .power > p strong").allInnerTexts()).toEqual(["Special:"]);
 });
 
-test("A long power name wraps at 390 px and the level stays on its first line", async ({ page }) => {
+test("A long power name wraps and the level stays on its first line", async ({ page }) => {
   await open(page, "ref/arcaneschool/divination", 390);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   const head = power(page, "In Accordance with the Prophecy (Su)").locator(".power-head");
+  await expect(head.locator(".power-level")).toBeVisible();
+
+  // Whether a name wraps at 390 px depends on the fonts of the machine. So measure the name on
+  // one line, then give the head 70% of that width for the name: the name must wrap whatever the
+  // font. The real styles still decide how the head lays out.
+  await head.evaluate((el) => {
+    const name = el.querySelector<HTMLElement>(".power-name")!;
+    const level = el.querySelector<HTMLElement>(".power-level")!;
+    const before = { whiteSpace: name.style.whiteSpace, flex: name.style.flex };
+    name.style.whiteSpace = "nowrap";
+    name.style.flex = "none";
+    const natural = name.getBoundingClientRect().width;
+    name.style.whiteSpace = before.whiteSpace;
+    name.style.flex = before.flex;
+    const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+    el.style.width = `${Math.ceil(natural * 0.7 + level.getBoundingClientRect().width + 2 * gap)}px`;
+  });
+
+  // The name's own line height, so the test does not depend on the size of the font either.
+  const line = await head.locator(".power-name").evaluate((el) => {
+    const style = getComputedStyle(el);
+    return parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.3;
+  });
   const [name, level, leader] = await Promise.all([
     head.locator(".power-name").boundingBox(),
     head.locator(".power-level").boundingBox(),
     head.locator(".power-leader").boundingBox(),
   ]);
   // The name wraps, the level never does and sits on the first line at the right edge.
-  expect(name!.height).toBeGreaterThan(level!.height * 1.5);
+  expect(name!.height).toBeGreaterThan(line * 1.5);
+  expect(level!.y).toBeLessThan(name!.y + line);
   expect(Math.abs(level!.y - name!.y)).toBeLessThan(level!.height);
   expect(level!.x + level!.width).toBeLessThanOrEqual(390);
   // The leader takes only the space that is left, which is none when the name wraps.
