@@ -257,9 +257,11 @@ runs in this order:
 2. phynics/cast-iron-data#88 rewrites the powers with a script that mirrors those functions, and
    the warning checks the result.
 3. The pin pull request of the migrated corpus turns the warning into an error.
-4. The renderer calls the same functions.
+4. The renderer calls the same functions (`crates/web/src/powers.rs` plans the layout,
+   `views/rich.rs` renders it).
 
 Archetypes follow in #540.
+
 On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
 1. The head is one baseline-aligned row. On the left is the name, as a heading: `h2` before the first
@@ -274,7 +276,11 @@ On a `class_option` entry, a power reads as printed prose. It sits in a plain `d
 3. The base effect in body type, without its `Passive` or `Ability` label. `Flavor` reads as the
    first sentence.
 4. One paragraph per upgrade, with the lead `At 11th level,` in weight 600.
-5. The other rows (`Special:`, `Prereq:`, `Replaces:`) keep their bold label.
+5. The other rows (`Special:`, `Prereq:`, `Replaces:`) keep their bold label, each with the
+   paragraphs that continue it. `Choice` and `Info` keep their label too and stand before the
+   effect. A power with a passive row and an action row shows the passive text first and the
+   action as its own line; the meta line takes the action from the action row's label. `Benefit`
+   is the one effect label that stays visible, because nothing else carries it.
 
 Powers are not added to `On this page`. The layout applies only to a power that passes the canonical
 validation, the same check that the corpus runs on class options. A power that fails it renders as

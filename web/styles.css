@@ -1789,6 +1789,21 @@ mark {
   font-size: var(--step--1);
 }
 
+/* The facts line of a one-power class option: the tag, level, action and uses of its power, in
+   the Metadata role, directly under the metadata line. Text only. */
+.entry-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.entry-meta:has(+ .entry-facts) {
+  margin-bottom: var(--space-1);
+}
+
 /* The dot between items is a hidden span, so it stays out of every link's accessible name. */
 .meta-sep {
   color: var(--ink-muted);
@@ -1976,6 +1991,80 @@ mark {
   font-size: var(--step--1);
   padding-left: 2.4em;
   text-indent: -1.2em;
+}
+
+/* Class-option powers (DESIGN.md, "Class-option powers"): printed prose, no box, no tint and no
+   rule. Space separates powers. The head is one baseline row: the name, a dotted leader that takes
+   only the space left, and the level, which never wraps. */
+.rich .power {
+  max-width: var(--measure);
+  margin: var(--space-5) 0;
+}
+
+.rich > .power:first-child {
+  margin-top: 0;
+}
+
+.power > p {
+  margin: 0 0 var(--space-2);
+}
+
+.power > :last-child {
+  margin-bottom: 0;
+}
+
+.power-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.rich .power-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: var(--leading-tight);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.power-leader {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 0;
+  border-bottom: 2px dotted var(--line);
+  position: relative;
+  top: -0.25em;
+}
+
+.power-level {
+  flex: none;
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.power-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.power-upgrade strong {
+  font-weight: 600;
 }
 
 /* Notes (#507): an entry's footnotes, as one quiet group after the rules text. Smaller type, the
