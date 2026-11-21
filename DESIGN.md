@@ -27,6 +27,16 @@ Rules that apply to every role:
 
 Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Every `<summary>` that opens a disclosure draws the same chevron and hides the platform's own marker. The exceptions are the two Collections pickers, which keep the platform marker, and the `+N more` link in a metadata line, which is text. All icons share the 24 px grid and a 1.8 px round stroke. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs (and in the book trail).
 
+## Masthead
+
+The sticky header holds the brand, the primary nav (from 48rem; below it the nav is the bottom bar), the header search icon, the install action and the Offline badge. Its height stays `--header-h` (3.75rem) and every control keeps a 44 px target.
+
+- **Brand.** An original wordmark (#194; decision `docs/decisions/2026-11-21-svg-wordmark.md`): "Cast Iron" in outlined Bevan (SIL OFL 1.1, `LICENSES/OFL-1.1-Bevan.txt`) in `web/icons/wordmark.svg`, with a round hanging hole cut in the capital I, as in a skillet handle. The brand link is 44 px high; the mark inside it is 1.25rem high and 6.42 times as wide, and its left edge is the brand's left edge, so the brand still lines up with the page title.
+- **One file, both themes.** The SVG is an alpha mask (`.brand-mark`), not an image: the paint is `--ink` under a static diagonal oil-slick gradient (blue, violet, teal, amber, each mixed into `--ink` at 30 to 34 %), so the mark takes the light and the dark theme from the tokens. Nothing moves, so Reduce Motion needs no case. In forced-colors mode the paint is `CanvasText`.
+- **Name.** The mark is `aria-hidden`; the brand link carries a `.sr-only` "Cast Iron", once. The installer's masthead uses the same two spans.
+- **Search stays secondary.** The idle header search icon is a bare 20 px glyph in `--ink-muted` with no fill and no border; hover and focus bring `--ink` and the `--surface-2` fill. It never competes with the mark.
+- **Limits.** No remote font, no animation, no image of the wordmark in the WASM. The artwork must stay clear of Paizo and Pathfinder marks (`AGENTS.md`, rules 10 and 11).
+
 ## List pages
 
 A list page is a kind's A to Z list (`#/browse/kind/<kind>`). Feat chains, the spell hub and the spell lists follow the same head. The spell hub (`#/spells`) is the head and the class picker: the count line reads `31 spell lists`, and it has no filter row. A class list (`#/spells/<class>[/<level>]`) is the head, a filter row with `School` (multi-select, below) and the `Class page` `.page-link`, the name field, the level bar (`All levels`, then the levels with their counts: it is not sticky, because up to eleven 44 px targets wrap to two rows at 390 px), the density choice and the rows. Its count line reads `199 spells` (`26 cantrips` at level 0). Home, entries, Search, Settings, Legal, the Books directory and the book reader are not list pages.

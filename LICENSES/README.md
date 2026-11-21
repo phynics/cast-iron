@@ -9,6 +9,7 @@ the license listed below.
 | Code written for Cast Iron | MIT | Root [LICENSE](../LICENSE), copy in [MIT.txt](MIT.txt), and `license = "MIT"` in `Cargo.toml` |
 | Open Game Content in the generated rules library (compiled from the corpus below) | OGL 1.0a | [OGL-1.0a.txt](OGL-1.0a.txt), plus the app's Legal page |
 | Section 15 copyright notices | OGL 1.0a Section 15 | `legal.toml` in the corpus, shown in the app |
+| Outlined Bevan letterforms in the wordmark (`web/icons/wordmark.svg`) | SIL OFL 1.1 | [OFL-1.1-Bevan.txt](OFL-1.1-Bevan.txt) |
 | Paizo material used under Paizo's policy | Paizo Community Use Policy | Notice in the app and in the README; not a file in this repo |
 
 ## MIT (code)
@@ -17,6 +18,15 @@ The Rust crates, the web shell (`web/`), the build tooling (`crates/xtask`),
 and the tests are under the MIT license. The root `LICENSE` is canonical and
 carries a scope note stating it covers code only; [MIT.txt](MIT.txt) is the
 bare license text without that note.
+
+## SIL OFL 1.1 (wordmark letterforms)
+
+The "Cast Iron" wordmark in `web/icons/wordmark.svg` is outlined from the font
+Bevan (Copyright 2016 The Bevan Project Authors), which is licensed under the
+SIL Open Font License, version 1.1. [OFL-1.1-Bevan.txt](OFL-1.1-Bevan.txt) is
+the licence text with that notice. The app ships the outlines as artwork, not
+the font: there is no font file and no remote font. The wordmark's shapes are
+modified (tracking, a hole in the capital I).
 
 ## OGL 1.0a (Open Game Content)
 
