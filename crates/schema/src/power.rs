@@ -93,6 +93,13 @@ fn ordinal_suffix(level: u8) -> &'static str {
     }
 }
 
+/// The printed lead of the upgrade at `level`: `At 11th level,`. The corpus writes this wording as
+/// the bold lead of an upgrade row, so a renderer that builds the lead from the level of a valid
+/// [`Upgrade`] shows what the corpus has.
+pub fn upgrade_lead(level: u8) -> String {
+    format!("At {level}{} level,", ordinal_suffix(level))
+}
+
 /// A well-formed ordinal is a number from 1 to 20 with no leading zero, followed by its English
 /// suffix: `st` for 1, `nd` for 2, `rd` for 3 and `th` for 4 to 20.
 pub fn well_formed_ordinal(digits: &str, suffix: &str) -> Option<u8> {
@@ -1159,6 +1166,15 @@ mod tests {
         // The tests classify owned blocks, so leak the block to get a `'static` borrow.
         let block: &'static Block = Box::leak(Box::new(paragraph(content)));
         classify(block)
+    }
+
+    #[test]
+    fn the_upgrade_lead_is_the_printed_one() {
+        assert_eq!(upgrade_lead(1), "At 1st level,");
+        assert_eq!(upgrade_lead(2), "At 2nd level,");
+        assert_eq!(upgrade_lead(3), "At 3rd level,");
+        assert_eq!(upgrade_lead(11), "At 11th level,");
+        assert_eq!(upgrade_lead(20), "At 20th level,");
     }
 
     #[test]
