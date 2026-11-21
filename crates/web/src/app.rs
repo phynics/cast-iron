@@ -371,7 +371,10 @@ fn Reader(library: Library) -> impl IntoView {
     view! {
         <div class="app">
             <header class="app-header">
-                <a class="brand" href=Route::Home.href()>"Cast Iron"</a>
+                <a class="brand" href=Route::Home.href()>
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span class="sr-only">"Cast Iron"</span>
+                </a>
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
                     <NavLink label="Books" route=Route::Books />

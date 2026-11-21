@@ -27,7 +27,10 @@ pub fn InstallerScreen(notice: Option<String>) -> impl IntoView {
     view! {
         <div class="app app-install">
             <header class="app-header">
-                <span class="brand">"Cast Iron"</span>
+                <span class="brand">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span class="sr-only">"Cast Iron"</span>
+                </span>
             </header>
             <main id="main" tabindex="-1" class="install-main">
                 <h1>"Install the rules library"</h1>

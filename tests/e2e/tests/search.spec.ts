@@ -1436,6 +1436,12 @@ installedTest("Search names hidden matches in an inactive book and includes it i
 installedTest("A book section result opens its chapter page at the section and Back returns", async ({ page }) => {
   // A rule section that Contents lists on a chapter page of a book that is active by default.
   const kinds = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  // The row is named by its entry, so the address survives a pin that moves rows (#546). An
+  // entry that appears twice in a chapter would take a numbered anchor, so the fixture avoids it.
+  const slug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const occurrences = (node: any, entry: string): number =>
+    (node.entry === entry ? 1 : 0) +
+    (node.children ?? []).reduce((sum: number, child: any) => sum + occurrences(child, entry), 0);
   const fixture = bookTrees()
     .map((book) => {
       const chapters = listedChapters(book);
@@ -1444,6 +1450,8 @@ installedTest("A book section result opens its chapter page at the section and B
         for (const [childIndex, child] of (chapter.node.children ?? []).entries()) {
           if (
             child.entry &&
+            !child.anchor &&
+            occurrences(chapter.node, child.entry) === 1 &&
             kinds.get(child.entry) === "rule" &&
             child.title.length >= 8 &&
             !child.title.includes("?")
@@ -1465,7 +1473,7 @@ installedTest("A book section result opens its chapter page at the section and B
 
   await installLibrary(page);
   const query = fixture!.child.title;
-  const anchor = `toc-${fixture!.childPath.map((index) => index + 1).join("-")}`;
+  const anchor = `row-${slug(fixture!.child.entry)}`;
   await page.goto("#/search");
   await page.locator("#search-input").fill(query);
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", query);
@@ -1501,6 +1509,38 @@ installedTest("A book section result opens its chapter page at the section and B
   await expect(sections.locator("summary")).toContainText(/\d+ match(es)?/);
   await expect(page.locator(".section-fold")).toHaveAttribute("open", /.*/);
   await expect(link).toBeVisible();
+});
+
+installedTest("A saved book section address from before stable anchors opens the section it named (#546)", async ({ page }) => {
+  // Corpus v0.1.31 numbered the rows of Blood of the Beast's Unpaged chapter by position, and
+  // toc-2-26 was Ranger and toc-2-27 Rogue. v0.1.33 inserted and removed rows ahead of them, so
+  // read by position the same addresses open Rogue and Shaman. The library keeps a table of the
+  // published addresses, so each opens the row it was saved for, as a stable address.
+  const book = bookTrees().find((candidate) => candidate.source === "blood-of-the-beast")!;
+  expect(book, "the corpus has Blood of the Beast").toBeTruthy();
+  const chapter = chapterIds(book).find(
+    (row) => book.chapters[row.path[0]].title === "Unpaged",
+  );
+  expect(chapter, "Blood of the Beast has an Unpaged chapter").toBeTruthy();
+  const chapterId = chapter!.id;
+
+  await installLibrary(page);
+  for (const [old, anchor, title] of [
+    ["toc-2-26", "row-ref-class-ranger", "Ranger"],
+    ["toc-2-27", "row-ref-class-rogue", "Rogue"],
+  ]) {
+    await page.goto(`#/browse/book/blood-of-the-beast/${chapterId}?a=${old}`);
+    await expect(page.getByTestId("chapter-title")).toBeVisible();
+    // The address is rewritten to the stable one, and the row is on screen.
+    await expect(page).toHaveURL(new RegExp(`\\?a=${anchor}$`));
+    await expect(page.locator(`#${anchor}`)).toContainText(title);
+    await expect(page.locator(`#${anchor}`)).toBeInViewport();
+  }
+
+  // An address that no published tree made opens the chapter, with no dead anchor left over.
+  await page.goto(`#/browse/book/blood-of-the-beast/${chapterId}?a=toc-2-999`);
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${chapterId}$`));
 });
 
 installedTest("A query that matches only book sections lists them open, with the count and the cap", async ({ page }) => {
