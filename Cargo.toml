@@ -35,10 +35,15 @@ unsafe_code = "forbid"
 all = { level = "warn", priority = -1 }
 
 [profile.release]
-opt-level = "s"
+# Optimised for size: the WASM budget has little room left (docs/decisions/2026-11-21-wasm-built-for-size.md).
+opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
+
+# The search code is the one hot path in WASM; keep it at "s". It costs about 28 KB over "z".
+[profile.release.package.cast-iron-search]
+opt-level = "s"
 
 # Line tables keep panic locations and backtraces; dropping full debug info
 # cuts each worktree's target/ by about a third.
