@@ -7,6 +7,7 @@ import {
   openQuickSearch,
   quickGroup,
   searchFor,
+  seedHome,
   storedMeta,
   waitHomeIdle,
   waitReady,
@@ -153,4 +154,44 @@ test("Clear in Recently viewed removes the visit and the continue point, and bot
 
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toHaveCount(0);
+});
+
+test("A saved continue point for a book that does not hold the entry is not offered, and an old address does not record one (#543)", async ({ page }) => {
+  const { book, entry } = placedEntry();
+  // A book that the library installs and that does not print this entry: what a book looks
+  // like after a library update removed the entry from it.
+  const former = bookTrees().find(
+    (tree) => tree.source !== book.source && !entry.source_ids.includes(tree.source),
+  );
+  if (!former) throw new Error("The compiled corpus has no second book that omits the entry.");
+  // The stale point is the newest, so unfixed code offers the former book first. The valid point
+  // for the book that holds the entry is older.
+  const seeded = { source: former.source, entry_id: entry.id, read_at: 20000 };
+  const valid = { source: book.source, entry_id: entry.id, read_at: 10000 };
+  await seedHome(page, { continuePoints: [seeded, valid] });
+
+  // Quick search offers the valid book's point, not the newer stale one.
+  await openQuickSearch(page);
+  await expect(continueRow(page).first()).toContainText(`Continue ${book.title}`);
+  await expect(continueRow(page)).toHaveCount(1);
+  await page.keyboard.press("Escape");
+
+  // The book that holds the entry offers its point, which proves the points have loaded; the
+  // book that dropped it offers none.
+  await page.goto(`#/browse/book/${book.source}`);
+  await expect(page.getByTestId("continue-reading")).toContainText(`Continue reading: ${entry.title}`);
+  await page.goto(`#/browse/book/${former.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: former.title })).toBeVisible();
+  await expect(page.getByTestId("continue-reading")).toHaveCount(0);
+
+  // An old book-qualified address still opens the entry, but records nothing under the former
+  // book. A visit from the book that holds the entry is the barrier: its point moves past the
+  // seeded time only after the earlier visit's write would have landed.
+  await page.goto(`#/entry/${entry.id}?book=${former.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
+  await openBookEntry(page, book, entry.id);
+  await expect
+    .poll(async () => (await storedContinuePoints(page)).find((point) => point.source === book.source)?.read_at)
+    .toBeGreaterThan(valid.read_at);
+  expect((await storedContinuePoints(page)).find((point) => point.source === former.source)).toEqual(seeded);
 });

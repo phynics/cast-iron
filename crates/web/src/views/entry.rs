@@ -15,6 +15,7 @@ use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
+use crate::views::continue_reading;
 use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
 use crate::views::recent;
@@ -463,7 +464,14 @@ fn EntryView(
     }
     // Only a visit that carries the book in its route is reading inside that book. A search hit,
     // a Home row without context, or a direct entry URL leaves every continue point alone.
-    if let Some(source) = book.clone() {
+    // An old book-qualified address of an entry that the book no longer holds (#543) records no
+    // point; the visit still shows under Recently viewed, which has no book.
+    if let Some(source) =
+        continue_reading::recordable_book(book.as_deref(), &entry.id, |id, source| {
+            continue_reading::entry_in_book(&library, id, source)
+        })
+        .map(str::to_string)
+    {
         let id = entry.id.clone();
         let library = library.clone();
         spawn_local(async move {

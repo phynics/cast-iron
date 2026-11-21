@@ -200,9 +200,14 @@ pub fn latest_continue_point(points: &[ContinuePoint]) -> Option<&ContinuePoint>
 /// still exists. A point whose entry is gone is dropped; an alias takes its target's id. A
 /// retired book source is mapped to the book that now holds it. The result keeps one point per
 /// book, newest first, so the newest point wins when both old ids were stored.
+///
+/// `keep` answers for the resolved entry id and the resolved book id. A point it rejects is
+/// skipped before its book is marked as seen, so an older point of the same book (stored under
+/// a retired id) still shows when the newest one is stale (#543).
 pub fn resolve_continue_points(
     points: &[ContinuePoint],
     resolve: impl Fn(&EntryId) -> Option<EntryId>,
+    keep: impl Fn(&EntryId, &str) -> bool,
 ) -> Vec<ContinuePoint> {
     let mut seen = std::collections::BTreeSet::new();
     let mut out = Vec::new();
@@ -211,7 +216,7 @@ pub fn resolve_continue_points(
             continue;
         };
         let source = crate::book_source::aliased_book_source(&point.source).to_string();
-        if !seen.insert(source.clone()) {
+        if !keep(&entry_id, &source) || !seen.insert(source.clone()) {
             continue;
         }
         out.push(ContinuePoint {
@@ -1312,11 +1317,15 @@ mod tests {
             point("b", "missing", 20.0),
             point("c", "ref/rule/c", 10.0),
         ];
-        let resolved = resolve_continue_points(&points, |entry| match entry.as_str() {
-            "legacy/a" => Some(id("ref/rule/merged")),
-            "ref/rule/c" => Some(id("ref/rule/c")),
-            _ => None,
-        });
+        let resolved = resolve_continue_points(
+            &points,
+            |entry| match entry.as_str() {
+                "legacy/a" => Some(id("ref/rule/merged")),
+                "ref/rule/c" => Some(id("ref/rule/c")),
+                _ => None,
+            },
+            |_, _| true,
+        );
         assert_eq!(
             resolved,
             [
@@ -1327,11 +1336,28 @@ mod tests {
     }
 
     #[test]
+    fn a_stale_newest_point_does_not_hide_an_older_valid_point_of_the_same_book() {
+        // `prpg-core-rulebook` is a retired id of `core-rulebook`. The newest point names an
+        // entry the book dropped; the older one, stored under the old id, is still valid.
+        let points = [
+            point("core-rulebook", "ref/rule/stale", 30.0),
+            point("prpg-core-rulebook", "ref/rule/kept", 20.0),
+        ];
+        let resolved = resolve_continue_points(
+            &points,
+            |entry| Some(entry.clone()),
+            |entry, book| book == "core-rulebook" && entry.as_str() == "ref/rule/kept",
+        );
+        assert_eq!(resolved, [point("core-rulebook", "ref/rule/kept", 20.0)]);
+    }
+
+    #[test]
     fn a_stored_retired_book_source_resolves_to_the_merged_book() {
         let keep = |entry: &EntryId| Some(entry.clone());
+        let all = |_: &EntryId, _: &str| true;
         // A point stored under the printed tree's old id opens the merged book.
         assert_eq!(
-            resolve_continue_points(&[point("gamemastery-guide", "ref/rule/a", 10.0)], keep),
+            resolve_continue_points(&[point("gamemastery-guide", "ref/rule/a", 10.0)], keep, all),
             [point("game-mastery-guide", "ref/rule/a", 10.0)]
         );
         // When both old ids have a point, the newer one wins and one row remains.
@@ -1341,7 +1367,7 @@ mod tests {
             point("core-rulebook", "ref/rule/core", 10.0),
         ];
         assert_eq!(
-            resolve_continue_points(&points, keep),
+            resolve_continue_points(&points, keep, all),
             [
                 point("game-mastery-guide", "ref/rule/printed", 30.0),
                 point("core-rulebook", "ref/rule/core", 10.0)
