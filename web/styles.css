@@ -257,11 +257,11 @@ main:focus {
    themes: the paint below is the colour of the page ink, with a faint oil-slick sheen laid over
    it. The sheen is a fixed gradient. Nothing moves. */
 .brand-mark {
-  --wordmark-ar: 6.42;
+  --wordmark-ar: 6.455;
   display: block;
   flex: none;
-  height: 1.25rem;
-  width: calc(1.25rem * var(--wordmark-ar));
+  height: 1.4rem;
+  width: calc(1.4rem * var(--wordmark-ar));
   background: var(--ink);
   background-image: linear-gradient(
     100deg,
