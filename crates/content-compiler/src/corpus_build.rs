@@ -35,16 +35,20 @@ pub fn build_from_corpus(
     published: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Library, Failure> {
-    build_with_slots(dir, published, None, corpus_tag)
+    build_with_slots(dir, published, None, None, corpus_tag)
 }
 
 /// [`build_from_corpus`] with the share-slot guard. With `book_slots`
 /// (`sources/published-books.txt`), every publication gets its permanent slot
 /// (`SourceInfo.share_slot`), and the build fails when one has no line in the file.
+///
+/// With `legacy_sections` (`sources/legacy-sections.json`), the build checks the table of old
+/// section addresses and writes it into the library (see [`crate::legacy_sections`]).
 pub fn build_with_slots(
     dir: &Path,
     published: Option<&Path>,
     book_slots: Option<&Path>,
+    legacy_sections: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Library, Failure> {
     let corpus = Corpus::load(dir).map_err(|errors| Failure {
@@ -168,7 +172,7 @@ pub fn build_with_slots(
         .transpose()
         .map_err(|e| failure(format!("cannot write {ALIASES_FILE}: {e}")))?;
 
-    let notes = vec![format!(
+    let mut notes = vec![format!(
         "corpus build: {} entries from {} publications; {} excluded rows, {} rejected rows; coverage derived from the entries, exclusions.toml, and history.toml",
         entries.len(),
         corpus.publications.len(),
@@ -177,6 +181,24 @@ pub fn build_with_slots(
     )];
     let mut books = corpus.book_index();
     cast_iron_schema::books::mark_listed_children(&mut books, &entries);
+    let legacy_sections_file = match legacy_sections {
+        Some(path) => {
+            let bytes = std::fs::read(path).map_err(|e| {
+                failure(format!(
+                    "cannot read the legacy section table {}: {e}",
+                    path.display()
+                ))
+            })?;
+            let table = crate::legacy_sections::parse(&bytes).map_err(|lines| Failure { lines })?;
+            let (rows, found) = crate::legacy_sections::coverage(&table, &books, &entries);
+            notes.push(format!(
+                "legacy section addresses: {found} of {rows} still open their row; the other {} open their chapter",
+                rows - found
+            ));
+            Some(bytes)
+        }
+        None => None,
+    };
     Ok(Library {
         entries,
         relations: relations.index,
@@ -193,6 +215,7 @@ pub fn build_with_slots(
         sources,
         notes,
         aliases_file,
+        legacy_sections_file,
     })
 }
 
@@ -248,13 +271,14 @@ pub fn compile_corpus_with_slots(
     reports: &Path,
     published: Option<&Path>,
     book_slots: Option<&Path>,
+    legacy_sections: Option<&Path>,
     corpus_tag: Option<&str>,
 ) -> Result<Outcome, Failure> {
     // The lock is held from here to the end of `package`, across recovery, gates and publication.
     let lock = crate::publish::OutLock::acquire(out)?;
     crate::publish::recover_out(&lock)?;
     package(
-        build_with_slots(dir, published, book_slots, corpus_tag)?,
+        build_with_slots(dir, published, book_slots, legacy_sections, corpus_tag)?,
         &lock,
         reports,
     )

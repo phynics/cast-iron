@@ -106,6 +106,9 @@ pub struct Library {
     /// [`package`] adds it to the version directory and the manifest, so the content version
     /// covers its bytes.
     pub aliases_file: Option<Vec<u8>>,
+    /// The legacy section table (`legacy-sections.json`), as the file holds it. [`package`] adds
+    /// it to the version directory and the manifest, as it does the alias file.
+    pub legacy_sections_file: Option<Vec<u8>>,
 }
 
 /// The catalog stub of an entry. Membership is derived here, once, from `source_ids`: the client
@@ -152,6 +155,7 @@ pub fn package(
         sources,
         notes,
         aliases_file,
+        legacy_sections_file,
     } = library;
 
     // Shards and catalog.
@@ -269,6 +273,9 @@ pub fn package(
     files.insert("search.bin".into(), search_bin);
     if let Some(aliases) = aliases_file {
         files.insert(ALIASES_FILE.into(), aliases);
+    }
+    if let Some(table) = legacy_sections_file {
+        files.insert(cast_iron_schema::LEGACY_SECTIONS_FILE.into(), table);
     }
     let mut derived_bytes = BTreeMap::new();
     for (name, bytes) in [

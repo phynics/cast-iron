@@ -873,6 +873,7 @@ fn a_book_gets_its_slot_from_the_published_books_file_and_a_new_book_fails_the_b
         None,
         Some(&slots),
         None,
+        None,
     )
     .unwrap_or_else(|f| panic!("{}", f.lines.join("\n")));
     let manifest: ContentManifest =
@@ -904,6 +905,7 @@ fn a_book_gets_its_slot_from_the_published_books_file_and_a_new_book_fails_the_b
         &temp("slots-bad-reports"),
         None,
         Some(&slots),
+        None,
         None,
     )
     .expect_err("a book without a slot must fail");
