@@ -80,7 +80,8 @@ dotted leader's computed border and the section's offset.
   Copy link check read the status line at the moment of the click, before the app had written "Link copied."
   (the clipboard already held the right URL); it now waits for the line. The Elephant check opened the book
   address without a chapter, `#/browse/book/<id>?a=toc-1-1`; the address stayed as typed and no row was found.
-  That form was not investigated. The published addresses name the chapter, as the e2e check of the Blood of
+  That form is unsupported by design: the router documents that an anchor without a chapter names no row
+  (`crates/web/src/route.rs`, `a_contents_row_is_named_by_identity`). The published addresses name the chapter, as the e2e check of the Blood of
   the Beast addresses does, so the check now uses `/unpaged?a=toc-1-1`. A second run of both browsers then failed the Elephant
   check only because my script called a Playwright locator method that does not exist (`isInViewport`); the
   final runs, one per browser after the three fixes, passed every check. The earlier runs of the other checks
