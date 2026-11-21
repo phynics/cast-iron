@@ -1178,6 +1178,35 @@ mod tests {
     }
 
     #[test]
+    fn the_upgrade_lead_equals_the_text_of_every_canonical_lead() {
+        for (level, ordinal) in [
+            (1, "1st"),
+            (2, "2nd"),
+            (3, "3rd"),
+            (4, "4th"),
+            (11, "11th"),
+            (12, "12th"),
+            (13, "13th"),
+            (20, "20th"),
+        ] {
+            let written = format!("At {ordinal} level,");
+            match kind(vec![strong(&written), text(" the text.")]) {
+                BlockKind::Lead(lead) => {
+                    assert!(lead.is_canonical(), "{written}");
+                    assert_eq!(lead.level, Some(level), "{written}");
+                }
+                other => panic!("{written} is not a lead: {other:?}"),
+            }
+            assert_eq!(upgrade_lead(level), written);
+        }
+        // 21st is not a level of the grammar: its lead is never canonical.
+        match kind(vec![strong("At 21st level,"), text(" the text.")]) {
+            BlockKind::Lead(lead) => assert!(!lead.is_canonical()),
+            other => panic!("not a lead: {other:?}"),
+        }
+    }
+
+    #[test]
     fn a_well_formed_ordinal_has_its_english_suffix() {
         for (level, suffix) in [
             (1, "st"),

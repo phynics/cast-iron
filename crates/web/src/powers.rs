@@ -79,7 +79,7 @@ fn tag_in_words(tag: &str) -> String {
     const WORDS: [(&str, &str); 3] = [
         ("Ex", "Extraordinary"),
         ("Su", "Supernatural"),
-        ("Sp", "Spell-like"),
+        ("Sp", "Spell-Like"),
     ];
     let inner = tag
         .strip_prefix('(')
@@ -338,7 +338,7 @@ mod tests {
         );
         assert_eq!(
             tag_in_words("(Sp and Ex)"),
-            "Spell-like and Extraordinary (Sp and Ex)"
+            "Spell-Like and Extraordinary (Sp and Ex)"
         );
         assert_eq!(tag_in_words("(Su)"), "Supernatural (Su)");
     }

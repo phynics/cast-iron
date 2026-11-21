@@ -317,7 +317,7 @@ impl Renderer {
                 );
                 let id = key.as_deref().map(heading_dom_id);
                 let section = key.as_ref().and_then(|key| self.marks.get(key)).copied();
-                heading(*level, id, section, inlines(content))
+                heading(*level, id, section, None, inlines(content))
             }
             Block::Paragraph { style, content } => {
                 let class = match style {
@@ -441,24 +441,30 @@ fn power_head(placed: &Placed<'_>) -> AnyView {
             </span>
         }
     });
-    let heading = match placed.heading {
-        0..=2 => view! { <h2 class="power-name">{name}</h2> }.into_any(),
-        3 => view! { <h3 class="power-name">{name}</h3> }.into_any(),
-        4 => view! { <h4 class="power-name">{name}</h4> }.into_any(),
-        5 => view! { <h5 class="power-name">{name}</h5> }.into_any(),
-        _ => view! { <h6 class="power-name">{name}</h6> }.into_any(),
-    };
+    let heading = heading(
+        placed.heading,
+        None,
+        None,
+        Some("power-name"),
+        vec![name.into_any()],
+    );
     view! { <div class="power-head">{heading}{level}</div> }.into_any()
 }
 
-/// A muted line of facts joined by `·`. The dots are hidden from assistive technology.
+/// A muted line of facts joined by `·`. The dots are hidden from assistive technology and a
+/// visually hidden comma stands in for them.
 pub fn muted_line(class: &'static str, parts: &[String]) -> AnyView {
     let items = parts
         .iter()
         .enumerate()
         .map(|(index, part)| {
-            let sep =
-                (index > 0).then(|| view! { <span class="meta-sep" aria-hidden="true">"·"</span> });
+            // The dot is decorative; a screen reader gets a comma between the facts.
+            let sep = (index > 0).then(|| {
+                view! {
+                    <span class="meta-sep" aria-hidden="true">"·"</span>
+                    <span class="sr-only">", "</span>
+                }
+            });
             view! { {sep}<span>{part.clone()}</span> }
         })
         .collect_view();
@@ -589,25 +595,31 @@ fn heading(
     level: u8,
     id: Option<String>,
     section: Option<Section>,
+    class: Option<&'static str>,
     content: Vec<AnyView>,
 ) -> AnyView {
     let slug = section.map(Section::slug);
     let tabindex = section.map(|_| "-1");
     match level {
         0..=2 => {
-            view! { <h2 id=id data-class-section=slug tabindex=tabindex>{content}</h2> }.into_any()
+            view! { <h2 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h2> }
+                .into_any()
         }
         3 => {
-            view! { <h3 id=id data-class-section=slug tabindex=tabindex>{content}</h3> }.into_any()
+            view! { <h3 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h3> }
+                .into_any()
         }
         4 => {
-            view! { <h4 id=id data-class-section=slug tabindex=tabindex>{content}</h4> }.into_any()
+            view! { <h4 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h4> }
+                .into_any()
         }
         5 => {
-            view! { <h5 id=id data-class-section=slug tabindex=tabindex>{content}</h5> }.into_any()
+            view! { <h5 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h5> }
+                .into_any()
         }
         _ => {
-            view! { <h6 id=id data-class-section=slug tabindex=tabindex>{content}</h6> }.into_any()
+            view! { <h6 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h6> }
+                .into_any()
         }
     }
 }

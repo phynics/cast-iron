@@ -51,10 +51,10 @@ test("Abjuration lays its powers out as a head, a meta line, the effect, then on
 
   // Protective Ward (Su): the action and the uses fold into one muted meta line.
   const ward = power(page, "Protective Ward (Su)");
-  await expect(ward.locator(".power-meta")).toHaveText("Standard action·3 + Intelligence modifier times/day");
-  // The dot is decorative: hidden from assistive technology.
+  // The dot is decorative: hidden from assistive technology, with a visually hidden comma beside it.
   await expect(ward.locator(".power-meta .meta-sep")).toHaveAttribute("aria-hidden", "true");
-  expect(await ward.locator(".power-meta span:not(.meta-sep)").allInnerTexts()).toEqual([
+  await expect(ward.locator(".power-meta .sr-only")).toHaveText(", ");
+  expect(await ward.locator(".power-meta span:not(.meta-sep):not(.sr-only)").allInnerTexts()).toEqual([
     "Standard action",
     "3 + Intelligence modifier times/day",
   ]);
@@ -84,7 +84,10 @@ test("A mystery keeps the Prereq row and shows no level where Gained is absent",
   const firestorm = power(page, "Firestorm (Su)");
   await expect(firestorm.locator(".power-level")).toHaveCount(0);
   await expect(firestorm.locator(".power-leader")).toHaveCount(0);
-  await expect(firestorm.locator(".power-meta")).toHaveText("Standard action·Once per day.");
+  expect(await firestorm.locator(".power-meta span:not(.meta-sep):not(.sr-only)").allInnerTexts()).toEqual([
+    "Standard action",
+    "Once per day.",
+  ]);
   const lines = await paragraphs(firestorm);
   expect(lines[0]).toBe("You can cause fire to erupt around you."); // Flavor, without its label
   expect(lines[1]).toMatch(/^You can create one 10-foot cube of fire per oracle level/);
@@ -106,6 +109,9 @@ test("A mystery keeps the Prereq row and shows no level where Gained is absent",
   // Special keeps its bold label and stays after the effect.
   const burning = power(page, "Burning Magic (Su)");
   const burningLines = await paragraphs(burning);
+  // The effect's continuation paragraph stays directly after the effect.
+  expect(burningLines[0]).toMatch(/^Whenever a creature fails a saving throw and takes fire damage/);
+  expect(burningLines[1]).toMatch(/^The fire lasts for 1d4 rounds/);
   expect(burningLines.at(-1)).toMatch(/^Special: Spells that do not grant a save/);
   await expect(burning.locator(":scope > p").last().locator("strong")).toHaveText("Special:");
 });
@@ -160,14 +166,63 @@ test("A one-power page folds the head into the title and shows a facts line", as
   expect(lines[3]).toMatch(/^Special: This hex lasts for a number of rounds/);
 });
 
-test("Powers wrap inside 390 px and the level stays on the name's first line", async ({ page }) => {
-  await open(page, "ref/arcaneschool/abjuration", 390);
+test("The facts line carries the action and the uses, and the level of a power with upgrades", async ({ page }) => {
+  // Auspicious Mark: Flavor, a Swift effect, Usage, Special. The `_rage_` of the corpus is
+  // emphasis in the typed text; the facts line holds plain text.
+  await open(page, "ref/ragepower/auspicious-mark");
+  const facts = page.locator(".entry-head > .entry-facts");
+  expect(await facts.locator("span:not(.meta-sep):not(.sr-only)").allInnerTexts()).toEqual([
+    "Supernatural (Su)",
+    "Swift action",
+    "Once per rage",
+  ]);
+  await expect(facts.locator("em, strong, a")).toHaveCount(0);
+  const mark = await paragraphs(page.locator(".rich .power"));
+  expect(mark[0]).toMatch(/^The barbarian has been marked by the spirits/); // Flavor, without its label
+  expect(mark[1]).toMatch(/^By spending 2 rounds of rage/);
+  expect(mark.at(-1)).toMatch(/^Special: She can call on the auspicious mark/);
+  expect(mark.join("\n")).not.toContain("Once per rage"); // Usage is in the facts line only
+
+  // Flight: gained at 1st level, two upgrades after the effect.
+  await open(page, "ref/hex/flight");
+  expect(await page.locator(".entry-head > .entry-facts span:not(.meta-sep):not(.sr-only)").allInnerTexts()).toEqual([
+    "Supernatural (Su)",
+    "Level 1",
+  ]);
+  const flight = await paragraphs(page.locator(".rich .power"));
+  expect(flight[0]).toMatch(/^The witch grows lighter as she gains power/);
+  expect(flight[1]).toMatch(/^The witch can use feather fall at will/);
+  expect(flight[2]).toMatch(/^At 3rd level, she can cast levitate once per day\./);
+  expect(flight[3]).toMatch(/^At 5th level, she can fly/);
+  expect(flight[4]).toMatch(/^Special: This hex only affects the witch\./);
+});
+
+test("Continuation paragraphs stay with their row, in print order", async ({ page }) => {
+  await open(page, "ref/arcana/natural-spell-combat");
+  const lines = await paragraphs(page.locator(".rich .power"));
+  expect(lines).toHaveLength(5);
+  expect(lines[0]).toMatch(/^The magus can use his spell combat class feature with a natural attack/); // the effect
+  expect(lines[1]).toMatch(/^If the natural attack is made with an appendage/); // the effect's continuation
+  expect(lines[2]).toMatch(/^Special: A magus can select this arcana more than once\./);
+  expect(lines[3]).toMatch(/^Each time he selects this arcana/); // the Special's continuation
+  expect(lines[4]).toMatch(/^This arcana otherwise functions exactly like the spell combat class feature\./);
+  // Only the Special row carries a label.
+  expect(await page.locator(".rich .power > p strong").allInnerTexts()).toEqual(["Special:"]);
+});
+
+test("A long power name wraps at 390 px and the level stays on its first line", async ({ page }) => {
+  await open(page, "ref/arcaneschool/divination", 390);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
-  const head = power(page, "Protective Ward (Su)").locator(".power-head");
-  const [name, level] = await Promise.all([
+  const head = power(page, "In Accordance with the Prophecy (Su)").locator(".power-head");
+  const [name, level, leader] = await Promise.all([
     head.locator(".power-name").boundingBox(),
     head.locator(".power-level").boundingBox(),
+    head.locator(".power-leader").boundingBox(),
   ]);
+  // The name wraps, the level never does and sits on the first line at the right edge.
+  expect(name!.height).toBeGreaterThan(level!.height * 1.5);
+  expect(Math.abs(level!.y - name!.y)).toBeLessThan(level!.height);
   expect(level!.x + level!.width).toBeLessThanOrEqual(390);
-  expect(level!.y).toBeLessThan(name!.y + name!.height);
+  // The leader takes only the space that is left, which is none when the name wraps.
+  expect(leader === null || leader.width < 2).toBe(true);
 });
