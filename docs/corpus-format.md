@@ -1119,9 +1119,9 @@ without reordering anything:
 The order is: the name (one bold span, no colon); an optional `Gained` row (`At Nth Level`); an
 optional `Flavor` row; an optional `Choice` row and an optional `Info` row, in either order; the
 effect: one effect row (`Passive`, `Ability`, `Standard`, `Move`, `Swift`, `Immediate`, `Free`,
-`Full-round` or `Benefit`), or two, a `Passive` or `Ability` row and then an action row (`Standard`,
-`Move`, `Swift`, `Immediate`, `Free` or `Full-round`), each with its continuation, as unlabeled
-paragraphs directly after the row; an optional `Usage` row; the upgrades, one line per level, each
+`Full-round` or `Benefit`), or two, a `Passive` or `Ability` row and an action row (`Standard`,
+`Move`, `Swift`, `Immediate`, `Free` or `Full-round`) in print's order, each with its continuation,
+as unlabeled paragraphs directly after the row; an optional `Usage` row; the upgrades, one line per level, each
 `**At Nth level,** sentence` in strictly ascending level and above `Gained`; an optional `Prereq`
 row, then an optional `Replaces` row; every other row in its source order, where unlabeled
 paragraphs directly after a `Special` row continue its note. Every row has content. A legacy label

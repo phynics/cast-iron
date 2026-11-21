@@ -240,8 +240,8 @@ mod tests {
         )]);
         assert!(none.is_empty(), "{none:?}");
 
-        // The action row first is its own reason.
-        let (found, _) = warnings(vec![option(
+        // The action row first, then the passive row, is print's order and valid.
+        let (none, _) = warnings(vec![option(
             "ref/domain/backwards",
             EntryKind::ClassOption,
             vec![
@@ -250,8 +250,20 @@ mod tests {
                 row("Passive", "A bonus."),
             ],
         )]);
+        assert!(none.is_empty(), "{none:?}");
+
+        // Two actions are two effect rows.
+        let (found, _) = warnings(vec![option(
+            "ref/domain/twice",
+            EntryKind::ClassOption,
+            vec![
+                name("Twice (Su)"),
+                row("Standard", "Touch."),
+                row("Swift", "Again."),
+            ],
+        )]);
         assert_eq!(found.len(), 2, "{found:?}");
-        assert!(found[0].contains("[action-before-passive]"), "{found:?}");
+        assert!(found[0].contains("[multiple-effect-rows]"), "{found:?}");
     }
 
     #[test]

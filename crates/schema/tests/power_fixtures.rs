@@ -565,12 +565,12 @@ fn fire_resistance_has_no_effect_row_and_gets_the_suggestion() {
     }));
 }
 
-/// `ref/hex/blight`, Blight (Su): queued (the `Action` paragraph group would cross a `Special`
-/// row). The affliction after it holds no power marker and is no candidate. Since decision 2 of
-/// 2026-11-21 the paragraphs after `Special` are no problem of their own; the legacy `Action` row
-/// is still the reason, and its effect group is still reachable only across the `Special` row.
+/// `ref/hex/blight`, Blight (Su): queued. The affliction after it holds no power marker and is no
+/// candidate. Since decision 2 of 2026-11-21 the paragraphs after `Special` continue the Special
+/// note: they are no problem of their own and no effect group. The legacy `Action` row is still
+/// the reason, and it has no effect text left, so the group is `NoGroup` and Blight stays queued.
 #[test]
-fn blight_action_group_crosses_a_special_row() {
+fn blight_action_row_has_no_effect_group_once_special_keeps_its_paragraphs() {
     let body = vec![
         para("**Blight (Su)**"),
         para("**Action:** Ability"),
@@ -596,9 +596,55 @@ fn blight_action_group_crosses_a_special_row() {
     );
     assert_eq!(
         action_effect_group(found.blocks(&body), 1),
-        Err(ActionGroupProblem::Crosses {
-            what: "the row `Special:`".into()
-        })
+        Err(ActionGroupProblem::NoGroup)
+    );
+}
+
+/// Owner decisions 2 and 4: the effect group of an `Action` row skips the paragraphs that continue
+/// `Special`, and `Choice` and `Info` rows do not block it.
+#[test]
+fn the_action_group_skips_special_paragraphs_and_crosses_choice_and_info() {
+    let body = vec![
+        para("**A Power (Su)**"),
+        para("**Action:** Swift Action"),
+        para("The effect text."),
+        para("**Special:** A note."),
+        para("The note continues."),
+    ];
+    let found = only_candidate(&body);
+    assert_eq!(
+        action_effect_group(found.blocks(&body), 1),
+        Ok(2..3),
+        "the paragraph after the Action row is the effect, the one after Special is not"
+    );
+
+    for label in ["Choice", "Info"] {
+        let body = vec![
+            para("**A Power (Su)**"),
+            para("**Action:** Swift Action"),
+            para(&format!("**{label}:** Pick one.")),
+            para("The effect text."),
+        ];
+        let found = only_candidate(&body);
+        assert_eq!(
+            action_effect_group(found.blocks(&body), 1),
+            Ok(3..4),
+            "{label}"
+        );
+    }
+
+    // A group that precedes `Special` and a second one after another row are still two groups.
+    let body = vec![
+        para("**A Power (Su)**"),
+        para("**Action:** Swift Action"),
+        para("The effect text."),
+        para("**Penalty:** x"),
+        para("Another group."),
+    ];
+    let found = only_candidate(&body);
+    assert_eq!(
+        action_effect_group(found.blocks(&body), 1),
+        Err(ActionGroupProblem::SecondGroup)
     );
 }
 
@@ -736,7 +782,12 @@ fn s3_a_canonical_run_passes_with_every_part() {
     assert!(power.prereq.is_some() && power.replaces.is_some());
     let other: Vec<&str> = power.other.iter().map(|row| row.label.as_str()).collect();
     assert_eq!(other, ["Special", "Penalty"]);
-    assert!(power.choice.is_none() && power.info.is_none() && power.action.is_none());
+    assert!(power.preface.is_empty() && power.second_effect.is_none());
+    // The one effect row is the action.
+    assert_eq!(
+        power.action().map(|effect| effect.label.as_str()),
+        Some("Standard")
+    );
 }
 
 /// Every canonical effect label is accepted in the effect position.
@@ -786,8 +837,10 @@ fn noble_visage_is_a_passive_row_then_an_action_row() {
     let found = candidate(&canonical, "Noble Visage (Su)", 1);
     let power = validate_power(found.blocks(&canonical)).unwrap();
     assert_eq!(power.effect.label, "Passive");
-    let action = power.action.as_ref().expect("the action row");
+    assert!(!power.effect.is_action());
+    let action = power.action().expect("the action row");
     assert_eq!(action.label, "Standard");
+    assert_eq!(power.second_effect.as_ref().unwrap().label, "Standard");
     assert!(power.usage.is_some() && power.replaces.is_some());
     // A one-power page for its title: the head still folds.
     assert!(one_power_page("Noble Visage", &canonical).is_some());
@@ -811,25 +864,47 @@ fn each_effect_row_of_a_pair_has_its_own_continuation() {
     let found = candidate(&body, "Aura (Su)", 1);
     let power = validate_power(found.blocks(&body)).unwrap();
     assert_eq!(power.effect.continuation.len(), 1);
-    assert_eq!(power.action.as_ref().unwrap().continuation.len(), 2);
+    assert_eq!(power.second_effect.as_ref().unwrap().continuation.len(), 2);
 }
 
-/// Decision 1: the first row is `Passive` or `Ability`, the second an action label.
+/// Decision 1 and owner answer A: one row is `Passive` or `Ability`, the other an action label,
+/// in either order. Print's order is authoritative, so the validator accepts both.
 #[test]
-fn every_passive_label_pairs_with_every_action_label() {
+fn every_passive_label_pairs_with_every_action_label_in_either_order() {
     for passive in ["Passive", "Ability"] {
         for action in ACTION_EFFECT_LABELS {
-            let body = vec![
+            let passive_first = vec![
                 para("**A Power**"),
                 para(&format!("**{passive}:** It is always on.")),
                 para(&format!("**{action}:** You can use it.")),
             ];
-            assert_canonical(&body, "A Power", 1);
+            assert_canonical(&passive_first, "A Power", 1);
+            let found = candidate(&passive_first, "A Power", 1);
+            let power = validate_power(found.blocks(&passive_first)).unwrap();
+            assert_eq!(power.effect.label, passive);
+            assert_eq!(power.action().unwrap().label, action);
+
+            let action_first = vec![
+                para("**A Power**"),
+                para(&format!("**{action}:** You can use it.")),
+                para("The action's note."),
+                para(&format!("**{passive}:** It is always on.")),
+            ];
+            assert_canonical(&action_first, "A Power", 1);
+            let found = candidate(&action_first, "A Power", 1);
+            let power = validate_power(found.blocks(&action_first)).unwrap();
+            // The rows keep print's order; the action is the first row.
+            assert_eq!(power.effect.label, action);
+            assert!(power.effect.is_action());
+            assert_eq!(power.effect.continuation.len(), 1);
+            assert_eq!(power.second_effect.as_ref().unwrap().label, passive);
+            assert_eq!(power.action().unwrap().label, action);
         }
     }
 }
 
-/// Decision 1: two actions, two passives, a third row, `Benefit` and an action first stay invalid.
+/// Decision 1: two actions, two passives, a third row and `Benefit` beside another row stay
+/// invalid.
 #[test]
 fn the_combinations_that_stay_invalid_with_two_effect_rows() {
     let pair = |first: &str, second: &str| {
@@ -879,18 +954,13 @@ fn the_combinations_that_stay_invalid_with_two_effect_rows() {
             &["multiple-effect-rows"],
         );
     }
-    // The second row is a passive one in every case above; an action first is its own reason.
+    // Owner answer A: an action first, then the passive row, is valid (print's order).
     for (first, second) in [
         ("Standard", "Passive"),
         ("Immediate", "Ability"),
         ("Free", "Passive"),
     ] {
-        assert_fails(
-            &pair(first, second),
-            "A Power",
-            1,
-            &["action-before-passive"],
-        );
+        assert_canonical(&pair(first, second), "A Power", 1);
     }
     // A third effect row, even after a valid pair.
     let three = vec![
@@ -907,14 +977,16 @@ fn the_combinations_that_stay_invalid_with_two_effect_rows() {
         para("**Fullround:** Two."),
     ];
     assert_fails(&alias, "A Power", 1, &["legacy-label"]);
-    // The pair's rows in the wrong places.
-    let usage_between = vec![
-        para("**A Power**"),
-        para("**Passive:** One."),
-        para("**Usage:** 3/day"),
-        para("**Standard:** Two."),
-    ];
-    assert_fails(&usage_between, "A Power", 1, &["out-of-order"]);
+    // Another row between the pair, in either order.
+    for (first, second) in [("Passive", "Standard"), ("Standard", "Passive")] {
+        let usage_between = vec![
+            para("**A Power**"),
+            para(&format!("**{first}:** One.")),
+            para("**Usage:** 3/day"),
+            para(&format!("**{second}:** Two.")),
+        ];
+        assert_fails(&usage_between, "A Power", 1, &["out-of-order"]);
+    }
 }
 
 /// Decision 2. `ref/arcana/natural-spell-combat`, *Ultimate Magic* p. 15 style: the paragraphs
@@ -1031,7 +1103,9 @@ fn basic_magic_puts_its_choice_row_before_the_effect() {
     assert_canonical(&canonical, "Basic Magic (Sp)", 1);
     let found = candidate(&canonical, "Basic Magic (Sp)", 1);
     let power = validate_power(found.blocks(&canonical)).unwrap();
-    assert!(power.flavor.is_some() && power.choice.is_some() && power.info.is_none());
+    assert!(power.flavor.is_some());
+    let preface: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+    assert_eq!(preface, ["Choice"]);
     assert_eq!(power.upgrades.len(), 1);
 }
 
@@ -1049,13 +1123,26 @@ fn choice_and_info_stand_between_flavor_and_the_effect() {
     let choice = "**Choice:** c";
     let info = "**Info:** i";
     let effect = "**Passive:** e";
-    for rows in [
-        vec![gained, flavor, choice, info, effect],
-        vec![gained, flavor, info, choice, effect],
-        vec![gained, info, effect],
-        vec![choice, effect],
+    // Either order is valid, and the power keeps the source order for the renderer.
+    for (rows, expected) in [
+        (
+            vec![gained, flavor, choice, info, effect],
+            vec!["Choice", "Info"],
+        ),
+        (
+            vec![gained, flavor, info, choice, effect],
+            vec!["Info", "Choice"],
+        ),
+        (vec![gained, info, effect], vec!["Info"]),
+        (vec![choice, effect], vec!["Choice"]),
+        (vec![gained, flavor, effect], vec![]),
     ] {
-        assert_canonical(&body(&rows), "A Power", 1);
+        let body = body(&rows);
+        assert_canonical(&body, "A Power", 1);
+        let found = candidate(&body, "A Power", 1);
+        let power = validate_power(found.blocks(&body)).unwrap();
+        let labels: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+        assert_eq!(labels, expected, "{rows:?}");
     }
     // After the effect, after `Usage`, or before `Flavor` or `Gained`.
     assert_fails(&body(&[effect, info]), "A Power", 1, &["out-of-order"]);
@@ -1077,7 +1164,7 @@ fn choice_and_info_stand_between_flavor_and_the_effect() {
         1,
         &["out-of-order"],
     );
-    // Between the passive row and the action row.
+    // Between the two effect rows.
     assert_fails(
         &body(&[effect, info, "**Standard:** a"]),
         "A Power",
@@ -1164,7 +1251,8 @@ fn patron_spells_is_never_a_candidate_and_its_intro_is_a_row_of_the_patron() {
     assert_canonical(&patron, "Celestial Agenda", 1);
     let found = candidate(&patron, "Celestial Agenda", 1);
     let power = validate_power(found.blocks(&patron)).unwrap();
-    assert!(power.info.is_some());
+    let preface: Vec<&str> = power.preface.iter().map(|row| row.label.as_str()).collect();
+    assert_eq!(preface, ["Info"]);
     assert_eq!(power.other.last().unwrap().label, "Patron Spells");
     assert!(one_power_page("Celestial Agenda", &patron).is_some());
 
