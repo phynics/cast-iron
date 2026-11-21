@@ -16,19 +16,19 @@
 use crate::fmt;
 use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
-use crate::route::{Route, toc_id, use_route};
+use crate::route::{Route, replace, toc_id, use_route};
 use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::sources::aon_line;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::books::{
-    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents, listed_children,
-    listed_under,
+    ChapterRow, Hide, chapter_rows as schema_chapter_rows, hidden_from_contents,
+    legacy_anchor_path, listed_children, listed_under, resolve_legacy_anchor, section_anchors,
 };
 use cast_iron_schema::{BookNode, BookTree, EntryId, EntryKind};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// Distinct entries that a book's contents tree reaches. Every placement counts once, whether
 /// or not the book is active and whether or not the entry's first placement is another book.
@@ -327,6 +327,43 @@ pub fn ChapterView(
         let library = library.clone();
         local_resource(async move { library.books().await })
     };
+    // A saved `toc-2-26` address names a row by its old position. It opens the row it stood for,
+    // as a stable address: the table of the library decides, or, for a library without one, the
+    // library's own tree. A row that has left the book opens its chapter.
+    if let Some(old) = anchor
+        .clone()
+        .filter(|anchor| legacy_anchor_path(anchor).is_some())
+    {
+        let library = library.clone();
+        let source = source.clone();
+        let chapter = chapter.clone();
+        spawn_local(async move {
+            let Ok(Some(books)) = library.books().await else {
+                return;
+            };
+            let Some(tree) = books.book(&source) else {
+                return;
+            };
+            let table = library.legacy_sections().await.ok().flatten();
+            let none = BTreeMap::new();
+            let rows = table
+                .as_ref()
+                .map(|table| table.books.get(&source).unwrap_or(&none));
+            let hide = |id: &EntryId| {
+                library
+                    .stub(id)
+                    .is_some_and(|stub| hidden_from_contents(stub.kind))
+            };
+            let target = resolve_legacy_anchor(tree, &hide, rows, &old);
+            replace(&Route::BookChapter {
+                source,
+                chapter: target
+                    .as_ref()
+                    .map_or(chapter, |target| target.chapter.clone()),
+                anchor: target.map(|target| target.anchor),
+            });
+        });
+    }
     let current = use_route();
     {
         // The chapter page arrives after `books.json` loads, so the frame's own anchor scroll
@@ -404,13 +441,14 @@ pub fn ChapterView(
                                 }
                                 .href()
                             });
+                        let anchors = section_anchors(node, &row.path);
                         let sections = listed_children(node, &hide)
                             .into_iter()
                             .filter_map(|index| {
                                 let child = node.children.get(index)?;
                                 let mut path = row.path.clone();
                                 path.push(index);
-                                Some(chapter_section(child, &source, &hide, &path))
+                                Some(chapter_section(child, &source, &hide, &path, &anchors))
                             })
                             .collect_view();
                         view! {
@@ -439,9 +477,15 @@ pub fn ChapterView(
 }
 
 /// A first-level section of a chapter: an `h2`, then the deeper nodes as one plain list.
-fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
+fn chapter_section(
+    node: &BookNode,
+    source: &str,
+    hide: Hide<'_>,
+    path: &[usize],
+    anchors: &HashMap<Vec<usize>, String>,
+) -> AnyView {
     let title = crate::views::util::section_label(&node.title);
-    let id = toc_id(path);
+    let id = row_id(anchors, path);
     let heading = match entry_link(node, source, hide) {
         Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
         None => view! { {title.clone()} }.into_any(),
@@ -454,7 +498,7 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
                 node.children.get(index).map(|child| {
                     let mut child_path = path.to_vec();
                     child_path.push(index);
-                    chapter_list_item(child, source, hide, &child_path)
+                    chapter_list_item(child, source, hide, &child_path, anchors)
                 })
             })
             .collect_view();
@@ -470,8 +514,20 @@ fn chapter_section(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]
 }
 
 /// One deeper node: a label or entry link, with its children in a nested plain list.
-fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usize]) -> AnyView {
-    fn walk(node: &BookNode, source: &str, hide: Hide<'_>, path: &mut Vec<usize>) -> AnyView {
+fn chapter_list_item(
+    node: &BookNode,
+    source: &str,
+    hide: Hide<'_>,
+    path: &[usize],
+    anchors: &HashMap<Vec<usize>, String>,
+) -> AnyView {
+    fn walk(
+        node: &BookNode,
+        source: &str,
+        hide: Hide<'_>,
+        path: &mut Vec<usize>,
+        anchors: &HashMap<Vec<usize>, String>,
+    ) -> AnyView {
         let title = crate::views::util::section_label(&node.title);
         let label = match entry_link(node, source, hide) {
             Some(href) => view! { <a href=href>{title.clone()}</a> }.into_any(),
@@ -484,18 +540,24 @@ fn chapter_list_item(node: &BookNode, source: &str, hide: Hide<'_>, path: &[usiz
                 .filter_map(|index| {
                     let child = node.children.get(index)?;
                     path.push(index);
-                    let item = walk(child, source, hide, path);
+                    let item = walk(child, source, hide, path, anchors);
                     path.pop();
                     Some(item)
                 })
                 .collect_view();
             view! { <ul class="chapter-list">{items}</ul> }
         });
-        let id = toc_id(path);
+        let id = row_id(anchors, path);
         view! { <li id=id>{label}{list}</li> }.into_any()
     }
     let mut path = path.to_vec();
-    walk(node, source, hide, &mut path)
+    walk(node, source, hide, &mut path, anchors)
+}
+
+/// The DOM id of a chapter-page row: its stable anchor. A node that has none (a path the walk of
+/// `section_anchors` did not reach, which the page never asks for) keeps its positional id.
+fn row_id(anchors: &HashMap<Vec<usize>, String>, path: &[usize]) -> String {
+    anchors.get(path).cloned().unwrap_or_else(|| toc_id(path))
 }
 
 /// An entry link for a chapter-page row, with the book context that keeps previous/next on this

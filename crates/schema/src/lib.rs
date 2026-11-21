@@ -81,6 +81,11 @@ pub const TRADES_FILE: &str = "trades.json";
 pub const SPELL_LISTS_FILE: &str = "lists.json";
 /// Name of the book-order index, relative to the version directory.
 pub const BOOKS_FILE: &str = "books.json";
+/// Name of the table of old section addresses, relative to the version directory. Optional: a
+/// library built before the table has no such file. See [`LegacySections`].
+pub const LEGACY_SECTIONS_FILE: &str = "legacy-sections.json";
+/// Version of the legacy section table. Independent of [`SCHEMA_VERSION`].
+pub const LEGACY_SECTIONS_FORMAT: u32 = 1;
 /// Name of the reverse body-link descriptor, relative to the version directory. Optional:
 /// a library built before this index has no such file.
 pub const BACKLINKS_FILE: &str = "backlinks.json";
@@ -1251,6 +1256,22 @@ pub struct SpellListLevel {
 pub struct BookIndex {
     /// One tree per publication that has a curated chapter list, in the curated order.
     pub books: Vec<BookTree>,
+}
+
+/// `legacy-sections.json`: what each positional section address that a published library made
+/// stands for now. A book-section anchor used to be the row's position (`toc-2-26`), so a pin
+/// that inserted a row moved every later address to another section. A chapter page now names a
+/// row by its identity (`books::section_anchors`), and this table keeps the old addresses
+/// working: it maps the positional anchor of each row of the last published tree to the stable
+/// anchor of the same row. A row that has left the book has no stable anchor in the current tree,
+/// and its old address opens its chapter. Additive and optional; the table is frozen, because no
+/// later library makes a positional anchor. `sources/legacy-sections.json` holds it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct LegacySections {
+    /// [`LEGACY_SECTIONS_FORMAT`].
+    pub format: u32,
+    /// By book source: old positional anchor to stable anchor.
+    pub books: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

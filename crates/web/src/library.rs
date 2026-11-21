@@ -15,9 +15,10 @@ use crate::views::book_tier::{Tier, source_ranks};
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
-    EntryStub, LegalNotices, OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE,
-    RelationIndex, RelationLabel, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE,
-    SourceInfo, SpellLists, TRADES_FILE, TradeIndex, backlink_shard, backlink_shard_path,
+    EntryStub, LEGACY_SECTIONS_FILE, LegacySections, LegalNotices, OPTION_GROUPS_FILE,
+    OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE, RelationIndex, RelationLabel, ReplacesIndex,
+    RetirementReason, RuleEntry, SPELL_LISTS_FILE, SourceInfo, SpellLists, TRADES_FILE, TradeIndex,
+    backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -108,6 +109,9 @@ struct Inner {
     relations: RefCell<Option<Option<Rc<Relations>>>>,
     spell_lists: RefCell<Option<Option<Rc<SpellLists>>>>,
     books: RefCell<Option<Option<Rc<BookLookup>>>>,
+    /// The table of old positional section addresses, read only when one arrives. The inner
+    /// `Option` is "this library has no such file", which is every library before the table.
+    legacy_sections: RefCell<Option<Option<Rc<LegacySections>>>>,
     /// The flattened Contents reading order of each book, built on first query. Contents
     /// visibility comes from the immutable catalog kind, so the active-book selection does not
     /// invalidate it; a new library instance starts empty, so an old content version never
@@ -287,6 +291,7 @@ impl Library {
             relations: RefCell::new(None),
             spell_lists: RefCell::new(None),
             books: RefCell::new(Some(books)),
+            legacy_sections: RefCell::new(None),
             readings: ReadingCache::default(),
             option_groups: RefCell::new(None),
             trades: RefCell::new(None),
@@ -796,6 +801,18 @@ impl Library {
         self.lazy(&self.0.books, BOOKS_FILE, |index: BookIndex| {
             BookLookup::new(index)
         })
+        .await
+    }
+
+    /// The table of old positional section addresses (`toc-2-26`) and the stable anchors they
+    /// stand for. `Ok(None)` for a library without `legacy-sections.json`, which resolves an old
+    /// address against its own tree (`books::resolve_legacy_anchor`).
+    pub async fn legacy_sections(&self) -> Result<Option<Rc<LegacySections>>, LibraryError> {
+        self.lazy(
+            &self.0.legacy_sections,
+            LEGACY_SECTIONS_FILE,
+            |table: LegacySections| table,
+        )
         .await
     }
 

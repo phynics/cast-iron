@@ -2,7 +2,7 @@ use cast_iron_content_compiler::corpus_build::compile_corpus_with_slots;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir> [--published <file>] [--book-slots <file>] [--corpus-tag <tag>]";
+const USAGE: &str = "usage: cast-iron-compile --corpus <dir> --out <dir> --reports <dir> [--published <file>] [--book-slots <file>] [--legacy-sections <file>] [--corpus-tag <tag>]";
 
 struct Args {
     corpus: PathBuf,
@@ -10,6 +10,7 @@ struct Args {
     reports: PathBuf,
     published: Option<PathBuf>,
     book_slots: Option<PathBuf>,
+    legacy_sections: Option<PathBuf>,
     corpus_tag: Option<String>,
 }
 
@@ -19,6 +20,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut reports = None;
     let mut published = None;
     let mut book_slots = None;
+    let mut legacy_sections = None;
     let mut corpus_tag = None;
     let mut args = args;
     while let Some(arg) = args.next() {
@@ -29,6 +31,9 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
             "--reports" => reports = Some(PathBuf::from(value("--reports")?)),
             "--published" => published = Some(PathBuf::from(value("--published")?)),
             "--book-slots" => book_slots = Some(PathBuf::from(value("--book-slots")?)),
+            "--legacy-sections" => {
+                legacy_sections = Some(PathBuf::from(value("--legacy-sections")?));
+            }
             "--corpus-tag" => corpus_tag = Some(value("--corpus-tag")?),
             "--help" | "-h" => return Err(USAGE.into()),
             other => return Err(format!("unknown argument {other}\n{USAGE}")),
@@ -41,6 +46,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<Args, String> {
         reports: need(reports, "--reports")?,
         published,
         book_slots,
+        legacy_sections,
         corpus_tag: corpus_tag.filter(|tag| !tag.is_empty()),
     })
 }
@@ -63,6 +69,7 @@ fn main() -> ExitCode {
                 &args.reports,
                 args.published.as_deref(),
                 args.book_slots.as_deref(),
+                args.legacy_sections.as_deref(),
                 args.corpus_tag.as_deref(),
             )
         });

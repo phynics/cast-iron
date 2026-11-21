@@ -3,6 +3,7 @@
 mod aon_coverage;
 mod docs_index;
 mod feature_map;
+mod legacy_sections;
 
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -20,6 +21,11 @@ cargo xtask <command>
   published-ids              Add the ids of generated/content to sources/published-ids.txt
   published-books            Append the books of the pinned corpus that have no slot yet to
                              sources/published-books.txt (`content` fails until you do)
+  legacy-sections --books <books.json> --catalog <catalog.json> [--check]
+                             Write sources/legacy-sections.json from the books.json and
+                             catalog.json of a published library: the stable anchor of every
+                             row that its chapter pages rendered, by positional anchor. Run once,
+                             for the last library that made positional anchors (corpus v0.1.31)
   aon-coverage [--check]     Write docs/research/aon-path-coverage.{md,tsv}: every canonical entry
                              of the pinned corpus without an Archives of Nethys path, with
                              per-kind matched/missing/total counts. --check writes nothing and
@@ -63,6 +69,7 @@ fn main() -> ExitCode {
         Some("content") => content(&args[1..]),
         Some("published-ids") => published_ids(),
         Some("published-books") => published_books(),
+        Some("legacy-sections") => legacy_sections::run(&args[1..]),
         Some("aon-coverage") => aon_coverage::run(&args[1..]),
         Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
@@ -359,6 +366,8 @@ fn content(args: &[String]) -> Result {
             PUBLISHED_IDS,
             "--book-slots",
             PUBLISHED_BOOKS,
+            "--legacy-sections",
+            legacy_sections::TABLE,
             "--corpus-tag",
             &tag,
         ],
