@@ -1,5 +1,6 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
+use crate::also_available;
 use crate::class_options;
 use crate::class_sections::Sections;
 use crate::class_summary;
@@ -350,6 +351,18 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
             match fetch_library.trades().await {
                 Ok(found) => indexes.trades = found,
                 Err(error) => leptos::logging::warn!("replacement lines are off: {error}"),
+            }
+        }
+        if entry.kind == EntryKind::Class && also_available::has_line(&entry.body) {
+            // The names resolve against the capstones the shared entry prints. Like a link in the
+            // body, they stay links when the shared entry's book is off: its page says so. A
+            // library without the entry, or one that cannot load it, leaves the line plain.
+            let shared = also_available::capstones_id();
+            if fetch_library.stub(&shared).is_some() {
+                match fetch_library.entry(&shared).await {
+                    Ok(found) => indexes.capstone_names = also_available::names_in(&found.body),
+                    Err(error) => leptos::logging::warn!("capstone links are off: {error}"),
+                }
             }
         }
         let mut loaded = LoadedEntry {
@@ -866,6 +879,11 @@ fn EntryView(
                     href: Route::spell_list(list.name.clone(), None).href(),
                 });
             let body = class_summary::without(&entry.body, &read.consumed);
+            let body = also_available::link_names(
+                body,
+                &indexes.capstone_names,
+                &also_available::capstones_id(),
+            );
             // The switcher's stops come from the body that is rendered, so the heading keys
             // they name are the ones on the page. A class with fewer than three stops keeps
             // the contents disclosure instead.

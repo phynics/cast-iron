@@ -97,6 +97,9 @@ pub struct Indexes {
     pub option_groups: Option<Rc<OptionGroupIndex>>,
     /// The trades of archetypes and class options; printed names only for an older library.
     pub trades: Option<Rc<TradeIndex>>,
+    /// The printed names of the shared Alternate Capstones entry, loaded for a class page that
+    /// has an `Also available:` line, so the names in that line can link to it.
+    pub capstone_names: Vec<String>,
 }
 
 /// Items grouped under a heading, headings in name order and items in name order. Used to group

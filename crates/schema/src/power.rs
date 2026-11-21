@@ -1099,13 +1099,19 @@ fn is_tag_list(mut rest: &str) -> bool {
     }
 }
 
+/// A typographic apostrophe (`\u{2019}`, `\u{2018}`, `\u{02BC}`) as the straight `'`; any other
+/// character as it is.
+pub fn straight_apostrophe(c: char) -> char {
+    match c {
+        '\u{2019}' | '\u{2018}' | '\u{02BC}' => '\'',
+        other => other,
+    }
+}
+
 /// A title or name for comparison: lowercase, with the typographic apostrophes straight.
 fn normalized(text: &str) -> String {
     text.chars()
-        .map(|c| match c {
-            '\u{2019}' | '\u{2018}' | '\u{02BC}' => '\'',
-            other => other,
-        })
+        .map(straight_apostrophe)
         .flat_map(char::to_lowercase)
         .collect()
 }
