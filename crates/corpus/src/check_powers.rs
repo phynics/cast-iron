@@ -3,13 +3,14 @@
 //! A class-option power is a bold name paragraph followed by labeled rows. The decision
 //! `2026-11-20-class-option-power-layout` fixes one canonical row order, and
 //! `cast_iron_schema::power` holds the one classifier and validator for it. This rule runs them on
-//! every `class_option` entry and reports each candidate that fails validation as a warning, with
-//! its path, line, entry id, power name and reasons. It stays a warning until the review queue is
-//! resolved (#557); the app pull request that pins the resolved corpus makes it an error.
+//! every `class_option` entry and reports each candidate that fails validation as an error, with
+//! its path, line, entry id, power name and reasons. It was a warning until the pin of corpus
+//! v0.1.35 resolved the review queue (#557).
 //!
 //! A power that print cannot settle is listed in `power-exceptions.toml` in the corpus root (see
-//! `docs/corpus-format.md`, "Class-option powers", section "Power exceptions"): the rule skips a failing power that the file
-//! names, and reports an exception that names no power, or a power that passes, as a warning.
+//! `docs/corpus-format.md`, "Class-option powers", section "Power exceptions"): the rule skips a
+//! failing power that the file names, and reports an exception that names no power (unused), or a
+//! power that passes (obsolete), as an error. The summary line stays a warning.
 
 use crate::check::{Report, body_text};
 use crate::load::{Corpus, Stored};
@@ -180,7 +181,7 @@ fn check_powers(corpus: &Corpus, exceptions: &[PowerException], report: &mut Rep
                 .iter()
                 .map(|problem| format!("{problem} [{}]", problem.reason()))
                 .collect();
-            report.warnings.push(format!(
+            report.problems.push(format!(
                 "{}:{}: [powers] entry `{}`: the power `{}` is not in the canonical form: {}",
                 stored.path.display(),
                 block_line(stored, candidate.start),
@@ -204,7 +205,7 @@ fn check_powers(corpus: &Corpus, exceptions: &[PowerException], report: &mut Rep
         } else {
             "no class-option power matches; remove the exception"
         };
-        report.warnings.push(format!(
+        report.problems.push(format!(
             "{EXCEPTIONS_FILE}: [powers] exception for `{}` (occurrence {}) of entry `{}`: {why}",
             row.name, row.occurrence, row.id
         ));
@@ -216,7 +217,7 @@ fn check_powers(corpus: &Corpus, exceptions: &[PowerException], report: &mut Rep
             String::new()
         };
         report.warnings.push(format!(
-            "{failing_total} of {candidate_total} class-option powers are not in the canonical form, in {failing_entries} of {candidate_entries} entries that hold a power{excepted}; the pin of the resolved corpus makes each one an error"
+            "{failing_total} of {candidate_total} class-option powers are not in the canonical form, in {failing_entries} of {candidate_entries} entries that hold a power{excepted}"
         ));
     } else if excepted_total > 0 {
         report.warnings.push(format!(
@@ -260,12 +261,18 @@ mod tests {
         entry
     }
 
-    fn warnings(entries: Vec<cast_iron_schema::RuleEntry>) -> (Vec<String>, Corpus) {
+    /// The report of the rule on entries and no exceptions file, and the corpus.
+    fn check(entries: Vec<cast_iron_schema::RuleEntry>) -> (Report, Corpus) {
         let corpus = corpus(entries);
         let mut report = Report::default();
         check_class_option_powers(&corpus, &mut report);
+        (report, corpus)
+    }
+
+    /// Asserts that the rule reports nothing at all, as an error or as a warning.
+    fn assert_silent(report: &Report) {
         assert!(report.problems.is_empty(), "{:?}", report.problems);
-        (report.warnings, corpus)
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
     }
 
     /// A power with its `Gained` row after the effect, and the same power in canonical form.
@@ -286,22 +293,24 @@ mod tests {
     }
 
     #[test]
-    fn a_failing_power_is_a_warning_with_its_place_id_name_and_reason() {
+    fn a_new_invalid_power_is_an_error_with_its_place_id_name_and_reason() {
         let mut body = canonical("Fine Power (Ex)");
         body.extend(failing("Bad Power (Su)"));
-        let (warnings, corpus) = warnings(vec![option(
+        let (report, corpus) = check(vec![option(
             "ref/hex/example",
             EntryKind::ClassOption,
             body,
         )]);
-        assert_eq!(warnings.len(), 2, "{warnings:?}");
-        let warning = &warnings[0];
-        assert!(warning.contains("entries/hex/example.md:"), "{warning}");
-        assert!(warning.contains("entry `ref/hex/example`"), "{warning}");
-        assert!(warning.contains("the power `Bad Power (Su)`"), "{warning}");
-        assert!(warning.contains("[out-of-order]"), "{warning}");
+        // The power is the one error; the summary is the one warning.
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        let error = &report.problems[0];
+        assert!(error.contains("entries/hex/example.md:"), "{error}");
+        assert!(error.contains("entry `ref/hex/example`"), "{error}");
+        assert!(error.contains("the power `Bad Power (Su)`"), "{error}");
+        assert!(error.contains("[out-of-order]"), "{error}");
         // The line is the line of the name in the entry file.
-        let line: usize = warning
+        let line: usize = error
             .split("example.md:")
             .nth(1)
             .and_then(|rest| rest.split(':').next())
@@ -314,12 +323,13 @@ mod tests {
             "{}",
             stored.text
         );
-        // The summary names the counts.
+        // The summary names the counts and stays a warning.
         assert!(
-            warnings[1].contains(
+            report.warnings[0].contains(
                 "1 of 2 class-option powers are not in the canonical form, in 1 of 1 entries"
             ),
-            "{warnings:?}"
+            "{:?}",
+            report.warnings
         );
     }
 
@@ -327,11 +337,13 @@ mod tests {
     fn two_powers_with_one_name_report_their_own_lines() {
         let mut body = failing("Twin (Su)");
         body.extend(failing("Twin (Su)"));
-        let (warnings, _) = warnings(vec![option("ref/hex/twin", EntryKind::ClassOption, body)]);
-        let lines: Vec<&str> = warnings[..2]
+        let (report, _) = check(vec![option("ref/hex/twin", EntryKind::ClassOption, body)]);
+        assert_eq!(report.problems.len(), 2, "{:?}", report.problems);
+        let lines: Vec<&str> = report
+            .problems
             .iter()
-            .map(|warning| {
-                warning
+            .map(|error| {
+                error
                     .split("twin.md:")
                     .nth(1)
                     .unwrap()
@@ -340,11 +352,11 @@ mod tests {
                     .unwrap()
             })
             .collect();
-        assert_ne!(lines[0], lines[1], "{warnings:?}");
+        assert_ne!(lines[0], lines[1], "{:?}", report.problems);
     }
 
     #[test]
-    fn a_matching_line_inside_an_earlier_paragraph_does_not_take_the_warning() {
+    fn a_matching_line_inside_an_earlier_paragraph_does_not_take_the_error() {
         // A hard break puts `**Bad Power (Su)**` alone on a line of a prose paragraph.
         let prose = paragraph(vec![
             Inline::text("Intro"),
@@ -353,9 +365,8 @@ mod tests {
         ]);
         let mut body = vec![prose];
         body.extend(failing("Bad Power (Su)"));
-        let (warnings, corpus) =
-            warnings(vec![option("ref/hex/prose", EntryKind::ClassOption, body)]);
-        let line: usize = warnings[0]
+        let (report, corpus) = check(vec![option("ref/hex/prose", EntryKind::ClassOption, body)]);
+        let line: usize = report.problems[0]
             .split("prose.md:")
             .nth(1)
             .and_then(|rest| rest.split(':').next())
@@ -374,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn the_owner_cases_of_2026_11_21_report_nothing_or_their_own_reason() {
+    fn the_owner_cases_of_2026_11_21_pass_or_fail_with_their_own_reason() {
         let canonical = vec![
             name("Noble Visage (Su)"),
             row("Passive", "A bonus."),
@@ -390,15 +401,15 @@ mod tests {
             name("Base Evolutions"),
             row("At 1st Level", "Gain an evolution."),
         ];
-        let (none, _) = warnings(vec![option(
+        let (report, _) = check(vec![option(
             "ref/domain/nobility",
             EntryKind::ClassOption,
             canonical,
         )]);
-        assert!(none.is_empty(), "{none:?}");
+        assert_silent(&report);
 
         // The action row first, then the passive row, is print's order and valid.
-        let (none, _) = warnings(vec![option(
+        let (report, _) = check(vec![option(
             "ref/domain/backwards",
             EntryKind::ClassOption,
             vec![
@@ -407,10 +418,10 @@ mod tests {
                 row("Passive", "A bonus."),
             ],
         )]);
-        assert!(none.is_empty(), "{none:?}");
+        assert_silent(&report);
 
         // Two actions are two effect rows.
-        let (found, _) = warnings(vec![option(
+        let (report, _) = check(vec![option(
             "ref/domain/twice",
             EntryKind::ClassOption,
             vec![
@@ -419,34 +430,37 @@ mod tests {
                 row("Swift", "Again."),
             ],
         )]);
-        assert_eq!(found.len(), 2, "{found:?}");
-        assert!(found[0].contains("[multiple-effect-rows]"), "{found:?}");
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        assert!(
+            report.problems[0].contains("[multiple-effect-rows]"),
+            "{:?}",
+            report.problems
+        );
     }
 
     #[test]
     fn canonical_powers_and_other_kinds_report_nothing() {
-        let (none, _) = warnings(vec![option(
+        let (report, _) = check(vec![option(
             "ref/hex/fine",
             EntryKind::ClassOption,
             canonical("Fine (Ex)"),
         )]);
-        assert!(none.is_empty(), "{none:?}");
+        assert_silent(&report);
         // The same failing body in an entry of another kind is not checked.
-        let (none, _) = warnings(vec![option(
+        let (report, _) = check(vec![option(
             "ref/rule/other",
             EntryKind::Rule,
             failing("Bad (Su)"),
         )]);
-        assert!(none.is_empty(), "{none:?}");
+        assert_silent(&report);
     }
 
-    fn excepted(entries: Vec<cast_iron_schema::RuleEntry>, file: &str) -> Vec<String> {
+    fn excepted(entries: Vec<cast_iron_schema::RuleEntry>, file: &str) -> Report {
         let corpus = corpus(entries);
         let exceptions = parse_exceptions(file).expect("a valid exceptions file");
         let mut report = Report::default();
         check_powers(&corpus, &exceptions, &mut report);
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        report.warnings
+        report
     }
 
     const BAD_POWER_EXCEPTION: &str = r#"
@@ -460,30 +474,34 @@ print = "Core Rulebook p. 1"
 "#;
 
     #[test]
-    fn an_exception_silences_the_failing_power_it_names_and_the_summary_counts_it() {
+    fn an_exception_passes_the_failing_power_it_names_and_the_summary_counts_it() {
         let mut body = canonical("Fine Power (Ex)");
         body.extend(failing("Bad Power (Su)"));
         body.extend(failing("Other Bad Power (Su)"));
-        let warnings = excepted(
+        let report = excepted(
             vec![option("ref/hex/example", EntryKind::ClassOption, body)],
             BAD_POWER_EXCEPTION,
         );
-        // One warning for the power without an exception, then the summary.
-        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        // The power without an exception is the one error; the summary is the one warning.
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            warnings[0].contains("`Other Bad Power (Su)`"),
-            "{warnings:?}"
+            report.problems[0].contains("`Other Bad Power (Su)`"),
+            "{:?}",
+            report.problems
         );
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
         assert!(
-            warnings[1].contains("1 of 3 class-option powers are not in the canonical form")
-                && warnings[1].contains("1 more have an exception in `power-exceptions.toml`"),
-            "{warnings:?}"
+            report.warnings[0].contains("1 of 3 class-option powers are not in the canonical form")
+                && report.warnings[0]
+                    .contains("1 more have an exception in `power-exceptions.toml`"),
+            "{:?}",
+            report.warnings
         );
     }
 
     #[test]
-    fn with_every_failing_power_excepted_one_note_remains() {
-        let warnings = excepted(
+    fn with_every_failing_power_excepted_no_error_and_one_note_remain() {
+        let report = excepted(
             vec![option(
                 "ref/hex/example",
                 EntryKind::ClassOption,
@@ -491,10 +509,12 @@ print = "Core Rulebook p. 1"
             )],
             BAD_POWER_EXCEPTION,
         );
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
         assert!(
-            warnings[0].contains("1 of 1 class-option powers have an exception"),
-            "{warnings:?}"
+            report.warnings[0].contains("1 of 1 class-option powers have an exception"),
+            "{:?}",
+            report.warnings
         );
     }
 
@@ -505,32 +525,40 @@ print = "Core Rulebook p. 1"
         let file = BAD_POWER_EXCEPTION
             .replace("Bad Power (Su)", "Twin (Su)")
             .replace("occurrence = 1", "occurrence = 2");
-        let warnings = excepted(
+        let report = excepted(
             vec![option("ref/hex/example", EntryKind::ClassOption, body)],
             &file,
         );
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert!(warnings[0].contains("have an exception"), "{warnings:?}");
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("have an exception"),
+            "{:?}",
+            report.warnings
+        );
         // The same exception for occurrence 1 names a power that passes.
         let mut body = canonical("Twin (Su)");
         body.extend(failing("Twin (Su)"));
         let file = file.replace("occurrence = 2", "occurrence = 1");
-        let warnings = excepted(
+        let report = excepted(
             vec![option("ref/hex/example", EntryKind::ClassOption, body)],
             &file,
         );
         assert!(
-            warnings
+            report
+                .problems
                 .iter()
-                .any(|warning| warning.contains("remove the exception")
-                    && warning.contains("canonical form")),
-            "{warnings:?}"
+                .any(|error| error.contains("remove the exception")
+                    && error.contains("canonical form")),
+            "{:?}",
+            report.problems
         );
     }
 
     #[test]
-    fn an_exception_that_names_no_power_or_a_passing_power_is_a_warning() {
-        let warnings = excepted(
+    fn an_obsolete_or_unused_exception_is_an_error() {
+        // Obsolete: the power it names passes.
+        let report = excepted(
             vec![option(
                 "ref/hex/example",
                 EntryKind::ClassOption,
@@ -538,13 +566,16 @@ print = "Core Rulebook p. 1"
             )],
             BAD_POWER_EXCEPTION,
         );
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            warnings[0].contains("power-exceptions.toml: [powers] exception for `Bad Power (Su)`")
-                && warnings[0].contains("the power is in the canonical form"),
-            "{warnings:?}"
+            report.problems[0]
+                .contains("power-exceptions.toml: [powers] exception for `Bad Power (Su)`")
+                && report.problems[0].contains("the power is in the canonical form"),
+            "{:?}",
+            report.problems
         );
-        let warnings = excepted(
+        // Unused: no power in the corpus matches it.
+        let report = excepted(
             vec![option(
                 "ref/hex/other",
                 EntryKind::ClassOption,
@@ -553,17 +584,21 @@ print = "Core Rulebook p. 1"
             BAD_POWER_EXCEPTION,
         );
         assert!(
-            warnings
+            report
+                .problems
                 .iter()
-                .any(|warning| warning.contains("no class-option power matches")),
-            "{warnings:?}"
+                .any(|error| error.contains("no class-option power matches")),
+            "{:?}",
+            report.problems
         );
-        // The failing power in the other entry still warns.
+        // The failing power in the other entry is an error too.
         assert!(
-            warnings
+            report
+                .problems
                 .iter()
-                .any(|warning| warning.contains("is not in the canonical form: ")),
-            "{warnings:?}"
+                .any(|error| error.contains("is not in the canonical form: ")),
+            "{:?}",
+            report.problems
         );
     }
 
@@ -644,7 +679,7 @@ print = "Core Rulebook p. 1"
     }
 
     #[test]
-    fn a_malformed_file_is_one_problem_and_the_failing_powers_still_warn() {
+    fn a_malformed_file_is_one_problem_and_the_failing_powers_still_fail() {
         let dir = std::env::temp_dir().join(format!("cast-iron-powers-bad-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("a temporary directory");
         std::fs::write(dir.join(EXCEPTIONS_FILE), "[[exception]]\nid = 1\n").expect("write");
@@ -657,22 +692,20 @@ print = "Core Rulebook p. 1"
         let mut report = Report::default();
         check_class_option_powers(&corpus, &mut report);
         std::fs::remove_dir_all(&dir).ok();
-        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        // The file error comes first; with no exception read, the failing power is an error too.
+        assert_eq!(report.problems.len(), 2, "{:?}", report.problems);
         assert!(report.problems[0].starts_with("power-exceptions.toml:"));
         assert!(
-            report
-                .warnings
-                .iter()
-                .any(|warning| warning.contains("`Bad Power (Su)`")),
+            report.problems[1].contains("`Bad Power (Su)`"),
             "{:?}",
-            report.warnings
+            report.problems
         );
     }
 
     #[test]
     fn an_exception_for_an_entry_that_is_not_a_class_option_matches_no_power() {
         // The same failing body in a rule entry is not checked, so the exception names nothing.
-        let warnings = excepted(
+        let report = excepted(
             vec![option(
                 "ref/hex/example",
                 EntryKind::Rule,
@@ -680,10 +713,11 @@ print = "Core Rulebook p. 1"
             )],
             BAD_POWER_EXCEPTION,
         );
-        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            warnings[0].contains("no class-option power matches"),
-            "{warnings:?}"
+            report.problems[0].contains("no class-option power matches"),
+            "{:?}",
+            report.problems
         );
     }
 }
