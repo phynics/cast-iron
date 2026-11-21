@@ -319,8 +319,8 @@ test("An address that names a section the page lacks drops it and opens at the t
   await installLibrary(page);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    // A class without a spell list, a prestige class (no Spells or Archetypes) and an entry that is no class.
-    for (const [id, query] of [[FIGHTER, "?s=spells"], ["ref/pclass/arcane-archer", "?s=archetypes"], ["ref/spell/fireball", "?s=archetypes"]]) {
+    // A class without a spell list or a Requirements section, a prestige class (no Spells or Archetypes) and an entry that is no class.
+    for (const [id, query] of [[FIGHTER, "?s=spells"], [FIGHTER, "?s=requirements"], ["ref/pclass/arcane-archer", "?s=archetypes"], ["ref/spell/fireball", "?s=archetypes"]]) {
       await coldLoad(page, `#/entry/${id}${query}`);
       await expect(page.getByRole("heading", { level: 1, name: entryOf(id).title })).toBeVisible();
       await expect(page, `${id}${query}`).toHaveURL(new RegExp(`#/entry/${id}$`));
@@ -466,6 +466,7 @@ test("A prestige class has a Requirements stop before the long introduction and 
       await page.goBack();
       await expect.poll(() => page.evaluate(() => location.hash), label).toBe(`#/entry/${id}?s=requirements`);
       await expect(stop(page, "Requirements"), label).toHaveAttribute("aria-current", "true");
+      await expectAtTop(page, "requirements", { exact: false });
       expect(await overflow(page), label).toBeLessThanOrEqual(0);
     }
   }
