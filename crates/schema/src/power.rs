@@ -93,6 +93,13 @@ fn ordinal_suffix(level: u8) -> &'static str {
     }
 }
 
+/// The printed lead of the upgrade at `level`: `At 11th level,`. The corpus writes this wording as
+/// the bold lead of an upgrade row, so a renderer that builds the lead from the level of a valid
+/// [`Upgrade`] shows what the corpus has.
+pub fn upgrade_lead(level: u8) -> String {
+    format!("At {level}{} level,", ordinal_suffix(level))
+}
+
 /// A well-formed ordinal is a number from 1 to 20 with no leading zero, followed by its English
 /// suffix: `st` for 1, `nd` for 2, `rd` for 3 and `th` for 4 to 20.
 pub fn well_formed_ordinal(digits: &str, suffix: &str) -> Option<u8> {
@@ -1159,6 +1166,44 @@ mod tests {
         // The tests classify owned blocks, so leak the block to get a `'static` borrow.
         let block: &'static Block = Box::leak(Box::new(paragraph(content)));
         classify(block)
+    }
+
+    #[test]
+    fn the_upgrade_lead_is_the_printed_one() {
+        assert_eq!(upgrade_lead(1), "At 1st level,");
+        assert_eq!(upgrade_lead(2), "At 2nd level,");
+        assert_eq!(upgrade_lead(3), "At 3rd level,");
+        assert_eq!(upgrade_lead(11), "At 11th level,");
+        assert_eq!(upgrade_lead(20), "At 20th level,");
+    }
+
+    #[test]
+    fn the_upgrade_lead_equals_the_text_of_every_canonical_lead() {
+        for (level, ordinal) in [
+            (1, "1st"),
+            (2, "2nd"),
+            (3, "3rd"),
+            (4, "4th"),
+            (11, "11th"),
+            (12, "12th"),
+            (13, "13th"),
+            (20, "20th"),
+        ] {
+            let written = format!("At {ordinal} level,");
+            match kind(vec![strong(&written), text(" the text.")]) {
+                BlockKind::Lead(lead) => {
+                    assert!(lead.is_canonical(), "{written}");
+                    assert_eq!(lead.level, Some(level), "{written}");
+                }
+                other => panic!("{written} is not a lead: {other:?}"),
+            }
+            assert_eq!(upgrade_lead(level), written);
+        }
+        // 21st is not a level of the grammar: its lead is never canonical.
+        match kind(vec![strong("At 21st level,"), text(" the text.")]) {
+            BlockKind::Lead(lead) => assert!(!lead.is_canonical()),
+            other => panic!("not a lead: {other:?}"),
+        }
     }
 
     #[test]

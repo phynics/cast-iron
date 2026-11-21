@@ -8,6 +8,7 @@ use crate::focus_guard::{FocusTicket, Verdict};
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::membership::preferred_book;
+use crate::powers;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
@@ -20,7 +21,7 @@ use crate::views::entry_contents::ArticleContents;
 use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
-use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, plain_text};
+use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_text};
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, source_line};
 use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
@@ -874,6 +875,16 @@ fn EntryView(
         }
         false => (None, rendered_body, None),
     };
+    // A class option's powers take the layout. On a one-power page the power's facts sit in the
+    // entry head, and its name is the title.
+    let (power_title, facts) = match kind == EntryKind::ClassOption && !hide_body {
+        true => {
+            let facts = powers::entry_facts(&entry.title, &rendered_body);
+            let facts = (!facts.is_empty()).then(|| muted_line("entry-facts", &facts));
+            (Some(entry.title.clone()), facts)
+        }
+        false => (None, None),
+    };
     let switcher = class_sections.as_ref().map(|sections| {
         view! { <SectionSwitcher id=entry.id.clone() book=book.clone() stops=sections.present() /> }
     });
@@ -964,6 +975,7 @@ fn EntryView(
                 {more_sources}
                 {addon_base}
             </div>
+            {facts}
         </header>
         {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
         {revision_notice}
@@ -972,7 +984,7 @@ fn EntryView(
         {class_card}
         {switcher}
         {contents}
-        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
         {aon_line(entry.aon.as_deref())}

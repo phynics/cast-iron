@@ -33,6 +33,7 @@ pub mod library;
 pub mod lru;
 pub mod membership;
 pub mod panic_notice;
+pub mod powers;
 pub mod pwa;
 pub mod reading;
 pub mod report;
