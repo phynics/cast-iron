@@ -4844,6 +4844,11 @@ html:has(.quick-search[open]) {
   margin: var(--space-3) 0 0;
 }
 
+/* A library that has no values for a menu's facet leaves the row with nothing in it. */
+.filter-row:not(:has(.filter-btn, .page-link)) {
+  display: none;
+}
+
 .filter-menu {
   flex: 1 1 10rem;
   min-width: 0;

@@ -263,26 +263,26 @@ impl QuickSearch {
             });
             scope.with_source_title(title)
         });
-        let by_group = scope
-            .as_ref()
-            .is_some_and(|scope| scope.facets.iter().any(|(field, _)| field == "group"));
+        let by_newer_facet = scope.as_ref().is_some_and(|scope| {
+            scope
+                .facets
+                .iter()
+                .any(|(field, _)| super::search::NEWER_FACET_FIELDS.contains(&field.as_str()))
+        });
         self.scope.set(scope);
-        if by_group {
-            // The pill names the group by its label, which comes from `option-groups.json`; and a
-            // library compiled before the index held the group cannot search by it, so the
-            // scope falls back to the kind.
+        if by_newer_facet {
+            // The pill names a group by its label, which comes from `option-groups.json`. A
+            // library compiled before the index held the group or the trait's race cannot search
+            // by them, so the scope falls back to the kind.
             let library = self.library.get_value();
             spawn_local(async move {
                 let _ = library.option_groups().await;
-                let indexed = library
-                    .search_index()
-                    .await
-                    .is_ok_and(|index| index.facet_fields().iter().any(|field| field == "group"));
+                let Ok(index) = library.search_index().await else {
+                    return;
+                };
                 self.scope.try_update(|scope| {
-                    if let Some(scope) = scope.as_mut()
-                        && !indexed
-                    {
-                        scope.facets.retain(|(field, _)| field != "group");
+                    if let Some(scope) = scope.as_mut() {
+                        super::search::drop_unindexed(&mut scope.facets, &index);
                     }
                 });
             });

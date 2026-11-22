@@ -26,7 +26,9 @@ Refs [#578](https://github.com/phynics/cast-iron/issues/578) and the survey
 - **Old libraries keep today's behaviour.** An installed library compiled before this change has
   no `group` field in its index. The client detects that by the absence of the field in the facet
   catalog, not by a version check: the scope then drops the group and the list filters through
-  `option-groups.json`.
+  `option-groups.json`. An address that names the group (a link from a newer library) opens the
+  results page without it: the page replaces its address once the index shows it has no `group`
+  field.
 - **A group's label comes from the library.** The label is registered when the library reads
   `option-groups.json`, so a scope pill built from a route reads like the menu. Before it is
   registered the slug reads as capitalised words.

@@ -102,6 +102,26 @@ pub fn facet_fields_for(kinds: &[EntryKind]) -> Vec<(&'static str, &'static str)
     out
 }
 
+/// Facet fields that a library compiled before #577 and #578 does not hold in its index.
+pub const NEWER_FACET_FIELDS: [&str; 2] = ["group", "racial_trait_race"];
+
+/// Drops the facets of [`NEWER_FACET_FIELDS`] that `index` has no field for, as a link made with
+/// a newer library may name them and would match nothing. Says whether it dropped any.
+pub fn drop_unindexed(facets: &mut Vec<(String, String)>, index: &SearchIndex) -> bool {
+    if !facets
+        .iter()
+        .any(|(field, _)| NEWER_FACET_FIELDS.contains(&field.as_str()))
+    {
+        return false;
+    }
+    let held = index.facet_fields();
+    let before = facets.len();
+    facets.retain(|(field, _)| {
+        !NEWER_FACET_FIELDS.contains(&field.as_str()) || held.iter().any(|held| held == field)
+    });
+    facets.len() != before
+}
+
 /// Drops facets whose field the selected kinds do not offer.
 pub fn prune_facets(facets: &[(String, String)], kinds: &[EntryKind]) -> Vec<(String, String)> {
     let allowed = facet_fields_for(kinds);
@@ -1011,6 +1031,13 @@ pub fn Search() -> impl IntoView {
                     return;
                 }
                 let Some(idx) = loaded else { return };
+                // An address from a newer library names a facet this index lacks: show the
+                // search without it.
+                let mut without = current.clone();
+                if drop_unindexed(&mut without.facets, &idx) {
+                    replace(&without.route());
+                    return;
+                }
                 let started = now();
                 let index_wait_ms = started - search_began;
                 let all_hits = match discovery.search_summaries(&query).await {

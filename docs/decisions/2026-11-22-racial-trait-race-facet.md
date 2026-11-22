@@ -15,7 +15,8 @@ Refs [#577](https://github.com/phynics/cast-iron/issues/577) and the survey
 
 - **The compiler emits `racial_trait_race`.** The value is the last segment of the id that the
   trait's `part` relation targets (`dwarf` for `ref/race/dwarf`), as an archetype's
-  `archetype_class` comes from its `archetype` relation. Only a racial trait gets it. It is
+  `archetype_class` comes from its `archetype` relation. A trait that is part of several races
+  carries each one (none does in the pinned corpus). Only a racial trait gets it. It is
   additive, like `group` in `2026-11-22-class-option-group-in-the-search-index`: the index layout
   is unchanged, so `INDEX_FORMAT_VERSION` stays 2 and `SCHEMA_VERSION` does not change.
 - **The list page has one menu, `Race`.** It follows the filter menu rules, with a find field
@@ -27,6 +28,6 @@ Refs [#577](https://github.com/phynics/cast-iron/issues/577) and the survey
   races with the facet labels when the library opens.
 - **Old libraries.** A library compiled before this has no `racial_trait_race` values. The menu
   has no value and is hidden, as any filter menu whose facet is empty; the list shows all racial
-  traits.
+  traits. A shared address with the race opens without it, as for the group.
 - **Not in this change.** The `Alternate` start of an alternate trait's muted line and the
   dropped race on that line belong to the row lines of #575, which this change leaves alone.

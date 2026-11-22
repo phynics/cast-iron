@@ -419,21 +419,22 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
             push(&mut facets, "race_group", group.slug());
         }
         // An archetype's class and a racial trait's race come from their typed edges, not from a
-        // text field. The facet value is the last segment of the target id.
-        let target_of = |kind: RelationKind| {
+        // text field. The facet value is the last segment of the target id. A racial trait may
+        // be part of several races; each one is a value.
+        let targets_of = |kind: RelationKind| {
             entry
                 .relations
                 .iter()
-                .find(|relation| relation.kind == kind)
-                .and_then(|relation| relation.target.as_str().rsplit('/').next())
+                .filter(move |relation| relation.kind == kind)
+                .filter_map(|relation| relation.target.as_str().rsplit('/').next())
         };
-        if let Some(class) = target_of(RelationKind::Archetype) {
+        if let Some(class) = targets_of(RelationKind::Archetype).next() {
             push(&mut facets, "archetype_class", class);
         }
-        if matches!(entry.fields, TypedFields::RacialTrait(_))
-            && let Some(race) = target_of(RelationKind::Part)
-        {
-            push(&mut facets, "racial_trait_race", race);
+        if matches!(entry.fields, TypedFields::RacialTrait(_)) {
+            for race in targets_of(RelationKind::Part) {
+                push(&mut facets, "racial_trait_race", race);
+            }
         }
         if !facets.is_empty() {
             out.insert(entry.id.clone(), facets);
@@ -905,6 +906,19 @@ mod tests {
             vec![("racial_trait_race".into(), "half-elf".into())]
         );
         assert!(!facets.contains_key(&EntryId::parse("ref/rule/part").unwrap()));
+
+        // A trait that is part of two races carries both.
+        let mut shared = entry("ref/racial-trait/keen-senses", EntryKind::RacialTrait, 0);
+        shared.fields = TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields::default());
+        shared.relations = vec![part("ref/race/elf"), part("ref/race/half-elf")];
+        let facets = canonical_facets(&[shared]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/racial-trait/keen-senses").unwrap()],
+            vec![
+                ("racial_trait_race".into(), "elf".into()),
+                ("racial_trait_race".into(), "half-elf".into()),
+            ]
+        );
     }
 
     #[test]
