@@ -102,6 +102,7 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
   await page.goto(`#/entry/${BASE}`);
   // The links sit in the list beside the heading, so search the whole panel, and only after it lists its feats.
   const leads = page.locator('section[aria-labelledby="rel-leads"]');
+  await expect(leads).toBeVisible();
   await openAllRows(leads);
   await expect(leads.getByRole("link", { name: "Cleave", exact: true })).toBeVisible();
   await expect(leads.getByRole("link", { name: "Power Attack, Mythic", exact: true })).toHaveCount(0);

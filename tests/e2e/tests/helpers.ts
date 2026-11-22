@@ -81,6 +81,18 @@ export async function waitReady(page: Page) {
 }
 
 /**
+ * Opens every closed group and every `Show all` row inside `scope`, so rows that a long list
+ * builds only on demand are on the page. Groups open first because `Show all` sits inside one.
+ * The selector excludes open rows, so each click shrinks the set: always click the first.
+ */
+export async function openAllRows(scope: Locator) {
+  for (const selector of ["details.rel-group:not([open]) > summary", "details.backlink-more:not([open]) > summary"]) {
+    const closed = scope.locator(selector);
+    while (await closed.count()) await closed.first().click();
+  }
+}
+
+/**
  * The service worker controls this page (needed before any offline claim).
  *
  * `clients.claim()` can run before this page is ready to observe it, which leaves
@@ -88,16 +100,6 @@ export async function waitReady(page: Page) {
  * claim a short window, and otherwise reload once so the active worker controls
  * the new document.
  */
-/**
- * Opens every closed group and every `Show all` row inside `scope`, so rows that a long list
- * builds only on demand are on the page. Groups open first because `Show all` sits inside one.
- */
-export async function openAllRows(scope: Locator) {
-  for (const selector of ["details.rel-group:not([open]) > summary", "details.backlink-more:not([open]) > summary"]) {
-    for (const summary of await scope.locator(selector).all()) await summary.click();
-  }
-}
-
 export async function waitControlled(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready);
   const claimed = await page

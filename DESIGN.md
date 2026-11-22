@@ -375,7 +375,7 @@ disclosure on any other table.
 
 #### Relationship sections
 
-Relationship panels are sections, not cards: an `h2` at `--step-1`, hairline rows, a muted hint under the heading when the relation needs one. They follow the add-on sections in the same stack and the same unboxed form. A feat's `Requirements` lists the feats it names; the printed prerequisite line stays in the body and appears once. A feat whose body prints no `Prerequisites` line keeps `As printed:` in the panel, so no text is lost, and a feat that names no active feat and prints its line in the body has no panel.
+Relationship panels are sections, not cards: an `h2` at `--step-1`, hairline or chip rows, a muted hint under the heading when the relation needs one. They follow the add-on sections in the same stack and the same unboxed form. A feat's `Requirements` lists the feats it names; the printed prerequisite line stays in the body and appears once. A feat whose body prints no `Prerequisites` line keeps `As printed:` in the panel, so no text is lost, and a feat that names no active feat and prints its line in the body has no panel.
 
 A count beside a panel heading is Label text inside the heading (`Leads to 61`), so the heading's accessible name keeps it. A relationship list (`Leads to`, `Racial traits`) shows 8 rows, then `Show all {N}` in the Referenced-by form; `Racial traits` caps each of its groups.
 

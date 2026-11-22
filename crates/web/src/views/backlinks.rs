@@ -13,6 +13,7 @@ use crate::views::util::{kind_name, local_resource, sort_key};
 use cast_iron_schema::{BacklinkSource, Block, EntryId, EntryKind, RuleEntry};
 use leptos::prelude::*;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 /// Rows shown before a group offers "Show all".
@@ -192,10 +193,7 @@ pub fn Backlinks(
 
 /// A `Show all {count}` row under a list that shows its first rows. `rows` runs only once the
 /// row opens, so a long list builds nothing while closed. Opening keeps focus on the summary.
-pub fn show_all<V: IntoView + 'static>(
-    count: usize,
-    rows: impl Fn() -> V + 'static,
-) -> impl IntoView {
+pub fn show_all(count: usize, rows: Rc<dyn Fn() -> AnyView>) -> AnyView {
     let opened = RwSignal::new(false);
     // A reactive closure must be `Send`; the rows stay on this thread.
     let rows = send_wrapper::SendWrapper::new(rows);
@@ -209,9 +207,10 @@ pub fn show_all<V: IntoView + 'static>(
             );
         }>
             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show all {}", fmt::count(count))}</summary>
-            {move || opened.get().then(|| (*rows)())}
+            {move || opened.get().then(|| (**rows)())}
         </details>
     }
+    .into_any()
 }
 
 fn group_view(
@@ -243,7 +242,7 @@ fn group_view(
                 <span class="rel-count">{fmt::count(count)}</span>
             </summary>
             <ul class="ref-list">{preview_rows}</ul>
-            {(!rest.is_empty()).then(|| show_all(count, move || view! {
+            {(!rest.is_empty()).then(|| show_all(count, Rc::new(move || view! {
                 <ul class="ref-list">
                     {rest.iter()
                         .map(|row| {
@@ -251,7 +250,7 @@ fn group_view(
                         })
                         .collect_view()}
                 </ul>
-            }))}
+            }.into_any())))}
         </details>
     }
 }

@@ -180,16 +180,35 @@ fn group_view_meta(
     capped: bool,
 ) -> impl IntoView {
     let n = items.len();
-    let shown = if capped { n.min(GROUP_PREVIEW) } else { n };
-    let mut items: Vec<(EntryId, String, Option<String>)> = items
+    let cap = if capped { GROUP_PREVIEW } else { n };
+    let items: Vec<RelRow> = items
         .into_iter()
         .map(|(id, title)| {
             let detail = meta.and_then(|meta| meta.get(&id)).cloned();
             (id, title, detail)
         })
         .collect();
-    let rest = items.split_off(shown);
-    let rows = |items: Vec<(EntryId, String, Option<String>)>| {
+    view! {
+        <details class="rel-group" open=n <= open_up_to>
+            <summary>
+                {icons::chevron_right("disclosure-chevron")}
+                <span class="rel-group-name">{heading}</span>
+                <span class="rel-count">{fmt::count(n)}</span>
+            </summary>
+            {capped_list("rel-chips", items, cap)}
+        </details>
+    }
+}
+
+/// A link row with an optional muted line.
+type RelRow = (EntryId, String, Option<String>);
+
+/// A list that shows its first `cap` rows, then `Show all {N}` for the rest. The rest is built
+/// only when the row opens.
+fn capped_list(class: &'static str, mut items: Vec<RelRow>, cap: usize) -> AnyView {
+    let n = items.len();
+    let rest = items.split_off(cap.min(n));
+    let rows = |items: Vec<RelRow>| {
         items
             .into_iter()
             .map(|(id, title, detail)| {
@@ -205,18 +224,12 @@ fn group_view_meta(
     };
     let first = rows(items);
     view! {
-        <details class="rel-group" open=n <= open_up_to>
-            <summary>
-                {icons::chevron_right("disclosure-chevron")}
-                <span class="rel-group-name">{heading}</span>
-                <span class="rel-count">{fmt::count(n)}</span>
-            </summary>
-            <ul class="rel-chips">{first}</ul>
-            {(!rest.is_empty()).then(|| show_all(n, move || view! {
-                <ul class="rel-chips">{rows(rest.clone())}</ul>
-            }))}
-        </details>
+        <ul class=class>{first}</ul>
+        {(!rest.is_empty()).then(|| show_all(n, Rc::new(move || view! {
+            <ul class=class>{rows(rest.clone())}</ul>
+        }.into_any())))}
     }
+    .into_any()
 }
 
 /// Level links of one list, as in the spell hub.
@@ -712,13 +725,17 @@ fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
     .collect()
 }
 
-/// True when a paragraph of the body has a bold `Prerequisites` label, the printed line. It often
-/// follows a flavour sentence in the same paragraph, after a line break.
+/// True when the body prints the prerequisites: a bold `Prerequisites` label in a paragraph (it
+/// often follows a flavour sentence after a line break), or a heading that starts with the word
+/// (a mythic feat prints its line under `Prerequisites`).
 fn body_prints_prerequisites(body: &[Block]) -> bool {
-    body.iter().any(|block| {
-        matches!(block, Block::Paragraph { content, .. }
-            if content.iter().any(|inline| matches!(inline, Inline::Strong { c }
-                if plain_text(c).trim_start().starts_with("Prerequisite"))))
+    let starts = |inlines: &[Inline]| plain_text(inlines).trim_start().starts_with("Prerequisite");
+    body.iter().any(|block| match block {
+        Block::Paragraph { content, .. } => content
+            .iter()
+            .any(|inline| matches!(inline, Inline::Strong { c } if starts(c))),
+        Block::Heading { content, .. } => starts(content),
+        _ => false,
     })
 }
 
@@ -802,24 +819,17 @@ fn feat_panels(
         cast_iron_sort::sort_by_key(&mut leads, |(id, title)| (sort_key(title), id.clone()));
         if !leads.is_empty() {
             let n = leads.len();
-            let rows = |leads: Vec<(EntryId, String)>| {
-                leads
-                    .into_iter()
-                    .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
-                    .collect_view()
-            };
-            let mut leads = leads;
-            let rest = leads.split_off(n.min(GROUP_PREVIEW));
-            let first = rows(leads);
+            let leads: Vec<RelRow> = leads
+                .into_iter()
+                .map(|(id, title)| (id, title, None))
+                .collect();
+            let list = capped_list("rel-list rel-cols", leads, GROUP_PREVIEW);
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-leads">
                         <h2 id="rel-leads">"Leads to "<span class="rel-count">{fmt::count(n)}</span></h2>
                         <p class="hint">"Feats that name this feat in their prerequisites."</p>
-                        <ul class="rel-list rel-cols">{first}</ul>
-                        {(!rest.is_empty()).then(|| show_all(n, move || view! {
-                            <ul class="rel-list rel-cols">{rows(rest.clone())}</ul>
-                        }))}
+                        {list}
                     </section>
                 }
                 .into_any(),
@@ -1295,6 +1305,12 @@ mod tests {
         assert!(body_prints_prerequisites(&[printed]));
         let other = paragraph(vec![strong("Benefit:"), Inline::text(" Prerequisites.")]);
         assert!(!body_prints_prerequisites(&[other]));
+        let heading = Block::Heading {
+            level: 2,
+            anchor: Some("prerequisites".into()),
+            content: vec![Inline::text("Prerequisites")],
+        };
+        assert!(body_prints_prerequisites(&[heading]));
         assert!(!body_prints_prerequisites(&[]));
     }
 

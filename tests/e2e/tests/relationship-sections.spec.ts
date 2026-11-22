@@ -112,9 +112,15 @@ test("A race caps each long Racial traits group at 8 rows", async ({ page }) => 
   const capped = groups.filter({ has: page.locator("details.backlink-more") });
   expect(await capped.count()).toBeGreaterThan(0);
   const group = capped.first();
-  await group.locator("> summary").click();
+  if (!(await group.evaluate((node) => (node as HTMLDetailsElement).open))) await group.locator("> summary").click();
   await expect(group.locator("> ul > li")).toHaveCount(8);
   const more = group.locator("details.backlink-more");
   await expect(more.locator("> summary")).toHaveText(/^Show all [\d,]+$/);
   await expect(more.locator("li")).toHaveCount(0);
+});
+
+test("A mythic feat that prints its prerequisites under a heading does not repeat them", async ({ page }) => {
+  await open(page, "#/entry/ref/carried/mythic-adventures/feats/acrobatic/mythic", 1280, 900);
+  await expect(page.getByRole("heading", { level: 2, name: "Prerequisites" })).toBeVisible();
+  await expect(page.locator(".prereq-text")).toHaveCount(0);
 });

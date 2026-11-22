@@ -3,6 +3,9 @@ import { bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listed
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
+/** The text of inline nodes, like `plain_text` in the client. */
+const plainText = (inlines: any[] = []): string =>
+  inlines.map((inline) => (inline.t === "text" ? inline.v : plainText(inline.c))).join("");
 const related = (entry: (typeof entries)[number], kind: string) =>
   entry.relations?.filter((r: any) => r.kind === kind) ?? [];
 
@@ -177,8 +180,9 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   await expect(page.locator("#rel-prereq")).toHaveText("Requirements");
   // The body prints the `Prerequisites` line once. The panel repeats it only when the body has none.
   const printsPrerequisites = feat.body.some((block: any) =>
-    block.t === "paragraph" && block.content?.some((inline: any) =>
-      inline.t === "strong" && JSON.stringify(inline).includes("Prerequisite")));
+    (block.t === "paragraph" && block.content?.some((inline: any) =>
+      inline.t === "strong" && plainText(inline.c).trimStart().startsWith("Prerequisite"))) ||
+    (block.t === "heading" && plainText(block.content).trimStart().startsWith("Prerequisite")));
   if (printsPrerequisites) await expect(page.locator(".prereq-text")).toHaveCount(0);
   else await expect(page.locator(".prereq-text")).toContainText(feat.fields.prerequisites);
   await expect(page.getByText("Feats it names", { exact: true })).toBeVisible();
