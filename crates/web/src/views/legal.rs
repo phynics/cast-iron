@@ -34,7 +34,10 @@ pub fn Legal() -> impl IntoView {
         {move || legal.with(|state| match state {
             None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
             Some(Err(error)) => view! {
-                <div class="error" role="alert"><p>{error.reader_message()}</p></div>
+                <div class="error" role="alert">
+                    <p>{error.reader_message()}</p>
+                    <p><a href=Route::Settings.href()>"Open Settings"</a></p>
+                </div>
                 {crate::views::util::recovery_details(error.to_string())}
             }.into_any(),
             Some(Ok(legal)) => legal_view(legal).into_any(),
@@ -43,7 +46,10 @@ pub fn Legal() -> impl IntoView {
         {move || coverage.with(|state| match state {
             None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
             Some(Err(error)) => view! {
-                <div class="error" role="alert"><p>{error.reader_message()}</p></div>
+                <div class="error" role="alert">
+                    <p>{error.reader_message()}</p>
+                    <p><a href=Route::Settings.href()>"Open Settings"</a></p>
+                </div>
                 {crate::views::util::recovery_details(error.to_string())}
             }.into_any(),
             Some(Ok(report)) => coverage_view(report).into_any(),

@@ -396,14 +396,17 @@ pub fn ChapterView(
                 let library = library.clone();
                 lookup.with(|state| match state {
                     None => view! { <p class="status" role="status">"Loading chapter…"</p> }.into_any(),
-                    Some(Err(error)) => view! {
+                    Some(Err(error)) => {
+                        set_title(CHAPTER_UNAVAILABLE_TITLE);
+                        view! {
                         <h1>{CHAPTER_UNAVAILABLE_TITLE}</h1>
                         <div class="error" role="alert">
                             <p>{BOOK_UNREADABLE_LINE}</p>
                             <p><a href=Route::Settings.href()>"Open Settings"</a></p>
                         </div>
                         {recovery_details(error.to_string())}
-                    }.into_any(),
+                        }.into_any()
+                    }
                     Some(Ok(None)) => view! {
                         <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
                     }.into_any(),

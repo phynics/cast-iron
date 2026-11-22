@@ -79,7 +79,10 @@ impl LibraryError {
             LibraryError::UnknownEntry(_) => {
                 "This entry isn't in your library. The link may come from another version of Cast Iron."
             }
-            _ => {
+            LibraryError::Missing(_)
+            | LibraryError::Corrupt { .. }
+            | LibraryError::Storage(_)
+            | LibraryError::BookSelection(_) => {
                 "Part of the library can't be read on this device. Open Settings and verify the library."
             }
         }
